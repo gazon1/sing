@@ -280,6 +280,7 @@ fun TaskEditorContent(
                     label = recurrence?.let { "Repeats" } ?: "No repeat",
                     isActive = recurrence != null,
                     onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Recurrence) },
+                    testTag = TestTags.TASK_EDITOR_RECURRENCE_LABEL,
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_RECURRENCE_ROW),
                 )
             }

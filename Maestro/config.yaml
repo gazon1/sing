@@ -29,3 +29,12 @@
 #   projects     — projects feature area
 appId: com.singularity.todo
 name: Singularity Todo
+
+# Document the assumed phone viewport for all flows.
+# scrollUntilVisible is viewport-relative in Maestro, but these numbers make
+# the assumption explicit and testable. 320×640 @ 2.0 density is the Moto G4
+# AVD used in CI; flow behaviour on tablet or desktop viewports is UNTESTED.
+screenMetrics:
+  width: 320
+  height: 640
+  density: 2.0

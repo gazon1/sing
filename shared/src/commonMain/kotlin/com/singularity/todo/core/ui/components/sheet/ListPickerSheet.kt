@@ -57,6 +57,7 @@ data class ListPickerItem<T>(
  * a trailing check mark.
  *
  * @param title            Sheet title.
+ * @param testTag          Optional test tag applied to the title text for UI automation.
  * @param items            Items to display.
  * @param onItemSelected   Called with the item's [ListPickerItem.key] on tap.
  * @param onDismiss        Called after the sheet is hidden.
@@ -67,6 +68,7 @@ data class ListPickerItem<T>(
 @Composable
 fun <T> ListPickerSheet(
     title: String,
+    testTag: String? = null,
     items: List<ListPickerItem<T>>,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,
@@ -78,6 +80,9 @@ fun <T> ListPickerSheet(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.then(
+                    if (testTag != null) Modifier.testTag(testTag) else Modifier,
+                ),
             )
 
             header?.invoke(this)

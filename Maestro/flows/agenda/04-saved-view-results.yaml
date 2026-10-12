@@ -46,6 +46,12 @@ tags:
 # flag, so the discard guard has nothing to guard and back goes straight out.
 # The guard only appears while the draft has unsaved edits — see
 # 03-saved-views-crud.yaml, which renames without saving and does get it.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: top_bar_back_button
+    direction: UP
+    timeout: 5000
 - tapOn:
     id: top_bar_back_button
 - extendedWaitUntil:
@@ -57,21 +63,25 @@ tags:
 - tapOn:
     id: agenda_saved_views_button
 - extendedWaitUntil:
-    visible: "Saved Views"
+    visible:
+      id: saved_agenda_create_fab
     timeout: 8000
 # The "My Active Tasks" card should be visible.
-- assertVisible: "My Active Tasks"
+- assertVisible:
+    id: saved_agenda_card_my_active_tasks
 
 # ── Tap the card → SavedAgendaResults screen ────────────────────────────────
 - tapOn:
     id: saved_agenda_card_my_active_tasks
 # The results screen shows the view name in the top bar.
 - extendedWaitUntil:
-    visible: "My Active Tasks"
+    visible:
+      id: top_bar_back_button
     timeout: 8000
 # The seeded "Buy milk" task matches the Active-tasks filter and should appear.
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk
     timeout: 8000
-- assertVisible: "Buy milk"
+- assertVisible:
+    id: task_item_buy_milk

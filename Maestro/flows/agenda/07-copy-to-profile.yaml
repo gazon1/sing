@@ -37,7 +37,8 @@ tags:
       id: saved_agenda_name_input
     timeout: 8000
 - extendedWaitUntil:
-    visible: "Copy Source"
+    visible:
+      id: saved_agenda_card_copy_source
     timeout: 8000
 
 # ── 2. Overflow menu → Copy to profile → pick "Personal" ────────────────
@@ -60,5 +61,6 @@ tags:
     visible: "Copied to Personal"
     timeout: 8000
 - extendedWaitUntil:
-    visible: "Copy Source"
+    visible:
+      id: saved_agenda_card_copy_source
     timeout: 8000

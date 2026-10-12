@@ -464,3 +464,21 @@ jobs:
               *) echo "FAILED: $r"; exit 1 ;;
             esac
           done
+
+  # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
+  # somewhere to land other than a scrollback buffer.
+  nightly-alert:
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    needs: [static, tests, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh issue create \
+            --title "Nightly CI failed ($(date -u +%F))" \
+            --body "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

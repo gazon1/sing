@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
@@ -42,6 +43,7 @@ fun TaskAttributeCard(
     containerColor: Color =
         if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
     trailingContent: (@Composable () -> Unit)? = null,
+    testTag: String? = null,
 ) {
     Surface(
         color = containerColor,
@@ -71,7 +73,9 @@ fun TaskAttributeCard(
                 color = textColor,
                 fontSize = 16.sp,
                 fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
             )
             if (trailingContent != null) {
                 trailingContent()

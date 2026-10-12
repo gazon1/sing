@@ -12,10 +12,11 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 - tapOn:
     id: nav_menu_button
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: menu_notes
-    timeout: 5000
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: menu_notes
 - extendedWaitUntil:
@@ -46,10 +47,11 @@ tags:
 - runFlow: ../../helpers/relaunch.yaml
 - tapOn:
     id: nav_menu_button
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: menu_notes
-    timeout: 5000
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: menu_notes
 - extendedWaitUntil:
@@ -57,7 +59,7 @@ tags:
       id: notes_quick_add_input
     timeout: 8000
 - tapOn:
-    text: "Meeting notes"
+    id: note_item_by_title_meeting_notes
 - extendedWaitUntil:
     visible:
       id: note_editor_body
@@ -65,6 +67,8 @@ tags:
 - back
 # Back to the preview, where the body is rendered.
 - extendedWaitUntil:
-    visible: "Discuss roadmap"
+    visible:
+      id: note_editor_body
     timeout: 8000
-- assertVisible: "Meeting notes"
+- assertVisible:
+    id: note_item_by_title_meeting_notes

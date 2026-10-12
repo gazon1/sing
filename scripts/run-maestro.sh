@@ -386,6 +386,25 @@ for flow_file in "${FLOW_FILES[@]}"; do
             echo -e "${YELLOW}(device is gone after retries)${NC}"
         fi
         FAILED+=("$flow_name")
+
+        # ── 5c. Capture failure artifacts ─────────────────────────────────
+        # Per-flow screenshot + logcat for post-run triage, stored alongside
+        # the JUnit XML for the same flow so everything for one flow is in one
+        # directory. Maestro's own screen.png (from --report-on-failure) lands
+        # in ~/.maestro/tests/; we additionally capture a raw adb screenshot
+        # and a logcat dump so we have both the Maestro view hierarchy and the
+        # raw device framebuffer + system log.
+        if device_alive; then
+            ARTIFACT_DIR="$MAESTRO_JUNIT_DIR/$flow_name"
+            mkdir -p "$ARTIFACT_DIR"
+            # Raw framebuffer screenshot (always available regardless of app state)
+            adb -s "$SERIAL" shell screencap -p /sdcard/"$flow_name"_screen.png 2>/dev/null \
+                && adb -s "$SERIAL" pull /sdcard/"$flow_name"_screen.png "$ARTIFACT_DIR/" 2>/dev/null \
+                && echo "Screenshot: $ARTIFACT_DIR/${flow_name}_screen.png" || true
+            # Logcat buffer at the moment of failure (cleared at start of suite)
+            adb -s "$SERIAL" logcat -d > "$ARTIFACT_DIR/${flow_name}_logcat.txt" 2>/dev/null \
+                && echo "Logcat: $ARTIFACT_DIR/${flow_name}_logcat.txt" || true
+        fi
     fi
 done
 

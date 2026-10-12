@@ -72,6 +72,7 @@ fun <T> StatefulContent(
     emptyTitle: String,
     emptySubtitle: String? = null,
     emptyActions: EmptyStateActions? = null,
+    emptyTestTag: String? = null,
     errorTitle: String = "Something went wrong",
     onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -86,6 +87,7 @@ fun <T> StatefulContent(
             EmptyState(
                 title = emptyTitle,
                 subtitle = emptySubtitle,
+                testTag = emptyTestTag,
                 modifier = modifier,
                 actions = emptyActions,
             )

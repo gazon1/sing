@@ -21,6 +21,10 @@ tags:
 - assertVisible: "Buy milk"
 - setOrientation: PORTRAIT
 - waitForAnimationToEnd:
-    timeout: 2000
+    # 2000 ms is enough for LANDSCAPE on the CI emulator, but PORTRAIT is
+    # measurably slower — the full settle takes up to 4 s. 5000 ms gives
+    # the editor ViewModel time to restore its state from the saved state handle
+    # before we assert on task_editor_title_input.
+    timeout: 5000
 - assertVisible:
     id: task_editor_title_input

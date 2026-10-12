@@ -38,6 +38,12 @@ tags:
 - hideKeyboard
 
 # ── Open the recurrence picker ────────────────────────────────────────
+# The recurrence row is below the fold on phone after the keyboard is shown.
+- scrollUntilVisible:
+    element:
+      id: task_editor_recurrence_row
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: task_editor_recurrence_row
 - extendedWaitUntil:

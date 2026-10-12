@@ -24,8 +24,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
@@ -50,7 +52,9 @@ fun TagsPickerSheet(selectedIds: List<TagId>, onSelect: (List<TagId>) -> Unit, o
                 text = "No tags yet",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .testTag(TestTags.TAGS_PICKER_EMPTY)
+                    .padding(16.dp),
             )
         } else {
             LazyColumn(

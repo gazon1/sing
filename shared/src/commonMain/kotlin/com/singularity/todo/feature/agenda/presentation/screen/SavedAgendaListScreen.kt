@@ -284,6 +284,7 @@ private fun ProfilePickerSheet(
 
     ListPickerSheet(
         title = "Copy to profile",
+        testTag = TestTags.SAVED_AGENDA_COPY_TO_PROFILE_SHEET,
         items = profiles.map { profile ->
             ListPickerItem(
                 key = profile.id,

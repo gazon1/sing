@@ -82,9 +82,11 @@ tags:
 - inputText: "Journey Renamed"
 - hideKeyboard
 # The 8 preset section rows push Save below the fold on most devices.
-- swipe:
+- scrollUntilVisible:
+    element:
+      id: saved_agenda_save_button
     direction: UP
-    duration: 500
+    timeout: 10000
 - tapOn:
     id: saved_agenda_save_button
 - extendedWaitUntil:

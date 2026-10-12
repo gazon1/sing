@@ -97,6 +97,7 @@ fun TagsScreen(
         StatefulContent(
             state = state.toContentState(),
             emptyTitle = "No tags yet",
+            emptyTestTag = TestTags.TAGS_LIST_EMPTY,
             modifier = Modifier.padding(paddingValues),
         ) { tags, contentModifier ->
             Box(modifier = contentModifier) {

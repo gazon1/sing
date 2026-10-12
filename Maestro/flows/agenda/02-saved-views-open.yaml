@@ -9,9 +9,11 @@ tags:
 - tapOn:
     id: agenda_saved_views_button
 - extendedWaitUntil:
-    visible: "Saved Views"
+    visible:
+      id: saved_agenda_create_fab
     timeout: 8000
-- assertVisible: "No saved views yet"
+- assertVisible:
+    id: saved_agenda_empty_title
 - assertVisible:
     id: saved_agenda_create_fab
 - tapOn:

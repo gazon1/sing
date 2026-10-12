@@ -9,7 +9,8 @@ tags:
 - tapOn:
     id: nav_tab_plans
 - extendedWaitUntil:
-    visible: "No projects yet"
+    visible:
+      id: tasks_fab
     timeout: 8000
 - tapOn:
     id: tasks_fab

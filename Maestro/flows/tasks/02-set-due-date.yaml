@@ -30,7 +30,8 @@ tags:
 - tapOn:
     id: task_editor_due_row
 - extendedWaitUntil:
-    visible: "Select date"
+    visible:
+      id: dialog_date_picker_ok
     timeout: 8000
 # The constrained DatePicker may clip the first few days; swipe up to reveal October 1.
 - swipe:

@@ -147,7 +147,10 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             }
 
             if (state.query.isBlank()) {
-                EmptyState(title = "Enter a search query")
+                EmptyState(
+                    title = "Enter a search query",
+                    testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,
+                )
             } else {
                 SearchResultsList(
                     results = state.results,
@@ -168,7 +171,10 @@ private fun SearchResultsList(
     val hasAny = results.tasks.isNotEmpty() || results.notes.isNotEmpty() ||
         results.projects.isNotEmpty() || results.tags.isNotEmpty()
     if (!hasAny) {
-        EmptyState(title = "No results found")
+        EmptyState(
+            title = "No results found",
+            testTag = TestTags.SEARCH_EMPTY_RESULTS,
+        )
         return
     }
     LazyColumn(

@@ -21,10 +21,11 @@ tags:
 # Open the quick-search from the menu sheet.
 - tapOn:
     id: nav_menu_button
-- extendedWaitUntil:
-    visible:
-      id: menu_settings
-    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: menu_quick_search
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: menu_quick_search
 - extendedWaitUntil:

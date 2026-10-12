@@ -87,7 +87,11 @@ fun ProjectBodySection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Tasks", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Tasks",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TASKS_HEADER),
+            )
             if (ui.totalCount > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Same text-link idiom as the completed toggle, so the two
@@ -113,7 +117,11 @@ fun ProjectBodySection(
             }
         }
         if (ui.tasks.isEmpty()) {
-            EmptyState(title = "No tasks yet", modifier = Modifier.padding(32.dp))
+            EmptyState(
+                title = "No tasks yet",
+                testTag = TestTags.PROJECT_DETAIL_EMPTY,
+                modifier = Modifier.padding(32.dp),
+            )
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(ui.tasks, key = { it.id.value }) { task ->

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,7 +28,13 @@ fun SheetScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
+        // Scrollable so the actions row stays reachable when the body is taller than
+        // the space the sheet gets. A tall picker (DatePicker) plus the action row
+        // overflowed the sheet on a 1080x2400 phone, which pushed Clear/Cancel/OK
+        // below the screen edge — untappable, and invisible to the accessibility
+        // tree, so UI tests could not reach them either.
         modifier = modifier.fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp)
             .padding(bottom = 24.dp), // insets уже даёт ModalBottomSheet
         verticalArrangement = Arrangement.spacedBy(16.dp),

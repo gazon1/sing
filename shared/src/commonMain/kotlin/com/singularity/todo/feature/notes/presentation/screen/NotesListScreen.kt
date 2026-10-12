@@ -237,6 +237,7 @@ fun NotesScreenContent(
             EmptyState(
                 title = "No notes yet",
                 subtitle = "Create your first note to get started",
+                testTag = TestTags.NOTES_LIST_EMPTY,
                 modifier = Modifier.padding(padding),
                 actions = {
                     FilledTonalButton(onClick = { onCreateNote("") }) {
@@ -250,6 +251,7 @@ fun NotesScreenContent(
             StatefulContent(
                 state = state.toContentState(),
                 emptyTitle = "No notes yet",
+                emptyTestTag = TestTags.NOTES_LIST_EMPTY,
                 modifier = Modifier.padding(padding),
             ) { allNotes, contentModifier ->
                 NoteList(

@@ -19,6 +19,14 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
+# Open the hamburger menu and scroll to Settings.
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 10000
 # Open Settings.
 - tapOn:
     id: menu_settings

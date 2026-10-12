@@ -91,6 +91,8 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
+| `TASK_EDITOR_RECURRENCE_LABEL` | `task_editor_recurrence_label` | |
+| `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
 | `TASK_EDITOR_PIN_ROW` | `task_editor_pin_row` | |
 | `TASK_EDITOR_PRIORITY_ROW` | `task_editor_priority_row` | |
@@ -117,6 +119,7 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_EMPTY_TITLE` | `saved_agenda_empty_title` | |
 | `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | |
 | `SAVED_AGENDA_MENU_COPY_TO_PROFILE` | `saved_agenda_menu_copy_to_profile` | |
+| `SAVED_AGENDA_COPY_TO_PROFILE_SHEET` | `saved_agenda_copy_to_profile_sheet` | |
 | `SAVED_AGENDA_MENU_DELETE` | `saved_agenda_menu_delete` | |
 | `SAVED_AGENDA_MENU_EDIT` | `saved_agenda_menu_edit` | |
 | `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
@@ -141,12 +144,15 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `TAGS_FAB` | `tags_fab` | |
 | `TAGS_LIST` | `tags_list` | |
+| `TAGS_LIST_EMPTY` | `tags_list_empty` | |
+| `TAGS_PICKER_EMPTY` | `tags_picker_empty` | |
 
 ### Notes
 | Constant | Value | Where |
 |---|---|---|
 | `NOTES_BACKLINKS_BUTTON` | `notes_backlinks_button` | |
 | `NOTES_LIST` | `notes_list` | |
+| `NOTES_LIST_EMPTY` | `notes_list_empty` | |
 | `NOTES_QUICK_ADD_INPUT` | `notes_quick_add_input` | |
 | `NOTE_EDITOR_BODY` | `note_editor_body` | |
 | `NOTE_EDITOR_NOTIFICATION_HOST` | `note_editor_notification_host` | |
@@ -156,6 +162,8 @@ non-alphanumeric characters with `_`.
 ### Search
 | Constant | Value | Where |
 |---|---|---|
+| `SEARCH_EMPTY_PLACEHOLDER` | `search_empty_placeholder` | |
+| `SEARCH_EMPTY_RESULTS` | `search_empty_results` | |
 | `SEARCH_INPUT` | `search_input` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
@@ -163,12 +171,15 @@ non-alphanumeric characters with `_`.
 ### Projects
 | Constant | Value | Where |
 |---|---|---|
+| `PROJECT_DETAIL_EMPTY` | `project_detail_empty` | |
 | `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | |
+| `PROJECT_DETAIL_TASKS_HEADER` | `project_detail_tasks_header` | |
 | `PROJECT_EDITOR_BACK` | `project_editor_back` | |
 | `PROJECT_EDITOR_DESCRIPTION_INPUT` | `project_editor_description_input` | |
 | `PROJECT_EDITOR_NAME_INPUT` | `project_editor_name_input` | |
 | `PROJECT_EDITOR_NOTIFICATION_HOST` | `project_editor_notification_host` | |
 | `PROJECT_EDITOR_SAVE` | `project_editor_save` | |
+| `PROJECT_PICKER_EMPTY` | `project_picker_empty` | |
 
 ### Settings
 | Constant | Value | Where |
@@ -227,6 +238,11 @@ non-alphanumeric characters with `_`.
 | `CHAT_NOTIFICATION_HOST` | `chat_notification_host` | |
 | `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
 | `SNACKBAR_ACTION` | `snackbar_action` | |
+
+### Archive
+| Constant | Value | Where |
+|---|---|---|
+| `ARCHIVE_EMPTY` | `archive_empty` | |
 
 ### Backup
 | Constant | Value | Where |
@@ -302,6 +318,8 @@ use the expanded string directly).
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
+| `calendarWeekdayHeader("Mon")` | `"Mon"` | `calendar_weekday_mon` | Weekday column headers in month grid |
+| `calendarDay("2026-09-15")` | `"2026-09-15"` | `calendar_day_2026_09_15` | Day cells in month grid (ISO local date) |
 <!-- GENERATED:END -->
 
 ## Raw-string tags (NOT via TestTags.kt)

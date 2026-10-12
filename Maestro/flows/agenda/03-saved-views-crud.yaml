@@ -44,9 +44,11 @@ tags:
 - tapOn:
     id: agenda_saved_views_button
 - extendedWaitUntil:
-    visible: "Saved Views"
+    visible:
+      id: saved_agenda_create_fab
     timeout: 8000
-- assertVisible: "Focus"
+- assertVisible:
+    id: saved_agenda_card_focus
 # Open it in the editor. Tapping the card body opens the *results* screen, not
 # the editor — Edit lives in the card's overflow menu (SavedAgendaCard.kt), and
 # Delete is only offered from edit mode, which is what the second half needs.
@@ -74,6 +76,8 @@ tags:
     id: dialog_confirm
 
 - extendedWaitUntil:
-    visible: "Saved Views"
+    visible:
+      id: saved_agenda_create_fab
     timeout: 8000
-- assertNotVisible: "Focus"
+- assertNotVisible:
+    id: saved_agenda_card_focus

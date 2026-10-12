@@ -42,9 +42,11 @@ tags:
 - inputText: "Write spec"
 - pressKey: Enter
 - extendedWaitUntil:
-    visible: "Write spec"
+    visible:
+      id: task_item_write_spec
     timeout: 8000
 # It left the empty state and the row is addressable by its title.
+# NOTE: "No tasks yet" has no stable ID — text-based selector kept.
 - assertNotVisible: "No tasks yet"
 - assertVisible:
     id: task_item_write_spec

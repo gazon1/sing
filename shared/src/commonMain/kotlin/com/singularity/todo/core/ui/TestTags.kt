@@ -145,6 +145,12 @@ object TestTags {
     /** Estimate row in the task editor attribute list. */
     const val TASK_EDITOR_ESTIMATE_ROW = "task_editor_estimate_row"
 
+    /** "No tasks available" empty text in the dependency picker sheet. */
+    const val DEPENDENCY_PICKER_EMPTY = "dependency_picker_empty"
+
+    /** "Repeats" label text inside the recurrence row of the task editor. */
+    const val TASK_EDITOR_RECURRENCE_LABEL = "task_editor_recurrence_label"
+
     /**
      * First-run suggestion card in the task detail view.
      *
@@ -265,6 +271,9 @@ object TestTags {
     /** "Copy to profile" in a saved-agenda card overflow menu. */
     const val SAVED_AGENDA_MENU_COPY_TO_PROFILE = "saved_agenda_menu_copy_to_profile"
 
+    /** "Copy to profile" sheet title (ListPickerSheet). */
+    const val SAVED_AGENDA_COPY_TO_PROFILE_SHEET = "saved_agenda_copy_to_profile_sheet"
+
     /** "Delete" in a saved-agenda card overflow menu. */
     const val SAVED_AGENDA_MENU_DELETE = "saved_agenda_menu_delete"
 
@@ -327,6 +336,12 @@ object TestTags {
     /** Dynamic tag of the form `tag_open_<slug>` — tapping a tag card opens its agenda. */
     fun tagOpen(tagName: String) = "tag_open_${slug(tagName)}"
 
+    /** "No tags yet" empty text in the tags picker sheet. */
+    const val TAGS_PICKER_EMPTY = "tags_picker_empty"
+
+    /** "No tags yet" empty state title on the tags list screen. */
+    const val TAGS_LIST_EMPTY = "tags_list_empty"
+
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
@@ -359,10 +374,28 @@ object TestTags {
     // ─── Search ─────────────────────────────────────────────────────────────
     const val SEARCH_INPUT = "search_input"
 
+    /** "Enter a search query" placeholder in the search screen (shown when query is blank). */
+    const val SEARCH_EMPTY_PLACEHOLDER = "search_empty_placeholder"
+
+    /** "No results found" empty state in the search screen (shown when query has no matches). */
+    const val SEARCH_EMPTY_RESULTS = "search_empty_results"
+
+    /** "Archive is empty" empty state title on the archive list screen. */
+    const val ARCHIVE_EMPTY = "archive_empty"
+
+    /** "No notes yet" empty state title on the notes list screen. */
+    const val NOTES_LIST_EMPTY = "notes_list_empty"
+
     // ─── Projects ───────────────────────────────────────────────────────────
 
     /** Quick-add task field on the project detail screen. */
     const val PROJECT_DETAIL_QUICK_ADD = "project_detail_quick_add"
+
+    /** "No projects yet" empty text in the project picker sheet. */
+    const val PROJECT_PICKER_EMPTY = "project_picker_empty"
+
+    /** "No projects yet" empty state title on the projects list screen. */
+    const val PROJECTS_LIST_EMPTY = "projects_list_empty"
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"
     const val PROJECT_EDITOR_SAVE = "project_editor_save"
@@ -372,11 +405,20 @@ object TestTags {
     /** Dynamic tag of the form `project_card_<slug>`. */
     fun projectCard(name: String) = "project_card_${slug(name)}"
 
+    /** "Tasks" section header on the project detail screen. */
+    const val PROJECT_DETAIL_TASKS_HEADER = "project_detail_tasks_header"
+
+    /** "No tasks yet" empty state title on the project detail screen. */
+    const val PROJECT_DETAIL_EMPTY = "project_detail_empty"
+
     // ─── Settings ──────────────────────────────────────────────────────────
 
     object Settings {
         /** The Dark Theme toggle row's outer Row (clickable, semantic Role.Switch). */
         const val DARK_THEME_SWITCH = "settings_dark_theme_switch"
+
+        /** The NavRail scroll container — allows Maestro to scroll clipped tabs into view. */
+        const val NAV_RAIL_SCROLL = "settings_nav_rail_scroll"
 
         /** The accent-color swatch picker — one per [SingularityAccents]. */
         fun accentSwatch(accentName: String) = "settings_accent_swatch_${slug(accentName)}"
@@ -671,7 +713,12 @@ object TestTags {
      */
     fun calendarDay(isoDate: String) = "calendar_day_${isoDate.replace("-", "_")}"
 
-    // ─── Attachments (URL sheet) ─────────────────────────────────────────────
+    /**
+     * A weekday column header in the calendar month grid (Mon, Tue, …, Sun).
+     */
+    fun calendarWeekdayHeader(label: String) = "calendar_weekday_${label.lowercase()}"
+
+    // ─── Attachments (URL sheet) ──────────────────────────────────────────────
     //
     // Used in Maestro/flows/attachments/ — the URL attachment bottom sheet
     // that appears when adding a URL to a task.
@@ -681,7 +728,7 @@ object TestTags {
     const val ATTACHMENTS_URL_INPUT = "attachments_url_input"
     const val ATTACHMENTS_TITLE_INPUT = "attachments_title_input"
 
-    // ─── Task detail ────────────────────────────────────────────────────────
+    // ─── Task detail ───────────────────────────────────────────
     //
     // Tags for the task detail screen (read-only view, not the editor).
 

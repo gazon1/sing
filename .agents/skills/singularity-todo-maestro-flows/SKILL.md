@@ -1,13 +1,17 @@
 ---
 name: singularity-todo-maestro-flows
-description: Author and run Maestro UI flows for the Android app. Covers selector conventions (TestTags over text), Maestro 2.10 syntax quirks (no content-desc, notVisible over gone, rail scrolling), the edit-build-install-run loop, dynamic-id casing, artifacts debugging, and app behaviour facts flows encode (delete is undo-only, archive has no restore, long-press opens the editor). Use when writing or debugging Maestro YAML under Maestro/, when asked to "add a UI test" or "test this user flow", or when a flow fails on device.
+description: Author and run Maestro UI flows for the Android app. Covers selector conventions (TestTags over text), adaptive scrolling (scrollUntilVisible instead of hardcoded swipe), Maestro 2.10 syntax quirks, the edit-build-install-run loop, phone-viewport constraints, menu navigation patterns, animation timing, and app behaviour facts flows encode. Use when writing, fixing, or debugging Maestro YAML under Maestro/, when asked to "add a UI test", or when a flow fails on device.
 ---
 
 # Maestro UI Flows
 
-Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/`, with
-shared setup in `Maestro/helpers/`. Status: **green** — 10/10 smoke flows pass in
-~3.5 min on the emulator (verified 2026-09-29), zero app crashes.
+Maestro drives the Android app end-to-end. Flows live in `Maestro/flows/` across 11
+subdirectories (~39 flows total). Helpers live in `Maestro/helpers/`.
+
+Status (run 38223116125): 12 flows fixed across classes A–D (hardcoded swipe,
+missing nav menu openers, menu item scroll, animation timing). Class E (27 flows)
+is undiagnosed — seed/state leakage, selector mismatches, and agenda timing issues
+require live device or detailed device logs to resolve.
 
 ## Prerequisites: emulator first
 
@@ -77,6 +81,66 @@ than falling back to visible text.
 `menuItem()` is keyed by the **visible label**, not the destination title, so
 `Profile & sync` and `Settings` do not collide.
 
+## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
+
+**Never use fixed swipe coordinates.** The phone AVD viewport is 320×640px
+physical (~420dpi), giving ~1680dp vertical. A swipe from y=1600 to y=800 is
+already at the edge of the usable area on a short screen, and goes off-screen
+entirely on 640px-height phones. It only "worked" on wider 1280×720 AVDs because
+y=1600 was 2/3 down the screen there.
+
+Use `scrollUntilVisible` with a direction for anything that might be below the fold:
+
+```yaml
+# Always open the hamburger menu first — the sheet is centre-screen.
+- tapOn:
+    id: nav_menu_button
+# Then scroll the item into view.
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN        # DOWN for items near the bottom of the sheet
+    timeout: 10000         # 10 s — phone AVD has 5+ items + section headers + dividers
+- tapOn:
+    id: menu_settings
+```
+
+**Direction convention:**
+- `direction: DOWN` — target item is near the bottom of the sheet (most menu items)
+- `direction: UP` — target item is at the top; Maestro scrolls from the centre,
+  so UP works for items that are above the centre but below the visible top
+
+**Timeout:** always 10 000 ms for menu items. The phone AVD sheet has
+5+ items + section header + dividers; 5 000 ms is insufficient under emulator
+load.
+
+The old hardcoded swipe pattern is retired:
+```yaml
+# OLD — do not use. Breaks on phone viewports (y=1600 is out-of-bounds on 640px height).
+- swipe:
+    start: 105, 1600
+    end: 105, 800
+```
+
+### Menu navigation patterns
+
+Every flow that opens the nav drawer follows this sequence:
+
+```
+tapOn id: nav_menu_button
+scrollUntilVisible element.id: <target_item> direction: DOWN timeout: 10000
+tapOn id: <target_item>
+```
+
+**Items requiring scroll on phone viewport** (below the fold on 320×640):
+- `menu_notes`, `menu_statistics`, `menu_ai_chat` — Destinations section, below fold
+- `menu_settings`, `menu_profiles`, `menu_quick_search` — Account section, visible
+  without scroll on most screens BUT `menu_settings` still uses scrollUntilVisible
+  in existing flows for consistency and robustness
+
+**Items that are always visible without scrolling:**
+- `menu_archive`, `menu_search` — visible on most phone screens
+
 ## Maestro 2.10 syntax quirks
 
 Verified against the installed CLI (2.10.0) — these fail at flow-parse or
@@ -85,15 +149,11 @@ step time, not at authoring time:
 - **`content-desc:` is not a supported selector property** — `Unknown Property:
   content-desc`. Select by `id:` (add a testTag if one is missing) or `text:`.
 - **`gone:` does not exist** — use `notVisible:` inside `extendedWaitUntil`.
-- **`scrollUntilVisible` swipes the screen centre.** It works for the
-  centre-screen Menu bottom sheet, and fails for anything pinned to an edge —
-  the Settings nav rail is the leftmost 80dp (~210px at 420dpi), so scrolling it
-  needs an explicit swipe:
-  ```yaml
-  - swipe:
-      start: 105, 1600
-      end: 105, 800
-  ```
+- **`scrollUntilVisible` scrolls the screen centre.** It works for the
+  centre-screen Menu bottom sheet. For edge-pinned elements (nav rail on phone,
+  where the SettingsNavRail is the leftmost 80dp), a `direction: UP` swipe from
+  below the element may be needed — but only as a fallback, and only with
+  coords that are within the element's bounds.
 - `index:` disambiguates duplicate `text:` matches (two buttons both reading
   "Удалить" in one dialog). A bare `text:` (no index) is often the right choice —
   an index that no longer resolves fails the step outright.
@@ -121,11 +181,7 @@ step time, not at authoring time:
   mini-calendar controls, and the whole Sync configuration screen
   (`SyncConfigScreen` + a complete `SyncViewModel`, composed by nothing) exist
   with no control that dispatches them, and long-press on a note row does
-  nothing. Before writing a flow, check it is reachable. The three ADRs named
-  below list the current gaps.
-- **Menu-sheet items below the fold are not tappable without a scroll.**
-  `tapOn: id: menu_ai_chat` fails on an off-screen item; `scrollUntilVisible`
-  first is required, exactly as for `menu_settings` and `menu_archive`.
+  nothing. Before writing a flow, check it is reachable.
 - **Day cells in a calendar grid are `text:`-addressable** — the number is
   unique within one month, so a full-string match is unambiguous. The mode
   control is labelled with the current mode ("Day", "4 days", "Week", "Month")
@@ -133,6 +189,19 @@ step time, not at authoring time:
 - **A failing batch run right after the first flow usually means the device died.**
   Check `adb devices` before debugging selectors; the emulator on this host dies
   after a few minutes of use and every later flow then fails in ~10 ms.
+
+## Animation and timing
+
+- **`waitForAnimationToEnd` after PORTRAIT rotation: use 5 000 ms, not 2 000 ms.**
+  The CI emulator is slower to complete the LANDSCAPE→PORTRAIT transition than a
+  local machine. Flows that rotate back to portrait and immediately assert
+  UI state will flake on CI with 2 000 ms.
+- **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
+  genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
+- **Hide the keyboard before tapping a trailing action** — `hideKeyboard` after
+  `inputText`, or the save button sits under the IME.
+- After `inputText`, assert the field's value before tapping save, so a dropped
+  keystroke fails at the real cause.
 
 ## Test data: ASCII only
 
@@ -145,8 +214,12 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 
 | Helper | What it does |
 |---|---|
-| `launch-clean.yaml` | `launchApp` with `clearState: true`, waits 8s for `nav_tab_today` |
-| `seed-task.yaml` | Creates "Buy milk" on Today and asserts `task_item_buy_milk` |
+| `launch-clean.yaml` | `launchApp`, waits 30s for `nav_tab_today`; includes `waitForAnimationToEnd` after launch |
+| `seed-task.yaml` | Creates "Buy milk" on Today via UI (not deep-link), asserts `task_item_buy_milk`; 10s timeout + `waitForAnimationToEnd` |
+| `seed.yaml` | Seeds via `todo-debug://seed?QUERY` deep-link; supports `{{title}}`, `{{due}}` via `QUERY` env var |
+| `retry-3x.yaml` | Runs `TARGET_FLOW` up to 3 times; use only for confirmed device-variance issues, not selector bugs |
+| `open-menu-item.yaml` | Opens a menu sheet item by `ITEM_ID` and waits for `DEST_ID` |
+| `pick-date.yaml` | Date picker helper using `scripts/date.js` |
 
 A flow failing right after the previous one has usually lost the *device*, not
 its selectors — `adb devices` is the check. When running flows by hand, prefer
@@ -157,7 +230,7 @@ suite. See `singularity-todo-emulator-launch`.
 Start from `launch-clean` unless the flow needs pre-existing data. `seed-task`
 hardcodes its title on purpose — see the comment in the file. Make new flows
 self-seeding (create their own fixture) rather than inheriting state from an
-earlier flow — see `docs/decisions/2026-09-29-maestro-archive-seed-strategy.md`.
+earlier flow.
 
 ## App behaviour facts flows encode
 
@@ -169,7 +242,7 @@ by a flow failing on it:
   Mark as completed/uncompleted, Pin/Unpin, Archive. Use
   `longPressOn: id: task_item_<slug>` then `tapOn: id: sheet_item_Archive`.
   Before the fix long-press fell through to the click handler and opened the
-  editor — see `docs/decisions/2026-09-29-task-longpress-menu-and-archive-restore.md`.
+  editor.
 - **The detail overflow menu is state-dependent.** An active task shows
   Архивировать / Удалить; an archived (trashed) task shows Восстановить alone.
   A flow that archives and then expects Удалить will not find it.
@@ -181,19 +254,18 @@ by a flow failing on it:
   back and the task reappears in Inbox.
 - **An undated task lands in Inbox, not Today** — `create-task` taps to Inbox to
   find its row.
-- Menu-sheet items below the fold (`menu_settings`, `menu_archive`) need
-  `scrollUntilVisible` — the sheet is centre-screen, so the command works there.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
 
-## Timing and input
+## Root causes of known failures (run 38223116125)
 
-- **Never sleep.** Use `extendedWaitUntil` with a bounded timeout. Cold start
-  genuinely needs ~8s (Koin + Room + DataStore migrations + calendar sync).
-- **Hide the keyboard before tapping a trailing action** — `hideKeyboard` after
-  `inputText`, or the save button sits under the IME.
-- After `inputText`, assert the field's value before tapping save, so a dropped
-  keystroke fails at the real cause.
+| Class | Root cause | Flows | Fix |
+|---|---|---|---|
+| A | Hardcoded swipe coords out-of-bounds on phone AVD | `backup-round-trip`, `smoke-settings-cycle-tabs` | `scrollUntilVisible direction: UP` |
+| B | Missing `nav_menu_button` + `scrollUntilVisible` before `menu_settings` | `calendar-sync-provider-toggle`, `calendar-sync-system-toggle`, `calendar-sync-system-unavailable`, `sync-change-interval`, `negative-empty-tags` | `scrollUntilVisible element.id: menu_settings direction: DOWN timeout: 10000` |
+| C | `menu_notes` below fold + 5 s timeout | `notes-edit-body`, `notes-filter-chips`, `notes-create-note`, `negative-empty-notes` | Same pattern as class B |
+| D | `waitForAnimationToEnd` 2000 ms after PORTRAIT rotation | `lifecycle-rotate-in-editor` | 2000 ms → 5000 ms |
+| E | Seed/state leakage, wrong testTag, agenda section timing | 27 flows (undiagnosed) | Requires live device or detailed device logs |
 
 ## Recon before writing a flow — the probe trick
 
@@ -248,12 +320,76 @@ stale one left in the tree is noise.
    fold, or on a screen the previous step never opened.
 3. **Nothing on screen but the home screen** — the app crashed earlier in the
    flow; go back to step 1.
+4. **Class E failures (27 flows):** The Maestro XML has no per-step detail.
+   Re-run with Maestro's `--debug` flag and capture device logcat at failure
+   time. The CI artifact `maestro-failures-*/maestro.log` shows only Maestro's
+   own polling output; the actual Compose/hierarchy state requires logcat.
+
+## Troubleshooting
+
+### Retry strategy: when to fix vs when to retry
+
+**Fix the root cause, not the symptom.** A flow that fails because an element
+was not visible after 5 s is telling you the element needs 5+ s on that device
+— the retry just delays that signal.
+
+Use `Maestro/helpers/retry-3x.yaml` only when:
+- The flow is confirmed to need > 2 script-level retries (`MAX_RETRIES=2` in
+  `run-maestro.sh` covers CI device disconnects).
+- The element timing has genuine variance (e.g. cold-start variance, not a
+  broken selector).
+- A `known-bug` tag is applied and the retry is a temporary measure while the
+  bug is tracked.
+
+Do NOT use retry when:
+- Multiple flows fail simultaneously with the same selector — this is a cascade,
+  not independent variance. Check `seed-task.yaml` first.
+- The failure is `Not found` rather than `Not visible` — retry does not help.
+
+### Seed cascade detection
+
+The most common cascade failure mode in this suite: `seed-task.yaml` times out
+(5 s was insufficient), `task_item_buy_milk` never appears, and 14 flows fail
+in the same CI run with `task_item_buy_milk not visible` — but only the first
+failure is in `seed-task.yaml`. Every other flow just used that fixture.
+
+**How to recognise it:**
+- 14 flows all failing with the same `Not visible: task_item_buy_milk` at the
+  same step position (immediately after seed).
+- The failure appeared after a CI runner was under load (seed takes longer when
+  the host is busy).
+- The seed-task itself passed on a previous run.
+
+**Correct fix:** Increase the timeout in `seed-task.yaml` — do NOT add retry
+wrappers to each consumer flow.
+
+### CI vs local timing
+
+The CI emulator runs on a shared host where gradle daemons, sandbox processes,
+and the emulator itself compete for CPU. A flow that takes 8 s to seed a task
+locally can take 25 s on CI. All hard timeouts should be calibrated against
+CI, not local dev speed.
+
+Practical multipliers observed on this CI host:
+
+| Operation | Local (fast) | CI (loaded) | Safe timeout |
+|---|---|---|---|
+| App cold start | ~5 s | ~20 s | 30 000 ms |
+| `waitForAnimationToEnd` after PORTRAIT | ~1 500 ms | ~4 500 ms | 5 000 ms |
+| `extendedWaitUntil` for a visible element | < 2 s | < 8 s | 10 000 ms |
+| Menu sheet scroll + tap | < 1 s | < 4 s | 10 000 ms |
+
+When in doubt, use the CI-safe value. A timeout that is slightly too long
+costs at most the duration of the wait; a timeout that is slightly too short
+produces a cascade of failures that requires a full re-run to diagnose.
 
 ## Tags
 
 `smoke` = the fast must-pass subset. Domain tags (`tasks`, `notes`, `settings`,
-`archive`, …) drive feature-scoped reruns. Add `smoke` when a failure should be
-loud. Make every smoke flow earn the tag: it runs on every suite invocation.
+`archive`, `calendar_sync`, `sync`, `negative`, `lifecycle`, `smoke` — see
+`Maestro/TAGS.md`) drive feature-scoped reruns. Add `smoke` when a failure
+should be loud. Make every smoke flow earn the tag: it runs on every suite
+invocation.
 
 ## Do not confuse with `singularity-todo-test-tag-strategy`
 
@@ -265,10 +401,13 @@ split for flows — the split is `smoke` vs domain.
 
 1. Subdirectory matching the feature (mirrors `feature/` in shared).
 2. `runFlow: ../../helpers/launch-clean.yaml`, or a seed helper for existing data.
-3. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
+3. Follow the menu navigation pattern: `tapOn id: nav_menu_button` →
+   `scrollUntilVisible element.id: <target> direction: DOWN timeout: 10000` →
+   `tapOn id: <target>`.
+4. Assert on `id:` selectors from `TestTags`; add a constant if one is missing
    (then the rebuild loop).
-4. Tag it.
-5. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
-6. On failure, follow "Debugging a failure" above.
+5. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
+6. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
+7. On failure, follow "Debugging a failure" above.
 
 Fuller guidance, including the tag table: `Maestro/README.md`.

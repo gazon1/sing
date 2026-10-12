@@ -15,6 +15,14 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
+# Open the hamburger menu and scroll to Settings.
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 10000
 # Open Settings.
 - tapOn:
     id: menu_settings
@@ -57,6 +65,13 @@ tags:
 - back
 
 # Reopen Settings → Sync and verify the interval selection survived.
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_settings
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
