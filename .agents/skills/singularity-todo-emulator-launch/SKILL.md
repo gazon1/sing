@@ -16,6 +16,18 @@ SERIAL=$(./scripts/ensure-emulator.sh)     # start if needed, wait for boot
 ./scripts/run-maestro.sh                   # runs per-flow and relaunches on its own
 ```
 
+**Pinning `SERIAL` does not switch recovery off.** `SERIAL=emulator-5554
+./scripts/run-maestro.sh` is fine: the runner re-exports `SERIAL`, so
+`ensure-emulator.sh` inherits it, and a pinned-but-unready *emulator* is exactly
+the crash case the script exists to resurrect — it restarts the AVD rather than
+reporting failure. Only a pinned *physical* device stays a hard error, because
+starting an AVD would land on `emulator-5554` and not match.
+
+This was a real trap: the runner used to hard-fail there, so `SERIAL=…`
+reproduced "could not obtain a device" every time the emulator died mid-suite —
+looking like flaky infrastructure when the recovery path had simply been
+switched off.
+
 Everything below is for the interactive case and for understanding *why* the
 script does what it does.
 
