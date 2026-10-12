@@ -1,4 +1,9 @@
-# ADR 2026-10-12 — Maestro E2E fixes: scrollUntilVisible, timeouts, seed cascade
+---
+title: "Maestro E2E fixes — scrollUntilVisible, timeouts, seed cascade, fixture isolation"
+date: 2026-10-12
+status: accepted
+tags: [maestro, e2e, testing, emulator]
+---
 
 ## Context
 
@@ -213,6 +218,109 @@ Consequence worth stating plainly: **a flow can pass in Maestro and still be
 reported failed by the runner.** Before these fixes the suite's own exit code
 could not be trusted, which is why the earlier verification in this ADR cites
 direct `maestro test` runs.
+
+## Selector hardening and dead-helper cleanup (2026-10-13)
+
+### 14. Most text selectors were already tag-addressable
+
+**Decision**: Convert flow text selectors to `id:` where a testTag already
+exists; add product-side tags only where none does.
+
+**Rationale**: The premise was "26 places need TestTags". Inventory showed most
+of those were not UI chrome at all — typed input values (`inputText` with
+emails and passwords), user-facing data the flow itself created, calendar day
+numbers, and Material3 `contentDescription` regexes that Maestro 2.10 cannot
+address at all (no `content-desc` selector). Several genuine chrome selectors
+(`search_empty_placeholder`, `search_empty_results`, `project_detail_empty`,
+`project_detail_tasks_header`) were **already declared and already wired** — the
+flows simply were not using them, so no product change was needed.
+
+Only three needed new product-side tags: the search filter sheet's Apply/Cancel
+buttons, `ResultDialog` (so flows assert a dialog structurally instead of
+matching copy that is translated on this device), and `DatePicker.SHEET`.
+
+### 15. A text assertion that could never pass
+
+**Decision**: `backup/01-round-trip.yaml` asserted `text: "Backup created
+successfully"`; `BackupViewModel` emits `"Backup created"`. The flow now asserts
+`result_dialog` is present.
+
+**Rationale**: The string never existed, so the assertion could never have
+passed. It is a second instance of the lesson from `tasks/06-delete-undo`,
+where matching UI copy fails on this device because it runs in Russian.
+
+### 16. Five task-row conversions were wrong and were reverted
+
+**Decision**: `lifecycle/03-rotate-in-editor`, `tasks/04-delete`,
+`tasks/18-time-tracking-start-stop`, `tasks/create-task` and
+`tasks/open-task-detail` keep `assertVisible: "Buy milk"`.
+
+**Rationale**: They assert the title **inside the open editor**, right after
+waiting for `task_editor_title_input`. `task_item_*` is only mounted once the
+editor closes, so converting them would have turned a passing assertion into a
+guaranteed failure. A tag for the editor's rendered title would fix the
+localisation exposure properly; it does not exist yet.
+
+### 17. `helpers/seed.yaml`'s tab round-trip was not load-bearing
+
+**Decision**: Removed the inbox→today taps.
+
+**Rationale**: §9 attributed it to cold-start staleness. Re-tested after the
+success sweep (§11) removed accumulated fixtures, and the staleness did not
+reproduce on `auth/01-first-run-anonymous`, `tasks/04-delete` or
+`agenda/01-smart-lists`. The most likely reading of the original observation:
+the new row *did* arrive, but below rows earlier runs had left behind, and that
+looked like a missing row. `lifecycle/03-rotate-in-editor` fails either way —
+with and without the taps — which is what confirmed the taps were not the cause.
+
+### 18. `launch-clean` must not wipe the database
+
+**Decision**: Keep `clearState: false`.
+
+**Rationale**: A blanket `pm clear` destroys the pre-authenticated session the
+emulator snapshot carries, so every flow would land on the auth screen. The
+fixture-accumulation problem it would have solved is already solved by the
+selective success sweep, which leaves the session, profile and auth state alone
+and cannot delete another run's data under concurrency.
+
+### 19. Dead helpers removed
+
+**Decision**: Deleted `helpers/pick-date.yaml` (zero consumers) and the unused
+`firstOfMonth` / `stamp` exports from `helpers/scripts/date.js`.
+
+### 20. Device selection goes through `ensure-emulator.sh` only
+
+**Decision**: `scripts/ensure-emulator.sh` is the single device-recovery
+primitive. Hand-rolled `adb devices | awk` discovery is removed from the runner
+and from `scripts/run-android-ui-tests.sh`.
+
+**Rationale**: a local `adb | awk` can only ever find a device that is *already*
+up. On this host the emulator crashes regularly (§ the gfxstream ADR), so every
+crash surfaced as "no device found — connect one", advice that points away from
+the actual remedy. The script already knows the flags that boot this AVD and
+waits for readiness.
+
+### 21. A caller-supplied pin must not switch recovery off
+
+**Decision**: `run-maestro.sh` runs `export -n SERIAL`, and
+`ensure-emulator.sh` restarts the AVD when the pinned serial is an `emulator-*`
+that is not ready. Only a pinned *physical* device remains a hard error.
+
+**Rationale**: a bash variable that arrives through the environment keeps its
+export attribute when reassigned, so `SERIAL=emulator-5554 ./scripts/run-maestro.sh`
+was leaking the pin into `ensure-emulator.sh`, which then took its
+pinned-serial branch and hard-failed — refusing to resurrect the very device it
+exists to resurrect. The failure mode is worse than the crash it papers over:
+every subsequent flow fails as if the infrastructure were flaky, and the
+diagnosis points at the emulator rather than at the runner.
+
+The distinction that makes this safe: a pinned emulator is *recoverable* (start
+the AVD); a pinned physical device is not (starting an AVD would land on
+`emulator-5554` and not match), so only that case still errors.
+
+Verified by killing the emulator and re-running the pinned path: recovery now
+starts the AVD and the flow passes, where it previously reported "Could not
+obtain a device".
 
 ## Consequences
 

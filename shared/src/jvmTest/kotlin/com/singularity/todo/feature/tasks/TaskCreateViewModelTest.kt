@@ -30,7 +30,9 @@ import kotlinx.datetime.Month
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -244,5 +246,73 @@ class TaskCreateViewModelTest {
         // Exactly one task created — the guard prevented double-save
         assertEquals(1, fakeTaskRepo.tasks.value.size)
         assertEquals("Raced task", fakeTaskRepo.tasks.value.values.first().title)
+    }
+
+    // ─── Dirty flag / save-enable contract ──────────────────────────────────
+    //
+    // The screen enables Save from `state.isSaveEnabled`, which is recomputed on
+    // every edit as `validate(draft) == null && !isSaving`. That is the exact
+    // contract the E2E suite depends on: a field whose `onValueChange` never
+    // fires leaves the draft untouched, so `isDirty` stays false and Save stays
+    // disabled no matter what the user appears to have typed. Asserting it here
+    // means a Compose upgrade cannot quietly move that condition.
+    //
+    // The header of this file used to claim these were untestable because the VM
+    // used `stateIn(…, WhileSubscribed(5000), …)` and needed a live collector.
+    // `DraftMviViewModel` exposes a plain StateFlow, so `state.value` is enough.
+
+    @Test
+    fun `TitleChanged marks the draft dirty and enables save`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertFalse(vm.state.value.isDirty, "a freshly restored draft is not dirty")
+        assertFalse(vm.state.value.isSaveEnabled, "blank title must not enable save")
+
+        vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
+        runCurrent()
+
+        assertTrue(vm.state.value.isDirty, "an edit must mark the draft dirty")
+        assertTrue(vm.state.value.isSaveEnabled, "a non-blank title must enable save")
+    }
+
+    @Test
+    fun `clearing the title disables save again`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
+        runCurrent()
+        assertTrue(vm.state.value.isSaveEnabled)
+
+        vm.onIntent(TaskCreateIntent.TitleChanged("   "))
+        runCurrent()
+
+        assertFalse(
+            vm.state.value.isSaveEnabled,
+            "whitespace is blank: save must disable without the draft being reverted to pristine",
+        )
+        assertTrue(vm.state.value.isDirty, "still dirty — the user did edit, then cleared it")
+    }
+
+    @Test
+    fun `a blank title rejects save with a validation error and creates nothing`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        // Type, then clear: the draft is dirty but invalid.
+        vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
+        vm.onIntent(TaskCreateIntent.TitleChanged(""))
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(0, fakeTaskRepo.tasks.value.size, "an invalid draft must not reach the repository")
+        assertEquals("Title is required", vm.state.value.error)
+        assertFalse(vm.state.value.isSaving, "a rejected save must clear isSaving, not wedge the button")
     }
 }

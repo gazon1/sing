@@ -58,7 +58,7 @@ tags:
     id: search_filter_has_description_switch
 # Apply.
 - tapOn:
-    text: "Apply"
+    id: search_filter_apply_button
 - extendedWaitUntil:
     visible:
       id: task_item_taskwithdesc2026

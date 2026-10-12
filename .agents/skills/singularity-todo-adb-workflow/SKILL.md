@@ -18,10 +18,10 @@ Use this skill when the verification target is a physical phone/tablet connected
 ### Step 1 — Pre-flight: confirm device
 
 ```bash
-# List devices and extract the first available serial
+# List devices and extract the first available *physical* serial
 adb devices -l
 # Expected: "12345678  device product: Pixel7 model: Pixel_7 ..."
-SERIAL=$(adb devices -l | grep ' device$' | head -1 | awk '{print $1}')
+SERIAL=$(adb devices -l | grep ' device$' | grep -v '^emulator-' | head -1 | awk '{print $1}')
 echo "Using device: $SERIAL"
 
 # Verify device state
@@ -29,6 +29,17 @@ adb -s $SERIAL shell getprop ro.product.model
 adb -s $SERIAL shell getprop ro.build.version.sdk
 # If unauthorized — instruct human to tap "Allow USB debugging" on device
 ```
+
+The `grep -v '^emulator-'` matters: with an AVD running, `head -1` would hand you
+the emulator and you would verify the wrong device.
+
+**Emulator work does not belong in this skill.** `./scripts/ensure-emulator.sh` is
+the repo's single device-recovery primitive, and it deliberately is not used here:
+when no ready device exists it *starts the AVD*, while this skill's target is
+hardware someone plugged in. If you want the script to look at this phone, pin it —
+`SERIAL="$SERIAL" ./scripts/ensure-emulator.sh` validates readiness and fails loudly
+rather than booting an emulator. For an AVD target, use the script directly or the
+`singularity-todo-emulator-launch` skill.
 
 ### Step 2 — Build + install (if APK changed)
 
@@ -114,7 +125,7 @@ adb -s $SERIAL logcat -c
 ## Full one-page script for copy-paste
 
 ```bash
-SERIAL=$(adb devices -l | grep ' device$' | head -1 | awk '{print $1}')
+SERIAL=$(adb devices -l | grep ' device$' | grep -v '^emulator-' | head -1 | awk '{print $1}')
 echo "=== Device: $SERIAL ==="
 adb -s $SERIAL shell getprop ro.product.model
 
@@ -154,7 +165,7 @@ This skill is the physical-device counterpart to the `android-emulator:android-d
 | Situation | Use |
 |---|---|
 | Physical phone/tablet connected | This skill (adb direct) |
-| AVD / emulator | `singularity-todo-emulator-launch` (direct command; the MCP start tool times out on this host) |
+| AVD / emulator | `./scripts/ensure-emulator.sh`, documented by `singularity-todo-emulator-launch` (the MCP start tool times out on this host) |
 | Quick tap/screenshot on known serial | MCP tools with `serial=` |
 | Full verification run (build + install + wake + screenshot + logs) | This skill |
-| Starting a fresh AVD | `android-emulator:android-dev` |
+| Starting a fresh AVD | `./scripts/ensure-emulator.sh` (not `android-emulator:android-dev`) |

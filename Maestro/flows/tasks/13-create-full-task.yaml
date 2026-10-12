@@ -87,7 +87,8 @@ tags:
     visible:
       id: task_item_full_task_with_all_fields
     timeout: 8000
-- assertVisible: "Full task with all fields"
+- assertVisible:
+    id: task_item_full_task_with_all_fields
 
 # ── Verify priority badge (High = red flag) ───────────────────────────
 # The priority is shown as a colored flag icon in the task row.

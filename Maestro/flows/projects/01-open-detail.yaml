@@ -34,5 +34,7 @@ tags:
 - extendedWaitUntil:
     visible: "Project Alpha"
     timeout: 8000
-- assertVisible: "Tasks"
-- assertVisible: "No tasks yet"
+- assertVisible:
+    id: project_detail_tasks_header
+- assertVisible:
+    id: project_detail_empty

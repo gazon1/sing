@@ -9,7 +9,7 @@ against a real device or emulator.
 just tm                                   # every flow
 just tm tags=smoke                        # only the smoke subset
 just tm flow=Maestro/flows/tasks          # one directory
-SERIAL=emulator-5554 just tm tags=smoke # pin the device
+SERIAL=emulator-5554 just tm tags=smoke # pin the device (recovery still runs)
 
 # As part of the local check (opt-in; needs maestro CLI + a booted device):
 RUN_MAESTRO=1 ./check.sh
@@ -23,6 +23,16 @@ Environment variables understood by `scripts/run-maestro.sh`:
 ```bash
 SERIAL=$(./scripts/ensure-emulator.sh)   # prints a serial, starting the AVD if needed
 ```
+
+That is the only supported way to get a device: it prints a ready serial, or starts
+the AVD and waits for boot. A hand-rolled `adb devices | awk` can only ever find a
+device that was *already* up, so every emulator crash would surface as "connect a
+device" — when the remedy is one command.
+
+**Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
+is exactly the crash case `ensure-emulator.sh` exists to resurrect, so it restarts
+the AVD instead of failing. Only a pinned *physical* device is a hard error, because
+starting an AVD would land on `emulator-5554` and not match.
 
 `run-maestro.sh` calls this itself when no device is ready, and again whenever
 the device is lost mid-suite. That is not defensive padding: the host emulator
@@ -151,7 +161,7 @@ The workaround is verified; re-check before assuming a new failure is related.
 ## Related
 
 - Skill: `.agents/skills/singularity-todo-maestro-flows/SKILL.md`
-- Device pre-flight: `singularity-todo-adb-workflow` skill (adb discovery,
-  wake, unlock, install, logcat triage)
+- Device pre-flight: `singularity-todo-adb-workflow` skill (wake, unlock, install,
+  logcat triage) — the device itself comes from `./scripts/ensure-emulator.sh`
 - Note: `singularity-todo-test-tag-strategy` covers JUnit `@Tag("slow")`,
   which is unrelated to Maestro's `tags:` header despite the similar name.

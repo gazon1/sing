@@ -106,9 +106,8 @@ class MyViewModel(
 **`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
 **`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
-**Stale-test-classes is NOT a thing (verified 2026-10-04)** — after editing a test (incl.
-a `systemProperty`-reading one), a plain rerun recompiles and re-executes correctly;
-`--rerun-tasks` is only a debugging crutch. Evidence: ADR
+**Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
+recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR
 `2026-10-04-configuration-cache-hardening` §A3.
 
 ## expect/actual порты
@@ -154,11 +153,8 @@ A–G мета-гейта и рецепты — скилл `singularity-todo-qua
 ## 🤖 Dogfooding: MCP Server
 
 Агенты подключаются к `:mcp-server` через stdio и правят задачи/проекты/заметки/теги/ADR.
+Запуск: `./gradlew :mcp-server:build && java -jar mcp-server/build/libs/mcp-server-jvm-*.jar --profile=ai-agent`.
 Полный список tools (22 write/read + 13 AI gen) — `singularity-todo-mcp-server` skill.
-
-```bash
-./gradlew :mcp-server:build && java -jar mcp-server/build/libs/mcp-server-jvm-*.jar --profile=ai-agent
-```
 
 MCP tools меняют state только через репозитории; `write_adr` пишет в `docs/decisions/`;
 timestamps — `kotlin.time.Instant`; business errors → `isError:true`, internal → `-32603`.
@@ -171,7 +167,7 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 
 - **Behavior change** → workflow `openspec-change`; **ADR-only** (нет spec-level изменения) → `adr-create`; **не нужен:** bug fix, test-only, dep update, doc-only, rename без контрактного изменения
 - Hooks: после implement — `singularity-adr validate` (`.specify/extensions.yml`); после правок ADR — `./scripts/refresh-decisions-digest.sh`
-- **Issue registry:** `.specify/issues/<slug>.yaml` — один record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]` (все 635 исторических изменений уже импортированы)
+- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`
 - Constitution: `.specify/constitutions/singularity-todo.md`
 
 ## 🔧 Run-loop (UI-верификация)
@@ -182,18 +178,17 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 `xvfb-run -a ./gradlew :desktopApp:run`.
 
 **Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` ·
-`find-usages` · `render-compose-preview` · `version-lookup` · `open-file` для
-семантического анализа, рендеринга Compose Preview и навигации по коду. **Journeys:**
-`android journey create <name>` · `android journey run <name>` для автоматизации
-user flow. Подробности: `singularity-todo-android-cli` skill.
+`find-usages` · `render-compose-preview` · `version-lookup` · `open-file`; **Journeys:**
+`android journey create|run <name>`. Подробности: `singularity-todo-android-cli` skill.
 
 **DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/` + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android); desktop — `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"`.
 
-> **Эмулятор**: `./scripts/ensure-emulator.sh` → serial или AVD; `scripts/run-maestro.sh`
-> перезапустит, если устройство пропало. Не подкручивайте `-gpu` — дефолтный host GPU
-> периодически падает в gfxstream (скилл `singularity-todo-emulator-launch`). **Maestro сейчас
-> падает в этом окружении** (`DeviceServerDiedException`, в т.ч. на контрольном потоке) —
-> это эмулятор/драйвер, не код.
+> **Эмулятор**: `./scripts/ensure-emulator.sh` → serial или поднимет AVD. Это **единственная**
+> точка входа за устройством: свой `adb devices | awk` найдёт только уже поднятый девайс, и каждое
+> падение эмулятора превратится в «подключите устройство». Пин `SERIAL=…` recovery **не** выключает:
+> неготовый *эмулятор* скрипт перезапустит, жёстко падает только пин на физическое устройство.
+> Не подкручивайте `-gpu` — дефолтный host GPU периодически падает в gfxstream
+> (скилл `singularity-todo-emulator-launch`).
 
 ## 🤖 Coroutine test failures
 

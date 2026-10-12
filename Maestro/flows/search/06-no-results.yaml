@@ -2,7 +2,7 @@
 #
 # The flow distinguishes this from the idle prompt (empty query) and from
 # results that happen to be empty for other reasons — the no-results
-# state shows "No results found" text.
+# state is asserted by its own testTag (`search_empty_results`).
 appId: com.singularity.todo
 name: search-no-results
 tags:
@@ -27,7 +27,8 @@ tags:
     timeout: 5000
 
 # Idle prompt is shown with empty query.
-- assertVisible: "Enter a search query"
+- assertVisible:
+    id: search_empty_placeholder
 
 # Type a query that cannot possibly match.
 - tapOn:
@@ -37,8 +38,9 @@ tags:
 # No-results state must appear.
 - extendedWaitUntil:
     visible:
-      text: "No results found"
+      id: search_empty_results
     timeout: 8000
 
 # Idle prompt must NOT be visible when there is a non-empty query.
-- assertNotVisible: "Enter a search query"
+- assertNotVisible:
+    id: search_empty_placeholder

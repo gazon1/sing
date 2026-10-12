@@ -44,7 +44,8 @@ tags:
 # A disabled button may or may not be tappable — verify nothing was added
 # by trying to add with blank URL and checking the list stays empty.
 # Since the URL field is empty, tapping Add URL does nothing.
-- assertNotVisible: "attachments_add_url_button"
+- assertNotVisible:
+    id: attachments_add_url_button
 
 # Verify the sheet is still open with the empty URL field.
 - assertVisible:

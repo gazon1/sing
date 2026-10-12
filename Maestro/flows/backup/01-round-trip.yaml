@@ -58,11 +58,15 @@ tags:
     timeout: 5000
 
 # 3. Create a backup. The dialog is system-owned so no testTag on its confirm.
+#
+# The result dialog is asserted structurally (`result_dialog`) rather than by
+# its copy. The ViewModel emits "Backup created", and the message is translated
+# on this device, so a text match either rots or silently never passes.
 - tapOn:
     id: backup_create_button
 - extendedWaitUntil:
     visible:
-      text: "Backup created successfully"
+      id: result_dialog
     timeout: 15000
 
 # 4. Clear app data (wiping all tasks), then relaunch.

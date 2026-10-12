@@ -41,6 +41,10 @@ import kotlinx.datetime.toLocalDateTime
  *   task, note and project in the active profile whose title/name starts with
  *   any of the given prefixes. Comma-separated so one link can sweep several
  *   fixture families.
+ * - `reset=content` — deletes instead of seeding: removes every task, note and
+ *   project in the active profile, keeping the profile and session. For fixtures
+ *   a flow *typed* rather than seeded, which carry no run id for `cleanup=` to
+ *   match. NOT concurrency-safe — it wipes other runs' in-flight fixtures too.
  *
  * Examples:
  * ```
@@ -104,6 +108,15 @@ class DebugSeedActivity :
 
         // Cleanup wins over seeding: a cleanup link carries no entity params, and
         // honouring both would mean a link that deletes the fixture it just made.
+        if (params.containsKey("reset")) {
+            resetContent(
+                taskRepo = taskRepo,
+                notesRepo = notesRepo,
+                projectsRepo = projectsRepo,
+            )
+            return
+        }
+
         params["cleanup"]?.let { prefixes ->
             cleanup(
                 prefixes = prefixes.split(',').map { it.trim() }.filter { it.isNotEmpty() },
@@ -202,6 +215,31 @@ class DebugSeedActivity :
                 // Profile creation and switch already handled above.
             }
         }
+    }
+
+    /**
+     * Removes every task, note and project in the active profile, keeping the
+     * profile, the session and the auth state intact.
+     *
+     * This is the escape hatch for fixtures that a flow creates by *typing* a
+     * title rather than seeding it: those carry no run id, so the prefix sweep
+     * cannot find them, and they accumulate until a negative flow (one asserting
+     * an empty list) starts failing because a previous run's row is still there.
+     *
+     * **Not concurrency-safe by construction.** Wiping all content deletes another
+     * run's in-flight fixtures too. Use it for sequential runs — or to recover a
+     * wedged device — never while two suites share an emulator.
+     */
+    private suspend fun resetContent(
+        taskRepo: TaskRepository,
+        notesRepo: NotesRepository,
+        projectsRepo: ProjectsRepository,
+    ) {
+        var removed = 0
+        taskRepo.observeAll().first().forEach { taskRepo.delete(it.id).onSuccess { removed++ } }
+        notesRepo.observeAll().first().forEach { notesRepo.delete(it.id).onSuccess { removed++ } }
+        projectsRepo.observeAll().first().forEach { projectsRepo.delete(it.id).onSuccess { removed++ } }
+        android.util.Log.i("DebugSeedActivity", "reset(content) removed $removed entities")
     }
 
     /**

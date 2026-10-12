@@ -37,6 +37,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FLOW="${FLOW:-Maestro/flows}"
 TAGS="${TAGS:-}"
 SERIAL="${SERIAL:-}"
+# De-export SERIAL. Assigning a variable that came in through the environment
+# keeps its export attribute, so without this every child process inherited the
+# caller's pin — including scripts/ensure-emulator.sh, which then took its
+# pinned-serial branch and hard-failed instead of restarting a crashed AVD.
+# Recovery must depend on what this script discovers, not on what the caller
+# happened to export.
+export -n SERIAL 2>/dev/null || true
 
 RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[0;33m'; NC=$'\033[0m'
 
@@ -306,8 +313,21 @@ new_run_id() {
 # flow would be reported red for a housekeeping problem.
 cleanup_run_fixtures() {
     local run_id="$1"
-    [[ "${MAESTRO_CLEANUP:-1}" == "1" ]] || return 0
+    # MAESTRO_CLEANUP: run (default) | all | off
+    [[ "${MAESTRO_CLEANUP:-run}" == "off" ]] && return 0
     device_alive || return 0
+
+    if [[ "${MAESTRO_CLEANUP:-run}" == "all" ]]; then
+        # Strongest isolation: drop every task/note/project, including fixtures a
+        # flow *typed* rather than seeded (those carry no run id, so `cleanup=`
+        # cannot match them, and they accumulate until a negative flow asserting
+        # an empty list fails). Sequential runs only — this wipes a concurrent
+        # run's in-flight fixtures too.
+        adb -s "$SERIAL" shell am start -a android.intent.action.VIEW \
+            -d "todo-debug://seed?reset=content" >/dev/null 2>&1 || true
+        sleep 1
+        return 0
+    fi
 
     # Prefix literals are URL-encoded here; ',' separates families in one link.
     local cleanup="'$run_id,Buy%20milk'"

@@ -25,4 +25,4 @@ tags:
 - assertVisible:
     id: calendar_view_mode_day
 - assertNotVisible:
-    text: "Mon"
+    id: calendar_weekday_mon

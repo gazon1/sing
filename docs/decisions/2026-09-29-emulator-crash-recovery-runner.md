@@ -153,6 +153,12 @@ raised 1 → 2 so a pass can absorb two losses.
   fix.
 - The real fix is upstream: a corrected `TextureResize` in a future Android
   Emulator release.
+- **Update (2026-10-13).** Pinning `SERIAL` no longer switches recovery off.
+  `run-maestro.sh` de-exports `SERIAL` before it calls `ensure-emulator.sh`, and
+  the script now relaunches the AVD when a pinned `emulator-*` serial is not ready
+  — the crash case it exists to resurrect — instead of hard-failing. A pinned
+  *physical* device stays a hard error, because starting an AVD would land on
+  `emulator-5554` and not match.
 
 ## Links
 

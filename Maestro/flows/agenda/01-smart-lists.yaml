@@ -93,12 +93,15 @@ tags:
 - tapOn:
     id: task_editor_due_row
 
-# DatePickerSheet opens as a bottom sheet. The header shows "Select date"
-# and the date grid starts below. The "Today" cell contains
-# "Today, Monday, October 12, 2026" — use regex to match.
+# DatePickerSheet opens as a bottom sheet. Assert the sheet BODY, not the
+# "Select date" heading — that heading is Material3's own copy and carries no app
+# testTag, so matching it ties the flow to library text. The OK/CANCEL/CLEAR tags
+# are no substitute here either: they sit at the bottom of a scrolling column and
+# can be below the fold before the sheet has been scrolled.
+# The "Today" cell contains "Today, Monday, October 12, 2026" — regex to match.
 - extendedWaitUntil:
     visible:
-      text: "Select date"
+      id: dialog_date_picker_sheet
     timeout: 8000
 - tapOn:
     text: "Today.*"

@@ -16,24 +16,46 @@ SERIAL=$(./scripts/ensure-emulator.sh)     # start if needed, wait for boot
 ./scripts/run-maestro.sh                   # runs per-flow and relaunches on its own
 ```
 
+**Pinning `SERIAL` does not switch recovery off.** `SERIAL=emulator-5554
+./scripts/run-maestro.sh` is fine: the runner *de-exports* `SERIAL`, so the pin
+never leaks into `ensure-emulator.sh` and the script is free to relaunch. Pin the
+script directly and it takes the same branch — a pinned-but-unready *emulator* is
+exactly the crash case it exists to resurrect, so `SERIAL=emulator-5554
+./scripts/ensure-emulator.sh` restarts the AVD instead of reporting failure. Only
+a pinned *physical* device stays a hard error, because starting an AVD would land
+on `emulator-5554` and not match.
+
+This was a real trap: the runner used to re-export the pin and hard-fail there, so
+`SERIAL=…` reproduced "could not obtain a device" every time the emulator died
+mid-suite — looking like flaky infrastructure when the recovery path had simply
+been switched off.
+
 Everything below is for the interactive case and for understanding *why* the
 script does what it does.
 
 ## The launch command
 
-```bash
-# A crashed run leaves the AVD locked; a second qemu refuses to start.
-pkill -9 -f "qemu-system-x86_64 -avd Medium_Phone"; sleep 2
-rm -f ~/.android/avd/Medium_Phone.avd/*.lock
+Run the script, not a hand-typed command:
 
+```bash
+SERIAL=$(./scripts/ensure-emulator.sh)   # clears stale locks, launches, waits for boot
+```
+
+That is the whole launch procedure — a crashed run leaves the AVD locked and a
+second qemu refuses to start, so the script `pkill`es the zombie, removes
+`~/.android/avd/<AVD>.avd/*.lock`, then runs exactly this (verbatim in the script
+header, with each flag's reason next to it):
+
+```bash
+# what ensure-emulator.sh executes — do not retype it
 emulator -avd Medium_Phone -no-snapshot-load -no-boot-anim \
   -camera-back none -camera-front none -no-audio > /tmp/emu.log 2>&1 &
 sleep 10    # keep this shell call alive; see "Process survival"
 ```
 
-Completion criterion: the log exists and grew, and contains
-`Created extended window`. Boot takes ~12–60 s; `adb devices` should show
-`emulator-5554   device`.
+Completion criterion: the script exits 0 and prints a serial. It does so only once
+the qemu process is running and `sys.boot_completed=1` — boot takes ~12–60 s, and
+`adb devices` then shows `emulator-5554   device`.
 
 Why each flag is load-bearing:
 
@@ -127,7 +149,7 @@ fine against an already-running emulator.
 | Startup `amdgpu: The CS has been rejected (-22)` + `IOT instruction` | Mesa/kernel regression on AMD Renoir — **a different, already-fixed problem**; do not confuse it with the above. `2026-09-28-emulator-mesa-radeon-cs-rejected.md` |
 | Startup SIGSEGV with `-gpu software` / `-gpu swangle` / `-no-window` | Known dead ends on this AVD. Use the recipe as written. |
 | `Running multiple emulators with the same AVD` | A zombie qemu still holds the AVD. `pkill`, then remove `~/.android/avd/<AVD>.avd/*.lock`. |
-| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; relaunch. |
+| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; `./scripts/ensure-emulator.sh` relaunches it. |
 | System "keeps stopping" dialog on the device | The **app** crashed. `adb logcat -d -b crash` names the real bug. |
 
 ## After a mid-session death

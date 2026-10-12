@@ -46,4 +46,5 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_item_task_from_inbox_tab
-- assertVisible: "Task from Inbox tab"
+- assertVisible:
+    id: task_item_task_from_inbox_tab

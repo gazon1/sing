@@ -59,12 +59,23 @@ if [[ -z "$SERIAL" ]]; then
 fi
 
 if [[ -n "$SERIAL" ]]; then
-    # The caller pinned a serial that is not usable. Starting a second AVD would
-    # land on emulator-5554 and not match, so this is a hard error rather than
-    # something to paper over by launching something else.
-    echo -e "${RED}Device '$SERIAL' is present but not ready.${NC}" >&2
-    adb devices >&2 || true
-    exit 1
+    # A pinned *emulator* is recoverable — it crashed, and starting the AVD is
+    # exactly the remedy. run-maestro.sh re-exports SERIAL, so a caller who pins
+    # the device they are testing on would otherwise switch recovery off: the
+    # script would hard-fail on the very device it exists to resurrect. That is
+    # not hypothetical — `SERIAL=emulator-5554 scripts/run-maestro.sh` exports
+    # SERIAL, the emulator dies mid-suite, and recovery declines to run.
+    if [[ "$SERIAL" == emulator-* ]]; then
+        echo -e "${YELLOW}Pinned emulator '$SERIAL' is not ready; restarting the AVD.${NC}" >&2
+        SERIAL=""
+    else
+        # A pinned *physical* device is not recoverable: starting an AVD would
+        # land on emulator-5554 and not match, so this stays a hard error rather
+        # than something to paper over by launching something else.
+        echo -e "${RED}Device '$SERIAL' is present but not ready.${NC}" >&2
+        adb devices >&2 || true
+        exit 1
+    fi
 fi
 
 # ── 2. Start the AVD ──────────────────────────────────────────────────────────

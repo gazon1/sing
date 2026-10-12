@@ -36,6 +36,11 @@ adb devices -l
 #         $SERIAL = 12345678
 ```
 
+Pick the *physical* serial — skip `emulator-*` lines, or you will unlock an AVD
+instead of the phone. Emulator targets do not use this skill at all; they go
+through `./scripts/ensure-emulator.sh`, the repo's single device-recovery
+primitive.
+
 If `state=unauthorized`: the device shows "Allow USB debugging?" on its screen — the human must tap "Allow" and "Always allow from this computer".
 
 ## Full pre-flight checklist before every session
@@ -58,7 +63,7 @@ adb -s $SERIAL shell dumpsys power | grep -E "mWakefulness|mScreenOn"
 Combine into one shell snippet for copy-paste:
 
 ```bash
-SERIAL=$(adb devices -l | grep ' device$' | head -1 | awk '{print $1}')
+SERIAL=$(adb devices -l | grep ' device$' | grep -v '^emulator-' | head -1 | awk '{print $1}')
 adb -s $SERIAL shell input keyevent KEYCODE_WAKEUP
 adb -s $SERIAL shell input keyevent 82
 ```
@@ -74,7 +79,10 @@ This skill replaces `mcp__android_emulator__android_start_emulator` when the tar
 > "Allow USB debugging" tap before running this skill. If the AVD aborts with
 > `eglMakeCurrent failed`, drop the stale snapshot
 > (`rm -rf ~/.android/avd/<AVD>/snapshots/*`) and cold-boot. See
-> `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`.
+> `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`. To get a
+> device for the emulator case, run `./scripts/ensure-emulator.sh` — it launches
+> with `-no-snapshot-load` and clears stale AVD locks itself, so no hand-editing
+> of `~/.android/avd` is needed on the scripted path.
 
 The upstream `singularity-todo-adb-workflow` skill uses this as its first step (wake/unlock) before build/install/launch.
 

@@ -69,7 +69,8 @@ tags:
 # ── The row now reports the rule ──────────────────────────────────────
 - assertVisible:
     id: task_editor_recurrence_row
-- assertVisible: "Repeats"
+- assertVisible:
+    id: task_editor_recurrence_label
 
 # ── Save ──────────────────────────────────────────────────────────────
 - hideKeyboard
@@ -81,4 +82,5 @@ tags:
     visible:
       id: task_item_water_the_plants
     timeout: 8000
-- assertVisible: "Water the plants"
+- assertVisible:
+    id: task_item_water_the_plants

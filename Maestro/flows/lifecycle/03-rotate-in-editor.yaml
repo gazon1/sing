@@ -18,6 +18,8 @@ tags:
 # Still the editor, and the title survived the configuration change.
 - assertVisible:
     id: task_editor_title_input
+# NOTE: asserted as text because the editor is still open across the rotation
+# and no task row is mounted; `task_item_buy_milk` only applies once it closes.
 - assertVisible: "Buy milk"
 - setOrientation: PORTRAIT
 - waitForAnimationToEnd:

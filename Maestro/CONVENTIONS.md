@@ -93,7 +93,6 @@ Six helpers exist in `Maestro/helpers/`. Use them — do not duplicate their log
 | `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
 | `start-focus-task.yaml` | Pomodoro flows needing a focused task |
-| `pick-date.yaml` | Flows needing a date selected in the picker |
 | `open-menu-item.yaml` | Flows navigating via the menu sheet |
 
 ### Helper threshold

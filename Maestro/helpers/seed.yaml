@@ -16,12 +16,19 @@
 #
 # This helper does NOT run launch-clean — the caller decides.
 #
-# Leaves the app on the Today tab with the seeded entity visible. The tab
-# round-trip at the end is not cosmetic: the deep link brings MainActivity up with
-# CLEAR_TOP|SINGLE_TOP, and on a cold start the seed commits while MainActivity is
-# still being created, so the agenda's first composition reads a pre-seed query.
-# The seeded row then does not appear until something forces a re-query — a tab
-# switch does exactly that.
+# Leaves the app on the Today tab with the seeded entity visible.
+#
+# There is deliberately no inbox→today tab round-trip here. One was added on
+# 2026-10-12 on the belief that a deep-link seed into an already-composed
+# MainActivity left the agenda reading pre-seed state (ADR 2026-10-12 §9). That
+# did not reproduce once the runner swept each run's fixtures on success: the
+# original observation was made while leftovers from earlier runs were still in
+# the list, so what looked like "the new row never arrived" was the new row
+# arriving below rows the previous runs had left behind.
+#
+# Verified without the taps on `auth/01-first-run-anonymous`, `tasks/04-delete`
+# and `agenda/01-smart-lists`. Callers still `scrollUntilVisible` their own row,
+# which is what actually absorbs a slow arrival.
 appId: com.singularity.todo
 name: seed
 ---
@@ -30,8 +37,3 @@ name: seed
     visible:
       id: nav_tab_today
     timeout: 8000
-- tapOn:
-    id: nav_tab_inbox
-- tapOn:
-    id: nav_tab_today
-- waitForAnimationToEnd

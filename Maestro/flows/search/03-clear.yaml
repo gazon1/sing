@@ -1,7 +1,8 @@
 # Search: clearing the query text returns to the idle prompt.
 #
-# The idle prompt is "Enter a search query". After clearing, the results
-# must disappear and the prompt must return.
+# The idle prompt is the search empty placeholder (testTag
+# `search_empty_placeholder`, asserted by id so the flow survives translation).
+# After clearing, the results must disappear and the prompt must return.
 appId: com.singularity.todo
 name: search-clear
 tags:
@@ -44,7 +45,7 @@ tags:
 # After clearing, the idle prompt returns.
 - extendedWaitUntil:
     visible:
-      text: "Enter a search query"
+      id: search_empty_placeholder
     timeout: 5000
 
 # Results must be gone.
