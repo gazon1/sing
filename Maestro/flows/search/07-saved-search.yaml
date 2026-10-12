@@ -1,0 +1,98 @@
+# Search: a saved search persists across sessions and can be loaded.
+#
+# The SaveSearchDialog has no testTag on its internal controls, so the
+# flow types the search name, submits via keyboard IME action, and
+# verifies the saved search chip appears in the row.
+appId: com.singularity.todo
+name: search-saved-search
+tags:
+  - search
+  - scenario:SEARCH-07
+---
+# Seed two tasks with a shared prefix.
+- openLink: "todo-debug://seed?task=SavedAlpha2026"
+- openLink: "todo-debug://seed?task=SavedBeta2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open quick search.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Type query.
+- tapOn:
+    id: search_input
+- inputText: "Saved2026"
+- extendedWaitUntil:
+    visible:
+      id: task_item_savedalpha2026
+    timeout: 8000
+
+# Open save dialog via the save icon in the top bar.
+- tapOn:
+    iconDescription: "Save search"
+- extendedWaitUntil:
+    visible:
+      text: "Search name"
+    timeout: 5000
+
+# Type a name and submit via IME action (no testTag on the confirm button).
+- inputText: "My Saved Query"
+- pressKey: "Enter"
+
+# Snackbar confirms save.
+- extendedWaitUntil:
+    visible:
+      text: "Search saved"
+    timeout: 5000
+
+# The saved search chip should appear in the saved searches row.
+# It renders as a FilterChip with the saved name text.
+- extendedWaitUntil:
+    visible:
+      text: "My Saved Query"
+    timeout: 5000
+
+# Navigate away and come back.
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 5000
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# The saved search persists and can be tapped to load the query.
+- extendedWaitUntil:
+    visible:
+      text: "My Saved Query"
+    timeout: 5000
+- tapOn:
+    text: "My Saved Query"
+- extendedWaitUntil:
+    visible:
+      id: task_item_savedalpha2026
+    timeout: 8000

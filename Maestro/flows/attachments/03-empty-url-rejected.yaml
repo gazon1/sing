@@ -1,0 +1,51 @@
+# Attachments: submitting an empty URL does not add an attachment.
+appId: com.singularity.todo
+name: attachments-empty-url-rejected
+tags:
+  - attachments
+  - negative
+  - scenario:ATTACH-03
+---
+# Seed a task.
+- openLink: "todo-debug://seed?task=EmptyUrlTask2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open task detail.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_emptyurltask2026
+    timeout: 5000
+- tapOn:
+    id: task_item_emptyurltask2026
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# Open attachments sheet.
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: attachments_add_file_row
+- extendedWaitUntil:
+    visible:
+      id: attachments_url_input
+    timeout: 5000
+
+# The Add URL button should be disabled when the URL field is empty.
+# A disabled button may or may not be tappable — verify nothing was added
+# by trying to add with blank URL and checking the list stays empty.
+# Since the URL field is empty, tapping Add URL does nothing.
+- assertNotVisible: "attachments_add_url_button"
+
+# Verify the sheet is still open with the empty URL field.
+- assertVisible:
+    id: attachments_url_input

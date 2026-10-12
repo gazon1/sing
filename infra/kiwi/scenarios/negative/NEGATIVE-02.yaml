@@ -1,0 +1,18 @@
+# Scenario specification for NEGATIVE-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/negative/02-empty-notes.yaml` (`scenario:NEGATIVE-02`).
+
+id: NEGATIVE-02
+title: "The notes list shows an empty state"
+area: feature.negative
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No notes exist.
+steps:
+  - Open the notes list with nothing in it.
+expected: >-
+  The list shows its empty state instead of rendering as an empty area with no
+  message.

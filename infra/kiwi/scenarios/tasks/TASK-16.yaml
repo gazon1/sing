@@ -1,0 +1,19 @@
+# Scenario specification for TASK-16.
+
+id: TASK-16
+title: Creating from a tab returns to that tab after save
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  An empty task database.
+steps:
+  - From the Today tab, open the FAB, enter a title, and save.
+  - Verify the task appears in Today and the Today tab is still active.
+  - Switch to the Inbox tab.
+  - Open the FAB, enter a different title, and save.
+  - Verify the task appears in No Date and the Inbox tab is still active.
+expected: >-
+  The save operation returns to the originating tab. The Today task is in
+  the Today section and the Inbox task is in the No Date section.

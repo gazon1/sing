@@ -1,0 +1,23 @@
+# Scenario specification for NEGATIVE-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/negative/01-empty-inbox.yaml` (`scenario:NEGATIVE-01`).
+#
+# First of six: the point of the set is that all six screens were previously
+# untested in exactly this state, because a developer working on a seeded device
+# never sees an empty list.
+
+id: NEGATIVE-01
+title: "The Inbox empty state names what is missing"
+area: feature.negative
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No tasks exist. A clean launch, not a filtered list that happens to be empty —
+  the two are different states and only the first is this scenario.
+steps:
+  - Open Inbox with no tasks.
+expected: >-
+  An empty state is shown saying what the screen is empty of, rather than a
+  blank list that is indistinguishable from a screen that failed to load.

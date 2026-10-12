@@ -1,0 +1,18 @@
+# Scenario specification for NEGATIVE-03.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/negative/03-empty-projects.yaml` (`scenario:NEGATIVE-03`).
+
+id: NEGATIVE-03
+title: "The Plans tab shows an empty state with no projects"
+area: feature.negative
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No projects exist.
+steps:
+  - Open the Plans tab with nothing in it.
+expected: >-
+  The tab shows its empty state rather than an unexplained blank area — a tab
+  with nothing to show still has to say so.

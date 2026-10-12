@@ -1,0 +1,25 @@
+# Scenario specification for NEGATIVE-05.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/negative/05-empty-search.yaml` (`scenario:NEGATIVE-05`).
+#
+# The only screen in the set with two empty states, and the reason it is the one
+# that most needs its own scenario: "type something" and "nothing matched" are
+# different answers. A search screen that showed the idle prompt after a failed
+# query would pass an assertion that only checked for *an* empty state.
+
+id: NEGATIVE-05
+title: "Search distinguishes an idle prompt from no matches"
+area: feature.negative
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  The Search screen is open with no query entered.
+steps:
+  - Open Search with nothing typed.
+  - Search for a string that matches nothing.
+expected: >-
+  The empty query shows a prompt asking the user to search, and the failed
+  search says that nothing matched — so the second state does not invite the
+  user to type again when they already have.

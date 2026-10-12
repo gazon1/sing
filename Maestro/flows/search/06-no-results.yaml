@@ -1,0 +1,44 @@
+# Search: a query that matches nothing shows an explicit no-results state.
+#
+# The flow distinguishes this from the idle prompt (empty query) and from
+# results that happen to be empty for other reasons — the no-results
+# state shows "No results found" text.
+appId: com.singularity.todo
+name: search-no-results
+tags:
+  - search
+  - negative
+  - scenario:SEARCH-06
+---
+- runFlow: ../helpers/launch-clean.yaml
+
+# Open quick search.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Idle prompt is shown with empty query.
+- assertVisible: "Enter a search query"
+
+# Type a query that cannot possibly match.
+- tapOn:
+    id: search_input
+- inputText: "zzzznomatchzzzz999999"
+
+# No-results state must appear.
+- extendedWaitUntil:
+    visible:
+      text: "No results found"
+    timeout: 8000
+
+# Idle prompt must NOT be visible when there is a non-empty query.
+- assertNotVisible: "Enter a search query"

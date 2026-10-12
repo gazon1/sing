@@ -1,0 +1,36 @@
+# Scenario specification for AGENDA-06.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/06-full-lifecycle.yaml` (`scenario:AGENDA-06`).
+#
+# Overlaps AGENDA-03 and AGENDA-04 on purpose. This flow is the regression guard
+# for two specific failures named in its header: a save that navigated nowhere
+# ("Save spins forever"), and a list-level delete that raised a confirmation
+# dialog it should not have. Either defect would pass every individual step of
+# this path in isolation — the save in AGENDA-03 asserts the view is listed, not
+# where the user lands, and the delete in AGENDA-03 is edit-mode, which does ask
+# for confirmation. The whole path is what catches them.
+
+id: AGENDA-06
+title: "A saved view survives create, rename, reopen and delete"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  No saved view exists yet, so the lifecycle starts from the same empty state a
+  new user's account would be in.
+steps:
+  - Open the saved-views list and confirm it is empty.
+  - Create a view named "Journey View" from the current agenda.
+  - Open the view and confirm its results render.
+  - Edit the view and rename it.
+  - Reopen the renamed view.
+  - Delete it from the list.
+expected: >-
+  The list ends where it started — empty — with every intermediate step
+  observable along the way: the rename is what the list shows afterwards, a
+  delete at list level takes effect immediately without a confirmation dialog
+  that belongs only to edit mode, and no step leaves the user stranded. A build
+  that returned to the empty state anywhere before the final delete fails this
+  scenario even though every individual step would pass on its own.

@@ -1,0 +1,26 @@
+# Scenario specification for NOTES-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/notes/01-edit-body.yaml` (`scenario:NOTES-02`).
+#
+# The editor autosaves, so there is no save action to press and therefore no
+# moment at which the app tells the user it kept their text. That makes
+# persistence the only thing worth asserting: a note held in memory until an
+# explicit save would fail here and nowhere else.
+
+id: NOTES-02
+title: "An edited note body survives reopening the note"
+area: feature.notes
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A note exists.
+steps:
+  - Open the note and go to its editor via the Edit action on the preview.
+  - Change the body.
+  - Leave the note and reopen it.
+expected: >-
+  The edited body is still there, so the autosave happened and the text is not
+  lost on the way out. Quick-add lands on the preview rather than the editor,
+  which is why the edit is a separate action here.

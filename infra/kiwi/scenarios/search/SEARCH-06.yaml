@@ -1,0 +1,19 @@
+# Scenario specification for SEARCH-06.
+
+id: SEARCH-06
+title: A query with no matches shows an explicit no-results state
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is on the Search screen with the input focused and empty.
+steps:
+  - Verify the idle prompt "Enter a search query" is shown.
+  - Type a query that cannot possibly match any content in the database.
+  - Observe the state after results are computed.
+expected: >-
+  An explicit "No results found" state is shown. This is distinct from the
+  idle prompt (which is shown when the query is empty). The no-results
+  state invites the user to try a different query, not to type more of the
+  same one.

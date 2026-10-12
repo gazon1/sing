@@ -1,0 +1,39 @@
+# Scenario specification for AGENDA-03.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/03-saved-views-crud.yaml` (`scenario:AGENDA-03`).
+#
+# Two details from the flow's header are load-bearing and are stated as
+# expectations rather than as comments:
+#
+#   * Save pre-fills the name with the agenda's title ("Today"), so the field
+#     must be cleared before typing — text input appends. A user typing without
+#     clearing gets "TodayFocus", which is their mistake rather than a bug, so
+#     the flow clears the field first.
+#   * Saving returns to the agenda, not to the list. That navigation was a
+#     regression ("Save spins forever"); getting it wrong means the user cannot
+#     see the view they just made.
+#
+# Delete is only offered in edit mode, which is what the second half exercises.
+
+id: AGENDA-03
+title: "Saving the current agenda as a named view, then deleting it"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  At least one task matches the agenda filter being saved, so the saved view
+  has a non-empty definition to carry.
+steps:
+  - From the agenda, choose to save the current view.
+  - Clear the pre-filled name and type a name of your own.
+  - Save, and observe where you land.
+  - Reopen the saved-views list and find the new view.
+  - Enter edit mode and delete it.
+expected: >-
+  Saving returns to the agenda — not to the list — so the view is created
+  without stranding the user. The list then shows the view under the name typed,
+  and deleting it removes it, leaving the rest of the list untouched. The name
+  is the one typed rather than the pre-fill, because the field is cleared first;
+  which name is "correct" is not something this scenario claims.

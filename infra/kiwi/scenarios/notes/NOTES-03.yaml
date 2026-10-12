@@ -1,0 +1,24 @@
+# Scenario specification for NOTES-03.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/notes/02-filter-chips.yaml` (`scenario:NOTES-03`).
+#
+# Both notes are unpinned and unarchived on purpose. If one of them were pinned,
+# Pinned and All would show the same set and this scenario could not tell a
+# working filter from one that ignores its input.
+
+id: NOTES-03
+title: "The All, Pinned and Archived chips show different sets"
+area: feature.notes
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  Two notes exist, neither pinned and neither archived.
+steps:
+  - Open the notes list on the All chip.
+  - Switch to Pinned.
+  - Switch to Archived.
+expected: >-
+  All shows both notes and the other two chips show neither, so each filter
+  narrows the list to its own set rather than leaving it unchanged.

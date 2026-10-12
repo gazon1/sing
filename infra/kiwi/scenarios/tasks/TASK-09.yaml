@@ -1,0 +1,16 @@
+# Scenario specification for TASK-09.
+
+id: TASK-09
+title: Cancelling the date picker leaves the task undated
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists and its detail/editor screen is open.
+steps:
+  - Tap the Due date row to open the date picker.
+  - Select a day but tap Cancel instead of OK.
+expected: >-
+  The row label stays as "Add date". No date is saved and the task
+  remains undated.

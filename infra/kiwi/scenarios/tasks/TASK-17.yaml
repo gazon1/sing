@@ -1,0 +1,20 @@
+# Scenario specification for TASK-17.
+
+id: TASK-17
+title: Start and stop a time-tracking session on a task
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists and the app is signed in. The task's detail screen is
+  open and scrolled to the time-tracking section.
+steps:
+  - Tap the Start chip.
+  - Verify the chip changes to Stop and the elapsed timer is visible.
+  - Tap the Stop chip.
+expected: >-
+  The chip swaps from Start to Stop in place while the timer is running,
+  and returns to Start when stopped. No crash occurs across the state
+  transitions. (A signed-in session is required; anonymous or dev sessions
+  show an error state instead of the Start chip.)

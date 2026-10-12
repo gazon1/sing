@@ -1,0 +1,18 @@
+# Scenario specification for ATTACH-02.
+
+id: ATTACH-02
+title: Deleting an attachment removes it from the list
+area: feature.attachments
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved task exists with one URL attachment already added.
+steps:
+  - Open the task's detail screen.
+  - Locate the attachment in the Attachments section.
+  - Tap the delete icon on the attachment row.
+  - Observe the attachment list.
+expected: >-
+  The attachment is removed from the list. If it was the last attachment,
+  the section returns to the empty state showing "+ Add file".

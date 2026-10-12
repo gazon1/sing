@@ -1,0 +1,28 @@
+# Scenario specification for CALENDAR-03.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/calendar/03-tap-day.yaml` (`scenario:CALENDAR-03`).
+#
+# "The day view opened" and "the *right* day opened" are different claims, and
+# with thirty identical-looking numbers on screen only the second is useful. The
+# date header is what distinguishes them, which is why it is asserted rather than
+# the presence of the single-day view.
+#
+# Matching a day by its number as text is unambiguous inside one month grid
+# because each number appears once. A grid showing adjacent-month days would break
+# that, and none does today.
+
+id: CALENDAR-03
+title: "Tapping a day in Month view opens that day's view"
+area: feature.calendar
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The Calendar tab is open in Month view.
+steps:
+  - Tap a numbered day in the grid.
+expected: >-
+  That day's view opens and the date header names the day that was tapped, so
+  the user lands on the day they chose. The mode control follows the navigation
+  into the single-day view rather than still reporting Month.

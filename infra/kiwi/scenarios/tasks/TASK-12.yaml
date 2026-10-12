@@ -1,0 +1,19 @@
+# Scenario specification for TASK-12.
+
+id: TASK-12
+title: Create a task with all attribute fields filled
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is on the Inbox tab with a clean database.
+steps:
+  - Tap the FAB to open the composer.
+  - Verify all attribute rows are visible (priority, due date, start date,
+    project, tags, recurrence, and pin).
+  - Fill in a title, set priority to High, and set due date to Today.
+  - Save the task.
+expected: >-
+  The task appears in the Today section with the correct title and the
+  high-priority badge. All attribute rows are present and settable.

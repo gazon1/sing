@@ -1,0 +1,30 @@
+# Scenario specification for PROFILE-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/profile/02-isolation.yaml` (`scenario:PROFILE-02`).
+#
+# The assertion is deliberately both-sided. A build that simply cleared the list
+# on every switch would satisfy "the task is not visible in the other profile"
+# and fail "and is visible again on the way back" — which is the half that makes
+# isolation a property rather than a disappearance.
+#
+# Tasks only: whether isolation also holds for notes, projects and tags is not
+# covered, so a partial isolation bug would pass here.
+
+id: PROFILE-02
+title: "Tasks in one profile are invisible in another"
+area: feature.profile
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A second profile exists.
+steps:
+  - Switch to the second profile and seed a task into it.
+  - Switch to the default profile.
+  - Look for the seeded task.
+  - Switch back to the second profile.
+expected: >-
+  The seeded task is not visible from the default profile and is visible again
+  after switching back, so switching changes what is shown without destroying
+  what was there.

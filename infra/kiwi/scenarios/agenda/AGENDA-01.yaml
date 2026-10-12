@@ -1,0 +1,29 @@
+# Scenario specification for AGENDA-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/01-smart-lists.yaml` (`scenario:AGENDA-01`).
+#
+# The assertion is on the section header, not on the row leaving the screen, and
+# the flow's header says why: Inbox is a full agenda (Today, Yesterday, …, No
+# Date), so a dated task stays in Inbox and only changes section. A scenario
+# written the other way round would assert a product decision that was never
+# made, and would start failing the day Inbox grows another section.
+
+id: AGENDA-01
+title: "A dated task moves between Inbox date buckets"
+area: feature.agenda
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  One task exists in Inbox with no date, so the No Date bucket has content to
+  move.
+steps:
+  - Open Inbox and note which bucket the task is under.
+  - Give the task a date.
+  - Open Inbox again and look at the bucket headers.
+expected: >-
+  The task leaves the No Date bucket, whose header count drops, and appears
+  under the section for its date — it stays in Inbox rather than disappearing
+  from the screen. Section headers carry their own count, so the move stays
+  visible even without scrolling to the row.

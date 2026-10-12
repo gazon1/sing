@@ -1,0 +1,22 @@
+# Scenario specification for NEGATIVE-04.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/negative/04-empty-archive.yaml` (`scenario:NEGATIVE-04`).
+#
+# Archive is the easiest empty state to get wrong: nothing is ever archived on a
+# fresh install, so the screen is unreachable in normal use and quietly blank.
+
+id: NEGATIVE-04
+title: "The Archive screen shows an empty state"
+area: feature.negative
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  Nothing has been archived.
+steps:
+  - Open the Archive screen with nothing in it.
+expected: >-
+  The screen shows an empty state rather than being blank, so a user who arrives
+  there by accident is told the archive is empty instead of being left to guess
+  whether the screen works.

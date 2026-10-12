@@ -1,0 +1,26 @@
+# Scenario specification for ARCHIVE-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/archive/01-restore.yaml` (`scenario:ARCHIVE-01`).
+#
+# The flow's header calls itself "Smoke", which is older than what the flow does:
+# it walks archive → Archive screen → open → restore, and every step is an
+# assertion. The scenario claims the round trip.
+
+id: ARCHIVE-01
+title: "An archived task is restored to Inbox"
+area: feature.archive
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists in Inbox. The restore only has something to do if there is
+  something to archive.
+steps:
+  - Archive the task from its detail overflow menu.
+  - Open the Archive screen and open the archived task.
+  - Restore it.
+expected: >-
+  The task leaves the Archive and is back in Inbox, so archiving is reversible
+  rather than a one-way move. Archive is the action a user takes when they are
+  unsure, and a task they cannot get back is lost.

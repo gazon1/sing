@@ -1,0 +1,70 @@
+# Search: the has-description filter toggles task results.
+#
+# Two tasks exist: one with a description, one without. The test opens
+# the filter sheet and toggles has-description on/off. Due to the Tune
+# icon having no testTag in the TopAppBar, the filter sheet is opened
+# via content description tap.
+appId: com.singularity.todo
+name: search-filter-description
+tags:
+  - search
+  - scenario:SEARCH-04
+---
+# Seed two tasks: one with description, one without.
+- openLink: "todo-debug://seed?task=TaskWithDesc2026&desc=HasDescription"
+- openLink: "todo-debug://seed?task=TaskNoDesc2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open quick search.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Type query to surface both tasks.
+- tapOn:
+    id: search_input
+- inputText: "Task2026"
+- extendedWaitUntil:
+    visible:
+      id: task_item_taskwithdesc2026
+    timeout: 8000
+- extendedWaitUntil:
+    visible:
+      id: task_item_tasknodesc2026
+    timeout: 8000
+
+# Open filter sheet via the Tune icon in the top bar (no testTag — use desc).
+- tapOn:
+    iconDescription: "Filter"
+- extendedWaitUntil:
+    visible:
+      id: search_filter_has_description_switch
+    timeout: 5000
+
+# Toggle has-description filter on.
+- tapOn:
+    id: search_filter_has_description_switch
+# Apply.
+- tapOn:
+    text: "Apply"
+- extendedWaitUntil:
+    visible:
+      id: task_item_taskwithdesc2026
+    timeout: 5000
+# Task without description should be hidden.
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_tasknodesc2026
+    timeout: 5000

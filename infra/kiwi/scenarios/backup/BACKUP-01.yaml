@@ -1,0 +1,29 @@
+# Scenario specification for BACKUP-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/backup/01-round-trip.yaml` (`scenario:BACKUP-01`).
+#
+# "Clear app data" is the load-bearing step and the reason this scenario exists.
+# A restart test proves nothing about a backup; only a wipe proves the data left
+# the process.
+#
+# The seeded task is load-bearing in the other direction too: a backup that
+# restores nothing would look identical from the flow's side if there were
+# nothing to restore.
+
+id: BACKUP-01
+title: "A task survives a create-backup, wipe and restore round trip"
+area: feature.backup
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists, so the restore has something to bring back and an empty result
+  cannot pass as success.
+steps:
+  - Create a backup from Settings.
+  - Clear the app's data.
+  - Restore from the backup.
+expected: >-
+  The task is present again after the wipe, so the backup carried the data
+  outside the process rather than the restore re-reading live state.

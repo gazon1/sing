@@ -1,0 +1,59 @@
+# Attachments: adding a URL attachment makes it appear on the task.
+appId: com.singularity.todo
+name: attachments-add-url
+tags:
+  - attachments
+  - scenario:ATTACH-01
+---
+# Seed a task to attach to.
+- openLink: "todo-debug://seed?task=AttachTestTask2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open the task detail.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_attachtesttask2026
+    timeout: 5000
+- tapOn:
+    id: task_item_attachtesttask2026
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# Open the attachments sheet via the "+ Add file" row.
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: attachments_add_file_row
+- extendedWaitUntil:
+    visible:
+      id: attachments_url_input
+    timeout: 5000
+
+# Add a URL attachment.
+- tapOn:
+    id: attachments_url_input
+- inputText: "https://example.com/article"
+- tapOn:
+    id: attachments_title_input
+- inputText: "Example Article"
+- tapOn:
+    id: attachments_add_url_button
+
+# Sheet closes automatically after adding. Verify the attachment appears
+# in the task detail section (shows link icon, title, delete button).
+- extendedWaitUntil:
+    visible:
+      text: "Example Article"
+    timeout: 5000
+- assertVisible:
+    text: "https://example.com/article"

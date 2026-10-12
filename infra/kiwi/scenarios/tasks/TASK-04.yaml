@@ -1,0 +1,17 @@
+# Scenario specification for TASK-04.
+
+id: TASK-04
+title: Delete a task from its detail screen overflow menu
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists in the Inbox.
+steps:
+  - Tap the task to open its detail screen.
+  - Open the overflow menu and tap Delete.
+  - Navigate back to the agenda.
+expected: >-
+  The task row is no longer present in the list. No confirmation dialog
+  is shown — deletion is immediate and reversible via Undo.

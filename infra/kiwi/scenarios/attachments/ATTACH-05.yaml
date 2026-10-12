@@ -1,0 +1,18 @@
+# Scenario specification for ATTACH-05.
+
+id: ATTACH-05
+title: A URL attachment shows title, URL text and a link icon
+area: feature.attachments
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved task with one URL attachment already exists.
+steps:
+  - Open the task's detail screen.
+  - Locate the attachment in the Attachments section.
+  - Observe the rendering of the attachment row.
+expected: >-
+  The row shows a link icon, the attachment's title, and the URL text below
+  the title in a smaller font. The row has a delete affordance and no open
+  affordance (URL attachments have no file behind them to open).

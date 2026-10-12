@@ -1,0 +1,15 @@
+# Scenario specification for TASK-13.
+
+id: TASK-13
+title: Tasks appear in the correct agenda date-bucket sections
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: An empty task database.
+steps:
+  - "Seed three tasks: one due yesterday, one due today, one due tomorrow."
+  - Navigate to the Today agenda tab.
+expected: The Overdue section contains the yesterday task, the Today section
+  contains today's task, and the Upcoming section contains the tomorrow task.
+  Each section renders its section header testTag.

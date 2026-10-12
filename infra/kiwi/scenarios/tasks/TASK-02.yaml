@@ -1,0 +1,15 @@
+# Scenario specification for TASK-02.
+
+id: TASK-02
+title: Tapping the checkbox toggles the task's completion state
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists in the Inbox.
+steps:
+  - Tap the task's checkbox.
+expected: >-
+  The checkbox appears checked. The row shows the completed visual state.
+  Tapping again toggles it back to unchecked.

@@ -1,0 +1,28 @@
+# Scenario specification for AGENDA-04.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/agenda/04-saved-view-results.yaml` (`scenario:AGENDA-04`).
+#
+# The distinction this pins is view-as-results versus view-as-name. A saved view
+# that rendered its own title over an unfiltered list would satisfy "the card is
+# tappable and the results screen opens"; only an assertion about the *contents*
+# separates the two. That is why the flow seeds an active task and defines the
+# view over active tasks before saving — without seeded content, an empty
+# results screen passes as correct.
+
+id: AGENDA-04
+title: "Opening a saved view lists the tasks matching its definition"
+area: feature.agenda
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  An active task exists, so the view's definition has at least one matching task
+  and an empty results screen cannot pass as correct.
+steps:
+  - Create a saved view over active tasks, named "My Active Tasks".
+  - From the saved-views list, open that view.
+expected: >-
+  A results screen appears listing the tasks matching the view's definition, so
+  the view is a stored filter rather than a stored label — the seeded active
+  task is present in the results.

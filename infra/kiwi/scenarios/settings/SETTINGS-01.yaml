@@ -1,0 +1,31 @@
+# Scenario specification for SETTINGS-01.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/settings/01-theme-toggle.yaml` (`scenario:SETTINGS-01`).
+#
+# **This scenario claims less than it appears to, and that is the flow's
+# limitation, stated rather than hidden.** The theme is visual: neither the a11y
+# tree nor Maestro exposes which segment is selected, so the flow asserts that
+# the screen survives the toggle and stays navigable. A build that ignored the
+# user's choice entirely would pass.
+#
+# Closing the gap needs a different surface — reading the setting back through
+# instrumentation, or comparing screenshots. Until then the honest claim is "the
+# toggle is safe", not "the theme changes".
+
+id: SETTINGS-01
+title: "Changing the theme mode leaves Settings intact and navigable"
+area: feature.settings
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  Settings > Interface is open with the three-way System / Light / Dark selector
+  visible.
+steps:
+  - Change the theme mode.
+  - Continue using the screen.
+expected: >-
+  Settings stays intact and navigable after the change, so selecting a theme
+  cannot strand the user on a broken screen. The applied theme itself is not
+  asserted — see the note above.

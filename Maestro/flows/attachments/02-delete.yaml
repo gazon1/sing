@@ -1,0 +1,70 @@
+# Attachments: deleting an attachment removes it from the list.
+appId: com.singularity.todo
+name: attachments-delete
+tags:
+  - attachments
+  - scenario:ATTACH-02
+---
+# Seed a task.
+- openLink: "todo-debug://seed?task=DeleteAttachTask2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open task detail and add an attachment.
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_deleteattachtask2026
+    timeout: 5000
+- tapOn:
+    id: task_item_deleteattachtask2026
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: attachments_add_file_row
+- extendedWaitUntil:
+    visible:
+      id: attachments_url_input
+    timeout: 5000
+- tapOn:
+    id: attachments_url_input
+- inputText: "https://example.com/to-delete"
+- tapOn:
+    id: attachments_add_url_button
+
+# Verify attachment is present.
+- extendedWaitUntil:
+    visible:
+      text: "https://example.com/to-delete"
+    timeout: 5000
+
+# Open the attachments sheet again.
+- scrollUntilVisible:
+    element:
+      id: attachments_add_file_row
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: attachments_add_file_row
+- extendedWaitUntil:
+    visible:
+      id: attachments_url_input
+    timeout: 5000
+
+# Delete the attachment using contentDescription (no stable testTag — UUID-based).
+- tapOn:
+    contentDescription: "Delete"
+- extendedWaitUntil:
+    notVisible:
+      text: "https://example.com/to-delete"
+    timeout: 5000

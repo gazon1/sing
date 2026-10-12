@@ -1,0 +1,19 @@
+# Scenario specification for TASK-06.
+
+id: TASK-06
+title: Long-press opens context menu; archive removes the task
+area: feature.tasks
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists in the Inbox.
+steps:
+  - Long-press the task row to open the context menu sheet.
+  - Verify the sheet is the context menu (editor is not visible).
+  - Verify Archive, Open, and Mark as completed actions are present.
+  - Tap Mark as completed to mark the task done.
+  - Long-press the row again and tap Archive.
+expected: >-
+  The task is removed from the Inbox list. The context menu does not
+  open the editor; it only dispatches the selected action.

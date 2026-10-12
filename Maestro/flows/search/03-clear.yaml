@@ -1,0 +1,54 @@
+# Search: clearing the query text returns to the idle prompt.
+#
+# The idle prompt is "Enter a search query". After clearing, the results
+# must disappear and the prompt must return.
+appId: com.singularity.todo
+name: search-clear
+tags:
+  - search
+  - scenario:SEARCH-03
+---
+# Seed a task to ensure there are results to clear.
+- openLink: "todo-debug://seed?task=ClearSearchTask2026"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 8000
+
+# Open quick search.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# Type a query that produces results.
+- tapOn:
+    id: search_input
+- inputText: "ClearSearchTask2026"
+- extendedWaitUntil:
+    visible:
+      id: task_item_clearsearchtask2026
+    timeout: 8000
+
+# Clear the query.
+- eraseText
+
+# After clearing, the idle prompt returns.
+- extendedWaitUntil:
+    visible:
+      text: "Enter a search query"
+    timeout: 5000
+
+# Results must be gone.
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_clearsearchtask2026
+    timeout: 5000

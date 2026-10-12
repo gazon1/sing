@@ -1,0 +1,23 @@
+# Scenario specification for SETTINGS-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/settings/02-notifications.yaml` (`scenario:SETTINGS-02`).
+#
+# Presence only. No flow in this repo triggers an actual notification, so a
+# control that renders and does nothing would pass. The claim is that the
+# surface exists and is reachable, not that it works.
+
+id: SETTINGS-02
+title: "The notification surface renders its controls"
+area: feature.settings
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  Settings is open.
+steps:
+  - Open the Notifications tab.
+expected: >-
+  Its controls are present and the screen is usable — the notification settings
+  are reachable from Settings. Whether a given toggle changes what the app
+  actually sends is not asserted.

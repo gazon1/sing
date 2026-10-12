@@ -1,0 +1,45 @@
+# Maestro flows that are deliberately NOT scenarios.
+#
+# `just trace-maestro-suggest` proposes a scenario tag for every flow that does
+# not carry one. Reading a flow and deciding "this is navigation, not a user
+# story" is a real decision — but without a way to record it, the decision is
+# lost the moment the command is closed, and the same flow comes back next month
+# as if nobody had ever looked at it. That is what makes the worklist permanent:
+# it is not a backlog of unknown work, it is a backlog of unread work.
+#
+# Format — one flow per line, `#` starts a comment, blank lines ignored:
+#
+#     <path relative to the repo root>  —  <why this is not a scenario>
+#
+# The reason is mandatory. An entry with no reason reads as "someone decided
+# something once" and gets deleted in a cleanup pass by the next person who
+# wonders why the file exists; a reason is a claim that can be disagreed with.
+#
+# What belongs here
+# -----------------
+# Flows that exercise the shell rather than a feature: navigation, smoke, and
+# the empty-state passes that assert a screen renders rather than what it does.
+#
+# What does NOT belong here
+# -------------------------
+# A flow that tests real behaviour and has no scenario spec yet. That is a gap,
+# and it is listed by `just trace-maestro-suggest` until somebody writes the
+# spec. Putting it here would convert "we have not written this down" into "we
+# decided not to", which is the opposite truth and is invisible afterwards.
+#
+# Adding an entry is a deliberate act; removing one re-opens the question.
+
+# --- shell, not feature -------------------------------------------------------
+# Navigation between top-level destinations. It asserts that a tab exists and
+# switches; there is no user outcome to state, and no state that persists.
+Maestro/flows/nav/bottom-nav-tabs.yaml  — navigation between top-level tabs; no user outcome to state
+
+# --- smoke: launch and reach a screen -----------------------------------------
+# Proves the app starts and renders. Everything it asserts is a precondition of
+# some other scenario, not a claim of its own; TAG-01 and TAG-02 are claims
+# about the launch path itself, and this flow asserts neither.
+Maestro/flows/smoke/01-launch-today.yaml  — smoke: app starts and the Today tab renders; asserted as a precondition, not a claim
+Maestro/flows/smoke/02-menu-settings.yaml  — smoke: the menu opens and Settings is reachable
+
+# --- system shell -------------------------------------------------------------
+Maestro/flows/system/menu-sheet.yaml  — the overflow sheet renders; its contents are covered by the features it opens

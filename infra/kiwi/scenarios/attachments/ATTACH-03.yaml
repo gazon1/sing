@@ -1,0 +1,19 @@
+# Scenario specification for ATTACH-03.
+
+id: ATTACH-03
+title: Submitting an empty URL field does not add an attachment
+area: feature.attachments
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A saved task exists, its detail screen is reachable.
+steps:
+  - Open the task's detail screen.
+  - Open the attachments sheet.
+  - Leave the URL field blank.
+  - Attempt to tap "Add URL".
+  - Observe the list of attachments.
+expected: >-
+  No attachment is added. The "Add URL" button is disabled or the submit is
+  rejected, so a blank entry cannot create a broken attachment in the list.

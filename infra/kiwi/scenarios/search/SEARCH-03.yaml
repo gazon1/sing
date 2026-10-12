@@ -1,0 +1,17 @@
+# Scenario specification for SEARCH-03.
+
+id: SEARCH-03
+title: Clearing the search query returns to the idle prompt
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The search screen is open with a non-empty query that produced results.
+steps:
+  - With a query that produced results visible, erase the query text.
+  - Observe the results area and the prompt.
+expected: >-
+  The results disappear and the idle prompt "Enter a search query" returns.
+  The idle prompt is shown when the query is empty; it is not shown when a
+  non-empty query produced zero results.
