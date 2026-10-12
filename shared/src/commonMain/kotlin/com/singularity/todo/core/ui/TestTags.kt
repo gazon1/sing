@@ -670,6 +670,26 @@ object TestTags {
      * Format: `calendar_day_2026_09_15`.
      */
     fun calendarDay(isoDate: String) = "calendar_day_${isoDate.replace("-", "_")}"
+
+    // ─── Attachments (URL sheet) ─────────────────────────────────────────────
+    //
+    // Used in Maestro/flows/attachments/ — the URL attachment bottom sheet
+    // that appears when adding a URL to a task.
+
+    const val ATTACHMENTS_ADD_URL_BUTTON = "attachments_add_url_button"
+    const val ATTACHMENTS_ADD_FILE_ROW = "attachments_add_file_row"
+    const val ATTACHMENTS_URL_INPUT = "attachments_url_input"
+    const val ATTACHMENTS_TITLE_INPUT = "attachments_title_input"
+
+    // ─── Task detail ────────────────────────────────────────────────────────
+    //
+    // Tags for the task detail screen (read-only view, not the editor).
+
+    /** Pin toggle button on the task detail screen. */
+    const val TASK_DETAIL_PIN_BUTTON = "task_detail_pin_button"
+
+    /** Title text on the task detail screen. */
+    const val TASK_DETAIL_TITLE = "task_detail_title"
 }
 
 /**
