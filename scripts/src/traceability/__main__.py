@@ -5,27 +5,27 @@ Commands, in dependency order:
 * ``validate`` — specs + links + namespace hygiene. No stand, no network, ~ms.
 * ``coverage`` — regenerate (or check) the committed coverage matrix.
 * ``results``  — normalise JUnit/Maestro XML into ``results.json`` + a matrix.
-* ``seed``     — project the specs into Kiwi (a projection, never a gate).
-* ``publish``  — push ``results.json`` into Kiwi as execution history.
+* ``scenarios`` — bridge between spec declarations and YAML files on disk.
+* ``carrier``  — generate a reachability probe for one scenario/target pair.
 
 Exit codes are meaningful, because CI acts on them:
 
 * ``0`` success
 * ``1`` validation error (bad spec, bad link, stale commit)
 * ``2`` a declared target produced zero testcases — the "quietly green" case
-* ``3`` Kiwi was unreachable. Distinct from 1 so a stand outage reads as an
-  infrastructure failure rather than as a broken spec.
+* ``3`` Kiwi was unreachable (Kiwi stand was retired; this code is now unreachable)
 """
-
 from __future__ import annotations
 
-import argparse
 import subprocess
 import sys
 from pathlib import Path
 
+import click
+
 from traceability import (
     COVERAGE_MATRIX_PATH,
+    DETAILS_PATH,
     REPO_ROOT,
     SCENARIOS_DIR,
     ValidationError,
@@ -38,10 +38,10 @@ from traceability.normalize import (
     normalise,
     write_results,
 )
-from traceability.render import render_coverage_matrix, render_result_matrix
+from traceability.render import render_coverage_matrix, render_details, render_result_matrix
 from traceability.spec import Target, load_specs
 
-__all__ = ["main"]
+__all__ = ["main", "cli"]
 
 #: Where normalised artefacts land. Under ``build/`` on purpose: results are a
 #: CI artifact, and nothing here should ever be committed.
@@ -61,6 +61,9 @@ _RESULT_DIRS: dict[Target, tuple[str, ...]] = {
 
 #: Maestro's JUnit output, when the flows were run with --format=JUNIT.
 MAESTRO_RESULT_DIR = REPO_ROOT / "build" / "maestro-results"
+
+
+# ── helpers ────────────────────────────────────────────────────────────────
 
 
 def _git_commit() -> str:
@@ -88,18 +91,39 @@ def _result_dirs(target: Target, explicit: str | None, include_maestro: bool) ->
     return [d for d in dirs if d.is_dir()]
 
 
-def _load(args) -> tuple[dict, list[Link]]:
-    specs = load_specs(Path(args.specs) if args.specs else SCENARIOS_DIR)
+def _load(specs_dir: Path | None) -> tuple[dict, list[Link]]:
+    specs = load_specs(specs_dir if specs_dir else SCENARIOS_DIR)
     links = scan_all(specs, REPO_ROOT)
     return specs, links
 
 
-def cmd_validate(args) -> int:
-    specs, links = _load(args)
+# ── Click group / root ─────────────────────────────────────────────────────
+
+
+@click.group(
+    "traceability",
+    invoke_without_command=True,
+    context_settings=dict(help_option_names=["-h", "--help"]),
+)
+@click.version_option(version="1.0.0", prog_name="python -m traceability")
+def cli() -> None:
+    """Spec-first traceability: specs in Git, results from CI."""
+    pass
+
+
+# ── validate ───────────────────────────────────────────────────────────────
+
+
+@cli.command("validate")
+@click.option("--specs", "specs_dir", type=click.Path(exists=True, path_type=Path),
+              default=None, metavar="DIR",
+              help=f"каталог спеков (по умолчанию {SCENARIOS_DIR})")
+@click.option("--quiet", is_flag=True, help="только код возврата (для гейта в CI)")
+def cmd_validate(specs_dir: Path | None, quiet: bool) -> int:
+    """Проверить спеки и связи (без стенда)."""
+    specs, links = _load(specs_dir)
     holes = build_coverage(specs, links).holes()
-    if args.quiet:
-        # Used by the CI gate, which only needs the verdict. Errors are still
-        # printed by the caller, so a quiet run is never a silent one.
+    if quiet:
         return 0
     print(f"✓ спеков: {len(specs)}")
     print(f"✓ связей: {len(links)}")
@@ -112,18 +136,44 @@ def cmd_validate(args) -> int:
     return 0
 
 
-def cmd_coverage(args) -> int:
-    specs, links = _load(args)
-    rendered = render_coverage_matrix(build_coverage(specs, links))
-    path = Path(args.out) if args.out else COVERAGE_MATRIX_PATH
-    if args.check:
+# ── coverage ───────────────────────────────────────────────────────────────
+
+
+@cli.command("coverage")
+@click.option("--specs", "specs_dir", type=click.Path(exists=True, path_type=Path),
+              default=None, metavar="DIR",
+              help=f"каталог спеков (по умолчанию {SCENARIOS_DIR})")
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None, metavar="PATH",
+              help=f"куда писать (по умолчанию {COVERAGE_MATRIX_PATH})")
+@click.option("--check", is_flag=True,
+              help="сравнить с закоммиченной копией и упасть при расхождении (CI)")
+def cmd_coverage(specs_dir: Path | None, out_path: Path | None, check: bool) -> int:
+    """Сгенерировать или проверить матрицу покрытия."""
+    specs, links = _load(specs_dir)
+    coverage = build_coverage(specs, links)
+    index = render_coverage_matrix(coverage)
+    details = render_details(coverage)
+    path = out_path if out_path else COVERAGE_MATRIX_PATH
+    details_path = DETAILS_PATH
+    if check:
         if not path.exists():
             print(f"✗ матрица покрытия отсутствует: {path}", file=sys.stderr)
             return 1
         current = path.read_text(encoding="utf-8")
-        if current != rendered:
+        if current != index:
             print(
                 f"✗ закоммиченная матрица покрытия устарела: {path}\n"
+                f"  обновите: just trace-coverage",
+                file=sys.stderr,
+            )
+            return 1
+        if not details_path.exists():
+            print(f"✗ сценарии детализация отсутствует: {details_path}", file=sys.stderr)
+            return 1
+        current_details = details_path.read_text(encoding="utf-8")
+        if current_details != details:
+            print(
+                f"✗ закоммиченная детализация сценариев устарела: {details_path}\n"
                 f"  обновите: just trace-coverage",
                 file=sys.stderr,
             )
@@ -131,35 +181,59 @@ def cmd_coverage(args) -> int:
         print(f"✓ матрица покрытия актуальна: {path}")
         return 0
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(rendered, encoding="utf-8")
+    path.write_text(index, encoding="utf-8")
+    details_path.parent.mkdir(parents=True, exist_ok=True)
+    details_path.write_text(details, encoding="utf-8")
     print(f"✓ матрица покрытия записана: {path}")
+    print(f"✓ детализация сценариев записана: {details_path}")
     return 0
 
 
-def cmd_results(args) -> int:
-    specs, links = _load(args)
-    # Which targets were actually run in this invocation. A target left out is
-    # reported as `not-run` in the matrix and is *not* subject to the
-    # zero-testcase rule — that rule exists to catch a task that ran and
-    # produced nothing, which is different from a task that was never asked to
-    # run. Conflating them would make partial local runs impossible to express
-    # and would force a full run before any partial one could be checked.
+# ── results ────────────────────────────────────────────────────────────────
+
+
+@cli.command("results")
+@click.option("--specs", "specs_dir", type=click.Path(exists=True, path_type=Path),
+              default=None, metavar="DIR",
+              help=f"каталог спеков (по умолчанию {SCENARIOS_DIR})")
+@click.option("--commit", "commit", default=None, help="коммит (по умолчанию git HEAD)")
+@click.option("--dirs", "dirs", default=None,
+              help="каталоги с XML через запятую, переопределяют умолчания")
+@click.option("--targets", "targets", default=None,
+              help="цели через запятую (android, desktop)")
+@click.option("--maestro", is_flag=True, help="учесть XML потоков Maestro")
+@click.option("--partial", is_flag=True,
+              help="прогон был отфильтрован по тегам и не покрывает все сценарии")
+@click.option("--missing-scenarios", "missing_scenarios", default=None,
+              help="сценарии заявленные но не запускавшиеся (scenario/target,...)")
+@click.option("--out-dir", "out_dir", type=click.Path(path_type=Path), default=None,
+              help=f"куда писать (по умолчанию {OUTPUT_DIR})")
+def cmd_results(
+    specs_dir: Path | None,
+    commit: str | None,
+    dirs: str | None,
+    targets: str | None,
+    maestro: bool,
+    partial: bool,
+    missing_scenarios: str | None,
+    out_dir: Path | None,
+) -> int:
+    """Нормализовать JUnit/Maestro XML в results.json и матрицу."""
+    specs, links = _load(specs_dir)
+
     selected: tuple[Target, ...]
-    if args.targets:
-        selected = tuple(Target(t.strip()) for t in args.targets.split(",") if t.strip())
+    if targets:
+        selected = tuple(Target(t.strip()) for t in targets.split(",") if t.strip())
     else:
         selected = tuple(Target)
 
-    result_dirs = {target: _result_dirs(target, args.dirs, args.maestro) for target in selected}
-    commit = args.commit or _git_commit()
-    report = normalise(specs, links, result_dirs, commit, partial=args.partial)
+    result_dirs = {target: _result_dirs(target, dirs, maestro) for target in selected}
+    commit_str = commit or _git_commit()
+    report = normalise(specs, links, result_dirs, commit_str, partial=partial)
 
-    # Parse --missing-scenarios: format is "scenario/target,scenario/target,..."
-    # These are (scenario, target) pairs that CI claimed but never attempted.
-    # Rendered as Outcome.MISSING (❌) in the matrix instead of Outcome.NOT_RUN (⌛).
     missing: set[tuple[str, Target]] = set()
-    if args.missing_scenarios:
-        for item in args.missing_scenarios.split(","):
+    if missing_scenarios:
+        for item in missing_scenarios.split(","):
             item = item.strip()
             if "/" not in item:
                 print(f"WARNING: пропущен элемент без '/': {item!r}", file=sys.stderr)
@@ -174,8 +248,8 @@ def cmd_results(args) -> int:
                 continue
             missing.add((scenario_id, target))
 
-    out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
-    json_path = write_results(report, out_dir)
+    out = out_dir if out_dir else OUTPUT_DIR
+    json_path = write_results(report, out)
 
     matrix = build_results(
         build_coverage(specs, links),
@@ -191,57 +265,52 @@ def cmd_results(args) -> int:
             )
             for r in report.results
         ],
-        commit,
+        commit_str,
         kept=report.kept,
         dropped=report.dropped,
         unmapped=report.unmapped,
         missing=missing,
     )
-    (out_dir / "result-matrix.md").write_text(render_result_matrix(matrix), encoding="utf-8")
+    (out / "result-matrix.md").write_text(render_result_matrix(matrix), encoding="utf-8")
 
-    print(f"✓ коммит: {commit}")
+    print(f"✓ коммит: {commit_str}")
     print(f"✓ результатов: {report.kept} (отброшено не связанных: {report.dropped})")
     print(f"✓ {json_path}")
     for scenario_id, row in sorted(matrix.cells.items()):
-        glyphs = " ".join(f"{t.value}={cell.glyph}" for t, cell in sorted(row.items(), key=lambda kv: kv[0].value))
+        glyphs = " ".join(
+            f"{t.value}={cell.glyph}"
+            for t, cell in sorted(row.items(), key=lambda kv: kv[0].value)
+        )
         print(f"    {scenario_id}: {glyphs}")
     return 0
 
 
-def cmd_seed(args) -> int:  # pragma: no cover - needs a stand
-    from traceability.kiwi_seed import run_seed
-
-    specs, _ = _load(args)
-    return run_seed(specs, dry_run=args.dry_run, check=args.check)
+# ── scenarios ──────────────────────────────────────────────────────────────
 
 
-def cmd_publish(args) -> int:  # pragma: no cover - needs a stand
-    from traceability.kiwi_publish import run_publish
+@cli.command("scenarios")
+@click.option("--specs", "specs_dir", type=click.Path(exists=True, path_type=Path),
+              default=None, metavar="DIR",
+              help=f"каталог спеков (по умолчанию {SCENARIOS_DIR})")
+@click.option("--speckit-specs", "speckit_specs_dir", type=click.Path(exists=True, path_type=Path),
+              default=None, metavar="DIR",
+              help="каталог спеков (алиас --specs, используется в тестах)")
+@click.option("--check", "mode", flag_value="check", default=True,
+              help="проверить что все объявления покрыты файлами")
+@click.option("--generate", "mode", flag_value="generate", default=False,
+              help="создать недостающие файлы сценариев (по умолчанию)")
+def cmd_scenarios(
+    specs_dir: Path | None,
+    speckit_specs_dir: Path | None,
+    mode: str,  # "check" or "generate"
+) -> int:
+    """Связь между объявлениями в спеках и YAML-файлами сценариев.
 
-    # Validating specs/links here too is deliberate: publishing a results file
-    # whose scenario no longer has a valid spec would write history for a claim
-    # that can no longer be checked. The adapters still receive only the file.
-    _load(args)
-    return run_publish(Path(args.results), commit=args.commit, dry_run=args.dry_run)
-
-
-def cmd_scenarios(args) -> int:
-    """speckit scenarios check / generate — bridge between spec declarations and YAML files.
-
-    check:   Compare every declaration in spec files against the YAML on disk.
-             Returns 0 only when all declared scenarios exist, have no TODO markers,
-             and agree with their declaration on title/priority/status/targets.
-
-    generate: Write skeleton YAML for every declaration that has no file yet.
-              Idempotent: existing files are never overwritten.  A bare
-              ``scenarios`` command (no flags) runs generate — the original
-              behaviour preserved for backwards compatibility with CI recipes.
+    Проверяет что все объявленные сценарии имеют соответствующие YAML-файлы.
+    Генерирует новые YAML-файлы для объявлений без файлов.
     """
-    # A bare `scenarios` (no flags) defaults to generate for backwards compat.
-    subcommand = getattr(args, "subcommand", None) or "generate"
-
     from traceability.speckit import (
-        SCENARIOS_DIR,
+        SCENARIOS_DIR as _SCENARIOS_DIR,
         SpecSource,
         check_bindings,
         load_declarations,
@@ -249,23 +318,30 @@ def cmd_scenarios(args) -> int:
         scenario_path,
     )
 
-    # Support both --specs and --speckit-specs (the latter is used by the test suite).
-    specs_dir = getattr(args, "specs", None) or getattr(args, "speckit_specs", None) or None
-    specs = load_specs(Path(specs_dir) if specs_dir else SCENARIOS_DIR)
+    # --speckit-specs overrides --specs (used by the test suite for isolation)
+    effective_specs_dir: Path | None = None
+    if speckit_specs_dir:
+        effective_specs_dir = speckit_specs_dir
+    elif specs_dir:
+        effective_specs_dir = specs_dir
+
+    specs = load_specs(effective_specs_dir if effective_specs_dir else _SCENARIOS_DIR)
+
     # When specs are overridden by --speckit-specs, load declarations from that
     # same directory only (do NOT join with the configured corpora).
-    if specs_dir:
-        decl_source = (SpecSource("test", str(specs_dir), "*/spec.md"),)
+    if speckit_specs_dir:
+        decl_source = (SpecSource("test", str(speckit_specs_dir), "*/spec.md"),)
         declarations = load_declarations(sources=decl_source)
     else:
         declarations = load_declarations()
 
-    if subcommand == "check":
+    if mode == "check":
         problems, orphans = check_bindings(declarations, specs)
         if problems:
             for p in problems:
                 print(f"✗ {p}", file=sys.stderr)
-            print(f"\n{len(problems)} problem(s) — сценарии должны совпадать с объявлениями", file=sys.stderr)
+            print(f"\n{len(problems)} problem(s) — сценарии должны совпадать с объявлениями",
+                  file=sys.stderr)
             return 1
         print(f"✓ все объявлений покрыты ({len(declarations)} сценариев)")
         if orphans:
@@ -276,74 +352,73 @@ def cmd_scenarios(args) -> int:
                 print(f"    ... и ещё {len(orphans) - 10}")
         return 0
 
-    if subcommand == "generate":
-        written = 0
-        for decl_id, decl in sorted(declarations.items()):
-            path = scenario_path(decl)
-            if path.exists():
-                continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(render_skeleton(decl), encoding="utf-8")
-            print(f"  создан: {path.relative_to(REPO_ROOT)}")
-            written += 1
-        if written == 0:
-            print("нечего писать")
-        else:
-            print(f"✓ создано сценариев: {written}")
-        return 0
-
-    return 1  # unreachable
+    # generate (default)
+    written = 0
+    for decl_id, decl in sorted(declarations.items()):
+        path = scenario_path(decl)
+        if path.exists():
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render_skeleton(decl), encoding="utf-8")
+        print(f"  создан: {path.relative_to(REPO_ROOT)}")
+        written += 1
+    if written == 0:
+        print("нечего писать")
+    else:
+        print(f"✓ создано сценариев: {written}")
+    return 0
 
 
-def cmd_carrier(args) -> int:
-    """Write the reachability probe for one scenario/target pair.
+# ── carrier ────────────────────────────────────────────────────────────────
 
-    Never overwrites: an existing carrier means the work is done, and silently
-    replacing a real test with a generated probe would be the worst outcome this
-    command could have.
-    """
+
+@cli.command("carrier")
+@click.option("--specs", "specs_dir", type=click.Path(exists=True, path_type=Path),
+              default=None, metavar="DIR",
+              help=f"каталог спеков (по умолчанию {SCENARIOS_DIR})")
+@click.argument("scenario")
+@click.option("--target", default="desktop",
+              type=click.Choice([t.value for t in Target], case_sensitive=False),
+              help="тир носителя (по умолчанию desktop)")
+@click.option("--dry-run", is_flag=True, help="показать путь и текст, ничего не записывая")
+def cmd_carrier(
+    specs_dir: Path | None,
+    scenario: str,
+    target: str,
+    dry_run: bool,
+) -> int:
+    """Генерировать зонд достижимости для сценария (пишет файл, если его нет)."""
     from traceability.carrier import CarrierError, plan_carrier, render_probe
 
-    specs, links = _load(args)
-    scenario = args.scenario.upper()
-    if scenario not in specs:
+    specs, links = _load(specs_dir)
+    scenario_id = scenario.upper()
+    if scenario_id not in specs:
         known = ", ".join(sorted(specs))
-        print(f"ERROR: сценарий '{scenario}' не найден. Известны: {known}")
+        print(f"ERROR: сценарий '{scenario_id}' не найден. Известны: {known}")
         return 1
 
-    spec = specs[scenario]
-    target = Target(args.target)
+    spec = specs[scenario_id]
+    target_enum = Target(target)
 
-    # Checked before the target check, because a deprecated scenario *keeps* the
-    # targets it used to have — that is how its row still shows which platforms
-    # it covered — so the target check alone waves it through. Writing a probe
-    # for a retired scenario re-adds the obligation the deprecation removed, and
-    # the matrix would carry a `●` on a row whose glyph is `⊘`.
     if not spec.is_claimed:
         print(
-            f"ERROR: {scenario} выведен из эксплуатации (status: deprecated).\n"
+            f"ERROR: {scenario_id} выведен из эксплуатации (status: deprecated).\n"
             f"Носитель для него не пишется: это вернуло бы снятое обязательство."
         )
         return 1
 
-    if target not in spec.targets:
+    if target_enum not in spec.targets:
         claimed = ", ".join(t.value for t in spec.targets) or "—"
         print(
-            f"ERROR: {scenario} не заявляет '{target.value}' (заявляет: {claimed}).\n"
+            f"ERROR: {scenario_id} не заявляет '{target}' (заявляет: {claimed}).\n"
             f"Сначала решите, верно ли это — сужение спеки под платформу без "
             f"измерения и есть то, что сделало TASK-TIME-01 неверным."
         )
         return 1
 
-    # The check that would have saved the most time this session. A probe failing
-    # is the exact input to two opposite mistakes: narrow the spec (TASK-TIME-01,
-    # wrong — the feature was in commonMain) or write the test anyway. A spec that
-    # says the target is unreachable is a claim about the *tier*, made on purpose,
-    # so the generator refuses instead of producing a probe that cannot pass.
-    if target in spec.unreachable:
+    if target_enum in spec.unreachable:
         print(
-            f"ERROR: {scenario} помечает '{target.value}' как недостижимый "
-            f"(unreachable).\n"
+            f"ERROR: {scenario_id} помечает '{target}' как недостижимый (unreachable).\n"
             f"Зонд тут бесполезен: сценарий заявлен, но ни один автоматический "
             f"носитель на этом тире его не достанет — нужно второе устройство, "
             f"управление сетью или ручной прогон.\n"
@@ -353,23 +428,16 @@ def cmd_carrier(args) -> int:
         )
         return 1
 
-    # The link set, not the filename, is what says a carrier exists. Checking
-    # for a file at the computed path found nothing for `TASK-REC-01` and wrote
-    # a second, competing carrier next to the real one — the generated name
-    # `TaskRec01ScenarioTest` and the hand-written `TaskRecurrenceScenarioTest`
-    # have nothing to do with each other, and a filename check cannot see that.
-    # A second carrier for one (scenario, target) is rejected by `validate`, so
-    # the generator would have produced a tree that does not validate.
-    existing = [link for link in links if link.scenario == scenario and link.target is target]
+    existing = [link for link in links if link.scenario == scenario_id and link.target is target_enum]
     if existing:
         for link in existing:
-            print(f"carrier: {scenario} / {target.value} уже несёт {link.source.name}")
+            print(f"carrier: {scenario_id} / {target} уже несёт {link.source.name}")
         print("Перезапись запрещена: ваш собственный тест и есть носитель.")
         print("Удалите его осознанно, если хотите начать заново.")
         return 1
 
     try:
-        plan = plan_carrier(spec, target, REPO_ROOT)
+        plan = plan_carrier(spec, target_enum, REPO_ROOT)
         text = render_probe(plan)
     except CarrierError as exc:
         print(f"ERROR: {exc}")
@@ -381,7 +449,7 @@ def cmd_carrier(args) -> int:
         print("осознанно, если хотите заново.")
         return 1
 
-    if args.dry_run:
+    if dry_run:
         print(f"carrier: {plan.path} (dry run, не записан)\n")
         print(text)
         return 0
@@ -395,140 +463,22 @@ def cmd_carrier(args) -> int:
     return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="python -m traceability",
-        description="Spec-first traceability: specs in Git, results from CI, Kiwi as a projection.",
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    def common(p: argparse.ArgumentParser) -> None:
-        p.add_argument("--specs", help=f"каталог спеков (по умолчанию {SCENARIOS_DIR})")
-
-    p_validate = sub.add_parser("validate", help="проверить спеки и связи (без стенда)")
-    common(p_validate)
-    p_validate.add_argument(
-        "--quiet", action="store_true", help="только код возврата (для гейта в CI)"
-    )
-    p_validate.set_defaults(func=cmd_validate)
-
-    p_coverage = sub.add_parser("coverage", help="сгенерировать матрицу покрытия")
-    common(p_coverage)
-    p_coverage.add_argument("--out", help=f"куда писать (по умолчанию {COVERAGE_MATRIX_PATH})")
-    p_coverage.add_argument(
-        "--check",
-        action="store_true",
-        help="сравнить с закоммиченной копией и упасть при расхождении (CI)",
-    )
-    p_coverage.set_defaults(func=cmd_coverage)
-
-    p_carrier = sub.add_parser(
-        "carrier",
-        help="сгенерировать зонд достижимости для сценария (пишет файл, если его нет)",
-    )
-    common(p_carrier)
-    p_carrier.add_argument("scenario", help="id сценария, например TASK-REC-01")
-    p_carrier.add_argument(
-        "--target",
-        default="desktop",
-        choices=[t.value for t in Target],
-        help="тир носителя (по умолчанию desktop)",
-    )
-    p_carrier.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="показать путь и текст, ничего не записывая",
-    )
-    p_carrier.set_defaults(func=cmd_carrier)
-
-    p_scenarios = sub.add_parser(
-        "scenarios",
-        help="связь между объявлениями в спеках и YAML-файлами сценариев",
-    )
-    common(p_scenarios)
-    # --speckit-specs is an alias for --specs used by the test suite.
-    p_scenarios.add_argument(
-        "--speckit-specs",
-        dest="speckit_specs",
-        help="каталог спеков (алиас --specs, используется в тестах)",
-    )
-    p_scenarios.add_argument(
-        "--check",
-        action="store_const",
-        dest="subcommand",
-        const="check",
-        help="проверить что все объявления покрыты файлами",
-    )
-    p_scenarios.add_argument(
-        "--generate",
-        action="store_const",
-        dest="subcommand",
-        const="generate",
-        help="создать недостающие файлы сценариев",
-    )
-    p_scenarios.set_defaults(func=cmd_scenarios)
-
-    # The scenarios subcommand requires either --check or --generate.
-    # We validate this in cmd_scenarios rather than using argparse required=True
-    # on a group, to keep the error message user-friendly rather than argparse's
-    # "argument --check/--generate: expected one argument".
-
-    p_results = sub.add_parser("results", help="нормализовать JUnit/Maestro XML в results.json")
-    common(p_results)
-    p_results.add_argument("--commit", help="коммит, к которому относятся результаты (по умолчанию git HEAD)")
-    p_results.add_argument("--dirs", help="каталоги с XML через запятую, переопределяют умолчания")
-    p_results.add_argument(
-        "--targets",
-        help="цели, которые реально прогонялись, через запятую (android, desktop). "
-        "Не указанные цели попадают в матрицу как not-run и не проверяются правилом "
-        "'цель не дала ни одного тесткейса'",
-    )
-    p_results.add_argument("--maestro", action="store_true", help="учесть XML потоков Maestro")
-    p_results.add_argument(
-        "--partial",
-        action="store_true",
-        help="прогон был отфильтрован по тегам и не покрывает все сценарии "
-        "цели. Без этого флага действует правило 'сценарий заявлен и "
-        "запускался, но не дал результата' — оно верно для CI (прогон "
-        "fast+slow) и ложно для локального прогона по умолчанию, который "
-        "исключает @Tag(\"slow\"), а носители сценариев помечены slow. "
-        "Локальный рецепт just trace-results передаёт этот флаг.",
-    )
-    p_results.add_argument(
-        "--missing-scenarios",
-        help="сценарии, которые были заявлены в CI, но не запускались (device unavailable и т.п.). "
-        "Формат: scenario/target,scenario/target,... например 'smoke-launch-today/android,auth-01/android'. "
-        "Эти сценарии попадают в матрицу как 'missing' (glyph ❌) вместо 'not-run' (glyph ⌛), "
-        "что позволяет отличить 'CI заявляла цель, но этот сценарий не запустила' "
-        "от 'сценарий запустился, но не дал результата'.",
-    )
-    p_results.add_argument("--out-dir", help=f"куда писать (по умолчанию {OUTPUT_DIR})")
-    p_results.set_defaults(func=cmd_results)
-
-    p_seed = sub.add_parser("seed", help="спроецировать спеки в Kiwi")
-    common(p_seed)
-    p_seed.add_argument("--dry-run", action="store_true", help="ничего не писать")
-    p_seed.add_argument("--check", action="store_true", help="упасть при расхождении Kiwi и спеков")
-    p_seed.set_defaults(func=cmd_seed)
-
-    p_publish = sub.add_parser("publish", help="загрузить результаты в Kiwi как историю прогонов")
-    common(p_publish)
-    p_publish.add_argument("--results", default=str(OUTPUT_DIR / "results.json"), help="файл results.json")
-    p_publish.add_argument("--commit", help="коммит (по умолчанию — из results.json)")
-    p_publish.add_argument("--dry-run", action="store_true", help="ничего не писать")
-    p_publish.set_defaults(func=cmd_publish)
-
-    return parser
+# ── main ───────────────────────────────────────────────────────────────────
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    """Parse arguments and dispatch to the requested command.
+
+    Exit codes:
+        0  success
+        1  validation error
+        2  a target produced zero testcases
+        3  Kiwi was unreachable (Kiwi stand retired — unreachable code path)
+      130  KeyboardInterrupt
+    """
     try:
-        return args.func(args)
+        return cli.main(args=argv, standalone_mode=False)
     except NoResultsError as exc:
-        # Distinct exit code: "a target ran and produced nothing" is a
-        # different diagnosis from "the specs are wrong", and CI acts on it
-        # differently.
         print(f"✗ {exc}", file=sys.stderr)
         return EXIT_NO_RESULTS
     except ValidationError as exc:
