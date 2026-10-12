@@ -143,11 +143,6 @@ collect_and_report() {
 # Multi-command gates defined as exported functions so they can be passed
 # as the command to `gate`.  Each must be `export -f` so bash -c sees it.
 
-digest_and_sizes() {
-  python3 scripts/refresh-decisions-digest.py && python3 scripts/check-doc-sizes.py
-}
-export -f digest_and_sizes
-
 digest_no_double_suffix() {
   local n
   n=$(grep -c "_(from " docs/decisions/DIGEST.md 2>/dev/null || echo 0)
@@ -170,13 +165,13 @@ export -f traceability
 
 # ─── Registry ────────────────────────────────────────────────────────────────
 # All gate calls are INSIDE main() so that sourcing this file (to call one of the
-# helper functions: digest_and_sizes, digest_no_double_suffix, adr_dry_run,
+# helper functions: digest_no_double_suffix, adr_dry_run,
 # traceability) does NOT execute all gates as a side-effect.
 # The `|| [[ $? == 0 ]]` guard at the end of this file ensures main() is NOT called
 # when sourced — only when the script runs as a command.
 main() {
 # Build hygiene
-gate blocking "version catalog has no literals" python3 scripts/build-version-catalog-gate.py --quiet .
+gate blocking "version catalog has no literals" sgate version_catalog_has_no_literals
 # -v: a failure prints its name the moment it happens, and a run that dies
 # without an epilogue (CI, 2026-10-11) still shows the last test it reached —
 # dots-only output ends mid-stream with no way to tell where.
@@ -184,9 +179,9 @@ gate blocking "version catalog has no literals" python3 scripts/build-version-ca
 # unittest's epilogue goes to stderr while script print()s sit in the
 # block-buffered stdout, so the file's last lines can be stale stdout alone.
 gate blocking "gate scripts' own unit tests" bash -c 'python3 -m unittest discover -s scripts/tests -v; rc=$?; echo "__unittest_rc=$rc"; exit $rc'
-gate blocking "test-task external inputs declared" python3 scripts/check-test-task-inputs.py
-gate blocking "declared dependencies are used" python3 scripts/check-dependency-usage.py
-gate blocking "room schema integrity" python3 scripts/check-room-schema-integrity.py
+gate blocking "test-task external inputs declared" sgate test_task_external_inputs_declared
+gate blocking "declared dependencies are used" sgate declared_dependencies_are_used
+gate blocking "room schema integrity" sgate room_schema_integrity
 # A gate that dies instead of reporting is indistinguishable from a gate that
 # passes, for every consumer that reads only the exit code. This found a real
 # one on its first run: check-kiwi-inventory-ratchet.py crashed with
@@ -196,30 +191,30 @@ gate blocking "room schema integrity" python3 scripts/check-room-schema-integrit
 # gate died of its own timeout (#529). The `# no-self-probe` comment marks gates
 # that must not be probed; the filter is applied in check-gate-liveness.py, not
 # in the filename heuristic that previously lived there (#534).
-gate blocking "gates are alive" python3 scripts/check-gate-liveness.py  # no-self-probe
+gate blocking "gates are alive" sgate gates_are_alive  # no-self-probe
 # A closed decision is a record of what was decided. Its body must stop changing;
 # a new decision supersedes it instead of rewriting it (#528).
-gate blocking "closed ADRs keep their body" python3 scripts/check-adr-immutable.py
+gate blocking "closed ADRs keep their body" sgate closed_adrs_keep_their_body
 # A skill is a hand-written description of code nobody diffs against it, so it is
 # always the stale one and always reads like documentation rather than like a bug.
 # The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
 # this compares the committed text with what the code says today (#526).
-gate blocking "skills describe the tools that exist" python3 scripts/check-skill-drift.py
+gate blocking "skills describe the tools that exist" sgate skills_describe_the_tools_that_exist
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).
-gate advisory "git hooks path is per-worktree" python3 scripts/check-hooks-path.py --quiet
-gate advisory "unwired surfaces" python3 scripts/find-unwired-surfaces.py --quiet
-gate blocking "unwired backlog refs" python3 scripts/check-unwired-backlog-refs.py
-gate blocking "settings read by a feature" python3 scripts/check-dead-settings.py --quiet
-gate blocking "YAML has no duplicate keys" python3 scripts/check-yaml-duplicate-keys.py --quiet
+gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree --quiet
+gate advisory "unwired surfaces" sgate unwired_surfaces --quiet
+gate blocking "unwired backlog refs" sgate unwrapped_backlog_refs
+gate blocking "settings read by a feature" sgate settings_read_by_a_feature --quiet
+gate blocking "YAML has no duplicate keys" sgate yaml_has_no_duplicate_keys --quiet
 
 # Lint-rule governance
-gate blocking "detekt rules config is current" python3 scripts/gen-detekt-rules-config.py --check
-gate blocking "detekt rule inventory is current" python3 scripts/gen-detekt-rule-table.py --check
+gate blocking "detekt rules config is current" sgate detekt_rules_config_is_current --check
+gate blocking "detekt rule inventory is current" sgate detekt_rule_inventory_is_current --check
 gate blocking "detekt rule registry" ./scripts/check-detekt-registrations.sh
-gate blocking "detekt baseline ratchet" python3 scripts/check-baseline-ratchet.py
-gate blocking "lint rules are declared decisions" python3 scripts/check-rule-intent.py
-gate blocking "file-level suppressions explain themselves" python3 scripts/check-suppression-intent.py
+gate blocking "detekt baseline ratchet" sgate detekt_baseline_ratchet
+gate blocking "lint rules are declared decisions" sgate lint_rules_are_declared_decisions
+gate blocking "file-level suppressions explain themselves" sgate file_level_suppressions_explain_themselves
 # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here.
 # See gate "detekt-rule branch coverage" and "kover verify" in ci.yml.
@@ -230,27 +225,27 @@ gate blocking "file-level suppressions explain themselves" python3 scripts/check
 # instead of a hard exit 127 that would falsely fail the blocking gate.
 gate blocking "scenario specs valid" sgate scenario_specs_valid
 gate blocking "coverage matrix current" sgate coverage_matrix_current
-gate blocking "coverage holes did not grow" python3 scripts/check-traceability-ratchet.py
-gate advisory "kiwi inventory did not regress" python3 scripts/check-kiwi-inventory-ratchet.py
+gate blocking "coverage holes did not grow" sgate coverage_holes_did_not_grow
+gate advisory "kiwi inventory did not regress" sgate kiwi_inventory_did_not_regress
 
 # Server schema
-gate blocking "supabase schema is self-consistent" python3 scripts/check-supabase-schema-integrity.py
-gate blocking "sync allowlist seed matches contract" python3 scripts/check-sync-allowlist-regenerated.py
+gate blocking "supabase schema is self-consistent" sgate supabase_schema_is_self_consistent
+gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_matches_contract
 
 # Maestro
-gate blocking "maestro selectors valid" python3 scripts/ci/validate-maestro-selectors.py
+gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 
 # Docs / agent-facing text
 gate advisory "skills catalog current" ./scripts/regen-skills-catalog.sh --check
 gate blocking "skill frontmatter" ./scripts/check-skill-frontmatter.sh
-gate blocking "decisions digest within budget" digest_and_sizes
+gate blocking "decisions digest within budget" sgate decisions_digest_within_budget
 gate blocking "digest has no double suffix" digest_no_double_suffix
-gate advisory "no dead doc refs" python3 scripts/check-doc-dead-refs.py
-gate blocking "no dead skill symbols" python3 scripts/check-doc-dead-refs.py --skill-symbols
-gate advisory "publication hygiene" python3 scripts/check-publication-hygiene.py
-gate blocking "publication hygiene self-test" python3 scripts/check-publication-hygiene.py --self-test
-gate blocking "README claims" python3 scripts/check-readme-claims.py
-gate blocking "README claims self-test" python3 scripts/check-readme-claims.py --self-test
+gate advisory "no dead doc refs" sgate no_dead_doc_refs
+gate blocking "no dead skill symbols" sgate no_dead_doc_refs --skill-symbols
+gate advisory "publication hygiene" sgate publication_hygiene
+gate blocking "publication hygiene self-test" sgate publication_hygiene --self-test
+gate blocking "README claims" sgate readme_claims
+gate blocking "README claims self-test" sgate readme_claims --self-test
 
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
@@ -267,7 +262,7 @@ gate blocking "README claims self-test" python3 scripts/check-readme-claims.py -
 # in check.sh and in ci.yml's `tests` job.
 #
 # ADR reference integrity and status policy — these make ADR deletion safe (#116).
-gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
+gate blocking "ADR references are valid" sgate adr_references_are_valid
 # #553 switched this gate to `singularity-adr validate` (the canonical CLI
 # interface), but the static job is deliberately JVM-free (~1 min, no Gradle):
 # the installed CLI is not on a CI runner's PATH, so the gate died with exit
@@ -275,32 +270,32 @@ gate blocking "ADR references are valid" python3 scripts/check-adr-references.py
 # are kept where they can actually run: the Python gate here (the same code
 # the CLI wraps, per #553), the CLI itself in adr-gate.yml's "ADR validation"
 # step, which installs the distribution and runs on every docs/decisions PR.
-gate blocking "ADR status policy" python3 scripts/check_adr_status.py
+gate blocking "ADR status policy" sgate adr_status_policy
 
 # Five consumers discovered docs/decisions/ five different ways and had already
 # drifted apart — three could not see deferred/, which is how the status gate
 # reported "all statuses in vocabulary" while 129 files used a vocabulary of their
 # own. The rules live in config/docs/adr-corpus.json; this gate keeps every consumer
 # reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
-gate blocking "ADR corpus rules are shared" python3 scripts/check-adr-config-sync.py
+gate blocking "ADR corpus rules are shared" sgate adr_corpus_rules_are_shared
 
 # `:adr-cli` shipped 127 MB and 0.30 s of startup to read markdown files, because
 # `adr-cli/build.gradle.kts` depended on `:shared` — Compose, Room, SQLite, Koin and
 # Koog. The rules moved to `:adr-core`; this keeps them there, transitively, so a
 # one-line dependency does not put the application runtime back on a 4.9 MB
 # distribution with every test still green.
-gate blocking "light ADR modules stay light" python3 scripts/check-adr-module-boundary.py --quiet
+gate blocking "light ADR modules stay light" sgate light_adr_modules_stay_light --quiet
 
 # Advisory — each needs an exit plan, or it is just a quieter blocking gate.
 # Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
 # then flip ADR frontmatter drift to blocking.
 gate advisory "ADR frontmatter drift" sgate adr_frontmatter_drift
-gate advisory "openspec stale" python3 scripts/check-openspec-stale.py
-gate advisory "spec-kit issue registry current" python3 scripts/check-speckit-issue-registry.py
-gate advisory "requirement identifiers are unique" python3 scripts/check-req-id-uniqueness.py
+gate advisory "speckit stale" sgate speckit_stale
+gate advisory "spec-kit issue registry current" sgate spec_kit_issue_registry_current
+gate advisory "requirement identifiers are unique" sgate requirement_identifiers_are_unique
 
 # AppTracer
-gate blocking "apptracer upload policy encoded" python3 scripts/check-apptracer-policy.py
+gate blocking "apptracer upload policy encoded" sgate apptracer_upload_policy_encoded
 
 # Backlog
 gate advisory "backlog-issue-refs" sgate backlog_issue_refs

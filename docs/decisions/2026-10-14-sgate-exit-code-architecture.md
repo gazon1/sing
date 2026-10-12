@@ -1,6 +1,7 @@
 ---
 title: "sgate exit-code and exception-handling architecture"
 date: 2026-10-14
+status: accepted
 tags: [sgate, cli, exit-codes, error-handling]
 ---
 

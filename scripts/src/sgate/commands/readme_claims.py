@@ -26,8 +26,9 @@ def _handle_result(result: Result, gate_name: str, *, emit_json: bool) -> None:
 
 @click.command("readme_claims")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
+@click.option("--self-test", is_flag=True, help="Prove the rules fire on a known-bad corpus")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
-def readme_claims(check: bool, emit_json: bool) -> None:
+def readme_claims(check: bool, self_test: bool, emit_json: bool) -> None:
     """Run the "README claims" gate.
 
     Mode: blocking
@@ -53,6 +54,8 @@ def readme_claims(check: bool, emit_json: bool) -> None:
 
     import sys
     py_cmd = [sys.executable, str(script)]
+    if self_test:
+        py_cmd.append("--self-test")
     try:
         if emit_json:
             result = run_capture(py_cmd, gate_name)

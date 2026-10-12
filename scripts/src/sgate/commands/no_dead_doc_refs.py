@@ -26,8 +26,9 @@ def _handle_result(result: Result, gate_name: str, *, emit_json: bool) -> None:
 
 @click.command("no_dead_doc_refs")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
+@click.option("--skill-symbols", is_flag=True, help="Check Kotlin symbol references in skills")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
-def no_dead_doc_refs(check: bool, emit_json: bool) -> None:
+def no_dead_doc_refs(check: bool, skill_symbols: bool, emit_json: bool) -> None:
     """Run the "no dead doc refs" gate.
 
     Mode: advisory
@@ -53,6 +54,8 @@ def no_dead_doc_refs(check: bool, emit_json: bool) -> None:
 
     import sys
     py_cmd = [sys.executable, str(script)]
+    if skill_symbols:
+        py_cmd.append("--skill-symbols")
     try:
         if emit_json:
             result = run_capture(py_cmd, gate_name)
