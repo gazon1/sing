@@ -201,7 +201,7 @@ def _make_deps(
     def fake_capture_artifacts(serial, flow_name, artifact_dir):
         pass
 
-    def fake_git_sha():
+    def fake_git_sha(deps):
         return "abc123def456"
 
     return DeviceDeps(
@@ -209,7 +209,7 @@ def _make_deps(
         device_alive=lambda s: alive[0],
         device_model=fake_device_model,
         maestro_saw_device_failure=fake_maestro_saw_device_failure,
-        apk_sha_from_device=lambda s: fake_maestro._device_sha,
+        apk_sha_from_device=lambda s, deps: fake_maestro._device_sha,
         gradle_install_debug=lambda s: noop_cp,
         ensure_device=lambda s: serial if alive[0] else None,
         adb=fake_adb,
@@ -334,7 +334,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             device_alive=lambda s: True,
             device_model=lambda s: "Pixel_8",
             maestro_saw_device_failure=lambda stderr: False,
-            apk_sha_from_device=lambda s: "abc123def456",
+            apk_sha_from_device=lambda s, deps: "abc123def456",
             gradle_install_debug=gradle_install_mock,
             ensure_device=lambda s: "emulator-5554",
             adb=lambda *a, **kw: "",
@@ -342,7 +342,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             wait_for_app_resumed=lambda s, timeout=20: True,
             cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
             capture_artifacts=lambda serial, name, artifact_dir, deps: None,
-            git_sha=lambda: "abc123def456",
+            git_sha=lambda deps: "abc123def456",
         )
 
         # Patch _cli module so main() gets the fake deps.
