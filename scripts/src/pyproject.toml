@@ -17,6 +17,8 @@ dependencies = [
 
 [project.scripts]
 sgate = "sgate.cli:main"
+ensure-emulator = "emulator._cli:main"
+run-maestro = "emulator.maestro._cli:main"
 
 # `scripts/src/` is the project root and the two packages are siblings inside it.
 #
@@ -35,6 +37,8 @@ sgate = "sgate.cli:main"
 # the two land in separate steps.
 [tool.setuptools]
 packages = [
+    "emulator",
+    "emulator.maestro",
     "scanners",
     "sgate",
     "sgate.commands",

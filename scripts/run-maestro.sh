@@ -1,5 +1,5 @@
 #!/bin/bash
-# Thin wrapper: delegates to the Python version (run-maestro.py).
-# Keeping the .sh extension preserves existing call-sites while the logic
-# lives in a testable Python module.
-exec "$(dirname "$0")/run-maestro.py" "$@"
+# Delegates to the `run-maestro` entry point (emulator.maestro._cli:main).
+# Requires `pip install -e scripts/src/` to have been run, so that the
+# `run-maestro` command is on PATH.
+exec run-maestro "$@"
