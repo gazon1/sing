@@ -33,7 +33,7 @@ class DeviceDeps:
     device_alive: Callable[[str], bool]
     device_model: Callable[[str], str]
     maestro_saw_device_failure: Callable[[str], bool]
-    apk_sha_from_device: Callable[[str], str | None]
+    apk_sha_from_device: Callable[[str, "DeviceDeps"], str | None]
     gradle_install_debug: Callable[[str], "subprocess.CompletedProcess"]
     ensure_device: Callable[[str], str | None]
     adb: Callable[..., str | None]
@@ -41,7 +41,7 @@ class DeviceDeps:
     wait_for_app_resumed: Callable[[str, int], bool]
     cleanup_run_fixtures: Callable[[str, str, str, "DeviceDeps"], None]
     capture_artifacts: Callable[[str, str, Path, "DeviceDeps"], None]
-    git_sha: Callable[[], str]
+    git_sha: Callable[["DeviceDeps"], str]
 
 
 def _default_device_deps() -> DeviceDeps:
@@ -56,21 +56,31 @@ def _default_device_deps() -> DeviceDeps:
         wait_for_app_resumed,
     )
     from emulator.maestro._fixtures import cleanup_run_fixtures
-    from emulator.maestro._provenance import apk_sha_from_device, git_sha
+    from emulator.maestro._provenance import (
+        apk_sha_from_device as _apk_sha_from_device,
+        git_sha as _git_sha,
+    )
     from emulator.maestro._subprocess import try_run
 
-    return DeviceDeps(
-        try_run=try_run,
-        device_alive=device_alive,
-        device_model=device_model,
-        maestro_saw_device_failure=maestro_saw_device_failure,
-        apk_sha_from_device=apk_sha_from_device,
-        gradle_install_debug=gradle_install_debug,
-        ensure_device=ensure_device,
-        adb=adb,
-        reset_adb_server=reset_adb_server,
-        wait_for_app_resumed=wait_for_app_resumed,
-        cleanup_run_fixtures=cleanup_run_fixtures,
-        capture_artifacts=capture_artifacts,
-        git_sha=git_sha,
-    )
+    def make_deps() -> DeviceDeps:
+        # NOTE: closure captures 'make_deps' reference — safe because deps is
+        # built once and returned, never re-bound.
+        nonlocal adb, device_alive, ensure_device, try_run
+        deps = DeviceDeps(
+            try_run=try_run,
+            device_alive=device_alive,
+            device_model=device_model,
+            maestro_saw_device_failure=maestro_saw_device_failure,
+            apk_sha_from_device=lambda serial: _apk_sha_from_device(serial, deps),
+            gradle_install_debug=gradle_install_debug,
+            ensure_device=ensure_device,
+            adb=adb,
+            reset_adb_server=reset_adb_server,
+            wait_for_app_resumed=wait_for_app_resumed,
+            cleanup_run_fixtures=cleanup_run_fixtures,
+            capture_artifacts=capture_artifacts,
+            git_sha=lambda: _git_sha(deps),
+        )
+        return deps
+
+    return make_deps()

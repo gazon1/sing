@@ -54,7 +54,7 @@ def run_one_flow(
 
         if status == 0:
             if attempt > 0 and not allow_stale:
-                installed_sha = deps.apk_sha_from_device(serial)
+                installed_sha = deps.apk_sha_from_device(serial, deps)
                 if installed_sha and installed_sha != expected_sha:
                     logger.warning(
                         f"device was relaunched and carries g{installed_sha}, "
@@ -101,7 +101,7 @@ def run_one_flow(
                 logger.error(f"installDebug failed (rc={install_cp.returncode})")
                 return False, run_id
             if not allow_stale:
-                installed_sha = deps.apk_sha_from_device(serial)
+                installed_sha = deps.apk_sha_from_device(serial, deps)
                 if installed_sha and installed_sha != expected_sha:
                     logger.error(
                         f"Relaunched device holds g{installed_sha}, not g{expected_sha}; "
@@ -110,7 +110,7 @@ def run_one_flow(
                     return False, run_id
         else:
             if not allow_stale:
-                installed_sha = deps.apk_sha_from_device(serial)
+                installed_sha = deps.apk_sha_from_device(serial, deps)
                 if not installed_sha or installed_sha != expected_sha:
                     logger.warning(
                         "device was relaunched and SKIP_INSTALL=1, "

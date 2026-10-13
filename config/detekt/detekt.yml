@@ -651,4 +651,14 @@ app-error-code:
 # SyncCoordinator) are listed in the rule's EXEMPTED_CLASSES companion object.
 no-init-coroutine-launch:
   NoCoroutineLaunchInInit:
-    active: true 
+    active: true
+
+# Added 2026-10-13. Bans two patterns that silently break Maestro UI test coverage:
+#   1. testTag = "" (empty string) — element permanently invisible to Maestro.
+#   2. Interactive composable with no testTag in feature/ source directories.
+# Wired 2026-10-13: implemented and registered in META-INF/services but had no
+# detekt.yml block, so check-detekt-registrations.sh would have caught it.
+non-tagged-maestro-elements:
+  NonTaggedMaestroElements:
+    active: true
+
