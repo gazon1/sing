@@ -185,10 +185,11 @@ steps:
           with the same `slug` and the grilled/improved request from the completed
           pass as its new input. This is the REPEAT loop.
 
-          **Close → done** stops here. The change is complete; register it manually.
+          **Close → done** exits the workflow. The change is complete; register it manually.
+          Choosing `reject` is treated as `skip` (workflow continues).
         show_file: "openspec/changes/{{ inputs.slug }}/when-done.md"
         options: [continue, close]
-        on_close: exit
+        on_reject: skip
 
   # ─── Phase 4: Assert and report ────────────────────────────────────────────
   # No interpolation at all. The change directory is discovered by newest
