@@ -163,7 +163,7 @@ fun coreModule(): org.koin.core.module.Module =
                 legacy = get(),
             )
         }
-        single<SessionStore> { get<SecureSessionStore>() }
+        // single<SessionStore> { get<SecureSessionStore>() }
 
         // Which Supabase project to talk to. The resolver owns the precedence rule
         // (a stored value beats a build-time one) and the provider owns the client,

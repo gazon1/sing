@@ -15,13 +15,13 @@ SERIAL=emulator-5554 just tm tags=smoke # pin the device (recovery still runs)
 RUN_MAESTRO=1 ./check.sh
 ```
 
-Environment variables understood by `scripts/run-maestro.sh`:
+Environment variables understood by `run-maestro`:
 `SERIAL`, `FLOW`, `TAGS`, `SKIP_INSTALL=1`, `MAESTRO_MAX_RETRIES` (default 1).
 
 ### Getting a device
 
 ```bash
-SERIAL=$(./scripts/ensure-emulator.sh)   # prints a serial, starting the AVD if needed
+SERIAL=$(ensure-emulator)   # prints a serial, starting the AVD if needed
 ```
 
 That is the only supported way to get a device: it prints a ready serial, or starts
@@ -30,11 +30,11 @@ device that was *already* up, so every emulator crash would surface as "connect 
 device" — when the remedy is one command.
 
 **Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
-is exactly the crash case `ensure-emulator.sh` exists to resurrect, so it restarts
+is exactly the crash case `ensure-emulator` exists to resurrect, so it restarts
 the AVD instead of failing. Only a pinned *physical* device is a hard error, because
 starting an AVD would land on `emulator-5554` and not match.
 
-`run-maestro.sh` calls this itself when no device is ready, and again whenever
+`run-maestro` calls this itself when no device is ready, and again whenever
 the device is lost mid-suite. That is not defensive padding: the host emulator
 has an unfixed gfxstream crash (`TextureResize` segfault while the guest
 creates a ColorBuffer) that takes the whole device with it. No renderer
@@ -162,6 +162,6 @@ The workaround is verified; re-check before assuming a new failure is related.
 
 - Skill: `.agents/skills/singularity-todo-maestro-flows/SKILL.md`
 - Device pre-flight: `singularity-todo-adb-workflow` skill (wake, unlock, install,
-  logcat triage) — the device itself comes from `./scripts/ensure-emulator.sh`
+  logcat triage) — the device itself comes from `ensure-emulator`
 - Note: `singularity-todo-test-tag-strategy` covers JUnit `@Tag("slow")`,
   which is unrelated to Maestro's `tags:` header despite the similar name.

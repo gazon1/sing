@@ -1,26 +1,30 @@
 """emulator — Android emulator lifecycle management for singularity-todo.
 
 Public API:
-    ensure()    → str | None   (serial of a ready device)
+    ensure_device(pin)  → str | None   (serial of a ready device; acquires one)
+    acquire_device(pin) → Acquisition  (serial + exit code, never raises)
     Config                          (mutable configuration singleton)
     EXIT_*                          (exit code constants)
-    AVD, LOCK_FILE, EXTRA_FLAGS, BOOT_TIMEOUT  (runtime configuration)
+    AVD, LOCK_FILE, EXTRA_FLAGS, BOOT_TIMEOUT, LOCK_TIMEOUT
 """
 from __future__ import annotations
 
-import sys as _sys
 from emulator._cli import main as cli
 from emulator._device import (
     adb,
+    adb_on,
     device_is_ready,
     find_ready,
     first_ready_device,
     popen,
+    probe_device_ready,
     try_run,
 )
 from emulator._startup import (
+    Acquisition,
     _avd_is_running,
     clear_stale_emulator,
+    ensure_device,
     startup_lock,
     start_avd,
 )
@@ -34,49 +38,33 @@ from emulator._types import (
     Config,
 )
 
-# Canonical fields on cfg that tests patch via module-level attribute access.
-# NO module-level AVD/LOCK_FILE/etc. variables here — only __getattr__.
-# This ensures that:
-#   1. emulator.AVD always goes through __getattr__ (or finds the patched dict entry)
-#   2. When a test does emulator.AVD = 'Pixel_7', it writes to emulator.__dict__
-#   3. _startup.py accesses emulator.AVD, which finds the patched value in __dict__
-_CFG_FORWARD = frozenset({
-    "AVD",
-    "LOCK_FILE",
-    "EXTRA_FLAGS",
-    "BOOT_TIMEOUT",
-    "main",
-})
-
-
-def __getattr__(name: str):
-    if name == "main":
-        return cli
-    if name in _CFG_FORWARD:
-        return getattr(cfg, name.lower())
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def __setattr__(name: str, value) -> None:
-    if name in _CFG_FORWARD:
-        _sys.modules[__name__].__dict__[name] = value
-    else:
-        object.__setattr__(_sys.modules[__name__], name, value)
-
+# Re-export UPPER_CASE config names from the cfg singleton so that
+# `emulator.AVD` and `_emu.AVD` keep working without __getattr__.
+# Tests patch these directly:  emulator.AVD = 'Pixel_7'.
+AVD = cfg.AVD
+LOCK_FILE = cfg.LOCK_FILE
+EXTRA_FLAGS = cfg.EXTRA_FLAGS
+BOOT_TIMEOUT = cfg.BOOT_TIMEOUT
+LOCK_TIMEOUT = cfg.LOCK_TIMEOUT
 
 __all__ = [
-    # CLI entry point (forwarded via __getattr__ to avoid a top-level import cycle)
+    # CLI entry point
     "main",
     # Device primitives
     "_avd_is_running",
     "adb",
+    "adb_on",
     "device_is_ready",
     "find_ready",
     "first_ready_device",
     "popen",
+    "probe_device_ready",
     "try_run",
     # AVD lifecycle
+    "Acquisition",
+    "acquire_device",
     "clear_stale_emulator",
+    "ensure_device",
     "startup_lock",
     "start_avd",
     # Exit codes
@@ -85,11 +73,12 @@ __all__ = [
     "EXIT_CRASHED",
     "EXIT_TIMEOUT",
     "EXIT_LOCK",
-    # Configuration (forwarded via __getattr__ to cfg; supports test patching)
+    # Configuration — UPPER_CASE aliases of cfg properties
     "cfg",
     "Config",
     "AVD",
     "LOCK_FILE",
     "EXTRA_FLAGS",
     "BOOT_TIMEOUT",
+    "LOCK_TIMEOUT",
 ]

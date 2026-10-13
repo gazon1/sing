@@ -3,7 +3,7 @@
 # Canonical spec: scripts/src/traceability/scenarios/tasks/recurrence/TASK-REC-01.yaml
 #
 # The `scenario:TASK-REC-01` tag below is the linkage. It is matched by exact
-# string comparison in scripts/run-maestro.sh, so `just gm scenario:TASK-REC-01`
+# string comparison in run-maestro, so `just gm scenario:TASK-REC-01`
 # filters to exactly this flow with no new mechanism. The id is the first token
 # after the `scenario:` namespace prefix, for the same reason it is the first
 # token in a Kotlin `@DisplayName`: a reader — human or scanner — can tell an id

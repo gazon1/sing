@@ -11,8 +11,8 @@ import time
 
 from emulator._device import (
     adb as _parent_adb,
+    adb_on as _parent_adb_on,
     device_alive as _parent_device_alive,
-    ensure_device as _parent_ensure_device,
 )
 
 from emulator.maestro._subprocess import run as _subprocess_run
@@ -20,8 +20,8 @@ from emulator.maestro._types import APP_ID, GW, ROOT
 
 # Re-export parent functions for backward compatibility.
 adb = _parent_adb
+adb_on = _parent_adb_on
 device_alive = _parent_device_alive
-ensure_device = _parent_ensure_device
 
 
 def adb_check(*args: str) -> bool:
@@ -32,7 +32,7 @@ def adb_check(*args: str) -> bool:
 
 
 def device_model(serial: str) -> str:
-    return (adb("-s", serial, "shell", "getprop", "ro.product.model") or "").strip()
+    return (adb_on(serial, "shell", "getprop", "ro.product.model") or "").strip()
 
 
 def reset_adb_server() -> None:
@@ -73,7 +73,7 @@ def wait_for_app_resumed(serial: str, timeout: int = 20) -> bool:
     """Poll dumpsys activity until the main activity is top-resumed."""
     waited = 0
     while waited < timeout:
-        out = adb("-s", serial, "shell", "dumpsys", "activity", "activities", timeout=5) or ""
+        out = adb_on(serial, "shell", "dumpsys", "activity", "activities", timeout=5) or ""
         if f"topResumedActivity=.{APP_ID}/" in out or f"topResumedActivity={APP_ID}/" in out:
             return True
         time.sleep(1)

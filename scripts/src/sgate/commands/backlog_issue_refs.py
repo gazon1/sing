@@ -12,9 +12,9 @@ from sgate.log import logger
 import sgate
 from sgate.output import gate_fail
 from sgate.commands._runner import run, run_capture
+from sgate.commands._parsers import parse_header, skip_blanks, parse_error_block
 from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
-# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = False
 
 # ── output parser ──────────────────────────────────────────────────────────────
@@ -38,70 +38,45 @@ def _parse_backlog_issue_refs(stdout: str | bytes) -> dict:
     passed = True
 
     i = 0
+
     # First line: "backlog-issue-refs: N entries, M open"
-    if lines:
-        m = re.match(r"backlog-issue-refs:\s*(\d+)\s+entries,\s*(\d+)\s+open", lines[i])
-        if m:
-            entry_count = int(m.group(1))
-            open_count = int(m.group(2))
-            i += 1
+    hdr, i = parse_header(lines, i, re.compile(r"backlog-issue-refs:\s*(?P<count>\d+)\s+entries,\s*(?P<open>\d+)\s+open"))
+    if hdr:
+        entry_count = int(hdr["count"])
+        open_count = int(hdr["open"])
 
     # Second line: "  snapshot: N issues (M open)"
-    if i < len(lines) and lines[i].strip().startswith("snapshot:"):
-        m = re.match(r"\s*snapshot:\s*(\d+)\s+issues\s+\((\d+)\s+open\)", lines[i])
-        if m:
-            snapshot_issue_count = int(m.group(1))
-            snapshot_open_count = int(m.group(2))
-            i += 1
+    hdr2, i = parse_header(lines, i, re.compile(r"\s*snapshot:\s*(?P<count>\d+)\s+issues\s+\((?P<open>\d+)\s+open\)"))
+    if hdr2:
+        snapshot_issue_count = int(hdr2["count"])
+        snapshot_open_count = int(hdr2["open"])
 
-    # Skip blank lines
-    while i < len(lines) and not lines[i].strip():
+    i = skip_blanks(lines, i)
+
+    # ERROR: lines — use shared helper
+    for file, line_num, message in parse_error_block(lines, i):
+        passed = False
+        blocking_errors.append({
+            "file": file,
+            "line": line_num,
+            "slug": "",
+            "code": "",
+            "message": message,
+        })
+
+    # Skip to end of parsed error block
+    while i < len(lines) and lines[i].rstrip().startswith("ERROR:"):
         i += 1
 
-    # ERROR: lines — format: "ERROR: {file}:{line}  {slug}  [{code}] {message}"
-    # or: "ERROR: {file}:{line}  {slug}  [{code}] {rest}"
+    # Remaining warning lines
     while i < len(lines):
         line = lines[i].rstrip()
-        if line.startswith("ERROR:"):
-            passed = False
-            # "ERROR: deferred/test.md:42  test-slug  [I1] message"
-            rest = line[6:].strip()
-            # Split on "  " (double-space) to separate location from message
-            parts = rest.split("  ", 1)
-            if len(parts) == 2:
-                location = parts[0].strip()
-                message = parts[1].strip()
-                # location: "deferred/test.md:42"
-                loc_match = re.match(r"(.+):(\d+)", location)
-                if loc_match:
-                    blocking_errors.append({
-                        "file": loc_match.group(1),
-                        "line": int(loc_match.group(2)),
-                        "slug": "",
-                        "code": "",
-                        "message": message,
-                    })
-                else:
-                    blocking_errors.append({
-                        "file": location,
-                        "line": None,
-                        "slug": "",
-                        "code": "",
-                        "message": message,
-                    })
-            else:
-                blocking_errors.append({"file": None, "line": None, "slug": "", "code": "", "message": rest})
-            i += 1
-        elif line.startswith("WARNING:"):
-            # "WARNING: N open issue(s) missing Backlog: field"
+        if line.startswith("WARNING:"):
             m = re.match(r"WARNING:\s*(\d+)\s+open issue\(s\)\s+missing Backlog: field", line)
             if m:
-                # Warning count extracted; individual issues follow
                 i += 1
-                # Read individual issue lines (indented, start with "  issue #")
                 while i < len(lines) and lines[i].strip().startswith("issue #"):
                     issue_line = lines[i].strip()
-                    # "  issue #25  [I4] open issue has no Backlog: field — ..."
                     m_issue = re.match(r"issue #(\d+)\s+\[I4\]\s+(.+)", issue_line)
                     if m_issue:
                         warnings.append({
@@ -110,20 +85,7 @@ def _parse_backlog_issue_refs(stdout: str | bytes) -> dict:
                         })
                     i += 1
                 continue
-            i += 1
-        elif "  ok  " in line or "  ok  all blocking invariants pass" in line:
-            i += 1
-        elif line.startswith("check-backlog-issue-refs:") and "FAIL" in line:
-            passed = False
-            i += 1
-        elif "⚠" in line:
-            # Advisory warning summary: "  ⚠   N open issue(s) still need Backlog: field"
-            i += 1
-        elif re.match(r"^\s*\.\.\.\s+and\s+\d+\s+more", line):
-            i += 1
-        elif line.startswith("backlog-issue-refs:") or line.startswith("  snapshot:"):
-            i += 1
-        elif not line.strip():
+        if not line or "  ok  " in line or "⚠" in line or line.startswith("backlog-issue-refs:"):
             i += 1
         else:
             i += 1

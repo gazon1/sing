@@ -4,7 +4,7 @@
 # Canonical spec: scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml
 #
 # The `scenario:TASK-CHECK-01` tag below is the linkage, matched by exact string
-# comparison in scripts/run-maestro.sh. The id is the first token after the
+# comparison in run-maestro. The id is the first token after the
 # `scenario:` namespace prefix, for the same reason it is the first token in a
 # Kotlin @DisplayName: a reader — human or scanner — can tell an id from prose.
 #

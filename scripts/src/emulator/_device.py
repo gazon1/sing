@@ -1,11 +1,20 @@
-"""emulator._device — adb wrappers and device readiness detection."""
+"""emulator._device — adb wrappers and device readiness detection.
+
+Two rules this module exists to enforce:
+
+* ``adb`` is for **device-independent** commands only (``devices``, ``start-server``,
+  ``kill-server``).  Anything scoped to a device goes through ``adb_on``, which
+  injects ``-s <serial>`` itself.  Passing a bare serial as the first argument is
+  not a shorter spelling of ``adb_on`` — it produces ``adb <serial> shell …``,
+  which adb rejects as an unknown command, and the call silently produces no
+  evidence.  That failure shipped once; see ADR 2026-10-13-ensure-device-acquires.
+* Readiness is reported with the name of the probe that failed, so a wedged
+  device is distinguishable from an unauthorized one in the logs.
+"""
 from __future__ import annotations
 
 import subprocess
-from typing import Optional
-
-from emulator._types import cfg
-
+from typing import Callable, NamedTuple
 
 # ── subprocess helpers ─────────────────────────────────────────────────────────
 
@@ -39,37 +48,78 @@ def popen(args: list[str], stdout_fd: int | None = None) -> subprocess.Popen:
 # ── adb primitives ─────────────────────────────────────────────────────────────
 
 def adb(*args: str, timeout: float = 5) -> str | None:
-    """Run `adb <args>`; return stdout on success, None on non-zero exit or timeout."""
+    """Run `adb <args>` for a device-independent command; stdout on success, else None.
+
+    Do not put a device serial in here.  Use :func:`adb_on`.
+    """
     cp = try_run(["adb", *args], timeout=timeout)
     return cp.stdout.strip() if cp and cp.returncode == 0 else None
+
+
+def adb_on(serial: str, *args: str, timeout: float = 5) -> str | None:
+    """Run `adb -s <serial> <args>`; stdout on success, None on failure or timeout.
+
+    Raises ``ValueError`` on an empty serial rather than running `adb shell …`
+    against whatever single device happens to be attached.  An unscoped command is
+    the defect this function removes, so it must fail loudly instead of guessing.
+    """
+    if not serial:
+        raise ValueError(
+            "adb_on requires a serial; use adb() for device-independent commands"
+        )
+    return adb("-s", serial, *args, timeout=timeout)
+
+
+# ── readiness ──────────────────────────────────────────────────────────────────
+
+
+class ReadyResult(NamedTuple):
+    """Outcome of a readiness sweep, naming the probe that rejected the device.
+
+    ``failed_probe`` is ``None`` when the device is ready, otherwise one of the
+    names in :data:`_READY_PROBES`, or ``"serial"`` when no serial was supplied.
+    """
+
+    ok: bool
+    failed_probe: str | None
+
+
+#: Probes, in order, that a device must pass before it is considered usable.
+#: Each entry is (name, adb args, timeout, accept predicate).
+#:
+#: The last two exist because of the host's gfxstream bug: the device reports
+#: ``sys.boot_completed == 1`` while its render thread has already died
+#: (ADR 2026-09-29-emulator-crash-recovery-runner).  ``get-state`` alone stays
+#: ``device`` for a while after that, so it cannot be the readiness signal.
+_READY_PROBES: tuple[tuple[str, tuple[str, ...], float, Callable[[str], bool]], ...] = (
+    ("get-state", ("get-state",), 5.0, lambda out: out == "device"),
+    ("boot_completed", ("shell", "getprop", "sys.boot_completed"), 5.0, lambda out: out == "1"),
+    # pm path android resolves to "package:<path>" only once packages are indexed;
+    # a booted-but-still-indexing emulator returns empty or times out.
+    ("package_manager", ("shell", "pm", "path", "android"), 10.0,
+     lambda out: out.startswith("package:")),
+    ("surfaceflinger", ("shell", "dumpsys", "SurfaceFlinger"), 10.0,
+     lambda out: "SurfaceFlinger" in out),
+)
+
+
+def probe_device_ready(serial: str) -> ReadyResult:
+    """Run each readiness probe in order; report the first that fails."""
+    if not serial:
+        return ReadyResult(False, "serial")
+    for name, args, timeout, accept in _READY_PROBES:
+        if not accept(adb_on(serial, *args, timeout=timeout) or ""):
+            return ReadyResult(False, name)
+    return ReadyResult(True, None)
 
 
 def device_is_ready(serial: str) -> bool:
     """True when adb knows the device, it is booted, and key services answer.
 
-    Checks four layers:
-      1. adb get-state == device
-      2. sys.boot_completed == 1  (Android boot finished)
-      3. pm path android          (package manager is responsive)
-      4. dumpsys SurfaceFlinger   (graphics service is alive;
-           catches gfxstream-segfault where boot_completed=1 but render thread is dead)
+    Thin bool wrapper over :func:`probe_device_ready`; call that directly when the
+    reason for a rejection matters (recovery paths, diagnostics).
     """
-    if not serial:
-        return False
-    if adb("-s", serial, "get-state") != "device":
-        return False
-    if adb("-s", serial, "shell", "getprop", "sys.boot_completed") != "1":
-        return False
-    # pm path android succeeds with "package:<path>" when packages are installed.
-    # A booted-but-still-indexing emulator returns empty or times out.
-    pm_out = adb("-s", serial, "shell", "pm", "path", "android", timeout=10) or ""
-    if not pm_out.startswith("package:"):
-        return False
-    # SurfaceFlinger must be responsive.
-    sf_out = adb("-s", serial, "shell", "dumpsys", "SurfaceFlinger", timeout=10) or ""
-    if not sf_out or "SurfaceFlinger" not in sf_out:
-        return False
-    return True
+    return probe_device_ready(serial).ok
 
 
 def first_ready_device() -> str | None:
@@ -90,9 +140,6 @@ def find_ready(pin: str) -> str | None:
 
 def device_alive(serial: str) -> bool:
     """True when adb can reach the device (get-state == device), without full boot checks."""
-    return adb("-s", serial, "get-state") == "device"
-
-
-def ensure_device(serial: str) -> str | None:
-    """Return serial if the device is fully ready, otherwise None."""
-    return serial if device_is_ready(serial) else None
+    if not serial:
+        return False
+    return adb_on(serial, "get-state") == "device"

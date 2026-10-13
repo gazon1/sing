@@ -2,7 +2,7 @@
 #
 # Maestro flow tag matching — pure text, no device, no adb.
 #
-# Sourced by scripts/run-maestro.sh. Split out because a `TAGS=` filter decides
+# Sourced by run-maestro. Split out because a `TAGS=` filter decides
 # which UI flows execute, and a filter that quietly drops a flow is the same
 # defect class as a test class that is never selected: the suite stays green and
 # the coverage disappears. That is exactly how two recurrence classes sat

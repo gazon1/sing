@@ -142,6 +142,11 @@ def plan_carrier(spec: ScenarioSpec, target: Target, root: Path) -> CarrierPlan:
     """Compute the file this carrier would occupy. Pure — writes nothing."""
     if spec.path is None:  # pragma: no cover - load_specs always sets it
         raise CarrierError(f"{spec.id} has no source path; cannot place a carrier")
+    if target is Target.ANDROID:
+        raise CarrierError(
+            "plan_carrier is for desktop Kotlin probes; "
+            "Android carriers are Maestro flows — write a flow file under Maestro/flows/"
+        )
     subarea = spec.path.parent.name
     class_name = _class_name(spec.id)
     display_name = f"{spec.id} probe: the surface is reachable"

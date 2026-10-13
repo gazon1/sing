@@ -248,7 +248,7 @@ before the next exists.
    UI from JVM (see `ModalBottomSheet` below), go straight to step 4 and say so in
    the spec.
 4. **Add the Maestro carrier** — `scenario:<ID>` in the flow's `tags:`. Tag
-   matching is exact string comparison, so `TAGS=scenario:<ID> scripts/run-maestro.sh`
+   matching is exact string comparison, so `TAGS=scenario:<ID> run-maestro`
    selects exactly that flow with no code change. Pick the tier that can actually
    assert the behaviour; do not add tags to a surface no test can drive.
 5. **`just trace-validate` again, then `just trace-coverage`.** The committed

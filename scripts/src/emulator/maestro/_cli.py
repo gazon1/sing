@@ -60,7 +60,9 @@ YELLOW = lambda s: _col("0;33", s)
               help="Directory for JUnit XML results (default: <repo>/build/maestro-results)")
 @click.option("--dry-run", is_flag=True,
               help="Show which flows would run and exit; no device or APK needed")
+@click.pass_context
 def main(
+    ctx: click.Context,
     flow: str,
     tags: str,
     serial: str | None,
@@ -100,24 +102,31 @@ def main(
             for f in seed_dep_flows:
                 logger.info(f"  {f}")
 
-        return EXIT_PASS
+        return ctx.exit(EXIT_PASS)
 
     # ── Acquire device ─────────────────────────────────────────────────────────
-    logger.info("No ready device; attempting recovery.")
-    ready = deps.ensure_device(serial) if serial else None
-    if not ready:
-        logger.error("Could not obtain a device.")
+    # No `if serial else None` guard: an empty pin means "whatever device is
+    # available", not "no device". Guarding on it made every run with an unset
+    # SERIAL fail before adb was ever called, which took out `just gm agenda`
+    # (gate-maestro passes SERIAL="").
+    logger.info("Acquiring device…")
+    acq = deps.acquire_device(serial)
+    if not acq:
+        logger.error(f"Could not obtain a device: {_EXIT_REASON.get(acq.exit_code, 'unknown')}.")
         logger.error(deps.adb("devices") or "")
-        return EXIT_FAIL
-    serial = ready
+        return ctx.exit(EXIT_FAIL)
+    # From here on the acquired serial is authoritative — using the original
+    # (possibly empty) `serial` for install and flows would target nothing.
+    serial = acq.serial
+    logger.info(f"Device ready: {serial}")
 
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
 
     # ── Wake + unlock + IME workaround ─────────────────────────────────────────
-    deps.adb("-s", serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
-    deps.adb("-s", serial, "shell", "input", "keyevent", "82")
-    deps.adb("-s", serial, "shell", "settings", "put", "secure",
-             "show_ime_with_hard_keyboard", "0")
+    deps.adb_on(serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    deps.adb_on(serial, "shell", "input", "keyevent", "82")
+    deps.adb_on(serial, "shell", "settings", "put", "secure",
+                "show_ime_with_hard_keyboard", "0")
 
     # ── Install APK ────────────────────────────────────────────────────────────
     if skip_install:
@@ -127,7 +136,7 @@ def main(
         cp = deps.gradle_install_debug(serial)
         if cp.returncode != 0:
             logger.error(f"installDebug failed (rc={cp.returncode})")
-            return EXIT_FAIL
+            return ctx.exit(EXIT_FAIL)
 
     # ── APK provenance ─────────────────────────────────────────────────────────
     if not allow_stale_apk:
@@ -136,32 +145,32 @@ def main(
         if not installed_sha:
             logger.error("Cannot read build id from installed APK.")
             logger.error("The installed binary is unidentifiable; results prove nothing about this checkout.")
-            return EXIT_FAIL
+            return ctx.exit(EXIT_FAIL)
         if installed_sha != expected_sha:
             logger.error("Installed APK is not this checkout's build.")
             logger.error(f"  checkout: g{expected_sha}")
             logger.error(f"  installed: g{installed_sha}")
-            return EXIT_FAIL
+            return ctx.exit(EXIT_FAIL)
         logger.info(f"APK provenance OK: g{installed_sha}")
     else:
         expected_sha = None
 
     # ── Clear logcat ───────────────────────────────────────────────────────────
-    deps.adb("-s", serial, "logcat", "-c")
+    deps.adb_on(serial, "logcat", "-c")
 
     # ── Collect flows ─────────────────────────────────────────────────────────
     flow_target = (ROOT / flow).resolve()
     flows = collect_flows(flow_target)
     if not flows:
         logger.error(f"No flow files matched '{flow_target}'")
-        return EXIT_FAIL
+        return ctx.exit(EXIT_FAIL)
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     if tag_list:
         flows = filter_flows_by_tag(flows, tag_list)
         if not flows:
             logger.error(f"No flow files carry tag(s): {tags}")
-            return EXIT_FAIL
+            return ctx.exit(EXIT_FAIL)
 
     logger.info(f"Discovered {len(flows)} flow file(s):")
     for f in flows:
@@ -177,9 +186,9 @@ def main(
         logger.info(f"\n=== {flow_name} ===")
 
         if deps.device_alive(serial):
-            deps.adb("-s", serial, "shell", "am", "force-stop", APP_ID)
+            deps.adb_on(serial, "shell", "am", "force-stop", APP_ID)
             time.sleep(1)
-            deps.adb("-s", serial, "shell", "am", "start", "-n", f"{APP_ID}/.MainActivity")
+            deps.adb_on(serial, "shell", "am", "start", "-n", f"{APP_ID}/.MainActivity")
             deps.wait_for_app_resumed(serial)
 
         ok, run_id = run_one_flow(
@@ -202,7 +211,7 @@ def main(
 
     # ── Crash triage ──────────────────────────────────────────────────────────
     if deps.device_alive(serial):
-        logcat = deps.adb("-s", serial, "shell", "logcat", "-d") or ""
+        logcat = deps.adb_on(serial, "shell", "logcat", "-d") or ""
         crashes = re.findall(
             r"FATAL EXCEPTION|AndroidRuntime.*com\.singularity\.todo",
             logcat, re.IGNORECASE
@@ -225,8 +234,8 @@ def main(
     else:
         logger.error("=== Maestro flows failed ===")
 
-    return EXIT_FAIL if failed else EXIT_PASS
+    return ctx.exit(EXIT_FAIL if failed else EXIT_PASS)
 
 
 # Import at bottom to avoid circular import with _runner → _device → _provenance → …
-from emulator.maestro._runner import run_one_flow  # noqa: E402
+from emulator.maestro._runner import _EXIT_REASON, run_one_flow  # noqa: E402

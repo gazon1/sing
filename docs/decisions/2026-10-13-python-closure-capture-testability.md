@@ -111,5 +111,5 @@ ok, run_id = run_one_flow(..., deps=fake_deps)
 
 ## Related
 
-- ADR `2026-10-04-python-test-helpers` (if exists)
+- ADR `2026-10-13-python-testing-idioms`
 - Skill: `singularity-todo-test-helpers`

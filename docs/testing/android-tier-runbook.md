@@ -23,15 +23,15 @@ Pure inference, and this runbook is how it stops being inference:
 ## The run
 
 ```bash
-./scripts/ensure-emulator.sh                 # serial or AVD; relaunches if the device died
-TAGS=scenario:TASK-REC-01 scripts/run-maestro.sh
+ensure-emulator                 # serial or AVD; relaunches if the device died
+TAGS=scenario:TASK-REC-01 run-maestro
 just trace-results maestro
 ```
 
 Read the outcome in this order, because the first two are decided before any
 assumption is tested:
 
-1. **`run-maestro.sh` exits 0?** A failure here is the emulator, not the flow.
+1. **`run-maestro` exits 0?** A failure here is the emulator, not the flow.
    This environment has a documented gfxstream crash (`2026-09-28-emulator-gfxstream-colorbuffer-segv`);
    the script relaunches on a lost device. Do not "fix" it by pinning `-gpu`.
 2. **Does `build/maestro-results/` contain XML?** If not, the reporter produced

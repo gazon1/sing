@@ -166,7 +166,7 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       # -gpu off sidesteps the gfxstream crash the host emulator hits, so the
-      # device-recovery loop of scripts/run-maestro.sh is not needed here.
+      # device-recovery loop of run-maestro is not needed here.
       #
       # Locale (ru-RU) matches the production app UI language. Maestro flows assert
       # on accessibility IDs, not translated text, but Cyrillic content checks are

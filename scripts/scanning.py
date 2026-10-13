@@ -39,11 +39,12 @@ except ImportError as exc:  # pragma: no cover — only when the tree is broken
     ) from exc
 
 #: The module itself. `test_classes.scan_repository()` is the entry point the
+#: run-floor gate uses; returns tuple[list[RepoTest], list[tuple[str,str]]].
+RepoTest = test_classes.RepoTest
 #: run-floor gate uses; `has_runnable_test()` answers the per-file question the
 #: fixture-table test asks.
 RepoTest = test_classes.RepoTest
 TEST_ROOTS = test_classes.TEST_ROOTS
-SKIPPED_NON_TESTS = test_classes.SKIPPED_NON_TESTS
 has_runnable_test = test_classes.has_runnable_test
 scan_repository = test_classes.scan_repository
 read_tag = test_classes._read_tag  # noqa: SLF001 — one repo, one scanner
@@ -51,7 +52,6 @@ test_classes_in = test_classes._test_classes_in  # noqa: SLF001 — one repo, on
 
 __all__ = [
     "RepoTest",
-    "SKIPPED_NON_TESTS",
     "TEST_ROOTS",
     "has_runnable_test",
     "read_tag",

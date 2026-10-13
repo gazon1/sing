@@ -38,7 +38,7 @@ adb devices -l
 
 Pick the *physical* serial — skip `emulator-*` lines, or you will unlock an AVD
 instead of the phone. Emulator targets do not use this skill at all; they go
-through `./scripts/ensure-emulator.sh`, the repo's single device-recovery
+through `ensure-emulator`, the repo's single device-recovery
 primitive.
 
 If `state=unauthorized`: the device shows "Allow USB debugging?" on its screen — the human must tap "Allow" and "Always allow from this computer".
@@ -80,7 +80,7 @@ This skill replaces `mcp__android_emulator__android_start_emulator` when the tar
 > `eglMakeCurrent failed`, drop the stale snapshot
 > (`rm -rf ~/.android/avd/<AVD>/snapshots/*`) and cold-boot. See
 > `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md`. To get a
-> device for the emulator case, run `./scripts/ensure-emulator.sh` — it launches
+> device for the emulator case, run `ensure-emulator` — it launches
 > with `-no-snapshot-load` and clears stale AVD locks itself, so no hand-editing
 > of `~/.android/avd` is needed on the scripted path.
 

@@ -8,7 +8,18 @@ from pathlib import Path
 from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
+from emulator._types import EXIT_CRASHED, EXIT_LOCK, EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
 from emulator.maestro._types import APP_ID, EXIT_FAIL, EXIT_PASS, DeviceDeps, ROOT, _default_device_deps
+
+#: Why an acquisition failed, so a recovery that gives up says which of the four
+#: it hit. "Could not obtain a device" alone cannot tell a wedged emulator from a
+#: lock timeout, and those have different remedies.
+_EXIT_REASON = {
+    EXIT_NOT_READY: "no ready device and none could be started",
+    EXIT_CRASHED: "emulator exited during start-up",
+    EXIT_TIMEOUT: "emulator never became ready",
+    EXIT_LOCK: "another acquire held the startup lock",
+}
 
 # idempotent: uses the shared logger configured by the first module to import it.
 setup_logger(is_ci=False)
@@ -78,10 +89,18 @@ def run_one_flow(
         deps.reset_adb_server()
 
         if not deps.device_alive(serial):
-            recovered = deps.ensure_device(serial)
-            if not recovered:
+            # acquire_device boots the AVD when nothing ready is attached, which
+            # is the whole point of calling it here: after an adb-server reset the
+            # emulator may itself be gone, and a mere readiness re-check would
+            # return None and lose the flow.
+            acquired = deps.acquire_device(serial)
+            if not acquired:
+                logger.error(
+                    f"could not recover {serial}: "
+                    f"{_EXIT_REASON.get(acquired.exit_code, 'unknown')}"
+                )
                 return False, run_id
-            serial = recovered
+            serial = acquired.serial
         else:
             out = deps.adb("devices") or ""
             for line in out.splitlines()[1:]:
@@ -90,8 +109,8 @@ def run_one_flow(
                     serial = parts[0]
                     break
 
-        deps.adb(
-            "-s", serial, "shell", "settings", "put", "secure",
+        deps.adb_on(
+            serial, "shell", "settings", "put", "secure",
             "show_ime_with_hard_keyboard", "0",
         )
 

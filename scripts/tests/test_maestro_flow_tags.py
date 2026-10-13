@@ -2,7 +2,7 @@
 
 Run with: python3 -m unittest discover -s scripts/tests
 
-`TAGS=… scripts/run-maestro.sh` decides which UI flows execute. A filter that
+`TAGS=… run-maestro` decides which UI flows execute. A filter that
 silently drops a flow is the same defect class as a test class that is never
 selected: the suite reports success and the coverage is simply gone. That is
 not hypothetical — it is how `RecurrenceRuleMapperTest` and `RruleGeneratorTest`

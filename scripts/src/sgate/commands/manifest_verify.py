@@ -1,11 +1,15 @@
-"""sgate.commands.manifest_verify — detect orphan shims and missing entries.
+"""sgate.commands.manifest_verify — verify gate registry integrity.
 
-Verifies consistency between the gate registry (static-gates.sh) and the
-actual shim files in commands/. Detects:
-  - Orphan shim files: shim files with no corresponding GATES entry
-  - Missing shims: GATES entries with no shim file (when one is expected)
-  - Mismatched commands: GATES entries whose sgate command doesn't match
-    the actual shim file name
+DEPRECATED: This command was originally used to detect orphan shim files and
+missing shims. Since the registry (GATES in _registry.py) is now the single
+source of truth and generated shims no longer exist as separate files, this
+check verifies that every gate in static-gates.sh has a corresponding entry
+in the registry with a valid command type.
+
+Checks:
+  - All gates in static-gates.sh are present in the registry
+  - All registry entries have a valid cmd_type
+  - No duplicate gate names in the registry
 """
 from __future__ import annotations
 
@@ -19,190 +23,145 @@ import sgate
 from sgate.commands.base import register
 
 
-# Module-level so it can be tested without the full CLI
 def _module_name(display_name: str) -> str:
     """Convert gate display name to the expected shim module filename."""
     s = re.sub(r"[^a-z0-9]+", "_", display_name.lower())
     return re.sub(r"_+", "_", s).strip("_")
 
 
-def _shim_file_path(module_name: str) -> Path:
-    """Path to the shim file for a given module name."""
-    return sgate.repo.ROOT / "scripts" / "src" / "sgate" / "commands" / f"{module_name}.py"
+# Gates that are intentionally NOT in static-gates.sh (utility commands,
+# custom gates, or supplementary CI helpers).
+# Update this set when adding a new non-gate command module.
+KNOWN_NON_GATES: set[str] = {
+    "__init__",
+    "base",
+    "cli",
+    "run_all",
+    "manifest_verify",  # this command itself
+    "info",
+    "wiring",
+    "backlog_status",
+    "backlog_issue_refs",
+    "suite_docs",
+    "suite_lint",
+    "render_registry",
+    "conventions",
+    "check_benchmarks",
+    "doc_sizes",
+    "_parsers",
+    "_registry",
+    "_runner",
+    "_gate_runner",
+    "yaml_has_no_duplicate_keys",
+    "unwired_backlog_refs",
+    "test_task_external_inputs_declared",
+    "room_schema_integrity",
+    "decisions_digest_within_budget",
+    "adr_references_are_valid",
+    "skills_describe_the_tools_that_exist",
+    "skill_frontmatter",
+    "settings_read_by_a_feature",
+    "light_adr_modules_stay_light",
+    "adr_status_policy",
+    "coverage_matrix_current",  # was a generated shim, now removed
+}
 
 
 def check_manifest() -> tuple[list[str], list[str], list[str]]:
-    """Check consistency between GATES registry and shim files.
+    """Check consistency between static-gates.sh and the registry.
 
     Returns:
-        (orphan_shims, missing_shims, command_mismatches)
-        - orphan_shims: shim files in commands/ with no GATES entry
-        - missing_shims: GATES entries that should have a shim but don't
-        - command_mismatches: GATES entries whose sgate command doesn't match
-          the expected shim name
+        (missing_from_registry, registry_duplicates, invalid_cmd_types)
+        - missing_from_registry: gates in static-gates.sh with no registry entry
+        - registry_duplicates: duplicate gate names in the registry
+        - invalid_cmd_types: registry entries with unknown cmd_type
     """
+    from sgate.commands import _registry
+
+    # Load gates from static-gates.sh
     import sgate.gates
 
-    gates = sgate.gates.load_gates()
-    gate_names = {g.name for g in gates}
+    shell_gates = sgate.gates.load_gates()
+    shell_gate_names = {g.name for g in shell_gates}
 
-    # Find all shim files in commands/
-    commands_dir = sgate.repo.ROOT / "scripts" / "src" / "sgate" / "commands"
-    all_shims = {p.stem for p in commands_dir.glob("*.py") if p.stem not in ("__init__", "base", "cli", "run_all", "manifest_verify")}
+    # Registry gate names
+    registry_names: list[str] = [spec.name for spec in _registry.GATES]
+    registry_name_set = set(registry_names)
 
-    # Find all GATES that have a corresponding shim (custom=False, no_shim=False)
-    custom_gates = set()
-    no_shim_gates = set()
-    gates_with_shim = set()
-    command_mismatches = []
+    # Missing from registry: gates in static-gates.sh that have no registry entry
+    missing_from_registry = sorted(
+        name for name in shell_gate_names if name not in registry_name_set
+    )
 
-    # We need the full GATES metadata. Re-parse from the generator GATES list.
-    # Use the static-gates.sh to determine which gates have sgate commands.
-    for gate in gates:
-        cmd = gate.command.strip()
-        module_name = _module_name(gate.name)
+    # Duplicate names in registry
+    seen: set[str] = set()
+    registry_duplicates: list[str] = []
+    for name in registry_names:
+        if name in seen:
+            registry_duplicates.append(name)
+        seen.add(name)
+    registry_duplicates = sorted(registry_duplicates)
 
-        if cmd.startswith("sgate "):
-            # The subcommand after "sgate "
-            sub_cmd = cmd[6:].strip()
-            # sub_cmd is the command name used to invoke this gate via sgate
-            expected_module = _module_name(sub_cmd.replace("_", " ").lower())
-            actual_module = _module_name(gate.name)
-
-            # Check if the sgate subcommand maps to the right shim
-            if module_name != expected_module:
-                command_mismatches.append(
-                    f"  GATE: {gate.name!r}  command: {cmd!r}  "
-                    f"expected shim: {expected_module}.py  actual shim: {module_name}.py"
-                )
-
-        # Determine if this gate should have a shim based on the command type
-        # sgate <name> gates → custom or generated shim
-        # python3 scripts/... → generated shim (or no_shim if marked)
-        # The generator GATES list tells us which are custom/no_shim
-
-        # We check against the actual shim files to see what's there
-        if module_name in all_shims:
-            gates_with_shim.add(gate.name)
-
-    # Also check: which shims have no corresponding GATES entry?
-    # A shim is "covered" if:
-    #   1. Its stem matches a gate's derived module name (display_name -> module)
-    #   2. OR it appears as an sgate subcommand (command = "sgate <sub>")
-    no_shim_gates = {
-        "gate scripts' own unit tests",  # no_shim=True in generator
-    }
-    # Known orphans that are intentionally not in static-gates.sh:
-    #   _*               : internal utilities (not gate commands)
-    #   info             : sgate info command (not a gate itself)
-    #   backlog_status   : called from check.sh step 2, not in static-gates.sh
-    #   wiring           : called from check.sh step 8, not in static-gates.sh
-    #   suite_docs/lint  : supplementary CI tools, not formal gates
-    #   render_registry  : regen tool, not a gate
-    #   conventions/kiwi_availability/doc_sizes/check_benchmarks : check.sh helpers
-    expected_orphans = {
-        "_generate_shims", "_runner",
-        "info",
-        "backlog_status", "wiring",
-        "suite_docs", "suite_lint",
-        "render_registry",
-        "conventions", "kiwi_availability", "doc_sizes", "check_benchmarks",
-    }
-    orphan_shims = []
-    for shim_name in all_shims:
-        # Skip expected orphans
-        if shim_name in expected_orphans:
-            continue
-        # Find if any GATE maps to this shim
-        found = False
-        for gate in gates:
-            if gate.name in no_shim_gates:
-                continue
-            module = _module_name(gate.name)
-            if module == shim_name:
-                found = True
-                break
-            # Also check sgate subcommands: "sgate <sub>" -> derive module from sub
-            if gate.command.startswith("sgate "):
-                sub = gate.command[6:].strip()
-                sub_module = _module_name(sub.replace("_", " ").lower())
-                if sub_module == shim_name:
-                    found = True
-                    break
-        if not found:
-            orphan_shims.append(shim_name)
-
-    # Which GATES entries that should have shims are missing them?
-    # A gate "should have a shim" if it would generate one based on command type.
-    # Gates with no_shim=True in the generator are expected to lack shims.
-    no_shim_gates = {
-        "gate scripts' own unit tests",  # no_shim=True in generator
-    }
-    missing_shims = []
-    for gate in gates:
-        if gate.name in no_shim_gates:
-            continue
-        module_name = _module_name(gate.name)
-        shim_path = _shim_file_path(module_name)
-        if not shim_path.exists():
-            missing_shims.append(
-                f"  GATE: {gate.name!r}  module: {module_name}.py  command: {gate.command!r}"
+    # Invalid cmd_types
+    VALID_CMD_TYPES = {"python3", "python3_m", "shell", "bash_c", "path"}
+    invalid_cmd_types: list[str] = []
+    for spec in _registry.GATES:
+        if spec.cmd_type not in VALID_CMD_TYPES:
+            invalid_cmd_types.append(
+                f"  {spec.name!r}: unknown cmd_type {spec.cmd_type!r}"
             )
+    invalid_cmd_types = sorted(invalid_cmd_types)
 
-    return sorted(orphan_shims), sorted(missing_shims), sorted(command_mismatches)
+    return missing_from_registry, registry_duplicates, invalid_cmd_types
 
 
 @click.command("manifest-verify")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 def manifest_verify(emit_json: bool) -> None:
-    """Verify consistency between the gate registry and shim files.
+    """Verify consistency between static-gates.sh and the gate registry.
 
-    Checks:
-      - Orphan shim files: .py files in commands/ with no GATES entry
-      - Missing shims: GATES entries with no corresponding .py shim
-      - Command mismatches: GATES entries whose sgate command doesn't
-        resolve to the expected shim filename
+    DEPRECATED: This check is informational only. The registry (_registry.py)
+    is the authoritative source of truth for gate metadata.
 
     Exit codes:
       0 = manifest is consistent
       1 = inconsistencies found
     """
-    orphan_shims, missing_shims, command_mismatches = check_manifest()
+    import json
 
-    has_issues = bool(orphan_shims or missing_shims or command_mismatches)
+    missing, duplicates, invalid_types = check_manifest()
+    has_issues = bool(missing or duplicates or invalid_types)
 
     if emit_json:
-        import json
         data = {
             "passed": not has_issues,
-            "orphan_shims": orphan_shims,
-            "missing_shims": missing_shims,
-            "command_mismatches": command_mismatches,
+            "missing_from_registry": missing,
+            "registry_duplicates": duplicates,
+            "invalid_cmd_types": invalid_types,
         }
         print(json.dumps(data, indent=2))
         raise SystemExit(1 if has_issues else 0)
 
-    # Human-readable output
     if not has_issues:
-        print("manifest-verify: OK — registry and shims are consistent")
+        print("manifest-verify: OK — registry is consistent")
         return
 
-    if orphan_shims:
-        print("ORPHAN SHIM FILES (no GATES entry):")
-        for s in orphan_shims:
-            print(f"  {s}.py")
+    if missing:
+        print("GATES IN static-gates.sh WITH NO REGISTRY ENTRY:")
+        for name in missing:
+            print(f"  {name}")
         print()
 
-    if missing_shims:
-        print("MISSING SHIMS (GATES entry has no .py shim):")
-        for m in missing_shims:
-            print(m)
+    if duplicates:
+        print("DUPLICATE GATE NAMES IN REGISTRY:")
+        for name in duplicates:
+            print(f"  {name}")
         print()
 
-    if command_mismatches:
-        print("COMMAND MISMATCHES:")
-        for c in command_mismatches:
-            print(c)
+    if invalid_types:
+        print("INVALID CMD_TYPES IN REGISTRY:")
+        for msg in invalid_types:
+            print(msg)
         print()
 
     raise SystemExit(1)

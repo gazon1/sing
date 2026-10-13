@@ -1,19 +1,45 @@
-"""The one JUnit XML reader, shared by the new pipeline and the legacy path.
+"""The one JUnit XML reader for the traceability pipeline.
 
-``sync.py`` already parses Gradle JUnit XML. Rather than write a second parser
-for the traceability path — two parsers of one format is how the join between
-"what ran" and "what was claimed" quietly breaks — the parsing primitive lives
-here and ``sync.py`` imports it. ``scripts/tests/test_kiwi_sync.py`` (318 lines)
-is the safety net for that refactor: it pins ``classname``-not-``testsuite@name``,
-the failure/error/skipped precedence, and malformed-XML tolerance.
+``sync.py`` already parsed Gradle JUnit XML. Rather than write a second parser
+for the traceability path, the parsing primitive lives here.
 
-Deliberate behaviours, both pinned by existing tests:
+Behaviour, and where each behaviour is pinned:
 
 * the class comes from ``<testcase classname>``, never ``<testsuite name>`` —
   Gradle writes the latter with the target suffix (``AgendaDslTest[jvm]``) and
   it matches no FQN in the repository;
 * a malformed file is reported and skipped, never raised, so one bad artefact
-  does not abort a sync.
+  does not abort a sync;
+* ``<testcase file=…>`` is carried through untouched.
+
+Covered by ``scripts/tests/test_junit_xml.py`` (this module's own contracts) and
+``scripts/tests/test_traceability.py`` (the projection and join). An earlier
+version of this docstring named ``scripts/tests/test_kiwi_sync.py`` as the safety
+net; that file was deleted with the Kiwi stand, so the docstring advertised
+coverage that no longer existed.
+
+Why this is still ``xml.etree`` and not ``junitparser``
+-------------------------------------------------------
+``junitparser`` is already a dependency — ``scripts/junit-annotations.py`` uses it,
+and CI installs it explicitly. It was evaluated as the backend here and rejected on
+evidence, not on taste:
+
+    >>> from junitparser import JUnitXml
+    >>> case = next(iter(next(iter(JUnitXml.fromfile(p)))))
+    >>> hasattr(case, "file")
+    False
+
+``junitparser``'s ``TestCase`` exposes only ``name``, ``classname``, ``time`` and
+the outcome predicates; it does **not** carry the ``file`` attribute. That is
+fatal here: ``file`` is the only stable identifier a Maestro flow's result has
+(its ``classname`` is reporter-derived), and both ``normalize.py`` (the
+``_FLOW_ROOTS`` match) and the provenance chain join on it. Adopting the library
+would have traded one silent failure for a louder one.
+
+So the two readers in this repository are deliberate, not drift: ``junitparser``
+for ``junit-annotations.py``, which needs no ``file``, and ``ElementTree`` here,
+which does. If a future ``junitparser`` preserves unknown attributes, this
+decision is worth revisiting — and this paragraph is where the evidence lives.
 """
 
 from __future__ import annotations

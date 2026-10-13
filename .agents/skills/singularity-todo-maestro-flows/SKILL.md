@@ -15,12 +15,12 @@ All 4 Class E flows pass.
 
 ## Prerequisites: emulator first
 
-Flows need a booted emulator. `./scripts/ensure-emulator.sh` is the one way to get
+Flows need a booted emulator. `ensure-emulator` is the one way to get
 one — it prints a ready serial, or starts the AVD and waits for boot. Getting one up
 on this host has host-specific traps (GPU dead ends, camera-thread crash,
 process-verification gotchas) — delegate to `singularity-todo-emulator-launch`.
 Device prep (wake, unlock, IME workaround, install, logcat) is
-`singularity-todo-adb-workflow` / `scripts/run-maestro.sh`.
+`singularity-todo-adb-workflow` / `run-maestro`.
 
 ## Running
 
@@ -31,7 +31,7 @@ just tm flow=Maestro/flows/tasks
 RUN_MAESTRO=1 ./check.sh       # opt-in, from the local check pipeline
 ```
 
-`just tm` forwards to `scripts/run-maestro.sh`, which picks or relaunches the
+`just tm` forwards to `run-maestro`, which picks or relaunches the
 device, installs the APK, runs one flow per Maestro invocation, and fails on any
 `FATAL EXCEPTION` in logcat even when Maestro exits 0.
 
@@ -51,7 +51,7 @@ Maestro never rebuilds anything. After touching any composable or `TestTags.kt`:
 
 ```bash
 ./gradlew :androidApp:assembleDebug
-SERIAL=$(./scripts/ensure-emulator.sh)
+SERIAL=$(ensure-emulator)
 adb -s "$SERIAL" install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 maestro test Maestro/flows/<sub>/<file>.yaml
 ```
@@ -169,7 +169,7 @@ alone and cannot touch another run's data.
 virgin device state — it costs you the authenticated session:
 
 ```bash
-adb -s "$(./scripts/ensure-emulator.sh)" shell pm clear com.singularity.todo
+adb -s "$(ensure-emulator)" shell pm clear com.singularity.todo
 ```
 
 Accumulation is harmless for a read-only fixture but corrupts a flow that *mutates*
@@ -187,7 +187,7 @@ sweeps it for you:
       id: "task_item_${RUN_ID}_my_fixture"     # slug of "<run id> My fixture"
 ```
 
-`scripts/run-maestro.sh` mints `RUN_ID` on **every attempt** and, after a
+`run-maestro` mints `RUN_ID` on **every attempt** and, after a
 successful flow, deep-links `todo-debug://seed?cleanup=<RUN_ID>` to delete every
 task, note and project whose title starts with that prefix. A retry after a lost
 device gets a *new* id, so it cannot collide with the attempt it replaces.
@@ -350,7 +350,7 @@ copy — "Удалить", "Архивировать" — are fine; only typed i
 
 A flow failing right after the previous one has usually lost the *device*, not
 its selectors — `adb devices` is the check. When running flows by hand, prefer
-`./scripts/run-maestro.sh`: it runs one flow per invocation and relaunches the
+`run-maestro`: it runs one flow per invocation and relaunches the
 emulator when the device dies, so a single crash costs one flow instead of the
 suite. See `singularity-todo-emulator-launch`.
 

@@ -165,6 +165,30 @@ def _require_str(data: dict[str, Any], key: str, where: str) -> str:
     return value.strip()
 
 
+def _check_prefix_parts(spec_id: str, parts: tuple[str, ...]) -> list[str]:
+    """Validate that the id prefix agrees with the directory parts, returning problems.
+
+    Both ``_check_prefix_matches_path`` and ``id_prefix_problems`` share this
+    logic; the former wraps it in a Path-based API that raises, the latter
+    returns the list so callers can accumulate and report all problems at once.
+    """
+    prefix = spec_id.rsplit("-", 1)[0]
+    id_parts = prefix.split("-")
+    if len(id_parts) != len(parts):
+        return [
+            f"префикс id '{prefix}' и путь {'/'.join(parts)} "
+            f"описывают разное число сегментов области"
+        ]
+    problems: list[str] = []
+    for id_part, dir_part in zip(id_parts, parts, strict=True):
+        if not dir_part.lower().startswith(id_part.lower()):
+            problems.append(
+                f"сегмент '{id_part}' из id не является началом "
+                f"каталога '{dir_part}'"
+            )
+    return problems
+
+
 def _check_prefix_matches_path(spec_id: str, spec_path: Path, scenarios_dir: Path) -> None:
     """The id prefix and the directory must describe the same area.
 
@@ -179,20 +203,10 @@ def _check_prefix_matches_path(spec_id: str, spec_path: Path, scenarios_dir: Pat
     to sit in a Kotlin string literal and a Maestro tag; making them spell out
     the full path would buy nothing and make every rename a breaking change.
     """
-    prefix = spec_id.rsplit("-", 1)[0]  # TASK-REC-01 -> TASK-REC
     rel = spec_path.relative_to(scenarios_dir).parts[:-1]
-    id_parts = prefix.split("-")
-    if len(id_parts) != len(rel):
-        raise ValidationError(
-            f"{spec_path}: префикс id '{prefix}' и путь "
-            f"{'/'.join(rel)} описывают разное число сегментов области"
-        )
-    for id_part, dir_part in zip(id_parts, rel, strict=True):
-        if not dir_part.lower().startswith(id_part.lower()):
-            raise ValidationError(
-                f"{spec_path}: сегмент '{id_part}' из id не является началом "
-                f"каталога '{dir_part}'"
-            )
+    problems = _check_prefix_parts(spec_id, rel)
+    if problems:
+        raise ValidationError(f"{spec_path}: {problems[0]}")
 
 
 def id_prefix_problems(spec_id: str, dirs: tuple[str, ...]) -> list[str]:
@@ -202,22 +216,7 @@ def id_prefix_problems(spec_id: str, dirs: tuple[str, ...]) -> list[str]:
     strings instead of raising :class:`ValidationError`, so callers can
     accumulate and report all problems at once.
     """
-    prefix = spec_id.rsplit("-", 1)[0]
-    id_parts = prefix.split("-")
-    problems: list[str] = []
-    if len(id_parts) != len(dirs):
-        problems.append(
-            f"префикс id '{prefix}' и путь {'/'.join(dirs)} "
-            f"описывают разное число сегментов области"
-        )
-        return problems
-    for id_part, dir_part in zip(id_parts, dirs, strict=True):
-        if not dir_part.lower().startswith(id_part.lower()):
-            problems.append(
-                f"сегмент '{id_part}' из id не является началом "
-                f"каталога '{dir_part}'"
-            )
-    return problems
+    return _check_prefix_parts(spec_id, dirs)
 
 
 def parse_spec(data: dict[str, Any], path: Path, scenarios_dir: Path) -> ScenarioSpec:
@@ -332,6 +331,14 @@ def parse_spec(data: dict[str, Any], path: Path, scenarios_dir: Path) -> Scenari
             problems.append("steps должен состоять из непустых строк")
         steps = tuple(s.strip() for s in steps_raw if isinstance(s, str))
 
+    preconditions = str(data.get("preconditions") or "").strip()
+    if not preconditions:
+        problems.append("preconditions обязателен и должен быть непустой строкой")
+
+    expected = str(data.get("expected") or "").strip()
+    if not expected:
+        problems.append("expected обязателен и должен быть непустой строкой")
+
     if problems:
         raise ValidationError(f"{where}:\n  - " + "\n  - ".join(problems))
 
@@ -360,9 +367,9 @@ def parse_spec(data: dict[str, Any], path: Path, scenarios_dir: Path) -> Scenari
         status=status,
         targets=targets,
         unreachable=unreachable,
-        preconditions=str(data.get("preconditions") or "").strip(),
+        preconditions=preconditions,
         steps=steps,
-        expected=str(data.get("expected") or "").strip(),
+        expected=expected,
         path=path,
     )
 

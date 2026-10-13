@@ -38,7 +38,14 @@ MAX_ITEMS_PER_TAG = 9  # per tag section cap; the digest is an index, the ADR bo
 # "_... and N more items_" convention the per-tag sections already use.
 MAX_OPEN_DEFERRED = 25
 MAX_ACTIVE_ENTRIES = 300
-MAX_BULLETS_PER_ADR = 3  # per ADR cap inside the per-tag sections
+# 3 -> 2 on 2026-10-13, the day `2026-10-13-ensure-device-acquires` pushed the
+# digest to 1256/1250. Same reasoning as the MAX_ITEMS_PER_TAG 10 -> 9 change:
+# the per-tag section is an index inside an index, the ADR body is one link away,
+# and the flat `Active entries` list is untouched. Measured 1256 -> 1159, a bigger
+# drop than expected — most ADRs carried more than two bullets in some tag
+# section — so this restores ~90 lines of headroom rather than moving the problem
+# to the next ADR.
+MAX_BULLETS_PER_ADR = 2  # per ADR cap inside the per-tag sections
 
 
 def parse_argv(argv: list[str]) -> None:

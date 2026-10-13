@@ -352,25 +352,38 @@ def link_index(links: list[Link]) -> dict[TestKey | Path, Link]:
     """
     index: dict[TestKey | Path, Link] = {}
     for link in links:
-        if link.key is not None:
-            index[link.key] = link
-        # Second entry for the method-name form. The primary key is the display
-        # name because that is what JUnit writes; this one covers a build that
-        # reports method names, and it costs nothing to carry.
-        if link.fallback_key is not None and link.fallback_key not in index:
-            index[link.fallback_key] = link
         # A source file indexed twice is ambiguous, and assigning over the first
         # entry is how a scenario silently loses its result: the row joins to
         # whichever link was indexed last, the other renders as not-run, and no
         # counter moves. The scanner already rejects a flow claiming two
         # scenarios; this is the backstop for a caller that builds links itself.
         resolved = link.source.resolve()
-        previous = index.get(resolved)
-        if previous is not None and previous is not link:
+
+        def _raise_dup(new_link: Link, existing_link: Link, key: str) -> None:
             raise ValidationError(
-                f"два сценария заявлены одним файлом {link.source}: "
-                f"'{previous.scenario}' и '{link.scenario}' — результат прогона "
-                f"невозможно отнести к одному из них"
+                f"два сценария заявлены одним файлом {new_link.source}: "
+                f"'{existing_link.scenario}' и '{new_link.scenario}' "
+                f"(ключ {key})"
             )
+
+        # Check every key form before inserting. All three must be symmetric:
+        # link.key, link.fallback_key, and resolved — any collision between
+        # two *different* links (different scenario) is an error.
+        for lookup_key in (link.key, link.fallback_key, resolved):
+            if lookup_key is None:
+                continue
+            previous = index.get(lookup_key)
+            if previous is not None and previous is not link:
+                _raise_dup(link, previous, str(lookup_key))
+
+        if link.key is not None:
+            index[link.key] = link
+        # Second entry for the method-name form. The primary key is the display
+        # name because that is what JUnit writes; this one covers a build that
+        # reports method names, and it costs nothing to carry.
+        if link.fallback_key is not None:
+            # Only insert if not already taken (same link may have key == fallback_key)
+            if link.fallback_key not in index:
+                index[link.fallback_key] = link
         index[resolved] = link
     return index

@@ -1,34 +1,42 @@
 ---
 name: singularity-todo-emulator-launch
-description: Launch and recover the Android emulator on this dev host. Covers the verified launch command, why each flag is there, proving the process is alive, crash triage by signature, and — most importantly — recovery when the host's gfxstream bug kills it mid-session. Use whenever an emulator is needed (Maestro flows, adb verification, screenshots) and one is not running or has died. For scripted runs prefer scripts/ensure-emulator.sh, which does all of this.
+description: Launch and recover the Android emulator on this dev host. Covers the verified launch command, why each flag is there, proving the process is alive, crash triage by signature, and — most importantly — recovery when the host's gfxstream bug kills it mid-session. Use whenever an emulator is needed (Maestro flows, adb verification, screenshots) and one is not running or has died. For scripted runs prefer ensure-emulator, which does all of this.
 ---
 
 # Emulator Launch and Recovery (this host)
 
 ## Use the script, not this file, for anything scripted
 
-`scripts/ensure-emulator.sh` prints a ready serial on stdout, or starts the AVD
+`ensure-emulator` prints a ready serial on stdout, or starts the AVD
 with the verified flags, waits for boot, and prints the serial. It is the
 recovery primitive for the whole repo:
 
 ```bash
-SERIAL=$(./scripts/ensure-emulator.sh)     # start if needed, wait for boot
-./scripts/run-maestro.sh                   # runs per-flow and relaunches on its own
+SERIAL=$(ensure-emulator)     # start if needed, wait for boot
+run-maestro                   # runs per-flow and relaunches on its own
 ```
 
-**Pinning `SERIAL` does not switch recovery off.** `SERIAL=emulator-5554
-./scripts/run-maestro.sh` is fine: the runner *de-exports* `SERIAL`, so the pin
-never leaks into `ensure-emulator.sh` and the script is free to relaunch. Pin the
-script directly and it takes the same branch — a pinned-but-unready *emulator* is
-exactly the crash case it exists to resurrect, so `SERIAL=emulator-5554
-./scripts/ensure-emulator.sh` restarts the AVD instead of reporting failure. Only
-a pinned *physical* device stays a hard error, because starting an AVD would land
-on `emulator-5554` and not match.
+**Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
+is exactly the crash case recovery exists for, so `SERIAL=emulator-5554
+ensure-emulator` restarts the AVD instead of reporting failure. Only a pinned
+*physical* device stays a hard error, because starting an AVD would land on
+`emulator-5554` and not match.
 
-This was a real trap: the runner used to re-export the pin and hard-fail there, so
-`SERIAL=…` reproduced "could not obtain a device" every time the emulator died
-mid-suite — looking like flaky infrastructure when the recovery path had simply
-been switched off.
+`run-maestro` acquires a device itself when none is ready — it does **not** need
+`SERIAL` exported, and does not need `ensure-emulator` run first. It reports which
+acquisition outcome ended the run (crashed / boot timeout / lock timeout), not one
+generic failure.
+
+**Until 2026-10-13 this was broken and the skill described a behaviour that no
+longer existed.** It claimed the runner *de-exports* `SERIAL`; since the #593
+refactor `run-maestro` had been a thin shim that did nothing of the sort. Worse,
+`maestro/_cli.py` skipped acquisition entirely when `SERIAL` was empty — and
+`just gm agenda` passes `SERIAL=""`, so the documented Maestro gate could not
+obtain a device at all. Both console scripts also exited 0 on every failure,
+because Click 8 discards a callback's return value in standalone mode; a gate
+running under `set -e` could never fail. All four are fixed and pinned by
+`scripts/tests/test_device_contracts.py` and `test_emulator_cli_contract.py` —
+see ADR `2026-10-13-ensure-device-acquires`.
 
 Everything below is for the interactive case and for understanding *why* the
 script does what it does.
@@ -38,7 +46,7 @@ script does what it does.
 Run the script, not a hand-typed command:
 
 ```bash
-SERIAL=$(./scripts/ensure-emulator.sh)   # clears stale locks, launches, waits for boot
+SERIAL=$(ensure-emulator)   # clears stale locks, launches, waits for boot
 ```
 
 That is the whole launch procedure — a crashed run leaves the AVD locked and a
@@ -47,7 +55,7 @@ second qemu refuses to start, so the script `pkill`es the zombie, removes
 header, with each flag's reason next to it):
 
 ```bash
-# what ensure-emulator.sh executes — do not retype it
+# what ensure-emulator executes — do not retype it
 emulator -avd Medium_Phone -no-snapshot-load -no-boot-anim \
   -camera-back none -camera-front none -no-audio > /tmp/emu.log 2>&1 &
 sleep 10    # keep this shell call alive; see "Process survival"
@@ -95,7 +103,7 @@ death happens under Maestro. Do not re-run these experiments; the record is in
 final mitigation until an emulator release fixes `TextureResize`.
 
 No configuration both boots and avoids it. So the answer is recovery, not
-prevention: `scripts/run-maestro.sh` runs one flow per Maestro invocation and
+prevention: `run-maestro` runs one flow per Maestro invocation and
 relaunches the AVD when the device is lost, so one crash costs at most one flow
 instead of the whole suite. Full reasoning:
 `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md`.
@@ -111,7 +119,7 @@ for p in /proc/[0-9]*; do exe=$(readlink "$p/exe" 2>/dev/null); case "$exe" in
 ```
 
 Inside a **script file** `pgrep -f` is safe — the invoking process's command
-line is just `bash script.sh` — which is why `ensure-emulator.sh` uses it.
+line is just `bash script.sh` — which is why `ensure-emulator` uses it.
 
 A background-task harness may report the emulator task "failed" while qemu
 itself survives: the wrapper exits, the emulator does not. The `/proc` scan is
@@ -149,20 +157,20 @@ fine against an already-running emulator.
 | Startup `amdgpu: The CS has been rejected (-22)` + `IOT instruction` | Mesa/kernel regression on AMD Renoir — **a different, already-fixed problem**; do not confuse it with the above. `2026-09-28-emulator-mesa-radeon-cs-rejected.md` |
 | Startup SIGSEGV with `-gpu software` / `-gpu swangle` / `-no-window` | Known dead ends on this AVD. Use the recipe as written. |
 | `Running multiple emulators with the same AVD` | A zombie qemu still holds the AVD. `pkill`, then remove `~/.android/avd/<AVD>.avd/*.lock`. |
-| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; `./scripts/ensure-emulator.sh` relaunches it. |
+| Device listed but every flow fails in ~10 ms | The device died and is gone. `adb devices` confirms; `ensure-emulator` relaunches it. |
 | System "keeps stopping" dialog on the device | The **app** crashed. `adb logcat -d -b crash` names the real bug. |
 
 ## After a mid-session death
 
 ```bash
-SERIAL=$(./scripts/ensure-emulator.sh)     # relaunches and waits for boot
+SERIAL=$(ensure-emulator)     # relaunches and waits for boot
 adb -s "$SERIAL" shell settings put secure show_ime_with_hard_keyboard 0
 adb -s "$SERIAL" install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 ```
 
 ## Related
 
-- `scripts/ensure-emulator.sh` — the recovery primitive (new)
+- `ensure-emulator` — the recovery primitive (new)
 - `docs/decisions/2026-09-29-emulator-crash-recovery-runner.md` — the control run
 - `docs/decisions/2026-09-29-emulator-launch-recipe.md` — the launch flags
 - `docs/decisions/2026-09-28-emulator-mesa-radeon-cs-rejected.md` — a different GPU fault

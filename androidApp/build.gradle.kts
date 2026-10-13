@@ -79,13 +79,13 @@ dependencies {
 // Build provenance in versionName
 //
 // A green Maestro run is only evidence about the binary that ran. After an
-// emulator is restored from a snapshot, `run-maestro.sh` reinstalls nothing, so
+// emulator is restored from a snapshot, `run-maestro` reinstalls nothing, so
 // the device holds whatever APK the snapshot held — and the flows report a
 // result for a build that no longer exists. Size and mtime are not a substitute
 // for identity: both are satisfied by a rebuild that changed only the sources
 // this run is supposed to be testing.
 //
-// So a debug build carries its git sha in versionName, and run-maestro.sh reads
+// So a debug build carries its git sha in versionName, and run-maestro reads
 // that sha back with `dumpsys package` and refuses to run when it disagrees with
 // the checkout. Release builds keep the plain version: a user-facing string is
 // not the place for a build identifier, and a release sha is not evidence
@@ -224,7 +224,7 @@ android {
     buildTypes {
         debug {
             // `0.1.0+g<sha>` — the sha is what `dumpsys package versionName`
-            // gives back, and what run-maestro.sh compares against the checkout
+            // gives back, and what run-maestro compares against the checkout
             // before it runs a single flow. Gradle accepts `+` in versionName;
             // the character survives into the manifest unchanged.
             versionNameSuffix = "+g${gitShaProvider.get()}"

@@ -71,6 +71,7 @@ from typing import Any
 import yaml
 
 from traceability import REPO_ROOT, SCENARIOS_DIR, ValidationError
+from traceability._paths import rel_to_repo
 from traceability.spec import id_prefix_problems
 
 __all__ = [
@@ -374,7 +375,7 @@ def extract_declarations(spec_path: Path, repo_root: Path = REPO_ROOT) -> list[D
     fence = _FENCE.search(text, heading.end())
     if fence is None:
         raise ValidationError(
-            f"{_rel(spec_path, repo_root)}: секция '## Scenario Matrix' есть, но "
+            f"{rel_to_repo(spec_path, repo_root)}: секция '## Scenario Matrix' есть, но "
             f"в ней нет блока ```yaml. Удалите секцию, если сценариев нет, или "
             f"добавьте блок."
         )
@@ -382,29 +383,25 @@ def extract_declarations(spec_path: Path, repo_root: Path = REPO_ROOT) -> list[D
         raw = yaml.safe_load(fence.group(1))
     except yaml.YAMLError as exc:
         raise ValidationError(
-            f"{_rel(spec_path, repo_root)}: блок сценариев не разобран — {exc}"
+            f"{rel_to_repo(spec_path, repo_root)}: блок сценариев не разобран — {exc}"
         ) from exc
     if raw is None:
         return []
     if not isinstance(raw, dict) or "scenarios" not in raw:
         raise ValidationError(
-            f"{_rel(spec_path, repo_root)}: блок должен быть словарём с ключом "
+            f"{rel_to_repo(spec_path, repo_root)}: блок должен быть словарём с ключом "
             f"'scenarios' (пустой список допустим)"
         )
     entries = raw["scenarios"]
     if not isinstance(entries, list):
         raise ValidationError(
-            f"{_rel(spec_path, repo_root)}: 'scenarios' должен быть списком"
+            f"{rel_to_repo(spec_path, repo_root)}: 'scenarios' должен быть списком"
         )
-    rel = _rel(spec_path, repo_root)
+    rel = rel_to_repo(spec_path, repo_root)
     return [_parse_one(entry, rel) for entry in entries]
 
 
-def _rel(path: Path, repo_root: Path) -> str:
-    try:
-        return str(path.resolve().relative_to(repo_root.resolve()))
-    except ValueError:  # pragma: no cover - defensive, path outside the repo
-        return str(path)
+
 
 
 def load_declarations(sources: tuple[SpecSource, ...] = SPEC_SOURCES) -> dict[str, Declaration]:
@@ -517,7 +514,7 @@ def check_bindings(
     for decl_id, decl in sorted(declarations.items()):
         spec = specs.get(decl_id)
         if spec is None:
-            expected = _rel(scenario_path(decl, scenarios_dir), REPO_ROOT)
+            expected = rel_to_repo(scenario_path(decl, scenarios_dir))
             exists = any(
                 candidate.name == f"{decl_id}.yaml"
                 for candidate in scenarios_dir.rglob(f"{decl_id}.yaml")
@@ -537,7 +534,7 @@ def check_bindings(
         path: Path = spec.path
         if TODO_MARKER in path.read_text(encoding="utf-8"):
             problems.append(
-                f"{decl_id}: {_rel(path, REPO_ROOT)} всё ещё содержит "
+                f"{decl_id}: {rel_to_repo(path)} всё ещё содержит "
                 f"{TODO_MARKER}. Незаполненный сценарий заявляет клетку в "
                 f"матрице, которую никто не проверял — заполните preconditions, "
                 f"steps и expected."
@@ -547,7 +544,7 @@ def check_bindings(
             problems.append(
                 f"{decl_id}: title в спеке и YAML разошлись.\n"
                 f"    {decl.spec}: {decl.title!r}\n"
-                f"    {_rel(path, REPO_ROOT)}: {spec.title!r}"
+                f"    {rel_to_repo(path)}: {spec.title!r}"
             )
         if spec.priority != decl.priority:
             problems.append(
