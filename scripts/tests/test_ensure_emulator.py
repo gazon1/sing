@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Unit tests for scripts/ensure-emulator.py.
+"""Unit tests for scripts/src/emulator/ package.
 
 Run with: python3 -m unittest discover -s scripts/tests
 
-The script's core logic (device detection, readiness, AVD lifecycle) is tested
+The package's core logic (device detection, readiness, AVD lifecycle) is tested
 here without the emulator itself by patching the adb subprocess layer and the
 /proc scan.
 """
 from __future__ import annotations
 
-import importlib.util
+import click
+import contextlib
 import io
 import os
 import pathlib
@@ -19,14 +20,30 @@ import threading
 import time
 import unittest
 import unittest.mock
-import contextlib
 
-# Load ensure-emulator.py as a module despite the hyphen in its filename.
-_SCRIPT = pathlib.Path(__file__).resolve().parent.parent / "ensure-emulator.py"
-_spec = importlib.util.spec_from_file_location("ensure_emulator", _SCRIPT)
-ee = importlib.util.module_from_spec(_spec)
-sys.modules["ensure_emulator"] = ee
-_spec.loader.exec_module(ee)
+# Import from the package (no hyphen in package name — direct import).
+from emulator import (
+    device_is_ready,
+    find_ready,
+    first_ready_device,
+    popen,
+    try_run,
+    clear_stale_emulator,
+    startup_lock,
+    start_avd,
+    EXIT_OK,
+    EXIT_NOT_READY,
+    EXIT_CRASHED,
+    EXIT_TIMEOUT,
+    EXIT_LOCK,
+    cfg,
+    main,
+)
+import emulator as ee
+import emulator._cli as _cli
+import emulator._device as _device
+import emulator._startup as _startup
+from emulator.maestro._testing import Clock, FakeProc, FakeAdb
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +84,7 @@ def _std_table(serial: str) -> dict[str, str | None]:
 class DeviceIsReadyTest(unittest.TestCase):
 
     def _run(self, serial: str, table: dict[str, str | None]):
-        with unittest.mock.patch.object(ee, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
             return ee.device_is_ready(serial)
 
     def test_all_checks_pass_returns_true(self):
@@ -106,7 +123,7 @@ class DeviceIsReadyTest(unittest.TestCase):
 class FirstReadyDeviceTest(unittest.TestCase):
 
     def _run(self, table: dict[str, str | None]):
-        with unittest.mock.patch.object(ee, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
             return ee.first_ready_device()
 
     def test_returns_first_ready_device(self):
@@ -136,7 +153,7 @@ class FirstReadyDeviceTest(unittest.TestCase):
 class FindReadyTest(unittest.TestCase):
 
     def _run(self, pin: str, table: dict[str, str | None]):
-        with unittest.mock.patch.object(ee, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
             return ee.find_ready(pin)
 
     def test_pin_ready_returns_pin(self):
@@ -257,7 +274,7 @@ class StartupLockTest(unittest.TestCase):
 class PinSemanticsTest(unittest.TestCase):
 
     def _run(self, pin: str, table: dict[str, str | None]):
-        with unittest.mock.patch.object(ee, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
             return ee.find_ready(pin)
 
     def test_pin_not_ready_is_not_silently_ignored(self):
@@ -288,168 +305,21 @@ class ExitCodesTest(unittest.TestCase):
 class MainArgParsingTest(unittest.TestCase):
 
     def test_main_no_device_returns_not_ready(self):
-        """When no device is ready and emulator binary is absent, returns EXIT_NOT_READY."""
-        with unittest.mock.patch.object(ee, "find_ready", return_value=None):
-            with unittest.mock.patch.object(ee, "start_avd", return_value=ee.EXIT_NOT_READY):
-                self.assertEqual(ee.main([]), ee.EXIT_NOT_READY)
+        """When no device is ready and emulator binary is absent, returns EXIT_NOT_READY.
+
+        Click's main() calls ctx.exit() after the callback, which raises Exit(0)
+        and then sys.exit(0), discarding the callback's return value.  Use
+        standalone_mode=False so main() returns the exit code directly.
+        """
+        with unittest.mock.patch.object(_cli, "find_ready", return_value=None):
+            with unittest.mock.patch.object(_cli, "start_avd", return_value=ee.EXIT_NOT_READY):
+                rc = ee.main([], standalone_mode=False)
+                self.assertEqual(rc, ee.EXIT_NOT_READY)
 
     def test_help_exits_zero(self):
         with self.assertRaises(SystemExit) as ctx:
             ee.main(["--help"])
         self.assertEqual(ctx.exception.code, 0)
-
-
-# ── FakeAdb: full-cycle integration test harness ─────────────────────────────────
-
-class Clock:
-    """Virtual clock for tests — time.sleep / time.monotonic advance instantly."""
-
-    def __init__(self, start: float = 0.0):
-        self._t = start
-        self._monotonic_offset = start
-
-    def sleep(self, secs: float) -> None:
-        self._t += secs
-        self._monotonic_offset += secs
-
-    def monotonic(self) -> float:
-        return self._monotonic_offset
-
-
-class FakeProc:
-    """Fake background process returned by patched popen().
-
-    Real emulator processes never exit on their own (they run until killed).
-    So poll() returns None unless an exit code is queued, in which case it
-    returns that code on the next poll and reverts to None afterward.
-
-    poll_returns: list of exit codes returned on successive poll() calls.
-    e.g. [1, None] — first poll returns 1 (crash), second returns None (running).
-    """
-
-    def __init__(self, poll_returns: list[int | None] | None = None):
-        self._poll_returns = poll_returns if poll_returns is not None else []
-        self._poll_count = 0
-        self._crashed = False
-
-    def poll(self) -> int | None:
-        self._poll_count += 1
-        if self._poll_returns:
-            return self._poll_returns.pop(0)
-        return None
-
-
-class FakeAdb:
-    """Simulates an Android device going through the boot cycle.
-
-    Usage in tests:
-        fake = FakeAdb(boot_time=5.0)   # device boots after 5 virtual seconds
-        with patch_ee(fake):
-            result = ee.start_avd("emulator-5554")
-            assert result == ee.EXIT_OK
-            assert fake.serial == "emulator-5554"
-    """
-
-    def __init__(self, boot_time: float = 5.0, poll_returns: list[int | None] | None = None):
-        self.boot_time = boot_time  # virtual seconds until device is ready
-        self.poll_returns = poll_returns  # exit codes returned on successive poll() calls
-        self.serial: str | None = None
-        self.started = False
-        self._clock = Clock()
-        self._boot_completed = False
-        self._pm_responsive = False
-        self._sf_responsive = False
-        self._unauthorized = False  # if True, get-state returns "unauthorized"
-        self._failures: set[str] = set()
-
-    def advance_to_ready(self) -> None:
-        """Simulate boot completing — move virtual clock to boot_time."""
-        self._clock.sleep(self.boot_time)
-        self._boot_completed = True
-        self._pm_responsive = True
-        self._sf_responsive = True
-
-    def fail_command(self, cmd: str) -> None:
-        """Make a specific command return non-zero / None (as if timed out)."""
-        self._failures.add(cmd)
-
-    def try_run(self, args: list[str], *, timeout: float = 5, **kwargs):
-        """Returns a Mock CompletedProcess for adb commands, respecting virtual time.
-
-        Advances the virtual clock by 1 s per call to model the passage of real
-        time between successive adb probes inside the start_avd polling loop.
-        """
-        self._clock.sleep(1.0)
-        cp = unittest.mock.Mock()
-        t = self._clock.monotonic()
-        serial = self.serial or ""
-
-        def bad():
-            cp.returncode = 1
-            cp.stdout = ""
-
-        # adb devices
-        if args == ["adb", "devices"]:
-            if serial and self._boot_completed:
-                cp.returncode = 0
-                cp.stdout = f"List of devices attached\n{serial} device\n"
-            else:
-                cp.returncode = 0
-                cp.stdout = "List of devices attached\n"
-            return cp
-
-        # Device-only commands require serial
-        if len(args) < 3 or args[0] != "adb" or args[2] != serial:
-            cp.returncode = 0
-            cp.stdout = ""
-            return cp
-
-        cmd = " ".join(args)
-        if "get-state" in cmd:
-            if not self._boot_completed:
-                return bad()
-            cp.returncode = 0
-            cp.stdout = "unauthorized" if self._unauthorized else "device"
-        elif "getprop" in cmd:
-            if not self._boot_completed:
-                return bad()
-            cp.returncode = 0
-            cp.stdout = "1"
-        elif "pm path" in cmd:
-            if not self._pm_responsive:
-                return bad()
-            cp.returncode = 0
-            cp.stdout = "package:/system/framework/framework-res.apk"
-        elif "dumpsys SurfaceFlinger" in cmd:
-            if not self._sf_responsive:
-                return bad()
-            cp.returncode = 0
-            cp.stdout = "SurfaceFlinger\nGPU mem:"
-        else:
-            cp.returncode = 0
-            cp.stdout = ""
-        return cp
-
-    def popen(self, args: list[str], stdout_fd: int | None = None):
-        self.started = True
-        # Parse -port <N> from emulator args and set serial so adb devices works.
-        # e.g. ["emulator", "-avd", "Medium_Phone", "-port", "5554"] → serial="emulator-5554"
-        if "-port" in args:
-            idx = args.index("-port")
-            port = args[idx + 1]
-            self.serial = f"emulator-{port}"
-        return FakeProc(poll_returns=self.poll_returns)
-
-    def time_sleep(self, secs: float) -> None:
-        self._clock.sleep(secs)
-        # Simulate boot completing when virtual clock reaches boot_time.
-        if self._clock.monotonic() >= self.boot_time and not self._boot_completed:
-            self._boot_completed = True
-            self._pm_responsive = True
-            self._sf_responsive = True
-
-    def time_monotonic(self) -> float:
-        return self._clock.monotonic()
 
 
 class IntegrationTest(unittest.TestCase):
@@ -488,7 +358,7 @@ class IntegrationTest(unittest.TestCase):
             fake._clock._monotonic_offset += 1
             return v
 
-        orig_time = ee.time
+        orig_time = _startup.time
 
         # For lock-conflict simulation, mock LOG_FILE.read_text() to return the
         # conflict message.  This bypasses the file-content issue (start_avd's
@@ -499,7 +369,7 @@ class IntegrationTest(unittest.TestCase):
                               "Another emulator instance may be running.\n")
 
             def fake_read_text(self_, *args, **kwargs):
-                # 'self' here is the ee module's LOG_FILE (patched as log_path).
+                # 'self' here is the cfg.log_file (patched as log_path).
                 return conflict_text
 
             # start_avd uses os.close(log_fh.fileno()) without closing the Python file
@@ -514,34 +384,35 @@ class IntegrationTest(unittest.TestCase):
                 except OSError as e:
                     if e.errno != errno.EBADF:
                         raise
-            os_close_patcher = unittest.mock.patch.object(ee.os, "close", safe_close)
+            os_close_patcher = unittest.mock.patch.object(os, "close", safe_close)
         else:
             fake_read_text = None
             os_close_patcher = contextlib.nullcontext()
 
-        ee.AVD = "Medium_Phone"
-        ee.LOCK_FILE = pathlib.Path(tempfile.mkdtemp()) / "test.lock"
-        ee.EXTRA_FLAGS = []
-        ee.BOOT_TIMEOUT = boot_timeout
+        cfg.avd = "Medium_Phone"
+        cfg.lock_file = pathlib.Path(tempfile.mkdtemp()) / "test.lock"
+        cfg.extra_flags = []
+        cfg.boot_timeout = boot_timeout
         try:
             with contextlib.redirect_stderr(io.StringIO()):
-                with unittest.mock.patch.object(ee, "try_run", fake.try_run), \
+                with unittest.mock.patch.object(_device, "try_run", fake.try_run), \
+                     unittest.mock.patch.object(_device, "popen", fake.popen), \
                      unittest.mock.patch.object(ee, "popen", fake.popen), \
                      unittest.mock.patch.object(ee, "_avd_is_running", lambda: avd_running), \
-                     unittest.mock.patch.object(ee, "LOG_FILE", log_path), \
-                     unittest.mock.patch.object(ee, "ANDROID_AVD_HOME", pathlib.Path("/tmp")), \
-                     unittest.mock.patch.object(ee.time, "sleep", fake.time_sleep), \
-                     unittest.mock.patch.object(ee.time, "monotonic", fake_monotonic), \
+                     unittest.mock.patch.object(cfg, "log_file", log_path), \
+                     unittest.mock.patch.object(cfg, "android_avd_home", pathlib.Path("/tmp")), \
+                     unittest.mock.patch.object(_startup.time, "sleep", fake.time_sleep), \
+                     unittest.mock.patch.object(_startup.time, "monotonic", fake_monotonic), \
                      unittest.mock.patch.object(pathlib.Path, "read_text",
                                                  fake_read_text) if fake_read_text else contextlib.nullcontext(), \
                      os_close_patcher:
                         return ee.start_avd(serial)
         finally:
-            ee.AVD = orig_avd
-            ee.LOCK_FILE = orig_lock
-            ee.EXTRA_FLAGS = orig_extra
-            ee.BOOT_TIMEOUT = orig_boot
-            ee.time = orig_time
+            cfg.avd = orig_avd
+            cfg.lock_file = orig_lock
+            cfg.extra_flags = orig_extra
+            cfg.boot_timeout = orig_boot
+            _startup.time = orig_time
 
     def test_device_boots_within_timeout_returns_exit_ok(self):
         """Normal boot: device ready on first probe → EXIT_OK.
