@@ -44,6 +44,15 @@
       "path": ".specify/workflows/openspec-change/workflow.yml",
       "installed_at": "2026-10-11T18:00:00.000000+00:00",
       "updated_at": "2026-10-11T18:00:00.000000+00:00"
+    },
+    "engineering-sdd": {
+      "name": "Engineering SDD",
+      "version": "0.1.0",
+      "description": "Spec-driven workflow for internal engineering changes the user never sees: state machines, concurrency, lifecycle, sync/queue correctness, diagnostics and debugging. Explore → specify → model → verification design → gate → plan → gate → tasks → optional implement → verify → converge. Artifacts live in openspec/changes/<slug>/.",
+      "source": "local",
+      "path": ".specify/workflows/engineering-sdd/workflow.yml",
+      "installed_at": "2026-10-13T00:00:00.000000+00:00",
+      "updated_at": "2026-10-13T00:00:00.000000+00:00"
     }
   }
 }

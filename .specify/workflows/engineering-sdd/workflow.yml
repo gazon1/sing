@@ -1,0 +1,270 @@
+schema_version: "1.0"
+workflow:
+  id: "engineering-sdd"
+  name: "Engineering SDD"
+  version: "0.1.0"
+  author: "Singularity Todo"
+  description: |
+    Engineering SDD for internal changes the user does not see: state machines,
+    concurrency, lifecycle, sync and queue correctness, diagnostics, debugging.
+
+    PLANNING → DOING → WHEN DONE → [REPEAT gate → PLANNING ...] → close.
+
+    PLANNING: grill-me + to-spec → plan-artifact.md (always runs first).
+    DOING: explore → specify → model → verification design → [gate] →
+           plan → [gate] → tasks → implement → verify → converge.
+    WHEN DONE: audit → fix criticals → update/create skills.
+    REPEAT: gate → continue to next PLANNING or close.
+
+    Trust boundary: `run:` blocks below interpolate NOTHING from inputs. Spec Kit
+    expands `{{ ... }}` and then executes the result with shell=True, so free text
+    in a `run:` block is executed shell. `slug`, `title` and `request` therefore
+    reach agent steps only through `command:` step args, which become a single argv
+    element. `depth` is an enum, so it is a closed, startup-validated set.
+
+inputs:
+  slug:
+    type: string
+    required: true
+    prompt: "kebab-case change id, e.g. fix-sync-outbox-cancellation"
+  title:
+    type: string
+    required: true
+    prompt: "short title"
+  request:
+    type: string
+    required: true
+    prompt: "Describe the engineering problem or capability"
+  depth:
+    type: string
+    required: false
+    default: standard
+    enum: [quick, standard, deep]
+    prompt: "quick | standard | deep — documentation depth, never correctness"
+  implement:
+    type: boolean
+    required: false
+    default: true
+    prompt: "Allow implementation after plan approval"
+  run_tests:
+    type: boolean
+    required: false
+    default: true
+    prompt: "Allow running the verification commands"
+
+steps:
+  # ─── Phase 0: Planning ───────────────────────────────────────────────────────
+  - id: planning
+    command: speckit.engineering.planning
+    description: "Grill the request and synthesize plan-artifact.md"
+    input:
+      args: "slug={{ inputs.slug }}\nrequest: {{ inputs.request }}"
+
+  # ─── Phase 1: Investigate ──────────────────────────────────────────────────
+  - id: explore
+    command: speckit.engineering.explore
+    description: "Create the change directory and write investigation.md"
+    input:
+      args: "slug={{ inputs.slug }}\ndepth={{ inputs.depth }}\nrequest: {{ inputs.request }}"
+
+  - id: specify
+    command: speckit.engineering.specify
+    description: "Write the engineering specification: invariants and AC-NN"
+    input:
+      args: "slug={{ inputs.slug }}\ndepth={{ inputs.depth }}\nrequest: {{ inputs.request }}"
+
+  - id: model
+    command: speckit.engineering.model
+    description: "Write model.md, or a justified 'Not applicable'"
+    input:
+      args: "slug={{ inputs.slug }}\ndepth={{ inputs.depth }}\nrequest: {{ inputs.request }}"
+
+  - id: verify-design
+    command: speckit.engineering.verify-design
+    description: "Write the verification plan: counterexamples and test matrix"
+    input:
+      args: "slug={{ inputs.slug }}\ndepth={{ inputs.depth }}\nrequest: {{ inputs.request }}"
+
+  - id: review-spec
+    type: gate
+    description: "Approve the problem, invariants, model and verification strategy"
+    message: |
+      ## Review spec.md, model.md and verification.md
+
+      `investigation.md` is reviewed here too — there is deliberately no separate
+      gate for it, so that investigation unknowns which block a correct
+      specification must be surfaced now.
+
+      - [ ] Problem and scope bounded; out-of-scope stated
+      - [ ] Current and required behaviour are kept separate
+      - [ ] Invariants are checkable, not aspirational
+      - [ ] Failure, cancellation and concurrency semantics specified
+      - [ ] Every AC-NN carries a `Verification:` line naming a command or test
+      - [ ] model.md models real states, or explains why no model is needed
+      - [ ] Every transition names the test that covers it
+      - [ ] Counterexamples cover re-entry, parallel calls, cancellation, restart
+    show_file: "openspec/changes/{{ inputs.slug }}/spec.md"
+    options: [approve, reject]
+    on_reject: abort
+
+  # ─── Phase 2: Plan ─────────────────────────────────────────────────────────
+  - id: plan
+    command: speckit.engineering.plan
+    description: "Write design.md and tasks.md"
+    input:
+      args: "slug={{ inputs.slug }}\ndepth={{ inputs.depth }}\nrequest: {{ inputs.request }}"
+
+  - id: review-plan
+    type: gate
+    description: "Approve the solution before any code is written"
+    message: |
+      ## Review design.md and tasks.md
+
+      - [ ] Simplest sufficient solution; no speculative abstraction
+      - [ ] Every new interface/layer names the defect it removes
+      - [ ] Alternatives considered with rationale
+      - [ ] Affected modules and responsibility boundaries named
+      - [ ] Persistence and compatibility impact assessed
+      - [ ] Verification strategy matches verification.md
+      - [ ] Every task names its files, dependencies and an AC-NN
+    show_file: "openspec/changes/{{ inputs.slug }}/design.md"
+    options: [approve, reject]
+    on_reject: abort
+
+  # ─── Phase 3: Implement, verify, converge ──────────────────────────────────
+  # The condition MUST carry braces: Spec Kit does not evaluate a bare
+  # expression, so `inputs.implement` without {{ }} is silently always-true.
+  - id: implementation
+    type: if
+    description: "Only when implementation was approved"
+    condition: "{{ inputs.implement }}"
+    then:
+      - id: implement
+        command: speckit.engineering.implement
+        description: "Apply the approved change"
+        input:
+          args: "slug={{ inputs.slug }}\nrequest: {{ inputs.request }}"
+
+      - id: verify
+        command: speckit.engineering.verify
+        description: "Run the checks named in verification.md, write results.md"
+        input:
+          args: "slug={{ inputs.slug }}\nrun_tests={{ inputs.run_tests }}"
+
+      - id: converge
+        command: speckit.engineering.converge
+        description: "Append a Divergences section to results.md"
+        input:
+          args: "slug={{ inputs.slug }}\nrequest: {{ inputs.request }}"
+
+      - id: when-done
+        command: speckit.engineering.when-done
+        description: "Post-implementation audit: fix criticals, record debt, update/create skills"
+        input:
+          args: "slug={{ inputs.slug }}\nrequest: {{ inputs.request }}"
+
+      - id: repeat-gate
+        type: gate
+        description: "Decide whether to REPEAT or close after a completed pass"
+        message: |
+          ## REPEAT Gate
+
+          A completed engineering SDD pass produces artifacts, debt records, and skills
+          in `openspec/changes/<slug>/` and `.agents/skills/`.
+
+          Run `speckit.engineering.repeat-check` to surface the next logical improvement
+          step from the artifact corpus before deciding.
+
+          ### What was done
+          - `openspec/changes/{{ inputs.slug }}/` — full artifact corpus
+          - `.agents/skills/` — any updated or new skills from the WHEN DONE phase
+
+          ### Options
+
+          **Continue → next PLANNING pass** starts a fresh `specify workflow run`
+          with the same `slug` and the grilled/improved request from the completed
+          pass as its new input. This is the REPEAT loop.
+
+          **Close → done** stops here. The change is complete; register it manually.
+        show_file: "openspec/changes/{{ inputs.slug }}/when-done.md"
+        options: [continue, close]
+        on_close: exit
+
+  # ─── Phase 4: Assert and report ────────────────────────────────────────────
+  # No interpolation at all. The change directory is discovered by newest
+  # investigation.md and the slug is re-validated against an allowlist before it
+  # is ever used to build a path.
+  - id: assert-artifacts
+    type: shell
+    description: "Fail on a missing, empty or hollow artifact"
+    run: |
+      set -uo pipefail
+      CANDIDATES=()
+      while IFS= read -r d; do
+        [[ -f "$d/investigation.md" ]] || continue
+        s=$(basename "$d")
+        [[ "$s" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] && CANDIDATES+=("$d")
+      done < <(ls -dt openspec/changes/*/ 2>/dev/null)
+
+      case ${#CANDIDATES[@]} in
+        0) echo "assert-artifacts: no valid change directory found"; exit 1 ;;
+        1) DIR="${CANDIDATES[0]}" ;;
+        *) echo "assert-artifacts: multiple candidates (concurrent runs?): ${CANDIDATES[*]}"; exit 1 ;;
+      esac
+
+      RC=0
+      for f in investigation.md spec.md model.md verification.md design.md tasks.md; do
+        [[ -s "$DIR/$f" ]] || { echo "missing or empty: $DIR/$f"; RC=1; }
+      done
+
+      # A non-empty model.md proves nothing: require a real model or an
+      # explicit justification for not having one.
+      if [[ -s "$DIR/model.md" ]]; then
+        grep -qE '^##+ +(Not applicable|States)' "$DIR/model.md" \
+          || { echo "model.md has neither a model nor a 'Not applicable' section"; RC=1; }
+      fi
+
+      # results.md exists only on the implemented path.
+      if [[ -f "$DIR/results.md" ]]; then
+        grep -qE '(PASS|FAIL|NOT_RUN|BLOCKED|NOT_APPLICABLE)' "$DIR/results.md" \
+          || { echo "results.md records no check status"; RC=1; }
+      fi
+
+      exit "$RC"
+    continue_on_error: false
+
+  - id: next-steps
+    type: shell
+    description: "Print the issue-registration and next-pass commands"
+    run: |
+      cat << 'EOF'
+      ## Engineering SDD pass complete — next actions
+
+      ### Register this change
+      create .specify/issues/<slug>.yaml:
+        version: '1.0'
+        type: openspec-change
+        slug: <slug>
+        status: open          # plan-only; use 'accepted' once implemented
+        openspec_path: openspec/changes/<slug>
+
+      then validate:
+        python3 scripts/check-speckit-issue-registry.py
+
+      ### To start a new REPEAT pass
+      specify workflow run engineering-sdd \
+        slug=<slug> title="<same or next title>" request="$(cat openspec/changes/<slug>/plan-artifact.md)"
+
+      The plan-artifact.md from the completed pass becomes the bounded input for
+      the next PLANNING phase.
+      EOF
+    continue_on_error: true
+
+  - id: git-status
+    type: shell
+    description: "Show changed files and next steps"
+    run: |
+      git status --short 2>&1 | head -30
+      echo ""
+      echo "Next: singularity-adr validate, then commit."
+    continue_on_error: true

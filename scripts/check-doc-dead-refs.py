@@ -150,6 +150,20 @@ _GITIGNORE_BASENAMES: frozenset[str] = frozenset(
 RUNTIME_ARTIFACTS = {
     "manifest.json", "payload.json", "backup.json", "data.json", "index.json",
     "skill-mechanics.md",
+    # Spec Kit and Engineering SDD artifacts. These are written into a change
+    # directory at run time (`openspec/changes/<slug>/`, `specs/<NNN>-<slug>/`)
+    # and are never authored at a fixed repo path, so a backticked mention of one
+    # in a skill or doc is a claim about an artifact, not a dead link.
+    #
+    # `spec.md`, `design.md` and `tasks.md` are also spec-kit feature-directory
+    # artifacts, so the same argument covers them.
+    #
+    # ADR: docs/decisions/2026-10-13-engineering-sdd-workflow.md
+    "investigation.md", "spec.md", "model.md", "verification.md",
+    "design.md", "tasks.md", "results.md", "conventions.md",
+    "plan.md", "research.md", "quickstart.md", "data-model.md",
+    # Engineering SDD REPEAT loop artifacts
+    "plan-artifact.md", "when-done.md",
 }
 
 # A backticked token that looks like a file path.

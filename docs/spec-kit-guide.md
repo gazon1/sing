@@ -68,6 +68,9 @@ workflow имеет смысл когда **ты или стейкхолдер �
 | Архитектурное изменение | `openspec-change` | Важен ADR-трек для записи решений |
 | Изменение контракта между компонентами | `openspec-change` | Нужно document rationale |
 | Рефакторинг с новым ADR | `adr-create` | Только запись решения, без полного spec |
+| Внутренняя state machine, корутины, отмена | `engineering-sdd` | Поведение зависит от последовательности событий — нужна явная модель переходов и контрпримеры |
+| Диагностика зависаний, гонок, нестабильных тестов | `engineering-sdd` | Нужно отделить факты от гипотез и спроектировать наблюдаемость |
+| Синхронизация, очереди, повторы операций | `engineering-sdd` | Конкурентность и восстановление не описываются user stories |
 | CI-прогон без вопросов | `adr-ci` | В CI/CD джобе |
 | Несколько ADR из CSV | `adr-batch` | Bulk-миграция |
 | Спека уже есть в `openspec/specs/` | `openspec-change` с `has_existing_spec=true` | calendar-sync |
@@ -358,6 +361,82 @@ Workflow создаст:
 
 ---
 
+## Быстрый старт для внутреннего инженерного изменения
+
+Полное описание — [`docs/engineering-sdd.md`](engineering-sdd.md).
+
+### 1. Терминал
+
+```bash
+specify workflow info engineering-sdd      # валидация + граф шагов, ничего не запускает
+
+specify workflow run engineering-sdd \
+  --input slug=fix-countdown-reentrancy \
+  --input title="CountdownStateMachine re-entrancy" \
+  --input request="The countdown silently cancels when the undo slot advances" \
+  --input depth=deep \
+  --input implement=false
+```
+
+**Параметры:**
+
+| Параметр | Обязательный | Описание |
+|---|---|---|
+| `slug` | ✅ | kebab-case, `^[a-z0-9]+(-[a-z0-9]+)*$` — становится сегментом пути |
+| `title` | ✅ | Короткое название |
+| `request` | ✅ | Инженерная проблема своими словами |
+| `depth` | ❌ | `quick` \| `standard` \| `deep` — **глубина документации, не корректности** |
+| `implement` | ❌ | `false` — остановиться после плана, код не писать |
+| `run_tests` | ❌ | `false` — тесты не запускать, всё записать как `NOT_RUN` |
+
+**Фазы и гейты:**
+
+```
+1. explore        ──► 2. specify ──► 3. model ──► 4. verify-design
+                                                    │
+                                        [gate: review-spec]  ← «что должно быть истинным»
+                                                    │
+                                              5. plan
+                                                    │
+                                        [gate: review-plan]  ← «как это строим»
+                                                    │
+                                   if implement: 6. implement → 7. verify → 8. converge
+                                                    │
+                                      9. assert-artifacts → next-steps → git-status
+```
+
+Артефакты в `openspec/changes/<slug>/`: `investigation.md`, `spec.md`, `model.md`,
+`verification.md`, `design.md`, `tasks.md`, `results.md`.
+
+`model.md` обязан содержать **либо** таблицу переходов, **либо** раздел `## Not applicable` с
+конкретным обоснованием. Выдуманная state machine хуже честного «модель не нужна».
+
+`spec.md` привязывает каждый `AC-NN` к **имени теста** (`TestClass::testFunction`) — это делает
+связку проверяемой, а не декларативной.
+
+### 2. Триггер безопасности при правке workflow
+
+Spec Kit раскрывает `{{ ... }}` в шаге `shell`, а затем выполняет результат с `shell=True`.
+Любой пользовательский текст внутри блока `run:` **выполняется как shell**.
+
+```yaml
+# НЕЛЬЗЯ
+run: |
+  DIR="openspec/changes/{{ inputs.slug }}"   # slug со значением $(id) выполнится
+```
+
+`engineering-sdd` поэтому интерполирует `slug`/`title`/`request` **только** в `args` шагов типа
+`command` (один argv-элемент, без shell), `depth` ограничен через `enum`, а `assert-artifacts` не
+интерполирует ничего — он находит каталог сам и перепроверяет slug регуляркой до построения пути.
+
+Дополнительно: `condition:` без `{{ }}` молча всегда истинно — движок не вычисляет голое выражение.
+
+> ⚠️ **Существующие `openspec-change`, `adr-create` и `adr-batch` делают ровно наоборот**: свободный
+> текст попадает в `run:`-блоки, включая неэкранированные heredoc'ы. Это отдельная задача на
+> исправление; здесь зафиксировано, чтобы проблема не воспроизводилась в новых workflow.
+
+---
+
 ## Файлы и каталоги
 
 ```
@@ -369,6 +448,7 @@ Workflow создаст:
     adr-batch/
     adr-ci/
     openspec-change/      # полный 7-фазный workflow
+    engineering-sdd/      # внутренние изменения: state machines, корутины, диагностика
   extensions.yml          # hooks для валидации
   constitutions/
     singularity-todo.md   # принципы проекта
