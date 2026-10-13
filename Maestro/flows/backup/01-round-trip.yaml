@@ -17,12 +17,12 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=BackupRoundTripTask"
+      QUERY: "task=${RUN_ID}_BackupRoundTripTask"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_backuproundtriptask
+      id: task_item_${RUN_ID}_backuproundtriptask
     timeout: 8000
 
 # 2. Open Settings and navigate to Backup.
@@ -89,7 +89,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     notVisible:
-      id: task_item_backuproundtriptask
+      id: task_item_${RUN_ID}_backuproundtriptask
     timeout: 5000
 
 # 6. Restore from backup.
@@ -134,5 +134,5 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_backuproundtriptask
+      id: task_item_${RUN_ID}_backuproundtriptask
     timeout: 8000

@@ -49,7 +49,7 @@ tags:
     timeout: 5000
 
 # Type a name and submit via IME action (no testTag on the confirm button).
-- inputText: "My Saved Query"
+- inputText: "${RUN_ID} My Saved Query"
 - pressKey: "Enter"
 
 # Snackbar confirms save.
@@ -62,7 +62,7 @@ tags:
 # It renders as a FilterChip with the saved name text.
 - extendedWaitUntil:
     visible:
-      text: "My Saved Query"
+      text: "${RUN_ID} My Saved Query"
     timeout: 5000
 
 # Navigate away and come back.
@@ -88,10 +88,10 @@ tags:
 # The saved search persists and can be tapped to load the query.
 - extendedWaitUntil:
     visible:
-      text: "My Saved Query"
+      text: "${RUN_ID} My Saved Query"
     timeout: 5000
 - tapOn:
-    text: "My Saved Query"
+    text: "${RUN_ID} My Saved Query"
 - extendedWaitUntil:
     visible:
       id: task_item_savedalpha2026

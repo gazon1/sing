@@ -40,6 +40,7 @@ fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) ->
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
+                .testTag(TestTags.CALENDAR_VIEW_MODE_TRIGGER)
                 .background(palette.surface, RoundedCornerShape(8.dp))
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp, vertical = 6.dp),

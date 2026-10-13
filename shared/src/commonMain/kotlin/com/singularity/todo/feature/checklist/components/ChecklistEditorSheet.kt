@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
@@ -62,7 +63,9 @@ fun ChecklistEditorSheet(
                 OutlinedTextField(
                     value = newItemText,
                     onValueChange = { newItemText = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(TestTags.CHECKLIST_ADD_INPUT),
                     placeholder = { Text("Add item...") },
                     singleLine = true,
                 )
@@ -75,6 +78,7 @@ fun ChecklistEditorSheet(
                         }
                     },
                     enabled = newItemText.isNotBlank(),
+                    modifier = Modifier.testTag(TestTags.CHECKLIST_ADD_BUTTON),
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add")
                 }
@@ -101,10 +105,15 @@ fun ChecklistEditorSheet(
                             Checkbox(
                                 checked = item.isCompleted,
                                 onCheckedChange = { onToggle(item.id) },
+                                modifier = Modifier.testTag(
+                                    TestTags.checklistItemCheckbox(item.id.value, item.title),
+                                ),
                             )
                             Text(
                                 text = item.title,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag(TestTags.checklistItem(item.id.value, item.title)),
                                 style = MaterialTheme.typography.bodyLarge,
                                 textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
                                 color = if (item.isCompleted) {
@@ -113,7 +122,12 @@ fun ChecklistEditorSheet(
                                     MaterialTheme.colorScheme.onSurface
                                 },
                             )
-                            IconButton(onClick = { onDelete(item.id) }) {
+                            IconButton(
+                                onClick = { onDelete(item.id) },
+                                modifier = Modifier.testTag(
+                                    TestTags.checklistItemDelete(item.id.value, item.title),
+                                ),
+                            ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Delete",

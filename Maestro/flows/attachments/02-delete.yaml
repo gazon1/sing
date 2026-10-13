@@ -6,7 +6,7 @@ tags:
   - scenario:ATTACH-02
 ---
 # Seed a task.
-- openLink: "todo-debug://seed?task=DeleteAttachTask2026"
+- openLink: "todo-debug://seed?task=${RUN_ID}_DeleteAttachTask2026"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -17,7 +17,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_deleteattachtask2026
+      id: task_item_${RUN_ID}_deleteattachtask2026
     timeout: 5000
 - tapOn:
     id: task_item_deleteattachtask2026

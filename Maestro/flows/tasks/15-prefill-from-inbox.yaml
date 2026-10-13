@@ -32,7 +32,7 @@ tags:
 # ── Fill title (no due date set) ──────────────────────────────────────
 - tapOn:
     id: task_editor_title_input
-- inputText: "Task from Inbox tab"
+- inputText: "${RUN_ID} Task from Inbox tab"
 
 # ── Save ──────────────────────────────────────────────────────────────
 - hideKeyboard
@@ -44,7 +44,13 @@ tags:
     visible:
       id: agenda_section_no_date
     timeout: 8000
+# Task may be below existing rows — scroll to bring it into view.
+- scrollUntilVisible:
+    element:
+      id: task_item_${RUN_ID}_task_from_inbox_tab
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
-    id: task_item_task_from_inbox_tab
+    id: task_item_${RUN_ID}_task_from_inbox_tab
 - assertVisible:
-    id: task_item_task_from_inbox_tab
+    id: task_item_${RUN_ID}_task_from_inbox_tab

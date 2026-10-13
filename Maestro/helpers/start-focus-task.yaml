@@ -1,33 +1,4 @@
-# Seeds a task via deep-link, navigates to Today, selects the Focus chip,
-# and starts the Pomodoro timer.
-#
-# Usage:
-#   env:
-#     QUERY: "task=Focus%20task&due=today"
-#
-# Prerequisites: None. This helper runs seed.yaml internally.
-# After this helper, the Pomodoro timer should be running.
-appId: com.singularity.todo
-name: start-focus-task
----
-- runFlow: seed.yaml
-- tapOn:
-    id: nav_tab_today
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 5000
-# Select the Focus chip if visible
-- scrollUntilVisible:
-    text: "Focus task"
-    scrollDirection: DOWN
-- tapOn:
-    text: "Focus task"
-# Wait for focus mode label
-- extendedWaitUntil:
-    visible:
-      text: "Focus"
-    timeout: 5000
-# Start the Pomodoro timer
-- tapOn:
-    id: pomodoro_play_button
+# DEPRECATED — delete after verifying no callers remain.
+# Was: seed a task and start Pomodoro Focus mode.
+# Was used by: (none — 0 callers found in Maestro/flows/)
+# Replace with: seed.yaml + manual Focus navigation if needed.

@@ -28,7 +28,7 @@ tags:
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
-- inputText: "Persistent View"
+- inputText: "${RUN_ID} Persistent View"
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
@@ -38,7 +38,7 @@ tags:
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_persistent_view
+      id: saved_agenda_card_${RUN_ID}_persistent_view
     timeout: 8000
 
 # ── 2. Kill the process (state preserved) and relaunch ──────────────────
@@ -59,5 +59,5 @@ tags:
     id: agenda_saved_views_button
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_persistent_view
+      id: saved_agenda_card_${RUN_ID}_persistent_view
     timeout: 8000

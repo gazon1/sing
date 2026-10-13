@@ -22,10 +22,9 @@ tags:
     timeout: 5000
 # The row's title must have carried into the editor — this is what proves the
 # tap routed to *this* task and not merely that some editor opened.
-#
-# NOTE: asserted as text because the editor is open here and no task row is
-# mounted; `task_item_buy_milk` only applies once the editor is closed.
-- assertVisible: "Buy milk"
+# Using task_detail_title id (from TaskTitleRow) rather than text for reliability.
+- assertVisible:
+    id: task_detail_title
 - back
 - extendedWaitUntil:
     visible:

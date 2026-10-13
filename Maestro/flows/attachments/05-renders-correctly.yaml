@@ -6,7 +6,7 @@ tags:
   - scenario:ATTACH-05
 ---
 # Seed a task and add an attachment.
-- openLink: "todo-debug://seed?task=RenderTestTask2026"
+- openLink: "todo-debug://seed?task=${RUN_ID}_RenderTestTask2026"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -16,7 +16,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_rendertesttask2026
+      id: task_item_${RUN_ID}_rendertesttask2026
     timeout: 5000
 - tapOn:
     id: task_item_rendertesttask2026

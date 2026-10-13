@@ -82,7 +82,7 @@ tags:
     visible:
       id: nav_tab_today
     timeout: 8000
-- openLink: "todo-debug://seed?task=WorkTask"
+- openLink: "todo-debug://seed?task=${RUN_ID}_WorkTask"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -91,7 +91,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_worktask
+      id: task_item_${RUN_ID}_worktask
     timeout: 8000
 
 # 4. Switch back to the Personal (default) profile.

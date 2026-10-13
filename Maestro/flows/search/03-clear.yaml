@@ -10,7 +10,7 @@ tags:
   - scenario:SEARCH-03
 ---
 # Seed a task to ensure there are results to clear.
-- openLink: "todo-debug://seed?task=ClearSearchTask2026"
+- openLink: "todo-debug://seed?task=${RUN_ID}_ClearSearchTask2026"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -36,7 +36,7 @@ tags:
 - inputText: "ClearSearchTask2026"
 - extendedWaitUntil:
     visible:
-      id: task_item_clearsearchtask2026
+      id: task_item_${RUN_ID}_clearsearchtask2026
     timeout: 8000
 
 # Clear the query.
@@ -51,5 +51,5 @@ tags:
 # Results must be gone.
 - extendedWaitUntil:
     notVisible:
-      id: task_item_clearsearchtask2026
+      id: task_item_${RUN_ID}_clearsearchtask2026
     timeout: 5000

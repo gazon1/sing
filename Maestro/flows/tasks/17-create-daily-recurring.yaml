@@ -34,7 +34,7 @@ tags:
 # ── Give the task a title ─────────────────────────────────────────────
 - tapOn:
     id: task_editor_title_input
-- inputText: "Water the plants"
+- inputText: "${RUN_ID} Water the plants"
 - hideKeyboard
 
 # ── Open the recurrence picker ────────────────────────────────────────
@@ -78,9 +78,11 @@ tags:
     id: task_editor_save
 
 # ── The task is created and the composer is closed ────────────────────
-- extendedWaitUntil:
-    visible:
-      id: task_item_water_the_plants
+# Task may be below existing rows — scroll to bring it into view.
+- scrollUntilVisible:
+    element:
+      id: task_item_${RUN_ID}_water_the_plants
+    direction: DOWN
     timeout: 8000
 - assertVisible:
-    id: task_item_water_the_plants
+    id: task_item_${RUN_ID}_water_the_plants

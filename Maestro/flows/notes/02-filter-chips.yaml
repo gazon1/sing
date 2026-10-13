@@ -24,7 +24,7 @@ tags:
     timeout: 8000
 - tapOn:
     id: notes_quick_add_input
-- inputText: "Alpha"
+- inputText: "${RUN_ID} Alpha"
 - pressKey: Enter
 - extendedWaitUntil:
     visible:
@@ -39,7 +39,7 @@ tags:
     timeout: 8000
 - tapOn:
     id: notes_quick_add_input
-- inputText: "Beta"
+- inputText: "${RUN_ID} Beta"
 - pressKey: Enter
 - extendedWaitUntil:
     visible:

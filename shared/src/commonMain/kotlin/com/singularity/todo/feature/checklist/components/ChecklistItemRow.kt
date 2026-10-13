@@ -22,7 +22,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,7 @@ fun ChecklistItemRow(
             Checkbox(
                 checked = checked,
                 onCheckedChange = { onToggle() },
+                modifier = Modifier.testTag(TestTags.checklistItemCheckbox(id = text, title = text)),
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -84,12 +87,17 @@ fun ChecklistItemRow(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .testTag(TestTags.checklistItem(id = text, title = text)),
         )
 
         if (onDelete != null || onPromote != null) {
             Box {
-                IconButton(onClick = { menuOpen = true }) {
+                IconButton(
+                    onClick = { menuOpen = true },
+                    modifier = Modifier.testTag(TestTags.checklistItemDelete(id = text, title = text)),
+                ) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
                         contentDescription = "More options",

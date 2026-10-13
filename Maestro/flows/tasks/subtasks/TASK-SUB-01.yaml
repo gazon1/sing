@@ -33,7 +33,7 @@ tags:
 ---
 # ── Seed a parent task ─────────────────────────────────────────────
 - runFlow: ../../../helpers/launch-clean.yaml
-- openLink: "todo-debug://seed?task=Parent%20Task"
+- openLink: "todo-debug://seed?task=${RUN_ID}_Parent%20Task"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -42,7 +42,7 @@ tags:
 # ── Open the task detail view ────────────────────────────────────
 - extendedWaitUntil:
     visible:
-      id: task_item_parent_task
+      id: task_item_${RUN_ID}_parent_task
     timeout: 8000
 - tapOn:
     id: task_item_parent_task
@@ -58,14 +58,14 @@ tags:
     timeout: 5000
 - tapOn:
     id: subtask_add_input
-- inputText: "Child task one"
+- inputText: "${RUN_ID} Child task one"
 - tapOn:
     id: subtask_add_button
 
 # ── Verify subtask appears ──────────────────────────────────────
 - extendedWaitUntil:
     visible:
-      id: subtask_item_child_task_one
+      id: subtask_item_${RUN_ID}_child_task_one
     timeout: 5000
 
 # ── Toggle subtask completed state ───────────────────────────────
@@ -73,14 +73,14 @@ tags:
     id: subtask_item_child_task_one
 - extendedWaitUntil:
     visible:
-      text: "✓ Child task one"
+      text: "✓ ${RUN_ID} Child task one"
     timeout: 5000
 
 # ── Delete subtask ────────────────────────────────────────────────
 - tapOn:
-    id: subtask_delete_child_task_one
+    id: subtask_delete_${RUN_ID}_child_task_one
 - extendedWaitUntil:
     absent:
-      id: subtask_item_child_task_one
+      id: subtask_item_${RUN_ID}_child_task_one
     timeout: 5000
-- assertAbsent: subtask_item_child_task_one
+- assertAbsent: subtask_item_${RUN_ID}_child_task_one

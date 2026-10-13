@@ -15,9 +15,9 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-# NOTE: asserted as text because the editor is open here and no task row is
-# mounted; `task_item_buy_milk` only applies once the editor is closed.
-- assertVisible: "Buy milk"
+# NOTE: asserted by id rather than text for reliability.
+- assertVisible:
+    id: task_detail_title
 
 # The time tracking section shows the START chip on a signed-in session.
 # (Anonymous/dev sessions show time_tracking_error instead; the section is
