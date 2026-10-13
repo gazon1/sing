@@ -41,7 +41,13 @@ class TestParseGateLine(unittest.TestCase):
         g = gates[0]
         self.assertEqual(g.name, "version catalog has no literals")
         self.assertEqual(g.mode, "blocking")
-        self.assertIn("sgate", g.command)
+        # command is reconstructed from GateSpec: <python3-exe> <script> <args...>
+        # sys.executable varies by installation; check the script path instead
+        self.assertIn(
+            "scripts/build-version-catalog-gate.py",
+            g.command,
+            f"expected command to contain script path, got: {g.command!r}",
+        )
         self.assertIsInstance(g.kiwi_required, bool)
 
     def test_sabotage_test_default_is_name(self):

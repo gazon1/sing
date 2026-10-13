@@ -1,24 +1,26 @@
 """sgate.gates — gate registry loader.
 
-Parses scripts/ci/static-gates.sh to extract gate definitions.
+Loads gate definitions from sgate.commands._registry.GATES (the single source
+of truth). The Gate namedtuple provides a read-only view of the registry data.
 
 Gate = NamedTuple with fields:
-    name: str           — "adr-config-sync" (kebab-case)
+    name: str           — display name from the registry
     mode: str            — "blocking" or "advisory"
-    command: str         — full command string
-    comment: str|None   — inline comment if any
-    sabotage_test: str|None — probe name in check-gate-wiring.py
-    kiwi_required: bool  — always False (set at command level)
+    command: str         — full command string (reconstructed from GateSpec)
+    comment: str|None   — always None (registry has no inline-comment field)
+    sabotage_test: str|None — probe name in check-gate-wiring.py (defaults to name)
+    kiwi_required: bool  — from GateSpec.kiwi_required
 """
 from __future__ import annotations
 
-import re
-import shlex
+import sys
 from typing import NamedTuple
+
+from sgate.commands._registry import GATES as _REGISTRY_GATES
 
 
 class Gate(NamedTuple):
-    """A gate registered in static-gates.sh."""
+    """A gate registered in the registry."""
 
     name: str
     mode: str  # "blocking" | "advisory"
@@ -28,66 +30,47 @@ class Gate(NamedTuple):
     kiwi_required: bool = False
 
 
-# Matches `gate blocking|advisory "name" ...` registry lines.
-# Must NOT match the `gate() {` function definition line.
-_GATE_LINE_RE = re.compile(r'^gate\s+(blocking|advisory)\s+"([^"]+)"\s+(.+)$')
+def _build_command(spec) -> str:
+    """Reconstruct the full command string from a GateSpec."""
+    if spec.cmd_type in ("python3", "python3_m"):
+        parts = [sys.executable]
+        if spec.cmd_type == "python3_m":
+            parts.append("-m")
+        parts.append(spec.script)
+        parts.extend(spec.script_args)
+        return " ".join(parts)
+    if spec.cmd_type == "shell":
+        parts = ["bash", str(spec.script)]
+        parts.extend(spec.script_args)
+        return " ".join(parts)
+    if spec.cmd_type == "bash_c":
+        # Reconstruct: bash -c ". {static_gates_sh} && {func}"
+        static_sh = "scripts/ci/static-gates.sh"
+        return f"bash -c '. {static_sh} && {spec.bash_func}'"
+    if spec.cmd_type == "path":
+        return " ".join(spec.path_cmd)
+    # Fallback for unknown cmd_type: reconstruct from available fields
+    if spec.script:
+        return f"{spec.cmd_type} {spec.script}"
+    return f"{spec.cmd_type} (no script)"
 
 
 def load_gates() -> list[Gate]:
-    """Load all gates from static-gates.sh.
-
-    Parses the file directly without executing any shell code.
-    Skips the ``gate() { ... }`` function definition by matching only
-    lines that have a third field (the command), which function definitions
-    don't have.
+    """Load all gates from the registry.
 
     Returns
     -------
     list[Gate]
-        Ordered list of gates as they appear in the registry.
+        Ordered list of gates as they appear in _registry.GATES.
     """
-    import sgate.repo
-
-    registry_path = sgate.repo.STATIC_GATES_SH
-    content = registry_path.read_text(encoding="utf-8")
-
     gates: list[Gate] = []
-    seen_names: set[str] = set()
-
-    for line in content.splitlines():
-        # Skip: blank, comment-only, or the gate() function definition.
-        # The function definition has the form "gate() {" — no third field.
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "gate()" in stripped:
-            continue
-
-        m = _GATE_LINE_RE.match(line)
-        if not m:
-            continue
-
-        mode = m.group(1)
-        name = m.group(2)
-        raw_cmd = m.group(3).rstrip()
-
-        # Inline comment after the command (e.g. "  # no-self-probe")
-        comment: str | None = None
-        cmd = raw_cmd
-        if " # " in raw_cmd and not raw_cmd.strip().startswith("#"):
-            cmd_part, comment = raw_cmd.split(" # ", 1)
-            cmd = cmd_part.rstrip()
-
-        # Deduplicate by name (first wins — matches bash for-loop behaviour)
-        if name in seen_names:
-            continue
-        seen_names.add(name)
-
+    for spec in _REGISTRY_GATES:
         gates.append(Gate(
-            name=name,
-            mode=mode,
-            command=cmd,
-            comment=comment,
-            sabotage_test=name,
-            kiwi_required=False,
+            name=spec.name,
+            mode=spec.mode,
+            command=_build_command(spec),
+            comment=None,
+            sabotage_test=spec.name,
+            kiwi_required=spec.kiwi_required,
         ))
-
     return gates

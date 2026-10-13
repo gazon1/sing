@@ -28,12 +28,13 @@ Parts C–G cover the properties that Parts A and B cannot see: C, a configured
 Gradle task must be capable of failing; D, a non-blocking step must declare
 itself advisory; E, a CI/local asymmetry must be declared with a reason; F,
 every registered gate must have a positive control; G, the shared gate registry
-itself must be invoked by both CI and `check.sh`.
+itself must be invoked by both CI and `check.sh`. Part J cross-checks the
+SCRIPT_GATES sabotage controls against _registry.GATES.
 
 Usage:
-    python3 scripts/check-gate-wiring.py            # every part
-    python3 scripts/check-gate-wiring.py --wiring   # Part A only (static, fast)
-    python3 scripts/check-gate-wiring.py --can-fail # Part B only (mutates, restores)
+    python3 scripts/check-gate-wiring.py              # every part
+    python3 scripts/check-gate-wiring.py --wiring     # Part A only (static, fast)
+    python3 scripts/check-gate-wiring.py --can-fail   # Part B only (mutates, restores)
 
 Exit codes:
     0 — every gate is wired and every registered gate can fail
@@ -845,6 +846,86 @@ GATE_EXEMPTIONS: dict[str, str] = {
         "the Click migration sweep lands and the gate goes green, add a "
         "sabotage control (strip a docstring from any gate script) and drop "
         "this exemption."
+    ),
+    # ── Part J: intentionally not in the shared registry ─────────────────────
+    # These are local-only gates (do not run in CI) and must not block a PR.
+    # Each carries a sabotage control for self-verification; the exemption
+    # documents why the registry is not the control authority.
+    "scripts/check-backlog-status.py": (
+        "GATE_PARITY: deliberately NOT in the shared registry, because a PR "
+        "must not be blocked by backlog bookkeeping; the backlog budget and "
+        "'every OPEN entry is tracked' rule are a house-keeping invariant"
+    ),
+    "scripts/check-doc-sizes.py": (
+        "local doc-size budgets (AGENTS.md <= 240 lines, SKILL.md <= 500 lines) "
+        "are a house-keeping invariant; not run in CI, must not block a PR"
+    ),
+    "scripts/check-provenance.py": (
+        "provenance audit for Apache-2.0 / FSL-1.1 publication; runs locally "
+        "before publication commits, not as a CI gate; the sabotage control "
+        "is the provenance-registry.tsv itself"
+    ),
+    "scripts/check-pro-licence-boundary.py": (
+        "Apache-2.0 / pro licence boundary check; runs locally before "
+        "publication commits, not as a CI gate; the sabotage control is "
+        "the direction check itself"
+    ),
+    "scripts/check-rebase-compiles.py": (
+        "GATE_PARITY: needs a Gradle compile run with rebased DI files, "
+        "so lives in the CI tests job after the rebase step and is not "
+        "in the static-gates.sh registry; sabotage control is the rebase step"
+    ),
+    # ── Part J: registry gates intentionally without positive sabotage controls ─
+    # These are in the registry and have no control in SCRIPT_GATES. Each exemption
+    # documents why the gate is self-checking or why a sabotage control is not
+    # the right proving mechanism.
+    "scripts/build-version-catalog-gate.py": (
+        "auto-generator: the gate proves version catalog is clean by checking for "
+        "undeclared literals; the sabotage is removing the generated catalog file "
+        "and asserting the gate fails — but the generator is the gate, so "
+        "`test_version_catalog_gate_self_repairs` is the real control"
+    ),
+    "unittest": (
+        "meta-gate: `python3 -m unittest discover` is the gate; corrupting a test "
+        "file would be the sabotage, but the unittest runner is the proving "
+        "mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is "
+        "what makes it trustworthy"
+    ),
+    "scripts/find-unwired-surfaces.py": (
+        "Part J cross-check itself is the control: the --registry-cross flag "
+        "verifies this gate has no sabotage control and documents the exemption; "
+        "the script's own test is scripts/tests/test_find_unwired_surfaces.py"
+    ),
+    "scripts/gen-detekt-rules-config.py": (
+        "auto-generator: sabotage is deleting the generated config and asserting "
+        "the gate fails; equivalent to `rm config/detekt/detekt-rules.yml && "
+        "gate detekt-rules-config` — the output-diff is the control"
+    ),
+    "scripts/gen-detekt-rule-table.py": (
+        "auto-generator: sabotage is deleting the generated table and asserting "
+        "the gate fails; equivalent to `rm docs/detekt/rule_table.md && "
+        "gate detekt-rule-inventory` — the output-diff is the control"
+    ),
+    "scripts/check-detekt-registrations.sh": (
+        "shell-gate: the sabotage is removing a rule from the registrations file "
+        "and asserting the gate fails; equivalent to `rm config/detekt/rule_"
+        "registrations.toml && gate detekt-rule-registry` — but Part J cross-check "
+        "itself is what catches it when the control goes missing"
+    ),
+    "scripts/ci/validate-maestro-selectors.py": (
+        "CI-only gate: runs in the Maestro flow job, not locally; sabotage would "
+        "be corrupting the selector files and asserting the gate fails; Part J "
+        "cross-check itself is the backstop when the control goes missing"
+    ),
+    "scripts/regen-skills-catalog.sh": (
+        "shell-gate auto-generator: sabotage is removing the generated catalog "
+        "and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && "
+        "gate skills-catalog` — the output-diff is the control"
+    ),
+    "scripts/check-skill-frontmatter.sh": (
+        "shell-gate: sabotage is stripping the description from a SKILL.md file "
+        "and asserting the gate fails; already in SCRIPT_GATES under the "
+        "'skill-frontmatter' name — Part J cross-check itself is the backstop"
     ),
 }
 
@@ -1767,6 +1848,93 @@ def check_registry_wiring() -> list[str]:
     return errors
 
 
+# ── Part H: SCRIPT_GATES vs _registry.GATES cross-check ─────────────────────
+#
+# SCRIPT_GATES (the sabotage controls in this file) is the authoritative record
+# of which gates have a positive control. The registry (_registry.GATES) is the
+# authoritative record of which gates exist. Both must agree.
+#
+# Two warnings, because the failure modes differ:
+# - A SCRIPT_GATES entry whose script is absent from the registry: the control
+#   is testing a gate that no longer exists, so it proves nothing.
+# - A registry gate (python3/shell) with no SCRIPT_GATES entry: the gate has
+#   no positive control, and Part F would catch it — but Part F derives the
+#   controlled set from this file; a new SCRIPT_GATES entry silently fixes the
+#   gap and Part F silently passes, so the cross-check must be explicit.
+
+
+def check_script_gates_vs_registry() -> list[str]:
+    errors: list[str] = []
+    try:
+        import sys
+        # scripts/src must be on the path for the sgate import to work.
+        src_root = str(ROOT / "scripts" / "src")
+        if src_root not in sys.path:
+            sys.path.insert(0, src_root)
+        import importlib
+        _registry = importlib.import_module("sgate.commands._registry")
+    except (ImportError, ModuleNotFoundError):
+        return [
+            "Part J skipped: sgate.commands._registry is not importable "
+            "(sgate may not be installed)"
+        ]
+
+    gates = _registry.GATES
+
+    # Map: script path (str) -> list of gate display names that use it
+    script_to_names: dict[str, list[str]] = {}
+    for spec in gates:
+        if spec.script:
+            script_to_names.setdefault(spec.script, []).append(spec.name)
+
+    # Map: script path -> gate name, built from SCRIPT_GATES command list
+    sg_script_to_name: dict[str, str] = {}
+    for sg in SCRIPT_GATES:
+        if len(sg.cmd) >= 2:
+            script_path = sg.cmd[1]
+            if script_path.startswith("./"):
+                script_path = script_path[2:]
+            sg_script_to_name[script_path] = sg.name
+
+    # 1. SCRIPT_GATES entries whose script is absent from the registry.
+    #    GATE_EXEMPTIONS is consulted: gates intentionally absent from the registry
+    #    (e.g. local-only gates) may still carry sabotage controls for documentation.
+    for script_path, sg_name in sg_script_to_name.items():
+        if script_path not in script_to_names:
+            if script_path in GATE_EXEMPTIONS:
+                continue  # documented: intentionally not in the shared registry
+            errors.append(
+                f"Part J: SCRIPT_GATES entry '{sg_name}' "
+                f"references script '{script_path}' which is not in _registry.GATES. "
+                f"Add it to the registry or remove the control."
+            )
+
+    # 2. Registry gates with a script that have no positive control.
+    #    Controls: SCRIPT_GATES, SABOTAGE_ONLY_GATES, FIXTURE_GATES.
+    #    GATE_EXEMPTIONS scripts are also considered covered (they have a reason).
+    covered_scripts = (
+        set(sg_script_to_name.keys())
+        | {g.cmd[1] for g in SABOTAGE_ONLY_GATES if len(g.cmd) >= 2}
+        | {g.cmd[1] for g in FIXTURE_GATES if len(g.cmd) >= 2}
+        | set(GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
+    )
+    for spec in gates:
+        if spec.cmd_type not in ("python3", "python3_m", "shell"):
+            continue
+        if not spec.script:
+            continue
+        if spec.script in covered_scripts:
+            continue
+        errors.append(
+            f"Part J: registry gate '{spec.name}' "
+            f"(script={spec.script!r}) has no positive control in "
+            f"SCRIPT_GATES, SABOTAGE_ONLY_GATES, FIXTURE_GATES, or GATE_EXEMPTIONS. "
+            f"Add a sabotage control or document the exemption."
+        )
+
+    return errors
+
+
 # ── Part H: every gate-shaped script is reachable from some surface ─────────
 #
 # Parts A–G all start from a gate somebody already decided to run. A script that
@@ -2094,6 +2262,9 @@ def main() -> int:
     ap.add_argument(
         "--gradle-parity", action="store_true", help="Part I only"
     )
+    ap.add_argument(
+        "--registry-cross", action="store_true", help="Part J only"
+    )
     args = ap.parse_args()
     only = (
         args.wiring
@@ -2105,6 +2276,7 @@ def main() -> int:
         or args.registry_wiring
         or args.reachability
         or args.gradle_parity
+        or args.registry_cross
     )
     run_a = args.wiring or not only
     run_b = args.can_fail or not only
@@ -2115,6 +2287,7 @@ def main() -> int:
     run_g = args.registry_wiring or not only
     run_h = args.reachability or not only
     run_i = args.gradle_parity or not only
+    run_j = args.registry_cross or not only
 
     errors: list[str] = []
 
@@ -2185,6 +2358,16 @@ def main() -> int:
         errors += check_gradle_task_parity()
         if not check_gradle_task_parity():
             print("  ok  check.sh and ci.yml name the same Gradle tasks")
+
+    if run_j:
+        print("\nPart J — SCRIPT_GATES sabotage controls are consistent with _registry.GATES")
+        cross_errors = check_script_gates_vs_registry()
+        for err in cross_errors:
+            print(f"  {err}")
+        errors += cross_errors
+        if not cross_errors:
+            print("  ok  all SCRIPT_GATES entries are in the registry, "
+                  "all registry gates with scripts have controls")
 
     if errors:
         print("")
