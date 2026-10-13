@@ -168,7 +168,7 @@ See `ARCHITECTURE.md` for the full design doc (package maps, expect/actual table
 | `ARCHITECTURE.md` | Full design doc (520+ lines) |
 | `docs/decisions/DIGEST.md` | Auto-generated index of 490+ ADRs |
 | `docs/doc-maintenance.md` | Documentation policy and ADR template |
-| `docs/SKILLS-CATALOG.md` | Auto-generated index of 115 agent skills |
+| `docs/SKILLS-CATALOG.md` | Auto-generated index of 116 agent skills |
 | `docs/decisions/*.md` | Individual architecture decision records |
 
 Run `just docs-audit` to check doc freshness, normalize ADRs, and regenerate DIGEST.

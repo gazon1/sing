@@ -836,6 +836,16 @@ GATE_EXEMPTIONS: dict[str, str] = {
         "test_check_gate_honesty.py, including "
         "`test_a_probe_that_does_not_fire_is_a_failure_not_a_pass`."
     ),
+    "scripts/check-script-conventions.py": (
+        "advisory by registration (gate \"script conventions\" in the shared "
+        "registry) and already red on a clean tree: every legacy check-*.py "
+        "still uses argparse (R2.1), so a sabotage control could not "
+        "distinguish 'caught the mutation' from 'still failing the 35 known "
+        "violations'. The debt is tracked by the advisory gate itself; when "
+        "the Click migration sweep lands and the gate goes green, add a "
+        "sabotage control (strip a docstring from any gate script) and drop "
+        "this exemption."
+    ),
 }
 
 
@@ -1562,6 +1572,61 @@ def _repo_root() -> pathlib.Path:
 
 _JUST_FILES = "**/*.just"
 
+#: `sgate <command>` — a gate delegated to the sgate CLI. The command name is the
+#: stem of a module under scripts/src/sgate/commands/, and that module names the
+#: underlying scripts/check-* it runs. Without this the sgate migration made
+#: every delegated gate invisible to Parts F and H: the registry spells
+#: `sgate backlog_status`, not `python3 scripts/check-backlog-status.py`, so
+#: 20+ real gates were reported as unreachable or uncontrolled.
+_SGATE_INVOCATION = re.compile(r"(?:^|[\s'\"(=|])sgate\s+([a-z][a-z0-9_]*)", re.MULTILINE)
+
+
+def _sgate_backing_scripts() -> dict[str, list[str]]:
+    """sgate command name -> the scripts/check-* paths its module runs.
+
+    Derived from the command modules themselves, so a new shim is picked up
+    without a second registration. A command that runs no check-* script
+    (run-all, info, render-registry) is absent from the map, which is correct:
+    it is not a gate in the Part F/H sense.
+    """
+    out: dict[str, list[str]] = {}
+    cmd_dir = ROOT / "scripts" / "src" / "sgate" / "commands"
+    if not cmd_dir.is_dir():
+        return out
+    # Both spellings appear in the shims:
+    #   repo_root / "scripts/check-x.py"          (one literal)
+    #   repo_root / "scripts" / "check-x.py"      (two literals)
+    one = re.compile(r'["\'](scripts/check[-_][\w.-]+\.(?:py|sh))["\']')
+    two = re.compile(r'["\']scripts["\']\s*/\s*["\'](check[-_][\w.-]+\.(?:py|sh))["\']')
+    for mod in sorted(cmd_dir.glob("*.py")):
+        try:
+            text = mod.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        found = {m.group(1) for m in one.finditer(text)}
+        found |= {f"scripts/{m.group(1)}" for m in two.finditer(text)}
+        # Keep only paths that exist: a shim may mention a renamed predecessor
+        # as a fallback (`check-speckit-stale.py` when the real script is
+        # `check-openspec-stale.py`), and counting a fiction would demand a
+        # control for a gate that does not exist.
+        found = {s for s in found if (ROOT / s).is_file()}
+        if found:
+            out[mod.stem] = sorted(found)
+    return out
+
+
+_SGATE_BACKING: dict[str, list[str]] | None = None
+
+
+def sgate_backing_scripts() -> dict[str, list[str]]:
+    """The sgate command → scripts/check-* map for the current ROOT.
+
+    Recomputed each call (the map is a few dozen small file reads) so tests
+    that rebind ROOT see the right corpus; a module-level cache would pin the
+    first ROOT forever and report the real repository's gates in a fixture.
+    """
+    return _sgate_backing_scripts()
+
 
 def registered_gate_scripts() -> dict[str, list[str]]:
     """Gate script path -> the files that invoke it.
@@ -1570,14 +1635,21 @@ def registered_gate_scripts() -> dict[str, list[str]]:
     (`check-adr-references`, `check-coverage-measurement`, `check-gate-honesty`,
     `check-kiwi-gaps`) are reachable only through a recipe, and a registry that
     looked only at `check.sh` would not see them at all.
+
+    `sgate <name>` invocations count too, resolved through the command module
+    to the underlying scripts/check-*. The sgate migration moved most registry
+    entries from `python3 scripts/x.py` to `sgate x`; a scanner that only knew
+    the old spelling reported 20+ real gates as uncontrolled.
     """
     surfaces = list(GATE_FILES) + sorted(ROOT.glob(f".just/{_JUST_FILES}"))
+    backing = sgate_backing_scripts()
     out: dict[str, list[str]] = {}
     for surface in surfaces:
         try:
             text = surface.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        site = str(surface.relative_to(ROOT))
         # `python3 scripts/x.py`, `./scripts/x.sh`, `python3 ./scripts/x.py`.
         # The `./` is optional *and* the `python3 ` prefix is optional, but the
         # two cannot be collapsed into one another: an earlier version wrote
@@ -1595,7 +1667,10 @@ def registered_gate_scripts() -> dict[str, list[str]]:
             text,
             re.MULTILINE,
         ):
-            out.setdefault(match.group(1), []).append(str(surface.relative_to(ROOT)))
+            out.setdefault(match.group(1), []).append(site)
+        for match in _SGATE_INVOCATION.finditer(text):
+            for script in backing.get(match.group(1), []):
+                out.setdefault(script, []).append(site)
     return out
 
 
@@ -1663,12 +1738,19 @@ def check_registry_wiring() -> list[str]:
         "ci.yml": (ROOT / ".github" / "workflows" / "ci.yml"),
         "check.sh": ROOT / "check.sh",
     }
-    # The path must appear as an ARGUMENT to bash/sh, not merely anywhere in the
-    # file. A plain substring search is satisfied by `see scripts/ci/static-gates.sh`
-    # in an error message, so deleting the real call while leaving the prose would
-    # pass — the same "a check that greps the wrong thing and reports success"
-    # defect this file exists to catch, one function over.
-    invocation = re.compile(r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh")
+    # Two legitimate spellings, both of which *read* the registry:
+    #   bash scripts/ci/static-gates.sh   — direct execution
+    #   sgate run-all                     — the CLI dispatches from the same file
+    # The path must appear as an ARGUMENT to bash/sh (or run-all as the sgate
+    # subcommand), not merely anywhere in the file. A plain substring search is
+    # satisfied by `see scripts/ci/static-gates.sh` in an error message, so
+    # deleting the real call while leaving the prose would pass — the same "a
+    # check that greps the wrong thing and reports success" defect this file
+    # exists to catch, one function over.
+    invocation = re.compile(
+        r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
+        r"|(?:^|\s)sgate\s+run-all\b"
+    )
 
     for name, path in sorted(callers.items()):
         if not path.is_file():
@@ -1677,9 +1759,10 @@ def check_registry_wiring() -> list[str]:
         text = _strip_comments(path.read_text(encoding="utf-8"))
         if not invocation.search(text):
             errors.append(
-                f"{name} does not invoke scripts/ci/static-gates.sh. The registry "
-                f"is the single list of gates; a caller that bypasses it reports "
-                f"green for gates it never ran."
+                f"{name} does not invoke scripts/ci/static-gates.sh "
+                f"(neither `bash scripts/ci/static-gates.sh` nor `sgate run-all`). "
+                f"The registry is the single list of gates; a caller that bypasses "
+                f"it reports green for gates it never ran."
             )
     return errors
 
@@ -1756,6 +1839,7 @@ def reachable_gate_scripts() -> set[str]:
         r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?"
         r"(scripts/check[-_][\w.-]+\.(?:py|sh))"
     )
+    backing = sgate_backing_scripts()
     for surface in _REACH_SURFACES:
         try:
             text = surface.read_text(encoding="utf-8")
@@ -1763,6 +1847,13 @@ def reachable_gate_scripts() -> set[str]:
             continue
         for match in pattern.finditer(text):
             invoked.add(match.group(1))
+        # `sgate <name>` is an invocation of whatever script that command runs.
+        # Without this the sgate migration made 20+ real gates look orphaned:
+        # the registry spells `sgate backlog_status`, and the scanner only knew
+        # `python3 scripts/check-backlog-status.py`.
+        for match in _SGATE_INVOCATION.finditer(text):
+            for script in backing.get(match.group(1), []):
+                invoked.add(script)
 
     # Follow delegation. Bounded, because a cycle must terminate: two shims that
     # exec each other would otherwise loop forever, and a gate that hangs is not a

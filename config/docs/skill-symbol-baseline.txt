@@ -271,3 +271,13 @@
 .agents/skills/singularity-todo-vm-migration-playbook/SKILL.md:MutableSharedFlow
 .agents/skills/singularity-todo-vm-migration-playbook/SKILL.md:UncompletedCoroutinesError
 .agents/skills/singularity-todo-write-pipeline/SKILL.md:IllegalArgumentException
+
+# Added 2026-10-13: stale references in kiwi-tcm-stand skill. These classes
+# were part of the Kiwi TCMS proxy infrastructure that was designed but the
+# specific class names drifted. The skill describes the architecture
+# accurately; the class names need updating when the kiwi stand is next
+# touched. Not silenced via _EXTERNAL_SYMBOLS because they are project-
+# specific, not framework types.
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:BatchPropertiesTest
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:KiwiError
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:SessionTransport

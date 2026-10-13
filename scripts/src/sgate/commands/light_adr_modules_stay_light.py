@@ -51,8 +51,9 @@ def _parse_adr_module_boundary(stdout: str | bytes, stderr: str | bytes, exit_co
 
 @click.command("light_adr_modules_stay_light")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
+@click.option("--quiet", is_flag=True, help="Suppress verbose output from the underlying script")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
-def light_adr_modules_stay_light(check: bool, emit_json: bool) -> None:
+def light_adr_modules_stay_light(check: bool, quiet: bool, emit_json: bool) -> None:
     """Run the "ADR module boundary" gate.
 
     Calls: python3 scripts/check-adr-module-boundary.py
@@ -64,13 +65,17 @@ def light_adr_modules_stay_light(check: bool, emit_json: bool) -> None:
     gate_name = "light ADR modules stay light"
     script = repo_root / "scripts/check-adr-module-boundary.py"
 
-    result = run_capture([sys.executable, str(script)], gate_name)
+    cmd = [sys.executable, str(script)]
+    if quiet:
+        cmd.append("--quiet")
+    result = run_capture(cmd, gate_name)
     parsed = _parse_adr_module_boundary(result.stdout, result.stderr, result.returncode)
 
     if emit_json:
         import json
 
         print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+        raise SystemExit(0 if parsed["passed"] else 1)
     elif check:
         if parsed["passed"]:
             gate_warn(gate_name, None, None, None, None, "ADR module boundary OK — no light module reaches application runtime")

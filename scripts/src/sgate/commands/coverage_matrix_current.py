@@ -47,9 +47,9 @@ def coverage_matrix_current(check: bool, emit_json: bool) -> None:
 
     try:
         if emit_json:
-            result = run_capture(['traceability', 'coverage', '--check'], gate_name)
+            result = run_capture(['python3', '-m', 'traceability', 'coverage', '--check'], gate_name)
             _handle_result(result, gate_name, emit_json=True)
-        run(['traceability', 'coverage', '--check'], gate_name)
+        run(['python3', '-m', 'traceability', 'coverage', '--check'], gate_name)
     except SystemExit:
         raise  # propagate deliberate exits from run()/run_capture()
     except Exception:

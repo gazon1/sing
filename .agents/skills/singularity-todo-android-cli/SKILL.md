@@ -34,7 +34,7 @@ android studio check
 # pid: 32942
 # version: Android Studio
 # Projects:
-#     READY     JetSet /Users/adarshf/AndroidStudioProjects/jetset-main
+#     READY     JetSet /path/to/AndroidStudioProjects/jetset-main
 ```
 
 ### Core Commands

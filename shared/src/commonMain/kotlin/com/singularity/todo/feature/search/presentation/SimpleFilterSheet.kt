@@ -88,6 +88,9 @@ fun SimpleFilterSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        // The sheet renders into its own window, so the app-root
+        // testTagsAsResourceId never reaches the filter controls inside.
+        modifier = Modifier.mapTestTagsAsResourceIds(),
     ) {
         Column(
             modifier = Modifier

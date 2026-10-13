@@ -3,14 +3,24 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any
 
 import click
 
 import sgate
 from sgate.commands._runner import run_capture
+from sgate.models import GatePayload
 from sgate.output import gate_fail, gate_warn
 from sgate.commands.base import register
+
+GATE_NAME = "skill frontmatter"
+
+
+class SkillFrontmatterPayload(GatePayload):
+    """Typed payload for the skill-frontmatter gate."""
+
+    skills_checked: int = 0
+    error_count: int = 0
+    errors: list[str] = []
 
 
 # "check_skill_frontmatter.sh: OK — {N} skill file(s) parse as YAML ..."
@@ -24,7 +34,7 @@ _ERROR_PATTERN = re.compile(
 _ERROR_PREFIX = "ERROR: "
 
 
-def _parse_skill_frontmatter(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> dict[str, Any]:
+def _parse_skill_frontmatter(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> SkillFrontmatterPayload:
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     if isinstance(stderr, bytes):
@@ -49,14 +59,14 @@ def _parse_skill_frontmatter(stdout: str | bytes, stderr: str | bytes, exit_code
     if m_err:
         error_count = int(m_err.group(1))
 
-    return {
-        "passed": passed,
-        "skills_checked": skills_count,
-        "error_count": error_count,
-        "errors": errors,
-        "blocking_errors": errors if not passed else [],
-        "warnings": [],
-    }
+    return SkillFrontmatterPayload(
+        gate=GATE_NAME,
+        passed=passed,
+        skills_checked=skills_count,
+        error_count=error_count,
+        errors=errors,
+        blocking_errors=errors if not passed else [],
+    )
 
 
 @click.command("skill_frontmatter")
@@ -71,37 +81,34 @@ def skill_frontmatter(check: bool, emit_json: bool) -> None:
     Exit 0: clean; Exit 1: validation failure
     """
     repo_root = sgate.repo.ROOT
-    gate_name = "skill frontmatter"
     script = repo_root / "scripts/check-skill-frontmatter.sh"
 
-    result = run_capture([str(script)], gate_name)
-    parsed = _parse_skill_frontmatter(result.stdout, result.stderr, result.returncode)
+    result = run_capture([str(script)], GATE_NAME)
+    payload = _parse_skill_frontmatter(result.stdout, result.stderr, result.returncode)
 
     if emit_json:
-        import json
-
-        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+        payload.emit_and_exit(result.returncode, emit_json=True)
     elif check:
-        if parsed["passed"]:
-            gate_warn(gate_name, None, None, None, None, f"skill frontmatter OK — {parsed['skills_checked']} skills")
+        if payload.honest_pass(result.returncode):
+            gate_warn(GATE_NAME, None, None, None, None, f"skill frontmatter OK — {payload.skills_checked} skills")
         else:
-            print(f"skill_frontmatter: {parsed['error_count']} error(s)")
-            for e in parsed["errors"]:
+            print(f"skill_frontmatter: {payload.error_count} error(s)")
+            for e in payload.errors:
                 print(f"  {e}")
     else:
-        if not parsed["passed"]:
+        if not payload.honest_pass(result.returncode):
             gate_fail(
-                gate_name,
+                GATE_NAME,
                 None,
                 None,
                 None,
                 None,
-                f"{parsed['error_count']} skill frontmatter error(s)",
+                f"{payload.error_count} skill frontmatter error(s)",
             )
             raise SystemExit(1)
 
-    if parsed["passed"] and not emit_json:
-        click.echo(f"skill_frontmatter: {parsed['skills_checked']} skills parse as YAML — PASS")
+    if payload.honest_pass(result.returncode) and not emit_json:
+        click.echo(f"skill_frontmatter: {payload.skills_checked} skills parse as YAML — PASS")
 
 
 register(skill_frontmatter)

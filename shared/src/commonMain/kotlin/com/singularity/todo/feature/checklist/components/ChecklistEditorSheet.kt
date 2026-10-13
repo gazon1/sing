@@ -55,34 +55,16 @@ fun ChecklistEditorSheet(
         testTag = TestTags.CHECKLIST_SHEET,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Add new item
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = newItemText,
-                    onValueChange = { newItemText = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag(TestTags.CHECKLIST_ADD_INPUT),
-                    placeholder = { Text("Add item...") },
-                    singleLine = true,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                FilledTonalButton(
-                    onClick = {
-                        if (newItemText.isNotBlank()) {
-                            onAdd(newItemText.trim())
-                            newItemText = ""
-                        }
-                    },
-                    enabled = newItemText.isNotBlank(),
-                    modifier = Modifier.testTag(TestTags.CHECKLIST_ADD_BUTTON),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
-                }
-            }
+            ChecklistAddRow(
+                text = newItemText,
+                onTextChange = { newItemText = it },
+                onAdd = {
+                    if (newItemText.isNotBlank()) {
+                        onAdd(newItemText.trim())
+                        newItemText = ""
+                    }
+                },
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -98,46 +80,89 @@ fun ChecklistEditorSheet(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(items, key = { it.id.value }) { item ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = item.isCompleted,
-                                onCheckedChange = { onToggle(item.id) },
-                                modifier = Modifier.testTag(
-                                    TestTags.checklistItemCheckbox(item.id.value, item.title),
-                                ),
-                            )
-                            Text(
-                                text = item.title,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag(TestTags.checklistItem(item.id.value, item.title)),
-                                style = MaterialTheme.typography.bodyLarge,
-                                textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
-                                color = if (item.isCompleted) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                            IconButton(
-                                onClick = { onDelete(item.id) },
-                                modifier = Modifier.testTag(
-                                    TestTags.checklistItemDelete(item.id.value, item.title),
-                                ),
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete",
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                        }
+                        ChecklistItemRow(
+                            item = item,
+                            onToggle = onToggle,
+                            onDelete = onDelete,
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ChecklistAddRow(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = onTextChange,
+            modifier = Modifier
+                .weight(1f)
+                .testTag(TestTags.CHECKLIST_ADD_INPUT),
+            placeholder = { Text("Add item...") },
+            singleLine = true,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        FilledTonalButton(
+            onClick = onAdd,
+            enabled = text.isNotBlank(),
+            modifier = Modifier.testTag(TestTags.CHECKLIST_ADD_BUTTON),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add")
+        }
+    }
+}
+
+@Composable
+private fun ChecklistItemRow(
+    item: ChecklistItem,
+    onToggle: (ChecklistItemId) -> Unit,
+    onDelete: (ChecklistItemId) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = item.isCompleted,
+            onCheckedChange = { onToggle(item.id) },
+            modifier = Modifier.testTag(
+                TestTags.checklistItemCheckbox(item.id.value, item.title),
+            ),
+        )
+        Text(
+            text = item.title,
+            modifier = Modifier
+                .weight(1f)
+                .testTag(TestTags.checklistItem(item.id.value, item.title)),
+            style = MaterialTheme.typography.bodyLarge,
+            textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
+            color = if (item.isCompleted) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+        )
+        IconButton(
+            onClick = { onDelete(item.id) },
+            modifier = Modifier.testTag(
+                TestTags.checklistItemDelete(item.id.value, item.title),
+            ),
+        ) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Delete",
+                tint = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

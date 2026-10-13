@@ -31,7 +31,7 @@ tags:
 - assertVisible:
     id: calendar_view_mode_day
 - assertVisible:
-    id: calendar_view_mode_four_days
+    id: calendar_view_mode_4_days
 - tapOn:
     id: calendar_view_mode_week
 # The dropdown closes after selection.  The flow is a smoke test — a crash

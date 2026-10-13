@@ -653,6 +653,17 @@ no-init-coroutine-launch:
   NoCoroutineLaunchInInit:
     active: true
 
+# Added 2026-10-13 (PR #592). A testTag inside a Popup-owning container
+# (ModalBottomSheet, Popup, AlertDialog, DropdownMenu) is unreachable by
+# Android resource-id unless the container root calls
+# mapTestTagsAsResourceIds(). The rule was implemented in #592 but never
+# registered in META-INF/services and had no config block here, so it had
+# never run — the same wiring gap that produced the 2026-10-05 comment
+# above no-direct-dispatchers.
+popup-test-tag:
+  NoPopupWithoutResourceIdMapping:
+    active: true
+
 # Added 2026-10-13. Bans two patterns that silently break Maestro UI test coverage:
 #   1. testTag = "" (empty string) — element permanently invisible to Maestro.
 #   2. Interactive composable with no testTag in feature/ source directories.
@@ -661,4 +672,3 @@ no-init-coroutine-launch:
 non-tagged-maestro-elements:
   NonTaggedMaestroElements:
     active: true
-

@@ -318,17 +318,12 @@ def cmd_scenarios(
         scenario_path,
     )
 
-    # --speckit-specs overrides --specs (used by the test suite for isolation)
-    effective_specs_dir: Path | None = None
-    if speckit_specs_dir:
-        effective_specs_dir = speckit_specs_dir
-    elif specs_dir:
-        effective_specs_dir = specs_dir
+    # --speckit-specs replaces the declaration corpora (spec.md sources) only;
+    # scenario YAMLs always come from the real scenarios directory (or --specs).
+    # Redirecting load_specs to the scratch dir would hide the committed YAMLs
+    # and turn a title-drift error into a false "no file" error.
+    specs = load_specs(specs_dir if specs_dir else _SCENARIOS_DIR)
 
-    specs = load_specs(effective_specs_dir if effective_specs_dir else _SCENARIOS_DIR)
-
-    # When specs are overridden by --speckit-specs, load declarations from that
-    # same directory only (do NOT join with the configured corpora).
     if speckit_specs_dir:
         decl_source = (SpecSource("test", str(speckit_specs_dir), "*/spec.md"),)
         declarations = load_declarations(sources=decl_source)

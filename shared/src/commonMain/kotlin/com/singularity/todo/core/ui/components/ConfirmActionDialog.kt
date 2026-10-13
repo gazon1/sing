@@ -40,6 +40,10 @@ fun ConfirmActionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        // A dialog is its own Android window, so the app-root
+        // testTagsAsResourceId never reaches it. Without this the tags on
+        // the title and buttons are invisible to Maestro.
+        modifier = Modifier.mapTestTagsAsResourceIds(),
         title = {
             Text(
                 text = title,

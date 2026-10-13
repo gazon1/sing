@@ -3,14 +3,24 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any
 
 import click
 
 import sgate
 from sgate.commands._runner import run_capture
+from sgate.models import GatePayload
 from sgate.output import gate_fail, gate_warn
 from sgate.commands.base import register
+
+GATE_NAME = "closed ADRs keep their body"
+
+
+class AdrImmutablePayload(GatePayload):
+    """Typed payload for the closed-ADR-immutability gate."""
+
+    closed_decisions_checked: int = 0
+    body_rewrites: int = 0
+    errors: list[str] = []
 
 
 # "check-adr-immutable.py: {N} closed decision(s) closed since ... checked, {M} body rewrite(s) after closure"
@@ -22,7 +32,7 @@ _OK_PATTERN = re.compile(r"check-adr-immutable\.py: OK — no closed decision ha
 _ERROR_PREFIX = "ERROR: "
 
 
-def _parse_adr_immutable(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> dict[str, Any]:
+def _parse_adr_immutable(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> AdrImmutablePayload:
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     if isinstance(stderr, bytes):
@@ -53,14 +63,14 @@ def _parse_adr_immutable(stdout: str | bytes, stderr: str | bytes, exit_code: in
     if not passed and rewrite_count > 0:
         errors.insert(0, f"{rewrite_count} body rewrite(s) after closure in {checked_count} checked decisions")
 
-    return {
-        "passed": passed,
-        "closed_decisions_checked": checked_count,
-        "body_rewrites": rewrite_count,
-        "errors": errors,
-        "blocking_errors": errors,
-        "warnings": [],
-    }
+    return AdrImmutablePayload(
+        gate=GATE_NAME,
+        passed=passed,
+        closed_decisions_checked=checked_count,
+        body_rewrites=rewrite_count,
+        errors=errors,
+        blocking_errors=errors,
+    )
 
 
 @click.command("closed_adrs_keep_their_body")
@@ -76,37 +86,34 @@ def closed_adrs_keep_their_body(check: bool, emit_json: bool) -> None:
     Exit 0: clean; Exit 1: validation failure
     """
     repo_root = sgate.repo.ROOT
-    gate_name = "closed ADRs keep their body"
     script = repo_root / "scripts/check-adr-immutable.py"
 
-    result = run_capture([sys.executable, str(script)], gate_name)
-    parsed = _parse_adr_immutable(result.stdout, result.stderr, result.returncode)
+    result = run_capture([sys.executable, str(script)], GATE_NAME)
+    payload = _parse_adr_immutable(result.stdout, result.stderr, result.returncode)
 
     if emit_json:
-        import json
-
-        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+        payload.emit_and_exit(result.returncode, emit_json=True)
     elif check:
-        if parsed["passed"]:
-            gate_warn(gate_name, None, None, None, None, f"ADR immutable: {parsed['closed_decisions_checked']} checked, {parsed['body_rewrites']} rewrites")
+        if payload.honest_pass(result.returncode):
+            gate_warn(GATE_NAME, None, None, None, None, f"ADR immutable: {payload.closed_decisions_checked} checked, {payload.body_rewrites} rewrites")
         else:
-            print(f"adr_immutable: {parsed['body_rewrites']} body rewrite(s) in {parsed['closed_decisions_checked']} checked decisions")
-            for e in parsed["errors"]:
+            print(f"adr_immutable: {payload.body_rewrites} body rewrite(s) in {payload.closed_decisions_checked} checked decisions")
+            for e in payload.errors:
                 print(f"  {e}")
     else:
-        if not parsed["passed"]:
+        if not payload.honest_pass(result.returncode):
             gate_fail(
-                gate_name,
+                GATE_NAME,
                 None,
                 None,
                 None,
                 None,
-                f"{parsed['body_rewrites']} body rewrite(s) after closure",
+                f"{payload.body_rewrites} body rewrite(s) after closure",
             )
             raise SystemExit(1)
 
-    if parsed["passed"] and not emit_json:
-        click.echo(f"adr_immutable: {parsed['closed_decisions_checked']} closed decisions checked, {parsed['body_rewrites']} rewrites — PASS")
+    if payload.honest_pass(result.returncode) and not emit_json:
+        click.echo(f"adr_immutable: {payload.closed_decisions_checked} closed decisions checked, {payload.body_rewrites} rewrites — PASS")
 
 
 register(closed_adrs_keep_their_body)

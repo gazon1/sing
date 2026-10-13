@@ -1,7 +1,6 @@
 """sgate.commands.adr_frontmatter_drift — native Click for: ADR frontmatter drift."""
 from __future__ import annotations
 
-import json
 import re
 import sys
 from typing import ClassVar
@@ -13,9 +12,26 @@ import sgate
 from sgate.output import gate_fail
 from sgate.commands._runner import run_capture, Result
 from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
+from sgate.models import GatePayload
 
 # Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = False
+
+GATE_NAME = "adr_frontmatter_drift"
+
+
+class AdrFrontmatterDriftPayload(GatePayload):
+    """Typed payload for the ADR-frontmatter-drift gate.
+
+    Counters are -1 when the summary line could not be parsed; `passed` then
+    falls back to the underlying returncode via the honest-exit AND.
+    """
+
+    files_need_changes: int = -1
+    unchanged: int = -1
+    structurally_broken: int = -1
+    not_normalizable: int = -1
+
 
 # Pattern: [DRY RUN] 1 files need changes, 571 unchanged, 0 structurally broken, 6 not normalizable
 _DRY_RUN_RE = re.compile(
@@ -26,20 +42,8 @@ _DRY_RUN_RE = re.compile(
 )
 
 
-def _parse_adr_frontmatter_drift(stdout: str | bytes) -> dict:
-    """Parse normalize-adr-frontmatter.sh output.
-
-    Returns:
-        {
-          "passed": bool,
-          "files_need_changes": int,
-          "unchanged": int,
-          "structurally_broken": int,
-          "not_normalizable": int,
-          "blocking_errors": list[str],   # ::error annotations
-          "warnings": list[str],          # non-blocking warnings
-        }
-    """
+def _parse_adr_frontmatter_drift(stdout: str | bytes) -> AdrFrontmatterDriftPayload:
+    """Parse normalize-adr-frontmatter.sh output."""
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     blocking_errors: list[str] = []
@@ -68,17 +72,18 @@ def _parse_adr_frontmatter_drift(stdout: str | bytes) -> dict:
         not_normalizable = -1
         warnings.append("could not parse summary line from output")
 
-    passed = len(blocking_errors) == 0
-
-    return {
-        "passed": passed,
-        "files_need_changes": files_need_changes,
-        "unchanged": unchanged,
-        "structurally_broken": structurally_broken,
-        "not_normalizable": not_normalizable,
-        "blocking_errors": blocking_errors,
-        "warnings": warnings,
-    }
+    return AdrFrontmatterDriftPayload(
+        gate=GATE_NAME,
+        # Parser-blind to the returncode on purpose: emit_and_exit ANDs this
+        # with the real code, so unparsable failure output can never report pass.
+        passed=len(blocking_errors) == 0,
+        files_need_changes=files_need_changes,
+        unchanged=unchanged,
+        structurally_broken=structurally_broken,
+        not_normalizable=not_normalizable,
+        blocking_errors=blocking_errors,
+        warnings=warnings,
+    )
 
 
 @click.command("adr_frontmatter_drift")
@@ -100,27 +105,24 @@ def adr_frontmatter_drift(check: bool, emit_json: bool) -> None:
     KIWI_REQUIRED: False
     """
     repo_root = sgate.repo.ROOT
-    gate_name = 'adr_frontmatter_drift'
 
     script = repo_root / 'scripts' / 'normalize-adr-frontmatter.sh'
     if not script.exists():
         logger.error(f"{script} not found")
-        gate_fail(gate_name, None, None, None, None, "script not found")
+        gate_fail(GATE_NAME, None, None, None, None, "script not found")
         raise SystemExit(IO_ERROR)
 
     bash_cmd = ['bash', str(script)]
     try:
-        result: Result = run_capture(bash_cmd, gate_name)
+        result: Result = run_capture(bash_cmd, GATE_NAME)
     except Exception:
         logger.exception("unexpected error")
-        gate_fail(gate_name, None, None, None, None, "unexpected error")
+        gate_fail(GATE_NAME, None, None, None, None, "unexpected error")
         raise SystemExit(INTERNAL_ERROR)
 
     if emit_json:
-        parsed = _parse_adr_frontmatter_drift(result.stdout)
-        # gate_fail still fires for blocking errors (::error annotations)
-        print(json.dumps(parsed, ensure_ascii=False))
-        raise SystemExit(0 if parsed["passed"] else 1)
+        payload = _parse_adr_frontmatter_drift(result.stdout)
+        payload.emit_and_exit(result.returncode, emit_json=True)
 
     # Human-readable: run() already printed stdout, gate_fail already fired
     raise SystemExit(0 if result.returncode == 0 else 1)

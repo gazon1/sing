@@ -424,9 +424,21 @@ class PartGTest(unittest.TestCase):
             self.skipTest('registry not present in this checkout')
         check_sh = gw.ROOT / 'check.sh'
         original = check_sh.read_text(encoding='utf-8')
-        invocation = 'bash scripts/ci/static-gates.sh'
-        self.assertIn(invocation, original, 'check.sh must invoke the registry to test this')
-        check_sh.write_text(original.replace(invocation, 'bash scripts/ci/other.sh', 1),
+        # Both spellings are legitimate; the file must contain one of them and
+        # the rewrite must break whichever is present. Replace ALL occurrences:
+        # the first `sgate run-all` in check.sh is a comment, and replacing only
+        # that leaves the real invocation on a later line.
+        invocation = 'sgate run-all'
+        legacy = 'bash scripts/ci/static-gates.sh'
+        if invocation in original:
+            broken = 'sgate run-eleven'
+        elif legacy in original:
+            broken = 'bash scripts/ci/other.sh'
+        else:
+            self.fail('check.sh must invoke the registry (sgate run-all or '
+                      'bash scripts/ci/static-gates.sh) to test this')
+        check_sh.write_text(original.replace(invocation if invocation in original else legacy,
+                                             broken),
                             encoding='utf-8')
         self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
         errors = gw.check_registry_wiring()
