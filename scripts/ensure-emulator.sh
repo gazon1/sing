@@ -1,5 +1,5 @@
 #!/bin/sh
-# DEPRECATED — delete after all call-sites are updated.
-# Use scripts/ensure-emulator.py instead.
-echo "ensure-emulator.sh is deprecated; use ensure-emulator.py" >&2
-exit 1
+# Delegates to the `ensure-emulator` entry point (emulator._cli:main).
+# Requires `pip install -e scripts/src/` to have been run, so that the
+# `ensure-emulator` command is on PATH.
+exec ensure-emulator "$@"
