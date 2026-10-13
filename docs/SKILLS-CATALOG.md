@@ -7,7 +7,7 @@
 > Budgets enforced by `python3 scripts/check-doc-sizes.py`: SKILL.md <= 500 lines,
 > `description` <= 1024 chars.
 
-116 skills: 88 project-specific, 28 generic/meta.
+127 skills: 88 project-specific, 39 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -127,6 +127,17 @@ state *which tasks need the skill*, not summarise its contents.
 | `retro` | 42 | Conduct a retrospective on a coding session. |
 | `security-review` | 134 | Security review checklist for security-sensitive changes — credentials, tokens, auth, data export, encryption. |
 | `shieldcn-badges` | 394 | Create polished shieldcn README badges, badge groups, charts, headers, sponsors grids, and full README hero sections. |
+| `speckit-engineering-converge` | 90 | Independently compare spec.md, model.md, tasks.md and the actual code, then append a Divergences section to results.md. |
+| `speckit-engineering-explore` | 108 | Investigate an internal engineering problem in the Singularity Todo codebase — read the real code, its tests, ADRs and coroutine dumps — and write investigation.md separating verified facts from hypotheses. |
+| `speckit-engineering-implement` | 77 | Apply an approved Engineering SDD plan — the only step that writes application code, and only what tasks.md authorizes. |
+| `speckit-engineering-model` | 140 | Build model.md — states, events, transitions, side effects, cancellation, concurrency and recovery, shaped to map onto jqwik state-machine testing — or a justified Not applicable for work that has no state. |
+| `speckit-engineering-plan` | 104 | Choose the smallest sufficient solution and break it into work: design.md and tasks.md, each task bound to an AC-NN and a named test id. |
+| `speckit.engineering.planning` | 70 | Engineering SDD PLANNING phase: grill the open request to improve it, then synthesize a structured plan artifact. |
+| `speckit.engineering.repeat-check` | 98 | At the REPEAT gate, suggest the next logical improvement or refactoring step from the artifact corpus. |
+| `speckit-engineering-specify` | 118 | Turn an investigation into spec.md — required behavior, INV-NN invariants and AC-NN acceptance criteria each bound to a resolvable test id. |
+| `speckit-engineering-verify` | 97 | Run the checks named in verification.md and record their real outcome in results.md as PASS, FAIL, NOT_RUN, BLOCKED or NOT_APPLICABLE. |
+| `speckit-engineering-verify-design` | 118 | Design how correctness will be proven BEFORE any code exists: the test matrix, which AC-NN and which transition each scenario covers, counterexamples, failure injection and observability. |
+| `speckit.engineering.when-done` | 107 | Engineering SDD WHEN DONE phase: post-implementation audit, fix criticals, record debt, update/create skills. |
 | `tdd` | 37 | Test-driven development. |
 | `to-questionnaire` | 52 | Turn a decision you can't fully answer into a questionnaire for someone else to fill in. |
 | `to-spec` | 73 | Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed. |
