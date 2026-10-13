@@ -43,6 +43,7 @@ import emulator as ee
 import emulator._cli as _cli
 import emulator._device as _device
 import emulator._startup as _startup
+from emulator._startup import Acquisition, acquire_device
 from emulator.maestro._testing import Clock, FakeProc, FakeAdb
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -305,14 +306,15 @@ class ExitCodesTest(unittest.TestCase):
 class MainArgParsingTest(unittest.TestCase):
 
     def test_main_no_device_returns_not_ready(self):
-        """When no device is ready and emulator binary is absent, returns EXIT_NOT_READY.
+        """When no device is ready and the AVD cannot be started, returns its code.
 
         Click's main() calls ctx.exit() after the callback, which raises Exit(0)
         and then sys.exit(0), discarding the callback's return value.  Use
         standalone_mode=False so main() returns the exit code directly.
         """
-        with unittest.mock.patch.object(_cli, "find_ready", return_value=None):
-            with unittest.mock.patch.object(_cli, "start_avd", return_value=ee.EXIT_NOT_READY):
+        with unittest.mock.patch.object(_startup, "find_ready", return_value=None):
+            with unittest.mock.patch.object(_startup, "start_avd",
+                                            return_value=ee.EXIT_NOT_READY):
                 rc = ee.main([], standalone_mode=False)
                 self.assertEqual(rc, ee.EXIT_NOT_READY)
 
@@ -372,22 +374,11 @@ class IntegrationTest(unittest.TestCase):
                 # 'self' here is the cfg.log_file (patched as log_path).
                 return conflict_text
 
-            # start_avd uses os.close(log_fh.fileno()) without closing the Python file
-            # object.  In Python < 3.14 the resulting EBADF in __del__ was silently
-            # ignored; in Python 3.14 it propagates.  Swallowing EBADF here models the
-            # behaviour of the preferred log_fh.close() call.
-            import errno
-            _orig_close = os.close
-            def safe_close(fd, *args, **kwargs):
-                try:
-                    _orig_close(fd)
-                except OSError as e:
-                    if e.errno != errno.EBADF:
-                        raise
-            os_close_patcher = unittest.mock.patch.object(os, "close", safe_close)
+            # start_avd opens the log with "wb" before reading it, so the
+            # conflict text has to come from a patched read_text rather than the
+            # real file.
         else:
             fake_read_text = None
-            os_close_patcher = contextlib.nullcontext()
 
         cfg.avd = "Medium_Phone"
         cfg.lock_file = pathlib.Path(tempfile.mkdtemp()) / "test.lock"
@@ -404,9 +395,8 @@ class IntegrationTest(unittest.TestCase):
                      unittest.mock.patch.object(_startup.time, "sleep", fake.time_sleep), \
                      unittest.mock.patch.object(_startup.time, "monotonic", fake_monotonic), \
                      unittest.mock.patch.object(pathlib.Path, "read_text",
-                                                 fake_read_text) if fake_read_text else contextlib.nullcontext(), \
-                     os_close_patcher:
-                        return ee.start_avd(serial)
+                                                fake_read_text) if fake_read_text else contextlib.nullcontext():
+                    return ee.start_avd(serial)
         finally:
             cfg.avd = orig_avd
             cfg.lock_file = orig_lock
@@ -484,6 +474,174 @@ class IntegrationTest(unittest.TestCase):
         fake = FakeAdb(boot_time=600.0, poll_returns=[None, None, None, None])
         rc = self._run_start_avd("emulator-5554", fake, boot_timeout=8, lock_conflict_log=True)
         self.assertEqual(rc, ee.EXIT_TIMEOUT)
+
+    def test_start_avd_writes_nothing_to_stdout(self):
+        """stdout carries the device serial and nothing else.
+
+        `SERIAL=$(ensure-emulator)` depends on it, and `start_avd` used to print
+        the serial from three separate branches.
+        """
+        fake = FakeAdb(boot_time=0.0)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = self._run_start_avd("emulator-5554", fake, boot_timeout=300)
+        self.assertEqual(rc, ee.EXIT_OK)
+        self.assertEqual(buf.getvalue(), "")
+
+
+class AcquireDeviceTest(unittest.TestCase):
+    """acquire_device() is the one way to get a device; the table below is its contract."""
+
+    def _locked(self, *, raises: bool = False):
+        if raises:
+            @contextlib.contextmanager
+            def lock(_timeout):
+                raise TimeoutError("locked")
+                yield  # pragma: no cover — unreachable, keeps it a generator
+            return lock
+        return contextlib.nullcontext()
+
+    def test_ready_device_short_circuits(self):
+        with unittest.mock.patch.object(_startup, "find_ready", return_value="emulator-5554"):
+            acq = acquire_device("emulator-5554")
+        self.assertEqual(acq.serial, "emulator-5554")
+        self.assertEqual(acq.exit_code, ee.EXIT_OK)
+        self.assertTrue(acq)
+
+    def test_empty_pin_starts_the_avd(self):
+        """No pin means 'any device' — it must boot one, not fail.
+
+        This is the bug that took out `just gm agenda`: the Maestro CLI used to
+        skip acquisition entirely when SERIAL was empty.
+        """
+        started: list[str] = []
+
+        def fake_start(pin):
+            started.append(pin)
+            return ee.EXIT_OK
+
+        # find_ready answers None for the fast path and the in-lock re-check, then
+        # the serial acquire_device re-probes for after start_avd returns.
+        seq = [None, None, "emulator-5556"]
+        with unittest.mock.patch.object(_startup, "find_ready", side_effect=seq), \
+             unittest.mock.patch.object(_startup, "start_avd", fake_start):
+            acq = acquire_device("")
+        self.assertEqual(started, [""], "the AVD must be started when no pin is given")
+        self.assertEqual(acq.serial, "emulator-5556")
+        self.assertEqual(acq.exit_code, ee.EXIT_OK)
+
+    def test_physical_pin_never_starts_an_avd(self):
+        started: list[str] = []
+        with unittest.mock.patch.object(_startup, "device_is_ready", return_value=False), \
+             unittest.mock.patch.object(_startup, "start_avd",
+                                         lambda pin: started.append(pin) or ee.EXIT_OK), \
+             unittest.mock.patch.object(_startup, "adb", return_value=""):
+            acq = acquire_device("R58M1234ABC")
+        self.assertEqual(started, [], "a pinned physical device must not boot an AVD")
+        self.assertIsNone(acq.serial)
+        self.assertEqual(acq.exit_code, ee.EXIT_NOT_READY)
+
+    def test_physical_pin_ready_is_used_as_is(self):
+        with unittest.mock.patch.object(_startup, "device_is_ready", return_value=True):
+            acq = acquire_device("R58M1234ABC")
+        self.assertEqual(acq.serial, "R58M1234ABC")
+        self.assertEqual(acq.exit_code, ee.EXIT_OK)
+
+    def test_emulator_pin_unready_relaunches(self):
+        """A pinned-but-unready AVD is the crash case recovery exists for."""
+        started: list[str] = []
+        seq = [None, None, "emulator-5554"]
+        with unittest.mock.patch.object(_startup, "find_ready", side_effect=seq), \
+             unittest.mock.patch.object(_startup, "start_avd",
+                                         lambda pin: started.append(pin) or ee.EXIT_OK):
+            acq = acquire_device("emulator-5554")
+        self.assertEqual(started, ["emulator-5554"])
+        self.assertEqual(acq.serial, "emulator-5554")
+
+    def test_crash_propagates_exit_crashed(self):
+        with unittest.mock.patch.object(_startup, "find_ready", return_value=None), \
+             unittest.mock.patch.object(_startup, "start_avd", return_value=ee.EXIT_CRASHED):
+            acq = acquire_device("")
+        self.assertEqual(acq.exit_code, ee.EXIT_CRASHED)
+        self.assertIsNone(acq.serial)
+
+    def test_boot_timeout_propagates_exit_timeout(self):
+        with unittest.mock.patch.object(_startup, "find_ready", return_value=None), \
+             unittest.mock.patch.object(_startup, "start_avd", return_value=ee.EXIT_TIMEOUT):
+            acq = acquire_device("")
+        self.assertEqual(acq.exit_code, ee.EXIT_TIMEOUT)
+
+    def test_lock_timeout_but_device_arrived_still_succeeds(self):
+        """The holder boots for about as long as a waiter blocks.
+
+        Reporting EXIT_LOCK there would fail a healthy run by a race, so a final
+        readiness check runs before giving up.
+        """
+        seq = [None, "emulator-5554"]
+        with unittest.mock.patch.object(_startup, "find_ready", side_effect=seq), \
+             unittest.mock.patch.object(_startup, "startup_lock", self._locked(raises=True)):
+            acq = acquire_device("")
+        self.assertEqual(acq.serial, "emulator-5554")
+        self.assertEqual(acq.exit_code, ee.EXIT_OK)
+
+    def test_lock_timeout_with_no_device_reports_lock(self):
+        with unittest.mock.patch.object(_startup, "find_ready", return_value=None), \
+             unittest.mock.patch.object(_startup, "startup_lock", self._locked(raises=True)):
+            acq = acquire_device("")
+        self.assertIsNone(acq.serial)
+        self.assertEqual(acq.exit_code, ee.EXIT_LOCK)
+
+    def test_oserror_from_lock_is_not_swallowed(self):
+        """A broken lock file is a fault, not an expected failure.
+
+        Flattening it into EXIT_LOCK would hide the cause behind a retry.
+        """
+        @contextlib.contextmanager
+        def exploding(_timeout):
+            raise OSError("lock file unreadable")
+            yield  # pragma: no cover
+
+        with unittest.mock.patch.object(_startup, "find_ready", return_value=None), \
+             unittest.mock.patch.object(_startup, "startup_lock", exploding):
+            with self.assertRaises(OSError):
+                acquire_device("")
+
+
+class MainOutputContractTest(unittest.TestCase):
+    """`ensure-emulator` prints the serial on stdout and diagnostics on stderr."""
+
+    def test_main_prints_only_the_serial(self):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            with unittest.mock.patch.object(_startup, "acquire_device",
+                                            return_value=Acquisition("emulator-5554",
+                                                                    ee.EXIT_OK)):
+                rc = ee.main([], standalone_mode=False)
+        self.assertEqual(rc, ee.EXIT_OK)
+        self.assertEqual(out.getvalue(), "emulator-5554\n")
+
+    def test_main_prints_nothing_when_no_device(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            with unittest.mock.patch.object(_startup, "acquire_device",
+                                            return_value=Acquisition(None,
+                                                                    ee.EXIT_NOT_READY)):
+                rc = ee.main([], standalone_mode=False)
+        self.assertEqual(rc, ee.EXIT_NOT_READY)
+        self.assertEqual(out.getvalue(), "")
+
+
+class IsPhysicalPinTest(unittest.TestCase):
+
+    def test_console_port_pin_is_not_physical(self):
+        self.assertFalse(_startup._is_physical_pin("emulator-5554"))
+        self.assertFalse(_startup._is_physical_pin("emulator-5556"))
+
+    def test_usb_serial_is_physical(self):
+        self.assertTrue(_startup._is_physical_pin("R58M1234ABC"))
+
+    def test_empty_pin_is_not_physical(self):
+        self.assertFalse(_startup._is_physical_pin(""))
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ Usage:
     run-android-ui-tests.py <serial>          # pin a specific device
     SERIAL=emulator-5556 run-android-ui-tests.py  # also pins via env var
 
-Device selection is delegated to scripts/ensure-emulator.py, the repo's single
+Device selection is delegated to ensure-emulator, the repo's single
 recovery primitive. Hand-rolled discovery here could only ever find a device
 that was already up — every emulator crash would surface as "no adb device
 found". The message says "connect a device" when the actual remedy is one
@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent  # works from any cwd
 SCRIPT_DIR = ROOT / "scripts"
-ENSURE_EMULATOR = SCRIPT_DIR / "ensure-emulator.py"
+SRC = SCRIPT_DIR / "src"
 GRADLEW = ROOT / "gradlew"
 APP_ID = "com.singularity.todo"
 
@@ -88,13 +88,22 @@ def device_model(serial: str) -> str:
     return (adb("-s", serial, "shell", "getprop", "ro.product.model") or "").strip()
 
 def ensure_device(serial: str | None) -> str | None:
-    """Return serial of a ready device, starting the AVD if needed."""
+    """Return serial of a ready device, starting the AVD if needed.
+
+    Runs `python -m emulator` rather than the `ensure-emulator` console script so
+    this works from a bare checkout with nothing on PATH; `scripts/src` is
+    prepended to PYTHONPATH below. `check=True` is meaningful: the command routes
+    its verdict through ctx.exit, so a non-zero exit really is a failure.
+    """
     env = {**os.environ}
     if serial:
         env["SERIAL"] = serial
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, [str(SRC), env.get("PYTHONPATH", "")])
+    )
     try:
         result = subprocess.run(
-            [sys.executable, str(ENSURE_EMULATOR)],
+            [sys.executable, "-m", "emulator"],
             cwd=ROOT,
             env=env,
             text=True,
@@ -103,7 +112,7 @@ def ensure_device(serial: str | None) -> str | None:
             stderr=subprocess.PIPE,
         )
         return result.stdout.strip().splitlines()[-1]
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError, OSError):
         return None
 
 
@@ -146,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{YELLOW}Acquiring device...{_col('0', '')}", flush=True)
     device = ensure_device(serial)
     if not device:
-        print(f"{RED}ensure-emulator.py could not produce a ready device.{_col('0', '')}", flush=True)
+        print(f"{RED}ensure-emulator could not produce a ready device.{_col('0', '')}", flush=True)
         out = adb("devices") or ""
         print(f"{RED}adb devices:{_col('0', '')}\n{out}", flush=True)
         return EXIT_DEVICE_UNAVAILABLE

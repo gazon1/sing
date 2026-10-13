@@ -142,7 +142,7 @@ settled it: the `SingularityApp` class in the installed build had **zero**
 references to `ProfileBootstrapper`, while the freshly built one has it.
 
 The chain: the emulator died mid-run (the known host gfxstream crash),
-`run-maestro.sh` relaunched it from an AVD snapshot, and `SKIP_INSTALL=1`
+`run-maestro` relaunched it from an AVD snapshot, and `SKIP_INSTALL=1`
 suppressed the reinstall. The snapshot held an older build. Every flow that
 "passed" in that run passed against a binary that predated the branch's own
 fixes.

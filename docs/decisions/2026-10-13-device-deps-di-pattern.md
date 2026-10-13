@@ -14,7 +14,7 @@ primitives:
 - `adb(...)`                     — run `adb <args>`; return stdout on success
 - `device_alive(serial)`         — true when the device is booted and responsive
 - `try_run(args, timeout)`        — subprocess with timeout, returns `CompletedProcess`
-- `ensure_device(serial)`         — recover or start a device, return serial
+- `acquire_device(pin)`           — get a device, starting the AVD; returns Acquisition
 - `gradle_install_debug(serial)`  — run `./gw :androidApp:installDebug`
 - `apk_sha_from_device(serial)`  — read git SHA suffix from the installed APK
 - `git_sha()`                    — git rev-parse of the current checkout
@@ -72,7 +72,9 @@ implementation:
 | `maestro_saw_device_failure` | `Callable[[str], bool]` |
 | `apk_sha_from_device` | `Callable[[str, DeviceDeps], str \| None]` |
 | `gradle_install_debug` | `Callable[[str], CompletedProcess]` |
-| `ensure_device` | `Callable[[str], str \| None]` |
+| `acquire_device` | `Callable[[str], Acquisition]` |
+| `adb` | `Callable[..., str \| None]` — device-independent only (`devices`, `start-server`, `kill-server`) |
+| `adb_on` | `Callable[..., str \| None]` — device-scoped; injects `-s <serial>`, raises on an empty serial |
 | `adb` | `Callable[..., str \| None]` |
 | `reset_adb_server` | `Callable[[], None]` |
 | `wait_for_app_resumed` | `Callable[[str, int], bool]` |
@@ -126,7 +128,15 @@ without rebinding the outer-scope variable before the object is constructed.
   `run_one_flow`) still use module-level imports.  These are intentionally
   exempt: the DI contract covers the hot path (`main` → `run_one_flow` → per-flow
   logic).  Adding `DeviceDeps` to the cold path would require threading it
-  through `ensure_device()` calls in startup, which is out of scope.
+  through `acquire_device()` calls in startup, which is out of scope.
+- **This exemption caused a bug.**  Because nothing downstream demanded a
+  contract from `ensure_device`, it was free to be a readiness *re-check* while
+  its name, its callers and the crash-recovery ADR all described acquisition —
+  so `run-maestro` with an unset `SERIAL` could never obtain a device.  The seam
+  also needed *verifying*, not just existing: permissive fakes
+  (`adb=lambda *a: ""`) hid a missing `-s <serial>` that silently disabled every
+  failure artifact.  See ADR `2026-10-13-ensure-device-acquires` for the
+  `adb`/`adb_on` split and the contract tests added in response.
 
 ## Rationale for the frozen dataclass
 

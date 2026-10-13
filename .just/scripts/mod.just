@@ -37,9 +37,9 @@ android-ui-tests serial="":
     #!/bin/bash
     set -euo pipefail
     if [ -z "{{serial}}" ]; then
-        ./scripts/run-android-ui-tests.sh
+        python3 scripts/run-android-ui-tests.py
     else
-        ./scripts/run-android-ui-tests.sh {{serial}}
+        python3 scripts/run-android-ui-tests.py {{serial}}
     fi
 
 [group('scripts')]

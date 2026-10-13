@@ -26,6 +26,9 @@ from emulator.maestro import (
 import emulator.maestro
 
 # DeviceDeps for the new testable signature of run_one_flow.
+from emulator._startup import Acquisition
+from emulator._types import EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
+from emulator.maestro._types import EXIT_FAIL, EXIT_PASS
 from emulator.maestro._types import DeviceDeps
 
 # Submodules for patching _cli.main() (which still uses module globals).
@@ -154,6 +157,8 @@ def _make_deps(
     struct and passed directly to ``run_one_flow(deps=...)``.
     """
     alive = [device_alive]
+    #: (serial, args) for every device-scoped adb call, in order.
+    recorded: list[tuple[str, tuple[str, ...]]] = []
 
     def fake_try_run(cmd, **kwargs):
         if cmd and cmd[0] == "maestro":
@@ -181,6 +186,12 @@ def _make_deps(
             return serial if alive[0] else ""
         return None
 
+    def fake_adb_on(serial, *args, **kw):
+        """Device-scoped adb. Re-routes through fake_adb with `-s` prepended so
+        one table answers both forms, and records every call for assertions."""
+        recorded.append((serial, args))
+        return fake_adb("-s", serial, *args, **kw)
+
     noop_cp = unittest.mock.Mock()
     noop_cp.returncode = 0
     noop_cp.stdout = ""
@@ -195,14 +206,22 @@ def _make_deps(
     def fake_wait_for_app_resumed(s, timeout=20):
         return True
 
-    def fake_cleanup_run_fixtures(serial, run_id, mode="run"):
+    def fake_cleanup_run_fixtures(serial, run_id, mode, deps):
         pass
 
-    def fake_capture_artifacts(serial, flow_name, artifact_dir):
+    def fake_capture_artifacts(serial, flow_name, artifact_dir, deps):
         pass
 
     def fake_git_sha(deps):
         return "abc123def456"
+
+    def fake_acquire_device(pin):
+        # Models the real contract: ACQUIRES (a device comes back, or an exit
+        # code explaining why not). The old fake returned a bare serial and
+        # modelled only a readiness re-check, which is what let the "no device
+        # when SERIAL is empty" bug through.
+        return Acquisition(serial if alive[0] else None,
+                           EXIT_OK if alive[0] else EXIT_NOT_READY)
 
     return DeviceDeps(
         try_run=fake_try_run,
@@ -211,8 +230,9 @@ def _make_deps(
         maestro_saw_device_failure=fake_maestro_saw_device_failure,
         apk_sha_from_device=lambda s, deps: fake_maestro._device_sha,
         gradle_install_debug=lambda s: noop_cp,
-        ensure_device=lambda s: serial if alive[0] else None,
+        acquire_device=fake_acquire_device,
         adb=fake_adb,
+        adb_on=fake_adb_on,
         reset_adb_server=lambda: None,
         wait_for_app_resumed=fake_wait_for_app_resumed,
         cleanup_run_fixtures=fake_cleanup_run_fixtures,
@@ -336,8 +356,9 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             maestro_saw_device_failure=lambda stderr: False,
             apk_sha_from_device=lambda s, deps: "abc123def456",
             gradle_install_debug=gradle_install_mock,
-            ensure_device=lambda s: "emulator-5554",
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
             adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: "",
             reset_adb_server=lambda: None,
             wait_for_app_resumed=lambda s, timeout=20: True,
             cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
@@ -367,6 +388,110 @@ class RunMaestroIntegrationTest(unittest.TestCase):
             )
         finally:
             _cli._default_device_deps = orig_default_deps
+
+
+class AcquireDeviceRegressionTest(unittest.TestCase):
+    """`run-maestro` with no SERIAL must acquire a device, not fail.
+
+    This is the regression that took out `just gm agenda`: `_cli.main` evaluated
+    `deps.ensure_device(serial) if serial else None`, so an empty SERIAL — which
+    is exactly what `tests::gate-maestro` passes — short-circuited to None and
+    returned EXIT_FAIL before adb was ever called. The only CLI-level test that
+    existed always passed `--serial`, so the branch was never executed.
+    """
+
+    FLOW = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+    def _invoke(self, deps, argv):
+        from click.testing import CliRunner
+
+        orig = _cli._default_device_deps
+        try:
+            _cli._default_device_deps = lambda: deps
+            return CliRunner().invoke(_cli.main, argv)
+        finally:
+            _cli._default_device_deps = orig
+
+    @staticmethod
+    def _deps(acquire, *, ok=True):
+        cp = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+        def fake_try_run(cmd, **kw):
+            if cmd and cmd[0] == "maestro":
+                m = unittest.mock.Mock(returncode=0, stdout="flow passed", stderr="")
+                return m
+            return cp
+
+        return DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s, deps: "abc123def456",
+            gradle_install_debug=lambda s: cp,
+            acquire_device=acquire,
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+    def test_no_serial_still_acquires_and_runs(self):
+        seen: list[str] = []
+
+        def acquire(pin):
+            seen.append(pin)
+            return Acquisition("emulator-5554", EXIT_OK)
+
+        result = self._invoke(
+            self._deps(acquire),
+            ["--flow", str(self.FLOW), "--skip-install", "--allow-stale-apk"],
+        )
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        self.assertEqual(seen, [""], "acquisition must run even with an empty pin")
+
+    def test_acquired_serial_reaches_the_flow(self):
+        """The serial from acquisition must be the one flows are run against.
+
+        Using the original (empty) serial downstream would target nothing while
+        acquisition appeared to have succeeded.
+        """
+        adb_calls: list[str] = []
+        deps = self._deps(lambda pin: Acquisition("emulator-5554", EXIT_OK))
+        deps = DeviceDeps(**{**deps.__dict__,
+                             "adb_on": lambda serial, *a, **kw: adb_calls.append(serial) or ""})
+
+        result = self._invoke(
+            deps, ["--flow", str(self.FLOW), "--skip-install", "--allow-stale-apk"]
+        )
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        self.assertTrue(adb_calls, "no device-scoped adb call was made")
+        self.assertEqual(set(adb_calls), {"emulator-5554"})
+
+    def test_acquisition_failure_reports_failure_to_the_shell(self):
+        """A failed acquisition must reach the shell as a non-zero exit.
+
+        Click 8 standalone mode discards a callback's return value and exits 0,
+        so this command once reported success on every failure — and
+        `tests::gate-maestro` runs under `set -e`. The attribution string itself
+        goes to stderr (loguru binds sys.stderr at import, so CliRunner cannot
+        capture it); the exit code is the part a caller depends on.
+        """
+        result = self._invoke(
+            self._deps(lambda pin: Acquisition(None, EXIT_TIMEOUT), ok=False),
+            ["--flow", str(self.FLOW), "--skip-install", "--allow-stale-apk"],
+        )
+        self.assertEqual(result.exit_code, EXIT_FAIL)
+
+    def test_passing_flows_exit_zero(self):
+        result = self._invoke(
+            self._deps(lambda pin: Acquisition("emulator-5554", EXIT_OK)),
+            ["--flow", str(self.FLOW), "--skip-install", "--allow-stale-apk"],
+        )
+        self.assertEqual(result.exit_code, EXIT_PASS)
 
 
 if __name__ == "__main__":

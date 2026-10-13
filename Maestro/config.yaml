@@ -41,7 +41,7 @@ screenMetrics:
 
 # Per-attempt fixture identity.
 #
-# scripts/run-maestro.sh overrides this with a fresh id on every attempt and
+# run-maestro overrides this with a fresh id on every attempt and
 # sweeps the fixtures stamped with it once the flow passes. Flows that seed a
 # fixture they later mutate should prefix the title with ${RUN_ID} so the
 # cleanup can find exactly their own rows.

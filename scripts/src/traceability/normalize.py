@@ -30,6 +30,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from traceability import REPO_ROOT, ValidationError
+from traceability._paths import rel_to_repo
 from traceability.coverage import Outcome, link_index
 from traceability.junit_xml import TestCaseResult, parse_junit
 from traceability.keys import TestKey
@@ -114,6 +115,25 @@ class NormaliseReport:
     per_target: dict[str, int] = field(default_factory=dict)
 
 
+def _flow_roots() -> tuple[Path, ...]:
+    """Bases a Maestro ``file`` attribute may be relative to.
+
+    A flow is addressed in the repository as ``Maestro/flows/<category>/<name>.yaml``,
+    but a reporter invoked from the workspace root may also emit it with or
+    without the leading ``Maestro/`` segment. Both are real shapes; neither is
+    canonical here.
+
+    ``Path.cwd()`` is called at call time, not at module load time, so the
+    function is safe to use in tests that change working directory.
+    """
+    return (
+        REPO_ROOT / "Maestro",
+        REPO_ROOT,
+        Path.cwd() / "Maestro",
+        Path.cwd(),
+    )
+
+
 def _match_flow(index: dict[TestKey | Path, Link], case: TestCaseResult) -> Link | None:
     """Match a Maestro testcase to a flow link via its ``file`` attribute.
 
@@ -140,24 +160,12 @@ def _match_flow(index: dict[TestKey | Path, Link], case: TestCaseResult) -> Link
     raw = Path(case.file)
     if raw.is_absolute():
         return index.get(raw.resolve())
-    for base in _FLOW_ROOTS:
+    for base in _flow_roots():
         candidate = (base / raw).resolve()
         link = index.get(candidate)
         if link is not None:
             return link
     return None
-
-
-#: Bases a Maestro ``file`` attribute may be relative to. A flow is addressed in
-#: the repository as ``Maestro/flows/<category>/<name>.yaml``, but a reporter
-#: invoked from the workspace root may also emit it with or without the leading
-#: ``Maestro/`` segment. Both are real shapes; neither is canonical here.
-_FLOW_ROOTS: tuple[Path, ...] = (
-    REPO_ROOT / "Maestro",
-    REPO_ROOT,
-    Path.cwd() / "Maestro",
-    Path.cwd(),
-)
 def normalise(
     specs: dict[str, ScenarioSpec],
     links: list[Link],
@@ -342,10 +350,7 @@ def _rel_source(path: Path) -> str:
     An absolute path would make ``results.json`` machine-specific, and the file
     is a CI artifact that gets compared across runners.
     """
-    try:
-        return path.resolve().relative_to(REPO_ROOT).as_posix()
-    except ValueError:
-        return path.as_posix()
+    return rel_to_repo(path)
 
 
 def write_results(report: NormaliseReport, out_dir: Path) -> Path:

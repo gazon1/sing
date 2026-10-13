@@ -15,8 +15,18 @@ from __future__ import annotations
 import sys
 from loguru import logger as _logger
 
-# Remove the default handler loguru adds at import time
-_logger.remove(0)
+# Remove the default handler loguru adds at import time.
+#
+# Guarded, because handler id 0 is process-global and another module may already
+# have claimed it. `emulator._loguru.setup_logger` does the same removal, so
+# whichever of the two imported second used to raise
+# "ValueError: There is no existing handler with id 0" — an import-time failure
+# that surfaced as eleven unrelated errors in test_sgate_output whenever an
+# emulator test happened to run first under `unittest discover`.
+try:
+    _logger.remove(0)
+except ValueError:
+    pass
 
 
 def _is_ci() -> bool:

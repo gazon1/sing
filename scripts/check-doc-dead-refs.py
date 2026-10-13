@@ -545,7 +545,7 @@ _EXTERNAL_SYMBOLS = frozenset({
     "ModalBottomSheet", "AlertDialog", "Dialog", "Popup",
     # Android framework widgets and shell/Maestro environment names that skills
     # legitimately quote. EditText is the platform's text field; SERIAL is a
-    # shell env var in ensure-emulator.sh; QUERY/ITEM_ID/DEST_ID are Maestro
+    # shell env var in ensure-emulator; QUERY/ITEM_ID/DEST_ID are Maestro
     # helper parameter names, not Kotlin symbols.
     "EditText", "SERIAL", "QUERY", "ITEM_ID", "DEST_ID",
 })

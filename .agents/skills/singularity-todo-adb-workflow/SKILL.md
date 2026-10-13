@@ -33,11 +33,11 @@ adb -s $SERIAL shell getprop ro.build.version.sdk
 The `grep -v '^emulator-'` matters: with an AVD running, `head -1` would hand you
 the emulator and you would verify the wrong device.
 
-**Emulator work does not belong in this skill.** `./scripts/ensure-emulator.sh` is
+**Emulator work does not belong in this skill.** `ensure-emulator` is
 the repo's single device-recovery primitive, and it deliberately is not used here:
 when no ready device exists it *starts the AVD*, while this skill's target is
 hardware someone plugged in. If you want the script to look at this phone, pin it —
-`SERIAL="$SERIAL" ./scripts/ensure-emulator.sh` validates readiness and fails loudly
+`SERIAL="$SERIAL" ensure-emulator` validates readiness and fails loudly
 rather than booting an emulator. For an AVD target, use the script directly or the
 `singularity-todo-emulator-launch` skill.
 
@@ -165,7 +165,7 @@ This skill is the physical-device counterpart to the `android-emulator:android-d
 | Situation | Use |
 |---|---|
 | Physical phone/tablet connected | This skill (adb direct) |
-| AVD / emulator | `./scripts/ensure-emulator.sh`, documented by `singularity-todo-emulator-launch` (the MCP start tool times out on this host) |
+| AVD / emulator | `ensure-emulator`, documented by `singularity-todo-emulator-launch` (the MCP start tool times out on this host) |
 | Quick tap/screenshot on known serial | MCP tools with `serial=` |
 | Full verification run (build + install + wake + screenshot + logs) | This skill |
-| Starting a fresh AVD | `./scripts/ensure-emulator.sh` (not `android-emulator:android-dev`) |
+| Starting a fresh AVD | `ensure-emulator` (not `android-emulator:android-dev`) |

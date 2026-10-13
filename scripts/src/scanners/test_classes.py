@@ -29,10 +29,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PKG_PREFIX = "com.singularity.todo"
 
-# Файлы, отсечённые как не-тесты (абстрактные базовые классы, хелперы).
-# Наполняется сканером: иначе отсев выглядит как «пропало 5 классов» без
-# объяснения, где они.
-SKIPPED_NON_TESTS: list[tuple[str, str]] = []
+
 
 # Source set label → the source roots it owns. One entry per Gradle source set
 # that contains tests; `commonTest` is listed separately from `jvmTest` because
@@ -266,16 +263,15 @@ def has_runnable_test(source: str) -> bool:
     return bool(_test_classes_in(source))
 
 
-def scan_repository() -> list[RepoTest]:
+def scan_repository() -> tuple[list[RepoTest], list[tuple[str, str]]]:
     """Every runnable test class in the repository, in a deterministic order.
 
-    ``SKIPPED_NON_TESTS`` accumulates across calls, exactly as it did in
-    ``sync.py`` — a caller that scans twice sees the skip list twice. That is
-    preserved rather than fixed because every consumer of it read it once per
-    process, and changing it here would have made the extraction unprovable
-    against the baseline captured before the move.
+    Returns a tuple of (found, skipped), where ``skipped`` is the list of
+    (class_name, relative_path) for files that were scanned but contained no
+    runnable test members.
     """
     found: list[RepoTest] = []
+    skipped: list[tuple[str, str]] = []
     for module, root in TEST_ROOTS:
         if not root.exists():
             continue
@@ -290,7 +286,7 @@ def scan_repository() -> list[RepoTest]:
             if not fqn.startswith(PKG_PREFIX):
                 fqn = f"{PKG_PREFIX}.{fqn}"
             if not has_runnable_test(source):
-                SKIPPED_NON_TESTS.append((path.stem, _rel(path)))
+                skipped.append((path.stem, _rel(path)))
                 continue
             # Имя класса, объявленного в файле. Файл может объявлять класс,
             # отличный от path.stem — это видимый признак расхождения
@@ -320,4 +316,4 @@ def scan_repository() -> list[RepoTest]:
                     declared_class=declared_class,
                 )
             )
-    return found
+    return found, skipped

@@ -19,20 +19,19 @@ def is_ci() -> bool:
     return bool(os.environ.get("CI"))
 
 
-def _github_error(file: Optional[str], line: Optional[int], body: str) -> None:
+def _github_error(
+    file: Optional[str], line: Optional[int], body: str, *, level: str = "error"
+) -> None:
     """Emit a GitHub Actions error/warning annotation.
 
-    ::error file=<path>,line=<n>::<message>
-    ::warning file=<path>,line=<n>::<message>
+    level must be ``"error"`` or ``"warning"``.
     """
+    tag = "error" if level == "error" else "warning"
     parts = []
     if file:
         parts.append(f"file={file}")
     if line is not None:
         parts.append(f"line={line}")
-    # error if body starts with '[' (i.e. "[gate-name] rule: message")
-    is_error = body.startswith("[")
-    tag = "error" if is_error else "warning"
     if parts:
         header = f"::{tag} {','.join(parts)}::{body}"
     else:
@@ -89,7 +88,7 @@ def gate_fail(
     # CI annotation
     if is_ci():
         github_msg = f"[{gate_name}] {rule_label}: {message}"
-        _github_error(file, line, github_msg)
+        _github_error(file, line, github_msg, level="error")
 
 
 def gate_warn(
@@ -115,4 +114,4 @@ def gate_warn(
     stream.flush()
 
     if is_ci():
-        _github_error(file, line, message)
+        _github_error(file, line, message, level="warning")

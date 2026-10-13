@@ -17,6 +17,31 @@ def _module_name(display_name: str) -> str:
     return re.sub(r"_+", "_", s).strip("_")
 
 
+# ── KIWI_REQUIRED lookup from registry ─────────────────────────────────────────
+
+
+def _kiwi_required_from_registry(gate_name: str) -> bool:
+    """Look up KIWI_REQUIRED for a gate by its display name.
+
+    Returns False for gates not found in the registry (e.g. custom gates
+    defined outside GATES).
+    """
+    # Avoid a circular import: _registry does not import from info.
+    from sgate.commands import _registry
+
+    for spec in _registry.GATES:
+        if spec.name == gate_name:
+            return spec.kiwi_required
+    return False
+
+
+def _registry_names() -> set[str]:
+    """All gate display names in the registry (generated gates only)."""
+    from sgate.commands import _registry
+
+    return {spec.name for spec in _registry.GATES}
+
+
 @click.command("info")
 @click.argument("gate_name", default="")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
@@ -30,6 +55,8 @@ def info(ctx: click.Context, gate_name: str, emit_json: bool) -> None:
       0 = one or more gates found
       1 = no gates matched
     """
+    import json
+
     import sgate.gates
 
     gates = sgate.gates.load_gates()
@@ -41,34 +68,21 @@ def info(ctx: click.Context, gate_name: str, emit_json: bool) -> None:
 
     if not matched:
         if emit_json:
-            import json
             print(json.dumps({"error": f"no gate matching {gate_name!r}"}))
         else:
             print(f"No gate matching {gate_name!r}")
         raise SystemExit(1)
 
+    registry_names = _registry_names()
+
     if emit_json:
-        import json
         rows = []
         for g in matched:
             module_name = _module_name(g.name)
-            shim_path = sgate.repo.ROOT / "scripts" / "src" / "sgate" / "commands" / f"{module_name}.py"
-            # Try to read KIWI_REQUIRED from the shim if it exists
-            kiwi_required = False
-            is_custom = False
-            if shim_path.exists():
-                text = shim_path.read_text(encoding="utf-8")
-                m = re.search(r"^KIWI_REQUIRED:\s*ClassVar\[bool\]\s*=\s*(True|False)", text, re.M)
-                if m:
-                    kiwi_required = m.group(1) == "True"
-                # Custom gates: either "native Click for" or "custom gate:" in docstring,
-                # IS_CUSTOM class variable, or "custom": True in metadata
-                if "native Click for" in text or "custom gate:" in text or 'IS_CUSTOM: ClassVar[bool] = True' in text:
-                    is_custom = True
-                # Legacy: check for custom metadata in docstring
-                elif '{"custom": True}' in text or '"custom": True' in text:
-                    is_custom = True
-
+            kiwi_required = _kiwi_required_from_registry(g.name)
+            # A gate is "custom" when it is not in the registry (hand-written
+            # Click command rather than a generated shim).
+            is_custom = g.name not in registry_names
             rows.append({
                 "name": g.name,
                 "mode": g.mode,
@@ -77,7 +91,6 @@ def info(ctx: click.Context, gate_name: str, emit_json: bool) -> None:
                 "custom": is_custom,
                 "module": f"{module_name}.py",
             })
-        import json
         if len(rows) == 1:
             print(json.dumps(rows[0], indent=2))
         else:
@@ -88,17 +101,8 @@ def info(ctx: click.Context, gate_name: str, emit_json: bool) -> None:
     if len(matched) == 1:
         g = matched[0]
         module_name = _module_name(g.name)
-        shim_path = sgate.repo.ROOT / "scripts" / "src" / "sgate" / "commands" / f"{module_name}.py"
-
-        kiwi_required = False
-        is_custom = False
-        if shim_path.exists():
-            text = shim_path.read_text(encoding="utf-8")
-            m = re.search(r"^KIWI_REQUIRED:\s*ClassVar\[bool\]\s*=\s*(True|False)", text, re.M)
-            if m:
-                kiwi_required = m.group(1) == "True"
-            if '{"custom": True}' in text or '"custom": True' in text:
-                is_custom = True
+        kiwi_required = _kiwi_required_from_registry(g.name)
+        is_custom = g.name not in registry_names
 
         console.print(f"[bold]{g.name}[/bold]")
         console.print(f"  mode          : {g.mode}")
@@ -118,18 +122,8 @@ def info(ctx: click.Context, gate_name: str, emit_json: bool) -> None:
 
         for g in matched:
             module_name = _module_name(g.name)
-            shim_path = sgate.repo.ROOT / "scripts" / "src" / "sgate" / "commands" / f"{module_name}.py"
-            kiwi_required = False
-            is_custom = False
-            if shim_path.exists():
-                text = shim_path.read_text(encoding="utf-8")
-                m = re.search(r"^KIWI_REQUIRED:\s*ClassVar\[bool\]\s*=\s*(True|False)", text, re.M)
-                if m:
-                    kiwi_required = m.group(1) == "True"
-                if "native Click for" in text or "custom gate:" in text or 'IS_CUSTOM: ClassVar[bool] = True' in text:
-                    is_custom = True
-                elif '{"custom": True}' in text or '"custom": True' in text:
-                    is_custom = True
+            kiwi_required = _kiwi_required_from_registry(g.name)
+            is_custom = g.name not in registry_names
 
             table.add_row(
                 g.name,

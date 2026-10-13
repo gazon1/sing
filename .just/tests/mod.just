@@ -443,7 +443,7 @@ ui-maestro flow="Maestro/flows" tags="":
     #!/usr/bin/env bash
     set -euo pipefail
     SERIAL="${SERIAL:-}" FLOW="{{ flow }}" TAGS="{{ tags }}" \
-        bash scripts/run-maestro.sh
+        run-maestro
 
 [group('tests')]
 [doc('Maestro gate: install the APK, then run every flow carrying a tag (positional args!)')]
@@ -461,7 +461,7 @@ gate-maestro tags="agenda" serial="":
         ./gradlew :androidApp:installDebug --quiet
     fi
     SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
-        bash scripts/run-maestro.sh
+        run-maestro
 
 [group('tests')]
 [doc('Report detekt-rule line coverage (which rules are under-tested)')]

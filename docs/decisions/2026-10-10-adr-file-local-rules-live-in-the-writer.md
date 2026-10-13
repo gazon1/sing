@@ -71,6 +71,8 @@ policy.
 
 ## Consequences
 
+SABOTAGE
+
 - `updateAdr` writes frontmatter only. The body is never parsed back, so it cannot be
   rewritten by accident — and a test asserts the body survives byte for byte.
 - The gate's rule count drops from 7 to 3 (#523). Four rules leave the gate because

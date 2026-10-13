@@ -51,7 +51,7 @@ before rewriting the selector.
 ### Check the runner's verdict against Maestro's own
 
 **A flow can pass in Maestro and still be reported failed by
-`run-maestro.sh`.** Both happened here, and both made the suite's exit code
+`run-maestro`.** Both happened here, and both made the suite's exit code
 lie about reality:
 
 - Maestro's report write (`--format=JUNIT --output`) threw *after* the flow
@@ -84,7 +84,7 @@ separates them.
    flow; go back to step 1.
 4. **The Maestro XML has no per-step detail.** `maestro-failures-*/maestro.log`
    shows only Maestro's own polling output; the Compose state needs logcat. Use
-   `scripts/run-maestro.sh`, which writes a raw framebuffer screenshot and a
+   `run-maestro`, which writes a raw framebuffer screenshot and a
    logcat dump per failed flow into `build/maestro-results/<flow>/`.
 
 ## Retry strategy: when to fix vs when to retry
@@ -93,7 +93,7 @@ separates them.
 was not visible after 5 s is telling you the element needs 5+ s on that device
 — the retry just delays that signal.
 
-The only retry mechanism is script-level: `MAX_RETRIES=2` in `run-maestro.sh`,
+The only retry mechanism is script-level: `MAX_RETRIES=2` in `run-maestro`,
 which covers device disconnects. Retry a flow only when the element has genuine
 timing variance (cold start), and a `known-bug` tag marks the flow while a real fix
 is tracked.

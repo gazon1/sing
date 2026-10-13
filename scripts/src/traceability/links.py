@@ -249,7 +249,7 @@ def _method_name(text: str, index: int) -> str | None:
 def scan_maestro(specs: dict[str, ScenarioSpec], root: Path = REPO_ROOT) -> list[Link]:
     """Find ``scenario:<ID>`` tags in Maestro flow headers.
 
-    Parsed from the header block only. ``scripts/run-maestro.sh`` matches these
+    Parsed from the header block only. ``run-maestro`` matches these
     tags by exact string comparison, so no new mechanism is needed to filter on
     them today — the flows are already machine-readable, and this scanner reads
     the same shape the runner does.

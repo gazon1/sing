@@ -7,7 +7,7 @@
 # fresh process is asking for.
 #
 # The fixture-accumulation problem that `clearState` would have solved is solved
-# instead by the runner: `scripts/run-maestro.sh` stamps each attempt's title
+# instead by the runner: `run-maestro` stamps each attempt's title
 # with a per-run id and, on success, sweeps exactly those rows plus the fixed
 # seed titles via `todo-debug://seed?cleanup=…`. That is selective — it leaves
 # the session, the profile and the auth state alone — and it keeps one run's

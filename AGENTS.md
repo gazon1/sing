@@ -183,7 +183,7 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 
 **DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/` + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android); desktop — `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"`.
 
-> **Эмулятор**: `./scripts/ensure-emulator.sh` → serial или поднимет AVD. Это **единственная**
+> **Эмулятор**: `ensure-emulator` → serial или поднимет AVD. Это **единственная**
 > точка входа за устройством: свой `adb devices | awk` найдёт только уже поднятый девайс, и каждое
 > падение эмулятора превратится в «подключите устройство». Пин `SERIAL=…` recovery **не** выключает:
 > неготовый *эмулятор* скрипт перезапустит, жёстко падает только пин на физическое устройство.

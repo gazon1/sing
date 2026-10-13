@@ -48,6 +48,6 @@ until adb_cmd shell pm path android >/dev/null 2>&1; do
 done
 
 # The boot animation keeps the screen asleep on first launch sometimes;
-# run-maestro.sh handles wake/unlock itself, so this is only a sanity gate.
+# run-maestro handles wake/unlock itself, so this is only a sanity gate.
 adb_cmd devices >&2 || true
 echo "Device booted."
