@@ -23,6 +23,11 @@ tags:
 # A month's worth of numbered day cells, first and last of the grid.
 - assertVisible: "1"
 - assertVisible: ${output.lastDay}
-# The view-mode control reports the current mode.
+# The view-mode dropdown shows the current mode only after it is opened.
+# The trigger carries a testTag; the month item inside only exists when expanded.
+- tapOn:
+    id: calendar_view_mode_trigger
+- waitForAnimationToEnd:
+    timeout: 500
 - assertVisible:
     id: calendar_view_mode_month

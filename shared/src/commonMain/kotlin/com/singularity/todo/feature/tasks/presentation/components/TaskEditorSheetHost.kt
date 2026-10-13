@@ -60,6 +60,7 @@ fun TaskEditorSheetHost(
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
+        modifier = Modifier.mapTestTagsAsResourceIds(),
     ) {
         Column(
             modifier =

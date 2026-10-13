@@ -28,7 +28,7 @@ tags:
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
-- inputText: "Copy Source"
+- inputText: "${RUN_ID} Copy Source"
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
@@ -38,7 +38,7 @@ tags:
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_copy_source
+      id: saved_agenda_card_${RUN_ID}_copy_source
     timeout: 8000
 
 # ── 2. Overflow menu → Copy to profile → pick "Personal" ────────────────
@@ -62,5 +62,5 @@ tags:
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_copy_source
+      id: saved_agenda_card_${RUN_ID}_copy_source
     timeout: 8000

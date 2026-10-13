@@ -29,18 +29,22 @@ tags:
 # issue and not a regression from any recent change).
 - tapOn:
     id: task_editor_due_row
-- extendedWaitUntil:
-    visible:
-      id: dialog_date_picker_ok
-    timeout: 8000
+# Wait for the date picker sheet animation to settle before interacting with it.
+- waitForAnimationToEnd:
+    timeout: 2000
 # The constrained DatePicker may clip the first few days; swipe up to reveal October 1.
 - swipe:
     direction: UP
     duration: 300
+# Wait for the scroll animation to settle before the day-number tap fires.
+- waitForAnimationToEnd:
+    timeout: 1000
 - tapOn:
     text: ".* 1, 20[0-9][0-9]"
+# Tapping the day selects it; the OK button confirms. Use text — the testTag inside
+# ModalBottomSheet does not propagate to the Android accessibility tree (Popup context).
 - tapOn:
-    id: dialog_date_picker_ok
+    text: "OK"
 # The row switches from its placeholder to the ISO date.
 - extendedWaitUntil:
     visible: ".*-.*-01"

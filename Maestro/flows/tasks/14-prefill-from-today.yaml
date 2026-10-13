@@ -38,7 +38,7 @@ tags:
 # ── Fill title ─────────────────────────────────────────────────────────
 - tapOn:
     id: task_editor_title_input
-- inputText: "Task from Today tab"
+- inputText: "${RUN_ID} Task from Today tab"
 
 # ── Save ──────────────────────────────────────────────────────────────
 - hideKeyboard
@@ -50,7 +50,13 @@ tags:
     visible:
       id: agenda_section_today
     timeout: 8000
+# Task may be below existing rows — scroll to bring it into view.
+- scrollUntilVisible:
+    element:
+      id: task_item_${RUN_ID}_task_from_today_tab
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
-    id: task_item_task_from_today_tab
+    id: task_item_${RUN_ID}_task_from_today_tab
 - assertVisible:
-    id: task_item_task_from_today_tab
+    id: task_item_${RUN_ID}_task_from_today_tab

@@ -12,7 +12,7 @@ tags:
   - smoke
 ---
 # Seed a task with a unique searchable title.
-- openLink: "todo-debug://seed?task=UniqueSearchableTask2026"
+- openLink: "todo-debug://seed?task=${RUN_ID}_UniqueSearchableTask2026"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -36,17 +36,17 @@ tags:
 # Type the task title.
 - tapOn:
     id: search_input
-- inputText: "UniqueSearchableTask2026"
+- inputText: "${RUN_ID}_UniqueSearchableTask2026"
 
 # The task must appear in results.
 - extendedWaitUntil:
     visible:
-      id: task_item_uniquesearchabletask2026
+      id: task_item_${RUN_ID}_uniquesearchabletask2026
     timeout: 8000
 
 # Clear the search and verify the task disappears from results.
 - eraseText
 - extendedWaitUntil:
     notVisible:
-      id: task_item_uniquesearchabletask2026
+      id: task_item_${RUN_ID}_uniquesearchabletask2026
     timeout: 5000

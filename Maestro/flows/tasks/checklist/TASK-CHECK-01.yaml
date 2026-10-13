@@ -60,7 +60,7 @@ tags:
 # Give the task a title so it can be saved and re-opened
 - tapOn:
     id: task_editor_title_input
-- inputText: "Grocery run"
+- inputText: "${RUN_ID} Grocery run"
 - hideKeyboard
 - tapOn:
     id: task_editor_save
@@ -69,10 +69,10 @@ tags:
 # The task must be re-opened within the 5-minute FirstRun Offer window.
 - extendedWaitUntil:
     visible:
-      id: task_item_grocery_run
+      id: "task_item_${RUN_ID}_grocery_run"
     timeout: 8000
 - tapOn:
-    id: task_item_grocery_run
+    id: "task_item_${RUN_ID}_grocery_run"
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -94,20 +94,21 @@ tags:
       id: checklist_sheet
     timeout: 5000
 
-# Type the first item. No testTag on the input field — using the
-# placeholder text as the selector. The follow-up that adds testTags
-# should replace this with:  id: checklist_add_input
-- tapOn: "Add item..."
+# Type the first item. testTag(TestTags.CHECKLIST_ADD_INPUT) now
+# replaces the placeholder-text selector.
+- tapOn:
+    id: checklist_add_input
 - inputText: "Milk"
 
-# Tap the Add button (Icon with contentDescription "Add", FilledTonalButton).
-# The follow-up that adds testTags should replace this with:
-#   id: checklist_add_button
-- tapOn: "Add"
+# Tap the Add button. testTag(TestTags.CHECKLIST_ADD_BUTTON).
+- tapOn:
+    id: checklist_add_button
 
 # ── Verify the item appears in the checklist ───────────────────────
+# slug("Milk") → "milk", so id: checklist_item_milk
 - extendedWaitUntil:
     visible:
-      text: "Milk"
+      id: checklist_item_milk
     timeout: 5000
-- assertVisible: "Milk"
+- assertVisible:
+    id: checklist_item_milk

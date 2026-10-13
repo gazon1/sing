@@ -13,20 +13,21 @@ tags:
       id: task_editor_title_input
     timeout: 8000
 - setOrientation: LANDSCAPE_LEFT
-- waitForAnimationToEnd:
-    timeout: 2000
+# Use extendedWaitUntil to detect when the editor has re-rendered after rotation.
+# extendedWaitUntil polls the accessibility tree rather than waiting for a global
+# animation signal, so it correctly handles Compose re-composition after a
+# configuration change.
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 15000
 # Still the editor, and the title survived the configuration change.
-- assertVisible:
-    id: task_editor_title_input
 # NOTE: asserted as text because the editor is still open across the rotation
 # and no task row is mounted; `task_item_buy_milk` only applies once it closes.
 - assertVisible: "Buy milk"
 - setOrientation: PORTRAIT
-- waitForAnimationToEnd:
-    # 2000 ms is enough for LANDSCAPE on the CI emulator, but PORTRAIT is
-    # measurably slower — the full settle takes up to 4 s. 5000 ms gives
-    # the editor ViewModel time to restore its state from the saved state handle
-    # before we assert on task_editor_title_input.
-    timeout: 5000
-- assertVisible:
-    id: task_editor_title_input
+# Same: poll the tree until the editor re-appears after the configuration change.
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 15000

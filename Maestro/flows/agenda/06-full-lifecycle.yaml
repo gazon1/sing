@@ -35,7 +35,7 @@ tags:
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
-- inputText: "Journey View"
+- inputText: "${RUN_ID} Journey View"
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
@@ -46,7 +46,7 @@ tags:
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_journey_view
+      id: saved_agenda_card_${RUN_ID}_journey_view
     timeout: 8000
 
 # ── 3. Card → Results (view name is the Results top-bar title) ──────────
@@ -60,7 +60,7 @@ tags:
     id: top_bar_back_button
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_journey_view
+      id: saved_agenda_card_${RUN_ID}_journey_view
     timeout: 8000
 
 # ── 4. Overflow menu → Edit → rename → Save ─────────────────────────────
@@ -79,7 +79,7 @@ tags:
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
-- inputText: "Journey Renamed"
+- inputText: "${RUN_ID} Journey Renamed"
 - hideKeyboard
 # The 8 preset section rows push Save below the fold on most devices.
 - scrollUntilVisible:
@@ -95,7 +95,7 @@ tags:
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: saved_agenda_card_journey_renamed
+      id: saved_agenda_card_${RUN_ID}_journey_renamed
     timeout: 8000
 
 # ── 5. Overflow menu → Delete (immediate, no confirm on the list) ───────

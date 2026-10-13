@@ -38,7 +38,7 @@ tags:
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
-- inputText: "My Active Tasks"
+- inputText: "${RUN_ID} My Active Tasks"
 - hideKeyboard
 - tapOn:
     id: saved_agenda_save_button
@@ -68,11 +68,11 @@ tags:
     timeout: 8000
 # The "My Active Tasks" card should be visible.
 - assertVisible:
-    id: saved_agenda_card_my_active_tasks
+    id: saved_agenda_card_${RUN_ID}_my_active_tasks
 
 # ── Tap the card → SavedAgendaResults screen ────────────────────────────────
 - tapOn:
-    id: saved_agenda_card_my_active_tasks
+    id: saved_agenda_card_${RUN_ID}_my_active_tasks
 # The results screen shows the view name in the top bar.
 - extendedWaitUntil:
     visible:

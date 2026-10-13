@@ -16,9 +16,7 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-- assertVisible:
-    id: priority_option_none
-# Priority row is below the fold on phone; scroll it into view.
+# Priority row is below the fold on phone; scroll it into view first.
 - scrollUntilVisible:
     element:
       id: task_editor_priority_row
@@ -26,16 +24,21 @@ tags:
     timeout: 10000
 - tapOn:
     id: task_editor_priority_row
+# priority_option_* testTags don't reach the Android accessibility tree from inside
+# a ModalBottomSheet (Popupwindow context). Use the stable enum labels instead.
 - extendedWaitUntil:
-    visible:
-      id: dialog_title_priority
+    visible: "No priority"
     timeout: 8000
 - tapOn:
-    id: priority_option_high
-# Edits autosave — the detail screen has no save button; the row relabels.
+    text: "High priority"
+# Wait for the sheet to close and the row label to update before asserting.
+# Without this, the prior "High priority" text (still in the closing sheet) can
+# satisfy the visibility check prematurely.
+- waitForAnimationToEnd:
+    timeout: 1000
+# Now assert the row label shows the new priority (not the old "No priority").
 - extendedWaitUntil:
-    visible:
-      id: priority_option_high
+    visible: "High priority"
     timeout: 8000
 - assertNotVisible:
-    id: priority_option_none
+    text: "No priority"

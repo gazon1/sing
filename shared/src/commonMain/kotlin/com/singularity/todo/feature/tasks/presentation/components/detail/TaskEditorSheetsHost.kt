@@ -141,6 +141,7 @@ fun TaskEditorSheetsHost(
         is TaskEditorSheet.Checklist -> TaskEditorSheetHost(
             title = "Checklist",
             onClose = onSheetDismiss,
+            testTag = TestTags.CHECKLIST_SHEET,
         ) {
             ChecklistEditorSheet(
                 taskId = model.taskId,

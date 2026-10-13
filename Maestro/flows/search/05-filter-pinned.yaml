@@ -9,8 +9,8 @@ tags:
   - scenario:SEARCH-05
 ---
 # Seed two tasks.
-- openLink: "todo-debug://seed?task=PinnedTask2026"
-- openLink: "todo-debug://seed?task=UnpinnedTask2026"
+- openLink: "todo-debug://seed?task=${RUN_ID}_PinnedTask2026"
+- openLink: "todo-debug://seed?task=${RUN_ID}_UnpinnedTask2026"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -21,7 +21,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_pinnedtask2026
+      id: task_item_${RUN_ID}_pinnedtask2026
     timeout: 8000
 - tapOn:
     id: task_item_pinnedtask2026
@@ -59,11 +59,11 @@ tags:
 - inputText: "Task2026"
 - extendedWaitUntil:
     visible:
-      id: task_item_pinnedtask2026
+      id: task_item_${RUN_ID}_pinnedtask2026
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: task_item_unpinnedtask2026
+      id: task_item_${RUN_ID}_unpinnedtask2026
     timeout: 8000
 
 # Open filter sheet via Tune icon.
@@ -83,9 +83,9 @@ tags:
 # Only the pinned task remains visible.
 - extendedWaitUntil:
     visible:
-      id: task_item_pinnedtask2026
+      id: task_item_${RUN_ID}_pinnedtask2026
     timeout: 5000
 - extendedWaitUntil:
     notVisible:
-      id: task_item_unpinnedtask2026
+      id: task_item_${RUN_ID}_unpinnedtask2026
     timeout: 5000

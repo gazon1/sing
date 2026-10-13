@@ -167,6 +167,30 @@ object TestTags {
      */
     const val CHECKLIST_SHEET = "checklist_sheet"
 
+    /** Text input field in the checklist editor sheet (placeholder: "Add item..."). */
+    const val CHECKLIST_ADD_INPUT = "checklist_add_input"
+
+    /** "Add" button in the checklist editor sheet — submits the current input. */
+    const val CHECKLIST_ADD_BUTTON = "checklist_add_button"
+
+    /**
+     * Dynamic tag of the form `checklist_item_<slug>` — one per checklist item row.
+     * Derived from the item's id and title, slugified the same way as [taskItem].
+     */
+    fun checklistItem(id: String, title: String) = "checklist_item_${slug(title)}"
+
+    /**
+     * Dynamic tag of the form `checklist_item_checkbox_<slug>` — the toggle/checkbox
+     * for each checklist item row.
+     */
+    fun checklistItemCheckbox(id: String, title: String) = "checklist_item_checkbox_${slug(title)}"
+
+    /**
+     * Dynamic tag of the form `checklist_item_delete_<slug>` — the delete (×) button
+     * for each checklist item row.
+     */
+    fun checklistItemDelete(id: String, title: String) = "checklist_item_delete_${slug(title)}"
+
     // ─── Subtasks ─────────────────────────────────────────────────────────────
 
     /** The subtasks section container in the task detail view. */
@@ -743,6 +767,9 @@ object TestTags {
      * A weekday column header in the calendar month grid (Mon, Tue, …, Sun).
      */
     fun calendarWeekdayHeader(label: String) = "calendar_weekday_${label.lowercase()}"
+
+    /** The clickable trigger Row that opens the CalendarViewMode dropdown. */
+    const val CALENDAR_VIEW_MODE_TRIGGER = "calendar_view_mode_trigger"
 
     // ─── Attachments (URL sheet) ──────────────────────────────────────────────
     //
