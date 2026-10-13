@@ -51,7 +51,7 @@ from traceability.links import (  # noqa: E402
     scan_all,
 )
 from traceability.normalize import normalise  # noqa: E402
-from traceability.render import render_coverage_matrix, render_result_matrix  # noqa: E402
+from traceability.render import render_coverage_matrix, render_details, render_result_matrix  # noqa: E402
 from traceability.spec import (  # noqa: E402
     Level,
     ScenarioSpec,
@@ -1286,6 +1286,18 @@ class CoverageMatrixCarriesTheProse(unittest.TestCase):
         }
         return render_coverage_matrix(build_coverage(specs, [_link()]))
 
+    def _render_details(self) -> str:
+        specs = {
+            "TASK-REC-01": _spec(
+                steps=("Open the composer.", "Choose Daily."),
+                expected="The next occurrence is dated one day after completion.",
+            ),
+            "TASK-OLD-01": _spec(
+                "TASK-OLD-01", status=SpecStatus.DEPRECATED, id_prefix="TASK-OLD"
+            ),
+        }
+        return render_details(build_coverage(specs, [_link()]))
+
     def test_the_table_has_a_what_we_verify_column(self):
         self.assertIn("| What we verify |", self._render())
 
@@ -1296,13 +1308,17 @@ class CoverageMatrixCarriesTheProse(unittest.TestCase):
         )
 
     def test_every_scenario_has_a_details_section(self):
-        rendered = self._render()
+        # Details live in their own artefact since 8112842e (index +
+        # scenario-details split); the matrix links to it and carries only
+        # the one-line version. The property under test is that every
+        # scenario still gets prose somewhere a reader can reach.
+        rendered = self._render_details()
         self.assertIn("## Scenario details", rendered)
         for scenario_id in ("TASK-REC-01", "TASK-OLD-01"):
             self.assertIn(f"#### `{scenario_id}`", rendered)
 
     def test_details_carry_preconditions_steps_and_expected(self):
-        rendered = self._render()
+        rendered = self._render_details()
         self.assertIn("Steps:", rendered)
         self.assertIn("1. Open the composer.", rendered)
         self.assertIn("2. Choose Daily.", rendered)
@@ -1311,7 +1327,7 @@ class CoverageMatrixCarriesTheProse(unittest.TestCase):
     def test_a_deprecated_scenario_is_described_too(self):
         # A retired scenario is exactly the one a reader needs the history for —
         # "why is this here and why is nothing done about it".
-        self.assertIn("**deprecated**", self._render())
+        self.assertIn("**deprecated**", self._render_details())
 
     def test_a_pipe_in_the_prose_does_not_add_a_column(self):
         # A `|` in a table cell starts a new column, and the specs are hand-written
@@ -1323,13 +1339,15 @@ class CoverageMatrixCarriesTheProse(unittest.TestCase):
 
     def test_a_long_expected_is_truncated_in_the_cell_but_not_in_the_details(self):
         # The column makes a row readable in a diff; the details are where the
-        # full text lives. Truncating both would lose the sentence.
+        # full text lives (separate artefact since 8112842e). Truncating both
+        # would lose the sentence.
         long_text = "word " * 80
         specs = {"TASK-A-01": _spec("TASK-A-01", id_prefix="TASK-A", expected=long_text)}
-        rendered = render_coverage_matrix(build_coverage(specs, []))
+        coverage = build_coverage(specs, [])
+        rendered = render_coverage_matrix(coverage)
         row = [line for line in rendered.splitlines() if "TASK-A-01` |" in line][0]
         self.assertIn("…", row)
-        self.assertIn(long_text.strip(), rendered)
+        self.assertIn(long_text.strip(), render_details(coverage))
 
     def test_rendering_stays_deterministic(self):
         self.assertEqual(self._render(), self._render())

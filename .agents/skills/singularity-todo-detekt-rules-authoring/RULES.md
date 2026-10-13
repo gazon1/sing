@@ -18,6 +18,7 @@
 | `NoEmptyOnClickLambda` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | Bans empty lambda placeholders passed as event handlers in composable calls, | `NoEmptyOnClickLambdaRuleTest` | yes |
 | `NoFactoryViewModel` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | Bans registering ViewModels in Koin via the per-injection `factory { }` / `factoryOf(::...)` | `NoFactoryViewModelRuleTest` | yes |
 | `NoOpUpdateState` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | Bans `updateState { it }` — a reducer that returns its input unchanged. | `NoOpUpdateStateRuleTest` | yes |
+| `NoPopupWithoutResourceIdMapping` | `NoPopupWithoutResourceIdMapping.kt` | `popup-test-tag` | Bans the pattern where a `testTag()` call appears inside a Popup-owning container | `NoPopupWithoutResourceIdMappingTest` | yes |
 | `NoRealDelayInTest` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | Bans `kotlinx.coroutines.delay(N)` above 500 ms and `Thread.sleep(N)` in test sources. | `NoRealDelayInTestRuleTest` | yes |
 | `NoRunBlocking` | `NoRunBlockingRule.kt` | `no-runblocking` | Bans `kotlinx.coroutines.runBlocking { ... | `NoRunBlockingRuleTest` | yes |
 | `NoRunCatchingInSuspend` | `NoRunCatchingInSuspend.kt` | `no-run-catching-in-suspend` | Bans `kotlin.runCatching { ... | `NoRunCatchingInSuspendTest` | yes |
@@ -35,6 +36,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**27 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**28 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

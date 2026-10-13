@@ -70,6 +70,7 @@ object TestTags {
     fun navTab(title: String) = "nav_tab_${slug(title)}"
 
     /** Dynamic: menu_<slug> — keyed by stable menu-item id. */
+    @Suppress("UnusedParameter")
     fun menuItem(id: String) = id
 
     // ─── Menu bottom sheet items ───────────────────────────────────────────────
@@ -177,18 +178,21 @@ object TestTags {
      * Dynamic tag of the form `checklist_item_<slug>` — one per checklist item row.
      * Derived from the item's id and title, slugified the same way as [taskItem].
      */
+    @Suppress("UnusedParameter")
     fun checklistItem(id: String, title: String) = "checklist_item_${slug(title)}"
 
     /**
      * Dynamic tag of the form `checklist_item_checkbox_<slug>` — the toggle/checkbox
      * for each checklist item row.
      */
+    @Suppress("UnusedParameter")
     fun checklistItemCheckbox(id: String, title: String) = "checklist_item_checkbox_${slug(title)}"
 
     /**
      * Dynamic tag of the form `checklist_item_delete_<slug>` — the delete (×) button
      * for each checklist item row.
      */
+    @Suppress("UnusedParameter")
     fun checklistItemDelete(id: String, title: String) = "checklist_item_delete_${slug(title)}"
 
     // ─── Subtasks ─────────────────────────────────────────────────────────────

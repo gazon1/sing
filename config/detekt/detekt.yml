@@ -651,4 +651,15 @@ app-error-code:
 # SyncCoordinator) are listed in the rule's EXEMPTED_CLASSES companion object.
 no-init-coroutine-launch:
   NoCoroutineLaunchInInit:
-    active: true 
+    active: true
+
+# Added 2026-10-13 (PR #592). A testTag inside a Popup-owning container
+# (ModalBottomSheet, Popup, AlertDialog, DropdownMenu) is unreachable by
+# Android resource-id unless the container root calls
+# mapTestTagsAsResourceIds(). The rule was implemented in #592 but never
+# registered in META-INF/services and had no config block here, so it had
+# never run — the same wiring gap that produced the 2026-10-05 comment
+# above no-direct-dispatchers.
+popup-test-tag:
+  NoPopupWithoutResourceIdMapping:
+    active: true

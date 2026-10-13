@@ -136,8 +136,20 @@ def create_issue_record(
     tags: list[str],
     is_archived: bool,
 ) -> dict:
-    """Build the spec-kit issue YAML record."""
+    """Build the spec-kit issue YAML record.
+
+    Paths are stored relative to the repo root so the registry is portable
+    across machines and worktrees. Absolute paths leaked home directories and
+    clone names into git (publication hygiene gate, 8865 findings).
+    """
     change_type = "archived" if is_archived else "active"
+
+    def _rel(p: Path) -> str:
+        try:
+            return str(p.resolve().relative_to(ROOT))
+        except ValueError:
+            return str(p)
+
     record = {
         "version": "1.0",
         "type": "openspec-change",
@@ -150,14 +162,14 @@ def create_issue_record(
         "adr_refs": adr_refs,
         "tags": tags,
         "documents": {
-            "proposal": str(change_dir / "proposal.md"),
-            "design": str(change_dir / "design.md"),
-            "adr": str(change_dir / "adr.md"),
-            "tasks": str(change_dir / "tasks.md"),
+            "proposal": _rel(change_dir / "proposal.md"),
+            "design": _rel(change_dir / "design.md"),
+            "adr": _rel(change_dir / "adr.md"),
+            "tasks": _rel(change_dir / "tasks.md"),
         },
-        "specs_dir": str(change_dir / "specs"),
+        "specs_dir": _rel(change_dir / "specs"),
         "is_stub": is_stub(change_dir / "proposal.md"),
-        "openspec_path": str(change_dir),
+        "openspec_path": _rel(change_dir),
     }
     return record
 

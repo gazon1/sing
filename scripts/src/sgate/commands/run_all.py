@@ -8,6 +8,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -75,65 +76,75 @@ def _slug(name: str) -> str:
 
 
 def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResult:
-    """Run a single gate command and return structured result."""
+    """Run a single gate command and return structured result.
+
+    Commands are tokenized with shlex so quoted arguments survive:
+      sgate <name> [flags]   → sgate binary + name + flags + --json
+      python3 <script> ...   → venv python + script path
+      ./<script> ...         → bash + script path
+      bash -c '<snippet>'    → bash -c with the snippet as ONE argument
+      bare function name     → sourced from static-gates.sh
+    """
     start = time.monotonic()
     repo_root = str(sgate.repo.ROOT)
     static_sh = str(sgate.repo.STATIC_GATES_SH)
 
     try:
-        if command.startswith("sgate "):
+        tokens = shlex.split(command)
+        if not tokens:
+            return GateResult(
+                name=display_name, mode=mode, passed=False, exit_code=127,
+                duration_ms=0, error="empty command",
+            )
+        head, *args = tokens
+
+        if head == "sgate":
             # Delegated to sgate CLI (custom gate already migrated)
-            sub_name = command[6:].strip()
             # Discover sgate binary: use the one on PATH, or the venv one in scripts/src
             sgate_bin = shutil.which("sgate")
             if sgate_bin is None:
                 # Fallback: find sgate in the venv used by this script
                 venv_python = sys.executable
                 sgate_bin = str(Path(venv_python).parent / "sgate")
-            cmd = [sgate_bin, sub_name, "--json"]
+            cmd = [sgate_bin, *args, "--json"]
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 
-        elif command.startswith("python3 "):
+        elif head == "python3":
             # Direct python3 script — use the sgate venv Python (has all dependencies)
-            script_cmd = command[7:].strip().split()
-            script_path = repo_root + "/" + script_cmd[0]
-            args = script_cmd[1:]
+            if not args:
+                raise FileNotFoundError("python3 gate has no script argument")
+            script_path = repo_root + "/" + args[0]
             # Discover sgate Python: same Python that runs this script
             venv_python = Path(sys.executable)
             py_bin = str(venv_python.parent / "python")
-            cmd = [py_bin, script_path] + args
+            cmd = [py_bin, script_path] + args[1:]
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 
-        elif command.startswith("./"):
+        elif head.startswith("./"):
             # Direct shell script
-            script_cmd = command[2:].strip().split()
-            script_path = repo_root + "/" + script_cmd[0]
-            args = script_cmd[1:]
+            script_path = repo_root + "/" + head[2:]
             cmd = ["bash", script_path] + args
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 
-        elif command in ("traceability", "digest_and_sizes", "digest_no_double_suffix",
-                         "adr_dry_run"):
+        elif head in ("traceability", "digest_and_sizes", "digest_no_double_suffix",
+                      "adr_dry_run"):
             # Bash function defined in static-gates.sh
             # Source the file (with STATIC_GATES_SOURCED=1 so main() is skipped),
-            # then call only the requested function.
-            bash_cmd = f'STATIC_GATES_SOURCED=1 . "{static_sh}" && {command}'
+            # then call only the requested function. shlex already stripped the
+            # registry's quoting, so re-quote for the -c string.
+            func_call = shlex.join([head, *args])
+            bash_cmd = f"STATIC_GATES_SOURCED=1 . {shlex.quote(static_sh)} && {func_call}"
             cmd = ["bash", "-c", bash_cmd]
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 
-        elif " " in command and not command.startswith("/"):
-            # Likely a PATH command (e.g. "singularity-adr validate")
-            cmd = command.split()
-            result = subprocess.run(cmd, capture_output=True, timeout=300,
-                                   cwd=repo_root)
-
         else:
-            # Literal path command
-            cmd = command.split()
+            # Anything else — including `bash -c '<snippet>'`, where shlex has
+            # already reduced the quoted snippet to a single argv element.
+            cmd = tokens
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 

@@ -43,7 +43,7 @@ class RetryExtension : InvocationInterceptor {
                     val displayName = extensionContext.displayName
                     println("[FLAKY] '$displayName' passed on attempt $attempt of $maxAttempts")
                     println(
-                        "::notice title=Passed on retry::Test '$displayName' passed on attempt $attempt of $maxAttempts"
+                        "::notice title=Passed on retry::Test '$displayName' passed on attempt $attempt of $maxAttempts",
                     )
                 }
                 return
@@ -51,7 +51,7 @@ class RetryExtension : InvocationInterceptor {
                 lastThrowable = t
                 val displayName = extensionContext.displayName
                 println(
-                    "[RETRY] '$displayName' failed on attempt $attempt of $maxAttempts: ${t.message}"
+                    "[RETRY] '$displayName' failed on attempt $attempt of $maxAttempts: ${t.message}",
                 )
             }
         }

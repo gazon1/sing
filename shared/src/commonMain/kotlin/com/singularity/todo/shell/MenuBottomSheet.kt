@@ -52,7 +52,11 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        modifier = Modifier.testTag(TestTags.MENU_SHEET),
+        // The sheet renders into its own window, so the app-root
+        // testTagsAsResourceId never reaches the menu items.
+        modifier = Modifier
+            .testTag(TestTags.MENU_SHEET)
+            .mapTestTagsAsResourceIds(),
     ) {
         Column(
             // The sheet renders into its own window, so the app-root

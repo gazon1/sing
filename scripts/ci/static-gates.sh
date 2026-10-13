@@ -202,11 +202,11 @@ gate blocking "closed ADRs keep their body" sgate closed_adrs_keep_their_body
 gate blocking "skills describe the tools that exist" sgate skills_describe_the_tools_that_exist
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).
-gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree --quiet
-gate advisory "unwired surfaces" sgate unwired_surfaces --quiet
-gate blocking "unwired backlog refs" sgate unwrapped_backlog_refs
-gate blocking "settings read by a feature" sgate settings_read_by_a_feature --quiet
-gate blocking "YAML has no duplicate keys" sgate yaml_has_no_duplicate_keys --quiet
+gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree
+gate advisory "unwired surfaces" sgate unwired_surfaces
+gate blocking "unwired backlog refs" sgate unwired_backlog_refs
+gate blocking "settings read by a feature" sgate settings_read_by_a_feature
+gate blocking "YAML has no duplicate keys" sgate yaml_has_no_duplicate_keys
 
 # Lint-rule governance
 gate blocking "detekt rules config is current" sgate detekt_rules_config_is_current --check
@@ -299,6 +299,13 @@ gate blocking "apptracer upload policy encoded" sgate apptracer_upload_policy_en
 
 # Backlog
 gate advisory "backlog-issue-refs" sgate backlog_issue_refs
+
+# Gate-script conventions. Advisory because the corpus is knowingly red: every
+# legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a
+# separate sweep. Registered rather than deleted so the debt is visible and
+# Part H of check-gate-wiring.py stops reporting check-script-conventions.py
+# as an unreachable gate — a script nobody invokes reports success forever.
+gate advisory "script conventions" sgate conventions
 
 # ─── Collect all results and report ─────────────────────────────────────────
 collect_and_report

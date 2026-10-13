@@ -3,14 +3,31 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any
 
 import click
+from pydantic import BaseModel
 
 import sgate
 from sgate.commands._runner import run_capture
+from sgate.models import GatePayload
 from sgate.output import gate_fail, gate_warn
 from sgate.commands.base import register
+
+GATE_NAME = "doc_sizes"
+
+
+class DocSizeViolation(BaseModel):
+    """One budget-exceeded document."""
+
+    document: str
+    detail: str
+
+
+class DocSizesPayload(GatePayload):
+    """Typed payload for the doc-sizes gate."""
+
+    violations: list[DocSizeViolation] = []
+    violation_count: int = 0
 
 
 # "Doc sizes OK: AGENTS.md <= {N}, DIGEST.md <= {M}, ..."
@@ -23,28 +40,27 @@ _OK_PATTERN = re.compile(
 _VIOLATION_PATTERN = re.compile(r"^\s+([^:]+):\s+(.+)$", re.MULTILINE)
 
 
-def _parse_doc_sizes(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> dict[str, Any]:
+def _parse_doc_sizes(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> DocSizesPayload:
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     if isinstance(stderr, bytes):
         stderr = stderr.decode("utf-8", errors="replace")
     combined = (stdout + "\n" + stderr).strip()
 
-    passed = exit_code == 0 and _OK_PATTERN.search(combined)
-    violations: list[dict[str, str]] = []
+    passed = bool(exit_code == 0 and _OK_PATTERN.search(combined))
+    violations = [
+        DocSizeViolation(document=m.group(1).strip(), detail=m.group(2).strip())
+        for m in _VIOLATION_PATTERN.finditer(combined)
+    ]
+    errors: list[str] = [f"{v.document}: {v.detail}" for v in violations]
 
-    for m in _VIOLATION_PATTERN.finditer(combined):
-        violations.append({"document": m.group(1).strip(), "detail": m.group(2).strip()})
-
-    errors: list[str] = [f"{v['document']}: {v['detail']}" for v in violations]
-
-    return {
-        "passed": bool(passed),
-        "violations": violations,
-        "violation_count": len(violations),
-        "blocking_errors": errors if violations else [],
-        "warnings": [],
-    }
+    return DocSizesPayload(
+        gate=GATE_NAME,
+        passed=passed,
+        violations=violations,
+        violation_count=len(violations),
+        blocking_errors=errors if violations else [],
+    )
 
 
 @click.command("doc_sizes")
@@ -59,36 +75,33 @@ def doc_sizes(check: bool, emit_json: bool) -> None:
     Exit 0: within budget; Exit 1: budget exceeded
     """
     repo_root = sgate.repo.ROOT
-    gate_name = "doc_sizes"
     script = repo_root / "scripts/check-doc-sizes.py"
 
-    result = run_capture([sys.executable, str(script)], gate_name)
-    parsed = _parse_doc_sizes(result.stdout, result.stderr, result.returncode)
+    result = run_capture([sys.executable, str(script)], GATE_NAME)
+    payload = _parse_doc_sizes(result.stdout, result.stderr, result.returncode)
 
     if emit_json:
-        import json
-
-        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+        payload.emit_and_exit(result.returncode, emit_json=True)
     elif check:
-        if parsed["passed"]:
-            gate_warn(gate_name, None, None, None, None, f"doc sizes OK — {parsed['violation_count']} violations")
+        if payload.honest_pass(result.returncode):
+            gate_warn(GATE_NAME, None, None, None, None, f"doc sizes OK — {payload.violation_count} violations")
         else:
-            print(f"doc_sizes: {parsed['violation_count']} budget violation(s)")
-            for v in parsed["violations"]:
-                print(f"  {v['document']}: {v['detail']}")
+            print(f"doc_sizes: {payload.violation_count} budget violation(s)")
+            for v in payload.violations:
+                print(f"  {v.document}: {v.detail}")
     else:
-        if not parsed["passed"]:
+        if not payload.honest_pass(result.returncode):
             gate_fail(
-                gate_name,
+                GATE_NAME,
                 None,
                 None,
                 None,
                 None,
-                f"{parsed['violation_count']} doc size budget violation(s)",
+                f"{payload.violation_count} doc size budget violation(s)",
             )
             raise SystemExit(1)
 
-    if parsed["passed"] and not emit_json:
+    if payload.honest_pass(result.returncode) and not emit_json:
         click.echo(f"doc_sizes: within budget — PASS")
 
 

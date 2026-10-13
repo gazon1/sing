@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from typing import NoReturn
 
 from sgate.log import logger
 from sgate.output import gate_fail

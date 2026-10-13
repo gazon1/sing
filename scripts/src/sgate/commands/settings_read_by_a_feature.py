@@ -2,19 +2,26 @@
 from __future__ import annotations
 
 import sys
-from typing import Any
 
 import click
 
 import sgate
 from sgate.commands._runner import run_capture
+from sgate.models import GatePayload
 from sgate.output import gate_fail, gate_warn
 from sgate.commands.base import register
 
-_STDIN_TYPES = ("commonMain", "androidMain", "jvmMain")
+GATE_NAME = "settings read by a feature"
 
 
-def _parse_dead_settings(stdout: str | bytes, exit_code: int) -> dict[str, Any]:
+class DeadSettingsPayload(GatePayload):
+    """Typed payload for the dead-settings gate."""
+
+    dead_settings_count: int = 0
+    findings: list[str] = []
+
+
+def _parse_dead_settings(stdout: str | bytes, exit_code: int) -> DeadSettingsPayload:
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     stdout = stdout.strip()
@@ -28,13 +35,13 @@ def _parse_dead_settings(stdout: str | bytes, exit_code: int) -> dict[str, Any]:
                 findings.append(line.split("[dead-setting]", 1)[1].strip())
             elif line and not line.startswith("check-dead-settings:"):
                 findings.append(line)
-    return {
-        "passed": passed,
-        "dead_settings_count": len(findings),
-        "findings": findings,
-        "blocking_errors": [] if passed else [f"{len(findings)} dead setting(s) found"],
-        "warnings": [],
-    }
+    return DeadSettingsPayload(
+        gate=GATE_NAME,
+        passed=passed,
+        dead_settings_count=len(findings),
+        findings=findings,
+        blocking_errors=[] if passed else [f"{len(findings)} dead setting(s) found"],
+    )
 
 
 @click.command("settings_read_by_a_feature")
@@ -48,37 +55,34 @@ def settings_read_by_a_feature(check: bool, emit_json: bool) -> None:
     Exit 0: no dead settings; Exit 1: one or more dead settings
     """
     repo_root = sgate.repo.ROOT
-    gate_name = "settings read by a feature"
     script = repo_root / "scripts/check-dead-settings.py"
 
-    result = run_capture([sys.executable, str(script), "--quiet"], gate_name)
-    parsed = _parse_dead_settings(result.stdout, result.returncode)
+    result = run_capture([sys.executable, str(script), "--quiet"], GATE_NAME)
+    payload = _parse_dead_settings(result.stdout, result.returncode)
 
     if emit_json:
-        import json
-
-        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+        payload.emit_and_exit(result.returncode, emit_json=True)
     elif check:
-        if parsed["passed"]:
-            gate_warn(gate_name, None, None, None, None, "dead_settings check passed")
+        if payload.honest_pass(result.returncode):
+            gate_warn(GATE_NAME, None, None, None, None, "dead_settings check passed")
         else:
-            print(f"dead_settings: {parsed['dead_settings_count']} dead setting(s) found")
-            for f in parsed["findings"]:
+            print(f"dead_settings: {payload.dead_settings_count} dead setting(s) found")
+            for f in payload.findings:
                 print(f"  {f}")
     else:
-        if not parsed["passed"]:
+        if not payload.honest_pass(result.returncode):
             gate_fail(
-                gate_name,
+                GATE_NAME,
                 None,
                 None,
                 None,
                 None,
-                f"{parsed['dead_settings_count']} dead setting(s) found",
+                f"{payload.dead_settings_count} dead setting(s) found",
             )
             raise SystemExit(1)
 
-    if parsed["passed"] and not emit_json:
-        click.echo(f"dead_settings: {parsed['dead_settings_count']} dead settings — PASS")
+    if payload.honest_pass(result.returncode) and not emit_json:
+        click.echo(f"dead_settings: {payload.dead_settings_count} dead settings — PASS")
 
 
 register(settings_read_by_a_feature)

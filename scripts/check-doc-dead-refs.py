@@ -543,6 +543,11 @@ _EXTERNAL_SYMBOLS = frozenset({
     # therefore invisible to a JVM Compose test — the fact is only actionable if
     # the reader can look the type up.
     "ModalBottomSheet", "AlertDialog", "Dialog", "Popup",
+    # Android framework widgets and shell/Maestro environment names that skills
+    # legitimately quote. EditText is the platform's text field; SERIAL is a
+    # shell env var in ensure-emulator.sh; QUERY/ITEM_ID/DEST_ID are Maestro
+    # helper parameter names, not Kotlin symbols.
+    "EditText", "SERIAL", "QUERY", "ITEM_ID", "DEST_ID",
 })
 # Types that are framework-allocated and never have production call sites.
 _FRAMEWORK_ALLOCATED = frozenset({
@@ -610,6 +615,9 @@ def _build_kt_symbol_index() -> dict[str, str]:
         ROOT / "shared/src/androidMain",
         ROOT / "shared/src/jvmMain",
         ROOT / "androidApp/src/main",
+        # Debug source set: DebugSeedActivity lives here and is referenced by
+        # the maestro-flows and task-detail-ux skills.
+        ROOT / "androidApp/src/debug",
         ROOT / "desktopApp/src",
         ROOT / "mcp-server/src/main",
         # The custom detekt rules are production code for this gate's purposes:

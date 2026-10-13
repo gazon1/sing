@@ -3,14 +3,24 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Any
 
 import click
 
 import sgate
 from sgate.commands._runner import run_capture
+from sgate.models import GatePayload
 from sgate.output import gate_fail, gate_warn
 from sgate.commands.base import register
+
+GATE_NAME = "ADR references are valid"
+
+
+class AdrReferencesPayload(GatePayload):
+    """Typed payload for the ADR-references gate."""
+
+    adr_slugs_count: int = 0
+    dangling_count: int = 0
+    stale_baseline_count: int = 0
 
 
 # Pattern: "check_adr_references.py: OK — {N} ADR slugs, {M} baselined..."
@@ -26,7 +36,7 @@ _STALE_PATTERN = re.compile(
 )
 
 
-def _parse_adr_references(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> dict[str, Any]:
+def _parse_adr_references(stdout: str | bytes, stderr: str | bytes, exit_code: int) -> AdrReferencesPayload:
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     if isinstance(stderr, bytes):
@@ -56,14 +66,14 @@ def _parse_adr_references(stdout: str | bytes, stderr: str | bytes, exit_code: i
     if stale_count > 0:
         errors.append(f"{stale_count} baseline entry/entries no longer occur — remove with --update-baseline")
 
-    return {
-        "passed": passed,
-        "adr_slugs_count": slugs_count,
-        "dangling_count": dangling_count,
-        "stale_baseline_count": stale_count,
-        "blocking_errors": errors,
-        "warnings": [],
-    }
+    return AdrReferencesPayload(
+        gate=GATE_NAME,
+        passed=passed,
+        adr_slugs_count=slugs_count,
+        dangling_count=dangling_count,
+        stale_baseline_count=stale_count,
+        blocking_errors=errors,
+    )
 
 
 @click.command("adr_references_are_valid")
@@ -78,35 +88,32 @@ def adr_references_are_valid(check: bool, emit_json: bool) -> None:
     Exit 0: clean; Exit 1: validation failure
     """
     repo_root = sgate.repo.ROOT
-    gate_name = "ADR references are valid"
     script = repo_root / "scripts/check-adr-references.py"
 
-    result = run_capture([sys.executable, str(script)], gate_name)
-    parsed = _parse_adr_references(result.stdout, result.stderr, result.returncode)
+    result = run_capture([sys.executable, str(script)], GATE_NAME)
+    payload = _parse_adr_references(result.stdout, result.stderr, result.returncode)
 
     if emit_json:
-        import json
-
-        print(json.dumps({"gate": gate_name, **parsed}, indent=2))
+        payload.emit_and_exit(result.returncode, emit_json=True)
     elif check:
-        if parsed["passed"]:
-            gate_warn(gate_name, None, None, None, None, f"ADR references OK — {parsed['adr_slugs_count']} slugs, {parsed['dangling_count']} dangling")
+        if payload.honest_pass(result.returncode):
+            gate_warn(GATE_NAME, None, None, None, None, f"ADR references OK — {payload.adr_slugs_count} slugs, {payload.dangling_count} dangling")
         else:
-            print(f"adr_references: {parsed['dangling_count']} dangling reference(s)")
+            print(f"adr_references: {payload.dangling_count} dangling reference(s)")
     else:
-        if not parsed["passed"]:
+        if not payload.honest_pass(result.returncode):
             gate_fail(
-                gate_name,
+                GATE_NAME,
                 None,
                 None,
                 None,
                 None,
-                f"{parsed['dangling_count']} dangling ADR reference(s)",
+                f"{payload.dangling_count} dangling ADR reference(s)",
             )
             raise SystemExit(1)
 
-    if parsed["passed"] and not emit_json:
-        click.echo(f"adr_references: {parsed['adr_slugs_count']} ADR slugs, {parsed['dangling_count']} dangling — PASS")
+    if payload.honest_pass(result.returncode) and not emit_json:
+        click.echo(f"adr_references: {payload.adr_slugs_count} ADR slugs, {payload.dangling_count} dangling — PASS")
 
 
 register(adr_references_are_valid)
