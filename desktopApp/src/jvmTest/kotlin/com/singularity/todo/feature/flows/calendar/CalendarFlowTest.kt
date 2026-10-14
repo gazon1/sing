@@ -26,7 +26,7 @@ import kotlin.time.Instant
  * literal "September 2026" would silently start failing next month.
  */
 @OptIn(ExperimentalTestApi::class)
-@Tag("fast")
+@Tag("slow")
 class CalendarFlowTest {
     /** `"September 2026"` — the month header format the app renders. */
     private val monthTitle: String =

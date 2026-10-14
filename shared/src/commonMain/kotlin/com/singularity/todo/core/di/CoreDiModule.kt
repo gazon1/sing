@@ -17,7 +17,6 @@ import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.DevAuthRepository
 import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SecureStorage
-import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthGateway
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.SupabaseClientProvider

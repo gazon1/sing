@@ -44,7 +44,7 @@ import kotlin.time.Instant
  * @see Nav3State.toDecoratedEntries
  */
 @OptIn(ExperimentalTestApi::class)
-@Tag("fast")
+@Tag("slow")
 class AgendaTabDefinitionFlowTest {
     @Test
     fun inbox_shows_the_no_date_section_the_today_tab_has_no_room_for() = runDesktopAppTest(

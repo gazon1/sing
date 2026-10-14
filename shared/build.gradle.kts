@@ -30,6 +30,13 @@ val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
 }
 
 kotlin {
+    // The one JDK every target is compiled with and every consumer runs on —
+    // the same 21 gradle-daemon-jvm.properties pins the daemon to. Makes the
+    // choice explicit instead of inherited from whichever JDK launched Gradle
+    // (the launcher on this host is 25); android's explicit `jvmTarget = 11`
+    // below keeps its bytecode level untouched (#413).
+    jvmToolchain(21)
+
     jvm()
 
     android {
