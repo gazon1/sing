@@ -48,6 +48,9 @@ class AuthViewModelTest {
         signIn: Result<Unit> = Result.success(Unit),
         signUp: Result<Unit> = Result.success(Unit),
         signOut: Result<Unit> = Result.success(Unit),
+        migrateAnonymousTo: Result<Unit> = Result.success(Unit),
+        verifyMagicLink: Result<Unit> = Result.success(Unit),
+        sendMagicLink: Result<Unit> = Result.success(Unit),
         /**
          * The session left behind by a successful attempt.
          *
@@ -95,7 +98,23 @@ class AuthViewModelTest {
                 return signOut
             }
 
-            override suspend fun migrateAnonymousTo(email: String, password: String) = Result.success(Unit)
+            override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> {
+                if (migrateAnonymousTo.isSuccess) {
+                    sessions.value = sessionAfterSuccess
+                }
+                return migrateAnonymousTo
+            }
+
+            override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
+
+            override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> {
+                if (verifyMagicLink.isSuccess) {
+                    sessions.value = sessionAfterSuccess
+                }
+                return verifyMagicLink
+            }
+
+            override suspend fun sendMagicLink(email: String): Result<Unit> = sendMagicLink
         }
         return AuthViewModel(
             authRepository = repository,
@@ -210,6 +229,9 @@ class AuthViewModelTest {
             override suspend fun signInAnonymously() = Result.success(Unit)
             override suspend fun signOut() = Result.success(Unit)
             override suspend fun migrateAnonymousTo(email: String, password: String) = Result.success(Unit)
+            override suspend fun updatePassword(newPassword: String) = Result.success(Unit)
+            override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
+            override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)
         }
         val viewModel = AuthViewModel(
             authRepository = repository,
@@ -419,6 +441,194 @@ class AuthViewModelTest {
                 "the sign-out worked; an error here would teach users to ignore it",
             )
             assertEquals(Session.SignedOut, sessions.value)
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    // ── MigrateAnonymousTo ────────────────────────────────────────────────
+
+    @Test
+    fun `a successful migrateAnonymousTo transitions session and navigates home`() = runTest {
+        // Start in anonymous session — the only valid state for attach.
+        sessions.value = Session.Anonymous(UserId.anonymous)
+        val viewModel = viewModel()
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.MigrateAnonymousTo("alice@example.com", "password123"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+            runCurrent()
+
+            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+            assertIs<Session.SignedIn>(sessions.value)
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed migrateAnonymousTo reports error and keeps session`() = runTest {
+        sessions.value = Session.Anonymous(UserId.anonymous)
+        val viewModel = viewModel(
+            migrateAnonymousTo = Result.failure(AppError.Unauthorized("link failed")),
+        )
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.MigrateAnonymousTo("alice@example.com", "password123"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            runCurrent()
+
+            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+            assertNotNull(error, "an attach failure must be reported: $events")
+            assertTrue(
+                error.message.contains("attach", ignoreCase = true) ||
+                    error.message.contains("link", ignoreCase = true),
+                "the error message has to name what failed: ${error.message}",
+            )
+            // Session stays Anonymous — the device still works.
+            assertIs<Session.Anonymous>(sessions.value)
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed migrateAnonymousTo does not navigate home`() = runTest {
+        sessions.value = Session.Anonymous(UserId.anonymous)
+        val viewModel = viewModel(
+            migrateAnonymousTo = Result.failure(AppError.Unauthorized("nope")),
+        )
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.MigrateAnonymousTo("alice@example.com", "password123"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            runCurrent()
+
+            assertTrue(
+                events.none { it is AuthUiEvent.NavigateToHome },
+                "no navigation on failed attach: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    // ── VerifyMagicLink ─────────────────────────────────────────────────────
+
+    @Test
+    fun `a successful VerifyMagicLink transitions to Success and navigates home`() = runTest {
+        val viewModel = viewModel()
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "token-abc"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+            runCurrent()
+
+            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed VerifyMagicLink reports error and returns to Idle`() = runTest {
+        val viewModel = viewModel(
+            verifyMagicLink = Result.failure(AppError.Unauthorized("invalid token")),
+        )
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "bad-token"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            runCurrent()
+
+            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+            assertNotNull(error, "a verify failure must emit an Error event: $events")
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed VerifyMagicLink does not navigate home`() = runTest {
+        val viewModel = viewModel(
+            verifyMagicLink = Result.failure(AppError.Unauthorized("nope")),
+        )
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.VerifyMagicLink("alice@example.com", "bad-token"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            runCurrent()
+
+            assertTrue(
+                events.none { it is AuthUiEvent.NavigateToHome },
+                "no navigation on failed verify: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    // ── SendMagicLink (resend) ──────────────────────────────────────────────
+
+    @Test
+    fun `a successful SendMagicLink stays on AwaitingEmailConfirmation and emits a message event`() = runTest {
+        val viewModel = viewModel()
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SendMagicLink("alice@example.com"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+            runCurrent()
+
+            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+            assertNotNull(message, "a successful resend must emit a Message event: $events")
+            assertTrue(
+                message.message.contains("alice@example.com"),
+                "the message must contain the email: ${message.message}",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a failed SendMagicLink stays on AwaitingEmailConfirmation and reports the error`() = runTest {
+        val viewModel = viewModel(
+            sendMagicLink = Result.failure(AppError.Network("unreachable")),
+        )
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.SendMagicLink("alice@example.com"))
+            awaitState { viewModel.stateFlow.value is AuthUiState.AwaitingEmailConfirmation }
+            runCurrent()
+
+            // The state stays AwaitingEmailConfirmation so the user can try again.
+            assertIs<AuthUiState.AwaitingEmailConfirmation>(viewModel.stateFlow.value)
+            val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
+            assertNotNull(error, "a failed resend must emit an Error event: $events")
         } finally {
             collector.cancel()
         }

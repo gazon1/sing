@@ -5,6 +5,7 @@ import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.TimeZoneProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -17,6 +18,7 @@ import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
+import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -39,9 +41,16 @@ private const val RELEASES_URL = "https://github.com/singularity-todo/singularit
  *
  * @param deeplinkViewId Ignored on JVM — notifications are not supported.
  * @param deeplinkTaskId Ignored on JVM — calendar deep-links are Android-only.
+ * @param deeplinkMagicEmail Ignored on JVM — magic link deep-links are Android-only.
+ * @param deeplinkMagicToken Ignored on JVM — magic link deep-links are Android-only.
  */
 @Composable
-actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
+actual fun App(
+    deeplinkViewId: String?,
+    deeplinkTaskId: String?,
+    deeplinkMagicEmail: String?,
+    deeplinkMagicToken: String?,
+) {
     val appearance: AppearanceSettingsRepository = koinInject()
     val themeMode by appearance.themeMode.collectAsState(initial = ThemeMode.System)
     val accentName by appearance.accentColor.collectAsState(initial = "blue")
@@ -56,6 +65,8 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
         modifier = Modifier,
         content = {
             AppContent(
+                deeplinkMagicEmail = deeplinkMagicEmail,
+                deeplinkMagicToken = deeplinkMagicToken,
                 themeMode = themeMode,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
@@ -72,7 +83,13 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
 }
 
 @Composable
-private fun AppContent(themeMode: ThemeMode, accent: SingularityAccents, fontSizeScale: Float) {
+private fun AppContent(
+    deeplinkMagicEmail: String?,
+    deeplinkMagicToken: String?,
+    themeMode: ThemeMode,
+    accent: SingularityAccents,
+    fontSizeScale: Float,
+) {
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {
@@ -81,6 +98,19 @@ private fun AppContent(themeMode: ThemeMode, accent: SingularityAccents, fontSiz
             goBack = navigator::goBack,
             close = navigator::close,
         )
+    }
+
+    // JVM magic link deep-link: singularity://verify?email=&token=
+    // Token is auto-submitted by MagicLinkConfirmScreen.
+    LaunchedEffect(deeplinkMagicEmail, deeplinkMagicToken, navigator) {
+        if (deeplinkMagicEmail != null) {
+            navigator.open(
+                AppDestination.MagicLinkConfirm(
+                    email = deeplinkMagicEmail,
+                    token = deeplinkMagicToken ?: "",
+                ),
+            )
+        }
     }
 
     SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {

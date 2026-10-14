@@ -42,6 +42,25 @@ interface AuthRepository {
      * real account at a domain nobody owns.
      */
     suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit>
+
+    /** Changes the password of the currently signed-in user. */
+    suspend fun updatePassword(newPassword: String): Result<Unit>
+
+    /**
+     * Sends a magic link (one-time password) to [email].
+     *
+     * Used to recover from an unconfirmed sign-up: resends the confirmation email
+     * as a magic link that, when clicked, completes sign-in.
+     */
+    suspend fun sendMagicLink(email: String): Result<Unit>
+
+    /**
+     * Verifies the [token] from a magic link sent to [email].
+     *
+     * Completes sign-in for an unconfirmed account by exchanging the token from
+     * the magic link URL for a live session.
+     */
+    suspend fun verifyMagicLink(email: String, token: String): Result<Unit>
 }
 
 /**
@@ -316,6 +335,49 @@ class SupabaseAuthRepository(
                     )
                 }
             }
+    }
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> {
+        _isLoading.value = true
+        return try {
+            runCatchingResult {
+                AuthDomain.validatePassword(newPassword)
+                gateway.updatePassword(newPassword).getOrThrow()
+            }.onFailure { e ->
+                log.e(e) { "Auth password update failed" }
+            }
+        } finally {
+            _isLoading.value = false
+        }
+    }
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> {
+        _isLoading.value = true
+        return try {
+            val address = AuthDomain.normalizeEmail(email)
+            runCatchingResult {
+                AuthDomain.validateEmail(address)
+                gateway.sendMagicLink(address).getOrThrow()
+            }.onFailure { e ->
+                log.e(e) { "Auth magic link send failed [email=${Redaction.redactEmail(address)}]" }
+            }
+        } finally {
+            _isLoading.value = false
+        }
+    }
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> {
+        _isLoading.value = true
+        return try {
+            runCatchingResult {
+                val session = gateway.verifyMagicLink(email, token).getOrThrow()
+                apply(session, email)
+            }.onFailure { e ->
+                log.e(e) { "Auth magic link verification failed [email=${Redaction.redactEmail(email)}]" }
+            }
+        } finally {
+            _isLoading.value = false
+        }
     }
 }
 

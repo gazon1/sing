@@ -1,28 +1,23 @@
 ---
 title: "Core Auth Oauth Is Entirely Unwired"
 date: 2000-01-01
-status: open
+status: closed
 tags: ["deferred"]
 ---
 
-**Status: OPEN**
+**Status: CLOSED — the code was deleted in commit 51217e52.**
 
-**Tracked as:** #442
+**Tracked as:** #442 (closed)
 
 **Found in:** MR-4. The plan listed two dead symbols in
-`core/auth/oauth/OAuth.kt`; the file as a whole is unreachable.
+`core/auth/oauth/OAuth.kt`; the file as a whole was unreachable.
 
-**Symptom:** `OAuthConfig`, `OAuthResult`, `OAuthTokenData` and
-`toOAuthTokenData` have zero references outside their own file — no ViewModel,
-no repository, no test, no Koin binding. `TokenError` and `RedirectState` were
-deleted in MR-4; the rest was left alone.
+**Resolution (2026-10-14):** The OAuth decision was made — Supabase OAuth is not
+planned for the current iteration. All OAuth-related code (`OAuth.kt`, `PKCE.kt`,
+`OAuthTokenRefresh.kt`, `IdToken.kt`) was deleted in commit 51217e52 along with
+the dead symbols. This ADR is closed as the code no longer exists.
 
-**Already ruled out:** not reachable through reflection, DI or a route — it is
-plain Kotlin with no registration anywhere.
-
-**Try next:** decide whether Supabase OAuth is still planned. If yes, the file
-is a reasonable starting skeleton. If no, delete the remaining 90 lines. A
-dead-code sweep should not make the product decision either way, which is why
-MR-4 stopped at the two symbols it was asked to remove.
+**Why the ADR was still open:** the code deletion happened but this ADR was not
+updated to reflect it.
 
 ---

@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -21,20 +23,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.auth.AuthIntent
+import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun AccountSettingsScreen(modifier: Modifier = Modifier, vm: AccountSettingsViewModel = koinViewModel()) {
+fun AccountSettingsScreen(
+    modifier: Modifier = Modifier,
+    vm: AccountSettingsViewModel = koinViewModel(),
+) {
+    val authVm: AuthViewModel = koinViewModel()
     val activeProfile by vm.activeProfile.collectAsStateWithLifecycle(initialValue = null)
+    val session by authVm.session.collectAsStateWithLifecycle(initialValue = Session.Loading)
     val settingsNavigator = LocalSettingsNavigator.current
 
     Column(
@@ -78,6 +90,23 @@ fun AccountSettingsScreen(modifier: Modifier = Modifier, vm: AccountSettingsView
             }
         }
 
+        // Change password — only shown for signed-in accounts.
+        if (session is Session.SignedIn) {
+            SettingsSection(title = "Security") {
+                FilledTonalButton(
+                    onClick = { settingsNavigator.openChangePassword() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Text(
+                        text = "  Change password",
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                }
+            }
+        }
+
         SettingsSection(title = "Profiles") {
             FilledTonalButton(
                 onClick = { settingsNavigator.openProfileSwitcher() },
@@ -97,6 +126,48 @@ fun AccountSettingsScreen(modifier: Modifier = Modifier, vm: AccountSettingsView
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
+
+        // Attach account — only shown for anonymous sessions.
+        if (authVm.session.value is Session.Anonymous) {
+            SettingsSection(title = "Account") {
+                FilledTonalButton(
+                    onClick = { settingsNavigator.openAttachAccount() },
+                    modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_ATTACH_ACCOUNT_BUTTON),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text(
+                        text = "  Attach account",
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                }
+                Text(
+                    text = "Create an account using your current anonymous session's data.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+
+        SettingsSection(title = "Sign out") {
+            FilledTonalButton(
+                onClick = { authVm.onIntent(AuthIntent.SignOut) },
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_SIGN_OUT_BUTTON),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
+                Text(
+                    text = "  Sign out",
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+            }
+            Text(
+                text = "You will stay on this device. To remove all data, delete the app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
 
@@ -108,6 +179,8 @@ private fun AccountSettingsScreenLightPreview() = PreviewThemed(darkTheme = fals
     AccountSettingsScreenPreviewContent(
         activeProfile = PreviewSamples.previewProfile,
         onNavigateToProfileSwitcher = {},
+        onChangePassword = {},
+        onSignOut = {},
     )
 }
 
@@ -117,6 +190,8 @@ private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true,
     AccountSettingsScreenPreviewContent(
         activeProfile = PreviewSamples.previewProfile,
         onNavigateToProfileSwitcher = {},
+        onChangePassword = {},
+        onSignOut = {},
     )
 }
 
@@ -125,9 +200,17 @@ private fun AccountSettingsScreenDarkPreview() = PreviewThemed(darkTheme = true,
  * Mirrors the layout of [AccountSettingsScreen] without requiring the nav graph context.
  */
 @Composable
-private fun AccountSettingsScreenPreviewContent(
+internal fun AccountSettingsScreenPreviewContent(
     activeProfile: Profile?,
     onNavigateToProfileSwitcher: () -> Unit,
+    onChangePassword: () -> Unit,
+    onSignOut: () -> Unit,
+    session: Session = Session.SignedIn(
+        userId = com.singularity.todo.core.ids.UserId.fromString("preview-user-id"),
+        email = "alice@example.com",
+        accessToken = "preview-token",
+        refreshToken = "preview-refresh",
+    ),
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -171,6 +254,23 @@ private fun AccountSettingsScreenPreviewContent(
             }
         }
 
+        // Change password — only shown for signed-in accounts.
+        if (session is Session.SignedIn) {
+            SettingsSection(title = "Security") {
+                FilledTonalButton(
+                    onClick = onChangePassword,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Text(
+                        text = "  Change password",
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                }
+            }
+        }
+
         SettingsSection(title = "Profiles") {
             FilledTonalButton(
                 onClick = onNavigateToProfileSwitcher,
@@ -190,5 +290,28 @@ private fun AccountSettingsScreenPreviewContent(
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
+
+        SettingsSection(title = "Sign out") {
+            FilledTonalButton(
+                onClick = onSignOut,
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_SIGN_OUT_BUTTON),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
+                Text(
+                    text = "  Sign out",
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+            }
+            Text(
+                text = "You will stay on this device. To remove all data, delete the app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
+
+// ─── Preview helpers ─────────────────────────────────────────────────────────
+
+

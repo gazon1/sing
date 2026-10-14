@@ -154,6 +154,9 @@ class CalendarSyncViewModelCapabilityTest {
         override suspend fun signInAnonymously(): Result<Unit> = unsupported()
         override suspend fun signOut(): Result<Unit> = unsupported()
         override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> = unsupported()
+        override suspend fun updatePassword(newPassword: String): Result<Unit> = unsupported()
+        override suspend fun sendMagicLink(email: String): Result<Unit> = unsupported()
+        override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = unsupported()
 
         private fun unsupported(): Result<Unit> =
             Result.failure(UnsupportedOperationException("no auth flow is exercised by this test"))

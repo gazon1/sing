@@ -1294,7 +1294,46 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
+    // ─── Error injection axis ────────────────────────────────────────────────
+
+    /**
+     * When non-null, the next [signUp] call returns this result instead of
+     * succeeding.
+     *
+     * A field rather than a one-shot, because a test that checks the UI reaction
+     * to a failure needs the fake to still fail on the next call too.
+     *
+     * Reset between tests by [clearCallHistory].
+     */
+    var signUpErrorToInject: Throwable? = null
+
+    /**
+     * When non-null, the session emitted after the next [signUp] call completes
+     * successfully is this value instead of leaving the session unchanged.
+     *
+     * Drives the `AUTH-SIGNUP-02` axis: a sign-up that requires email
+     * confirmation succeeds at the transport layer but produces a `SignedOut`
+     * session (the account exists, the user has to confirm the address before
+     * they can sign in).
+     *
+     * Reset between tests by [clearCallHistory].
+     */
+    var signUpSessionOnSuccess: Session? = null
+
+    override suspend fun signUp(email: String, password: String): Result<Unit> {
+        val error = signUpErrorToInject
+        if (error != null) {
+            signUpErrorToInject = null
+            return Result.failure(error)
+        }
+        val sessionOnSuccess = signUpSessionOnSuccess
+        signUpSessionOnSuccess = null
+        return runCatchingCancellable {
+            if (sessionOnSuccess != null) {
+                _currentSession.value = sessionOnSuccess
+            }
+        }
+    }
 
     // These three used to be `Result.success(Unit)` — a success that changed
     // nothing, so a UI flow that signed in would report "you are signed in" while
@@ -1316,6 +1355,17 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
 
     override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> =
         runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> =
+        runCatchingCancellable { /* Fake: always succeeds */ }
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> =
+        runCatchingCancellable { /* Fake: always succeeds */ }
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> =
+        runCatchingCancellable {
+            _currentSession.value = signedInAs(currentUserId, email)
+        }
 
     /**
      * The identity this repository currently holds, whichever session carries it.

@@ -51,6 +51,30 @@ interface AuthGateway {
     suspend fun signOut(): Result<Unit>
 
     /**
+     * Changes the password of the currently signed-in user.
+     *
+     * Requires a recent authentication. If the session has expired, the caller
+     * should prompt re-authentication first.
+     */
+    suspend fun updatePassword(newPassword: String): Result<Unit>
+
+    /**
+     * Sends a one-time password (magic link) to [email].
+     *
+     * Used when recovering from an unconfirmed sign-up: the user receives the
+     * confirmation email again and can complete sign-in from it.
+     */
+    suspend fun sendMagicLink(email: String): Result<Unit>
+
+    /**
+     * Verifies the one-time password [token] sent to [email].
+     *
+     * Completes the sign-in for an unconfirmed account: exchanges the token from
+     * the magic link for a live session.
+     */
+    suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession>
+
+    /**
      * Exchanges a refresh token for a new access token.
      *
      * REQ-UA-003. Returning null means the refresh token was rejected too, which

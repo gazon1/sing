@@ -1,0 +1,105 @@
+# AUTH-FAIL-03: attach-account form validation shows errors before submission.
+#
+# preconditions: StubAuthRepository in Anonymous session.
+# steps:
+#   1. Navigate to Settings → Account tab.
+#   2. See the "Attach account" button (only visible for Anonymous sessions).
+#   3. Tap it, enter empty credentials, submit.
+#   4. Verify validation prevents submission.
+#
+# Note: StubAuthRepository always succeeds for all auth operations, so network
+# errors cannot be triggered through StubAuthRepository. This flow tests the
+# form validation guard (empty fields are rejected client-side).
+appId: com.singularity.todo
+name: auth-attach-account-validation-error
+tags:
+  - regression
+  - auth
+  - AUTH-FAIL-03
+---
+# Launch signed in as Anonymous (StubAuthRepository default state after sign-in).
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+
+# Wait for the agenda tabs to appear — the Anonymous session is not blocked
+# by the auth screen (StubAuthRepository.autoSignInAnonymously equivalent).
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+
+# Navigate to Settings via the menu.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_settings
+
+# Navigate to the Account settings tab.
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_account
+    timeout: 10000
+- tapOn:
+    id: settings_tab_account
+
+# The "Attach account" button should be visible for Anonymous sessions.
+- extendedWaitUntil:
+    visible:
+      id: auth_attach_account_button
+    timeout: 10000
+- tapOn:
+    id: auth_attach_account_button
+
+# The attach account screen should now be visible.
+- extendedWaitUntil:
+    visible:
+      id: auth_attach_email_input
+    timeout: 10000
+
+# Submit with empty fields — the submit button should be disabled
+# (validation prevents submission when both fields are empty).
+# Verify the button is disabled by checking it is not clickable / visible.
+- assertVisible:
+    id: auth_attach_email_input
+
+# Enter only email (no password) — button should still be disabled.
+- inputText:
+    id: auth_attach_email_input
+    text: "user@example.com"
+
+# Password is empty — submit button should remain disabled.
+# We can't directly assert a button is disabled in Maestro, but we can
+# verify that tapping it does not trigger a navigation or error.
+# The button should be disabled and not react to tap.
+- tapOn:
+    id: auth_attach_submit_button
+
+# After 3 seconds, if the button was truly disabled, we should still be
+# on the attach account screen (no error, no navigation).
+- waitForAnimations: 2000
+- assertVisible:
+    id: auth_attach_email_input
+
+# Enter a password too short — Supabase requires min 6 chars.
+- inputText:
+    id: auth_attach_password_input
+    text: "123"
+
+# Submit — should fail validation or return a form-error from the app.
+- tapOn:
+    id: auth_attach_submit_button
+
+# Wait for an error message (either client-side or from the server).
+- extendedWaitUntil:
+    visible:
+      id: auth_error_text
+    timeout: 15000
+- assertVisible:
+    id: auth_error_text

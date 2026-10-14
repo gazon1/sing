@@ -111,6 +111,15 @@ class SignOutKeepsLocalDataTest {
         override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
             Result.failure(AppError.Network("offline"))
 
+        override suspend fun updatePassword(newPassword: String): Result<Unit> =
+            Result.failure(AppError.Network("offline"))
+
+        override suspend fun sendMagicLink(email: String): Result<Unit> =
+            Result.failure(AppError.Network("offline"))
+
+        override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
+            Result.failure(AppError.Network("offline"))
+
         override suspend fun signOut(): Result<Unit> = Result.failure(AppError.Network("offline"))
     }
 }

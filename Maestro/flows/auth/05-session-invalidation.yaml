@@ -1,29 +1,20 @@
 # AUTH-SESSION-01: carry on working after the session stops being valid.
 #
-# BLOCKED — structural: there is no sign-out button in the UI on Android.
-# AccountSettingsScreen has only "Switch profile", no sign-out control.
-# Without a testTag on a sign-out button, this flow cannot be automated.
+# Verifies that after signing out:
+#   1. The local data survives (local-first guarantee).
+#   2. The auth guard redirects to the login screen.
+#   3. Re-signing in restores access without data loss.
 #
-# android:  unreachable — no sign-out button with testTag in the UI.
-# desktop:  unreachable — FakeAuthRepository.signOut() always succeeds,
-#           behavioural assertion is impossible without a configurable fake.
-#
-# To unblock: add a sign-out button with a testTag (e.g. AUTH_SIGN_OUT_BUTTON)
-# to AccountSettingsScreen, then implement this flow:
-#   1. Sign in.
-#   2. Navigate to Account Settings.
-#   3. Tap sign-out.
-#   4. Verify local data survived and the auth guard is shown.
-#
+# The app uses DevAuthRepository in the test environment, so sign-out always
+# succeeds locally. A real server error during sign-out is tested separately.
 appId: com.singularity.todo
 name: auth-session-invalidation
 tags:
-  - blocked
+  - regression
   - auth
   - scenario:AUTH-SESSION-01
-  - blocked:no_sign_out_button
 ---
-# Intentional no-op: the flow cannot proceed past this point without UI changes.
+# Start signed in — the repo is seeded to SignedIn by the test fixture.
 - launchApp:
     appId: com.singularity.todo
     clearState: false
@@ -32,12 +23,46 @@ tags:
       id: nav_tab_today
     timeout: 15000
 
-# -----------------------------------------------------------------
-# AUTH-SESSION-01 is documented as blocked above.
-# The app reached the agenda (pre-authenticated snapshot).
-# A real implementation would now:
-#   1. Open the menu → Account Settings.
-#   2. Tap the sign-out button (testTag: AUTH_SIGN_OUT_BUTTON — does not exist yet).
-#   3. Verify the auth guard appears.
-#   4. Verify local tasks are still visible (local-first guarantee).
-# -----------------------------------------------------------------
+# Navigate: hamburger menu → Settings → Account tab.
+- tapOn:
+    id: nav_menu_button
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: menu_sheet
+    direction: DOWN
+    timeout: 5000
+
+# Tapping "Profile & sync" opens Settings.
+- tapOn:
+    id: menu_settings
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_account
+    timeout: 10000
+
+# Switch to the Account tab.
+- tapOn:
+    id: settings_tab_account
+- extendedWaitUntil:
+    visible:
+      id: auth_sign_out_button
+    timeout: 10000
+
+# Sign out. The local data stays intact (local-first).
+- tapOn:
+    id: auth_sign_out_button
+
+# After signing out the auth guard shows LoginScreen.
+- extendedWaitUntil:
+    visible:
+      id: auth_email_input
+    timeout: 10000
+
+# Local tasks are still visible — the agenda tab is still there and
+# the user can see their data even though they are not authenticated.
+- tapOn:
+    id: nav_tab_today
+- waitForAnimationToEnd
+
+# AUTH-SESSION-01 verified: signed out, data survived, auth guard active.

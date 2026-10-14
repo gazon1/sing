@@ -87,6 +87,11 @@ run_flow() {
   local name=$1 attempt
   shift
   echo "DEBUG: pwd=$(pwd) OUT=$OUT name=$name config=$MAESTRO_CONFIG args=$*"
+  # AUTH-SIGNUP-02 needs debug.stub_auth.unconfirmed_signup=true before the flow runs.
+  # The flow's onFlowComplete resets it to false; we set it to true here.
+  if [[ "$name" == auth-signup-unconfirmed ]]; then
+    adb shell setprop debug.stub_auth.unconfirmed_signup true
+  fi
   for attempt in 1 2; do
     if maestro test --config "$MAESTRO_CONFIG" --format junit --output "$OUT/$name.xml" "$@"; then
       if ((attempt > 1)); then

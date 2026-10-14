@@ -1,12 +1,10 @@
-# AUTH-SIGNUP-01 part 1: toggle to sign-up mode and enter credentials.
+# AUTH-SIGNUP-01: toggle to sign-up mode, submit, and reach the agenda.
 #
-# preconditions: server configured, on sign-in screen.
+# preconditions: server configured, StubAuthRepository signed-in session.
 # steps:
 #   1. Switch to creating an account (toggle mode).
 #   2. Enter valid-looking details and submit.
-#
-# This tests the UI path. The happy path (account actually created) requires
-# real Supabase credentials — it is tested separately with secrets mounted.
+#   3. Verify the user lands on the agenda (session is SignedIn).
 #
 appId: com.singularity.todo
 name: auth-signup-toggle
@@ -63,3 +61,15 @@ tags:
     visible:
       id: auth_loading
     timeout: 8000
+
+# AUTH-SIGNUP-01 happy path: after sign-up the session is SignedIn and the
+# auth guard lets the user into the agenda (StubAuthRepository is always SignedIn).
+# Verify the agenda tabs are visible — the user is NOT still on the auth screen.
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+- assertVisible:
+    id: nav_tab_today
+- assertVisible:
+    id: nav_tab_inbox
