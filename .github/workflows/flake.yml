@@ -1,0 +1,204 @@
+name: Flake rate (scheduled)
+
+# Measures the per-test flake RATE over N repeated runs — the magnitude, not the
+# boolean "did this pair of runs flip" that ci.yml's single advisory flake step
+# (check-flaky-tests.py, previous-run-vs-this-one) can see.
+#
+# The distinction is the whole point, and it is ADR 2026-10-04-measurement-
+# integrity's §5 generalisation applied to its last remaining boolean: *any gate
+# that reports a boolean where it could report a magnitude should report the
+# magnitude*. A test that fails 1 run in 4 and a test that fails 1 run in 1000
+# are both "one observed flip" to a two-run comparison. Neither rate is
+# knowable from two runs; both are knowable from N runs.
+#
+# Two signals are measured, deliberately, because conflating them hides the one
+# you did not instrument:
+#
+#   Flake B (primary)  — per-test pass rate inside one job. Gradle's
+#                        reports.junitXml.mergeReruns=true (desktopApp) and the
+#                        RetryExtension already re-run a failing test within one
+#                        invocation and merge the attempts into one <testcase>
+#                        with <flakyFailure> children — one per attempt that
+#                        failed before a later attempt passed. A <flakyFailure>
+#                        therefore IS a per-attempt flake witness, needing no
+#                        cross-run bookkeeping.
+#   Flake A (derived)  — terminal-status flips between consecutive runs. The
+#                        same signal ci.yml computes across separate CI runs, but
+#                        re-derived here from the N run directories in THIS job,
+#                        so it is reported next to the rate rather than only in a
+#                        separate advisory step.
+#
+# scripts/measure-flake-rate.py computes both and gates on the UNACKNOWLEDGED
+# flake RATE (a ceiling, default 0.0) — a magnitude gate, not a boolean. An
+# acknowledged flake (config/docs/flaky-baseline.txt, same file the two-run
+# checker reads) is reported but does not count toward the ceiling.
+#
+# This is an advisory MEASUREMENT job, not a blocking gate. It cannot fail a
+# build that Gradle already failed — the value is the rate itself, collected
+# while the evidence (the JUnit XML) still exists. When it does find an
+# unacknowledged flake above the ceiling it opens an issue, because nobody reads
+# a red cron run (same call e2e.yml and ci.yml already make).
+#
+# Trigger schedule: after ci.yml's nightly (01:00) and e2e.yml (02:00), so a
+# red flake-rate run does not compete for runner attention with the two jobs
+# that gate release.
+
+on:
+  schedule:
+    # Nightly flake-rate measurement at 04:00 UTC.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Number of repeated runs (N) to measure the rate over"
+        type: choice
+        options: ["2", "3", "5"]
+        default: "3"
+
+permissions:
+  contents: read
+  actions: read # download previous-run artifacts for the two-run check
+  issues: write # open an issue on a red cron, the e2e.yml nightly-alert pattern
+
+concurrency:
+  group: flake-rate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Decides N in one place, so the matrix is arithmetic rather than N
+  # hand-maintained job entries (same shape as e2e.yml's plan job).
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      attempts: ${{ steps.p.outputs.attempts }}
+    steps:
+      - id: p
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_RUNS: ${{ inputs.runs }}
+        run: |
+          runs=3
+          [ "$EVENT" = workflow_dispatch ] && runs=$INPUT_RUNS
+          # Emit a JSON array so the matrix is arithmetic rather than a chain of
+          # fromJSON ternaries. `[1,2,...]` for the chosen N.
+          attempts=$(seq -s, 1 "$runs" | sed 's/^/[/;s/$/]/')
+          echo "attempts=$attempts" >> "$GITHUB_OUTPUT"
+
+  # N identical full-suite invocations. Each is --rerun-tasks so a test task is
+  # never served FROM-CACHED / UP-TO-DATE: a cached run would re-report the
+  # previous invocation's outcomes and the "rate" would collapse to a single
+  # sample dressed as N. Each run's JUnit XML is uploaded under a distinct name
+  # (per attempt) so the aggregate job can download all N without them
+  # overwriting each other.
+  run:
+    name: Run ${{ matrix.attempt }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: ${{ fromJSON(needs.plan.outputs.attempts) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # -Ptest.tags=fast,slow: the same selection ci.yml's nightly uses, so the
+      # rate describes the suite that actually gates release rather than a
+      # local-only default (which maps an absent -Ptest.tags to
+      # excludeTags("slow") and would silently drop the slow population).
+      #
+      # --no-parallel: org.gradle.parallel=true lets two test tasks fork JVMs
+      # concurrently, which is the collision behind #471's EOFException in the
+      # jvmTest executor. Determinism is worth the lost cross-project
+      # parallelism — and for a FLAKE measurement specifically, removing a known
+      # source of order-dependent failure is required, or the rate would measure
+      # the parallelism bug rather than the tests.
+      #
+      # --rerun-tasks: forces every test task to re-execute. Without it a
+      # second consecutive invocation would report UP-TO-DATE and the N runs
+      # would not be N runs — the single defect that would make this whole
+      # workflow measure nothing while looking like it measures everything.
+      #
+      # -Dretry.maxAttempts is deliberately ABSENT: retry.maxAttempts=1 (the
+      # default) means no in-test retry, so each attempt's <testcase> outcome is
+      # a single, honest pass/fail — no <flakyFailure> children. The FLAKE B
+      # signal (those children) is exactly what we want, and a test that fails
+      # one attempt and passes another is what we are counting. A retry would
+      # mask the very nondeterminism this job exists to measure.
+      - name: Gradle (full test suite, attempt ${{ matrix.attempt }})
+        run: >
+          ./gradlew --no-parallel --rerun-tasks
+          :shared:jvmTest :desktopApp:test
+          -Ptest.tags=fast,slow
+          2>&1 | tee attempt-${{ matrix.attempt }}.log
+
+      # Uploaded unconditionally and under a per-attempt name: a result set that
+      # exists solely when something broke cannot answer "which tests flaked on
+      # attempt 3".
+      - name: Upload JUnit results (attempt ${{ matrix.attempt }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: flake-junit-attempt-${{ matrix.attempt }}
+          path: |
+            shared/build/test-results/jvmTest/**/*.xml
+            desktopApp/build/test-results/test/**/*.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    name: Measure flake rate
+    needs: [plan, run]
+    # always() && !cancelled() is the canonical shape for "run even when a needed
+    # job failed". A bare !cancelled() would skip this job on a red night — at
+    # least one run attempt failed — which is exactly when the flake evidence
+    # must still be collected.
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Download every attempt's JUnit XML into attempt-<n>/, so the N directories
+      # are in execution order and consecutive-run flips (Flake A) are computed
+      # against the right predecessor.
+      - name: Download all attempt results
+        uses: actions/download-artifact@v7
+        with:
+          pattern: flake-junit-attempt-*
+          merge-multiple: false
+          path: attempts
+
+      # bash arrays, not unquoted word-splitting: attempt dir names carry no
+      # spaces today, but "$ATTEMPTS" as a single word would pass the whole
+      # newline-joined list as one argument the moment they did. mapfile keeps
+      # one dir per array element and stays correct under IFS surprises.
+      - name: Measure flake rate
+        run: |
+          mapfile -t ATTEMPTS < <(find attempts -mindepth 1 -maxdepth 1 -type d | sort)
+          COUNT=${#ATTEMPTS[@]}
+          echo "aggregating $COUNT attempt directories"
+          python3 scripts/measure-flake-rate.py \
+            --current "${ATTEMPTS[@]}" \
+            --runs "$COUNT" \
+            --baseline config/docs/flaky-baseline.txt \
+            --max-flaky-rate 0.0 \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # Nobody reads a red cron run. Open an issue instead, so a measured
+      # unacknowledged flake has somewhere to land other than a scrollback
+      # buffer (the same call e2e.yml's nightly-alert and ci.yml already make).
+      - name: Open issue on unacknowledged flake
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh issue create \
+            --title "Nightly flake-rate measurement found an unacknowledged flake ($(date -u +%F))" \
+            --body "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
