@@ -262,7 +262,7 @@ class PartFTest(unittest.TestCase):
     def test_a_fixture_gate_declares_whether_a_clean_run_is_possible(self):
         """The weaker control must be declared, never inferred.
 
-        Three fixture gates take a required argument, so no invocation of them
+        Four fixture gates take a required argument, so no invocation of them
         means "the clean repository". That is a real limitation and it is
         recorded per entry; a gate that quietly skipped the guard would be
         reporting a check that cannot run as one that passed.
@@ -273,6 +273,10 @@ class PartFTest(unittest.TestCase):
         self.assertIn('flaky-tests', names)
         self.assertFalse(
             next(g for g in gw.FIXTURE_GATES if g.name == 'flaky-tests').needs_clean_run
+        )
+        self.assertIn('measure-flake-rate', names)
+        self.assertFalse(
+            next(g for g in gw.FIXTURE_GATES if g.name == 'measure-flake-rate').needs_clean_run
         )
 
     def test_a_sabotage_that_cannot_apply_fails_loudly(self):

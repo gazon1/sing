@@ -46,7 +46,19 @@ a failure: the build result still comes from Gradle, this only annotates it.
 import argparse
 import pathlib
 import sys
-import xml.etree.ElementTree as ET
+
+# `scripts/src` on sys.path so `traceability.junit_xml` resolves. When loaded by a
+# test harness (importlib.util.spec_from_file_location), sys.path[0] is
+# `scripts/tests` and the sibling package is invisible; the real file's location is
+# authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+from traceability.junit_xml import parse_junit_file  # noqa: E402
+
+if _added:
+    sys.path.remove(_scripts_src)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "config" / "docs" / "flaky-baseline.txt"
@@ -55,29 +67,23 @@ PASSED, FAILED, SKIPPED = "passed", "failed", "skipped"
 
 
 def test_id(case) -> str:
-    return f"{case.get('classname', '?')}::{case.get('name', '?')}"
+    return f"{case.classname}::{case.name}"
 
 
 def read_report(detail_dir: pathlib.Path):
-    """test id -> status, or None when the directory has no JUnit XML."""
+    """test id -> status, or None when the directory has no JUnit XML.
+
+    Delegates to `traceability.junit_xml.parse_junit_file` — the shared reader.
+    A status is `failed` when the case failed *or* errored (an error is an
+    infrastructure problem, not a distinct bucket for this comparison).
+    """
     if not detail_dir.is_dir():
         return None
     results = {}
-    for xml in detail_dir.glob("**/*.xml"):
-        try:
-            root = ET.parse(xml).getroot()
-        except ET.ParseError:
-            continue
-        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
-        for suite in suites:
-            for case in suite.findall("testcase"):
-                if case.find("failure") is not None or case.find("error") is not None:
-                    status = FAILED
-                elif case.find("skipped") is not None:
-                    status = SKIPPED
-                else:
-                    status = PASSED
-                results[test_id(case)] = status
+    for xml in sorted(detail_dir.glob("**/*.xml")):
+        for case in parse_junit_file(xml):
+            status = "failed" if case.failed_like else case.status
+            results[test_id(case)] = status
     return results
 
 
