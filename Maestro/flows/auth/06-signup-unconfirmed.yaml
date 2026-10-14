@@ -36,8 +36,6 @@ tags:
   - auth
   - scenario:AUTH-SIGNUP-02
 ---
-# The emulator snapshot already has a session. Sign out first so we can
-# trigger the sign-up flow from the auth screen.
 - tapOn:
     id: nav_menu_button
 - waitForAnimationToEnd

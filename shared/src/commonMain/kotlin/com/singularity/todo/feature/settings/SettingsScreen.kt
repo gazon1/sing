@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,7 +129,7 @@ fun SettingsScreen(
 ) {
     val viewModel: SettingsViewModel = koinViewModel()
     val uiState by viewModel.stateFlow.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableStateOf(SettingsTab.Interface) }
+    var selectedTab by rememberSaveable { mutableStateOf(SettingsTab.Interface) }
     val snackbarHostState = remember { SnackbarHostState() }
     // Hoisted state for the tags undo-snackbar countdown bar.
     var tagsCountdownProgress by remember { mutableStateOf<Float?>(null) }
