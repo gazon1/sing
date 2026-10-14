@@ -3,11 +3,11 @@
 package com.singularity.todo.feature.notes
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onNodeWithTag
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
 import com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard
+import com.singularity.todo.test.helpers.assertTagExistsOnUnmergedTree
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -92,7 +92,7 @@ class NotesScreenTest {
             )
         }
 
-        onNodeWithTag(TestTags.noteItem("n1"), useUnmergedTree = true).assertExists()
+        assertTagExistsOnUnmergedTree(TestTags.noteItem("n1"))
     }
 
     @Test
@@ -112,7 +112,7 @@ class NotesScreenTest {
             )
         }
 
-        onNodeWithTag(TestTags.noteItem("n2"), useUnmergedTree = true).assertExists()
+        assertTagExistsOnUnmergedTree(TestTags.noteItem("n2"))
     }
 
     @Test
@@ -132,6 +132,6 @@ class NotesScreenTest {
             )
         }
 
-        onNodeWithTag(TestTags.noteItem("n3"), useUnmergedTree = true).assertExists()
+        assertTagExistsOnUnmergedTree(TestTags.noteItem("n3"))
     }
 }
