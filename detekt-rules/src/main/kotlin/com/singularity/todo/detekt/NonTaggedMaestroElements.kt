@@ -30,13 +30,15 @@ import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
  *    presence, but it is also the harder signal to get right — a private helper
  *    `RowSpacer` is not interactive and needs no tag, but a public `ConfirmButton`
  *    does. The rule therefore limits itself to composables that are **already
- *    tagged as Maestro-relevant** (their source file is in a feature/ directory that
- *    Maestro flows exercise) AND have at least one event-handler parameter
- *    (`onClick`, `onConfirm`, `onDismiss`, etc. — the same shape gate that
- *    `NoEmptyOnClickLambdaRule` uses) AND carry no testTag modifier anywhere in
- *    their body. The scoping predicates live in
- *    [NonTaggedMaestroElementsPolicy] (`isFeaturePackage`, plus the private-visibility
- *    check at the call site).
+ *    tagged as Maestro-relevant**: public, in a feature package, AND in a file
+ *    that already references `TestTags` somewhere (a file the tag system never
+ *    touches is unreachable for Maestro — flows address elements by tag, so an
+ *    untagged-only file is not yet in the automation surface) AND have at least
+ *    one event-handler parameter (`onClick`, `onConfirm`, `onDismiss`, etc. — the
+ *    same shape gate that `NoEmptyOnClickLambdaRule` uses) AND carry no testTag
+ *    modifier anywhere in their body. The scoping predicates live in
+ *    [NonTaggedMaestroElementsPolicy] (`isFeaturePackage`, `fileUsesTagSystem`,
+ *    plus the private-visibility check at the call site).
  *
  * ## When the rule fires
  *
@@ -154,7 +156,8 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
     private fun isPattern2Exempt(function: KtNamedFunction): Boolean {
         if (function.modifierList?.hasModifier(KtTokens.PRIVATE_KEYWORD) == true) return true
         val qualifiedName = function.containingKtFile.packageFqName.asString()
-        return !NonTaggedMaestroElementsPolicy.isFeaturePackage(qualifiedName)
+        if (!NonTaggedMaestroElementsPolicy.isFeaturePackage(qualifiedName)) return true
+        return !NonTaggedMaestroElementsPolicy.fileUsesTagSystem(function.containingKtFile.text)
     }
 
     private fun reportFinding(entity: Entity, message: String) {
@@ -204,6 +207,16 @@ internal object NonTaggedMaestroElementsPolicy {
         qualifiedName.split('.').let { parts ->
             parts.getOrNull(parts.indexOf("todo") + 1) == "feature"
         }
+
+    /**
+     * True when the file already participates in the tag system (references
+     * `TestTags` at least once). Maestro flows address elements by tag, so a
+     * file with no tag reference is unreachable for automation — flagging it
+     * would ask for tags nobody can act on yet. Once one composable in the file
+     * is tagged, the rest of its interactive surface is in scope.
+     */
+    fun fileUsesTagSystem(fileText: String): Boolean =
+        fileText.contains("TestTags.")
 
     fun isPreviewFunction(function: KtNamedFunction): Boolean =
         function.annotationEntries.any { it.shortName?.asString() == "Preview" } ||

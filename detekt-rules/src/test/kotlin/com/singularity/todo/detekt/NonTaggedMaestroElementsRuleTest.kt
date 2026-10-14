@@ -95,6 +95,41 @@ class NonTaggedMaestroElementsRuleTest {
 
     @Test
     fun `interactive composable without testTag is flagged`() {
+        // The fixture file references TestTags once (TaggedSibling) so the file is
+        // in the automation surface; the untagged ConfirmButton in it is then fair
+        // game — the file-level gate is tested separately below.
+        val code = """
+            package com.singularity.todo.feature.checklist
+
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.Modifier
+
+            @Composable
+            fun ConfirmButton(onConfirm: () -> Unit) {
+                androidx.compose.material3.Button(onClick = onConfirm) { }
+            }
+
+            @Composable
+            fun TaggedSibling(modifier: Modifier = Modifier, onDismiss: () -> Unit) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = modifier.testTag(TestTags.SHEET_CONFIRM),
+                ) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertTrue(
+            findings.any {
+                it.message.contains("onConfirm") && it.message.contains("no testTag")
+            },
+            "expected finding about missing testTag, got: $findings",
+        )
+        assertEquals(1, findings.size, "only ConfirmButton should be flagged, got: $findings")
+    }
+
+    @Test
+    fun `interactive composable in a file without TestTags usage is not flagged`() {
+        // A file the tag system never touches is unreachable for Maestro — flows
+        // address elements by tag. No tag in the file, no demand for one.
         val code = """
             package com.singularity.todo.feature.checklist
 
@@ -106,11 +141,10 @@ class NonTaggedMaestroElementsRuleTest {
             }
         """
         val findings = findingsIn(code)
-        assertTrue(
-            findings.any {
-                it.message.contains("onConfirm") && it.message.contains("no testTag")
-            },
-            "expected finding about missing testTag, got: $findings",
+        assertEquals(
+            0,
+            findings.size,
+            "files with no TestTags reference are out of the automation surface, got: $findings",
         )
     }
 
@@ -383,6 +417,25 @@ class NonTaggedMaestroElementsRuleTest {
         )
         assertTrue(
             !NonTaggedMaestroElementsPolicy.isFeaturePackage("com.singularity.todo"),
+        )
+    }
+
+    @Test
+    fun `fileUsesTagSystem detects any TestTags reference`() {
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.fileUsesTagSystem(
+                "modifier = modifier.testTag(TestTags.SHEET_CONFIRM)",
+            ),
+        )
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.fileUsesTagSystem(
+                "val tag = TestTags.taskItem(title)",
+            ),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.fileUsesTagSystem(
+                "modifier = modifier.testTag(\"literal\")",
+            ),
         )
     }
 }
