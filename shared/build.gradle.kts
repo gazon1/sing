@@ -419,6 +419,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // as of the background-handler migration — the `FileSystemContract` temp paths, which
     // rely on one class per process for their uniqueness.
     systemProperty("jvmTest.forkEvery", forkEvery.toString())
+
+    // mergeReruns=true: retry attempts (when -Dretry.maxAttempts > 1 is passed) merge
+    // into one <testcase> with a <flakyFailure> child, matching desktopApp. Without it
+    // a retried shared test produces two <testcase> elements, and check-test-runs.py
+    // counts both — the flake-rate aggregator reads the <flakyFailure> signal instead.
+    reports.junitXml.mergeReruns.set(true)
     // Forks in parallel, still one JVM per class. `forkEvery = 1` is what isolates
     // KoinPlatform state between classes; it costs a JVM start per class, and at
     // 190 classes that was 7m58s of which the tests themselves were a fraction.

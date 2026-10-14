@@ -614,15 +614,17 @@ SCRIPT_GATES = [
         sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
         # The old target here was a `single { get<SyncEngine>() }` binding that #512
         # removed as a duplicate, so the replacement matched nothing and the control
-        # proved only that a no-op can make a gate look tested. `SessionStore` is a
-        # real binding that consumers resolve.
+        # proved only that a no-op can make a gate look tested. `SessionStore` was a
+        # real binding that consumers resolve; #613 removed that interface, so the
+        # target moved to `DeviceIdProvider`, a real binding consumers resolve through
+        # the same bridge style.
         #
         # The assert matters as much as the replacement: a sabotage that quietly stops
         # matching is the exact failure this whole file exists to report, so it must
         # refuse to run rather than pass.
         sabotage=(
             "content = p.read_text()\n"
-            "_needle = '    single<SessionStore> { get<SecureSessionStore>() }'\n"
+            "_needle = '    single<DeviceIdProvider> { get<DataStoreSessionStore>() }'\n"
             "assert _needle in content, 'sabotage target no longer exists in CoreDiModule.kt'\n"
             "p.write_text(content.replace(_needle, '    // ' + _needle.strip()))"
         ),
@@ -776,6 +778,39 @@ FIXTURE_GATES = [
             "    (d / 'TEST-A.xml').write_text(S.format(n='one', f=1 if state == 'fail' else 0, b=body))\n"
         ),
         why="a test that passed yesterday and fails today must be reported until it is acknowledged",
+        needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="measure-flake-rate",
+        cmd=[
+            sys.executable,
+            "scripts/measure-flake-rate.py",
+            "--current", "{tmp}/run-01", "{tmp}/run-02",
+            "--runs", "2",
+            "--baseline", "{tmp}/empty-baseline.txt",
+            "--max-flaky-rate", "0.0",
+        ],
+        setup=(
+            "import pathlib\n"
+            "# Two runs: run-01 passes, run-02 fails — a status flip (Flake A).\n"
+            "# An empty baseline means the flip is unacknowledged, so the gate\n"
+            "# must report it and exit non-zero. A regression that swallows the\n"
+            "# flip would exit 0 and this probe would fail.\n"
+            "S = ('<testsuite name=\"{n}\" tests=\"1\">'\n"
+            "     '<testcase classname=\"A\" name=\"{n}\">{b}</testcase></testsuite>')\n"
+            "for sub, state in (('run-01', 'pass'), ('run-02', 'fail')):\n"
+            "    d = root / sub\n"
+            "    d.mkdir(parents=True, exist_ok=True)\n"
+            "    body = '<failure message=\"boom\"/>' if state == 'fail' else ''\n"
+            "    (d / 'TEST-A.xml').write_text(S.format(n='one', b=body))\n"
+            "(root / 'empty-baseline.txt').write_text('', encoding='utf-8')\n"
+        ),
+        why=(
+            "a status flip between two runs must be reported as an unacknowledged "
+            "flake until it is baselined — the same property check-flaky-tests.py "
+            "is probed for, but here it is the N-run aggregator's own gate logic "
+            "(rate ceiling + baseline acknowledgement) that must not be swallows"
+        ),
         needs_clean_run=False,
     ),
     FixtureGate(
@@ -1484,6 +1519,14 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "ci",
         "needs two runs of JUnit XML to compare; a single local run has no "
         "previous run to diff against, so it is not runnable locally at all",
+    ),
+    "scripts/measure-flake-rate.py": (
+        "ci",
+        "needs N runs of JUnit XML to measure a per-test pass rate; a single "
+        "local run has no repeated samples, so it is not runnable locally at all. "
+        "Its control is the FixtureGate 'measure-flake-rate' in Part B, which "
+        "synthesises a status flip between two runs and asserts the aggregator "
+        "reports it as an unacknowledged flake.",
     ),
     "scripts/check-openspec-stale.py": (
         "both",
