@@ -3,17 +3,12 @@ package com.singularity.todo.core.auth
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * A [SessionStore] that keeps tokens in the platform keychain instead of in
- * preferences.
+ * Session token storage in the platform keychain instead of in preferences.
  *
  * ## What was wrong before
  *
@@ -52,28 +47,10 @@ class SecureSessionStore(
      * only ever *removes* from it, and only after the value is safely stored.
      */
     private val legacy: DataStoreSessionStore,
-) : SessionStore {
+) {
 
     private val migration = Mutex()
     private var attempted = false
-
-    private val _accessToken = MutableStateFlow<String?>(null)
-    private val _refreshToken = MutableStateFlow<String?>(null)
-    private val _userEmail = MutableStateFlow<String?>(null)
-
-    override val accessToken: Flow<String?> = _accessToken.asStateFlow()
-    override val refreshToken: Flow<String?> = _refreshToken.asStateFlow()
-    override val userEmail: Flow<String?> = _userEmail.asStateFlow()
-
-    /**
-     * The device id is not a secret and does not belong in a keychain: it is an
-     * identifier the server uses to tell installs apart, it has no authority on
-     * its own, and putting it in hardware-backed storage would mean a factory
-     * reset of the keyring silently changes it. It stays in preferences.
-     */
-    override val deviceId: StateFlow<String> get() = legacy.deviceId
-
-    override suspend fun getOrInitDeviceId(): String = legacy.getOrInitDeviceId()
 
     /**
      * Writes the session, or nothing.
@@ -92,7 +69,7 @@ class SecureSessionStore(
      * written are the fresh ones and the plain-text copy is not involved, so a partial
      * set is the worst outcome available and there is nothing worth trading it for.
      */
-    override suspend fun save(session: Session.SignedIn) {
+    suspend fun save(session: Session.SignedIn) {
         // Suppress the migration for this write: the caller has just handed us a
         // current token, and moving a stale one first would overwrite it.
         attempted = true
@@ -125,7 +102,6 @@ class SecureSessionStore(
         // A previously migrated install may still have the old copies if an
         // earlier version wrote them after a sign-in. Removing is idempotent.
         legacy.forgetTokens()
-        publish()
     }
 
     private suspend fun deleteSession() {
@@ -135,12 +111,9 @@ class SecureSessionStore(
         secure.delete(KEY_USER_ID)
     }
 
-    override suspend fun saveDeviceId(id: String) = legacy.saveDeviceId(id)
-
-    override suspend fun clear() {
+    suspend fun clear() {
         deleteSession()
         legacy.forgetTokens()
-        publish()
     }
 
     private suspend fun migrateOnce() {
@@ -153,7 +126,6 @@ class SecureSessionStore(
             val legacyEmail = legacy.userEmail.first()
 
             if (legacyAccess == null && legacyRefresh == null && legacyEmail == null) {
-                publish()
                 return
             }
 
@@ -167,7 +139,6 @@ class SecureSessionStore(
             if (secure.read(KEY_ACCESS) != null) {
                 log.w { "Discarding a plain-text session the secure store has already superseded" }
                 legacy.forgetTokens()
-                publish()
                 return
             }
 
@@ -186,14 +157,7 @@ class SecureSessionStore(
                 .onFailure {
                     log.w(it) { "Could not move the session token into secure storage; the plain-text copy is kept" }
                 }
-            publish()
         }
-    }
-
-    private suspend fun publish() {
-        _accessToken.value = secure.read(KEY_ACCESS)
-        _refreshToken.value = secure.read(KEY_REFRESH)
-        _userEmail.value = secure.read(KEY_EMAIL)
     }
 
     /**

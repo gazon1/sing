@@ -122,6 +122,6 @@ class PlaintextTokenIsolationTest {
          * them and then erases it. Even here, the erase is the *second* of two
          * operations — see `SecureSessionStoreTest`.
          */
-        const val MIGRATION_OWNER = "auth/SessionStore.kt"
+        const val MIGRATION_OWNER = "auth/DataStoreSessionStore.kt"
     }
 }
