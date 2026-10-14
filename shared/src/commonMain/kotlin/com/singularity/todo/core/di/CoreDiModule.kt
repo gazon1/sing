@@ -160,12 +160,12 @@ fun coreModule(): org.koin.core.module.Module =
 
         // The plain-text store is kept only for the device id and for a token a
         // pre-upgrade build left behind, which SecureSessionStore moves into the
-        // keychain once and then erases. It is deliberately not bound as the
-        // SessionStore — PlaintextTokenIsolationTest fails if one ever is.
+        // keychain once and then erases. It has no token-writing API any more.
+        // PlaintextTokenIsolationTest fails if one ever reappears.
         single { DataStoreSessionStore(get(), get()) }
         // The sync seam binds to the DataStore-backed store on purpose: the device
         // id is not a secret and lives in plain DataStore by design, and HlcFactory
-        // must not depend on the token-bearing SessionStore interface at all
+        // must not depend on the token-bearing auth seam at all
         // (DeviceIdProvider is the whole contract it needs).
         single<DeviceIdProvider> { get<DataStoreSessionStore>() }
         single {
@@ -175,11 +175,6 @@ fun coreModule(): org.koin.core.module.Module =
                 legacy = get(),
             )
         }
-        // Binding to SecureSessionStore: SecureSessionStore writes tokens to the platform
-        // keychain (not DataStore<Preferences>), so PlaintextTokenIsolationTest's regex
-        // scan does NOT flag it — the regex looks for ACCESS_TOKEN/REFRESH_TOKEN writes
-        // to DataStore, and SecureSessionStore doesn't do that.
-        single<SessionStore> { get<SecureSessionStore>() }
 
         // Which Supabase project to talk to. The resolver owns the precedence rule
         // (a stored value beats a build-time one) and the provider owns the client,

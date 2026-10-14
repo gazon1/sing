@@ -379,6 +379,25 @@ fun DesktopComposeUiTest.assertTagNotEnabled(tag: String) {
 }
 
 /**
+ * Waits for a node with [text] and asserts it is enabled.
+ *
+ * Mirrors [assertTagEnabled] for controls that are addressed by their visible
+ * label rather than a testTag (dialog buttons such as "Save" / "Rename").
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertTextEnabled(text: String) {
+    awaitText(text).assertIsEnabled()
+}
+
+/**
+ * Waits for a node with [text] and asserts it is NOT enabled.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertTextNotEnabled(text: String) {
+    awaitText(text).assertIsNotEnabled()
+}
+
+/**
  * Waits for the node with [tag] and asserts its text equals [expected].
  */
 @OptIn(ExperimentalTestApi::class)
@@ -392,6 +411,20 @@ fun DesktopComposeUiTest.assertTagTextEquals(tag: String, expected: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.assertTagExists(tag: String) {
     onNodeWithTag(tag).assertExists()
+}
+
+/**
+ * One-shot assertion that a node with [tag] exists in the *unmerged* semantics
+ * tree.
+ *
+ * Needed when the tag lives on a child whose semantics are not merged up into
+ * an ancestor — the default merged-tree lookup would not find it. Used by the
+ * composable-level card tests that assert a card rendered without driving the
+ * whole app harness.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertTagExistsOnUnmergedTree(tag: String) {
+    onNodeWithTag(tag, useUnmergedTree = true).assertExists()
 }
 
 /**

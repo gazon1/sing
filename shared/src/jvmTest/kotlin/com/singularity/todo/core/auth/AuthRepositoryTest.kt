@@ -36,10 +36,11 @@ class AuthRepositoryTest {
     private val secure = MapSecureStorage()
     private val preferences = newPreferencesStore()
 
+    private val legacy = DataStoreSessionStore(preferences, FixedIdGenerator("dev"))
     private val store = SecureSessionStore(
         log = testLogger(),
         secure = secure,
-        legacy = DataStoreSessionStore(preferences, FixedIdGenerator("dev")),
+        legacy = legacy,
     )
 
     private fun TestScope.repository() = SupabaseAuthRepository(
@@ -207,11 +208,11 @@ class AuthRepositoryTest {
         // to the event log.
         val repository = repository()
         awaitState { repository.currentSession.value !is Session.Loading }
-        val deviceId = store.getOrInitDeviceId()
+        val deviceId = legacy.getOrInitDeviceId()
 
         repository.signOut()
 
-        assertEquals(deviceId, store.getOrInitDeviceId())
+        assertEquals(deviceId, legacy.getOrInitDeviceId())
     }
 
     @Test
