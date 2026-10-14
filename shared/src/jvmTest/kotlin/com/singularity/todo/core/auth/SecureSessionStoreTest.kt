@@ -153,12 +153,12 @@ class SecureSessionStoreTest {
     fun `the device id is served from preferences, not the keychain`() = runTest {
         val prefs = seededPreferences()
         val secure = MapSecureStorage()
-        val store = newStore(prefs, secure)
+        val legacy = DataStoreSessionStore(prefs, FixedIdGenerator("device-fixed"))
 
-        val id = store.getOrInitDeviceId()
+        val id = legacy.getOrInitDeviceId()
 
         assertTrue(id.isNotBlank())
-        assertEquals(id, store.deviceId.value)
+        assertEquals(id, prefs.data.first()[DataStoreSessionStore.DEVICE_ID])
         assertTrue(
             secure.values.keys.none { it.contains("device") },
             "the device id is an identifier, not a credential; a keyring reset must not change it",

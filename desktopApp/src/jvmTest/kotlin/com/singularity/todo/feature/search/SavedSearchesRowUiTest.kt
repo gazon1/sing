@@ -4,13 +4,12 @@ package com.singularity.todo.feature.search
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -99,7 +98,7 @@ class SavedSearchesRowUiTest {
                 )
             }
 
-            onNodeWithText("Save").performClick()
+            clickText("Save")
 
             assert(saveClicked) { "expected onSaveClick to be called" }
         }
@@ -120,7 +119,7 @@ class SavedSearchesRowUiTest {
                 )
             }
 
-            onNodeWithText("Home tasks").performClick()
+            clickText("Home tasks")
 
             assert(loadedId == searches[0].id) {
                 "expected ${searches[0].id}, got $loadedId"

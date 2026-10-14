@@ -19,9 +19,11 @@ import kotlin.test.fail
  * parameter of a lambda, which is invisible at runtime.
  *
  * Scan root is the whole `jvmTest` tree (minus `test/helpers`): the same rule
- * applies to `DesktopAppBootTest`, a harness test that is not a `*FlowTest.kt`.
- * Non-harness composable tests (e.g. `CelebrationTest`, which drives a single
- * composable through `runIsolatedComposeTest`) are exempt by name with a reason.
+ * applies to `DesktopAppBootTest`, a harness test that is not a `*FlowTest.kt`,
+ * and to non-harness composable tests (e.g. `CelebrationTest`, which drives a
+ * single composable through `runIsolatedComposeTest`) — those receive the same
+ * `DesktopComposeUiTest` receiver the harness flows do, so the shared helpers
+ * apply to them identically.
  */
 @Tag("fast")
 class HarnessConventionTest {
@@ -61,10 +63,16 @@ class HarnessConventionTest {
     fun `raw selectors are only in test helpers or explicitly exempted`() {
         val violations = testSources
             .mapNotNull { file ->
-                // Import lines are not call sites; matching them would flag a file
-                // for carrying an unused import rather than an actual raw selector.
-                val body = file.readLines().filterNot { it.trimStart().startsWith("import ") }
-                    .joinToString("\n")
+                // Import lines are not call sites; neither are comment and KDoc
+                // lines, which quote the selector names when documenting the
+                // rule. This mirrors the filter the display-assert scan below
+                // applies, so a KDoc mention of `onNodeWithText(...)` is not
+                // mistaken for a call.
+                val body = file.readLines().filterNot { line ->
+                    val t = line.trimStart()
+                    t.startsWith("import ") || t.startsWith("//") ||
+                        t.startsWith("*") || t.startsWith("/*")
+                }.joinToString("\n")
                 val calls = RAW_SELECTOR_PATTERN.findAll(body).toList()
                 if (calls.isEmpty()) null
                 else if (file.name !in EXEMPT_RAW_TAGS) {
@@ -85,8 +93,13 @@ class HarnessConventionTest {
         val stale = EXEMPT_RAW_TAGS.filter { (fileName, _) ->
             val file = testSources.find { it.name == fileName }
             if (file == null) return@filter false
-            val body = file.readLines().filterNot { it.trimStart().startsWith("import ") }
-                .joinToString("\n")
+            // Same filter as the violation scan, so the two agree on what counts
+            // as a raw call: imports and comment/KDoc quotes are not call sites.
+            val body = file.readLines().filterNot { line ->
+                val t = line.trimStart()
+                t.startsWith("import ") || t.startsWith("//") ||
+                    t.startsWith("*") || t.startsWith("/*")
+            }.joinToString("\n")
             RAW_SELECTOR_PATTERN.findAll(body).none()
         }
         if (stale.isEmpty()) return
@@ -169,16 +182,17 @@ class HarnessConventionTest {
          * Where possible, migrate the call to a helper and remove the exemption.
          * Two-way check: this map is validated against actual source in the
          * `exempted files actually contain raw selectors` test.
+         *
+         * Empty today, and meant to stay that way: the four composable-level
+         * (`runIsolatedComposeTest`) files that used to sit here were migrated to
+         * the shared helpers — `clickTag` / `clickText` for the interaction calls,
+         * `assertTagExistsOnUnmergedTree` for the card-render existence checks, and
+         * `assertTextEnabled` / `assertTextNotEnabled` for the dialog-button state
+         * checks. Those helpers are as applicable to a single-composable test as to
+         * a full app-harness flow — the isolation wrapper still hands the test a
+         * `DesktopComposeUiTest`, the same receiver the harness flows use.
          */
-        val EXEMPT_RAW_TAGS: Map<String, String> = mapOf(
-            // Composable-level tests (runIsolatedComposeTest with their own
-            // setContent), not runDesktopAppTest harness tests — the helpers-only
-            // convention targets app-level flows and does not apply here.
-            "NotesScreenTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
-            "TagsRenameUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
-            "SavedSearchesRowUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
-            "SearchPresentationUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
-        )
+        val EXEMPT_RAW_TAGS: Map<String, String> = emptyMap()
 
         /**
          * Files outside `test/helpers/` that contain a raw `.assertIsDisplayed()`

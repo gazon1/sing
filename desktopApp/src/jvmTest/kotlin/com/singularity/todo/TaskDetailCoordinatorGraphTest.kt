@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoord
 import com.singularity.todo.test.fakes.testTask
 import com.singularity.todo.test.helpers.testPlatformModule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.koin.core.Koin
@@ -83,7 +84,16 @@ class TaskDetailCoordinatorGraphTest {
     }
 
     private suspend fun seedTask(koin: Koin, id: String, title: String) {
-        val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
+        // Seed under the SAME identity the coordinator's observe() uses.
+        // `scopedUserId.value` is a cache seeded from `CurrentUser.userId`, which
+        // itself starts at `UserId.anonymous` and is corrected by a collector on
+        // Dispatchers.Default (real threads). Reading it before that collector
+        // lands seeds the task under `anonymous`, while observe() derives the owner
+        // from the session via `liveScopedUserId` (`TestUsers.DEFAULT`) — the two
+        // disagree, observe() finds no row, and the screen flashes
+        // Error("Not found"). Deriving from `liveScopedUserId` removes the
+        // dependence on real-thread scheduling.
+        val userId = koin.get<ProfileAwareCurrentUser>().liveScopedUserId.first()
         koin.get<TaskRepository>().upsert(
             testTask(
                 id = TaskId(id),

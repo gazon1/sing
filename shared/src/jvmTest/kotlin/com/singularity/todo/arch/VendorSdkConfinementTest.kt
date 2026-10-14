@@ -71,7 +71,7 @@ class VendorSdkConfinementTest {
             "these files import the Supabase SDK but are not a declared seam. The SDK " +
                 "carries a session, a connection pool and a serialiser, and each file that " +
                 "reaches for one is a step toward having its types in the domain model. " +
-                "Go through SyncRpc, SyncApiClient, AuthRepository or SessionStore instead — " +
+                "Go through SyncRpc, SyncApiClient or AuthRepository instead — " +
                 offenders.joinToString(),
         )
     }

@@ -29,7 +29,7 @@ import kotlin.test.fail
  * else. Five references in `commonMain` were consequently invisible to it, all written
  * in the same week the gate landed:
  *
- * - `core/auth/SessionStore.kt` — `catch { e -> if (e is java.io.IOException) … }`
+ * - `core/auth/DataStoreSessionStore.kt` — `catch { e -> if (e is java.io.IOException) … }`
  * - `feature/ai/tools/AdrTools.kt` — `val date = java.time.LocalDate.now().toString()`
  * - `test/fakes/FakeAppDatabase.kt` — `java.time.Instant.ofEpochMilli(…)`
  * - `core/observability/RoomUsageRecorder.kt` — `…_${java.util.UUID.randomUUID()}` inside

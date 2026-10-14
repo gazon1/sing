@@ -7,9 +7,6 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.singularity.todo.core.ids.UserId
@@ -21,6 +18,8 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
+import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag as JunitTag
 import kotlin.test.Test
@@ -82,7 +81,7 @@ class TagsRenameUiTest {
                 TagsScreen(viewModel = vm)
             }
 
-            onNodeWithTag(TestTags.tagRename("work")).performClick()
+            clickTag(TestTags.tagRename("work"))
 
             assertTextDisplayed("Rename Tag")
             assertTextDisplayed("Save")
@@ -97,11 +96,11 @@ class TagsRenameUiTest {
             TagsScreen(viewModel = vm)
         }
 
-        onNodeWithTag(TestTags.tagRename("work")).performClick()
+        clickTag(TestTags.tagRename("work"))
         assertTextDisplayed("Rename Tag")
         onNode(hasSetTextAction()).performTextClearance()
         onNode(hasSetTextAction()).performTextInput("office")
-        onNodeWithText("Save").performClick()
+        clickText("Save")
 
         // Verify rename was applied: dialog is gone and the new name is on the card.
         onAllNodesWithText("Rename Tag").assertCountEquals(0)
@@ -115,11 +114,11 @@ class TagsRenameUiTest {
             TagsScreen(viewModel = vm)
         }
 
-        onNodeWithTag(TestTags.tagRename("work")).performClick()
+        clickTag(TestTags.tagRename("work"))
         assertTextDisplayed("Rename Tag")
         onNode(hasSetTextAction()).performTextClearance()
         // "Save" is disabled while the field is empty, so the click is a no-op.
-        onNodeWithText("Save").performClick()
+        clickText("Save")
 
         // The dialog should still be open because save was disabled.
         assertTextDisplayed("Rename Tag")
@@ -134,7 +133,7 @@ class TagsRenameUiTest {
             TagsScreen(viewModel = vm)
         }
 
-        onNodeWithTag(TestTags.TAGS_FAB).performClick()
+        clickTag(TestTags.TAGS_FAB)
 
         assertTextDisplayed("New Tag")
         assertTextDisplayed("Create")

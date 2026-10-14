@@ -4,14 +4,14 @@ package com.singularity.todo.feature.search
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
+import com.singularity.todo.test.helpers.assertTextEnabled
+import com.singularity.todo.test.helpers.assertTextNotEnabled
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -39,7 +39,7 @@ class SearchPresentationUiTest {
             }
 
             onNode(hasSetTextAction()).assertIsEnabled()
-            onNodeWithText("my saved query").assertIsEnabled()
+            assertTextEnabled("my saved query")
         }
 
     @Test
@@ -57,7 +57,7 @@ class SearchPresentationUiTest {
             onNode(hasSetTextAction()).performTextClearance()
 
             // Save button must be disabled for blank input
-            onNodeWithText("Save").assertIsNotEnabled()
+            assertTextNotEnabled("Save")
         }
 
     @Test
@@ -72,7 +72,7 @@ class SearchPresentationUiTest {
                 )
             }
 
-            onNodeWithText("Save").performClick()
+            clickText("Save")
 
             // onSave receives the trimmed value, not the original
             assert(capturedName == "my query") { "expected trimmed 'my query', got '$capturedName'" }
@@ -90,7 +90,7 @@ class SearchPresentationUiTest {
                 )
             }
 
-            onNodeWithText("Cancel").performClick()
+            clickText("Cancel")
 
             assert(dismissed) { "expected onDismiss to be called" }
         }
@@ -108,7 +108,7 @@ class SearchPresentationUiTest {
                 )
             }
 
-            onNodeWithText("existing name").assertIsEnabled()
+            assertTextEnabled("existing name")
         }
 
     @Test
@@ -124,7 +124,7 @@ class SearchPresentationUiTest {
 
             onNode(hasSetTextAction()).performTextClearance()
 
-            onNodeWithText("Rename").assertIsNotEnabled()
+            assertTextNotEnabled("Rename")
         }
 
     @Test
@@ -141,7 +141,7 @@ class SearchPresentationUiTest {
 
             onNode(hasSetTextAction()).performTextClearance()
             onNode(hasSetTextAction()).performTextInput("  new name  ")
-            onNodeWithText("Rename").performClick()
+            clickText("Rename")
 
             assert(capturedName == "new name") { "expected trimmed 'new name', got '$capturedName'" }
         }
@@ -158,7 +158,7 @@ class SearchPresentationUiTest {
                 )
             }
 
-            onNodeWithText("Cancel").performClick()
+            clickText("Cancel")
 
             assert(dismissed) { "expected onDismiss to be called" }
         }
@@ -178,7 +178,7 @@ class SearchPresentationUiTest {
             // User edits the pre-filled value
             onNode(hasSetTextAction()).performTextClearance()
             onNode(hasSetTextAction()).performTextInput("  another query  ")
-            onNodeWithText("Save").performClick()
+            clickText("Save")
 
             assert(capturedName == "another query") {
                 "expected 'another query', got '$capturedName'"
