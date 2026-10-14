@@ -3,7 +3,6 @@ package com.singularity.todo.feature.flows.desktop
 import kotlinx.datetime.LocalDate
 import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -91,12 +90,12 @@ class NavigationFlowTest {
 
         tapTab("Plans")
         awaitTag(TestTags.projectCard("Roadmap")).performClick()
-        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
         tapTab("Today")
         tapTab("Plans")
 
-        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
     }
 
     /**
@@ -129,16 +128,16 @@ class NavigationFlowTest {
 
         tapTab("Plans")
         awaitTag(TestTags.projectCard("Roadmap")).performClick()
-        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
         // The open that used to be swallowed → task detail must appear.
         awaitTag(TestTags.taskItem("Ship the policy")).performClick()
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT).assertIsDisplayed()
+        assertTagDisplayed(TestTags.TASK_EDITOR_TITLE_INPUT)
         assertTextDisplayed("Ship the policy")
 
         // Back returns to the project — the origin stayed underneath (REQ-NAV-001).
         clickContentDescription("Back")
-        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
     }
 
     private companion object {

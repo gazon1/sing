@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.flows.projects
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
@@ -49,7 +49,7 @@ class ProjectsFlowTest {
 
         // The card is tagged by slug, so this also proves the name round-tripped
         // through save and into the list.
-        awaitTag(TestTags.projectCard("Project Alpha")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.projectCard("Project Alpha"))
     }
 
     @Test
@@ -65,7 +65,7 @@ class ProjectsFlowTest {
         // while the detail VM is Loading, the screen renders a LoadingIndicator
         // instead. Waiting for the tag is therefore waiting for the data, which
         // is what this assertion is actually about.
-        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD).assertIsDisplayed()
+        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
         // The project *name* is deliberately not asserted: it matches both the
         // detail screen's top-bar title and the still-populated name field.

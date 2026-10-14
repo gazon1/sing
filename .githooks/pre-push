@@ -67,13 +67,25 @@ echo "=== Pre-push [$BRANCH] — full test suite ==="
 # :desktopApp:detekt belongs here, not just in check.sh: a NoDirectClockSystem
 # violation in TasksRobot reached main precisely because this hook only ran the
 # shared module's detekt, and check.sh is not something every push goes through.
+#
+# --no-parallel, not the gradle.properties default (org.gradle.parallel=true).
+# Parallel project execution runs :shared:jvmTest, :desktopApp:test and
+# :mcp-server:test as concurrent builds against one checkout, and their forked
+# test executors were observed dying mid-suite with EOFException — the client
+# loses the stream to a "Gradle Test Executor" while another test task is
+# compiling/replacing classes in the same build directory. Tests pass in
+# isolation; only the parallel batch hits it (#471,
+# docs/decisions/archive/2026-09-30-post-mr-2-findings.md). Serialising the
+# three test tasks costs minutes on a push and buys a verdict that is about
+# this code. The CLI flag is what makes it stick: --parallel is the default
+# here, so omitting a flag is not the same as disabling it.
 ./gradlew :shared:detekt \
     :desktopApp:detekt \
     :shared:jvmTest \
     :desktopApp:test \
     :mcp-server:test \
     --no-daemon \
-    --parallel || {
+    --no-parallel || {
     echo ""
     echo "pre-push FAILED — push rejected. Fix failures or run with --no-verify"
     exit 1

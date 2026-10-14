@@ -38,6 +38,33 @@ import kotlin.test.assertTrue
  * for real I/O — Room/SQLite, the filesystem, zip/backup codecs, Compose UI (including
  * desktop's `runDesktopAppTest`, which mounts the whole `App()`), Robolectric, or real
  * `delay`. The convention is ADR `2026-09-25-test-suite-tag-defaults`.
+ *
+ * ## Annotation is not execution — the three questions, and who answers each
+ *
+ * A `@Tag` only means the class is *selectable*; three separate defects can
+ * still keep it from running, and this class plus the run gates answer them in
+ * order:
+ *
+ * 1. **Is the class tagged, with a value CI selects, on an engine that reads
+ *    tags?** — this class. Presence alone was not enough twice over: a value
+ *    outside CI's `-Ptest.tags=fast,slow` list is as invisible as no tag at
+ *    all, and a JUnit 4 class runs on the Vintage engine, where Jupiter's
+ *    `@Tag` does not exist as a filter (`shared/build.gradle.kts` documents
+ *    the `testAndroidHostTest` exemption those two checks protect).
+ * 2. **Did the run discover anything?** — `failOnNoDiscoveredTests` in each
+ *    module's build file. Catches a filter that selects zero classes, not one
+ *    class dropped from a green batch.
+ * 3. **Did each declared `fast` class produce a JUnit suite?** —
+ *    `scripts/check-test-runs.py`, after the run, against the XML. This is the
+ *    execution cross-reference: it fails when a source-declared `@Tag("fast")`
+ *    class has no `TEST-*.xml`, whatever the reason (wrong engine, wrong value,
+ *    a condition that excluded it).
+ *
+ * Source-level checks answer in seconds on a local run and name the file;
+ * the execution check answers for the run that actually happened. Neither
+ * replaces the other: check-test-runs only sees `fast` classes (checking
+ * `slow` would fail every default local run, which excludes it by design), so
+ * the value check here is what holds the `slow` half.
  */
 @Tag("fast")
 class TestTagCoverageTest {
@@ -93,6 +120,50 @@ class TestTagCoverageTest {
         )
     }
 
+    @Test
+    fun every_tag_value_is_selected_by_ci() {
+        val offenders = mutableListOf<String>()
+
+        testSourceDirs.forEach { dir ->
+            File(repoRoot, dir).walkTopDown()
+                .filter { it.isFile && it.name.endsWith("Test.kt") }
+                .forEach { file -> offenders += unselectableTagValuesIn(file) }
+        }
+
+        assertTrue(
+            offenders.isEmpty(),
+            "test classes whose @Tag value CI's -Ptest.tags=fast,slow never selects — " +
+                "the annotation exists, so every source-level check passes, and the class " +
+                "still does not run once in CI. fast and slow are the whole vocabulary; " +
+                "a typo ('fasst') or a third value ('medium') is indistinguishable from " +
+                "no tag at all:\n" +
+                offenders.joinToString("\n") { "  $it" },
+        )
+    }
+
+    @Test
+    fun tag_filtered_source_sets_run_on_an_engine_that_honours_tags() {
+        val offenders = mutableListOf<String>()
+
+        testSourceDirs.forEach { dir ->
+            File(repoRoot, dir).walkTopDown()
+                .filter { it.isFile && it.name.endsWith("Test.kt") }
+                .forEach { file -> offenders += junit4OffendersIn(file) }
+        }
+
+        assertTrue(
+            offenders.isEmpty(),
+            "files in a tag-filtered source set that use the JUnit 4 API — those classes " +
+                "run on the Vintage engine, and Vintage does not map Jupiter's @Tag onto " +
+                "platform tags, so includeTags excludes them exactly like an untagged " +
+                "class. This is the defect the testAndroidHostTest exemption documents: " +
+                "the only JUnit 4 source set allowed is the one exempted from the filter. " +
+                "Port the class to Jupiter (kotlin.test/@Tag work as-is) or move it to " +
+                "androidHostTest with its own floor:\n" +
+                offenders.joinToString("\n") { "  $it" },
+        )
+    }
+
     /**
      * Class declarations in [file] that declare test members but carry no `@Tag`.
      *
@@ -108,17 +179,8 @@ class TestTagCoverageTest {
     private fun untaggedClassesIn(file: File): List<String> {
         val lines = file.readText().split("\n")
         val relative = file.relativeTo(repoRoot).path
+        val tagAnnotation = tagAnnotationRegex(lines)
         val offenders = mutableListOf<String>()
-
-        // An aliased `import … Tag as X` means this file writes its tags as `@X(`.
-        // Line by line, not over a joined string: the pattern is anchored at both ends
-        // on purpose (so `@Tag` inside prose is not mistaken for an import), and a
-        // joined string has one start and one end, not one per line.
-        val tagAnnotation = lines.asSequence()
-            .mapNotNull { TAG_ALIAS_IMPORT.find(it) }
-            .firstOrNull()
-            ?.let { Regex("""@${it.groupValues[1]}\(""") }
-            ?: TAG_ANNOTATION
 
         lines.forEachIndexed { index, line ->
             val name = RunnableTestMember.classHeaderAt(lines, index) ?: return@forEachIndexed
@@ -131,6 +193,92 @@ class TestTagCoverageTest {
         }
         return offenders
     }
+
+    /**
+     * Tagged classes in [file] whose tag value is outside [CI_SELECTABLE_TAGS].
+     *
+     * The hole this closes: `every_test_class_declares_a_tag` matches the annotation,
+     * not its argument, and JUnit's `includeTags("fast","slow")` matches the argument.
+     * `@Tag("fasst")` satisfies the first and the second never selects — the class is
+     * absent from every CI run while the gate that exists to prevent exactly that
+     * stays green. A non-literal argument (`@Tag(FAST)`) is reported too: the value
+     * cannot be verified statically, and every tag in this repo is a literal.
+     */
+    private fun unselectableTagValuesIn(file: File): List<String> {
+        val lines = file.readText().split("\n")
+        val relative = file.relativeTo(repoRoot).path
+        val tagAnnotation = tagAnnotationRegex(lines)
+        val tagValue = tagValueRegex(lines)
+        val offenders = mutableListOf<String>()
+
+        lines.forEachIndexed { index, line ->
+            val name = RunnableTestMember.classHeaderAt(lines, index) ?: return@forEachIndexed
+            val annotationBlock = annotationBlockAbove(lines, index)
+            val tagLines = annotationBlock.filter { tagAnnotation.containsMatchIn(it) }
+            if (tagLines.isEmpty()) return@forEachIndexed
+
+            val value = tagLines.firstNotNullOfOrNull { tagValue.find(it)?.groupValues?.get(1) }
+            when {
+                value == null ->
+                    offenders += "$relative:${index + 1} $name — @Tag argument is not a string literal"
+
+                value !in CI_SELECTABLE_TAGS ->
+                    offenders += "$relative:${index + 1} $name — @Tag(\"$value\")"
+            }
+        }
+        return offenders
+    }
+
+    /**
+     * True when [file] uses the JUnit 4 API while living in a tag-filtered source set.
+     *
+     * Reported at file granularity on purpose: the engine is chosen per source set and
+     * per file's imports, not per class, and a file that mixes JUnit 4 imports with a
+     * Jupiter class is already broken in a way this message should surface. The
+     * `hasRunnableTest` gate keeps support files (assertion helpers that import
+     * `org.junit.Assert`) out of the finding — only a file that declares a runnable
+     * test is claiming an engine.
+     */
+    private fun junit4OffendersIn(file: File): List<String> {
+        val text = file.readText()
+        if (!RunnableTestMember.hasRunnableTest(text)) return emptyList()
+        val lines = text.split("\n")
+        val relative = file.relativeTo(repoRoot).path
+        val markers = lines.filter {
+            JUNIT4_IMPORT.containsMatchIn(it) || JUNIT4_RUN_WITH.containsMatchIn(it)
+        }
+        if (markers.isEmpty()) return emptyList()
+        return listOf("$relative — ${markers.joinToString("; ") { it.trim() }}")
+    }
+
+    /**
+     * The `@Tag(`-shaped regex this file's tests should match with: aliased when the
+     * file imports the annotation under a name (`import … Tag as JUnitTag`), the
+     * plain or fully-qualified spelling otherwise.
+     */
+    private fun tagAnnotationRegex(lines: List<String>): Regex =
+        aliasTagName(lines)?.let { Regex("""@${Regex.escape(it)}\(""") } ?: TAG_ANNOTATION
+
+    /**
+     * Same resolution as [tagAnnotationRegex], with a capture group for the value.
+     * Kept as a second regex rather than one parameterised capture: the detection
+     * sites want "is a tag here", not "what is its value", and a capture group they
+     * ignore is a standing invitation to parse with the wrong one.
+     */
+    private fun tagValueRegex(lines: List<String>): Regex =
+        aliasTagName(lines)?.let { Regex("""@${Regex.escape(it)}\("([^"]*)"\)""") }
+            ?: TAG_VALUE_ANNOTATION
+
+    /**
+     * An aliased `import … Tag as X` means this file writes its tags as `@X(`.
+     * Line by line, not over a joined string: the pattern is anchored at both ends
+     * on purpose (so `@Tag` inside prose is not mistaken for an import), and a
+     * joined string has one start and one end, not one per line.
+     */
+    private fun aliasTagName(lines: List<String>): String? = lines.asSequence()
+        .mapNotNull { TAG_ALIAS_IMPORT.find(it) }
+        .firstOrNull()
+        ?.groupValues?.get(1)
 
     /** The contiguous `@…` lines immediately above [classLineIndex]. */
     private fun annotationBlockAbove(lines: List<String>, classLineIndex: Int): List<String> {
@@ -147,12 +295,34 @@ class TestTagCoverageTest {
         private val ANNOTATION = Regex("@\\w+.*")
 
         /**
+         * The only two class-level tag values CI's `-Ptest.tags=fast,slow` selects.
+         * `all` is a selection sentinel (`-Ptest.tags=all` disables filtering), not a
+         * class tag; adding a third value is a change to ci.yml first and here second.
+         */
+        private val CI_SELECTABLE_TAGS = setOf("fast", "slow")
+
+        /**
          * Both the imported `@Tag("…")` and the fully-qualified
          * `@org.junit.jupiter.api.Tag("…")` form. Three test files already import the
          * domain entity `com.singularity.todo.feature.tags.Tag`, so the JUnit annotation
          * has to be written out in full there.
          */
         private val TAG_ANNOTATION = Regex("""@(?:org\.junit\.jupiter\.api\.)?Tag\(""")
+
+        /** [TAG_ANNOTATION] with a capture group around the string-literal value. */
+        private val TAG_VALUE_ANNOTATION =
+            Regex("""@(?:org\.junit\.jupiter\.api\.)?Tag\("([^"]*)"\)""")
+
+        /**
+         * JUnit 4 API usage: any `org.junit.*` import that is not Jupiter or the
+         * Platform. Vintage — the engine that runs these — has no tag support, so a
+         * `@Tag` on such a class is decoration: `includeTags` never selects it.
+         */
+        private val JUNIT4_IMPORT =
+            Regex("""^\s*import\s+org\.junit\.(?!jupiter\.|platform\.)\S+""")
+
+        /** `@RunWith(...)` — the class is explicitly placed on a JUnit 4 runner. */
+        private val JUNIT4_RUN_WITH = Regex("""^\s*@(?:org\.junit\.runner\.)?RunWith\(""")
 
         /**
          * `import org.junit.jupiter.api.Tag as JUnitTag` — the JUnit 5 migration on

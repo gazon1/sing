@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -10,6 +9,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -62,16 +62,16 @@ class OpenSavedViewShowsMatchingTasksFlowTest {
 
         // ── 3. Open Saved Views list ─────────────────────────────────────────
         tapTab("Inbox")
-        awaitTag(TestTags.taskItem("Buy milk")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Buy milk"))
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
         // The list screen renders the seeded card — that is the on-screen proof
         // ("Saved Views" is the title text, not a testTag, so it is not awaited).
-        awaitTag(TestTags.savedAgendaCard("My Active Tasks")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("My Active Tasks"))
 
         // ── 4. Tap the card → SavedAgendaResults screen (MR-11 new behaviour) ──
         // Inbox's "No Date" section matches the seeded "Buy milk" task.
         awaitTag(TestTags.savedAgendaCard("My Active Tasks")).performClick()
-        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
-        awaitTag(TestTags.taskItem("Buy milk")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("No Date"))
+        assertTagDisplayed(TestTags.taskItem("Buy milk"))
     }
 }

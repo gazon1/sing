@@ -93,9 +93,9 @@ class SavedViewsFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("alpha_view")).assertIsDisplayed()
-        awaitTag(TestTags.savedAgendaCard("beta_view")).assertIsDisplayed()
-        awaitTag(TestTags.savedAgendaCard("gamma_view")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("alpha_view"))
+        assertTagDisplayed(TestTags.savedAgendaCard("beta_view"))
+        assertTagDisplayed(TestTags.savedAgendaCard("gamma_view"))
     }
 
     // ─── Alphabetical sort ───────────────────────────────────────────
@@ -108,9 +108,9 @@ class SavedViewsFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("alpha")).assertIsDisplayed()
-        awaitTag(TestTags.savedAgendaCard("middle")).assertIsDisplayed()
-        awaitTag(TestTags.savedAgendaCard("zebra")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("alpha"))
+        assertTagDisplayed(TestTags.savedAgendaCard("middle"))
+        assertTagDisplayed(TestTags.savedAgendaCard("zebra"))
     }
 
     // ─── Duplicate names ─────────────────────────────────────────────
@@ -144,16 +144,16 @@ class SavedViewsFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("navigation_test")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("navigation_test"))
 
         // Tap card → Results ("No Date" section holds the undated task)
         awaitTag(TestTags.savedAgendaCard("navigation_test")).performClick()
-        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
-        awaitTag(TestTags.taskItem("Navigation task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("No Date"))
+        assertTagDisplayed(TestTags.taskItem("Navigation task"))
 
         // Back → list with card
         awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("navigation_test")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("navigation_test"))
     }
 
     // ─── Overflow menu ────────────────────────────────────────────────
@@ -165,7 +165,7 @@ class SavedViewsFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("menu_view")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("menu_view"))
 
         // Open the card's overflow menu (⋮ is text-only — no tag, no contentDescription)
         clickText("⋮")
@@ -185,7 +185,7 @@ class SavedViewsFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("to_delete")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("to_delete"))
 
         // Open menu → Delete → confirm. Confirmation is required for hard-delete
         // (SavedAgendaView has no soft-delete/restore), per delete-affordances spec.

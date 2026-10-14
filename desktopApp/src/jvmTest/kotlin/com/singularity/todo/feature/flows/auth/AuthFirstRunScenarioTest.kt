@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.flows.auth
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
-import com.singularity.todo.test.helpers.awaitTag
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -69,6 +68,6 @@ class AuthFirstRunScenarioTest {
         // `userId=test-user` — so asserting on Today would test the agenda's
         // filtering rule rather than this scenario.
         tapTab("Inbox")
-        awaitTag(TestTags.taskItem(title)).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem(title))
     }
 }

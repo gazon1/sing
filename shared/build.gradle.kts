@@ -315,6 +315,12 @@ tasks.withType<Test>().configureEach {
             // The default branch still excludes `slow`, so a plain `./gradlew
             // :shared:testAndroidHostTest` skips it; only an explicit tag list loses the
             // filter, which is the case CI uses.
+            //
+            // The hole itself is now checked, not just documented:
+            // TestTagCoverageTest.tag_filtered_source_sets_run_on_an_engine_that_honours_tags
+            // fails any *filtered* source set that declares a JUnit4 test, so this
+            // exemption can no longer quietly spread to a source set the filter applies
+            // to (#362).
             name == "testAndroidHostTest" && tags.isNotEmpty() && tags != listOf("all") -> {
                 // Intentionally no filter — see above.
             }
