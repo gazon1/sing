@@ -3,7 +3,6 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.AgendaSeed
@@ -51,9 +50,9 @@ class AgendaRobot(
         contains: List<String> = emptyList(),
     ): AgendaRobot = apply {
         val sectionTag = TestTags.agendaSection(sectionName)
-        test.awaitTag(sectionTag).assertIsDisplayed()
+        test.assertTagDisplayed(sectionTag)
         contains.forEach { title ->
-            test.awaitTag(TestTags.taskItem(title)).assertIsDisplayed()
+            test.assertTagDisplayed(TestTags.taskItem(title))
         }
     }
 
@@ -70,7 +69,7 @@ class AgendaRobot(
      * Does NOT assert which section — use [assertSection] for bucketing checks.
      */
     fun assertTaskVisible(title: String): AgendaRobot = apply {
-        test.awaitTag(TestTags.taskItem(title)).assertIsDisplayed()
+        test.assertTagDisplayed(TestTags.taskItem(title))
     }
 
     /**

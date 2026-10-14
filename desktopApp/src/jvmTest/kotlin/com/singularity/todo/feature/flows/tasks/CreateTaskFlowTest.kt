@@ -119,8 +119,8 @@ class CreateTaskFlowTest {
         clickTag(TestTags.TASK_EDITOR_SAVE)
 
         // Saving pops the editor back to the Inbox agenda it was opened from.
-        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
-        awaitTag(TestTags.taskItem("Call the dentist")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("No Date"))
+        assertTagDisplayed(TestTags.taskItem("Call the dentist"))
     }
 
     /**

@@ -16,7 +16,6 @@ import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.DevAuthRepository
 import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SecureStorage
-import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthGateway
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
@@ -47,6 +46,7 @@ import com.singularity.todo.core.settings.SettingsExporter
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
+import com.singularity.todo.core.sync.DeviceIdProvider
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.PatchRetryPolicy
 import com.singularity.todo.core.sync.PostgrestSyncRpc
@@ -156,6 +156,11 @@ fun coreModule(): org.koin.core.module.Module =
         // keychain once and then erases. It is deliberately not bound as the
         // SessionStore — PlaintextTokenIsolationTest fails if one ever is.
         single { DataStoreSessionStore(get(), get()) }
+        // The sync seam binds to the DataStore-backed store on purpose: the device
+        // id is not a secret and lives in plain DataStore by design, and HlcFactory
+        // must not depend on the token-bearing SessionStore interface at all
+        // (DeviceIdProvider is the whole contract it needs).
+        single<DeviceIdProvider> { get<DataStoreSessionStore>() }
         single {
             SecureSessionStore(
                 log = Logger.withTag("SecureSessionStore"),
@@ -163,7 +168,6 @@ fun coreModule(): org.koin.core.module.Module =
                 legacy = get(),
             )
         }
-        // single<SessionStore> { get<SecureSessionStore>() }
 
         // Which Supabase project to talk to. The resolver owns the precedence rule
         // (a stored value beats a build-time one) and the provider owns the client,
@@ -261,9 +265,9 @@ fun coreModule(): org.koin.core.module.Module =
         // HlcFactory is internal; SyncEngine depends on it.
         single {
             HlcFactory(
-                get(),
-                get(),
-                get(),
+                deviceIdProvider = get(),
+                clock = get(),
+                scope = get(),
             )
         }
 

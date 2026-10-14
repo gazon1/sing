@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -80,7 +80,7 @@ class TaskDetailTimeTrackingSectionTest {
         awaitTag(TestTags.taskItem("Track me")).performClick()
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-        awaitTag(TestTags.TimeTracking.START).assertIsDisplayed()
+        assertTagDisplayed(TestTags.TimeTracking.START)
 
         // The click that used to live here has moved to `TaskTimeCarrierTest`, and
         // its removal is the point.

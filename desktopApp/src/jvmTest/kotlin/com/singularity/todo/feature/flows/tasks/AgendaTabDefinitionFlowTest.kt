@@ -1,12 +1,11 @@
 package com.singularity.todo.feature.flows.tasks
 
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import kotlinx.datetime.LocalDate
 import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
-import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -57,8 +56,8 @@ class AgendaTabDefinitionFlowTest {
         tapTab("Inbox")
         assertCurrentTab("Inbox")
 
-        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
-        awaitTag(TestTags.taskItem("Call the dentist")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("No Date"))
+        assertTagDisplayed(TestTags.taskItem("Call the dentist"))
     }
 
     @Test
@@ -71,8 +70,8 @@ class AgendaTabDefinitionFlowTest {
 
         tapTab("Inbox")
 
-        awaitTag(TestTags.agendaSection("Tomorrow")).assertIsDisplayed()
-        awaitTag(TestTags.taskItem("Send the invoice")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
+        assertTagDisplayed(TestTags.taskItem("Send the invoice"))
     }
 
     /**
@@ -93,7 +92,7 @@ class AgendaTabDefinitionFlowTest {
         tapTab("Upcoming")
         assertCurrentTab("Upcoming")
 
-        awaitTag(TestTags.agendaSection("Tomorrow")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("Tomorrow"))
 
         // The undated task is simply not part of this agenda — it must be absent,
         // not relocated under a section name borrowed from the Inbox preset.

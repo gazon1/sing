@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.flows.agenda
 
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import kotlinx.datetime.LocalDate
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -53,7 +53,7 @@ class AgendaBadgePolicyFlowTest {
         tasks(koin).given(due = today, title = "Pinned task", isPinned = true)
 
         tapTab("Today")
-        awaitTag(TestTags.taskItem("Pinned task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Pinned task"))
     }
 
     // NOTE: RecurrenceSpec serialization is covered by jvmTest (RecurrenceParserTest).
@@ -66,7 +66,7 @@ class AgendaBadgePolicyFlowTest {
         tasks(koin).given(due = today, title = "Done task", completed = true)
 
         tapTab("Today")
-        awaitTag(TestTags.taskItem("Done task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Done task"))
     }
 
     @Test
@@ -79,7 +79,7 @@ class AgendaBadgePolicyFlowTest {
         tasks(koin).given(due = yesterday, title = "Overdue task")
 
         tapTab("Today")
-        awaitTag(TestTags.taskItem("Overdue task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Overdue task"))
     }
 
     @Test
@@ -87,7 +87,7 @@ class AgendaBadgePolicyFlowTest {
         tasks(koin).givenUndated(title = "Undated task")
 
         tapTab("Inbox")
-        awaitTag(TestTags.taskItem("Undated task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Undated task"))
     }
 
     @Test
@@ -108,7 +108,7 @@ class AgendaBadgePolicyFlowTest {
         koin.get<com.singularity.todo.feature.tasks.domain.port.TaskRepository>().upsert(blockedTask)
 
         tapTab("Today")
-        awaitTag(TestTags.taskItem("Blocked task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Blocked task"))
         awaitTag(TestTags.taskItem("Blocked task")).performClick()
     }
 

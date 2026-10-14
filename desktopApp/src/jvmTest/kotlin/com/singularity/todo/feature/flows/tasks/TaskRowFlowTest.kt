@@ -1,13 +1,12 @@
 package com.singularity.todo.feature.flows.tasks
 
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import kotlinx.datetime.LocalDate
 import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.awaitCheckboxChecked
-import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickCheckbox
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
@@ -46,7 +45,7 @@ class TaskRowFlowTest {
             .given(due = today, title = "Buy milk")
             .assertInAgenda("Buy milk")
 
-        awaitTag(TestTags.agendaSection("Today")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("Today"))
     }
 
     @Test
@@ -65,7 +64,7 @@ class TaskRowFlowTest {
     ) { koin ->
         tasks(koin).given(due = today)
 
-        awaitTag(TestTags.taskCheckbox("Buy milk")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskCheckbox("Buy milk"))
         clickCheckbox(TestTags.taskCheckbox("Buy milk"))
 
         // Asserting the toggled semantics makes this a state assertion rather than

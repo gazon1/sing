@@ -13,7 +13,7 @@ import org.koin.core.Koin
  * ```kotlin
  * runDesktopAppTest { koin ->
  *     assertSeeded(koin, expected = 1)
- *     awaitTag(TestTags.taskItem("Buy milk")).assertIsDisplayed()
+ *     assertTagDisplayed(TestTags.taskItem("Buy milk"))
  * }
  * ```
  *

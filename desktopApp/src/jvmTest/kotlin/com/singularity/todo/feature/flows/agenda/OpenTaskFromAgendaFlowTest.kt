@@ -3,7 +3,6 @@ package com.singularity.todo.feature.flows.agenda
 import kotlinx.datetime.LocalDate
 import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -59,7 +58,7 @@ class OpenTaskFromAgendaFlowTest {
         tasks(koin).given(due = today, title = "Existing task")
 
         tapTab("Today")
-        awaitTag(TestTags.taskItem("Existing task")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.taskItem("Existing task"))
 
         // Click the task row → should open TaskDetailScreen (not TaskCreateScreen)
         awaitTag(TestTags.taskItem("Existing task")).performClick()

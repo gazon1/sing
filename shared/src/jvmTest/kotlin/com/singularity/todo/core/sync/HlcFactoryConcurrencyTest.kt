@@ -1,14 +1,9 @@
 package com.singularity.todo.core.sync
 
-import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import org.junit.jupiter.api.Tag
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CyclicBarrier
@@ -51,23 +46,13 @@ class HlcFactoryConcurrencyTest {
     private val ticksPerThread = 250
 
     /**
-     * A [SessionStore] that answers the one question [HlcFactory] asks and nothing else.
+     * A [DeviceIdProvider] that answers the one question [HlcFactory] asks and nothing else.
      *
-     * The three write members are declared `= Unit` rather than as empty blocks so they do
-     * not enter the `EmptyFunctionBlock` baseline. `FakeHlcFactory` is in that baseline for
-     * the same no-op bodies; a new fixture does not need to join it.
+     * `FakeHlcFactory` is in the EmptyFunctionBlock baseline for its no-op bodies; a new
+     * fixture does not need to join it.
      */
-    private class FixedNodeStore : SessionStore {
-        private val _deviceId = MutableStateFlow("node-fixed")
-        override val accessToken: Flow<String?> = MutableStateFlow(null)
-        override val refreshToken: Flow<String?> = MutableStateFlow(null)
-        override val userEmail: Flow<String?> = MutableStateFlow(null)
-        override val deviceId: StateFlow<String> = _deviceId
-
-        override suspend fun getOrInitDeviceId(): String = _deviceId.value
-        override suspend fun save(session: Session.SignedIn) = Unit
-        override suspend fun saveDeviceId(id: String) = Unit
-        override suspend fun clear() = Unit
+    private class FixedNodeStore : DeviceIdProvider {
+        override suspend fun getOrInitDeviceId(): String = "node-fixed"
     }
 
     /**

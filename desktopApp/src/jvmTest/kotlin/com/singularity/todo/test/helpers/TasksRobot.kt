@@ -4,7 +4,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.assertIsDisplayed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -86,7 +85,7 @@ class TasksRobot(
 
     /** Asserts the task is rendered in the agenda, waiting for the list to settle. */
     fun assertInAgenda(title: String): TasksRobot = apply {
-        test.awaitTag(TestTags.taskItem(title)).assertIsDisplayed()
+        test.assertTagDisplayed(TestTags.taskItem(title))
     }
 
     /** Waits for the task row and clicks it, returning the row for further work. */

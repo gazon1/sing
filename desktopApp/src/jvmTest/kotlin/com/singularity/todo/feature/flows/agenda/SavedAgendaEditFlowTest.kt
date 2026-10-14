@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
@@ -15,6 +14,8 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.assertNodeDisplayed
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -81,13 +82,13 @@ class SavedAgendaEditFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("my_view")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("my_view"))
 
         // Tapping the card opens Results — no name input should be visible
         awaitTag(TestTags.savedAgendaCard("my_view")).performClick()
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
         // Results shows the agenda section for the view
-        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("No Date"))
     }
 
     @Test
@@ -97,15 +98,15 @@ class SavedAgendaEditFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("back_test_view")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("back_test_view"))
 
         // Navigate to Results
         awaitTag(TestTags.savedAgendaCard("back_test_view")).performClick()
-        awaitTag(TestTags.agendaSection("No Date")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.agendaSection("No Date"))
 
         // Go back — should return to list with card
         awaitTag(TestTags.TOP_BAR_BACK_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("back_test_view")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("back_test_view"))
     }
 
     @Test
@@ -114,18 +115,18 @@ class SavedAgendaEditFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("editable_view")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("editable_view"))
 
         // Open overflow menu (⋮) on the card — text-only, no testTag.
         // The desktop AWT menu bar also renders a plain "Edit" label (no click
         // action), so menu items are matched by text AND click action.
         clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().assertIsDisplayed()
-        onAllNodes(hasText("Delete") and hasClickAction()).onFirst().assertIsDisplayed()
+        assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
+        assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
         // Edit mode: name input is shown pre-filled
-        awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
         assertTextDisplayed("Editable View")
     }
 
@@ -135,7 +136,7 @@ class SavedAgendaEditFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("old_name")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("old_name"))
 
         // Open menu → Edit
         clickText("⋮")
@@ -151,7 +152,7 @@ class SavedAgendaEditFlowTest {
         // `performClick()` on the off-screen node silently injected a click at
         // out-of-window coordinates and the test then failed 5s later on an
         // unrelated await. `assertIsDisplayed` before the click is what pins it.
-        awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).assertIsDisplayed()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON)
 
         awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
 
@@ -171,23 +172,23 @@ class SavedAgendaEditFlowTest {
 
         tapTab("Inbox")
         awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        awaitTag(TestTags.savedAgendaCard("to_delete")).assertIsDisplayed()
+        assertTagDisplayed(TestTags.savedAgendaCard("to_delete"))
 
         // Open menu → Edit
         clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
-        awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
 
         // No scroll needed: the action row is pinned below the list. The
         // assertIsDisplayed below is the regression check — the row used to be
         // the last item of the scrolling column.
         // Delete button exists in edit mode
-        awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).assertIsDisplayed()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_DELETE_BUTTON)
         awaitTag(TestTags.SAVED_AGENDA_DELETE_BUTTON).performClick()
 
         // ConfirmActionDialog confirm button (tagged dialog_confirm, label "Delete")
-        awaitTag(TestTags.Dialog.CONFIRM).assertIsDisplayed()
+        assertTagDisplayed(TestTags.Dialog.CONFIRM)
         awaitTag(TestTags.Dialog.CONFIRM).performClick()
 
         // Should navigate back to list and show empty state

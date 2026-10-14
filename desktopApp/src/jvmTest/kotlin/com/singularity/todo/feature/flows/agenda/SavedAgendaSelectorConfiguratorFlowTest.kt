@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
@@ -23,6 +22,8 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.test.helpers.assertNodeDisplayed
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -93,7 +94,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         assertTextDisplayed("Configurable")
         clickText("⋮")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
-        awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
     }
 
     private fun androidx.compose.ui.test.DesktopComposeUiTest.openAddSectionSheet() {
@@ -130,7 +131,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         // no second sheet.
         pickSectionTemplate("Due today")
 
-        awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).assertIsDisplayed().performClick()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
     }
 
@@ -146,7 +147,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
 
             // Step 2. The confirm button is disabled rather than silently doing
             // nothing — that was the failure this step exists to prevent.
-            awaitTag(TestTags.agendaSelectorOption("tag-work")).assertIsDisplayed()
+            assertTagDisplayed(TestTags.agendaSelectorOption("tag-work"))
             awaitTag(TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM).assertIsNotEnabled()
 
             awaitTag(TestTags.agendaSelectorOption("tag-work")).performClick()
@@ -169,9 +170,9 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         // from Selector.Tags(emptySet()) would read "Any tag: 0", not "Any tag: 1".
         // The section row renders the description twice — as the section name
         // and as the row subtitle — so match the first, not "exactly one".
-        onAllNodes(hasText("Any tag: 1")).onFirst().assertIsDisplayed()
+        assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
 
-        awaitTag(TestTags.SAVED_AGENDA_SAVE_BUTTON).assertIsDisplayed().performClick()
+        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
 
         // And it survives the round trip: reopen and the section is still there.
@@ -180,6 +181,6 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
         // The section row renders the description twice — as the section name
         // and as the row subtitle — so match the first, not "exactly one".
-        onAllNodes(hasText("Any tag: 1")).onFirst().assertIsDisplayed()
+        assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
     }
 }

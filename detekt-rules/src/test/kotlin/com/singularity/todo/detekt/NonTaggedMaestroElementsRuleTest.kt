@@ -95,6 +95,41 @@ class NonTaggedMaestroElementsRuleTest {
 
     @Test
     fun `interactive composable without testTag is flagged`() {
+        // The fixture file references TestTags once (TaggedSibling) so the file is
+        // in the automation surface; the untagged ConfirmButton in it is then fair
+        // game — the file-level gate is tested separately below.
+        val code = """
+            package com.singularity.todo.feature.checklist
+
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.Modifier
+
+            @Composable
+            fun ConfirmButton(onConfirm: () -> Unit) {
+                androidx.compose.material3.Button(onClick = onConfirm) { }
+            }
+
+            @Composable
+            fun TaggedSibling(modifier: Modifier = Modifier, onDismiss: () -> Unit) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = modifier.testTag(TestTags.SHEET_CONFIRM),
+                ) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertTrue(
+            findings.any {
+                it.message.contains("onConfirm") && it.message.contains("no testTag")
+            },
+            "expected finding about missing testTag, got: $findings",
+        )
+        assertEquals(1, findings.size, "only ConfirmButton should be flagged, got: $findings")
+    }
+
+    @Test
+    fun `interactive composable in a file without TestTags usage is not flagged`() {
+        // A file the tag system never touches is unreachable for Maestro — flows
+        // address elements by tag. No tag in the file, no demand for one.
         val code = """
             package com.singularity.todo.feature.checklist
 
@@ -106,11 +141,10 @@ class NonTaggedMaestroElementsRuleTest {
             }
         """
         val findings = findingsIn(code)
-        assertTrue(
-            findings.any {
-                it.message.contains("onConfirm") && it.message.contains("no testTag")
-            },
-            "expected finding about missing testTag, got: $findings",
+        assertEquals(
+            0,
+            findings.size,
+            "files with no TestTags reference are out of the automation surface, got: $findings",
         )
     }
 
@@ -149,6 +183,61 @@ class NonTaggedMaestroElementsRuleTest {
         """
         val findings = findingsIn(code)
         assertEquals(0, findings.size, "expected no findings, got: $findings")
+    }
+
+    @Test
+    fun `private interactive composable is exempt`() {
+        // KDoc: private composables are not visible in feature screens.
+        val code = """
+            package com.singularity.todo.feature.checklist
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            private fun ConfirmButton(onConfirm: () -> Unit) {
+                androidx.compose.material3.Button(onClick = onConfirm) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertEquals(0, findings.size, "private composables should be exempt, got: $findings")
+    }
+
+    @Test
+    fun `interactive composable outside feature package is not flagged`() {
+        // Core plumbing (NavGraphs, MVI internals) is outside the Maestro contract.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun ConfirmButton(onConfirm: () -> Unit) {
+                androidx.compose.material3.Button(onClick = onConfirm) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertEquals(0, findings.size, "core/ plumbing should be exempt, got: $findings")
+    }
+
+    @Test
+    fun `empty testTag is still flagged outside feature package`() {
+        // Pattern 1 is global: an empty testTag is a defect wherever it lives.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.Modifier
+
+            @Composable
+            fun TaggedRow(modifier: Modifier = Modifier) {
+                androidx.compose.foundation.layout.Row(modifier = modifier.testTag("")) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertTrue(
+            findings.any { it.message.contains("testTag = \"\"") },
+            "empty testTag must stay global, got: $findings",
+        )
     }
 
     // ── Exemptions ─────────────────────────────────────────────────────────────
@@ -221,6 +310,9 @@ class NonTaggedMaestroElementsRuleTest {
             "onDismiss",
             "onDelete",
             "onCheckedChange",
+            // Typed input is Maestro-interactable (typeText needs a tag), so a text
+            // field's callback counts — the project's own Maestro skill says so.
+            "onValueChange",
             "onRetry",
             "onSave",
             "onBack",
@@ -228,12 +320,10 @@ class NonTaggedMaestroElementsRuleTest {
             "onEdit",
         )
         val nonHandlers = listOf(
-            "onValueChange",
-            "onDispose",
-            "onLayout",
-            "onContextMenu",
+            // The two Result.fold labels the canonical policy excludes.
             "onSuccess",
             "onFailure",
+            // Word shapes that are not callbacks.
             "once",
             "only",
             "onward",
@@ -300,6 +390,51 @@ class NonTaggedMaestroElementsRuleTest {
         assertTrue(
             !NonTaggedMaestroElementsPolicy.isTestPath(
                 "/repo/shared/src/main/kotlin/Tasks.kt",
+            ),
+        )
+    }
+
+    @Test
+    fun `isFeaturePackage matches only feature packages under todo`() {
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.isFeaturePackage(
+                "com.singularity.todo.feature.checklist.presentation",
+            ),
+        )
+        // The feature root package itself is still feature UI.
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.isFeaturePackage("com.singularity.todo.feature"),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.isFeaturePackage(
+                "com.singularity.todo.core.ui.components",
+            ),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.isFeaturePackage(
+                "com.example.feature.notours",
+            ),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.isFeaturePackage("com.singularity.todo"),
+        )
+    }
+
+    @Test
+    fun `fileUsesTagSystem detects any TestTags reference`() {
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.fileUsesTagSystem(
+                "modifier = modifier.testTag(TestTags.SHEET_CONFIRM)",
+            ),
+        )
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.fileUsesTagSystem(
+                "val tag = TestTags.taskItem(title)",
+            ),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.fileUsesTagSystem(
+                "modifier = modifier.testTag(\"literal\")",
             ),
         )
     }

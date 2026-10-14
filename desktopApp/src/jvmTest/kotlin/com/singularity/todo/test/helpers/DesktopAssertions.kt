@@ -1,5 +1,6 @@
 package com.singularity.todo.test.helpers
 
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
@@ -11,8 +12,10 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -23,6 +26,52 @@ import androidx.compose.ui.test.printToString
 internal const val TIMEOUT_MS = 5_000L
 
 private val TAG_PATTERN = Regex("""testTag=[^\s,\]]+""")
+
+/**
+ * The same question `assertIsDisplayed` answers, as a predicate over a fetched
+ * node: non-empty bounds that intersect the bounds of the node's own semantics
+ * root.
+ *
+ * "Own root", not `onRoot()`: a dialog or popup on desktop is a separate
+ * window with its own semantics root, and its node can exist in the tree while
+ * that window has not been laid out yet — bounds 0×0, nothing to intersect.
+ * That is the state behind the desktop-suite flake fixed by #569: `waitUntil`
+ * finds the node (existence), `assertIsDisplayed` immediately after fails
+ * (display), and the two never agreed on a loaded headless runner.
+ *
+ * A node below the fold in a `verticalScroll` screen also has real bounds —
+ * off-screen, not zero — so this predicate does not interfere with
+ * `awaitTag` + `scrollToTag` flows, which is why the presence wait and the
+ * display wait stay separate helpers rather than one strengthened wait.
+ */
+private fun SemanticsNode.isDisplayedInItsRoot(): Boolean {
+    val bounds = boundsInRoot
+    if (bounds.width <= 0f || bounds.height <= 0f) return false
+    var root = this
+    while (true) {
+        root = root.parent ?: break
+    }
+    val rootBounds = root.boundsInRoot
+    return bounds.left < rootBounds.right && bounds.right > rootBounds.left &&
+        bounds.top < rootBounds.bottom && bounds.bottom > rootBounds.top
+}
+
+/**
+ * Waits until some node matching [matcher] is displayed ([isDisplayedInItsRoot]).
+ * The counterpart of [awaitTag] for assertions that need the node on screen, not
+ * merely composed.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun DesktopComposeUiTest.awaitDisplayed(
+    matcher: SemanticsMatcher,
+    description: String,
+    timeoutMs: Long = TIMEOUT_MS,
+) = waitUntil(
+    conditionDescription = description,
+    timeoutMillis = timeoutMs,
+) {
+    onAllNodes(matcher).fetchSemanticsNodes().any { it.isDisplayedInItsRoot() }
+}
 
 /**
  * Waits until a node with [tag] exists, then returns a handle to it.
@@ -90,18 +139,10 @@ fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction = step(
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.awaitAnyDisplayed(tag: String) = step("awaitAnyDisplayed", tag) {
-    val rootBounds = onRoot(useUnmergedTree = false).fetchSemanticsNode().boundsInRoot
-    waitUntil(
-        conditionDescription = "some node with testTag '$tag' is on screen",
-        timeoutMillis = TIMEOUT_MS,
-    ) {
-        onAllNodesWithTag(tag).fetchSemanticsNodes().any { node ->
-            val b = node.boundsInRoot
-            b.width > 0f && b.height > 0f &&
-                b.left < rootBounds.right && b.right > rootBounds.left &&
-                b.top < rootBounds.bottom && b.bottom > rootBounds.top
-        }
-    }
+    awaitDisplayed(
+        matcher = hasTestTag(tag),
+        description = "some node with testTag '$tag' is on screen",
+    )
 }
 
 /**
@@ -176,11 +217,19 @@ fun DesktopComposeUiTest.awaitText(text: String) = step("awaitText", text) {
 }
 
 /**
- * Asserts that a node with [text] is displayed. Use after [awaitText] or standalone
- * when the node is expected to already exist.
+ * Asserts that a node with [text] is actually on screen.
+ *
+ * Waits for *display*, not existence: a node can be in the semantics tree
+ * before its window or layout pass has produced bounds (#569 — "found by
+ * waitUntil, failed by assertIsDisplayed"). Standalone or after [awaitText];
+ * both are race-free because the wait is part of this call.
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.assertTextDisplayed(text: String) {
+    awaitDisplayed(
+        matcher = hasText(text),
+        description = "node with text '$text' is displayed",
+    )
     onNodeWithText(text, useUnmergedTree = true).assertIsDisplayed()
 }
 
@@ -226,12 +275,34 @@ fun DesktopComposeUiTest.awaitCheckboxChecked(testTag: String) = step("awaitChec
 }
 
 /**
- * Waits for a node with [tag] and asserts it is displayed.
- * The wait matters: the node may still be composing when the test reaches it.
+ * Waits for a node with [tag] and asserts it is *displayed*, not merely composed.
+ *
+ * Two waits, on purpose. [awaitTag] is existence — and it must stay existence,
+ * because `clickTagScrolled` relies on finding a below-the-fold node before
+ * scrolling to it. Display is the second wait, and it is what an assertion of
+ * "is displayed" needs: existence alone let a popup or dialog node through in
+ * the window before layout, and `assertIsDisplayed` failed on it immediately
+ * after a successful `waitUntil` (#569). The timeout message names the phase,
+ * so a failure says which of the two never happened.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertTagDisplayed(tag: String) {
-    awaitTag(tag).assertIsDisplayed()
+fun DesktopComposeUiTest.assertTagDisplayed(tag: String) = step("assertTagDisplayed", tag) {
+    awaitTag(tag)
+    try {
+        awaitDisplayed(
+            matcher = hasTestTag(tag),
+            description = "node with testTag '$tag' is displayed",
+        )
+    } catch (e: Throwable) {
+        throw AssertionError(
+            "Node with testTag '$tag' is in the semantics tree but never became " +
+                "displayed within $TIMEOUT_MS ms — present is not shown. If it is " +
+                "below the fold, scrollToTag it first; if it is in a dialog or " +
+                "popup, the window did not lay out in time (check the semantics " +
+                "tree in the suppressed chain).",
+        ).also { it.addSuppressed(e) }
+    }
+    onNodeWithTag(tag).assertIsDisplayed()
 }
 
 /**
@@ -253,11 +324,34 @@ fun DesktopComposeUiTest.assertTextNotExists(text: String) {
 }
 
 /**
- * Waits for a node with [desc] content description and asserts it is displayed.
+ * Waits for the node with [desc] content description to be *displayed* and
+ * asserts it. Same existence-vs-display split as [assertTagDisplayed] (#569).
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.assertContentDescriptionDisplayed(desc: String) {
-    awaitContentDescription(desc).assertIsDisplayed()
+    awaitContentDescription(desc)
+    awaitDisplayed(
+        matcher = hasContentDescription(desc),
+        description = "node with contentDescription '$desc' is displayed",
+    )
+    onNodeWithContentDescription(desc).assertIsDisplayed()
+}
+
+/**
+ * The generic display-wait: waits until the first node matching [matcher] is
+ * *displayed*, then asserts it. Use for composite matchers no tag/text/cdesc
+ * helper covers — e.g. `hasText("Edit") and hasClickAction()` — so that a
+ * "present but not yet laid out" node cannot fail a one-shot
+ * `assertIsDisplayed` (#569). [description] names the target in wait and
+ * failure messages.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertNodeDisplayed(matcher: SemanticsMatcher, description: String) {
+    awaitDisplayed(
+        matcher = matcher,
+        description = "node matching '$description' is displayed",
+    )
+    onAllNodes(matcher).onFirst().assertIsDisplayed()
 }
 
 /**
