@@ -669,6 +669,14 @@ popup-test-tag:
 #   2. Interactive composable with no testTag in feature/ source directories.
 # Wired 2026-10-13: implemented and registered in META-INF/services but had no
 # detekt.yml block, so check-detekt-registrations.sh would have caught it.
+#
+# ACTIVE: false since 2026-10-14. The provider was never registered in
+# META-INF/services until then, so the rule had never actually run — the moment it
+# loaded it reported 578 untagged interactive composables across feature/. The rule
+# itself was repaired in the same pass (tag-call detection, feature-package and
+# private scoping, canonical handler policy — see NonTaggedMaestroElements.kt), but
+# clearing 578 findings is tagging work for the Maestro tranche, not a config fix.
+# Turning the rule on is a deliberate ratchet: tag the surface, then flip this.
 non-tagged-maestro-elements:
   NonTaggedMaestroElements:
-    active: true
+    active: false

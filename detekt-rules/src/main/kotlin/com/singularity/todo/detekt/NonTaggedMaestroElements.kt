@@ -8,6 +8,7 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
@@ -33,7 +34,9 @@ import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
  *    Maestro flows exercise) AND have at least one event-handler parameter
  *    (`onClick`, `onConfirm`, `onDismiss`, etc. — the same shape gate that
  *    `NoEmptyOnClickLambdaRule` uses) AND carry no testTag modifier anywhere in
- *    their body.
+ *    their body. The scoping predicates live in
+ *    [NonTaggedMaestroElementsPolicy] (`isFeaturePackage`, plus the private-visibility
+ *    check at the call site).
  *
  * ## When the rule fires
  *
@@ -57,11 +60,12 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
 
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
-        if (isExempt(function)) return
+        if (isCommonExempt(function)) return
 
         val body = function.bodyExpression ?: return
 
-        // Pattern 1: testTag = "" anywhere in the function body.
+        // Pattern 1: testTag = "" anywhere in the function body. Global: an empty
+        // testTag is a defect wherever it lives.
         if (hasEmptyTestTagAssignment(body)) {
             reportFinding(
                 entity = Entity.from(body),
@@ -74,12 +78,18 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
             return
         }
 
-        // Pattern 2: interactive composable with no testTag at all.
-        if (hasEventHandler(function) && !hasTestTagModifier(body)) {
+        // Pattern 2: interactive composable with no testTag at all. Scoped to public
+        // composables in feature packages — the two exemptions the KDoc promises and
+        // the ones that keep core/ plumbing (NavGraphs, MviViewModel catchTo,
+        // BackgroundScope) out of Maestro's contract.
+        if (isPattern2Exempt(function)) return
+        val handlers = handlerParameterNames(function)
+        if (handlers.isNotEmpty() && !hasTestTagModifier(body)) {
             reportFinding(
                 entity = Entity.from(function),
                 message = buildString {
-                    append("`${function.name}` handles events but has no `testTag`. ")
+                    append("`${function.name}` handles events (${handlers.joinToString()}) ")
+                    append("but has no testTag. ")
                     append("Maestro cannot interact with it. ")
                     append("Add a `testTag = TestTags.*` modifier to the root composable.")
                 },
@@ -108,29 +118,43 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
 
     /**
      * True when the function body contains `Modifier.testTag(...)` or `.testTag(...)`.
+     *
+     * The selector of `x.testTag(TestTags.FOO)` is a `KtCallExpression`, not a name
+     * reference — matching only the property form made every tagged composable read
+     * as untagged, which is the bug that kept this rule red from the day it landed.
      */
     private fun hasTestTagModifier(element: org.jetbrains.kotlin.psi.KtExpression): Boolean =
         element.anyDescendantOfType<KtDotQualifiedExpression> { expr ->
-            val sel = expr.selectorExpression as? KtNameReferenceExpression
-            sel?.text == "testTag"
+            when (val selector = expr.selectorExpression) {
+                is KtNameReferenceExpression -> selector.text == "testTag"
+                is KtCallExpression ->
+                    (selector.calleeExpression as? KtNameReferenceExpression)?.text == "testTag"
+                else -> false
+            }
         }
 
     /**
-     * True when this composable has at least one event-handler parameter.
-     * Uses the same `on[A-Z]` shape gate as `NoEmptyOnClickLambdaRule`.
+     * Names of the event-handler parameters on this function.
      */
-    private fun hasEventHandler(function: KtNamedFunction): Boolean =
-        function.valueParameters.any { param ->
-            NonTaggedMaestroElementsPolicy.isHandlerParameter(param.name.orEmpty())
-        }
+    private fun handlerParameterNames(function: KtNamedFunction): List<String> =
+        function.valueParameters
+            .map { it.name.orEmpty() }
+            .filter { NonTaggedMaestroElementsPolicy.isHandlerParameter(it) }
 
-    private fun isExempt(function: KtNamedFunction): Boolean {
+    /** Exemptions that apply to both patterns: test code and previews. */
+    private fun isCommonExempt(function: KtNamedFunction): Boolean {
         val file = function.containingKtFile
         val path = file.virtualFile?.path.orEmpty()
         if (NonTaggedMaestroElementsPolicy.isTestPath(path)) return true
         if (NonTaggedMaestroElementsPolicy.isPreviewPath(file.name, path)) return true
-        if (NonTaggedMaestroElementsPolicy.isPreviewFunction(function)) return true
-        return false
+        return NonTaggedMaestroElementsPolicy.isPreviewFunction(function)
+    }
+
+    /** Additional exemptions for pattern 2 only (see the call site). */
+    private fun isPattern2Exempt(function: KtNamedFunction): Boolean {
+        if (function.modifierList?.hasModifier(KtTokens.PRIVATE_KEYWORD) == true) return true
+        val qualifiedName = function.containingKtFile.packageFqName.asString()
+        return !NonTaggedMaestroElementsPolicy.isFeaturePackage(qualifiedName)
     }
 
     private fun reportFinding(entity: Entity, message: String) {
@@ -153,13 +177,12 @@ internal object NonTaggedMaestroElementsPolicy {
     private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")
 
     /**
-     * True when a parameter name reads as an event handler.
-     * Same shape as `NoEmptyOnClickLambdaPolicy.isHandlerParameter`.
+     * True when a parameter name reads as an event handler. Delegates to the
+     * canonical [NoEmptyOnClickLambdaPolicy.isHandlerParameter] — the `on`+uppercase
+     * shape plus the `Result.fold` label exclusion — so the two rules cannot drift.
      */
     fun isHandlerParameter(paramName: String): Boolean =
-        paramName.length > 2 &&
-            paramName.startsWith("on") &&
-            paramName[2].isUpperCase()
+        NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)
 
     fun isPreviewPath(fileName: String, filePath: String): Boolean =
         fileName.lowercase().contains("preview") ||
@@ -170,6 +193,17 @@ internal object NonTaggedMaestroElementsPolicy {
         return TEST_SOURCE_SETS.any { path.contains("/$it/") || path.endsWith("/$it") } ||
             path.contains("/test/")
     }
+
+    /**
+     * True when the composable's package mirrors a `feature/` source directory
+     * (`com.singularity.todo.feature.<name>.…`). Feature UI is what Maestro flows
+     * drive; core/ plumbing (NavGraphs, MVI plumbing, BackgroundScope) is not in
+     * the automation contract.
+     */
+    fun isFeaturePackage(qualifiedName: String): Boolean =
+        qualifiedName.split('.').let { parts ->
+            parts.getOrNull(parts.indexOf("todo") + 1) == "feature"
+        }
 
     fun isPreviewFunction(function: KtNamedFunction): Boolean =
         function.annotationEntries.any { it.shortName?.asString() == "Preview" } ||

@@ -163,7 +163,13 @@ fun coreModule(): org.koin.core.module.Module =
                 legacy = get(),
             )
         }
-        // single<SessionStore> { get<SecureSessionStore>() }
+        // The seam is bound to the KEYCHAIN store, never to the plaintext one above:
+        // HlcFactory resolves SessionStore for the device id, and binding the
+        // DataStore-backed store here would put the token seam back on plain-text
+        // preferences. e05a68ad commented this line out inside an unrelated scripts
+        // PR, which turned every downstream compile (KOIN-D003 deferred validation)
+        // red on main — the binding is load-bearing, not experimental.
+        single<SessionStore> { get<SecureSessionStore>() }
 
         // Which Supabase project to talk to. The resolver owns the precedence rule
         // (a stored value beats a build-time one) and the provider owns the client,

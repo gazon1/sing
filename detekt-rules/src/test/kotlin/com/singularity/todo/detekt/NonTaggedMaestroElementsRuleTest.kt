@@ -151,6 +151,61 @@ class NonTaggedMaestroElementsRuleTest {
         assertEquals(0, findings.size, "expected no findings, got: $findings")
     }
 
+    @Test
+    fun `private interactive composable is exempt`() {
+        // KDoc: private composables are not visible in feature screens.
+        val code = """
+            package com.singularity.todo.feature.checklist
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            private fun ConfirmButton(onConfirm: () -> Unit) {
+                androidx.compose.material3.Button(onClick = onConfirm) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertEquals(0, findings.size, "private composables should be exempt, got: $findings")
+    }
+
+    @Test
+    fun `interactive composable outside feature package is not flagged`() {
+        // Core plumbing (NavGraphs, MVI internals) is outside the Maestro contract.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun ConfirmButton(onConfirm: () -> Unit) {
+                androidx.compose.material3.Button(onClick = onConfirm) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertEquals(0, findings.size, "core/ plumbing should be exempt, got: $findings")
+    }
+
+    @Test
+    fun `empty testTag is still flagged outside feature package`() {
+        // Pattern 1 is global: an empty testTag is a defect wherever it lives.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.Modifier
+
+            @Composable
+            fun TaggedRow(modifier: Modifier = Modifier) {
+                androidx.compose.foundation.layout.Row(modifier = modifier.testTag("")) { }
+            }
+        """
+        val findings = findingsIn(code)
+        assertTrue(
+            findings.any { it.message.contains("testTag = \"\"") },
+            "empty testTag must stay global, got: $findings",
+        )
+    }
+
     // ── Exemptions ─────────────────────────────────────────────────────────────
 
     @Test
@@ -221,6 +276,9 @@ class NonTaggedMaestroElementsRuleTest {
             "onDismiss",
             "onDelete",
             "onCheckedChange",
+            // Typed input is Maestro-interactable (typeText needs a tag), so a text
+            // field's callback counts — the project's own Maestro skill says so.
+            "onValueChange",
             "onRetry",
             "onSave",
             "onBack",
@@ -228,12 +286,10 @@ class NonTaggedMaestroElementsRuleTest {
             "onEdit",
         )
         val nonHandlers = listOf(
-            "onValueChange",
-            "onDispose",
-            "onLayout",
-            "onContextMenu",
+            // The two Result.fold labels the canonical policy excludes.
             "onSuccess",
             "onFailure",
+            // Word shapes that are not callbacks.
             "once",
             "only",
             "onward",
@@ -301,6 +357,32 @@ class NonTaggedMaestroElementsRuleTest {
             !NonTaggedMaestroElementsPolicy.isTestPath(
                 "/repo/shared/src/main/kotlin/Tasks.kt",
             ),
+        )
+    }
+
+    @Test
+    fun `isFeaturePackage matches only feature packages under todo`() {
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.isFeaturePackage(
+                "com.singularity.todo.feature.checklist.presentation",
+            ),
+        )
+        // The feature root package itself is still feature UI.
+        assertTrue(
+            NonTaggedMaestroElementsPolicy.isFeaturePackage("com.singularity.todo.feature"),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.isFeaturePackage(
+                "com.singularity.todo.core.ui.components",
+            ),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.isFeaturePackage(
+                "com.example.feature.notours",
+            ),
+        )
+        assertTrue(
+            !NonTaggedMaestroElementsPolicy.isFeaturePackage("com.singularity.todo"),
         )
     }
 }
