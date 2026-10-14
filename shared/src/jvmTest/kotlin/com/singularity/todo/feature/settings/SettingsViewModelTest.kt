@@ -14,6 +14,9 @@ import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsStore
 import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.core.tasks.TasksContributor
+import com.singularity.todo.core.tasks.TasksSettingsContributor
+import com.singularity.todo.core.tasks.TasksSettingsStore
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
@@ -28,6 +31,7 @@ import com.singularity.todo.test.fakes.FakeFileSharePort
 import com.singularity.todo.test.fakes.FakeLogBundleExporter
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeSettingsRepository
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -79,6 +83,11 @@ class SettingsViewModelTest {
             defaultAgendaViewStore,
         )
 
+        // Tasks contributor
+        val fakeTasksSettings = FakeTasksSettingsRepository()
+        val tasksSettingsStore = TasksSettingsStore(fakeTasksSettings)
+        val tasksContributor: TasksContributor = TasksSettingsContributor(tasksSettingsStore)
+
         return SettingsViewModel(
             scope = testScope(scope),
             appearanceContributor = null,
@@ -87,6 +96,7 @@ class SettingsViewModelTest {
             greetingContributor = greetingContributor,
             aiContributor = aiContributor,
             defaultAgendaViewContributor = defaultAgendaViewContributor,
+            tasksContributor = tasksContributor,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             fileRevealer = FakeFileRevealer(),
             logBundleExporter = FakeLogBundleExporter(),
@@ -180,6 +190,20 @@ class SettingsViewModelTest {
         assertEquals(10, state.greeting.morningEndHour)
     }
 
+    // ─── Tasks ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `Tasks UpdateStalenessThresholdDays updates state`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceUntilIdle()
+        runCurrent()
+        vm.onIntent(SettingsIntent.Tasks.UpdateStalenessThresholdDays(42))
+        advanceUntilIdle()
+        runCurrent()
+        val state = vm.stateFlow.value as SettingsUiState.Content
+        assertEquals(42, state.tasks.stalenessThresholdDays)
+    }
+
     // ─── AI ─────────────────────────────────────────────────────────────────
 
     @Test
@@ -257,6 +281,9 @@ class SettingsViewModelTest {
         val defaultAgendaViewContributor: DefaultAgendaViewContributor = DefaultAgendaViewSettingsContributor(
             defaultAgendaViewStore,
         )
+        val fakeTasksSettings = FakeTasksSettingsRepository()
+        val tasksSettingsStore = TasksSettingsStore(fakeTasksSettings)
+        val tasksContributor: TasksContributor = TasksSettingsContributor(tasksSettingsStore)
 
         val vm = SettingsViewModel(
             scope = testScope(backgroundScope),
@@ -266,6 +293,7 @@ class SettingsViewModelTest {
             greetingContributor = greetingContributor,
             aiContributor = aiContributor,
             defaultAgendaViewContributor = defaultAgendaViewContributor,
+            tasksContributor = tasksContributor,
             savedAgendaViewsRepo = fakeSavedAgendaViews,
             fileRevealer = FakeFileRevealer(),
             logBundleExporter = FakeLogBundleExporter(),

@@ -65,6 +65,13 @@ object SettingsDefaults {
         const val AFTERNOON_END_HOUR: Int = 18
     }
 
+    // ── Tasks ─────────────────────────────────────────────────────────────
+
+    object Tasks {
+        /** Days after which an undated, incomplete task is considered stagnant. */
+        const val STALENESS_THRESHOLD_DAYS: Int = 21
+    }
+
     // ── Account ───────────────────────────────────────────────────────────
 
     // Not const: depends on UserId.anonymous.value (runtime property access).

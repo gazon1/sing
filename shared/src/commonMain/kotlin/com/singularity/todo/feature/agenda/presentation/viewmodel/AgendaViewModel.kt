@@ -23,6 +23,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -124,9 +125,10 @@ class AgendaViewModel(
         scope.launch {
             todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
+                    .distinctUntilChanged() // skip recompute when task list unchanged (e.g. midnight today tick)
                     .map { tasks ->
                         AgendaUiState.Loaded(
-                            sections = AgendaEvaluator.evaluate(tasks, definition, today),
+                            sections = AgendaEvaluator.evaluate(tasks, definition, today, deps.clock.now()),
                             today = today,
                         )
                     }

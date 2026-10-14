@@ -25,6 +25,7 @@ class SelectorRegexpCompiledTest {
 
     private val today = LocalDate(2026, 1, 1)
     private val now = Instant.parse("2026-01-01T00:00:00Z")
+    private val context = SelectorContext(today = today, now = now, blockedIds = emptySet())
 
     private fun task(title: String) = Task(
         id = TaskId("t-${title.hashCode()}"),
@@ -39,23 +40,23 @@ class SelectorRegexpCompiledTest {
     @Test
     fun `matching is case-insensitive and unanchored, as before`() {
         val selector = Selector.Regexp("weekly")
-        assertTrue(selector.matches(task("Weekly review"), today))
-        assertTrue(selector.matches(task("a weekly thing"), today))
-        assertFalse(selector.matches(task("monthly review"), today))
+        assertTrue(selector.matches(task("Weekly review"), context))
+        assertTrue(selector.matches(task("a weekly thing"), context))
+        assertFalse(selector.matches(task("monthly review"), context))
     }
 
     @Test
     fun `anchors still work`() {
-        assertTrue(Selector.Regexp("^Weekly").matches(task("Weekly review"), today))
-        assertFalse(Selector.Regexp("^Weekly").matches(task("Sprint Weekly"), today))
+        assertTrue(Selector.Regexp("^Weekly").matches(task("Weekly review"), context))
+        assertFalse(Selector.Regexp("^Weekly").matches(task("Sprint Weekly"), context))
     }
 
     @Test
     fun `a real user pattern matches across many titles`() {
         val selector = Selector.Regexp("^(fix|feat|refactor)\\s+\\S+")
-        assertTrue(selector.matches(task("fix the sync retry"), today))
-        assertTrue(selector.matches(task("FEAT agenda filter"), today))
-        assertFalse(selector.matches(task("chore: tidy imports"), today))
+        assertTrue(selector.matches(task("fix the sync retry"), context))
+        assertTrue(selector.matches(task("FEAT agenda filter"), context))
+        assertFalse(selector.matches(task("chore: tidy imports"), context))
     }
 
     // ─── The memo is a memo, not state ─────────────────────────────────────────
@@ -65,8 +66,8 @@ class SelectorRegexpCompiledTest {
         // Exercised *after* both have compiled, so the memo exists on each.
         val a = Selector.Regexp("^Weekly")
         val b = Selector.Regexp("^Weekly")
-        assertTrue(a.matches(task("Weekly x"), today))
-        assertTrue(b.matches(task("Weekly x"), today))
+        assertTrue(a.matches(task("Weekly x"), context))
+        assertTrue(b.matches(task("Weekly x"), context))
 
         assertEquals(a, b)
         assertEquals(a.hashCode(), b.hashCode())
@@ -80,7 +81,7 @@ class SelectorRegexpCompiledTest {
     @Test
     fun `copy keeps the same query and discards nothing else`() {
         val original = Selector.Regexp("^Weekly")
-        original.matches(task("Weekly x"), today)
+        original.matches(task("Weekly x"), context)
         assertEquals(original, original.copy(query = "^Weekly"))
     }
 
@@ -88,7 +89,7 @@ class SelectorRegexpCompiledTest {
     fun `compiling does not change what a stored selector encodes to`() {
         // A saved agenda view round-trips through JSON; the memo must not appear in it.
         val original = Selector.Regexp("^Weekly")
-        original.matches(task("Weekly x"), today)
+        original.matches(task("Weekly x"), context)
         val encoded = com.singularity.todo.core.serialization.StableJson.encodeToString(
             Selector.Regexp.serializer(),
             original,
@@ -99,7 +100,7 @@ class SelectorRegexpCompiledTest {
     @Test
     fun `a deserialized selector still matches`() {
         val original = Selector.Regexp("^Weekly")
-        original.matches(task("Weekly x"), today)
+        original.matches(task("Weekly x"), context)
         val encoded = com.singularity.todo.core.serialization.StableJson.encodeToString(
             Selector.Regexp.serializer(),
             original,
@@ -109,6 +110,6 @@ class SelectorRegexpCompiledTest {
             encoded,
         )
         assertEquals(original, decoded)
-        assertTrue(decoded.matches(task("Weekly y"), today), "a fresh instance must compile on demand")
+        assertTrue(decoded.matches(task("Weekly y"), context), "a fresh instance must compile on demand")
     }
 }

@@ -17,10 +17,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -29,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +44,7 @@ import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.DataSeriesColors
 import com.singularity.todo.core.ui.theme.DataStatusColors
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -66,11 +72,26 @@ fun StatisticsScreen(
                 .fillMaxSize()
                 .padding(16.dp),
     ) {
-        Text(
-            text = "Statistics",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Statistics",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(
+                onClick = { navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaList)) },
+                modifier = Modifier.testTag(TestTags.STATISTICS_OPEN_SAVED_VIEWS),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = "Saved views",
+                )
+            }
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -96,16 +117,23 @@ fun StatisticsScreen(
                     health = state.health,
                     onBucketClick = { bucket ->
                         when (bucket) {
-                            // OVERDUE navigates to Today, which surfaces overdue tasks at the top.
+                            // Overdue navigates to the dedicated Overdue preset — one section,
+                            // no date prefill, exact match for the bucket.
                             TaskHealthBucket.OVERDUE -> {
-                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
+                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Overdue))
                             }
 
-                            // BLOCKED and STAGNANT have no stored filter equivalent yet — no-op.
-                            TaskHealthBucket.BLOCKED,
-                            TaskHealthBucket.STAGNANT,
-                            TaskHealthBucket.FINE,
-                            -> { /* no stored filter path yet */ }
+                            // BLOCKED and STAGNANT have dedicated agenda views via Selector DSL.
+                            TaskHealthBucket.BLOCKED -> {
+                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Blocked))
+                            }
+
+                            TaskHealthBucket.STAGNANT -> {
+                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Stagnant))
+                            }
+
+                            // FINE is healthy — no drill-down target.
+                            TaskHealthBucket.FINE -> { /* no-op */ }
                         }
                     },
                 )
@@ -451,8 +479,9 @@ private fun StatCard(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
+    testTag: String? = null,
 ) {
-    Card(modifier = modifier) {
+    Card(modifier = if (testTag != null) modifier.testTag(testTag) else modifier) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -509,7 +538,13 @@ private fun HealthTabContent(
         StatCard("Open tasks", health.totalOpen.toString(), Modifier.fillMaxWidth())
 
         health.actionable.forEach { bucket ->
-            val clickable = bucket == TaskHealthBucket.OVERDUE
+            val clickable = bucket in health.actionable
+            val testTag = when (bucket) {
+                TaskHealthBucket.OVERDUE -> TestTags.HEALTH_BUCKET_OVERDUE
+                TaskHealthBucket.BLOCKED -> TestTags.HEALTH_BUCKET_BLOCKED
+                TaskHealthBucket.STAGNANT -> TestTags.HEALTH_BUCKET_STAGNANT
+                TaskHealthBucket.FINE -> null
+            }
             StatCard(
                 title = bucket.displayLabel(),
                 value = health[bucket].toString(),
@@ -519,6 +554,7 @@ private fun HealthTabContent(
                     } else {
                         Modifier.fillMaxWidth()
                     },
+                testTag = testTag,
             )
         }
 

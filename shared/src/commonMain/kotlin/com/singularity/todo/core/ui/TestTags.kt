@@ -769,7 +769,11 @@ object TestTags {
 
     /**
      * A weekday column header in the calendar month grid (Mon, Tue, …, Sun).
+     * Static constants for the variants used in Maestro flows.
      */
+    const val CALENDAR_WEEKDAY_MON = "calendar_weekday_mon"
+    const val CALENDAR_WEEKDAY_SUN = "calendar_weekday_sun"
+
     fun calendarWeekdayHeader(label: String) = "calendar_weekday_${label.lowercase()}"
 
     /** The clickable trigger Row that opens the CalendarViewMode dropdown. */
@@ -794,6 +798,20 @@ object TestTags {
 
     /** Title text on the task detail screen. */
     const val TASK_DETAIL_TITLE = "task_detail_title"
+
+    // ─── Statistics / Health drill-down ──────────────────────────────────
+
+    /**
+     * Health bucket card in the Statistics Health tab.
+     * The health tab shows OVERDUE, BLOCKED, and STAGNANT as clickable StatCards
+     * that drill down into the corresponding agenda view.
+     */
+    const val HEALTH_BUCKET_OVERDUE = "health_bucket_overdue"
+    const val HEALTH_BUCKET_BLOCKED = "health_bucket_blocked"
+    const val HEALTH_BUCKET_STAGNANT = "health_bucket_stagnant"
+
+    /** Icon button in the Statistics screen header that opens the Saved Views agenda list. */
+    const val STATISTICS_OPEN_SAVED_VIEWS = "statistics_open_saved_views"
 }
 
 /**

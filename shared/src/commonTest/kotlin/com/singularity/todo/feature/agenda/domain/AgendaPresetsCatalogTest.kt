@@ -6,6 +6,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -41,6 +42,12 @@ class AgendaPresetsCatalogTest {
 
     private val epoch0 = kotlin.time.Instant.fromEpochMilliseconds(0)
     private val today = LocalDate(2026, 10, 14) // reference "today" = Wednesday
+
+    private val context = SelectorContext(
+        today = today,
+        now = epoch0,
+        blockedIds = emptySet(),
+    )
 
     // ─── Structure ────────────────────────────────────────────────────────
 
@@ -227,7 +234,7 @@ class AgendaPresetsCatalogTest {
             priority = TaskPriority.None,
             dueDate = null,
         )
-        val result = AgendaEvaluator.evaluate(listOf(undated), def, today)
+        val result = AgendaEvaluator.evaluate(listOf(undated), def, today, context.now)
         val section1Count = result.find { it.name == "No Date 1" }?.tasks?.size ?: 0
         val section2Count = result.find { it.name == "No Date 2" }?.tasks?.size ?: 0
         assertTrue(section1Count >= 1, "task should be in first NoDate section")
@@ -265,7 +272,7 @@ class AgendaPresetsCatalogTest {
                 ),
             ),
         )
-        val result = AgendaEvaluator.evaluate(listOf(task), def, today)
+        val result = AgendaEvaluator.evaluate(listOf(task), def, today, context.now)
         val todayCount = result.find { it.name == "Today" }?.tasks?.size ?: 0
         val weekCount = result.find { it.name == "This Week" }?.tasks?.size ?: 0
         assertEquals(1, todayCount, "task should be in Today section")

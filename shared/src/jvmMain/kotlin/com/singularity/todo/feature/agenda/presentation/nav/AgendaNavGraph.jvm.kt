@@ -132,6 +132,15 @@ actual fun AgendaNavGraph(
                 entry<AgendaStartRoute.SavedAgendaCreate> {
                     AgendaNavContent(route = it)
                 }
+                entry<AgendaStartRoute.Blocked> {
+                    AgendaNavContent(route = it, contextMenuHost = contextMenuHost)
+                }
+                entry<AgendaStartRoute.Stagnant> {
+                    AgendaNavContent(route = it, contextMenuHost = contextMenuHost)
+                }
+                entry<AgendaStartRoute.Overdue> {
+                    AgendaNavContent(route = it, contextMenuHost = contextMenuHost)
+                }
             },
         )
     }
@@ -148,4 +157,7 @@ actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRout
     entry<AgendaStartRoute.SavedAgendaResults> { r -> AgendaNavContent(route = r) }
     entry<AgendaStartRoute.SavedAgendaEdit> { r -> AgendaNavContent(route = r) }
     entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Blocked> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Stagnant> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Overdue> { AgendaNavContent(route = it) }
 }

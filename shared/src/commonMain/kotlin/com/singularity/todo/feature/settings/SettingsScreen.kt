@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Folder
@@ -72,6 +73,7 @@ import com.singularity.todo.feature.settings.screens.AiProviderSettingsScreen
 import com.singularity.todo.feature.settings.screens.FilesSettingsScreen
 import com.singularity.todo.feature.settings.screens.InterfaceSettingsScreen
 import com.singularity.todo.feature.settings.screens.NotificationSettingsScreen
+import com.singularity.todo.feature.settings.screens.TasksSettingsScreen
 import com.singularity.todo.feature.settings.screens.WorkScheduleSettingsScreen
 import com.singularity.todo.feature.sync.presentation.SyncSettingsScreen
 import com.singularity.todo.feature.tags.TagsScreen
@@ -93,6 +95,7 @@ private enum class SettingsTab(val label: String) {
     Sync("Sync"),
     Tags("Tags"),
     TagGroups("Tag Groups"),
+    Tasks("Tasks"),
     Files("Files"),
     Backup("Backup"),
     Account("Account"),
@@ -110,6 +113,7 @@ private val SettingsTab.icon
             SettingsTab.Sync -> Icons.Filled.CloudSync
             SettingsTab.Tags -> Icons.AutoMirrored.Filled.Label
             SettingsTab.TagGroups -> Icons.AutoMirrored.Filled.Label
+            SettingsTab.Tasks -> Icons.Filled.CheckCircle
             SettingsTab.Files -> Icons.Filled.Folder
             SettingsTab.Backup -> Icons.Filled.CloudUpload
             SettingsTab.Account -> Icons.Filled.AccountCircle
@@ -240,6 +244,8 @@ private fun SettingsContent(
                             onDelete = { id -> tagGroupsVm.onIntent(TagGroupsIntent.Delete(id)) },
                         )
                     }
+
+                    SettingsTab.Tasks -> TasksSettingsScreen(state = state, onIntent = onIntent)
 
                     SettingsTab.Files ->
                         FilesSettingsScreen(

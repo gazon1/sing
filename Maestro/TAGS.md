@@ -58,6 +58,8 @@ non-alphanumeric characters with `_`.
 ### Tasks
 | Constant | Value | Where |
 |---|---|---|
+| `CHECKLIST_ADD_BUTTON` | `checklist_add_button` | |
+| `CHECKLIST_ADD_INPUT` | `checklist_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
@@ -87,16 +89,17 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
+| `TASK_DETAIL_PIN_BUTTON` | `task_detail_pin_button` | |
+| `TASK_DETAIL_TITLE` | `task_detail_title` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
-| `TASK_EDITOR_RECURRENCE_LABEL` | `task_editor_recurrence_label` | |
-| `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `TASK_EDITOR_MORE_MENU` | `task_editor_more_menu` | |
 | `TASK_EDITOR_PIN_ROW` | `task_editor_pin_row` | |
 | `TASK_EDITOR_PRIORITY_ROW` | `task_editor_priority_row` | |
 | `TASK_EDITOR_PROJECT_ROW` | `task_editor_project_row` | |
+| `TASK_EDITOR_RECURRENCE_LABEL` | `task_editor_recurrence_label` | |
 | `TASK_EDITOR_RECURRENCE_ROW` | `task_editor_recurrence_row` | |
 | `TASK_EDITOR_SAVE` | `task_editor_save` | |
 | `TASK_EDITOR_START_DATE_ROW` | `task_editor_start_date_row` | |
@@ -114,12 +117,12 @@ non-alphanumeric characters with `_`.
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
 | `AGENDA_TAG_MATCH_ALL` | `agenda_tag_match_all` | |
 | `SAVED_AGENDA_ADD_SECTION_CONFIRM` | `saved_agenda_add_section_confirm` | |
+| `SAVED_AGENDA_COPY_TO_PROFILE_SHEET` | `saved_agenda_copy_to_profile_sheet` | |
 | `SAVED_AGENDA_CREATE_FAB` | `saved_agenda_create_fab` | |
 | `SAVED_AGENDA_DELETE_BUTTON` | `saved_agenda_delete_button` | |
 | `SAVED_AGENDA_EMPTY_TITLE` | `saved_agenda_empty_title` | |
 | `SAVED_AGENDA_LIST_BACK` | `saved_agenda_list_back` | |
 | `SAVED_AGENDA_MENU_COPY_TO_PROFILE` | `saved_agenda_menu_copy_to_profile` | |
-| `SAVED_AGENDA_COPY_TO_PROFILE_SHEET` | `saved_agenda_copy_to_profile_sheet` | |
 | `SAVED_AGENDA_MENU_DELETE` | `saved_agenda_menu_delete` | |
 | `SAVED_AGENDA_MENU_EDIT` | `saved_agenda_menu_edit` | |
 | `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
@@ -187,6 +190,7 @@ non-alphanumeric characters with `_`.
 | `Settings.ACTION_ROW` | `settings_action_row` | |
 | `Settings.DARK_THEME_SWITCH` | `settings_dark_theme_switch` | |
 | `Settings.FONT_SIZE_SLIDER` | `settings_font_size_slider` | |
+| `Settings.NAV_RAIL_SCROLL` | `settings_nav_rail_scroll` | |
 | `Settings.NOTIFICATIONS_ENABLED_SWITCH` | `settings_notifications_enabled_switch` | |
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
@@ -219,6 +223,7 @@ non-alphanumeric characters with `_`.
 | `DatePicker.CANCEL` | `dialog_date_picker_cancel` | |
 | `DatePicker.CLEAR` | `dialog_date_picker_clear` | |
 | `DatePicker.OK` | `dialog_date_picker_ok` | |
+| `DatePicker.SHEET` | `dialog_date_picker_sheet` | |
 | `Dialog.CONFIRM` | `dialog_confirm` | |
 | `Dialog.DISMISS` | `dialog_dismiss` | |
 
@@ -239,11 +244,6 @@ non-alphanumeric characters with `_`.
 | `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
 | `SNACKBAR_ACTION` | `snackbar_action` | |
 
-### Archive
-| Constant | Value | Where |
-|---|---|---|
-| `ARCHIVE_EMPTY` | `archive_empty` | |
-
 ### Backup
 | Constant | Value | Where |
 |---|---|---|
@@ -259,6 +259,13 @@ non-alphanumeric characters with `_`.
 | `PROFILE_CREATE_BUTTON` | `profile_create_button` | |
 | `PROFILE_CREATE_NAME_INPUT` | `profile_create_name_input` | |
 | `PROFILE_ITEM_PREFIX` | `profile_item_` | |
+
+### Calendar
+| Constant | Value | Where |
+|---|---|---|
+| `CALENDAR_VIEW_MODE_TRIGGER` | `calendar_view_mode_trigger` | |
+| `CALENDAR_WEEKDAY_MON` | `calendar_weekday_mon` | |
+| `CALENDAR_WEEKDAY_SUN` | `calendar_weekday_sun` | |
 
 ### Calendar sync
 | Constant | Value | Where |
@@ -279,8 +286,29 @@ non-alphanumeric characters with `_`.
 ### Search filters
 | Constant | Value | Where |
 |---|---|---|
+| `SearchFilter.APPLY_BUTTON` | `search_filter_apply_button` | |
+| `SearchFilter.CANCEL_BUTTON` | `search_filter_cancel_button` | |
 | `SearchFilter.HAS_DESCRIPTION_SWITCH` | `search_filter_has_description_switch` | |
 | `SearchFilter.PINNED_SWITCH` | `search_filter_pinned_switch` | |
+
+### Statistics
+| Constant | Value | Where |
+|---|---|---|
+| `HEALTH_BUCKET_BLOCKED` | `health_bucket_blocked` | |
+| `HEALTH_BUCKET_OVERDUE` | `health_bucket_overdue` | |
+| `HEALTH_BUCKET_STAGNANT` | `health_bucket_stagnant` | |
+
+### Other
+| Constant | Value | Where |
+|---|---|---|
+| `ARCHIVE_EMPTY` | `archive_empty` | |
+| `ATTACHMENTS_ADD_FILE_ROW` | `attachments_add_file_row` | |
+| `ATTACHMENTS_ADD_URL_BUTTON` | `attachments_add_url_button` | |
+| `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
+| `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
+| `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
+| `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
+| `RESULT_DIALOG` | `result_dialog` | |
 
 ## Dynamic functions
 
@@ -296,6 +324,9 @@ use the expanded string directly).
 | `Settings.reminderOffsetRadioRow("At due time")` | `"At due time"` | `reminder_offset_radio_at_due_time` | Reminder-offset radio rows in notification settings |
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
+| `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |
+| `checklistItemCheckbox("Item")` | `"Item"` | `checklist_item_checkbox_item` | Checklist item checkboxes |
+| `checklistItemDelete("Item")` | `"Item"` | `checklist_item_delete_item` | Checklist item delete buttons |
 | `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
 | `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |
 | `subtaskItem("Child task one")` | `"Child task one"` | `subtask_item_child_task_one` | Subtask list rows |
@@ -318,8 +349,6 @@ use the expanded string directly).
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |
 | `CalendarSync.providerSegment("Google Calendar")` | `"Google Calendar"` | `calendar_sync_provider_google_calendar` | Provider segments in the panel |
-| `calendarWeekdayHeader("Mon")` | `"Mon"` | `calendar_weekday_mon` | Weekday column headers in month grid |
-| `calendarDay("2026-09-15")` | `"2026-09-15"` | `calendar_day_2026_09_15` | Day cells in month grid (ISO local date) |
 <!-- GENERATED:END -->
 
 ## Raw-string tags (NOT via TestTags.kt)

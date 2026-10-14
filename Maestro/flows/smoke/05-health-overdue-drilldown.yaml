@@ -1,0 +1,54 @@
+# Smoke: OVERDUE health bucket in Statistics navigates to the Inbox agenda with
+# overdue items — regression for the pre-MR2 state where only OVERDUE was
+# actionable and BLOCKED/STAGNANT were no-ops.
+#
+# Fixture: one overdue task (seeded via `due=-1d`).
+appId: com.singularity.todo
+name: smoke-health-overdue-drilldown
+tags:
+  - smoke
+  - statistics
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Seed an overdue task so the Overdue section is non-empty.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Overdue%20Task&due=-1d"
+
+# Wait for the task to appear on Today (Inbox) before opening Statistics.
+- scrollUntilVisible:
+    element:
+      id: "task_item_${RUN_ID}_overdue_task"
+    direction: DOWN
+    timeout: 10000
+
+# Open the hamburger menu.
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_statistics
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: menu_statistics
+
+# Wait for the Statistics screen to load.
+- extendedWaitUntil:
+    visible:
+      id: health_bucket_overdue
+    timeout: 15000
+
+# Drill down into OVERDUE — should navigate to the Inbox agenda showing overdue tasks.
+- tapOn:
+    id: health_bucket_overdue
+
+# The Inbox agenda shows an "Overdue" section header when overdue tasks exist.
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+    timeout: 15000
+- assertVisible:
+    id: agenda_section_overdue

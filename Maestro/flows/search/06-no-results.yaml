@@ -10,7 +10,7 @@ tags:
   - negative
   - scenario:SEARCH-06
 ---
-- runFlow: ../helpers/launch-clean.yaml
+- runFlow: ../../helpers/launch-clean.yaml
 
 # Open quick search.
 - tapOn:

@@ -41,6 +41,7 @@ sealed interface SettingsUiState {
         val greeting: SettingsSection.Greeting = SettingsSection.Greeting(),
         val ai: SettingsSection.Ai = SettingsSection.Ai(),
         val defaultAgendaView: SettingsSection.DefaultAgendaView = SettingsSection.DefaultAgendaView(),
+        val tasks: SettingsSection.Tasks = SettingsSection.Tasks(),
 
         // ── Ephemeral state (not persisted) ────────────────────────────────────
         /** AI test result, fetched model list, fetch errors — UI-only state. */

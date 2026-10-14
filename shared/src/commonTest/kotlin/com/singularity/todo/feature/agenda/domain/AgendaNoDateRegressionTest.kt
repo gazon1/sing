@@ -4,6 +4,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
+import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -48,6 +49,12 @@ class AgendaNoDateRegressionTest {
 
     private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 30)
 
+    private val context = SelectorContext(
+        today = today,
+        now = kotlin.time.Instant.fromEpochMilliseconds(0),
+        blockedIds = emptySet(),
+    )
+
     private fun undatedTask(id: String, title: String): Task = Task(
         id = TaskId(id),
         userId = UserId.anonymous,
@@ -78,7 +85,7 @@ class AgendaNoDateRegressionTest {
     fun `undated task lands in the Inbox No Date section`() {
         val task = undatedTask("t1", "Buy milk")
 
-        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today)
+        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 
         val noDate = sections.single { it.name == "No Date" }
         assertEquals(
@@ -92,7 +99,7 @@ class AgendaNoDateRegressionTest {
     fun `undated task carries the NoDate badge`() {
         val task = undatedTask("t1", "Buy milk")
 
-        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today)
+        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 
         val row = sections.single { it.name == "No Date" }.tasks.single()
         assertEquals(
@@ -106,7 +113,7 @@ class AgendaNoDateRegressionTest {
     fun `undated task is not swallowed by the dated sections`() {
         val task = undatedTask("t1", "Buy milk")
 
-        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today)
+        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 
         val containing = sections.filter { section -> section.tasks.any { it.task.id == task.id } }
         assertEquals(
@@ -132,7 +139,7 @@ class AgendaNoDateRegressionTest {
         val task = undatedTask("t1", "Buy milk")
             .copy(completedAt = kotlin.time.Instant.fromEpochMilliseconds(1))
 
-        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today)
+        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 
         val row = sections.single { it.name == "No Date" }.tasks.single()
         assertEquals(
@@ -146,7 +153,7 @@ class AgendaNoDateRegressionTest {
     fun `Today preset has no No Date section, so an undated task is absent there`() {
         val task = undatedTask("t1", "Buy milk")
 
-        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Today, today)
+        val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Today, today, context.now)
 
         assertTrue(
             sections.none { section -> section.tasks.any { it.task.id == task.id } },

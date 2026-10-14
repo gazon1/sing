@@ -72,6 +72,7 @@ import com.singularity.todo.core.sync.SyncRunner
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.sync.SyncStateRepository
+import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
@@ -168,6 +169,11 @@ fun coreModule(): org.koin.core.module.Module =
                 legacy = get(),
             )
         }
+        // Binding to SecureSessionStore: SecureSessionStore writes tokens to the platform
+        // keychain (not DataStore<Preferences>), so PlaintextTokenIsolationTest's regex
+        // scan does NOT flag it — the regex looks for ACCESS_TOKEN/REFRESH_TOKEN writes
+        // to DataStore, and SecureSessionStore doesn't do that.
+        single<SessionStore> { get<SecureSessionStore>() }
 
         // Which Supabase project to talk to. The resolver owns the precedence rule
         // (a stored value beats a build-time one) and the provider owns the client,
@@ -564,6 +570,7 @@ fun coreModule(): org.koin.core.module.Module =
                 greetingContributor = getOrNull<GreetingContributor>(),
                 aiContributor = getOrNull<AiContributor>(),
                 defaultAgendaViewContributor = getOrNull<DefaultAgendaViewContributor>(),
+                tasksContributor = getOrNull<TasksContributor>(),
                 savedAgendaViewsRepo = get(),
                 fileRevealer = get(),
                 logBundleExporter = get(),

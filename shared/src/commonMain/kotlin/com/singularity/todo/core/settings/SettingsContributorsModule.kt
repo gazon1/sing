@@ -9,6 +9,9 @@ import com.singularity.todo.core.schedule.GreetingSettingsStore
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsStore
+import com.singularity.todo.core.tasks.TasksContributor
+import com.singularity.todo.core.tasks.TasksSettingsContributor
+import com.singularity.todo.core.tasks.TasksSettingsStore
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsStore
@@ -53,4 +56,8 @@ fun settingsContributorsModule(): Module = module {
     // Default Agenda View
     single { DefaultAgendaViewSettingsStore(get<SettingsRepository>().defaultAgendaView) }
     single<DefaultAgendaViewContributor> { DefaultAgendaViewSettingsContributor(get()) }
+
+    // Tasks
+    single { TasksSettingsStore(get<SettingsRepository>()) }
+    single<TasksContributor> { TasksSettingsContributor(get()) }
 }
