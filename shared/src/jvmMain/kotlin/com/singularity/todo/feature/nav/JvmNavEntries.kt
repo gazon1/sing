@@ -16,6 +16,9 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
+import com.singularity.todo.feature.auth.presentation.AttachAccountScreen
+import com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreen
+import com.singularity.todo.feature.profile.presentation.ChangePasswordScreen
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
@@ -144,6 +147,18 @@ fun createJvmEntryProvider(
 
         entry<AppDestination.ProfileSwitcher> {
             ProfileSwitcherScreen(onBack = { nav.goBack() })
+        }
+
+        entry<AppDestination.AttachAccount> {
+            AttachAccountScreen()
+        }
+
+        entry<AppDestination.ChangePassword> {
+            ChangePasswordScreen()
+        }
+
+        entry<AppDestination.MagicLinkConfirm> { route ->
+            MagicLinkConfirmScreen(prefillEmail = route.email, prefillToken = route.token)
         }
 
         // ─── Sub-routes ────────────────────────────────────────────────────

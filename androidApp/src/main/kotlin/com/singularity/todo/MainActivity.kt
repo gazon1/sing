@@ -23,45 +23,74 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val (deeplinkTaskId, deeplinkViewId) = resolveDeepLinkIntents(intent)
+        val resolved = resolveDeepLinkIntents(intent)
 
         setContent {
-            App(deeplinkViewId = deeplinkViewId, deeplinkTaskId = deeplinkTaskId)
+            App(
+                deeplinkViewId = resolved.deeplinkViewId,
+                deeplinkTaskId = resolved.deeplinkTaskId,
+                deeplinkMagicEmail = resolved.deeplinkMagicEmail,
+                deeplinkMagicToken = resolved.deeplinkMagicToken,
+            )
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        val (deeplinkTaskId, deeplinkViewId) = resolveDeepLinkIntents(intent)
-        if (deeplinkTaskId != null || deeplinkViewId != null) {
+        val resolved = resolveDeepLinkIntents(intent)
+        if (resolved.deeplinkTaskId != null || resolved.deeplinkViewId != null ||
+            resolved.deeplinkMagicEmail != null || resolved.deeplinkMagicToken != null) {
             setContent {
-                App(deeplinkViewId = deeplinkViewId, deeplinkTaskId = deeplinkTaskId)
+                App(
+                    deeplinkViewId = resolved.deeplinkViewId,
+                    deeplinkTaskId = resolved.deeplinkTaskId,
+                    deeplinkMagicEmail = resolved.deeplinkMagicEmail,
+                    deeplinkMagicToken = resolved.deeplinkMagicToken,
+                )
             }
         }
     }
 
     /**
-     * Extracts navigation targets from two independent sources:
-     * 1. `intent.data` — `singularity://task/{taskId}` from calendar event taps → deeplinkTaskId
+     * Deep-link intent resolution result, combining three independent sources:
+     * 1. `intent.data` — `singularity://task/{id}` from calendar event taps → deeplinkTaskId
      * 2. `AndroidNotifier.EXTRA_DEEPLINK_VIEW_ID` — from notification taps → deeplinkViewId
+     * 3. `intent.data` — `singularity://verify?email=&token=` from magic link emails → deeplinkMagicEmail / deeplinkMagicToken
      *
-     * These are independent, so both can be non-null if both intent extras are somehow set.
+     * These are independent, so all can be non-null if multiple intent extras are somehow set.
      */
-    private fun resolveDeepLinkIntents(intent: Intent?): Pair<String?, String?> {
-        if (intent == null) return null to null
+    private data class ResolvedDeepLinks(
+        val deeplinkTaskId: String?,
+        val deeplinkViewId: String?,
+        val deeplinkMagicEmail: String?,
+        val deeplinkMagicToken: String?,
+    )
+
+    private fun resolveDeepLinkIntents(intent: Intent?): ResolvedDeepLinks {
+        if (intent == null) return ResolvedDeepLinks(null, null, null, null)
+
+        val data: android.net.Uri? = intent.data
 
         // Calendar deep-link: singularity://task/{id}
-        val data: android.net.Uri? = intent.data
         val deeplinkTaskId: String? = if (data?.scheme == "singularity" && data.host == "task") {
             data.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() }
         } else {
             null
         }
 
-        // Notification tap extra
+        // Magic link deep-link: singularity://verify?email=&token=
+        val deeplinkMagicEmail: String? = data?.getQueryParameter("email")?.takeIf { it.isNotBlank() }
+        val deeplinkMagicToken: String? = data?.getQueryParameter("token")?.takeIf { it.isNotBlank() }
+
+        // Notification tap extra (independent of intent.data)
         val deeplinkViewId: String? = intent.getStringExtra(AndroidNotifier.EXTRA_DEEPLINK_VIEW_ID)
 
-        return deeplinkTaskId to deeplinkViewId
+        return ResolvedDeepLinks(
+            deeplinkTaskId = deeplinkTaskId,
+            deeplinkViewId = deeplinkViewId,
+            deeplinkMagicEmail = deeplinkMagicEmail,
+            deeplinkMagicToken = deeplinkMagicToken,
+        )
     }
 
     override fun onResume() {

@@ -581,6 +581,58 @@ class AuthRepositoryTest {
         assertNull(secure.values[SecureSessionStore.KEY_ACCESS])
     }
 
+    // ── Magic link ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `verifyMagicLink succeeds and creates a signed-in session`() = runTest {
+        val repo = repository()
+        awaitState { repo.currentSession.value !is Session.Loading }
+        gateway.verifyMagicLinkResult = Result.success(signedIn("a@b.c"))
+
+        val result = repo.verifyMagicLink("a@b.c", "the-token")
+
+        assertTrue(result.isSuccess)
+        val session = repo.currentSession.value
+        assertIs<Session.SignedIn>(session)
+        assertEquals("a@b.c", session.email)
+    }
+
+    @Test
+    fun `verifyMagicLink failure propagates the error without changing session`() = runTest {
+        val repo = repository()
+        awaitState { repo.currentSession.value !is Session.Loading }
+        gateway.verifyMagicLinkResult = Result.failure(AppError.Unauthorized("bad token"))
+
+        val result = repo.verifyMagicLink("a@b.c", "bad-token")
+
+        assertTrue(result.isFailure)
+        assertIs<Session.SignedOut>(repo.currentSession.value)
+    }
+
+    @Test
+    fun `sendMagicLink succeeds without changing session`() = runTest {
+        val repo = repository()
+        awaitState { repo.currentSession.value !is Session.Loading }
+
+        val result = repo.sendMagicLink("a@b.c")
+
+        assertTrue(result.isSuccess)
+        assertIs<Session.SignedOut>(repo.currentSession.value)
+        assertEquals(1, gateway.sendMagicLinkCalls)
+    }
+
+    @Test
+    fun `sendMagicLink failure propagates the error without changing session`() = runTest {
+        val repo = repository()
+        awaitState { repo.currentSession.value !is Session.Loading }
+        gateway.sendMagicLinkResult = Result.failure(AppError.Network("unreachable"))
+
+        val result = repo.sendMagicLink("a@b.c")
+
+        assertTrue(result.isFailure)
+        assertIs<Session.SignedOut>(repo.currentSession.value)
+    }
+
     // ── Infrastructure ──────────────────────────────────────────────────────
 
     private fun signedIn(email: String = "a@b.c") =
@@ -597,15 +649,22 @@ private class ScriptedGateway : AuthGateway {
     var attachResult: Result<RemoteSession> = signInResult
     var signOutResult: Result<Unit> = Result.success(Unit)
     var refreshResult: Result<RemoteSession?> = Result.success(null)
+    var sendMagicLinkResult: Result<Unit> = Result.success(Unit)
+    var verifyMagicLinkResult: Result<RemoteSession> = Result.success(
+        RemoteSession("dev-user-id", "a@b.c", "dev-access-token", "dev-refresh-token", false),
+    )
 
     var signInCalls = 0
     var attachCalls = 0
     var signOutCalls = 0
+    var sendMagicLinkCalls = 0
+    var verifyMagicLinkCalls = 0
 
     /** The address the repository actually sent, which is not the one it was given. */
     var lastSignUpEmail: String? = null
     var lastSignInEmail: String? = null
     var lastAttachEmail: String? = null
+    var lastMagicLinkEmail: String? = null
 
     override suspend fun signUp(email: String, password: String): Result<RemoteSession> {
         lastSignUpEmail = email
@@ -632,4 +691,17 @@ private class ScriptedGateway : AuthGateway {
     }
 
     override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> = refreshResult
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> {
+        sendMagicLinkCalls++
+        lastMagicLinkEmail = email
+        return sendMagicLinkResult
+    }
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> {
+        verifyMagicLinkCalls++
+        return verifyMagicLinkResult
+    }
 }

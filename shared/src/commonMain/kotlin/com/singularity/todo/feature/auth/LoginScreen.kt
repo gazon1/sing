@@ -60,7 +60,7 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            is AuthUiEvent.NavigateToHome -> {
+            AuthUiEvent.NavigateToHome -> {
                 navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today))
             }
 
@@ -90,72 +90,43 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        OutlinedTextField(
-            value = form.value.email,
-            onValueChange = { newEmail -> form.update { copy(email = newEmail) } },
-            label = { Text("Email") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_EMAIL_INPUT),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true,
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = form.value.password,
-            onValueChange = { newPassword -> form.update { copy(password = newPassword) } },
-            label = { Text("Password") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_PASSWORD_INPUT),
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true,
-        )
-
-        val capturedError = errorMessage
-        if (capturedError != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = capturedError,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
+        val awaitingConfirmation = state as? AuthUiState.AwaitingEmailConfirmation
+        if (awaitingConfirmation != null) {
+            ConfirmationPendingContent(
+                email = awaitingConfirmation.email,
+                message = message,
+                isLoading = state is AuthUiState.Loading,
+                onResend = {
+                    message = null
+                    viewModel.onIntent(AuthIntent.SendMagicLink(awaitingConfirmation.email))
+                },
+                onBack = {
+                    message = null
+                    errorMessage = null
+                    viewModel.onIntent(AuthIntent.ResetState)
+                },
             )
-        }
-
-        val capturedMessage = message
-        if (capturedMessage != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = capturedMessage,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag(TestTags.AUTH_MESSAGE_TEXT),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (state is AuthUiState.Loading) {
-            ButtonSpinner(modifier = Modifier.testTag(TestTags.AUTH_LOADING))
         } else {
-            Button(
-                onClick = {
+            AuthFormFields(
+                emailTag = TestTags.AUTH_EMAIL_INPUT,
+                passwordTag = TestTags.AUTH_PASSWORD_INPUT,
+                submitTag = TestTags.AUTH_SIGN_IN_BUTTON,
+                submitLabel = if (form.value.isSignUp) "Sign Up" else "Sign In",
+                email = form.value.email,
+                password = form.value.password,
+                isLoading = state is AuthUiState.Loading,
+                errorMessage = errorMessage,
+                message = message,
+                onEmailChange = { newEmail -> form.update { copy(email = newEmail) } },
+                onPasswordChange = { newPassword -> form.update { copy(password = newPassword) } },
+                onSubmit = {
                     if (form.value.isSignUp) {
                         viewModel.onIntent(AuthIntent.SignUp(form.value.email, form.value.password))
                     } else {
                         viewModel.onIntent(AuthIntent.SignIn(form.value.email, form.value.password))
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_SIGN_IN_BUTTON),
-            ) {
-                Text(if (form.value.isSignUp) "Sign Up" else "Sign In")
-            }
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -163,6 +134,7 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
                 onClick = {
                     form.update { copy(isSignUp = !isSignUp) }
                     errorMessage = null
+                    message = null
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,8 +173,7 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
  */
 @Composable
 private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> Unit) {
-    var url by remember { mutableStateOf("") }
-    var anonKey by remember { mutableStateOf("") }
+    val form = rememberServerConfigFormState()
 
     Column(
         modifier = Modifier
@@ -222,8 +193,8 @@ private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> 
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = url,
-            onValueChange = { url = it },
+            value = form.value.url,
+            onValueChange = { form.update { copy(url = it) } },
             label = { Text("Project URL") },
             modifier = Modifier
                 .fillMaxWidth()
@@ -234,8 +205,8 @@ private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> 
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = anonKey,
-            onValueChange = { anonKey = it },
+            value = form.value.anonKey,
+            onValueChange = { form.update { copy(anonKey = it) } },
             label = { Text("Anon key (publishable)") },
             modifier = Modifier
                 .fillMaxWidth()
@@ -256,7 +227,7 @@ private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { onSave(url, anonKey) },
+            onClick = { onSave(form.value.url, form.value.anonKey) },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TestTags.AUTH_SAVE_SERVER_BUTTON),
@@ -316,6 +287,23 @@ private fun LoginScreenDarkPreview() = PreviewThemed(darkTheme = true) {
     )
 }
 
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun LoginScreenMessagePreview() = PreviewThemed(darkTheme = false) {
+    LoginScreenFormContent(
+        email = "user@example.com",
+        password = "password",
+        isLoading = false,
+        errorMessage = null,
+        message = "Account created. Check your email to confirm the address.",
+        isSignUp = true,
+        onEmailChange = {},
+        onPasswordChange = {},
+        onSignIn = {},
+        onToggleMode = {},
+    )
+}
+
 /**
  * Stateless preview variant of LoginScreen — mirrors the layout without
  * requiring a ViewModel or CollectEvents.
@@ -326,6 +314,7 @@ private fun LoginScreenFormContent(
     password: String,
     isLoading: Boolean,
     errorMessage: String?,
+    message: String? = null,
     isSignUp: Boolean,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
@@ -341,44 +330,23 @@ private fun LoginScreenFormContent(
     ) {
         Text(text = "Singularity Todo", style = MaterialTheme.typography.headlineLarge)
         Spacer(modifier = Modifier.height(32.dp))
-        OutlinedTextField(
-            value = email,
-            onValueChange = onEmailChange,
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true,
+        AuthFormFields(
+            emailTag = TestTags.AUTH_EMAIL_INPUT,
+            passwordTag = TestTags.AUTH_PASSWORD_INPUT,
+            submitTag = TestTags.AUTH_SIGN_IN_BUTTON,
+            submitLabel = if (isSignUp) "Sign Up" else "Sign In",
+            email = email,
+            password = password,
+            isLoading = isLoading,
+            errorMessage = errorMessage,
+            message = message,
+            onEmailChange = onEmailChange,
+            onPasswordChange = onPasswordChange,
+            onSubmit = onSignIn,
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = onPasswordChange,
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true,
-        )
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-        if (isLoading) {
-            ButtonSpinner(modifier = Modifier)
-        } else {
-            Button(
-                onClick = onSignIn,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (isSignUp) "Sign Up" else "Sign In") }
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onToggleMode, modifier = Modifier.fillMaxWidth()) {
-                Text(if (isSignUp) "Already have an account? Sign In" else "Don't have an account? Sign Up")
-            }
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = onToggleMode, modifier = Modifier.fillMaxWidth()) {
+            Text(if (isSignUp) "Already have an account? Sign In" else "Don't have an account? Sign Up")
         }
     }
 }

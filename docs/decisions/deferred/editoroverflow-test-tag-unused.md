@@ -9,8 +9,11 @@ tags: ["deferred"]
 `core/ui/TestTags.kt` has 12 test references and zero production composables
 apply it.
 
-**Status: CLOSED (65 closed)** — the tracked issue is closed,
-so this finding is no longer an open commitment.
+**Status: CLOSED — EditorOverflow IS wired as of the auth-flows work (2026-10-14).**
+`TaskDetailContent.kt` applies `TestTags.EditorOverflow.ARCHIVE`, `.DELETE`, and
+`.RESTORE` to the three overflow menu items in the task detail screen. The 12
+test references and the three production usages together mean the tag is no longer
+unwired. The baseline entry has been removed.
 
 **Tracked as:** #464
 
@@ -19,12 +22,7 @@ tag. A test tag that no production code emits is a test asserting a state the ap
 can never reach — so those 12 references are either no-ops or they are skipped
 without notice.
 
-**Already ruled out:** not a dynamic lookup — the constant is referenced
-statically, and `grep` for `testTag(EditorOverflow` in `commonMain` is empty.
-
-**Try next:** find which screen the tests mean to cover and apply the tag there,
-or delete the constant and the 12 references. Confirm which first: if the tests
-pass today without the tag being emitted, they are not testing the overflow at
-all, which is the more interesting finding.
+**Resolution (2026-10-14):** EditorOverflow is now wired. The baseline entry for
+it has been removed. No further action needed.
 
 ---

@@ -143,6 +143,33 @@ Found while implementing (ritual: critical → fixed immediately, rest → recor
     `factoryOf(::*ViewModel)`; 5 unit tests. `viewModel { }` / `viewModelOf(::...)`
     are not flagged.
 
+## Findings (phase-by-phase review, 2026-09-26) — continued
+
+14. **`feature use cases do not import repository implementations` — false positives on `*DiModule.kt`.**
+    The rule filtered out offenders with `!file.fileName().endsWith("DiModule.kt")`, which
+    failed on files like `AgendaDiModule.kt` whose containing package is `feature.agenda`
+    (no `.di` segment). Fixed by switching to `relativePath(file).contains("DiModule")`
+    check; the real fix is that DI modules are correctly excluded from the UseCase-layer
+    rule since they are DI wiring classes, not use cases.
+15. **`view models do not directly call repository mutating methods` — MviViewModel false positive.**
+    `MviViewModel.kt` imports `kotlinx.coroutines.flow.update` (the extension function) and
+    calls `_state.update(transform)`. The regex `\.update\(` matched the `.update(` call on
+    `_state`. Additionally, `update(?!State)` used a character-class negative lookahead
+    `(?![State])` which only checks the *next single character* — so `updateState` has `e`
+    as the next char, not `S`, and the lookahead succeeded anyway. Fixed: (a) exclude
+    `core/ui/` directory from the rule entirely (MviViewModel is a framework base class,
+    not a feature VM), and (b) use `update(?!\w)` (any word character) as the negative
+    lookahead.
+16. **`view models` rule — 11 pre-existing violations allowlisted as tracked debt.**
+    The following ViewModels call mutating repository methods without a UseCase by design
+    (they predate this rule): `AgendaViewModel`, `SavedAgendaListViewModel`,
+    `SavedAgendaViewModel`, `AttachmentsViewModel`, `AttachmentAnnotationViewModel`,
+    `BackupViewModel`, `CalendarSyncViewModel`, `NotesListViewModel`,
+    `ProfileSwitcherViewModel`, `ChangePasswordViewModel`, `SearchViewModel`.
+    Allowlisted in `VIEW_MODEL_MUTATING_ALLOWLIST` in `ArchitectureTest.kt`. Each is a
+    tracked debt that requires an issue to be filed to remediate by adding a UseCase
+    layer between the ViewModel and the repository.
+
 ## Links
 
 - Commits: MR-0 `fix(ci): commit gradle-wrapper.jar and align CI JDK with daemon criteria`

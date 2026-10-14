@@ -40,15 +40,119 @@ class StubAuthRepository : AuthRepository {
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
-    override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
-    override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
+    /**
+     * When `true`, the next [signUp] call returns success but leaves the session as
+     * [Session.SignedOut] — simulating a Supabase sign-up with email confirmation required.
+     *
+     * This drives the `AUTH-SIGNUP-02` axis in Maestro E2E flows.
+     *
+     * Set via `adb shell setprop debug.stub_auth.unconfirmed_signup true` before
+     * the app starts, or set this property directly when using the stub in tests.
+     * The system property is checked on every call (no caching) so that `setprop`
+     * in a Maestro `onFlowStart` hook takes effect without restarting the app.
+     */
+    var signUpReturnsUnconfirmed = false
+
+    /**
+     * When `true`, [signIn] returns a failure result, simulating a network error
+     * or invalid credentials server response.
+     *
+     * Driven by `debug.stub_auth.signin_failure` system property (lazy read).
+     */
+    var signInFailure = false
+
+    /**
+     * When `true`, [signUp] returns a failure result, simulating a network error
+     * or email already registered server response.
+     *
+     * Driven by `debug.stub_auth.signup_failure` system property (lazy read).
+     */
+    var signUpFailure = false
+
+    /**
+     * When `true`, [migrateAnonymousTo] returns a failure result, simulating
+     * a network error or ownership-conflict server response.
+     *
+     * Driven by `debug.stub_auth.attach_failure` system property (lazy read).
+     */
+    var attachFailure = false
+
+    private fun isUnconfirmedPropSet(): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("getprop", "debug.stub_auth.unconfirmed_signup"))
+            process.inputStream.bufferedReader().readText().trim() == "true"
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isFailurePropSet(prop: String): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("getprop", prop))
+            process.inputStream.bufferedReader().readText().trim() == "true"
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun networkFailure(): Result<Nothing> = Result.failure(
+        Exception("StubAuthRepository: simulated network error"),
+    )
+
+    override suspend fun signUp(email: String, password: String): Result<Unit> {
+        if (signUpFailure || isFailurePropSet("debug.stub_auth.signup_failure")) {
+            signUpFailure = false
+            return networkFailure()
+        }
+        if (signUpReturnsUnconfirmed || isUnconfirmedPropSet()) {
+            signUpReturnsUnconfirmed = false
+            _currentSession.value = Session.SignedOut
+            return Result.success(Unit)
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun signIn(email: String, password: String): Result<Unit> {
+        if (signInFailure || isFailurePropSet("debug.stub_auth.signin_failure")) {
+            signInFailure = false
+            return networkFailure()
+        }
+        return Result.success(Unit)
+    }
+    override suspend fun signInAnonymously(): Result<Unit> {
+        _currentSession.value = Session.Anonymous(
+            userId = UserId.fromString("00000000-0000-0000-0000-000000000001"),
+        )
+        return Result.success(Unit)
+    }
+
     override suspend fun signOut(): Result<Unit> {
         _currentSession.value = Session.SignedOut
         return Result.success(Unit)
     }
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> =
-        Result.success(Unit)
+
+    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> {
+        if (attachFailure || isFailurePropSet("debug.stub_auth.attach_failure")) {
+            attachFailure = false
+            return networkFailure()
+        }
+        // StubAuthRepository keeps the same userId across anonymous→signed-in,
+        // mirroring how the real Supabase provider attaches credentials to the
+        // existing identity without changing the owner.
+        _currentSession.value = Session.SignedIn(
+            userId = UserId.fromString("00000000-0000-0000-0000-000000000001"),
+            email = email,
+            accessToken = "test-access-token",
+            refreshToken = "test-refresh-token",
+        )
+        return Result.success(Unit)
+    }
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)
 }
 
 /**
@@ -71,6 +175,13 @@ class NoOpAuthGateway : AuthGateway {
     override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 
     override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
+        Result.success(dummySignedInSession())
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
         Result.success(dummySignedInSession())
 }
 

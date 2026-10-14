@@ -19,6 +19,29 @@ open class SettingsNavigator(protected val onExitGraph: (AppDestination?) -> Uni
     }
 
     /**
+     * Navigate to the attach-account screen.
+     *
+     * Shown only when the current session is [com.singularity.todo.core.auth.Session.Anonymous].
+     * The target screen accepts email/password and calls
+     * [com.singularity.todo.feature.auth.AuthIntent.MigrateAnonymousTo] to attach
+     * an account to the anonymous session.
+     */
+    open fun openAttachAccount() {
+        onExitGraph(AppDestination.AttachAccount)
+    }
+
+    /**
+     * Navigate to the change-password screen.
+     *
+     * Shown only when the current session is [com.singularity.todo.core.auth.Session.SignedIn].
+     * The target screen accepts a new password and calls
+     * [com.singularity.todo.feature.profile.presentation.ChangePasswordIntent.Submit].
+     */
+    open fun openChangePassword() {
+        onExitGraph(AppDestination.ChangePassword)
+    }
+
+    /**
      * Go back — exits the settings graph back to the outer app back stack.
      */
     open fun back() {

@@ -30,6 +30,9 @@ sealed interface AuthUiState {
      * It is also not [AuthUiState.Success], because Success means the user is in, and
      * navigating them into the application with no session leaves them looking at a task
      * list that cannot be saved and cannot say why.
+     *
+     * @param email The email address that needs confirmation — shown to the user
+     *              so they know which address to verify.
      */
-    data object AwaitingEmailConfirmation : AuthUiState
+    data class AwaitingEmailConfirmation(val email: String) : AuthUiState
 }

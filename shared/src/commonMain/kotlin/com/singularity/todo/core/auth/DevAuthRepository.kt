@@ -106,6 +106,11 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
 
     override suspend fun signOut(): Result<Unit> {
         signOutCalled = true
+        // BY DESIGN: signOut() transitions to Anonymous rather than SignedOut.
+        // This keeps the device usable without Supabase — a new sign-in (real or
+        // anonymous) is always available, and the session can be inspected in tests
+        // without reaching for a "no session" state that cannot send requests.
+        // See ADR docs/decisions/2026-10-14-session-state-and-missing-attach-ui.md.
         _currentSession.value = Session.Anonymous(UserId.anonymous)
         return Result.success(Unit)
     }
@@ -122,6 +127,21 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
                 accessToken = "dev-access-token",
                 refreshToken = "dev-refresh-token",
             )
+        return Result.success(Unit)
+    }
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> {
+        // DevAuthRepository: no network, always succeeds.
+        return Result.success(Unit)
+    }
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> {
+        // DevAuthRepository: no network, always succeeds.
+        return Result.success(Unit)
+    }
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> {
+        // DevAuthRepository: no network, always succeeds.
         return Result.success(Unit)
     }
 

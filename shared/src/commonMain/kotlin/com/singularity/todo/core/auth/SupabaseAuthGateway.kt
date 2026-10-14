@@ -4,8 +4,10 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.OTP
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -81,6 +83,44 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         }
         auth.currentSessionOrNull()?.toRemote()
     }
+
+    override suspend fun updatePassword(newPassword: String): Result<Unit> = call("update password") {
+        val auth = auth()
+        auth.updateUser { this.password = newPassword }
+        Unit
+    }
+
+    override suspend fun sendMagicLink(email: String): Result<Unit> = call("send magic link") {
+        val auth = auth()
+        // OTP.login sends a magic link (email OTP) to the supplied address.
+        // Used for resending confirmation emails and for password-reset flows.
+        auth.signInWith(OTP) {
+            this.email = email
+            // Do not create a new user: a magic-link resend targets an existing
+            // unconfirmed account. Attempting to send to an unknown address
+            // correctly surfaces the error rather than silently creating a ghost.
+            createUser = false
+        }
+        Unit
+    }
+
+    override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
+        runCatchingCancellable {
+            val auth = auth()
+            // Exchange the token from the magic link URL for a session.
+            val result = auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)
+            when (result) {
+                is io.github.jan.supabase.auth.OtpVerifyResult.Authenticated -> result.session.toRemote()
+                is io.github.jan.supabase.auth.OtpVerifyResult.VerifiedNoSession -> throw AppError.Unauthorized(
+                    "Magic link verified but no session was issued",
+                    code = "auth.no_session",
+                )
+            }
+        }.onFailure { e ->
+            if (e !is CancellationException) {
+                log.w(e) { "Auth magic link verification failed" }
+            }
+        }
 
     override suspend fun signOut(): Result<Unit> = call("sign out") {
         // Signing out with no configured project still succeeds locally: the

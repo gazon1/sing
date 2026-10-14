@@ -20,9 +20,18 @@ import com.singularity.todo.feature.nav.Navigator
  *   saved agenda edit screen on first composition. Null on JVM.
  * @param deeplinkTaskId When non-null (Android only), navigates directly to the
  *   task detail screen on first composition. Null on JVM.
+ * @param deeplinkMagicEmail When non-null (Android only), opens the magic link
+ *   confirm screen pre-filled with this email. Null on JVM.
+ * @param deeplinkMagicToken When non-null (Android only), auto-submits verification
+ *   for this token after navigating to the magic link confirm screen. Null on JVM.
  */
 @Composable
-expect fun App(deeplinkViewId: String?, deeplinkTaskId: String?)
+expect fun App(
+    deeplinkViewId: String?,
+    deeplinkTaskId: String?,
+    deeplinkMagicEmail: String?,
+    deeplinkMagicToken: String?,
+)
 
 /**
  * Shell entry point that receives the navigation state built by [App].

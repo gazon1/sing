@@ -1,0 +1,68 @@
+# AUTH-FAIL-02: sign-in with no network shows a user-facing error.
+#
+# preconditions: emulator running, real Supabase auth (not StubAuthRepository).
+# steps:
+#   1. Enable airplane mode (no network).
+#   2. Attempt to sign in.
+#   3. Verify the error message is shown.
+#
+# Note: requires `exec` access to `adb` in PATH. See 08-signup-network-error.yaml
+# for details on the airplane mode requirement.
+appId: com.singularity.todo
+name: auth-signin-network-error
+tags:
+  - regression
+  - auth
+  - AUTH-FAIL-02
+  - manual
+---
+- exec:
+    command: adb shell settings put global airplane_mode_on 1 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true
+
+- waitForAnimations: 1500
+
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+
+- extendedWaitUntil:
+    visible:
+      id: auth_save_server_button
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: auth_save_server_button
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: auth_save_server_button
+
+- extendedWaitUntil:
+    visible:
+      id: auth_email_input
+    timeout: 15000
+
+# Enter credentials and submit while in airplane mode.
+- inputText:
+    id: auth_email_input
+    text: "networkfail@example.com"
+- inputText:
+    id: auth_password_input
+    text: "ValidPassword123!"
+
+- tapOn:
+    id: auth_sign_in_button
+
+# The app should show a network error.
+- extendedWaitUntil:
+    visible:
+      id: auth_error_text
+    timeout: 20000
+- assertVisible:
+    id: auth_error_text
+
+# Cleanup: restore network.
+- exec:
+    command: adb shell settings put global airplane_mode_on 0 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false

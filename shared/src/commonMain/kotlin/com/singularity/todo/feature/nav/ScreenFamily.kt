@@ -107,6 +107,9 @@ private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) 
     AppDestination.Settings,
     AppDestination.AiUsage,
     AppDestination.ProfileSwitcher,
+    AppDestination.AttachAccount,
+    AppDestination.ChangePassword,
+    is AppDestination.MagicLinkConfirm,
     -> ScreenFamily.Settings
 
     is AppDestination.AgendaGraph -> ScreenFamily.Agenda

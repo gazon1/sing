@@ -24,6 +24,15 @@ sealed interface AuthIntent : MviIntent {
     data object ResetState : AuthIntent
 
     /**
+     * Attaches an email/password account to the current anonymous session.
+     *
+     * Only valid when [Session.Anonymous]; calling it in any other session
+     * is a no-op that returns failure (guarded by the UI — the button is
+     * only shown for anonymous sessions).
+     */
+    data class MigrateAnonymousTo(val email: String, val password: String) : AuthIntent
+
+    /**
      * Stores the Supabase project to talk to.
      *
      * Carries the URL and the **anon** key. The anon key ships inside every copy
@@ -32,6 +41,22 @@ sealed interface AuthIntent : MviIntent {
      * on a device.
      */
     data class SaveServerConfig(val url: String, val anonKey: String) : AuthIntent
+
+    /**
+     * Verifies the [token] from a magic link sent to [email].
+     *
+     * Completes sign-in for an unconfirmed account by exchanging the token from
+     * the magic link URL for a live session.
+     */
+    data class VerifyMagicLink(val email: String, val token: String) : AuthIntent
+
+    /**
+     * Resends a new magic link to [email].
+     *
+     * Used on the [com.singularity.todo.feature.auth.AuthUiState.AwaitingEmailConfirmation]
+     * screen when the original confirmation email was lost (spam filter, etc.).
+     */
+    data class SendMagicLink(val email: String) : AuthIntent
 }
 
 /**
@@ -80,7 +105,10 @@ class AuthViewModel(
             AuthIntent.SignInAnonymously -> signInAnonymously()
             AuthIntent.SignOut -> signOut()
             AuthIntent.ResetState -> updateState { AuthUiState.Idle }
+            is AuthIntent.MigrateAnonymousTo -> migrateAnonymousTo(intent.email, intent.password)
             is AuthIntent.SaveServerConfig -> saveServerConfig(intent)
+            is AuthIntent.VerifyMagicLink -> verifyMagicLink(intent.email, intent.token)
+            is AuthIntent.SendMagicLink -> sendMagicLink(intent.email)
         }
     }
 
@@ -114,7 +142,7 @@ class AuthViewModel(
                     // re-decided. Navigating on it put the user inside the app with no
                     // session and no explanation.
                     if (authRepository.currentSession.value is Session.SignedOut) {
-                        updateState { AuthUiState.AwaitingEmailConfirmation }
+                        updateState { AuthUiState.AwaitingEmailConfirmation(email) }
                         emit(
                             AuthUiEvent.Message(
                                 "Account created. Check your email to confirm the address, then sign in.",
@@ -150,6 +178,22 @@ class AuthViewModel(
         }
     }
 
+    private fun migrateAnonymousTo(email: String, password: String) {
+        vmScope.launch {
+            updateState { AuthUiState.Loading }
+            authRepository.migrateAnonymousTo(email, password).fold(
+                onSuccess = {
+                    updateState { AuthUiState.Success }
+                    emit(AuthUiEvent.NavigateToHome)
+                },
+                onFailure = {
+                    updateState { AuthUiState.Idle }
+                    emit(AuthUiEvent.Error(it.message ?: "Could not attach account"))
+                },
+            )
+        }
+    }
+
     /**
      * Stores the project and shows the credential form.
      *
@@ -169,6 +213,38 @@ class AuthViewModel(
             runCatching { clients.configure(SupabaseConfig(url = url, anonKey = key)) }
                 .onSuccess { updateState { AuthUiState.Idle } }
                 .onFailure { emit(AuthUiEvent.Error(it.message ?: "Could not save the server settings")) }
+        }
+    }
+
+    private fun verifyMagicLink(email: String, token: String) {
+        vmScope.launch {
+            updateState { AuthUiState.Loading }
+            authRepository.verifyMagicLink(email, token).fold(
+                onSuccess = {
+                    updateState { AuthUiState.Success }
+                    emit(AuthUiEvent.NavigateToHome)
+                },
+                onFailure = {
+                    updateState { AuthUiState.Idle }
+                    emit(AuthUiEvent.Error(it.message ?: "Verification failed"))
+                },
+            )
+        }
+    }
+
+    private fun sendMagicLink(email: String) {
+        vmScope.launch {
+            updateState { AuthUiState.Loading }
+            authRepository.sendMagicLink(email).fold(
+                onSuccess = {
+                    updateState { AuthUiState.AwaitingEmailConfirmation(email) }
+                    emit(AuthUiEvent.Message("A new sign-in link was sent to $email"))
+                },
+                onFailure = {
+                    updateState { AuthUiState.AwaitingEmailConfirmation(email) }
+                    emit(AuthUiEvent.Error(it.message ?: "Could not resend the link"))
+                },
+            )
         }
     }
 

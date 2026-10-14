@@ -19,6 +19,7 @@ import com.singularity.todo.feature.profile.ProfileRepositoryImpl
 import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
+import com.singularity.todo.feature.profile.presentation.ChangePasswordViewModel
 import com.singularity.todo.feature.proposals.proposalModule
 import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
@@ -77,6 +78,7 @@ fun domainModule(): List<Module> = buildList {
             }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
             viewModelOf(::AccountSettingsViewModel)
+            viewModelOf(::ChangePasswordViewModel)
 
             // The sync scope is the one place that needs both the session and the
             // profile, which is why it is bound here and not in coreModule(): sync

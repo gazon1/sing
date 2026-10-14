@@ -256,6 +256,10 @@ class AccountSwitcherTest {
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
         override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> =
             Result.success(Unit)
+
+        override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
+        override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
+        override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)
     }
 }
 

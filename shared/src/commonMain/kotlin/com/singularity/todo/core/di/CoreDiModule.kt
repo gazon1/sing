@@ -1,6 +1,7 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
@@ -16,7 +17,9 @@ import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.DevAuthRepository
 import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SecureStorage
+import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.auth.SupabaseAuthGateway
+import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.backup.BackupExporter
@@ -92,6 +95,9 @@ import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersReposi
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -190,11 +196,17 @@ fun coreModule(): org.koin.core.module.Module =
             )
         }
 
-        // DevAuthRepository: no network, always Anonymous.
-        // Use this for local development and CI эмулятор testing where a real
-        // Supabase backend is unavailable. To re-enable real auth, replace
-        // `DevAuthRepository.anonymous()` with a `SupabaseAuthRepository(...)` block.
-        single<AuthRepository> { DevAuthRepository.anonymous() }
+        // AuthRepository: real Supabase-backed implementation.
+        // For CI эмулятор testing without Supabase, use testAuthModule() which
+        // overrides this binding via SingularityApp.extraKoinModules with allowOverride=true.
+        single<AuthRepository> {
+            SupabaseAuthRepository(
+                log = Logger.withTag("AuthRepository"),
+                gateway = get(),
+                sessionStore = get(),
+                scope = AutoCloseableCoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        }
 
         // The owner-scoped erase, split read / write so the caller has to resolve the ids
         // before it can delete anything. `AccountSwitcher` is the only caller, and it is the

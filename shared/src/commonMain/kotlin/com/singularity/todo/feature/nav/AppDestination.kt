@@ -102,6 +102,51 @@ sealed interface AppDestination : AppNavKey {
         override val title = "Profiles"
     }
 
+    /**
+     * Screen for attaching an email/password account to the current anonymous session.
+     *
+     * Only reachable when [com.singularity.todo.core.auth.Session.Anonymous]; the UI
+     * is driven by [com.singularity.todo.feature.auth.AuthIntent.MigrateAnonymousTo].
+     *
+     * Navigated to from [AccountSettingsScreen][com.singularity.todo.feature.profile.presentation.AccountSettingsScreen]
+     * via [SettingsNavigator.openAttachAccount][com.singularity.todo.feature.settings.presentation.nav.SettingsNavigator.openAttachAccount].
+     */
+    @Serializable
+    data object AttachAccount : AppDestination {
+        override val title = "Attach Account"
+    }
+
+    /**
+     * Screen for changing the password of the currently signed-in account.
+     *
+     * Only reachable when [com.singularity.todo.core.auth.Session.SignedIn].
+     * The UI is driven by [com.singularity.todo.feature.profile.presentation.ChangePasswordIntent].
+     *
+     * Navigated to from [AccountSettingsScreen][com.singularity.todo.feature.profile.presentation.AccountSettingsScreen]
+     * via [SettingsNavigator.openChangePassword][com.singularity.todo.feature.settings.presentation.nav.SettingsNavigator.openChangePassword].
+     */
+    @Serializable
+    data object ChangePassword : AppDestination {
+        override val title = "Change Password"
+    }
+
+    /**
+     * Screen for entering the token from a magic link email.
+     *
+     * Used to recover from an unconfirmed sign-up: after [AuthRepository.sendMagicLink]
+     * sends the link, the user opens this screen to complete sign-in.
+     *
+     * Navigated to from the email link via deep-link.
+     *
+     * @param email Pre-fills the email field. Used by deep-links and by the resend flow.
+     * @param token When non-blank, auto-submits verification immediately on screen entry.
+     *   Set by the deep-link handler in [App] when a magic link is opened.
+     */
+    @Serializable
+    data class MagicLinkConfirm(val email: String = "", val token: String = "") : AppDestination {
+        override val title = "Verify Email"
+    }
+
     // ─── Sub-routes (push on top of a top-level destination) ────────────────
 
     /**
@@ -283,6 +328,9 @@ val AppDestination.icon: ImageVector
         AppDestination.Settings -> Icons.Filled.Settings
         AppDestination.AiUsage -> Icons.Filled.BarChart
         AppDestination.ProfileSwitcher -> Icons.Filled.Person
+        AppDestination.AttachAccount -> Icons.Filled.Person
+        AppDestination.ChangePassword -> Icons.Filled.Person
+        is AppDestination.MagicLinkConfirm -> Icons.Filled.Person
         is AppDestination.TasksGraph -> Icons.Filled.Check
         is AppDestination.TasksByProject -> Icons.Filled.Folder
         is AppDestination.ProjectEditor -> Icons.Filled.Check
@@ -333,6 +381,7 @@ object DestinationKind {
         AppDestination.Search,
         AppDestination.Archive,
         AppDestination.ProfileSwitcher,
+        AppDestination.AttachAccount,
         AppDestination.Settings,
     )
 

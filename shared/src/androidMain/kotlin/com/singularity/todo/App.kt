@@ -45,9 +45,18 @@ private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
  *   [AppDestination.AgendaGraph] with [AgendaStartRoute.SavedAgendaEdit].
  * @param deeplinkTaskId When non-null, the app navigates directly to
  *   [AppDestination.TasksGraph] with [TasksStartRoute.Detail].
+ * @param deeplinkMagicEmail When non-null, the app navigates directly to
+ *   [AppDestination.MagicLinkConfirm] with this email pre-filled.
+ * @param deeplinkMagicToken When non-null, the app auto-submits verification
+ *   after navigating to [AppDestination.MagicLinkConfirm].
  */
 @Composable
-actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
+actual fun App(
+    deeplinkViewId: String?,
+    deeplinkTaskId: String?,
+    deeplinkMagicEmail: String?,
+    deeplinkMagicToken: String?,
+) {
     val appearance: AppearanceSettingsRepository = koinInject()
     val themeMode by appearance.themeMode.collectAsState(initial = ThemeMode.System)
     val accentName by appearance.accentColor.collectAsState(initial = "blue")
@@ -75,6 +84,8 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
             AppContent(
                 deeplinkViewId = deeplinkViewId,
                 deeplinkTaskId = deeplinkTaskId,
+                deeplinkMagicEmail = deeplinkMagicEmail,
+                deeplinkMagicToken = deeplinkMagicToken,
                 themeMode = themeMode,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
@@ -94,6 +105,8 @@ actual fun App(deeplinkViewId: String?, deeplinkTaskId: String?) {
 private fun AppContent(
     deeplinkViewId: String?,
     deeplinkTaskId: String?,
+    deeplinkMagicEmail: String?,
+    deeplinkMagicToken: String?,
     themeMode: ThemeMode,
     accent: SingularityAccents,
     fontSizeScale: Float,
@@ -108,8 +121,19 @@ private fun AppContent(
         )
     }
 
-    LaunchedEffect(deeplinkViewId, deeplinkTaskId, navigator) {
+    LaunchedEffect(deeplinkViewId, deeplinkTaskId, deeplinkMagicEmail, deeplinkMagicToken, navigator) {
         when {
+            deeplinkMagicEmail != null -> {
+                // Magic link deep-link: singularity://verify?email=&token=
+                // Token is auto-submitted by MagicLinkConfirmScreen.
+                navigator.open(
+                    AppDestination.MagicLinkConfirm(
+                        email = deeplinkMagicEmail,
+                        token = deeplinkMagicToken ?: "",
+                    ),
+                )
+            }
+
             deeplinkTaskId != null -> {
                 // Deep-link boundary: the raw String from the intent becomes a TaskId here,
                 // so every route past this point is typed (REQ-NAV-005).

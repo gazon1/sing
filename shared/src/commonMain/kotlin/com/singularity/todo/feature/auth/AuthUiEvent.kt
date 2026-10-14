@@ -4,10 +4,16 @@ import com.singularity.todo.core.ui.MviEvent
 
 /**
  * One-shot events emitted by [AuthViewModel].
+ *
+ * Navigation events are also exposed via [AuthNavigationEvent] so callers that
+ * only need navigation can import that narrower interface.
+ *
+ * [NavigateToHome] is the shared [AuthNavigateHome] object, accessible as
+ * [AuthUiEvent.NavigateToHome] for emit calls and as [AuthNavigationEvent.NavigateToHome]
+ * for navigation-only callers.
  */
-sealed interface AuthUiEvent : MviEvent {
-    /** Navigate to the main app screen. */
-    data object NavigateToHome : AuthUiEvent
+sealed interface AuthUiEvent : MviEvent, AuthNavigationEvent {
+    data object NavigateToHome : AuthUiEvent, AuthNavigationEvent by AuthNavigateHome
     data class Error(val message: String) : AuthUiEvent
 
     /**

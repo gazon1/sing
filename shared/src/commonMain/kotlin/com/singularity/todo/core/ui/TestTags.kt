@@ -41,6 +41,7 @@ object TestTags {
     const val AUTH_EMAIL_INPUT = "auth_email_input"
     const val AUTH_PASSWORD_INPUT = "auth_password_input"
     const val AUTH_SIGN_IN_BUTTON = "auth_sign_in_button"
+    const val AUTH_SIGN_OUT_BUTTON = "auth_sign_out_button"
     const val AUTH_TOGGLE_MODE_BUTTON = "auth_toggle_mode_button"
     const val AUTH_CONTINUE_OFFLINE_BUTTON = "auth_continue_offline_button"
     const val AUTH_ERROR_TEXT = "auth_error_text"
@@ -48,9 +49,23 @@ object TestTags {
     /** A neutral "you have to do something" message, as opposed to a failure. */
     const val AUTH_MESSAGE_TEXT = "auth_message_text"
     const val AUTH_LOADING = "auth_loading"
+    const val AUTH_CONFIRMATION_HEADLINE = "auth_confirmation_headline"
+    const val AUTH_CONFIRMATION_EMAIL = "auth_confirmation_email"
+    const val AUTH_RESEND_BUTTON = "auth_resend_button"
+    const val AUTH_BACK_BUTTON = "auth_back_button"
     const val AUTH_SERVER_URL_INPUT = "auth_server_url_input"
     const val AUTH_SERVER_KEY_INPUT = "auth_server_key_input"
     const val AUTH_SAVE_SERVER_BUTTON = "auth_save_server_button"
+
+    // ─── Attach Account (anonymous session → signed-in) ────────────────────
+    const val AUTH_ATTACH_ACCOUNT_BUTTON = "auth_attach_account_button"
+    const val AUTH_ATTACH_EMAIL_INPUT = "auth_attach_email_input"
+    const val AUTH_ATTACH_PASSWORD_INPUT = "auth_attach_password_input"
+    const val AUTH_ATTACH_SUBMIT_BUTTON = "auth_attach_submit_button"
+    const val AUTH_ATTACH_BACK_BUTTON = "auth_attach_back_button"
+
+    // ─── Magic Link Confirm ────────────────────────────────────────────────
+    const val AUTH_MAGIC_RESEND_BUTTON = "auth_magic_resend_button"
 
     // ─── Navigation ──────────────────────────────────────────────────────────
     const val NAV_MENU_BUTTON = "nav_menu_button"

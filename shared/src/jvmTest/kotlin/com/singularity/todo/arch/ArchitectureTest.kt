@@ -318,6 +318,35 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `feature use cases do not import repository implementations`() {
+        // UseCases sit between ViewModel and Repository. Depending on a *RepositoryImpl
+        // directly couples a UseCase to a platform-specific implementation, breaking
+        // the port/implementation separation. UseCases must depend only on the
+        // repository interface (which lives in commonMain) and on core ports.
+        //
+        // Allowlist: AI use cases legitimately call Koog tool implementations, which
+        // are not RepositoryImpl by name — they are checked by the koog-import rule.
+        val offenders = scope.files
+            .filter { file ->
+                val pkg = file.packageName()
+                // Files in feature/<x>/domain/ (UseCase classes land here by convention)
+                pkg.startsWith("$PKG.feature.") && !pkg.contains(".presentation.") && !pkg.contains(".data.")
+            }
+            .filter { file ->
+                file.importFqns().any { it.endsWith("RepositoryImpl") }
+            }
+            // *DiModule files are DI wiring classes; they import RepositoryImpl to bind
+            // implementations into the Koin graph and are exempt from this rule.
+            // Use relativePath (not fileName) to ensure the check works on all platforms.
+            .filter { file -> !relativePath(file).contains("DiModule") }
+        assertNoOffenders(
+            offenders,
+            "UseCase files must not import *RepositoryImpl — depend on the repository interface " +
+                "from commonMain, not the platform-specific implementation",
+        ) { it.path }
+    }
+
+    @Test
     fun `feature data does not import presentation layer`() {
         val offenders = offendingFiles("data") { imp ->
             imp.startsWith("$PKG.feature.") && imp.contains(".presentation.")

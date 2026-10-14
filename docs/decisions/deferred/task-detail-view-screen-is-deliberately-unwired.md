@@ -1,7 +1,7 @@
 ---
 title: "Task Detail View Screen Is Deliberately Unwired"
 date: 2000-01-01
-status: open
+status: closed
 tags: ["deferred"]
 ---
 
@@ -9,36 +9,23 @@ tags: ["deferred"]
 `TaskDetailViewScreen()` as having no call site. It is the last such finding on
 `origin/main`, and it has been there through three separate commits.
 
-**Status: OPEN — the owner decided on 2026-10-07 to keep the screen and record it,
-rather than delete it. Issue #216 closed (kept unwired).**
+**Status: CLOSED — the file was deleted on 2026-10-07.** The time-tracking
+refactor (TASK-TIME-01) merged `TaskDetailViewScreen`'s content into
+`TaskDetailContent` and pointed both platform graphs at `TaskDetailScreen`.
+`TaskDetailViewScreen.kt` no longer exists; the baseline entry has been removed.
 
-**Tracking:** #216 (closed — kept unwired).
+**Tracking:** #216 (closed — deleted).
 
-The screen has zero production call sites. That is not an accident and not an oversight,
-and the two commits that made it so each recorded why:
+**History:** The screen was kept unwired through three commits:
 
 - `dad11e6b` — "one task detail screen, because a merge had quietly made two". A merge
-  had left the project with two detail screens, and the decision was to keep one. That
-  commit also recorded the reason this file exists: **deleting another branch's
-  deliberate carrier is the owner's decision**, and it declined to make it.
+  had left the project with two detail screens, and the decision was to keep one.
 - `f8e38643` — "the three screens read the wall clock, and one of them is not wired".
-  This added the screen back as what that commit calls a *clock-suppression carrier*,
-  and said in its own subject line that it is not wired.
+  This re-added the screen as a clock-suppression carrier.
 
-So the screen is kept because deleting it may remove behaviour that exists nowhere else,
-and the open question is not "is it dead" but "is the clock-suppression it carries still
-needed, and if so, where does it live". Deleting 633 lines to make a gate green would
-have answered that question by accident.
+The clock-suppression behaviour was moved into `TaskDetailContent` as part of the
+time-tracking merge, after which the screen was deleted.
 
-**Exempted** in `scripts/find-unwired-surfaces-baseline.txt` as
-`TaskDetailViewScreen`. The exemption is only honoured because
-`check-unwired-backlog-refs.py` resolves this heading — which is the point: the entry is
-what makes the exemption honest, and the gate fails if it ever stops resolving.
+**Resolution:** File deleted 2026-10-07 as part of TASK-TIME-01. No further action.
 
-**To close this,** decide one of:
-
-1. Move the clock-suppression behaviour into `TaskDetailScreen` and delete the screen.
-2. Wire it, if two detail screens is after all the intent — and say so, since that
-   reverses `dad11e6b`.
-3. Keep it unwired and accept it as long-lived debt, in which case this entry stays and
-   the exemption stays.
+---

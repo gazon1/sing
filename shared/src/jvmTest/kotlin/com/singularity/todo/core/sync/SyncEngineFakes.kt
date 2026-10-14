@@ -137,6 +137,10 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
         password: String,
     ): Result<Unit> = notImplemented()
 
+    override suspend fun updatePassword(newPassword: String): Result<Unit> = notImplemented()
+    override suspend fun sendMagicLink(email: String): Result<Unit> = notImplemented()
+    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = notImplemented()
+
     private fun notImplemented(): Result<Unit> =
         Result.failure(UnsupportedOperationException("not used by sync engine tests"))
 

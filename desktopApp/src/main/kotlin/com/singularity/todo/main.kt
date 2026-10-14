@@ -113,7 +113,18 @@ fun main(args: Array<String>) {
         // (default is 25%), saving ~80 MB on a 512 MB heap.
         Surface {
             LocalDesktopImageLoader()
-            App(deeplinkViewId = null, deeplinkTaskId = null)
+            val magicEmail = args.firstOrNull { it.startsWith("--deeplink-magic-email=") }
+                ?.substringAfter("=")
+                ?.takeIf { it.isNotBlank() }
+            val magicToken = args.firstOrNull { it.startsWith("--deeplink-magic-token=") }
+                ?.substringAfter("=")
+                ?.takeIf { it.isNotBlank() }
+            App(
+                deeplinkViewId = null,
+                deeplinkTaskId = null,
+                deeplinkMagicEmail = magicEmail,
+                deeplinkMagicToken = magicToken,
+            )
         }
     }
 }

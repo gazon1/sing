@@ -5,13 +5,12 @@ status: open
 tags: ["deferred"]
 ---
 
-**Status: OPEN**
+**Status: RESOLVED (2026-10-14)**
 
-**Tracking:** no issue yet — this surfaced while closing the gate holes in the
-2026-10-07 attachment work, and the decision it needs ("which row should the reminders
-screen render?") belongs to whoever picks it up. File an issue and replace this line
-when the entry is next touched; a `Tracking:` justification is the form this file
-allows, not a permanent exemption.
+**Decision:** Delete — no reminders list screen exists, and no caller was found
+after scanning the entire `feature/reminders/` directory. `ReminderTile.kt` was
+removed. A component with no caller and no plan is a trap for the next reader,
+not an asset.
 
 **Found in:** 2026-10-07, while widening `find-unwired-surfaces.py` detector 1 to
 treat a `@Preview` call as not-a-call-site.

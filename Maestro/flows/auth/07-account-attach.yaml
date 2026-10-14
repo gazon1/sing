@@ -1,0 +1,94 @@
+# AUTH-ATTACH-01: attach an email/password account to an anonymous session.
+#
+# preconditions: StubAuthRepository, starts in Anonymous session by default.
+# steps:
+#   1. Navigate to Settings → Account tab.
+#   2. Tap "Attach account" button (visible only for Session.Anonymous).
+#   3. Enter email/password and submit.
+#   4. Verify navigation to agenda home.
+#
+appId: com.singularity.todo
+name: auth-attach-account
+tags:
+  - regression
+  - auth
+  - AUTH-ATTACH-01
+---
+# Launch — StubAuthRepository starts in Anonymous session by default.
+# The auth guard lets Anonymous through to the agenda (no auth screen shown).
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+
+# Verify the agenda is visible (Anonymous session is not blocked).
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+- assertVisible:
+    id: nav_tab_inbox
+
+# Open the menu and navigate to Settings.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_settings
+
+# Switch to the Account tab.
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_account
+    timeout: 10000
+- tapOn:
+    id: settings_tab_account
+
+# The "Attach account" button is only shown for Session.Anonymous.
+- extendedWaitUntil:
+    visible:
+      id: auth_attach_account_button
+    timeout: 10000
+
+# Navigate to the attach screen.
+- tapOn:
+    id: auth_attach_account_button
+
+# Verify the attach account screen is shown.
+- extendedWaitUntil:
+    visible:
+      id: auth_attach_email_input
+    timeout: 10000
+- assertVisible:
+    id: auth_attach_password_input
+- assertVisible:
+    id: auth_attach_submit_button
+
+# Enter credentials — StubAuthRepository.migrateAnonymousTo succeeds immediately.
+- inputText:
+    id: auth_attach_email_input
+    text: "alice@example.com"
+- inputText:
+    id: auth_attach_password_input
+    text: "ValidPassword123!"
+
+# Submit.
+- tapOn:
+    id: auth_attach_submit_button
+
+# After successful attach, the screen navigates to the agenda home.
+# Wait for the loading state to clear.
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+
+# Verify the user is on the agenda (not on the attach or settings screen).
+- assertVisible:
+    id: nav_tab_today
+- assertVisible:
+    id: nav_tab_inbox

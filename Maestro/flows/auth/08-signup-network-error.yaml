@@ -1,0 +1,82 @@
+# AUTH-FAIL-01: sign-up with no network shows a user-facing error.
+#
+# preconditions: emulator running, StubAuthRepository bypassed (real auth).
+# steps:
+#   1. Enable airplane mode (no network).
+#   2. Attempt to sign up.
+#   3. Verify the error message is shown.
+#
+# Note: this flow requires `exec` access to `adb` to toggle airplane mode.
+# The `exec` command runs on the workstation, not the device, so ADB must
+# be in PATH. In CI, this requires a rooted emulator or `--no-security`
+# flag on the emulator start command.
+#
+# For StubAuthRepository (test builds): network errors are not reachable;
+# use this flow with the real `SupabaseAuthRepository` to test failure axes.
+appId: com.singularity.todo
+name: auth-signup-network-error
+tags:
+  - regression
+  - auth
+  - AUTH-FAIL-01
+  - manual
+---
+# Enable airplane mode — blocks all network, forcing a timeout on sign-up.
+# `adb shell` is used because Maestro's `exec` runs on the workstation.
+- exec:
+    command: adb shell settings put global airplane_mode_on 1 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true
+
+# Give the OS a moment to apply airplane mode.
+- waitForAnimations: 1500
+
+# Launch and clear any cached session state.
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+    permissions:
+      notifications: allow
+
+# Configure server so the sign-up screen is reachable.
+- extendedWaitUntil:
+    visible:
+      id: auth_save_server_button
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: auth_save_server_button
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: auth_save_server_button
+
+# Toggle to sign-up mode.
+- extendedWaitUntil:
+    visible:
+      id: auth_email_input
+    timeout: 15000
+- tapOn:
+    id: auth_toggle_mode_button
+
+# Enter credentials and submit while in airplane mode.
+- inputText:
+    id: auth_email_input
+    text: "networkfail@example.com"
+- inputText:
+    id: auth_password_input
+    text: "ValidPassword123!"
+
+- tapOn:
+    id: auth_sign_in_button
+
+# The app should show an error (network timeout or connection refused).
+# StubAuthRepository always succeeds — this flow tests the real auth path.
+- extendedWaitUntil:
+    visible:
+      id: auth_error_text
+    timeout: 20000
+- assertVisible:
+    id: auth_error_text
+
+# Cleanup: restore network for subsequent flows.
+- exec:
+    command: adb shell settings put global airplane_mode_on 0 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false
