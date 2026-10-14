@@ -1,6 +1,5 @@
 package com.singularity.todo.core.sync
 
-import com.singularity.todo.core.auth.SessionStore
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,15 +15,16 @@ import kotlin.time.Clock
  *
  * @param scope Injected [AutoCloseableCoroutineScope]. Callers must bind to a
  *              lifecycle that calls [AutoCloseable.close] when done.
+ * @param deviceIdProvider Source of the stable node id (not the whole auth seam).
  */
 open class HlcFactory(
-    private val sessionStore: SessionStore,
+    private val deviceIdProvider: DeviceIdProvider,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
 ) {
     private val nodeIdDeferred: Deferred<String> = kotlinx.coroutines.CompletableDeferred<String>().also { deferred ->
         scope.launch {
-            deferred.complete(sessionStore.getOrInitDeviceId())
+            deferred.complete(deviceIdProvider.getOrInitDeviceId())
         }
     }
 

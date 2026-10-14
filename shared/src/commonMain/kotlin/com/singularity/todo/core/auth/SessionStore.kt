@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.datastore.catchDataStoreIoError
 import com.singularity.todo.core.ids.IdGenerator
+import com.singularity.todo.core.sync.DeviceIdProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,7 +55,10 @@ interface SessionStore {
  */
 
 class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, private val idGenerator: IdGenerator) :
-    SessionStore {
+    SessionStore,
+    // The sync seam takes the device id from here — it is not a secret and is
+    // stored in plain DataStore by design (DeviceIdProvider).
+    DeviceIdProvider {
 
     companion object {
         val ACCESS_TOKEN = stringPreferencesKey("auth_access_token")

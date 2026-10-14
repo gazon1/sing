@@ -195,6 +195,11 @@ jobs:
       # --no-build-cache: ensures test tasks always execute and never serve FROM-CACHED,
       # so the test-counts gate always measures a real run. The cache is still warm
       # for configuration and compilation tasks that are not test tasks.
+      # --no-parallel: org.gradle.parallel=true in gradle.properties lets two test
+      # tasks fork JVMs concurrently, which is the collision behind #471's
+      # EOFException in the jvmTest executor. The CLI flag overrides the property;
+      # determinism is worth the lost cross-project parallelism (same call the
+      # pre-push hook makes).
       # The Gradle log is captured so check-test-runs.py can exempt UP-TO-DATE tasks
       # from the freshness check (a second consecutive run would otherwise falsely flag
       # a legitimately cached task as stale).
@@ -202,6 +207,7 @@ jobs:
         run: >
           ./gradlew --continue
           --no-build-cache
+          --no-parallel
           :mcp-server:jar
           koverReport
           :detekt-rules:test
