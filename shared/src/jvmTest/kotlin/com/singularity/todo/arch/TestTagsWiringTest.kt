@@ -75,6 +75,12 @@ class TestTagsWiringTest {
             "the pin/unpin overflow rows are rendered through " +
             "TestTags.taskAction(action), so these constants have no call site yet",
         "EditorOverflow.UNPIN" to "same as EditorOverflow.PIN",
+        // Static weekday-header constants used only in Maestro month-view flows.
+        // No production composable renders these — the calendar grid uses dynamic
+        // `calendarWeekdayHeader(label)` instead.
+        "CALENDAR_WEEKDAY_MON" to
+            "used only in Maestro/flows/calendar/01-month-view.yaml, not in production UI",
+        "CALENDAR_WEEKDAY_SUN" to "same as CALENDAR_WEEKDAY_MON",
     )
 
     @Test

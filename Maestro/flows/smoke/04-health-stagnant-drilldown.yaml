@@ -1,0 +1,49 @@
+# Smoke: STAGNANT health bucket in Statistics navigates to the Stagnant agenda.
+#
+# Fixture: one undated task whose updatedAt is at least 21 days in the past.
+# The seed helper creates tasks with updatedAt = now, so it cannot produce a
+# stagnant task directly. The fixture must be seeded through a URL that sets
+# updatedAt to a past value — e.g. via DebugSeedActivity with a param like
+#   todo-debug://seed?task=Stale%20task&updatedAt=-22d
+# (Verify the exact URL param name from DebugSeedActivity if this flow fails
+#  to set up the fixture; the seed schema may need extending.)
+#
+# Navigation tested regardless of fixture:
+#   Statistics → tap health_bucket_stagnant → AgendaGraph(Stagnant) → "Not touched in a while" section
+appId: com.singularity.todo
+name: smoke-health-stagnant-drilldown
+tags:
+  - smoke
+  - statistics
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Open the hamburger menu.
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_statistics
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: menu_statistics
+
+# Wait for the Statistics screen to load.
+- extendedWaitUntil:
+    visible:
+      id: health_bucket_stagnant
+    timeout: 15000
+
+# Drill down into STAGNANT.
+- tapOn:
+    id: health_bucket_stagnant
+
+# The Stagnant agenda should show with a "Not touched in a while" section header
+# (section name from AgendaPresets.byStagnant().sections.first().name).
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_not_touched_in_a_while
+    timeout: 15000
+- assertVisible:
+    id: agenda_section_not_touched_in_a_while

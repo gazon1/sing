@@ -46,6 +46,8 @@ val Selector.typeTag: String
         is Selector.Pinned -> "Pinned"
         is Selector.Completed -> "Completed"
         is Selector.Overdue -> "Overdue"
+        is Selector.Blocked -> "Blocked"
+        is Selector.Stagnant -> "Stagnant"
         is Selector.Regexp -> "Regexp"
         is Selector.AllOf -> "AllOf"
         is Selector.AnyOf -> "AnyOf"
@@ -216,6 +218,34 @@ private class RegistryHolder {
         )
 
         put(
+            "Blocked",
+            SelectorEntry(
+                encode = { JsonObject(mapOf("_type" to JsonPrimitive("Blocked"))) },
+                decode = { Selector.Blocked },
+            ),
+        )
+
+        put(
+            "Stagnant",
+            SelectorEntry(
+                encode = { s ->
+                    val stagnant = s as Selector.Stagnant
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("Stagnant"),
+                            "threshold" to JsonPrimitive(stagnant.threshold.toString()),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.Stagnant(
+                        threshold = kotlin.time.Duration.parse(obj.getValue("threshold").jsonPrimitive.content),
+                    )
+                },
+            ),
+        )
+
+        put(
             "Regexp",
             SelectorEntry(
                 encode = { s ->
@@ -241,7 +271,7 @@ private class RegistryHolder {
                 decode = { Selector.Anything },
             ),
         )
-    }.also { require(it.size == 11) { "Expected 11 leaf entries, got ${it.size}" } }
+    }.also { require(it.size == 13) { "Expected 13 leaf entries, got ${it.size}" } }
 
     // compositeEntries encode lambdas capture `this` (the RegistryHolder instance) and look up
     // from `allEntries` at CALL time, not at capture/creation time. This avoids the
@@ -345,7 +375,7 @@ object SelectorSerializer : KSerializer<Selector> {
 
     private val registry = RegistryHolder()
 
-    /** All 14 expected typeTag values — used for the construction assertion. */
+    /** All 16 expected typeTag values — used for the construction assertion. */
     private val expectedTypeTags: Set<String> by lazy {
         setOf(
             Selector.DateBucket(RelativeBucket.Today),
@@ -357,6 +387,8 @@ object SelectorSerializer : KSerializer<Selector> {
             Selector.Pinned,
             Selector.Completed,
             Selector.Overdue,
+            Selector.Blocked,
+            Selector.Stagnant(kotlin.time.Duration.parse("P1D")),
             Selector.Regexp(""),
             Selector.AllOf(emptyList()),
             Selector.AnyOf(emptyList()),

@@ -6,10 +6,12 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
 /**
@@ -33,16 +35,23 @@ object AgendaEvaluator {
      * @param tasks The full task list to evaluate. Typically fetched via [aggregateBaseFilter].
      * @param definition The agenda definition to apply.
      * @param today The current date used for relative bucket calculations.
+     * @param now The current instant, used for staleness computation in [Selector.Stagnant].
      */
-    fun evaluate(tasks: List<Task>, definition: AgendaDefinition, today: LocalDate): List<RenderedSection> {
+    fun evaluate(
+        tasks: List<Task>,
+        definition: AgendaDefinition,
+        today: LocalDate,
+        now: Instant,
+    ): List<RenderedSection> {
         var remaining = tasks.toSet()
         // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
         // table per call, so asking per row was quadratic in the task count.
         val blockedIds = TaskComputed.blockedIds(tasks)
+        val context = SelectorContext(today = today, now = now, blockedIds = blockedIds)
         return definition.sections
             .sortedBy { it.order }
             .mapNotNull { section ->
-                val matched = remaining.filter { matches(it, section.selector, today) }
+                val matched = remaining.filter { section.selector.matches(it, context) }
                 if (matched.isEmpty()) return@mapNotNull null
 
                 if (section.discard) {
@@ -68,16 +77,19 @@ object AgendaEvaluator {
     /**
      * Returns true if [task] matches the given [Selector] predicate.
      *
-     * @param today Used to resolve [RelativeBucket] date ranges.
+     * @param context Contains [SelectorContext.today] for resolving date buckets,
+     *                [SelectorContext.now] for staleness, and [SelectorContext.blockedIds]
+     *                for blocked-task matching.
      *
      * @deprecated Use [Selector.matches] directly. This shim exists for one release
-     * cycle to allow callers to migrate. It forwards to `selector.matches(task, today)`.
+     * cycle to allow callers to migrate. It forwards to `selector.matches(task, context)`.
      */
     @Deprecated(
-        message = "Use selector.matches(task, today) directly",
-        replaceWith = ReplaceWith("selector.matches(task, today)"),
+        message = "Use selector.matches(task, context) directly",
+        replaceWith = ReplaceWith("selector.matches(task, context)"),
     )
-    fun matches(task: Task, selector: Selector, today: LocalDate): Boolean = selector.matches(task, today)
+    fun matches(task: Task, selector: Selector, context: SelectorContext): Boolean =
+        selector.matches(task, context)
 
     private fun computeBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): AgendaBadge? =
         computeAgendaBadge(task, today, blockedIds)

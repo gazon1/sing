@@ -261,6 +261,9 @@ sealed interface AppDestination : AppNavKey {
             is AgendaStartRoute.SavedAgendaResults -> "Saved view"
             is AgendaStartRoute.SavedAgendaEdit -> "Edit view"
             AgendaStartRoute.SavedAgendaCreate -> "New view"
+            AgendaStartRoute.Blocked -> "Blocked"
+            AgendaStartRoute.Stagnant -> "Stagnant"
+            AgendaStartRoute.Overdue -> "Overdue"
         }
     }
 }

@@ -56,6 +56,8 @@ import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.core.tasks.TasksSettingsRepository
+import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -274,6 +276,30 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
 
     private val _autoArchiveRetentionDays = MutableStateFlow(0)
     override val autoArchiveRetentionDays: Flow<Int> = _autoArchiveRetentionDays
+
+    private val _stalenessThresholdDays = MutableStateFlow<Int>(SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS)
+    override val stalenessThresholdDays: Flow<Int> = _stalenessThresholdDays
+
+    override suspend fun setStalenessThresholdDays(value: Int) {
+        _stalenessThresholdDays.value = value
+    }
+}
+
+// ─── TasksSettingsRepository ──────────────────────────────────────────────────
+
+/**
+ * Standalone in-memory [TasksSettingsRepository] for isolated testing of the Tasks
+ * settings section without bringing up the full [FakeSettingsRepository].
+ */
+class FakeTasksSettingsRepository(
+    initialStalenessThresholdDays: Int = 21,
+) : TasksSettingsRepository {
+    private val _stalenessThresholdDays = MutableStateFlow(initialStalenessThresholdDays)
+    override val stalenessThresholdDays: Flow<Int> = _stalenessThresholdDays.asStateFlow()
+
+    override suspend fun setStalenessThresholdDays(value: Int) {
+        _stalenessThresholdDays.value = value
+    }
 }
 
 // ─── BackupRepository ─────────────────────────────────────────────────────────

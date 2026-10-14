@@ -1,4 +1,3 @@
-
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -8,29 +7,27 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
-import com.singularity.todo.feature.tasks.domain.logic.summarizeTaskHealth
+import com.singularity.todo.feature.tasks.domain.logic.summarizeTaskHealthFromSelectors
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
 import com.singularity.todo.feature.timetracking.domain.logic.OpenInterval
 import com.singularity.todo.feature.timetracking.domain.logic.bucketByDay
 import com.singularity.todo.feature.timetracking.domain.logic.bucketByProject
 import com.singularity.todo.feature.timetracking.domain.logic.mergeIntervalsWithOpen
 import com.singularity.todo.feature.timetracking.domain.logic.splitAtMidnight
-import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Unified statistics and time-tracking insights state.
@@ -76,11 +73,7 @@ sealed interface StatisticsIntent : MviIntent {
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatisticsViewModel(
-    private val taskRepository: TaskRepository,
-    private val timeTrackingRepo: TimeTrackingRepository,
-    private val projectsRepo: ProjectsRepository,
-    private val currentUser: ProfileAwareCurrentUser,
-    private val clock: Clock,
+    private val deps: StatisticsDeps,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<StatisticsUiState, StatisticsIntent, Nothing>(
@@ -94,9 +87,9 @@ class StatisticsViewModel(
 
         // ── Task statistics ────────────────────────────────────────────────
         scope.launch {
-            taskRepository.observeByFilter(TaskFilter.All)
+            deps.taskRepository.observeByFilter(TaskFilter.All)
                 .map { tasks ->
-                    val nowMs = clock.now().toEpochMilliseconds()
+                    val nowMs = deps.clock.now().toEpochMilliseconds()
                     val completed = tasks.mapNotNull { task ->
                         task.completedAt?.let { task.id.value to it.toEpochMilliseconds() }
                     }
@@ -110,10 +103,6 @@ class StatisticsViewModel(
                     computeStatistics(completed, overdue, nowMs, 7)
                 }
                 .catch { error ->
-                    // These two used to substitute empty data with nothing recorded, so a
-                    // broken query showed the user a plausible all-zero screen and the
-                    // failure existed nowhere. Reported from here rather than through
-                    // catchTo: a Flow operator, not a suspend block yielding a Result.
                     crashReporter.report(error, TASK_STATISTICS_FAILED)
                     emit(StatisticsSnapshot(emptyList(), 0, 0, 0.0, 0))
                 }
@@ -127,32 +116,43 @@ class StatisticsViewModel(
         // one maps tasks to `(id, epochMillis)` pairs and throws the `Task` away — health
         // needs `dependsOn`, `archivedAt` and the timestamps, so it cannot be folded in
         // without widening the statistics snapshot's inputs.
+        //
+        // Stagnation window is read from SettingsRepository so it can be changed at runtime.
         scope.launch {
-            taskRepository.observeByFilter(TaskFilter.All)
-                .map { tasks ->
-                    val now = clock.now()
-                    val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
-                    // TaskCompletionSlot copies `completedAt` without bumping `updatedAt`,
-                    // so a task finished this morning would otherwise read as untouched
-                    // since whenever it was last edited.
-                    val lastTouched = { task: Task ->
-                        listOfNotNull(task.completedAt, task.updatedAt).max()
-                    }
-                    // Typed nullable so the `catch` below can emit null: a null here is
-                    // what makes the Health tab say "unavailable" instead of rendering a
-                    // healthy-looking all-zero screen for a query that never ran.
-                    val summary: TaskHealthSummary? = summarizeTaskHealth(
-                        allTasks = tasks,
-                        today = today,
-                        now = now,
-                        lastActivityOf = lastTouched,
-                    )
-                    summary
+            combine(
+                deps.taskRepository.observeByFilter(TaskFilter.All),
+                deps.settingsRepository.stalenessThresholdDays,
+            ) { tasks, stalenessDays ->
+                val now = deps.clock.now()
+                val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                // `maxOf(completedAt, updatedAt)` rather than `updatedAt` alone:
+                // TaskCompletionSlot copies `completedAt` without bumping `updatedAt`,
+                // so a task finished this morning would otherwise read as untouched
+                // since whenever it was last edited.
+                val lastTouched = { task: Task ->
+                    listOfNotNull(task.completedAt, task.updatedAt).max()
                 }
+                // Selector-based computation: null stagnationWindow means "use built-in default"
+                // (Selector.Stagnant uses 21.days by default). Passing a non-null Duration
+                // from the settings overrides that default.
+                val stagnationWindow = if (stalenessDays > 0) {
+                    (stalenessDays.toLong() * 86_400_000L).milliseconds
+                } else {
+                    // 0 means "use default" — pass null so Selector.Stagnant uses its own 21.days.
+                    null
+                }
+                summarizeTaskHealthFromSelectors(
+                    allTasks = tasks,
+                    today = today,
+                    now = now,
+                    stagnationWindow = stagnationWindow,
+                    lastActivityOf = lastTouched,
+                )
+            }
                 .catch { error ->
                     crashReporter.report(error, TASK_HEALTH_FAILED)
-                    emit(null)
+                    // Pure function — no exception expected, but report and fall back gracefully.
+                    emit(TaskHealthSummary(emptyMap(), 0, null, null))
                 }
                 .collect { summary -> updateState { it.copy(health = summary) } }
         }
@@ -160,21 +160,21 @@ class StatisticsViewModel(
         // ── Time-tracking insights (recomputed when rangeDays changes) ────────
         scope.launch {
             state.map { it.rangeDays }.flatMapLatest { days ->
-                val now = clock.now()
+                val now = deps.clock.now()
                 val zone = TimeZone.currentSystemDefault()
                 val nowMs = now.toEpochMilliseconds()
                 val startMs = nowMs - (days * TimeConstants.MILLIS_PER_DAY)
-                val userId = currentUser.current
+                val userId = deps.currentUser.current
 
                 combine(
-                    timeTrackingRepo.watchEntriesInRange(startMs, nowMs),
-                    taskRepository.observeByFilter(TaskFilter.All),
-                    projectsRepo.observeProjectsWithCounts(),
+                    deps.timeTrackingRepo.watchEntriesInRange(startMs, nowMs),
+                    deps.taskRepository.observeByFilter(TaskFilter.All),
+                    deps.projectsRepo.observeProjectsWithCounts(),
                 ) { entries, tasks, projects ->
                     val taskProjectMap = tasks.associate { it.id.value to it.projectId?.value }
                     val projectNameMap = projects.associate { row -> row.project.id to row.project.name }
 
-                    val openEntry = timeTrackingRepo.getOpenEntry(userId)
+                    val openEntry = deps.timeTrackingRepo.getOpenEntry(userId)
                     val openInterval = openEntry?.let { OpenInterval(it.startedAt.toEpochMilliseconds()) }
                     val merged = mergeIntervalsWithOpen(entries, openInterval, nowMs)
                     val split = merged.flatMap { splitAtMidnight(it, zone) }

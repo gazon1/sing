@@ -61,4 +61,22 @@ sealed interface AgendaStartRoute : AppNavKey {
     /** Create a new saved view, optionally seeded from an existing [AgendaDefinition]. */
     @Serializable
     data object SavedAgendaCreate : AgendaStartRoute
+
+    /** All tasks blocked by an unfinished dependency. */
+    @Serializable
+    data object Blocked : AgendaStartRoute
+
+    /** Stagnant tasks — undated, incomplete, and untouched for at least 21 days. */
+    @Serializable
+    data object Stagnant : AgendaStartRoute
+
+    /**
+     * Overdue tasks only — past their due date and still open.
+     *
+     * Used by the Statistics health drill-down to navigate directly to overdue tasks
+     * rather than to [Today], which shows all today's tasks with overdue at the top.
+     * The distinction matters because the Today tab's title and prefill context differ.
+     */
+    @Serializable
+    data object Overdue : AgendaStartRoute
 }

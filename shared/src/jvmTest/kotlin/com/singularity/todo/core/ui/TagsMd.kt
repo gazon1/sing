@@ -60,6 +60,11 @@ object TagsMd {
         // Added 2026-10-07 with `TestTags.CalendarSync` and `TestTags.SearchFilter`.
         "Calendar sync",
         "Search filters",
+        "Statistics",
+        // Catch-all for constants that have no known prefix rule.  A constant
+        // landing here means it was added without a naming convention that matches
+        // any of the prefix rules — add a rule for it rather than growing this list.
+        "Other",
     )
 
     private val dynamicSubsections: List<String> = listOf(
@@ -234,6 +239,12 @@ object TagsMd {
 
         "subtaskDelete" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask delete buttons")
 
+        "checklistItem" -> DynamicMeta(fnName, "Tasks", "Item", "Checklist item rows")
+
+        "checklistItemCheckbox" -> DynamicMeta(fnName, "Tasks", "Item", "Checklist item checkboxes")
+
+        "checklistItemDelete" -> DynamicMeta(fnName, "Tasks", "Item", "Checklist item delete buttons")
+
         "noteItem" -> DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)")
 
         "noteItemByTitle" -> DynamicMeta(fnName, "Notes", "Meeting notes", "Note cards (automation)")
@@ -358,6 +369,7 @@ object TagsMd {
         "CALENDAR_" to "Calendar",
         "SEARCH_" to "Search",
         "PROJECT_" to "Projects",
+        "HEALTH_BUCKET_" to "Statistics",
     )
 
     /**

@@ -86,6 +86,21 @@ fun AgendaNavContent(
             mode = SavedAgendaScreenMode.Create(AgendaPresets.Inbox),
             modeHint = "Create View",
         )
+
+        AgendaStartRoute.Blocked -> AgendaScreen(
+            definition = AgendaPresets.byBlocked(),
+            contextMenuHost = contextMenuHost,
+        )
+
+        AgendaStartRoute.Stagnant -> AgendaScreen(
+            definition = AgendaPresets.byStagnant(),
+            contextMenuHost = contextMenuHost,
+        )
+
+        AgendaStartRoute.Overdue -> AgendaScreen(
+            definition = AgendaPresets.byOverdue(),
+            contextMenuHost = contextMenuHost,
+        )
     }
 }
 
@@ -117,4 +132,10 @@ fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
 
     // Not used
     AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.Inbox // Not used
+
+    AgendaStartRoute.Blocked -> AgendaPresets.byBlocked()
+
+    AgendaStartRoute.Stagnant -> AgendaPresets.byStagnant()
+
+    AgendaStartRoute.Overdue -> AgendaPresets.byOverdue()
 }

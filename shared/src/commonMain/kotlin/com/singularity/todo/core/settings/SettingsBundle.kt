@@ -75,6 +75,15 @@ sealed interface SettingsSection {
     // ── Default Agenda View ──────────────────────────────────────────────────
 
     data class DefaultAgendaView(val viewId: SavedAgendaViewId? = null) : SettingsSection
+
+    // ── Tasks ───────────────────────────────────────────────────────────────
+
+    /**
+     * Task-related settings such as the staleness threshold for undated tasks.
+     */
+    data class Tasks(
+        val stalenessThresholdDays: Int = SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS,
+    ) : SettingsSection
 }
 
 /**
@@ -184,6 +193,12 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     sealed interface DefaultAgendaView : SettingsIntent {
         data class Update(val viewId: SavedAgendaViewId?) : DefaultAgendaView
+    }
+
+    // ── Tasks ───────────────────────────────────────────────────────────────
+
+    sealed interface Tasks : SettingsIntent {
+        data class UpdateStalenessThresholdDays(val value: Int) : Tasks
     }
 
     /** Clears any errorMessage in the UI state. */

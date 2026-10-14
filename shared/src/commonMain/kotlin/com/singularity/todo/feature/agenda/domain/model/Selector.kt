@@ -4,6 +4,8 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -104,6 +106,33 @@ sealed interface Selector {
     @Serializable
     @SerialName("Overdue")
     data object Overdue : Selector
+
+    /**
+     * Tasks blocked by an unfinished dependency.
+     *
+     * Requires [SelectorContext.blockedIds] — the set is computed once per agenda
+     * evaluation from the full task list, and passed through [Selector.matches].
+     */
+    @Serializable
+    @SerialName("Blocked")
+    data object Blocked : Selector
+
+    /**
+     * Tasks with no due date that have been idle for at least [threshold].
+     *
+     * Matches undated, incomplete tasks where `now - updatedAt >= threshold`.
+     * Completed tasks never match this selector (they have `completedAt != null`).
+     *
+     * The threshold defaults to [DEFAULT_STAGNATION_THRESHOLD] (21 days), matching
+     * the default stagnation window in [com.singularity.todo.feature.tasks.domain.logic.TaskHealth].
+     */
+    @Serializable
+    @SerialName("Stagnant")
+    data class Stagnant(val threshold: Duration = DEFAULT_STAGNATION_THRESHOLD) : Selector {
+        companion object {
+            val DEFAULT_STAGNATION_THRESHOLD: Duration = 21.days
+        }
+    }
 
     /** Tasks whose title matches the given regular expression (case-insensitive). */
     @Serializable

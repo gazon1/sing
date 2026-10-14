@@ -48,7 +48,10 @@ internal fun fabActionForNav3(
                     },
                 )
 
-                AgendaStartRoute.Inbox -> FabAction(
+                AgendaStartRoute.Inbox,
+                AgendaStartRoute.Blocked,
+                AgendaStartRoute.Stagnant,
+                AgendaStartRoute.Overdue -> FabAction(
                     label = "Add task",
                     onClick = {
                         navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()))

@@ -13,9 +13,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
  *
  * ## Coverage
  *
- * All 14 Selector variants are covered: DateBucket, DateRange, Statuses,
- * Priorities, Tags, Projects, Pinned, Completed, Overdue, Regexp,
- * AllOf, AnyOf, Not, Anything.
+ * All 16 Selector variants are covered: DateBucket, DateRange, Statuses,
+ * Priorities, Tags, Projects, Pinned, Completed, Overdue, Blocked, Stagnant,
+ * Regexp, AllOf, AnyOf, Not, Anything.
  *
  * @see Selector
  */
@@ -66,6 +66,10 @@ val Selector.typeDescription: String
         is Selector.Completed -> "Completed"
 
         is Selector.Overdue -> "Overdue"
+
+        is Selector.Blocked -> "Blocked"
+
+        is Selector.Stagnant -> "Stagnant"
 
         is Selector.Regexp -> "Regex: $query"
 

@@ -12,6 +12,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
+import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsContributor
 import com.singularity.todo.core.settings.SettingsIntent
@@ -45,6 +46,7 @@ class SettingsViewModel(
     private val greetingContributor: GreetingContributor?,
     private val aiContributor: AiContributor?,
     private val defaultAgendaViewContributor: DefaultAgendaViewContributor?,
+    private val tasksContributor: TasksContributor?,
     private val savedAgendaViewsRepo: SavedAgendaViewsRepository,
     private val fileRevealer: FileRevealer,
     private val logBundleExporter: LogBundleExporter,
@@ -67,6 +69,7 @@ class SettingsViewModel(
     private val greetingFlow = MutableStateFlow(SettingsSection.Greeting())
     private val aiFlow = MutableStateFlow(SettingsSection.Ai())
     private val defaultAgendaViewFlow = MutableStateFlow(SettingsSection.DefaultAgendaView())
+    private val tasksFlow = MutableStateFlow(SettingsSection.Tasks())
 
     // ─── Ephemeral state ────────────────────────────────────────────────────
 
@@ -88,6 +91,7 @@ class SettingsViewModel(
                 greeting = greetingFlow.value,
                 ai = aiFlow.value,
                 defaultAgendaView = defaultAgendaViewFlow.value,
+                tasks = tasksFlow.value,
             ),
         )
 
@@ -97,6 +101,7 @@ class SettingsViewModel(
         bind(greetingContributor, greetingFlow)
         bind(aiContributor, aiFlow)
         bind(defaultAgendaViewContributor, defaultAgendaViewFlow)
+        bind(tasksContributor, tasksFlow)
 
         savedAgendaViewsRepo.observeAll()
             .onEach { views ->
@@ -134,6 +139,7 @@ class SettingsViewModel(
                 greeting = greetingFlow.value,
                 ai = aiFlow.value,
                 defaultAgendaView = defaultAgendaViewFlow.value,
+                tasks = tasksFlow.value,
                 logExportEphemeral = logExportEphemeral.value,
             )
         }
@@ -158,6 +164,8 @@ class SettingsViewModel(
                 "Update default agenda view failed",
                 intent,
             )
+
+            is SettingsIntent.Tasks -> dispatch(tasksContributor, "Update tasks settings failed", intent)
 
             SettingsIntent.DismissError -> { /* ephemeral; cleared on next emit */ }
 

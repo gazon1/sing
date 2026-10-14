@@ -240,4 +240,43 @@ object AgendaPresets {
     fun byDateRange(from: LocalDate, to: LocalDate): AgendaDefinition = agenda("Date Range") {
         section("date_range", "Range", Selector.DateRange(from, to), order = 0)
     }
+
+    /**
+     * All tasks blocked by an unfinished dependency.
+     *
+     * Used by the Statistics health drill-down.
+     * The selector requires [SelectorContext.blockedIds] at evaluation time.
+     */
+    fun byBlocked(): AgendaDefinition = agenda("Blocked") {
+        section("blocked", "Blocked", Selector.Blocked, order = 0)
+    }
+
+    /**
+     * All stagnant tasks — undated, incomplete, and untouched for at least [threshold].
+     *
+     * Used by the Statistics health drill-down.
+     *
+     * @param threshold Duration of inactivity before a task is considered stagnant.
+     *                  Defaults to 21 days, matching [Selector.Stagnant.DEFAULT_STAGNATION_THRESHOLD].
+     */
+    fun byStagnant(threshold: kotlin.time.Duration = Selector.Stagnant.DEFAULT_STAGNATION_THRESHOLD): AgendaDefinition =
+        agenda("Stagnant") {
+            section("stagnant", "Not touched in a while", Selector.Stagnant(threshold), order = 0)
+        }
+
+    /**
+     * All overdue tasks — past their due date and still open.
+     *
+     * Used by the Statistics health drill-down when the user taps the OVERDUE card.
+     * Unlike [Today], which shows today's tasks with overdue at the top, this preset
+     * shows only the overdue tasks with no date prefill — matching the bucket exactly.
+     */
+    fun byOverdue(): AgendaDefinition = agenda("Overdue") {
+        section(
+            "overdue",
+            "Overdue",
+            Selector.DateBucket(RelativeBucket.Overdue),
+            order = 0,
+        )
+    }
 }

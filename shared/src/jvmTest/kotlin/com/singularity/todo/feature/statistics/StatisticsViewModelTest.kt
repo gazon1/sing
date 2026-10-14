@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -53,12 +54,16 @@ class StatisticsViewModelTest {
         val currentUser = FakeProfileAwareCurrentUser()
         val timeTracking = FakeTimeTrackingRepository(clock)
         val projects = FakeProjectsRepository(currentUser)
+        val settings = FakeSettingsRepository(testUserId.value)
         return StatisticsViewModel(
-            taskRepository = repo,
-            timeTrackingRepo = timeTracking,
-            projectsRepo = projects,
-            currentUser = currentUser,
-            clock = clock,
+            deps = StatisticsDeps(
+                taskRepository = repo,
+                timeTrackingRepo = timeTracking,
+                projectsRepo = projects,
+                currentUser = currentUser,
+                clock = clock,
+                settingsRepository = settings,
+            ),
             scope = testScope(backgroundScope),
         )
     }

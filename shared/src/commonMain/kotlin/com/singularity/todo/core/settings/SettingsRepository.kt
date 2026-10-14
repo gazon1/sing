@@ -14,6 +14,7 @@ import com.singularity.todo.core.schedule.DataStoreGreetingSettingsRepository
 import com.singularity.todo.core.schedule.DataStoreWorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.agenda.DataStoreDefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -51,7 +52,7 @@ object SettingsNamespace {
  * Flat [userId] is preserved because [com.singularity.todo.feature.profile.ProfileAwareCurrentUser]
  * and the one-shot [SettingsDataStoreMigration] depend on it.
  */
-interface SettingsRepository : SettingsReader {
+interface SettingsRepository : SettingsReader, TasksSettingsRepository {
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT = SettingsDefaults.Ai.SYSTEM_PROMPT
@@ -172,6 +173,9 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         val AUTO_ARCHIVE_RETENTION_DAYS = intPreferencesKey(
             SettingsNamespace.key(SettingsNamespace.TASKS, "auto_archive_retention_days"),
         )
+        val STALENESS_THRESHOLD_DAYS = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.TASKS, "staleness_threshold_days"),
+        )
     }
 
     // ── Per-section repositories ───────────────────────────────────────────
@@ -207,6 +211,9 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     override val autoArchiveRetentionDays: Flow<Int> = dataStore.data.map { it[AUTO_ARCHIVE_RETENTION_DAYS] ?: 0 }
 
+    override val stalenessThresholdDays: Flow<Int> =
+        dataStore.data.map { it[STALENESS_THRESHOLD_DAYS] ?: SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS }
+
     // ── Setters ───────────────────────────────────────────────────────────────
 
     override suspend fun setAiProvider(value: String) {
@@ -224,5 +231,9 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
 
     override suspend fun setUserId(value: String) {
         dataStore.edit { it[USER_ID] = value }
+    }
+
+    override suspend fun setStalenessThresholdDays(value: Int) {
+        dataStore.edit { it[STALENESS_THRESHOLD_DAYS] = value }
     }
 }

@@ -1,0 +1,52 @@
+# Smoke: BLOCKED health bucket in Statistics navigates to the Blocked agenda.
+#
+# Fixture: one task with an unmet dependency (blocked by another incomplete task).
+# The seed helper does not support `dependsOn`, so the fixture must be created
+# through the DebugSeedActivity with a task that has a `dependsOn` reference
+# to an incomplete task — e.g. via a URL like:
+#   todo-debug://seed?task=Blocked%20task&depends=task-id-of-incomplete
+# (The seed URL schema supports dependsOn; verify the exact param name from
+#  DebugSeedActivity code if this flow fails to set up the fixture.)
+#
+# Navigation tested regardless of fixture:
+#   Statistics → tap health_bucket_blocked → AgendaGraph(Blocked) → "Blocked" section
+appId: com.singularity.todo
+name: smoke-health-blocked-drilldown
+tags:
+  - smoke
+  - statistics
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Open the hamburger menu.
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_statistics
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: menu_statistics
+
+# Wait for the Statistics screen to load.
+- extendedWaitUntil:
+    visible:
+      id: health_bucket_blocked
+    timeout: 15000
+
+# Drill down into BLOCKED.
+- tapOn:
+    id: health_bucket_blocked
+
+# The Blocked agenda should show with a "Blocked" section header.
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_blocked
+    timeout: 15000
+- assertVisible:
+    id: agenda_section_blocked
+
+# The section header confirms the correct agenda definition is loaded.
+- assertVisible:
+    id: agenda_section_blocked

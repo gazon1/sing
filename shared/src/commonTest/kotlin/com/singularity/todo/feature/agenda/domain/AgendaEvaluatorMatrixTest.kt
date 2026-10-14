@@ -9,6 +9,8 @@ import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
+import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -112,7 +114,7 @@ class AgendaEvaluatorMatrixTest {
             title = "Test",
             sections = listOf(section("s", selector)),
         )
-        return AgendaEvaluator.evaluate(tasks, def, D)
+        return AgendaEvaluator.evaluate(tasks, def, D, Instant0)
             .singleOrNull()
             ?.tasks
             ?.map { it.task }
@@ -121,7 +123,7 @@ class AgendaEvaluatorMatrixTest {
 
     private fun evalSections(tasks: List<Task>, sections: List<Section>): List<RenderedSection> {
         val def = AgendaDefinition(title = "Test", sections = sections)
-        return AgendaEvaluator.evaluate(tasks, def, D)
+        return AgendaEvaluator.evaluate(tasks, def, D, Instant0)
     }
 
     // ─── F-01: DateBucket (9 variants) ─────────────────────────────────────
@@ -443,7 +445,7 @@ class AgendaEvaluatorMatrixTest {
             title = "Test",
             sections = listOf(section("s", Selector.Anything)),
         )
-        val result = AgendaEvaluator.evaluate(emptyList(), def, D)
+        val result = AgendaEvaluator.evaluate(emptyList(), def, D, Instant0)
         // No exception means the evaluator is well-defined for the Task domain.
         assertTrue(result.isEmpty())
     }
@@ -657,7 +659,7 @@ class AgendaEvaluatorMatrixTest {
             )
         }
 
-        val result = AgendaEvaluator.evaluate(tasks, AgendaPresets.Inbox, D)
+        val result = AgendaEvaluator.evaluate(tasks, AgendaPresets.Inbox, D, Instant0)
 
         val sectionNames = result.map { it.name }
         assertTrue("Overdue" in sectionNames, "Overdue section expected")
