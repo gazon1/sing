@@ -97,6 +97,61 @@ class HarnessConventionTest {
         )
     }
 
+    @Test
+    fun `display assertions go through the helpers outside helper code`() {
+        // Presence and display are different waits (#569): a one-shot
+        // `assertIsDisplayed` after a presence wait is the race this suite paid
+        // for. The helpers (assertTagDisplayed / assertTextDisplayed /
+        // assertContentDescriptionDisplayed / assertNodeDisplayed) own the
+        // display wait; nothing outside test/helpers may hand-roll it.
+        val violations = testSources
+            .mapNotNull { file ->
+                val body = file.readLines().filterNot { line ->
+                    val t = line.trimStart()
+                    // Import lines are not call sites; comment and KDoc lines
+                    // quote the pattern when documenting the rule.
+                    t.startsWith("import ") || t.startsWith("//") ||
+                        t.startsWith("*") || t.startsWith("/*")
+                }.joinToString("\n")
+                val calls = DISPLAY_ASSERT_PATTERN.findAll(body).toList()
+                if (calls.isEmpty()) null
+                else if (file.name !in EXEMPT_DISPLAY_ASSERTS) {
+                    "${file.name}: ${calls.size} raw call(s)"
+                } else null
+            }
+
+        if (violations.isEmpty()) return
+        fail(
+            "Test files with raw assertIsDisplayed() outside test/helpers:\n" +
+                violations.joinToString("\n") { "  - $it" } +
+                "\n\nUse assertTagDisplayed / assertTextDisplayed / " +
+                "assertContentDescriptionDisplayed / assertNodeDisplayed — they " +
+                "wait for layout, which a one-shot assert does not (#569). " +
+                "Exempt a file in EXEMPT_DISPLAY_ASSERTS with a reason.",
+        )
+    }
+
+    @Test
+    fun `exempted files actually contain raw display asserts`() {
+        val stale = EXEMPT_DISPLAY_ASSERTS.filter { (fileName, _) ->
+            val file = testSources.find { it.name == fileName }
+            if (file == null) return@filter false
+            val body = file.readLines().filterNot { line ->
+                val t = line.trimStart()
+                t.startsWith("import ") || t.startsWith("//") ||
+                    t.startsWith("*") || t.startsWith("/*")
+            }.joinToString("\n")
+            DISPLAY_ASSERT_PATTERN.findAll(body).none()
+        }
+        if (stale.isEmpty()) return
+        fail(
+            "EXEMPT_DISPLAY_ASSERTS entries with no raw display asserts " +
+                "(stale exemptions):\n" +
+                stale.entries.joinToString("\n") { "  - ${it.key}: ${it.value}" } +
+                "\n\nRemove the stale entry.",
+        )
+    }
+
     private companion object {
         /**
          * Flow tests permitted to skip the a11y check. Empty today, and meant to
@@ -119,11 +174,24 @@ class HarnessConventionTest {
             // Composable-level tests (runIsolatedComposeTest with their own
             // setContent), not runDesktopAppTest harness tests — the helpers-only
             // convention targets app-level flows and does not apply here.
-            "CelebrationTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
             "NotesScreenTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
             "TagsRenameUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
             "SavedSearchesRowUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
             "SearchPresentationUiTest.kt" to "Composable-level test (runIsolatedComposeTest), not the app harness",
+        )
+
+        /**
+         * Files outside `test/helpers/` that contain a raw `.assertIsDisplayed()`
+         * call, and the reason each exemption exists. The display-wait helpers
+         * (assertTagDisplayed / assertTextDisplayed /
+         * assertContentDescriptionDisplayed / assertNodeDisplayed) own the
+         * wait-then-assert pattern; a hand-rolled one-shot reintroduces the
+         * #569 race. Same two-way check as [EXEMPT_RAW_TAGS].
+         */
+        val EXEMPT_DISPLAY_ASSERTS: Map<String, String> = mapOf(
+            "CreateTaskFlowTest.kt" to
+                "Negative control: awaits a nonexistent tag and expects the one-shot " +
+                "display assert to fail — the assertion IS the test",
         )
 
         /**
@@ -134,6 +202,12 @@ class HarnessConventionTest {
         val RAW_SELECTOR_PATTERN = Regex(
             """onNodeWith(Tag|Text|ContentDescription)\(|onAllNodesWithTag\(""",
         )
+
+        /**
+         * Matches a raw one-shot display assertion. The helpers' own terminal
+         * asserts live in test/helpers, which the scan root already excludes.
+         */
+        val DISPLAY_ASSERT_PATTERN = Regex("""\.assertIsDisplayed\(\)""")
     }
 
     @Test

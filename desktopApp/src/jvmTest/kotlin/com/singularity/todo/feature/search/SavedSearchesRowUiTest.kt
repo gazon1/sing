@@ -4,13 +4,13 @@ package com.singularity.todo.feature.search
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -58,7 +58,7 @@ class SavedSearchesRowUiTest {
                 )
             }
 
-            onNodeWithText("Save").assertIsDisplayed()
+            assertTextDisplayed("Save")
         }
 
     @Test
@@ -80,8 +80,8 @@ class SavedSearchesRowUiTest {
                 )
             }
 
-            onNodeWithText("Work tasks").assertIsDisplayed()
-            onNodeWithText("Tomorrow").assertIsDisplayed()
+            assertTextDisplayed("Work tasks")
+            assertTextDisplayed("Tomorrow")
         }
 
     @Test
@@ -144,6 +144,6 @@ class SavedSearchesRowUiTest {
 
             // The chip for the active search is rendered as selected.
             // The star icon is part of the chip's merged semantics.
-            onNodeWithText("Active search").assertIsDisplayed()
+            assertTextDisplayed("Active search")
         }
 }

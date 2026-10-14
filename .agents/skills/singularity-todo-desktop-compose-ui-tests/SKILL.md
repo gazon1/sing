@@ -26,9 +26,25 @@ task, so the task name is `:desktopApp:test`, not `:desktopApp:jvmTest`.
 @Test
 fun my_flow() = runDesktopAppTest { koin ->
     tapTab("Inbox")
-    awaitTag(TestTags.taskItem("Buy milk")).assertIsDisplayed()
+    assertTagDisplayed(TestTags.taskItem("Buy milk"))
 }
 ```
+
+**Never write `awaitTag(...).assertIsDisplayed()`** (#569): `awaitTag` is a
+*presence* wait — a dialog or popup node can be in the semantics tree before
+its window has laid out (bounds 0×0), and the one-shot `assertIsDisplayed`
+right after fails. The display wait lives in the helpers:
+
+| Helper | Use for |
+|---|---|
+| `assertTagDisplayed(tag)` | a tagged node is visible |
+| `assertTextDisplayed(text)` | a text node is visible |
+| `assertContentDescriptionDisplayed(desc)` | an a11y-node is visible |
+| `assertNodeDisplayed(matcher, description)` | composite matchers, e.g. `hasText("Edit") and hasClickAction()` |
+
+`HarnessConventionTest` enforces this: raw `.assertIsDisplayed()` outside
+`test/helpers` fails the suite (the one exemption is CreateTaskFlowTest's
+negative control).
 
 `runDesktopAppTest(overrides, test)` builds a per-test `KoinApplication` and
 mounts `App()`. It hands the `Koin` to the block so a test can seed or inspect:
@@ -59,7 +75,9 @@ with an assertion-tuned budget.
 | `openDrawer()` | Drawer open, idempotent — a blind hamburger click would *close* it |
 | `assertCurrentTab(label)` | Asserts the drawer's `Selected` semantics |
 | `goBack()` | Pops the shell stack via the back arrow |
-| `awaitTag(tag)` | Waits for a node after an async write, then returns a handle |
+| `awaitTag(tag)` | Presence wait — a node after an async write, then returns a handle. Not a display wait |
+| `assertTagDisplayed(tag)` | Presence wait + display wait + assert. The correct form of "is it on screen" |
+| `assertTextDisplayed(text)` / `assertContentDescriptionDisplayed(desc)` / `assertNodeDisplayed(matcher, desc)` | Same two waits, for text / a11y / composite-matcher nodes |
 | `awaitTagGone(tag)` | Waits until a node is gone — for asserting a *disappearing* thing |
 | `awaitAnyDisplayed(tag)` | Waits until *some* matching node is on screen — for pagers where the tag is composed several times |
 | `tasks(koin)` | `TasksRobot`: `given(due, title)` / `givenUndated(title)` / `assertInAgenda` / `open` |
@@ -74,8 +92,9 @@ entries and the FAB carry no testTag, unlike the Android bottom bar. Use
 `DesktopShell.FAB_ADD_TASK`, or a label from `DesktopShell.TABS` / `.MENU_ENTRIES`.
 
 **Assert arrival on content, not on the drawer entry.** Selecting a drawer entry
-closes the sheet, so the entry is off-screen afterwards and `assertIsDisplayed`
-fails on a correct app. Use `assertCurrentTab` or a node the destination renders.
+closes the sheet, so the entry is off-screen afterwards and the node is
+genuinely not displayed. Use `assertCurrentTab` or a node the destination
+renders.
 
 **Never assert on a top-bar title to identify the screen.** On a fresh database
 the title text matches three nodes — the agenda section header, the title, and
@@ -89,7 +108,10 @@ and screens gate their content on a `Loading` state: a destination's real
 affordance simply is not in the tree until its VM has data, and the outgoing
 screen stays composed until the incoming one resolves. So:
 
-- to assert a screen *arrived*, `awaitTag(...)` the affordance, then assert on it;
+- to assert a screen *arrived*, use `assertTagDisplayed(...)` (or
+  `assertTextDisplayed`) on the destination's own node — it carries both the
+  presence wait and the display wait, unlike a bare `awaitTag` + one-shot
+  assert;
 - to assert something is *gone because of what you just did*, use
   `awaitTagGone(...)` — `assertDoesNotExist` checks once after auto-sync and
   races the transition, failing intermittently under machine load.

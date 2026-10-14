@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
@@ -23,6 +22,7 @@ import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagsRepository
+import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
@@ -170,7 +170,7 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         // from Selector.Tags(emptySet()) would read "Any tag: 0", not "Any tag: 1".
         // The section row renders the description twice — as the section name
         // and as the row subtitle — so match the first, not "exactly one".
-        onAllNodes(hasText("Any tag: 1")).onFirst().assertIsDisplayed()
+        assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
 
         assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
         awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
@@ -181,6 +181,6 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
         // The section row renders the description twice — as the section name
         // and as the row subtitle — so match the first, not "exactly one".
-        onAllNodes(hasText("Any tag: 1")).onFirst().assertIsDisplayed()
+        assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
     }
 }

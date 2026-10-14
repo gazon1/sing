@@ -2,9 +2,7 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.DesktopComposeUiTest
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -39,24 +37,24 @@ class SavedViewsRobot(
     /** Opens the saved views list from the agenda's bookmark button. */
     fun openList(): SavedViewsRobot = apply {
         test.awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).performClick()
-        test.awaitTag(TestTags.SAVED_AGENDA_LIST_BACK).assertIsDisplayed()
+        test.assertTagDisplayed(TestTags.SAVED_AGENDA_LIST_BACK)
     }
 
     /** Closes the saved views list via the back button. */
     fun closeList(): SavedViewsRobot = apply {
         test.awaitTag(TestTags.SAVED_AGENDA_LIST_BACK).performClick()
-        test.awaitTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON).assertIsDisplayed()
+        test.assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
     }
 
     /** Asserts the empty-state message is shown. */
     fun assertEmpty(): SavedViewsRobot = apply {
-        test.onNodeWithText("No saved views yet").assertIsDisplayed()
-        test.awaitTag(TestTags.SAVED_AGENDA_CREATE_FAB).assertIsDisplayed()
+        test.assertTextDisplayed("No saved views yet")
+        test.assertTagDisplayed(TestTags.SAVED_AGENDA_CREATE_FAB)
     }
 
     /** Asserts a view with [name] appears in the list. */
     fun assertViewVisible(name: String): SavedViewsRobot = apply {
-        test.onNodeWithText(name).assertIsDisplayed()
+        test.assertTextDisplayed(name)
     }
 
     /** Asserts a view with [name] is NOT in the list. */
@@ -72,7 +70,7 @@ class SavedViewsRobot(
      */
     fun startCreate(): SavedViewsRobot = apply {
         test.awaitTag(TestTags.SAVED_AGENDA_CREATE_FAB).performClick()
-        test.awaitTag(TestTags.SAVED_AGENDA_NAME_INPUT).assertIsDisplayed()
+        test.assertTagDisplayed(TestTags.SAVED_AGENDA_NAME_INPUT)
     }
 
     /**

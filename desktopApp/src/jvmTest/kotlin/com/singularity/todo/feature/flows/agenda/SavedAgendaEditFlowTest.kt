@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
@@ -15,6 +14,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
@@ -121,8 +121,8 @@ class SavedAgendaEditFlowTest {
         // The desktop AWT menu bar also renders a plain "Edit" label (no click
         // action), so menu items are matched by text AND click action.
         clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().assertIsDisplayed()
-        onAllNodes(hasText("Delete") and hasClickAction()).onFirst().assertIsDisplayed()
+        assertNodeDisplayed(hasText("Edit") and hasClickAction(), "Edit action")
+        assertNodeDisplayed(hasText("Delete") and hasClickAction(), "Delete action")
         onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
 
         // Edit mode: name input is shown pre-filled

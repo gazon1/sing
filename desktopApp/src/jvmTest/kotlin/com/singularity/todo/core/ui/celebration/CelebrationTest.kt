@@ -4,11 +4,10 @@ package com.singularity.todo.core.ui.celebration
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.ui.LocalHaptic
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -48,7 +47,7 @@ class CelebrationTest {
                 Text("Hidden content")
             }
         }
-        onNodeWithText("Hidden content").assertIsDisplayed()
+        assertTextDisplayed("Hidden content")
     }
 
     @Test
@@ -58,7 +57,7 @@ class CelebrationTest {
                 Text("Complete me")
             }
         }
-        onNodeWithText("Complete me").assertIsDisplayed()
+        assertTextDisplayed("Complete me")
     }
 
     @Test
@@ -68,7 +67,7 @@ class CelebrationTest {
                 Text("Just text")
             }
         }
-        onNodeWithText("Just text").assertIsDisplayed()
+        assertTextDisplayed("Just text")
     }
 
     // ── Haptic gating ────────────────────────────────────────────────────────
@@ -170,7 +169,7 @@ class CelebrationTest {
                 Text("Check me")
             }
         }
-        onNodeWithText("Check me").assertIsDisplayed()
+        assertTextDisplayed("Check me")
     }
 
     @Test
@@ -183,6 +182,6 @@ class CelebrationTest {
                 Text("Check me too")
             }
         }
-        onNodeWithText("Check me too").assertIsDisplayed()
+        assertTextDisplayed("Check me too")
     }
 }

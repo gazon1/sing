@@ -15,6 +15,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -334,6 +335,23 @@ fun DesktopComposeUiTest.assertContentDescriptionDisplayed(desc: String) {
         description = "node with contentDescription '$desc' is displayed",
     )
     onNodeWithContentDescription(desc).assertIsDisplayed()
+}
+
+/**
+ * The generic display-wait: waits until the first node matching [matcher] is
+ * *displayed*, then asserts it. Use for composite matchers no tag/text/cdesc
+ * helper covers — e.g. `hasText("Edit") and hasClickAction()` — so that a
+ * "present but not yet laid out" node cannot fail a one-shot
+ * `assertIsDisplayed` (#569). [description] names the target in wait and
+ * failure messages.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertNodeDisplayed(matcher: SemanticsMatcher, description: String) {
+    awaitDisplayed(
+        matcher = matcher,
+        description = "node matching '$description' is displayed",
+    )
+    onAllNodes(matcher).onFirst().assertIsDisplayed()
 }
 
 /**
