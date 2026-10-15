@@ -48,7 +48,7 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
+import click
 import os
 import pathlib
 import re
@@ -57,6 +57,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import shlex
+import yaml
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,7 +118,7 @@ def configured_gradle_check_tasks() -> dict[str, str]:
 
 
 def _strip_comments(text: str) -> str:
-    """Drop `#` comments from bash and YAML source.
+    """Drop `#` comments from shell source, preserving line structure.
 
     Without this the check greps its own prose: a comment reading "…(:androidApp:detekt
     was one)" satisfied the search for an actual invocation, so unwiring the task
@@ -124,22 +126,25 @@ def _strip_comments(text: str) -> str:
     up — a gate that greps the wrong thing and reports success. Only the command text
     is searched now.
 
-    A `#` is treated as a comment start when it is line-leading or preceded by
-    whitespace, which covers both `# comment` and an inline `… # comment` while
-    leaving a `#` inside a word (e.g. a colour literal) alone.
+    Uses `shlex` which understands quote boundaries, so a `#` inside a quoted string
+    is not treated as a comment marker. Falls back to the original line for lines
+    that `shlex` cannot parse (e.g. YAML block scalars, which are not shell syntax).
     """
-    out = []
+    out_lines = []
     for line in text.splitlines():
         stripped = line.lstrip()
         if stripped.startswith("#"):
-            continue
-        idx = len(line)
-        for i, ch in enumerate(line):
-            if ch == "#" and (i == 0 or line[i - 1].isspace()):
-                idx = i
-                break
-        out.append(line[:idx])
-    return "\n".join(out)
+            out_lines.append("")
+        elif not line.strip():
+            out_lines.append("")
+        else:
+            try:
+                tokens = shlex.split(line, comments=True)
+                out_lines.append(" ".join(tokens))
+            except ValueError:
+                # Not shell syntax (e.g. YAML `run: |` block, `on:` key, etc.)
+                out_lines.append(line)
+    return "\n".join(out_lines)
 
 
 def gate_text() -> str:
@@ -932,25 +937,30 @@ def _load_registry():
 
 # ── Derived from the registry ───────────────────────────────────────────────────
 #
-# STRANGLER PATTERN: these tables are now derived from _registry.GATES at import
-# time. The old hand-written tables were deleted after the flip was confirmed
-# green. The derived tables preserve the exact same access patterns so that
-# every consumer — check_escape_hatches, check_registry_completeness,
-# check_gate_parity, check_script_gates_vs_registry — sees no change.
+# These tables are populated once at module load time from the gate registry
+# (scripts/src/sgate/commands/_registry.py).  They are the single source of
+# truth for Parts E, F, H and J.
 #
-# GATE_EXEMPTIONS (script path -> reason): from _registry.GATE_EXEMPTIONS
-# GATE_PARITY     (script path -> (scope, reason)): from GateSpec.parity fields
-# controlled_gate_scripts(): from _registry.GATE_CONTROLS[].proves
+# GATE_EXEMPTIONS    (script path -> reason):    from _registry.GATE_EXEMPTIONS
+# GATE_PARITY        (script path -> (scope, reason)): from GateSpec.parity
+# CONTROLLED_GATE_SCRIPTS (set of script paths): from _registry.GATE_CONTROLS[].proves
 
 # Gate scripts that are exempt from the positive-control requirement.
-# Derived from the registry so that Parts F/H/J read one source of truth.
 # The key is the repo-relative script path (e.g. "scripts/tests").
-_GATE_EXEMPTIONS_RAW: dict[str, str] = {}
-_SCRIPT_GATES_WITH_CONTROLS: set[str] = set()
+# Populated once at module load time below.
+GATE_EXEMPTIONS: dict[str, str] = {}
+
+# Derived from the registry. GateSpec.parity is Parity(scope, arg, why).
+# We derive scope+reason, ignoring arg (that's GATE_ARG_PARITY).
+GATE_PARITY: dict[str, tuple[str, str]] = {}
+
+# Scripts covered by a positive control (via the proves field).
+# Populated once at module load time below.
+CONTROLLED_GATE_SCRIPTS: set[str] = set()
 
 
-def _load_gate_exemptions_and_controls() -> None:
-    """Populate the module-level tables from the registry.
+def _populate_derived_tables() -> None:
+    """Populate GATE_EXEMPTIONS, GATE_PARITY, and CONTROLLED_GATE_SCRIPTS from the registry.
 
     Called once at import. The registry is in scripts/src/sgate/commands/_registry.py.
     A bare `import sgate` would pick up whatever is installed — which on this host
@@ -959,34 +969,18 @@ def _load_gate_exemptions_and_controls() -> None:
     reg = _load_registry()
     # GATE_EXEMPTIONS: keyed by script path -> reason string
     for script_path, control in reg.GATE_EXEMPTIONS.items():
-        _GATE_EXEMPTIONS_RAW[str(script_path)] = control.reason
-    # Scripts covered by controls (via the proves field)
-    for control in reg.GATE_CONTROLS.values():
-        if control.proves:
-            _SCRIPT_GATES_WITH_CONTROLS.add(control.proves)
-
-
-# Derive GATE_PARITY from the registry. The old table keyed by script path,
-# value = (scope, reason). GateSpec.parity is Parity(scope, arg, why).
-# We derive scope+reason from GateSpec.parity, ignoring arg (that's GATE_ARG_PARITY).
-_GATE_PARITY_RAW: dict[str, tuple[str, str]] = {}
-
-
-def _load_gate_parity() -> None:
-    reg = _load_registry()
+        GATE_EXEMPTIONS[str(script_path)] = control.reason
+    # GATE_PARITY: gates with a non-"both" scope
     for spec in reg.GATES:
         if spec.parity and spec.parity.scope != "both":
-            _GATE_PARITY_RAW[str(spec.script)] = (spec.parity.scope, spec.parity.why)
+            GATE_PARITY[str(spec.script)] = (spec.parity.scope, spec.parity.why)
+    # CONTROLLED_GATE_SCRIPTS: scripts named in a control's proves field
+    for control in reg.GATE_CONTROLS.values():
+        if control.proves:
+            CONTROLLED_GATE_SCRIPTS.add(control.proves)
 
 
-_load_gate_exemptions_and_controls()
-_load_gate_parity()
-
-# Keep the old names as module-level aliases for all existing consumers.
-# Access pattern: GATE_EXEMPTIONS[script_path] -> reason string
-GATE_EXEMPTIONS = _GATE_EXEMPTIONS_RAW
-# Access pattern: GATE_PARITY[script_path] -> (scope, reason)
-GATE_PARITY = _GATE_PARITY_RAW
+_populate_derived_tables()
 
 
 
@@ -1598,32 +1592,33 @@ def non_blocking_steps() -> list[tuple[str, str, str, bool]]:
     """
     out: list[tuple[str, str, str, bool]] = []
     for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-        text = wf.read_text(encoding="utf-8")
-        for m in re.finditer(
-            r"^\s*- name: (.+?)\n(.*?)(?=\n\s*- name:|\njobs:|\Z)", text, re.M | re.S
-        ):
-            name, body = m.group(1).strip(), m.group(2)
-            # Search the step's *commands*, not its prose. A comment reading
-            # "Was `|| true` …" made this step look soft when it is blocking —
-            # the same self-grep that `_strip_comments` was written to prevent on
-            # the shell side, reproduced one function over because the YAML side
-            # was not given the same treatment.
-            commands = "\n".join(
-                line for line in body.splitlines() if not line.strip().startswith("#")
-            )
-            comments = "\n".join(
-                line for line in body.splitlines() if line.strip().startswith("#")
-            )
-            mechanism = ""
-            if re.search(r"continue-on-error:\s*true", commands):
-                mechanism = "continue-on-error: true"
-            elif _softens_the_step(commands):
-                mechanism = "`|| true` on the last command"
-            if mechanism:
-                declared = bool(
-                    _ADVISORY_MARKER.search(name) or _ADVISORY_MARKER.search(comments)
-                )
-                out.append((wf.name, name, mechanism, declared))
+        try:
+            data = yaml.safe_load(wf.read_text(encoding="utf-8"))
+        except yaml.YAMLError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        for job_name, job in data.get("jobs", {}).items():
+            if not isinstance(job, dict):
+                continue
+            for step in job.get("steps", []):
+                if not isinstance(step, dict):
+                    continue
+                name = step.get("name", "")
+                # continue-on-error is on the step itself
+                continue_on_error = step.get("continue-on-error", False)
+                # run commands are in the 'run' field (string or multiline)
+                run_text = step.get("run", "")
+                if isinstance(run_text, list):
+                    run_text = "\n".join(run_text)
+                mechanism = ""
+                if continue_on_error:
+                    mechanism = "continue-on-error: true"
+                elif _softens_the_step(run_text):
+                    mechanism = "`|| true` on the last command"
+                if mechanism:
+                    declared = bool(_ADVISORY_MARKER.search(str(name)))
+                    out.append((wf.name, str(name), mechanism, declared))
     return out
 
 
@@ -2019,7 +2014,7 @@ def controlled_gate_scripts() -> set[str]:
     and extracting the script path from cmd. The registry is the source of truth
     for what has a positive control; the old per-list iteration is replaced.
     """
-    return _SCRIPT_GATES_WITH_CONTROLS
+    return CONTROLLED_GATE_SCRIPTS
 
 
 def check_registry_completeness() -> list[str]:
@@ -2496,68 +2491,69 @@ def check_gate_reachability() -> list[str]:
     return errors
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--wiring", action="store_true", help="Part A only")
-    ap.add_argument("--can-fail", action="store_true", help="Part B only")
-    ap.add_argument(
-        "--gradle-can-fail", action="store_true", help="Part C only"
-    )
-    ap.add_argument(
-        "--ci-steps-blocking", action="store_true", help="Part D only"
-    )
-    ap.add_argument(
-        "--parity", action="store_true", help="Part E only"
-    )
-    ap.add_argument(
-        "--registry", action="store_true", help="Part F only"
-    )
-    ap.add_argument(
-        "--registry-wiring", action="store_true", help="Part G only"
-    )
-    ap.add_argument(
-        "--reachability", action="store_true", help="Part H only"
-    )
-    ap.add_argument(
-        "--gradle-parity", action="store_true", help="Part I only"
-    )
-    ap.add_argument(
-        "--registry-cross", action="store_true", help="Part J only"
-    )
-    args = ap.parse_args()
+@click.command(epilog=__doc__)
+@click.option("--wiring", is_flag=True, help="Part A only")
+@click.option("--can-fail", is_flag=True, help="Part B only")
+@click.option("--gradle-can-fail", "gradle_can_fail", is_flag=True, help="Part C only")
+@click.option("--ci-steps-blocking", "ci_steps_blocking", is_flag=True, help="Part D only")
+@click.option("--parity", is_flag=True, help="Part E only")
+@click.option("--registry", is_flag=True, help="Part F only")
+@click.option("--registry-wiring", "registry_wiring", is_flag=True, help="Part G only")
+@click.option("--reachability", is_flag=True, help="Part H only")
+@click.option("--gradle-parity", "gradle_parity", is_flag=True, help="Part I only")
+@click.option("--registry-cross", "registry_cross", is_flag=True, help="Part J only")
+def main(
+    wiring: bool,
+    can_fail: bool,
+    gradle_can_fail: bool,
+    ci_steps_blocking: bool,
+    parity: bool,
+    registry: bool,
+    registry_wiring: bool,
+    reachability: bool,
+    gradle_parity: bool,
+    registry_cross: bool,
+) -> None:
+    """check-gate-wiring — prove the gates exist AND that they can fail.
+
+    Run with no options to execute every part. Use one or more --option flags
+    to select specific parts. Every gate runs under a deadline
+    (GATE_TIMEOUT_S / GRADLE_GATE_TIMEOUT_S); a hang reports "no verdict",
+    never "failed".
+    """
     only = (
-        args.wiring
-        or args.can_fail
-        or args.gradle_can_fail
-        or args.ci_steps_blocking
-        or args.parity
-        or args.registry
-        or args.registry_wiring
-        or args.reachability
-        or args.gradle_parity
-        or args.registry_cross
+        wiring
+        or can_fail
+        or gradle_can_fail
+        or ci_steps_blocking
+        or parity
+        or registry
+        or registry_wiring
+        or reachability
+        or gradle_parity
+        or registry_cross
     )
-    run_a = args.wiring or not only
-    run_b = args.can_fail or not only
-    run_c = args.gradle_can_fail or not only
-    run_d = args.ci_steps_blocking or not only
-    run_e = args.parity or not only
-    run_f = args.registry or not only
-    run_g = args.registry_wiring or not only
-    run_h = args.reachability or not only
-    run_i = args.gradle_parity or not only
-    run_j = args.registry_cross or not only
+    run_a = wiring or not only
+    run_b = can_fail or not only
+    run_c = gradle_can_fail or not only
+    run_d = ci_steps_blocking or not only
+    run_e = parity or not only
+    run_f = registry or not only
+    run_g = registry_wiring or not only
+    run_h = reachability or not only
+    run_i = gradle_parity or not only
+    run_j = registry_cross or not only
 
     errors: list[str] = []
 
     if run_a:
         print("Part A — Gradle check tasks are wired into a gate")
-        wiring = check_wiring()
+        wiring_errs = check_wiring()
         tasks = configured_gradle_check_tasks()
         for task in sorted(tasks):
             print(f"  configured: {task}  ({tasks[task]})")
-        errors += wiring
-        if not wiring:
+        errors += wiring_errs
+        if not wiring_errs:
             print(f"  ok  {len(tasks)} configured task(s), all named by a gate")
 
     if run_b:
@@ -2635,11 +2631,10 @@ def main() -> int:
         print("")
         print("A gate that cannot fail, or a check task nobody invokes, is worse than")
         print("no gate: it converts 'not checked' into 'checked and green'.")
-        return 1
+        raise SystemExit(1)
 
     print("\ncheck-gate-wiring: OK")
-    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

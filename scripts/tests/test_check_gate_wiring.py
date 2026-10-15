@@ -382,16 +382,26 @@ class PartFTest(unittest.TestCase):
         test that ran afterwards and the suite reported failures that had nothing
         to do with what was being tested.
         """
-        saved = (gw.GATE_EXEMPTIONS, gw.SCRIPT_GATES, gw.SABOTAGE_ONLY_GATES, gw.FIXTURE_GATES)
+        saved = (
+            gw.GATE_EXEMPTIONS,
+            gw.CONTROLLED_GATE_SCRIPTS,
+            gw.SCRIPT_GATES,
+            gw.SABOTAGE_ONLY_GATES,
+            gw.FIXTURE_GATES,
+        )
         try:
             gw.GATE_EXEMPTIONS = {}
+            gw.CONTROLLED_GATE_SCRIPTS = set()
             gw.SCRIPT_GATES = []
             gw.SABOTAGE_ONLY_GATES = []
             gw.FIXTURE_GATES = []
             errors = gw.check_registry_completeness()
         finally:
-            (gw.GATE_EXEMPTIONS, gw.SCRIPT_GATES,
-             gw.SABOTAGE_ONLY_GATES, gw.FIXTURE_GATES) = saved
+            (gw.GATE_EXEMPTIONS,
+             gw.CONTROLLED_GATE_SCRIPTS,
+             gw.SCRIPT_GATES,
+             gw.SABOTAGE_ONLY_GATES,
+             gw.FIXTURE_GATES) = saved
         self.assertTrue(errors, "an empty registry must report every gate as uncontrolled")
         joined = ' '.join(errors)
         self.assertIn('scripts/check-test-runs.py', joined)
