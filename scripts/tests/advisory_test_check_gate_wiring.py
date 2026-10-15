@@ -393,7 +393,7 @@ class PartGTest(unittest.TestCase):
         if not gw.GATE_REGISTRY.is_file():
             self.skipTest('registry not present in this checkout')
         self.assertEqual(gw.check_registry_wiring(), [],
-                         'ci.yml and check.sh must both call scripts/ci/static-gates.sh')
+                         'ci.yml and check.sh must both invoke the registry (via bash scripts/ci/static-gates.sh or sgate run-all)')
 
     def test_a_missing_registry_is_reported_by_path(self):
         if gw.GATE_REGISTRY.is_file():
@@ -407,18 +407,23 @@ class PartGTest(unittest.TestCase):
         # ONE of the two callers is caught; a gate suite that runs in CI only, or
         # locally only, is an asymmetry nobody would notice.
         #
-        # The rewrite targets the *invocation*, not the first occurrence of the
-        # path: `check_registry_wiring` reads comment-stripped text, so an explanatory
-        # comment mentioning the registry does not satisfy it — which is the strictness
-        # that makes this test meaningful.
+        # The rewrite targets the actual call line (`sgate run-all ||` at start of
+        # line), not a comment that mentions the command: replacing the `||` suffix
+        # to `||` is unambiguous — an echo message about the command has no `||`.
         if not gw.GATE_REGISTRY.is_file():
             self.skipTest('registry not present in this checkout')
         check_sh = gw.ROOT / 'check.sh'
         original = check_sh.read_text(encoding='utf-8')
-        invocation = 'bash scripts/ci/static-gates.sh'
-        self.assertIn(invocation, original, 'check.sh must invoke the registry to test this')
-        check_sh.write_text(original.replace(invocation, 'bash scripts/ci/other.sh', 1),
-                            encoding='utf-8')
+        import re
+        # Match `sgate run-all ||` at start of line (with any indent).
+        call_pattern = re.compile(r'^(\s*)sgate run-all(\s*)\|\|(.*)$', re.MULTILINE)
+        m = call_pattern.search(original)
+        self.assertIsNotNone(
+            m, 'check.sh must invoke the registry via sgate run-all || to test this')
+        indent, _gap, rest = m.groups()
+        # `sgate run-x ||` no longer matches the wiring regex.
+        sabotaged = original[:m.start()] + f'{indent}sgate run-x ||{rest}' + original[m.end():]
+        check_sh.write_text(sabotaged, encoding='utf-8')
         self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
         errors = gw.check_registry_wiring()
         self.assertTrue(any('check.sh' in e for e in errors),
