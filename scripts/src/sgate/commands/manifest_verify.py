@@ -40,7 +40,6 @@ KNOWN_NON_GATES: set[str] = {
     "manifest_verify",  # this command itself
     "info",
     "wiring",
-    "backlog_status",
     "backlog_issue_refs",
     "suite_docs",
     "suite_lint",

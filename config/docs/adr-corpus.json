@@ -14,7 +14,7 @@
   "archiveDir": "archive",
   "deferredDir": "deferred",
 
-  "_comment_classes": "Three distinct classes, not one. An ADR is a dated decision record under `root`. An archived ADR keeps its dated name but leaves the live corpus. A file under `deferred/` is backlog, NOT a decision: it carries slug names, no real date, and statuses from a different vocabulary. Treating it as a decision is what produced 129 files the gate could not see.",
+  "_comment_classes": "Three distinct classes, not one. An ADR is a dated decision record under `root`. An archived ADR keeps its dated name but leaves the live corpus. The third class (backlog) was migrated to GitHub Issues (issues #636-643). The deferredDir field remains in config for backwards compatibility; if the directory is absent, discovery returns [].",
 
   "ignoredFiles": ["DIGEST.md", "DIGEST-full.md"],
 

@@ -420,8 +420,6 @@ def make_command(spec: GateSpec) -> click.Command:
         )
 
     def build_cmd(
-        self_: click.Command,
-        ctx: click.Context,
         check: bool,
         emit_json: bool,
         **extra: bool,

@@ -32,7 +32,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-TOTAL=13
+TOTAL=12
 
 echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
 # Every script gate that needs no JVM and no build output lives in
@@ -50,19 +50,7 @@ sgate run-all || {
 # and a PR must not be blocked by how the work queue is annotated. Declared
 # `local` in scripts/check-gate-wiring.py's GATE_PARITY, so the asymmetry is
 # visible rather than silent.
-echo -e "${YELLOW}=== [2/$TOTAL] backlog entries are classifiable and within budget ===${NC}"
-# 42 of this file's entries carried no status line, and two independently
-# written regexes counted the resolved ones as 18 and 26 — each silently
-# classifying what it could and skipping the rest. An entry nobody can classify
-# is an entry nobody can triage, and the file's own
-# `an-open-backlog-entry-does-not-mean-the-work-is-still-open` records what
-# happens next: it stops being read.
-sgate backlog_status || {
-    echo -e "${RED}a backlog entry has no readable status, or an open one is untracked${NC}"
-    exit 1
-}
-
-echo -e "${YELLOW}=== [3/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
+echo -e "${YELLOW}=== [2/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
 # Cheapest thing that compiles `androidMain`, run early and unconditionally.
 #
 # `:androidApp:assembleDebug` below also compiles androidMain, but it links and
@@ -79,21 +67,21 @@ echo -e "${YELLOW}=== [3/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
 }
 echo -e "${GREEN}androidMain compiled${NC}"
 
-echo -e "${YELLOW}=== [4/$TOTAL] shared:jvmTest ===${NC}"
+echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [5/$TOTAL] desktopApp:test ===${NC}"
+echo -e "${YELLOW}=== [4/$TOTAL] desktopApp:test ===${NC}"
 ./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
-echo -e "${YELLOW}=== [6/$TOTAL] androidApp:assembleDebug ===${NC}"
+echo -e "${YELLOW}=== [5/$TOTAL] androidApp:assembleDebug ===${NC}"
 ./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
@@ -103,7 +91,7 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # "Tests passed" is not "the tests ran". JUnit's includeTags matches per class, so a
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
-echo -e "${YELLOW}=== [7/$TOTAL] executed test counts ===${NC}"
+echo -e "${YELLOW}=== [6/$TOTAL] executed test counts ===${NC}"
 python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
     --max-age 21600 || {
     echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
@@ -124,13 +112,13 @@ echo -e "${GREEN}test run floors met${NC}"
 # them at its own time. Ordering them wrongly is the bug; skipping the control when
 # the XML is absent would teach the reader that "no results" is acceptable, which is
 # the reading this project is removing.
-echo -e "${YELLOW}=== [8/$TOTAL] gates are wired and can fail ===${NC}"
+echo -e "${YELLOW}=== [7/$TOTAL] gates are wired and can fail ===${NC}"
 python3 scripts/check-gate-wiring.py || {
     echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [9/$TOTAL] detekt rule unit tests ===${NC}"
+echo -e "${YELLOW}=== [8/$TOTAL] detekt rule unit tests ===${NC}"
 # A custom rule that cannot fire is indistinguishable from a rule that has
 # nothing to match. These tests are the only evidence either way.
 ./gw :detekt-rules:test --quiet || {
@@ -138,7 +126,7 @@ echo -e "${YELLOW}=== [9/$TOTAL] detekt rule unit tests ===${NC}"
     exit 1
 }
 
-echo -e "${YELLOW}=== [10/$TOTAL] coverage floors (when a report exists) ===${NC}"
+echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (when a report exists) ===${NC}"
 # --if-present because koverReport instruments every test task and roughly
 # triples the local loop; CI runs it in the same job as the tests on every push.
 #
@@ -157,14 +145,14 @@ else
     echo "    no Kover report — run ./gw koverReport (skipped)"
 fi
 
-echo -e "${YELLOW}=== [11/$TOTAL] mcp-server:compileKotlin (DI graph validation) ===${NC}"
+echo -e "${YELLOW}=== [10/$TOTAL] mcp-server:compileKotlin (DI graph validation) ===${NC}"
 ./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}mcp-server DI graph validated${NC}"
 
-echo -e "${GREEN}=== [12/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${GREEN}=== [11/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
@@ -180,7 +168,7 @@ echo -e "${GREEN}=== [12/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${N
     exit 1
 }
 
-echo -e "${GREEN}=== [13/$TOTAL] mcp-server:detekt ===${NC}"
+echo -e "${GREEN}=== [12/$TOTAL] mcp-server:detekt ===${NC}"
 # This task was invoked by ci.yml with `ignoreFailures = true`, so it could not
 # fail there, and it was not in check.sh at all, so it did not run here either.
 # Both halves mattered: nothing enforced it and nothing ran it.
@@ -189,7 +177,7 @@ echo -e "${GREEN}=== [13/$TOTAL] mcp-server:detekt ===${NC}"
     exit 1
 }
 
-echo -e "${GREEN}=== [13b/$TOTAL] adr-cli:detekt ===${NC}"
+echo -e "${GREEN}=== [12b/$TOTAL] adr-cli:detekt ===${NC}"
 # `:adr-cli` declares `detekt` with `ignoreFailures = false`. A configured detekt task
 # that no surface invokes reports success forever, which is the exact defect the block
 # above was written for — applied one module over.
@@ -198,7 +186,7 @@ echo -e "${GREEN}=== [13b/$TOTAL] adr-cli:detekt ===${NC}"
     exit 1
 }
 
-echo -e "${GREEN}=== [13c/$TOTAL] adr-core + core-base:detekt ===${NC}"
+echo -e "${GREEN}=== [12c/$TOTAL] adr-core + core-base:detekt ===${NC}"
 # The two modules the CLI was refactored onto (#542). Their baselines are empty, so a
 # finding here is a finding about code written today — which is the only state a new
 # module should ever be in. Left uninvoked they would report success forever.
