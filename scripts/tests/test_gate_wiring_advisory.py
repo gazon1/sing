@@ -215,16 +215,26 @@ class PartFTest(unittest.TestCase):
         test that ran afterwards and the suite reported failures that had nothing
         to do with what was being tested.
         """
-        saved = (gw.GATE_EXEMPTIONS, gw.SCRIPT_GATES, gw.SABOTAGE_ONLY_GATES, gw.FIXTURE_GATES)
+        saved = (
+            gw.GATE_EXEMPTIONS,
+            gw.CONTROLLED_GATE_SCRIPTS,
+            gw.SCRIPT_GATES,
+            gw.SABOTAGE_ONLY_GATES,
+            gw.FIXTURE_GATES,
+        )
         try:
             gw.GATE_EXEMPTIONS = {}
+            gw.CONTROLLED_GATE_SCRIPTS = set()
             gw.SCRIPT_GATES = []
             gw.SABOTAGE_ONLY_GATES = []
             gw.FIXTURE_GATES = []
             errors = gw.check_registry_completeness()
         finally:
-            (gw.GATE_EXEMPTIONS, gw.SCRIPT_GATES,
-             gw.SABOTAGE_ONLY_GATES, gw.FIXTURE_GATES) = saved
+            (gw.GATE_EXEMPTIONS,
+             gw.CONTROLLED_GATE_SCRIPTS,
+             gw.SCRIPT_GATES,
+             gw.SABOTAGE_ONLY_GATES,
+             gw.FIXTURE_GATES) = saved
         self.assertTrue(errors, "an empty registry must report every gate as uncontrolled")
         joined = ' '.join(errors)
         self.assertIn('scripts/check-test-runs.py', joined)
@@ -414,16 +424,22 @@ class PartGTest(unittest.TestCase):
             self.skipTest('registry not present in this checkout')
         check_sh = gw.ROOT / 'check.sh'
         original = check_sh.read_text(encoding='utf-8')
-        import re
-        # Match `sgate run-all ||` at start of line (with any indent).
-        call_pattern = re.compile(r'^(\s*)sgate run-all(\s*)\|\|(.*)$', re.MULTILINE)
-        m = call_pattern.search(original)
-        self.assertIsNotNone(
-            m, 'check.sh must invoke the registry via sgate run-all || to test this')
-        indent, _gap, rest = m.groups()
-        # `sgate run-x ||` no longer matches the wiring regex.
-        sabotaged = original[:m.start()] + f'{indent}sgate run-x ||{rest}' + original[m.end():]
-        check_sh.write_text(sabotaged, encoding='utf-8')
+        # check.sh now invokes the registry via `sgate run-all ||`; the test must
+        # replace the actual invocation line, not a comment that happens to mention
+        # `sgate run-all`.  Replacing the `||` suffix ensures we hit line 44
+        # (the actual command) and not line 40 (the explanatory comment).
+        # The error message on line 45 also mentions `sgate run-all` as a string
+        # literal; that string must be updated too or the comment-stripping regex
+        # will still find it and the check will incorrectly pass.
+        self.assertIn('sgate run-all', original,
+                      'check.sh must invoke the registry to test this')
+        patched = original
+        patched = patched.replace('sgate run-all ||', 'echo bypassed', 1)
+        patched = patched.replace(
+            'see sgate run-all output above',
+            'see echo bypassed output above', 1
+        )
+        check_sh.write_text(patched, encoding='utf-8')
         self.addCleanup(lambda: check_sh.write_text(original, encoding='utf-8'))
         errors = gw.check_registry_wiring()
         self.assertTrue(any('check.sh' in e for e in errors),
