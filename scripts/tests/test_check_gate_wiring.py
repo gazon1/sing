@@ -13,9 +13,11 @@ parts added here.
 
 import contextlib
 import importlib.util
+import os
 import pathlib
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -83,6 +85,171 @@ tasks.withType<Test>().configureEach {
     def test_the_repository_is_clean(self):
         """No module in the tree may opt out of enforcement right now."""
         self.assertEqual([], gw.non_enforcing_gradle_tasks())
+
+    KOVER_ENFORCING = '''
+kover {
+    reports {
+        total {
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound {
+                        minValue = 60
+                        coverageUnits = CoverageUnit.BRANCH
+                    }
+                }
+            }
+        }
+    }
+}
+'''
+
+    KOVER_NO_BOUND = '''
+kover {
+    reports {
+        total {
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound {
+                        coverageUnits = CoverageUnit.BRANCH
+                    }
+                }
+            }
+        }
+    }
+}
+'''
+
+    KOVER_SABOTAGED = '''
+val DETEKT_RULE_BRANCH_FLOOR = 60
+kover {
+    reports {
+        total {
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound { minValue = DETEKT_RULE_BRANCH_FLOOR }
+                }
+            }
+        }
+    }
+}
+'''
+
+    def _kover_findings(self, build_text: str) -> list[str]:
+        """Point the kover-floor check at one synthetic module and read findings."""
+        original_root = gw.ROOT
+        with _tmpdir() as tmp:
+            module = pathlib.Path(tmp) / 'mod'
+            module.mkdir()
+            (module / 'build.gradle.kts').write_text(build_text, encoding='utf-8')
+            gw.ROOT = pathlib.Path(tmp)
+            try:
+                return gw.kover_verify_rules_without_usable_floor()
+            finally:
+                gw.ROOT = original_root
+
+    def test_an_enforcing_kover_floor_is_not_a_finding(self):
+        self.assertEqual([], self._kover_findings(self.KOVER_ENFORCING))
+
+    def test_a_verify_rule_with_no_bound_is_reported(self):
+        """A rule that declares no `minValue` verifies nothing.
+
+        Kover still fails the task when a rule fails, so an unbounded rule makes
+        `koverVerify` green at any coverage — the same defect as a floor of zero,
+        without anything in the output to say so.
+        """
+        findings = self._kover_findings(self.KOVER_NO_BOUND)
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn(':mod:kover verify has no minValue bound', findings[0])
+
+    def test_a_floor_below_the_line_is_reported(self):
+        findings = self._kover_findings(
+            self.KOVER_ENFORCING.replace('minValue = 60', 'minValue = 0')
+        )
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn('below 60', findings[0])
+
+    def test_a_floor_declared_as_a_constant_is_resolved(self):
+        """The real floor is a named constant, so a literal-only check would
+        report the repository as having no floor at all."""
+        self.assertEqual([], self._kover_findings(self.KOVER_SABOTAGED))
+
+    def test_an_unresolved_constant_is_reported_not_ignored(self):
+        findings = self._kover_findings(
+            self.KOVER_SABOTAGED.replace(
+                'minValue = DETEKT_RULE_BRANCH_FLOOR', 'minValue = SOMETHING_UNDECLARED'
+            )
+        )
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn('could not be resolved', findings[0])
+
+    def test_a_kover_block_without_a_verify_rule_is_not_qualified(self):
+        """`koverVerify` in a comment must not make a module qualify.
+
+        The check looks for the two *blocks*; a module that runs tests under
+        kover but declares no verification rule at all is a different, louder
+        story and has no rule to hold to a floor.
+        """
+        text = '''
+// CI runs `./gradlew :mod:koverVerify` here. verification is on the reader.
+kover {
+    reports {
+        total { log { format = "coverage: <value>" } }
+    }
+}
+'''
+        self.assertEqual([], self._kover_findings(text))
+
+    def test_a_verify_block_from_another_plugin_does_not_qualify(self):
+        """Only `verify` *inside* `kover` is a kover floor.
+
+        Read as "the file contains both words", this would qualify on any
+        unrelated verification block — and then judge a `minValue` that Kover
+        never reads, which is a verdict about text the gate did not establish
+        was its own.
+        """
+        text = '''
+kover {
+    reports {
+        total { log { format = "coverage: <value>" } }
+    }
+}
+tasks.named("somethingElse") {
+    verify {
+        bound { minValue = 0 }
+    }
+}
+'''
+        self.assertEqual([], self._kover_findings(text))
+
+    def test_a_comment_inside_the_block_cannot_raise_the_floor(self):
+        """Prose that quotes the API must not supply the number.
+
+        The comment inside a kover block is where an example `minValue = 100`
+        would be written, and a check that grepped it would read a real bound of
+        50 as 100 and pass the module. Only code inside the block counts, so
+        full-line comments are dropped before the braces are matched.
+        """
+        text = '''
+kover {
+    // for an example: verify { bound { minValue = 100 } }
+    reports {
+        total {
+            verify {
+                rule("branch") {
+                    bound { minValue = 50 }
+                }
+            }
+        }
+    }
+}
+'''
+        findings = self._kover_findings(text)
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn('floor 50 is below 60', findings[0])
+
+    def test_the_real_repository_has_a_usable_kover_floor(self):
+        """The floor this gate replaces must exist where the gate now looks."""
+        self.assertEqual([], gw.kover_verify_rules_without_usable_floor())
 
 
 class SoftStepTest(unittest.TestCase):
@@ -295,8 +462,7 @@ class PartFTest(unittest.TestCase):
         target = gw.ROOT / gate.sabotage_path
         try:
             target.write_text(moved, encoding='utf-8')
-            ns = {'p': target}
-            exec(gate.sabotage, ns)
+            gate.sabotage(target)
             sabotaged = target.read_text(encoding='utf-8')
         finally:
             target.write_text(original, encoding='utf-8')
@@ -320,7 +486,7 @@ class PartFTest(unittest.TestCase):
                 continue
             before = target.read_text(encoding='utf-8')
             try:
-                exec(gate.sabotage, {'p': target})
+                gate.sabotage(target)
                 after = target.read_text(encoding='utf-8')
             finally:
                 target.write_text(before, encoding='utf-8')
@@ -338,6 +504,36 @@ class PartFTest(unittest.TestCase):
         for gate in gw.FIXTURE_GATES:
             for part in gate.cmd:
                 self.assertNotIn(part, sabotage_scripts, f"{gate.name} is in both registries")
+
+
+class ControlShapeTest(unittest.TestCase):
+    """Controls are functions, not source text.
+
+    As strings the snippets needed `\n`/`\'` escaping, and one wrong escape was
+    a SyntaxError that `exec` raised mid-Part-B — after the clean run, aborting
+    every control below it in the registry, and only on a day the broken entry's
+    baseline happened to be green, which reads like a regression in whatever
+    changed that day. As functions they are parsed at import: the module
+    loading is the syntax check, and this test pins the shape so the string
+    form cannot come back.
+    """
+
+    def test_every_control_is_a_callable(self):
+        for gate in [*gw.SCRIPT_GATES, *gw.SABOTAGE_ONLY_GATES]:
+            self.assertTrue(
+                callable(gate.sabotage),
+                f"{gate.name}: sabotage must be a control function, not source",
+            )
+            if gate.sabotage_restore is not None:
+                self.assertTrue(
+                    callable(gate.sabotage_restore),
+                    f"{gate.name}: sabotage_restore must be a control function",
+                )
+        for gate in gw.FIXTURE_GATES:
+            self.assertTrue(
+                callable(gate.setup),
+                f"{gate.name}: setup must be a function, not source",
+            )
 
 
 class PartGTest(unittest.TestCase):
@@ -680,3 +876,57 @@ class PartITest(unittest.TestCase):
                            encoding='utf-8')
         self.assertEqual(gw.check_gradle_task_parity(), [],
                          'release.yml is packaging, not verification')
+
+
+class GateDeadlineTest(unittest.TestCase):
+    """A hanging gate must be killed, not waited on.
+
+    The harness froze a host once: a control shelled out with no deadline,
+    the child never returned, and nothing was printed — stdout was
+    block-buffered on redirect, so even the log came out empty. The deadline
+    and the line-buffered streams are the whole fix; this pins the deadline.
+    """
+
+    def test_a_gate_past_its_deadline_is_killed_and_reported(self):
+        started = time.monotonic()
+        rc = gw.run_gate([sys.executable, '-c', 'import time; time.sleep(30)'], timeout_s=1)
+        self.assertEqual(rc, gw.TIMEOUT_RC, 'a timeout must be 124, never a normal exit code')
+        self.assertLess(time.monotonic() - started, 10, 'the child must die at the deadline')
+
+
+class GradleControlSkipTest(unittest.TestCase):
+    """Gradle-backed controls are opt-in, and only the known one exists.
+
+    koverVerify cold-boots a daemon, configures every module and holds the
+    shared cache lock for minutes — that is how a casual invocation froze the
+    host. Skipped unless `GATE_WIRING_GRADLE=1` (check.sh sets it, daemon
+    warm), bounded when included, and exactly one gate pays the price.
+    """
+
+    def test_gradle_cmds_are_detected(self):
+        self.assertTrue(gw._is_gradle_gate(['./gw', '-q', ':detekt-rules:koverVerify']))
+        self.assertTrue(gw._is_gradle_gate(['./gradlew', 'test']))
+        self.assertFalse(gw._is_gradle_gate([sys.executable, 'scripts/check-doc-sizes.py']))
+
+    def test_exactly_the_known_gate_is_gradle_backed(self):
+        gradle = [
+            g.name
+            for g in [*gw.SCRIPT_GATES, *gw.SABOTAGE_ONLY_GATES]
+            if gw._is_gradle_gate(g.cmd)
+        ]
+        self.assertEqual(
+            gradle,
+            ['detekt-rule-coverage-floor'],
+            'a new gradle-backed control needs the same opt-in review',
+        )
+
+    def test_env_switch_defaults_off_and_turns_on(self):
+        saved = os.environ.pop(gw.GRADLE_ENV, None)
+        try:
+            self.assertFalse(gw._gradle_controls_enabled())
+            os.environ[gw.GRADLE_ENV] = '1'
+            self.assertTrue(gw._gradle_controls_enabled())
+        finally:
+            os.environ.pop(gw.GRADLE_ENV, None)
+            if saved is not None:
+                os.environ[gw.GRADLE_ENV] = saved

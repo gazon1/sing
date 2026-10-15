@@ -1,0 +1,56 @@
+# yamllint — lean config: structure only, no style.
+#
+# Wired as the blocking gate "YAML is structurally valid" in
+# scripts/ci/static-gates.sh. actionlint covers GitHub Actions *semantics*
+# (expressions, injection, action inputs); this covers the YAML itself with a
+# second parser (ruamel), which is stricter than the PyYAML the other gates use
+# — PyYAML silently overwrites duplicate keys and accepts tabs-in-flow where
+# ruamel refuses.
+#
+# Every disabled rule is disabled because it reported style, not defects, on the
+# existing corpus: the default config produced 220 errors, of which 213 were
+# line-length. A lint gate that is red from the day it lands teaches the reader
+# to ignore it, which is the exact failure mode this repo keeps fixing.
+extends: default
+
+rules:
+  # 213 of the default config's 220 findings. Workflows quote long shell lines
+  # and pin versions inline; wrapping them buys nothing and breaks copy-paste.
+  line-length: disable
+
+  # `on:` is GitHub's trigger key; YAML 1.1 reads it as boolean true and flags
+  # every workflow. A false positive on the single most common key in the
+  # corpus is not a check, it is noise.
+  truthy: disable
+
+  # Workflows do not start with `---`; requiring it is a style preference.
+  document-start: disable
+
+  # Style, not structure. All reported zero defects once line-length was gone.
+  comments: disable
+  comments-indentation: disable
+  braces: disable
+  brackets: disable
+  colons: disable
+  commas: disable
+  hyphens: disable
+  indentation: disable
+  new-line-at-end-of-file: disable
+  trailing-spaces: disable
+  empty-lines: disable
+  empty-values: disable
+  document-end: disable
+  octal-values: disable
+
+  # Kept on: a duplicate key is a silent corruption — the second value wins and
+  # nothing errors. The in-repo gate yaml_has_no_duplicate_keys catches this too
+  # via a custom PyYAML loader; this is the same property from a different parser
+  # (ruamel), so a bug in one detector does not silently disable the check.
+  key-duplicates:
+    level: error
+
+  # A tab used for indentation is a syntax concern, not a style one, and it is
+  # already rejected by PyYAML (the other gates' parser) and by actionlint. There
+  # is no tabs-only rule in yamllint 1.38 — the `indentation` rule that would
+  # flag it is the same rule that emits the spaces-vs-consistent style noise we
+  # disable above — so it is left to those parsers rather than re-enabled here.

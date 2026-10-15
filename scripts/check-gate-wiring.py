@@ -36,6 +36,11 @@ Usage:
     python3 scripts/check-gate-wiring.py --wiring     # Part A only (static, fast)
     python3 scripts/check-gate-wiring.py --can-fail   # Part B only (mutates, restores)
 
+Every gate runs under a deadline (`GATE_TIMEOUT_S` / `GRADLE_GATE_TIMEOUT_S`);
+a hang reports "no verdict", never "failed". Gradle-backed controls are
+skipped unless `GATE_WIRING_GRADLE=1` — `check.sh` sets it because its daemon
+is already warm, and a casual run must not cold-boot one.
+
 Exit codes:
     0 — every gate is wired and every registered gate can fail
     1 — an unwired task, or a gate that passed a sabotaged input
@@ -51,8 +56,20 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+# Line-buffer both streams: a killed run used to leave a 0-byte log, because
+# stdout is block-buffered on redirect and this file prints one line per gate.
+# The last line printed is then the step that was still running — which is the
+# only diagnostic a freeze leaves behind.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(line_buffering=True)  # type: ignore[union-attr]
+    except (AttributeError, ValueError):
+        pass
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -156,6 +173,119 @@ def check_wiring() -> list[str]:
 
 
 # ── Part B: can fail ───────────────────────────────────────────────────────
+#
+# A control mutates its target into the state the gate must reject. Controls are
+# plain functions of the path, not source text: as strings they had to be
+# escaped into shape (`\n`, `\'`) and `exec` raised SyntaxError on one wrong
+# escape — mid-Part-B, after the clean run, taking every control below it in the
+# list down with it. The gate-liveness entry carried exactly that defect and
+# only showed itself on a day its baseline happened to be green, which reads
+# like a regression in whatever changed that day. Functions are written once,
+# parsed once, at import.
+
+Control = Callable[[Path], None]
+
+
+def _replace(old: str, new: str, *, count: int = -1) -> Control:
+    """Substitute `old` → `new`, refusing when `old` is not in the file.
+
+    The refusal is the point. Four controls in this registry once matched
+    nothing after their target moved on (the test-runs floor, the Room schema
+    version, an unwired-backlog anchor, a README schema claim): `replace`
+    changed nothing, the gate read an untouched file, correctly passed, and the
+    harness reported a control that had proved nothing. A no-op control is
+    worse than no control — it is reported as a passing one.
+    """
+
+    def control(p: Path) -> None:
+        text = p.read_text(encoding="utf-8")
+        assert old in text, f"sabotage would be a no-op: {old[:60]!r} not in {p}"
+        p.write_text(text.replace(old, new, count), encoding="utf-8")
+
+    return control
+
+
+def _regex_sub(pattern: str, repl: str, *, count: int = 1, flags: int = 0) -> Control:
+    """`re.subn` with the match asserted, so a value that moved cannot no-op."""
+
+    def control(p: Path) -> None:
+        text = p.read_text(encoding="utf-8")
+        new, n = re.subn(pattern, repl, text, count=count, flags=flags)
+        assert n >= 1, f"sabotage would be a no-op: {pattern!r} matched nothing in {p}"
+        p.write_text(new, encoding="utf-8")
+
+    return control
+
+
+def _append(text: str) -> Control:
+    """Append text — the shape for "introduce the thing this gate hunts"."""
+
+    def control(p: Path) -> None:
+        p.write_text(p.read_text(encoding="utf-8") + text, encoding="utf-8")
+
+    return control
+
+
+def _drop_lines(needle: str) -> Control:
+    """Delete every line containing `needle`; at least one must exist."""
+
+    def control(p: Path) -> None:
+        lines = p.read_text(encoding="utf-8").splitlines()
+        kept = [ln for ln in lines if needle not in ln]
+        assert len(kept) < len(lines), f"sabotage would be a no-op: no line with {needle!r} in {p}"
+        p.write_text("\n".join(kept) + "\n", encoding="utf-8")
+
+    return control
+
+
+def _age_directory(days: int) -> Control:
+    """Set a directory's mtime into the past — for gates that read staleness."""
+
+    def control(p: Path) -> None:
+        old = time.time() - days * 86400
+        os.utime(p, (old, old))
+
+    return control
+
+
+# Controls that fit no builder: they move git state or reshape a block of lines
+# rather than substitute one string. They are ordinary functions for the same
+# reason the builders exist — a control is read, parsed and debugged once.
+def _hooks_path_sabotage(p: Path) -> None:
+    """Set `core.hooksPath` and untrack the hooks; content alone cannot undo it."""
+    repo = p.parent.parent
+    subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=repo, check=True)
+    subprocess.run(["git", "rm", "-r", "--cached", "-q", ".githooks"], cwd=repo, check=True)
+
+
+def _hooks_path_restore(p: Path) -> None:
+    """Put the hooks back in the index — see `ScriptGate.sabotage_restore`."""
+    subprocess.run(["git", "add", "--", ".githooks"], cwd=p.parent.parent, check=True)
+
+
+def _drop_second_line(p: Path) -> None:
+    """skill-frontmatter: delete a SKILL.md's description line."""
+    lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
+    assert len(lines) > 1, "nothing to drop — the control would be a no-op"
+    del lines[1]
+    p.write_text("".join(lines), encoding="utf-8")
+
+
+def _strip_suppression_reason(p: Path) -> None:
+    """suppression-intent: remove the comment justification under `@file:Suppress`."""
+    lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
+    assert lines[0].startswith("@file:Suppress"), "unexpected file shape"
+    assert lines[1].lstrip().startswith("//"), "no reason line to strip"
+    out, dropped = [lines[0]], 0
+    for line in lines[1:]:
+        if line.lstrip().startswith("//"):
+            dropped += 1
+            continue
+        if dropped and not line.strip():
+            continue
+        out.append(line)
+    assert dropped >= 2, f"expected a multi-line reason, found {dropped}"
+    p.write_text("".join(out), encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -165,7 +295,7 @@ class ScriptGate:
     name: str
     cmd: list[str]
     sabotage_path: str
-    sabotage: str  # python source evaluated with `p` bound to the target
+    sabotage: Control
     why: str
     # A directory target is restored by mtime, not by content: `check-openspec-stale`
     # reads staleness from `stat().st_mtime`, so a content comparison would report
@@ -179,8 +309,7 @@ class ScriptGate:
     # clean-tree guard is waived — use for gates that are known to fail on a clean
     # tree due to un-triaged real state (e.g. open entries tracking closed issues).
     needs_clean_run: bool = True
-    # Extra restoration, evaluated after the content is put back, with `p` bound to
-    # the same target.
+    # Extra restoration, run after the content is put back.
     #
     # The default restore is `write_text(original)` and that restores *content* only.
     # A sabotage that also changes git state — `git rm --cached` is the one that
@@ -192,7 +321,7 @@ class ScriptGate:
     #
     # So a sabotage that touches anything but file content must say how to put it
     # back. Leaving this empty for such a sabotage is the bug this field exists for.
-    sabotage_restore: str = ""
+    sabotage_restore: Control | None = None
 
 
 SCRIPT_GATES = [
@@ -201,23 +330,11 @@ SCRIPT_GATES = [
         cmd=[sys.executable, "scripts/check-adr-config-sync.py"],
         sabotage_path="scripts/check_adr_status.py",
         # Appending a module-level glob to a consumer is exactly the regression this
-        # gate exists to catch.
-        #
-        # Written as ONE string, not two concatenated ones. The previous form split
-        # after `p.read_text() + `, which produced a literal whose first line is a
-        # bare expression and whose second line is an assignment:
-        #
-        #     p.write_text(p.read_text() +
-        #     _SABOTAGE = sorted(Path('docs/decisions').glob('*.md'))
-        #
-        # `exec()` raises SyntaxError on that, and because `check_can_fail()` aborts
-        # on the first exception, this entry took every control *below* it in the
-        # list down with it — Part B had been reporting nothing at all. Found by
-        # running the control suite rather than reading it (#529).
-        sabotage=(
-            "p.write_text(p.read_text() + "
-            "'\\n_SABOTAGE = sorted(Path(\\\"docs/decisions\\\").glob(\\\"*.md\\\"))\\n')"
-        ),
+        # gate exists to catch. (As source text this control was split across two
+        # literals, became a SyntaxError, and took every control below it down with
+        # it — Part B reported nothing at all until the control suite was run rather
+        # than read, #529. The `Control` type above records that lesson.)
+        sabotage=_append('\n_SABOTAGE = sorted(Path("docs/decisions").glob("*.md"))\n'),
         why=(
             "the gate's whole claim is that no consumer grows its own glob. "
             "Appending one to a consumer is exactly the regression it exists to "
@@ -230,9 +347,7 @@ SCRIPT_GATES = [
         name="yaml-duplicate-keys",
         cmd=[sys.executable, "scripts/check-yaml-duplicate-keys.py", "--quiet"],
         sabotage_path="config/detekt/detekt-rules-module.yml",
-        sabotage=(
-            "p.write_text(p.read_text().replace('    active: false\\n', '    active: false\\n    active: true\\n', 1))"
-        ),
+        sabotage=_replace('    active: false\n', '    active: false\n    active: true\n', count=1),
         why=(
             "a repeated key is a hard error for SnakeYAML and silently last-one-wins "
             "for other readers. :detekt-rules:detekt is the only consumer of this "
@@ -248,11 +363,10 @@ SCRIPT_GATES = [
         # dependency that put the whole application — Compose, Room, SQLite, Koin,
         # Koog — on the classpath of a markdown lister, making a 4.9 MB
         # distribution 127 MB again with every test still green.
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'implementation(project(\":adr-core\"))', "
-            "'implementation(project(\":adr-core\"))\\n"
-            "    implementation(project(\":shared\"))'))"
+        sabotage=_replace(
+            'implementation(project(":adr-core"))',
+            'implementation(project(":adr-core"))\n    implementation(project(":shared"))',
+            count=1,
         ),
         why="a direct `:adr-cli -> :shared` edge, which is the 127 MB",
     ),
@@ -260,14 +374,14 @@ SCRIPT_GATES = [
         name="detekt-registrations",
         cmd=["./scripts/check-detekt-registrations.sh"],
         sabotage_path="config/detekt/detekt.yml",
-        sabotage="p.write_text(p.read_text().replace('no-runblocking:\\n  NoRunBlocking:\\n    active: true\\n', ''))",
+        sabotage=_replace('no-runblocking:\n  NoRunBlocking:\n    active: true\n', ''),
         why="a RuleSetId with no detekt.yml block never loads, so the rule never runs",
     ),
     ScriptGate(
         name="baseline-ratchet",
         cmd=[sys.executable, "scripts/check-baseline-ratchet.py"],
         sabotage_path="config/detekt/baseline-shared.xml",
-        sabotage="p.write_text(p.read_text().replace('</CurrentIssues>', '    <ID>Sabotage:Probe.kt:Probe</ID>\\n  </CurrentIssues>'))",
+        sabotage=_replace('</CurrentIssues>', '    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>'),
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
     ScriptGate(
@@ -279,9 +393,10 @@ SCRIPT_GATES = [
         # defect rather than a synthetic one. This target was
         # check-kiwi-inventory-ratchet.py until the Kiwi stand was retired; the
         # control outlived its subject, so it moved to another registered gate.
-        sabotage=(
-            "p.write_text(p.read_text().replace('import sys', "
-            "'import sys\\nraise AttributeError(\"'NoneType' object has no attribute 'loader'\")', 1))"
+        sabotage=_replace(
+            "import sys",
+            "import sys\nraise AttributeError(\"'NoneType' object has no attribute 'loader'\")",
+            count=1,
         ),
         why=(
             "a gate that raises instead of reporting has no opinion at all, and an "
@@ -303,16 +418,9 @@ SCRIPT_GATES = [
         # the first CI run that reached it, 2026-10-11). Setting it to .githooks
         # is what a correctly configured machine already has; the restore leaves
         # it there, which is the value the gate itself recommends.
-        sabotage=(
-            "import subprocess as _sp\n"
-            "_sp.run(['git','config','core.hooksPath','.githooks'], cwd=p.parent.parent, check=True)\n"
-            "_sp.run(['git','rm','-r','--cached','-q','.githooks'], cwd=p.parent.parent, check=True)"
-        ),
+        sabotage=_hooks_path_sabotage,
         # Content restore alone cannot undo this one — see `sabotage_restore`.
-        sabotage_restore=(
-            "import subprocess as _sp\n"
-            "_sp.run(['git','add','--','.githooks'], cwd=p.parent.parent, check=True)"
-        ),
+        sabotage_restore=_hooks_path_restore,
         why=(
             "hooks travel with the repository; local git config does not. A configured "
             "hooks path with nothing tracked under it is a gate that reports success "
@@ -326,10 +434,7 @@ SCRIPT_GATES = [
         # exactly the mistake the gate exists to catch, and it is a content change
         # the default restore puts back — no index games, no custom restore.
         sabotage_path=".agents/skills/singularity-todo-decisions-workflow/SKILL.md",
-        sabotage=(
-            "p.write_text(p.read_text().replace('"
-            "`singularity-adr validate`', '`singularity-adr verifai`', 1))"
-        ),
+        sabotage=_replace('`singularity-adr validate`', '`singularity-adr verifai`', count=1),
         why=(
             "a skill that lists commands the tool does not have sends an agent to run "
             "something that does not exist"
@@ -343,10 +448,7 @@ SCRIPT_GATES = [
         # would pass on a gate that had checked nothing — which is exactly what the
         # first version of this control did.
         sabotage_path="docs/decisions/2026-10-10-adr-file-local-rules-live-in-the-writer.md",
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'## Consequences', '## Consequences\\n\\nSABOTAGE', 1))"
-        ),
+        sabotage=_replace('## Consequences', '## Consequences\n\nSABOTAGE', count=1),
         why=(
             "a closed decision's body is a record of what was decided; rewriting it is "
             "how a decision trail disappears without any field the gate watches changing"
@@ -360,10 +462,7 @@ SCRIPT_GATES = [
         # gate must detect. Using an obviously-invalid value (DEAD-BEEF) rather
         # than a plausible one (superseded/accepted) to guarantee the gate fails.
         sabotage_path="docs/decisions/2026-09-05-android-bottom-nav-followups.md",
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'status: accepted', 'status: DEAD-BEEF', 1))"
-        ),
+        sabotage=_replace('status: accepted', 'status: DEAD-BEEF', count=1),
         why=(
             "a status value outside the vocabulary must be detected; a gate that "
             "cannot see a bad status is a gate that cannot see drift"
@@ -377,9 +476,10 @@ SCRIPT_GATES = [
         # Corrupt the first `## Context` heading so the anchor no longer exists.
         # The gate checks that every baseline reference points to an existing heading;
         # a heading that vanished is the same class of failure as one that never existed.
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'## Context', '## NO-SUCH-HEADING', 1))"
+        sabotage=_replace(
+            '## Context',
+            '## NO-SUCH-HEADING',
+            count=1,
         ),
         why="an exemption pointing at a heading that does not exist is not an exemption",
     ),
@@ -393,7 +493,7 @@ SCRIPT_GATES = [
         # work-schedule fields, which are wired and still dead. The check descends
         # to the field, so the control has to descend with it.
         sabotage_path="scripts/check-dead-settings-baseline.txt",
-        sabotage="p.write_text(p.read_text().replace('Notifications.reminderDefault', 'Notifications.no_such_field'))",
+        sabotage=_replace('Notifications.reminderDefault', 'Notifications.no_such_field'),
         why="a persisted setting rendered in Settings and read by no feature is a " +
             "control that looks like it works; every baseline line is a claim that " +
             "needs its own justification",
@@ -402,16 +502,16 @@ SCRIPT_GATES = [
         name="doc-sizes",
         cmd=[sys.executable, "scripts/check-doc-sizes.py"],
         sabotage_path="AGENTS.md",
-        sabotage="p.write_text(p.read_text() + '\\n' * 400)",
+        sabotage=_append('\n' * 400),
         why="the budget must be able to fail; `--warn-only || status=1` could not",
     ),
     ScriptGate(
         name="sync-allowlist-regenerated",
         cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
         sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt",
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'\"aiSuppressedTagIds\",', '\"aiSuppressedTagIds\",\\n        \"sabotage_probe_field\",'))"
+        sabotage=_replace(
+            '"aiSuppressedTagIds",',
+            '"aiSuppressedTagIds",\n        "sabotage_probe_field",',
         ),
         why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
     ),
@@ -423,7 +523,7 @@ SCRIPT_GATES = [
         # which PROGRESS.md is full of by design (it is a journal of the past). A
         # sabotage there is correctly ignored, so it would prove nothing.
         sabotage_path="README.md",
-        sabotage="p.write_text(p.read_text() + '\\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\\n')",
+        sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
         why="a new dead reference must fail until baselined",
     ),
     ScriptGate(
@@ -433,7 +533,7 @@ SCRIPT_GATES = [
         # symbol exist", so the only honest sabotage is a skill naming one that
         # does not. Sabotaging a source file would prove the opposite direction.
         sabotage_path=".agents/skills/singularity-todo-quality-tools/SKILL.md",
-        sabotage="p.write_text(p.read_text() + '\\n## Probe\\n\\nCall `TotallyMadeUpHelperSymbol` here.\\n')",
+        sabotage=_append('\n## Probe\n\nCall `TotallyMadeUpHelperSymbol` here.\n'),
         why="a stale symbol reference must fail until baselined",
     ),
     ScriptGate(
@@ -447,7 +547,7 @@ SCRIPT_GATES = [
         # one a future editor would reintroduce by pasting a command from a
         # terminal.
         sabotage_path="README.md",
-        sabotage="p.write_text(p.read_text() + '\\nBuild it with `cd /home/sabotage/probe`.\\n')",
+        sabotage=_append('\nBuild it with `cd /home/sabotage/probe`.\n'),
         why=(
             "a machine-specific path in a public file is unrecoverable once published. "
             "Clean-run is waived (needs_clean_run=False): the spec-kit corpus imported "
@@ -471,20 +571,14 @@ SCRIPT_GATES = [
         # `replace` matched nothing, the gate read an untouched README, correctly
         # passed, and the control reported itself broken. Match by regex and
         # assert, so a version bump cannot silently turn this into a no-op.
-        sabotage=(
-            "import re\n"
-            "_t = p.read_text()\n"
-            "_t2, _n = re.subn(r'schema v\\d+', 'schema v1', _t, count=1)\n"
-            "assert _n == 1, 'schema claim not found in README — the control would be a no-op'\n"
-            "p.write_text(_t2)\n"
-        ),
+        sabotage=_regex_sub(r'schema v\d+', 'schema v1'),
         why="a README that contradicts the tree is the first failure a reader sees",
     ),
     ScriptGate(
         name="skill-frontmatter",
         cmd=["./scripts/check-skill-frontmatter.sh"],
         sabotage_path=".agents/skills/singularity-todo-koin-dsl/SKILL.md",
-        sabotage="_t = p.read_text(); _lines = _t.splitlines(keepends=True); del _lines[1]; p.write_text(''.join(_lines))",
+        sabotage=_drop_second_line,
         why="a skill without a description is undiscoverable, so the check must reject it",
     ),
     ScriptGate(
@@ -496,7 +590,7 @@ SCRIPT_GATES = [
         # leaves a file naming an upstream with no registry entry, which is the
         # exact state the gate was written to reject.
         sabotage_path="config/legal/provenance-registry.tsv",
-        sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'QueryTokenizer' not in l) + '\\n')",
+        sabotage=_drop_lines('QueryTokenizer'),
         why="a GPL upstream named in production code with no registry row is a licence claim nobody is tracking",
     ),
     ScriptGate(
@@ -507,7 +601,7 @@ SCRIPT_GATES = [
         # dependency of `:shared` and `:androidApp` until 2026-10-05, so it is a change
         # that has already happened once and can happen again by copy-paste.
         sabotage_path="shared/build.gradle.kts",
-        sabotage="p.write_text(p.read_text() + '\\ndependencies { implementation(\"ru.ok.tracer:tracer-crash-report:1.4.0\") }\\n')",
+        sabotage=_append('\ndependencies { implementation("ru.ok.tracer:tracer-crash-report:1.4.0") }\n'),
         why="proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour",
     ),
     ScriptGate(
@@ -522,15 +616,7 @@ SCRIPT_GATES = [
         # reformatted — the failure this file was written for, and it already
         # happened once to the test-runs control.
         sabotage_path="scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml",
-        sabotage=(
-            "import re\n"
-            "_t = p.read_text()\n"
-            "_t2, _n = re.subn(\n"
-            "    r'^targets: \\[android\\]$', 'targets: [android, desktop]', _t,\n"
-            "    count=1, flags=re.M)\n"
-            "assert _n == 1, 'targets line not found - the control would be a no-op'\n"
-            "p.write_text(_t2)\n"
-        ),
+        sabotage=_regex_sub(r'^targets: \[android\]$', 'targets: [android, desktop]', flags=re.M),
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
     ),
     ScriptGate(
@@ -551,13 +637,7 @@ SCRIPT_GATES = [
         # this", which reads like a broken gate rather than a broken control. A
         # control that quietly stops sabotaging is worse than no control, because it
         # is reported as a passing one. The `assert` makes the no-op loud instead.
-        sabotage=(
-            "import re\n"
-            "_t = p.read_text()\n"
-            "_t2, _n = re.subn(r'const val SCHEMA_VERSION = \\d+', 'const val SCHEMA_VERSION = 1', _t, count=1)\n"
-            "assert _n == 1, 'SCHEMA_VERSION declaration not found — the control would be a no-op'\n"
-            "p.write_text(_t2)\n"
-        ),
+        sabotage=_regex_sub(r'const val SCHEMA_VERSION = \d+', 'const val SCHEMA_VERSION = 1'),
         why="an entity change without a version bump passes every test and crashes every existing install on upgrade",
     ),
     ScriptGate(
@@ -569,7 +649,7 @@ SCRIPT_GATES = [
         # no Gradle, and no second input format to keep honest. Dropping one
         # allowlist line turns that dependency into a finding the gate must
         # report, which is exactly the moment the list stops matching reality.
-        sabotage="p.write_text('\\n'.join(l for l in p.read_text().splitlines() if 'kermit-koin' not in l) + '\\n')",
+        sabotage=_drop_lines('kermit-koin'),
         why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one",
     ),
     ScriptGate(
@@ -584,10 +664,9 @@ SCRIPT_GATES = [
         # database, so it cannot know the correct md5; a control asserting a value it cannot
         # verify would be asserting the gate's own limit rather than testing the rule.
         sabotage_path="supabase/migrations/2026-10-07-sync_schema.sql",
-        sabotage=(
-            "p.write_text(p.read_text() + \"\\ncreate or replace function \"\n"
-            "             \"public.sync_control_probe(p_type text)\\n\"\n"
-            "             \"returns text as $$ select p_type $$ language sql;\\n\")"
+        sabotage=_append(
+            "\ncreate or replace function public.sync_control_probe(p_type text)\n"
+            "returns text as $$ select p_type $$ language sql;\n"
         ),
         why="a function added without a fingerprint makes the header understate the schema, and the "
              "header is the part a reader trusts; the live half of #221 needs credentials and stays "
@@ -604,14 +683,12 @@ SCRIPT_GATES = [
         # target moved to `DeviceIdProvider`, a real binding consumers resolve through
         # the same bridge style.
         #
-        # The assert matters as much as the replacement: a sabotage that quietly stops
-        # matching is the exact failure this whole file exists to report, so it must
-        # refuse to run rather than pass.
-        sabotage=(
-            "content = p.read_text()\n"
-            "_needle = '    single<DeviceIdProvider> { get<DataStoreSessionStore>() }'\n"
-            "assert _needle in content, 'sabotage target no longer exists in CoreDiModule.kt'\n"
-            "p.write_text(content.replace(_needle, '    // ' + _needle.strip()))"
+        # The assert lives in `_replace`: a sabotage that quietly stops matching
+        # is the exact failure this whole file exists to report, so the builder
+        # refuses to run rather than hand the gate an untouched file.
+        sabotage=_replace(
+            '    single<DeviceIdProvider> { get<DataStoreSessionStore>() }',
+            '    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }',
         ),
         why="an import removed from a DI module silently breaks every consumer; "
              "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
@@ -620,11 +697,9 @@ SCRIPT_GATES = [
         name="apptracer-upload-policy-encoded",
         cmd=[sys.executable, "scripts/check-apptracer-policy.py"],
         sabotage_path="pro/build.gradle.kts",
-        sabotage=(
-            "content = p.read_text()\n"
-            "p.write_text(content.replace(\n"
-            "    'isDisabled = !tokensPresent || !isCi',\n"
-            "    'isDisabled = !tokensPresent'))"
+        sabotage=_replace(
+            'isDisabled = !tokensPresent || !isCi',
+            'isDisabled = !tokensPresent',
         ),
         why="removing !isCi from release silently allows non-CI release uploads; "
              "the structural gate catches the missing condition before a comment could be reverted",
@@ -636,10 +711,7 @@ SCRIPT_GATES = [
         # Break the required `type` field: the record no longer names an
         # openspec-change, which is the malformed-registry shape the gate
         # reports. Every record carries this field, so the mutation applies.
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'type: openspec-change', 'type: not-openspec-change', 1))"
-        ),
+        sabotage=_replace('type: openspec-change', 'type: not-openspec-change', count=1),
         why=(
             "an issue record whose type, slug or openspec_path is broken is a "
             "registry entry pointing at nothing, and the registry is what agents "
@@ -697,9 +769,11 @@ SCRIPT_GATES = [
 class FixtureGate:
     """A gate whose input is synthesised rather than mutated.
 
-    `setup` is python source with `root` bound to a temporary directory; it must
-    create whatever the gate reads and return nothing. `cmd` is then run with
-    `{tmp}` substituted, and must exit non-zero.
+    `setup` writes whatever the gate reads into a temporary directory — a
+    directory of JUnit XML, a captured Gradle log, a Kover report — and
+    `cmd` is then run with `{tmp}` substituted, and must exit non-zero.
+    It is a function rather than source text for the same reason controls
+    are: written once, parsed once, at import.
 
     `needs_clean_run` records whether the gate can be run at all without its
     input. Two of the three here cannot: `check-flaky-tests.py` requires
@@ -713,33 +787,90 @@ class FixtureGate:
 
     name: str
     cmd: list[str]
-    setup: str
+    setup: Callable[[Path], None]
     why: str
     # True when the gate has a meaningful clean-tree invocation, i.e. the
     # "already red would mask the sabotage" guard applies.
     needs_clean_run: bool = True
 
 
+# ── Fixture inputs ──────────────────────────────────────────────────────────
+# One function per synthesised input. As source strings these were pages of
+# `'...\\n'` concatenation with every embedded quote doubled; as functions they
+# are the files they write.
+
+def _setup_req_id_uniqueness(root: Path) -> None:
+    """A change that ADDs an identifier its spec already defines — the collision."""
+    spec = root / "repo" / "openspec" / "specs" / "offline-sync"
+    spec.mkdir(parents=True, exist_ok=True)
+    (spec / "spec.md").write_text(
+        "# offline-sync\n\n### Requirement: REQ-OS-015\n\nIt SHALL hold.\n",
+        encoding="utf-8",
+    )
+    change = root / "repo" / "openspec" / "changes" / "later" / "specs" / "offline-sync"
+    change.mkdir(parents=True, exist_ok=True)
+    (change / "spec.md").write_text(
+        "# offline-sync\n\n## ADDED Requirements\n\n"
+        "### Requirement: REQ-OS-015\n\nIt SHALL hold, again.\n",
+        encoding="utf-8",
+    )
+
+
+def _setup_flaky_tests(root: Path) -> None:
+    """One test failing now that passed in the previous run."""
+    suite = ('<testsuite name="{n}" tests="1" failures="{f}">'
+             '<testcase classname="A" name="{n}">{b}</testcase></testsuite>')
+    for sub, state in (("cur", "fail"), ("prev", "pass")):
+        d = root / sub
+        d.mkdir(parents=True, exist_ok=True)
+        body = '<failure message="boom"/>' if state == "fail" else ""
+        (d / "TEST-A.xml").write_text(
+            suite.format(n="one", f=1 if state == "fail" else 0, b=body)
+        )
+
+
+def _setup_measure_flake_rate(root: Path) -> None:
+    """Two runs that flip status plus an empty baseline: an unacknowledged flake.
+
+    run-01 passes, run-02 fails — a status flip (Flake A). An empty baseline
+    means the flip is unacknowledged, so the gate must report it and exit
+    non-zero. A regression that swallows the flip would exit 0 and this probe
+    would fail.
+    """
+    suite = ('<testsuite name="{n}" tests="1">'
+             '<testcase classname="A" name="{n}">{b}</testcase></testsuite>')
+    for sub, state in (("run-01", "pass"), ("run-02", "fail")):
+        d = root / sub
+        d.mkdir(parents=True, exist_ok=True)
+        body = '<failure message="boom"/>' if state == "fail" else ""
+        (d / "TEST-A.xml").write_text(suite.format(n="one", b=body))
+    (root / "empty-baseline.txt").write_text("", encoding="utf-8")
+
+
+def _setup_coverage(root: Path) -> None:
+    """A Kover report that measures nothing — must satisfy no floor."""
+    (root / "report.xml").write_text(
+        '<?xml version="1.0"?><report name="Kover"><package name="p">'
+        '<class name="A" sourcefilename="A.kt"><method name="m" covered="false">'
+        '<counter type="INSTRUCTION" missed="10" covered="0"/></method>'
+        "</class></package></report>",
+        encoding="utf-8",
+    )
+
+
+def _setup_coverage_measurement(root: Path) -> None:
+    """A build log where the test task was UP-TO-DATE — no execution happened."""
+    (root / "build.log").write_text(
+        "> Task :shared:jvmTest UP-TO-DATE\nBUILD SUCCESSFUL in 3s\n",
+        encoding="utf-8",
+    )
+
+
 FIXTURE_GATES = [
     FixtureGate(
         name="req-id-uniqueness",
         cmd=[sys.executable, "scripts/check-req-id-uniqueness.py", "--root", "{tmp}/repo"],
-        setup=(
-            "import pathlib\n"
-            "d = root / 'repo' / 'openspec' / 'specs' / 'offline-sync'\n"
-            "d.mkdir(parents=True, exist_ok=True)\n"
-            "(d / 'spec.md').write_text(\n"
-            "    '# offline-sync\\n\\n'\n"
-            "    '### Requirement: REQ-OS-015\\n\\nIt SHALL hold.\\n',\n"
-            "    encoding='utf-8')\n"
-            "c = root / 'repo' / 'openspec' / 'changes' / 'later' / 'specs' / 'offline-sync'\n"
-            "c.mkdir(parents=True, exist_ok=True)\n"
-            "(c / 'spec.md').write_text(\n"
-            "    '# offline-sync\\n\\n'\n"
-            "    '## ADDED Requirements\\n\\n'\n"
-            "    '### Requirement: REQ-OS-015\\n\\nIt SHALL hold, again.\\n',\n"
-            "    encoding='utf-8')\n"
-        ),
+        setup=_setup_req_id_uniqueness,
         why=(
             "the collision this gate exists for, in the exact shape the tree had: a "
             "change that ADDs an identifier the spec already defines. The clean corpus "
@@ -752,16 +883,7 @@ FIXTURE_GATES = [
     FixtureGate(
         name="flaky-tests",
         cmd=[sys.executable, "scripts/check-flaky-tests.py", "--current", "{tmp}/cur", "--previous", "{tmp}/prev"],
-        setup=(
-            "import pathlib\n"
-            "S = ('<testsuite name=\"{n}\" tests=\"1\" failures=\"{f}\">'\n"
-            "     '<testcase classname=\"A\" name=\"{n}\">{b}</testcase></testsuite>')\n"
-            "for sub, state in (('cur', 'fail'), ('prev', 'pass')):\n"
-            "    d = root / sub\n"
-            "    d.mkdir(parents=True, exist_ok=True)\n"
-            "    body = '<failure message=\"boom\"/>' if state == 'fail' else ''\n"
-            "    (d / 'TEST-A.xml').write_text(S.format(n='one', f=1 if state == 'fail' else 0, b=body))\n"
-        ),
+        setup=_setup_flaky_tests,
         why="a test that passed yesterday and fails today must be reported until it is acknowledged",
         needs_clean_run=False,
     ),
@@ -775,21 +897,7 @@ FIXTURE_GATES = [
             "--baseline", "{tmp}/empty-baseline.txt",
             "--max-flaky-rate", "0.0",
         ],
-        setup=(
-            "import pathlib\n"
-            "# Two runs: run-01 passes, run-02 fails — a status flip (Flake A).\n"
-            "# An empty baseline means the flip is unacknowledged, so the gate\n"
-            "# must report it and exit non-zero. A regression that swallows the\n"
-            "# flip would exit 0 and this probe would fail.\n"
-            "S = ('<testsuite name=\"{n}\" tests=\"1\">'\n"
-            "     '<testcase classname=\"A\" name=\"{n}\">{b}</testcase></testsuite>')\n"
-            "for sub, state in (('run-01', 'pass'), ('run-02', 'fail')):\n"
-            "    d = root / sub\n"
-            "    d.mkdir(parents=True, exist_ok=True)\n"
-            "    body = '<failure message=\"boom\"/>' if state == 'fail' else ''\n"
-            "    (d / 'TEST-A.xml').write_text(S.format(n='one', b=body))\n"
-            "(root / 'empty-baseline.txt').write_text('', encoding='utf-8')\n"
-        ),
+        setup=_setup_measure_flake_rate,
         why=(
             "a status flip between two runs must be reported as an unacknowledged "
             "flake until it is baselined — the same property check-flaky-tests.py "
@@ -801,43 +909,24 @@ FIXTURE_GATES = [
     FixtureGate(
         name="coverage",
         cmd=[sys.executable, "scripts/check-coverage.py", "--report", "{tmp}/report.xml"],
-        setup=(
-            "root.joinpath('report.xml').write_text(\n"
-            "    '<?xml version=\"1.0\"?><report name=\"Kover\"><package name=\"p\">'\n"
-            "    '<class name=\"A\" sourcefilename=\"A.kt\"><method name=\"m\" covered=\"false\">'\n"
-            "    '<counter type=\"INSTRUCTION\" missed=\"10\" covered=\"0\"/></method>'\n"
-            "    '</class></package></report>')\n"
-        ),
+        setup=_setup_coverage,
         why="a coverage report that measures nothing must not satisfy a floor that was recorded from a real run",
         needs_clean_run=False,
     ),
     FixtureGate(
         name="coverage-measurement",
         cmd=[sys.executable, "scripts/check-coverage-measurement.py", "{tmp}/build.log"],
-        setup=(
-            "root.joinpath('build.log').write_text(\n"
-            "    '> Task :shared:jvmTest UP-TO-DATE\\nBUILD SUCCESSFUL in 3s\\n')\n"
-        ),
+        setup=_setup_coverage_measurement,
         why="a coverage report produced without the tests running describes no execution at all",
         needs_clean_run=False,
     ),
-    FixtureGate(
-        name="detekt-rule-coverage",
-        cmd=[sys.executable, "scripts/check-detekt-rule-coverage.py", "--report", "{tmp}/report.xml"],
-        setup=(
-            "root.joinpath('report.xml').write_text(\n"
-            "    '<?xml version=\"1.0\"?><report name=\"Kover\"><package name=\"p\">'\n"
-            "    '<class name=\"A\" sourcefilename=\"A.kt\"><method name=\"m\" covered=\"false\">'\n"
-            "    '<counter type=\"BRANCH\" missed=\"10\" covered=\"0\"/></method>'\n"
-            "    '</class></package></report>')"
-        ),
-        why=(
-            "a Kover report that measures zero branches must not satisfy a floor that "
-            "was measured at 65.1%; the fixture proves the gate parses the counter and "
-            "applies the floor correctly"
-        ),
-        needs_clean_run=False,
-    ),
+    # The detekt-rule-coverage fixture that used to close this list was retired
+    # when the branch-coverage floor moved into detekt-rules/build.gradle.kts and
+    # the gate became `:detekt-rules:koverVerify` (ci.yml + check.sh). Its two
+    # halves live elsewhere now: the *declaration* is held by Part C's
+    # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
+    # control `detekt-rule-coverage-floor`, which raises the constant and
+    # requires the Gradle task to fail — see the note at the top of Part C.
 ]
 
 
@@ -971,13 +1060,9 @@ SABOTAGE_ONLY_GATES = [
         # A control that quietly stops sabotaging is worse than no control: it is
         # reported as a passing control. The `assert` makes the no-op loud.
         #
-        sabotage=(
-            "import re\n"
-            "_t = p.read_text()\n"
-            "_t2, _n = re.subn(r'^(shared:jvmTest )\\d+( \\d+)$', r'\\g<1>99999\\g<2>', _t, count=1, flags=re.M)\n"
-            "assert _n == 1, 'floor line not found — the control would be a no-op'\n"
-            "p.write_text(_t2)\n"
-        ),
+        # A control that quietly stops sabotaging is worse than no control: it is
+        # reported as a passing control. `_regex_sub` asserts the match.
+        sabotage=_regex_sub(r'^(shared:jvmTest )\d+( \d+)$', r'\g<1>99999\g<2>', flags=re.M),
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
         sabotage_requires_clean_tree=True,
     ),
@@ -985,14 +1070,18 @@ SABOTAGE_ONLY_GATES = [
         name="adr-references",
         cmd=[sys.executable, "scripts/check-adr-references.py"],
         sabotage_path="README.md",
-        sabotage="p.write_text(p.read_text() + '\\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\\n')",
+        sabotage=_append('\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\n'),
         why="a prose reference to a dated-ADR slug carries no path, so a moved or deleted ADR leaves a dangling claim nothing else sees",
     ),
     ScriptGate(
         name="rule-intent",
         cmd=[sys.executable, "scripts/check-rule-intent.py"],
         sabotage_path="config/detekt/baseline-shared.xml",
-        sabotage="p.write_text(p.read_text().replace('</CurrentIssues>', '    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\\n  </CurrentIssues>', 1))",
+        sabotage=_replace(
+            '</CurrentIssues>',
+            '    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>',
+            count=1,
+        ),
         why="a rule producing findings that nobody declared means it is running on detekt's defaults, unchosen",
     ),
     ScriptGate(
@@ -1001,7 +1090,7 @@ SABOTAGE_ONLY_GATES = [
         sabotage_path="openspec/changes/detekt-rule-has-positive-control",
         # A directory, not a file, and the mutation is its mtime: the gate reads
         # staleness from `stat().st_mtime`, so no file content would move it.
-        sabotage="import os, time; old = time.time() - 30 * 86400; os.utime(p, (old, old))",
+        sabotage=_age_directory(30),
         why="an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness",
         target_is_dir=True,
     ),
@@ -1014,22 +1103,7 @@ SABOTAGE_ONLY_GATES = [
         # on line 1 with a 10-line comment justification (lines 2-11); the gate reads a
         # 4-line window, so stripping the first two comment lines is sufficient to leave
         # the suppression unjustified.
-        sabotage=(
-            "_t = p.read_text()\n"
-            "_lines = _t.splitlines(keepends=True)\n"
-            "assert _lines[0].startswith('@file:Suppress'), 'unexpected file shape'\n"
-            "assert _lines[1].lstrip().startswith('//'), 'no reason line to strip'\n"
-            "_out, _dropped = [_lines[0]], 0\n"
-            "for _ln in _lines[1:]:\n"
-            "    if _ln.lstrip().startswith('//'):\n"
-            "        _dropped += 1\n"
-            "        continue\n"
-            "    if _dropped and not _ln.strip():\n"
-            "        continue\n"
-            "    _out.append(_ln)\n"
-            "assert _dropped >= 2, 'expected a multi-line reason, found ' + str(_dropped)\n"
-            "p.write_text(''.join(_out))\n"
-        ),
+        sabotage=_strip_suppression_reason,
         why="a file-level suppression with no recorded reason switches a rule off for every future call in that file",
     ),
     ScriptGate(
@@ -1042,20 +1116,150 @@ SABOTAGE_ONLY_GATES = [
         # tree that has lost the property entirely. The first attempt at this
         # control did exactly that and returned 0, which is the failure this
         # file exists to catch, in its own registry.
-        sabotage=(
-            "p.write_text(p.read_text().replace("
-            "'    inputs.dir(layout.projectDirectory.dir(\"../Maestro\"))\\n'"
-            "        '        .withPropertyName(\"maestroFlows\")\\n'\n"
-            "        '        .withPathSensitivity(PathSensitivity.RELATIVE)\\n', '', 1))"
+        sabotage=_replace(
+            '    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n'
+            '        .withPropertyName("maestroFlows")\n'
+            '        .withPathSensitivity(PathSensitivity.RELATIVE)\n',
+            '',
+            count=1,
         ),
         why="a test task reading a tree outside its module reports a stale verdict when that tree is not an input",
+    ),
+    # The one control in this file that runs Gradle, and the reason it must:
+    # the floor is enforced *by Gradle*. Part C and its tests prove the bound is
+    # declared and readable; nothing Python does can prove the task honours it.
+    # That is the half a misconfigured Kover — instrumenting nothing, reporting
+    # 0% — would quietly get right on paper and wrong in the run, which is
+    # precisely the "passes a zero floor" defect the proposal names.
+    #
+    # Cost is bounded and worth stating, because this file runs early in check.sh
+    # (step 7) and after Gradle in ci.yml's tests job, and every Gradle invocation
+    # it adds is paid twice per run — once by the harness, once by the gate step.
+    # So the clean-run guard is waived (`needs_clean_run=False`): both surfaces
+    # execute the very same task on the very same tree a step later — check.sh
+    # step 8b (koverLog + koverVerify) and ci.yml's "Kover verify (detekt-rules)"
+    # — which is the pass that proves the task is green on real data. Here only
+    # the *sabotaged* pass matters, so the control buys one configuration pass,
+    # not two. `-q` because only the exit code is read.
+    ScriptGate(
+        name="detekt-rule-coverage-floor",
+        cmd=["./gw", "-q", ":detekt-rules:koverVerify"],
+        sabotage_path="detekt-rules/build.gradle.kts",
+        # Raise the bound above anything the suite can reach. Rewritten by
+        # pattern, never by the value it expects: the moment the floor moves,
+        # a literal `str.replace` finds nothing and the control reports a pass
+        # it did not earn. `_regex_sub` asserts the match.
+        sabotage=_regex_sub(r'^(val DETEKT_RULE_BRANCH_FLOOR = )\d+$', r'\g<1>100', flags=re.M),
+        why="branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through",
+        needs_clean_run=False,
     ),
 ]
 
 
-def run_gate(cmd: list[str]) -> int:
-    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
+#: A gate that hangs is not a gate that failed — the harness would wait
+#: forever and the host would look frozen. Script gates here parse files and
+#: finish in seconds; 120s is already generous. Gradle-backed controls get
+#: 600s because a cold daemon boot plus configuration is legitimately slow.
+GATE_TIMEOUT_S = 120
+GRADLE_GATE_TIMEOUT_S = 600
+
+#: `timeout(1)`'s convention. A deadline is not a verdict: callers translate
+#: 124 into "no verdict, it hung" rather than "it failed".
+TIMEOUT_RC = 124
+
+_GRADLE_COMMANDS = frozenset({"./gw", "./gradlew", "gradle"})
+
+#: Gradle-backed controls are skipped unless this is set to `1`. `check.sh`
+#: sets it (its daemon is already warm by step 8); a casual local run must
+#: not cold-boot a daemon and hold the shared cache lock for minutes — that
+#: is how a "quick check" freezes the host, once, for real.
+GRADLE_ENV = "GATE_WIRING_GRADLE"
+
+
+def _is_gradle_gate(cmd: list[str]) -> bool:
+    return cmd[0] in _GRADLE_COMMANDS
+
+
+def _gradle_controls_enabled() -> bool:
+    return os.environ.get(GRADLE_ENV) == "1"
+
+
+def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
+    """Run one gate to completion, or kill it at the deadline.
+
+    The deadline belongs here and not in the caller: every way into a gate
+    goes through this function, so a gate cannot hang the harness by
+    accident. `subprocess.run` kills the child on expiry, so no orphan
+    survives the deadline either.
+    """
+    if timeout_s is None:
+        timeout_s = GRADLE_GATE_TIMEOUT_S if _is_gradle_gate(cmd) else GATE_TIMEOUT_S
+    try:
+        proc = subprocess.run(
+            cmd, cwd=ROOT, capture_output=True, text=True, check=False, timeout=timeout_s
+        )
+    except subprocess.TimeoutExpired:
+        return TIMEOUT_RC
     return proc.returncode
+
+
+def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
+    """Apply the gate's control, run the gate, put the target back.
+
+    Returns the gate's exit code under sabotage, or None when no verdict could
+    be produced — a control that raised, a target that would not restore, a
+    missing executable. Every such case is *recorded in `errors`*, never raised:
+    a registry entry is data, and data must not be able to abort the parts
+    behind it. That is not hypothetical — as source text one entry carried a
+    SyntaxError and killed Part B from its middle, and only on a day when its
+    baseline happened to be green.
+    """
+    target = ROOT / gate.sabotage_path
+
+    if gate.target_is_dir:
+        # Only the mtime is disturbed, so only the mtime has to come back.
+        mtime = target.stat().st_mtime
+        try:
+            gate.sabotage(target)
+            return run_gate(gate.cmd)
+        except Exception as exc:  # noqa: BLE001 — a broken control must not abort the part
+            errors.append(
+                f"gate '{gate.name}': the sabotaged run raised {exc!r} — no verdict. "
+                f"Fix the control in the registry."
+            )
+            return None
+        finally:
+            os.utime(target, (mtime, mtime))
+
+    original = target.read_text(encoding="utf-8")
+    try:
+        gate.sabotage(target)
+        rc = run_gate(gate.cmd)
+    except Exception as exc:  # noqa: BLE001 — a broken control must not abort the part
+        errors.append(
+            f"gate '{gate.name}': the sabotaged run raised {exc!r} — no verdict. "
+            f"Fix the control in the registry."
+        )
+        return None
+    finally:
+        target.write_text(original, encoding="utf-8")
+        if gate.sabotage_restore is not None:
+            try:
+                gate.sabotage_restore(target)
+            except Exception as exc:  # noqa: BLE001 — report, never crash the part
+                errors.append(
+                    f"gate '{gate.name}': sabotage_restore raised {exc!r} — "
+                    f"{gate.sabotage_path} may be left modified; restore it by hand."
+                )
+
+    if target.read_text(encoding="utf-8") != original:
+        errors.append(
+            f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
+            f"Restoring from the recorded copy and failing."
+        )
+        target.write_text(original, encoding="utf-8")
+        return None
+    return rc
 
 
 def _tree_is_dirty() -> bool:
@@ -1127,6 +1331,11 @@ def check_can_fail() -> list[str]:
             errors.append(f"gate '{gate.name}': sabotage target {gate.sabotage_path} does not exist")
             continue
 
+        if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
+            print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
+                  f"to include it (check.sh does; see step 8 there)")
+            continue
+
         # Verify the gate passes on the real tree first. A gate that is already red
         # proves nothing about the sabotage, and would mask the result.
         if gate.sabotage_requires_clean_tree and _tree_is_dirty():
@@ -1135,6 +1344,12 @@ def check_can_fail() -> list[str]:
             continue
         if gate.needs_clean_run:
             baseline_rc = run_gate(gate.cmd)
+            if baseline_rc == TIMEOUT_RC:
+                errors.append(
+                    f"gate '{gate.name}' timed out on a clean run — no verdict. "
+                    f"A hang is not a failure; find what it waits on first."
+                )
+                continue
             if baseline_rc != 0:
                 errors.append(
                     f"gate '{gate.name}' already fails on a clean tree (exit {baseline_rc}). "
@@ -1143,42 +1358,23 @@ def check_can_fail() -> list[str]:
                 continue
         else:
             # Stated rather than skipped, so a reader of the output can see
-            # which controls had no clean-run guard and why.
-            print(f"  --  {gate.name}: no clean-run possible (known failures); "
+            # which controls had no clean-run guard and why: waived in the
+            # registry, not missing — the gate step right after this file runs
+            # the real pass on the real tree.
+            print(f"  --  {gate.name}: no clean-run guard (waived in the registry); "
                   f"sabotage control only")
 
-        if gate.target_is_dir:
-            # Only the mtime is disturbed, so only the mtime has to come back.
-            original_mtime = target.stat().st_mtime
-            try:
-                ns: dict[str, object] = {"p": target}
-                exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
-                sabotaged_rc = run_gate(gate.cmd)
-            finally:
-                os.utime(target, (original_mtime, original_mtime))
-        else:
-            original = target.read_text(encoding="utf-8")
-            try:
-                ns = {"p": target}
-                exec(gate.sabotage, ns)  # noqa: S102 — a fixed literal from the registry
-                sabotaged_rc = run_gate(gate.cmd)
-            finally:
-                target.write_text(original, encoding="utf-8")
-                if gate.sabotage_restore:
-                    exec(  # noqa: S102 — a fixed literal from the registry
-                        gate.sabotage_restore, {"p": target},
-                    )
+        rc = _sabotaged_run(gate, errors)
+        if rc is None:
+            continue
+        if rc == TIMEOUT_RC:
+            errors.append(
+                f"gate '{gate.name}': the sabotaged run timed out — a hang is "
+                f"not a verdict, and not evidence the gate can fail."
+            )
+            continue
 
-            restored = target.read_text(encoding="utf-8")
-            if restored != original:
-                errors.append(
-                    f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
-                    f"Restoring from the recorded copy and failing."
-                )
-                target.write_text(original, encoding="utf-8")
-                continue
-
-        if sabotaged_rc == 0:
+        if rc == 0:
             errors.append(
                 f"gate '{gate.name}' PASSED a deliberately sabotaged input "
                 f"({gate.sabotage_path}). It cannot detect {gate.why}, so it is not "
@@ -1200,8 +1396,18 @@ def check_fixture_gates() -> list[str]:
     """
     errors: list[str] = []
     for gate in FIXTURE_GATES:
+        if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
+            print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
+                  f"to include it (check.sh does)")
+            continue
         if gate.needs_clean_run:
             baseline_rc = run_gate(gate.cmd)
+            if baseline_rc == TIMEOUT_RC:
+                errors.append(
+                    f"gate '{gate.name}' timed out on a clean run — no verdict. "
+                    f"A hang is not a failure; find what it waits on first."
+                )
+                continue
             if baseline_rc != 0:
                 errors.append(
                     f"gate '{gate.name}' already fails on a clean tree (exit {baseline_rc}). "
@@ -1217,14 +1423,19 @@ def check_fixture_gates() -> list[str]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             try:
-                exec(gate.setup, {"root": root})  # noqa: S102 — a fixed literal from FIXTURE_GATES
+                gate.setup(root)
             except Exception as exc:  # noqa: BLE001 — report, never crash the gate
                 errors.append(f"gate '{gate.name}': fixture setup raised {exc!r}")
                 continue
             cmd = [part.replace("{tmp}", tmp) for part in gate.cmd]
             sabotaged_rc = run_gate(cmd)
 
-        if sabotaged_rc == 0:
+        if sabotaged_rc == TIMEOUT_RC:
+            errors.append(
+                f"gate '{gate.name}': the sabotaged run timed out — a hang is "
+                f"not a verdict, and not evidence the gate can fail."
+            )
+        elif sabotaged_rc == 0:
             errors.append(
                 f"gate '{gate.name}' PASSED a deliberately sabotaged input "
                 f"(a synthesised {gate.why}). It cannot detect it, so it is not a gate."
@@ -1246,8 +1457,34 @@ def check_fixture_gates() -> list[str]:
 # because for this failure the build file *is* the claim: the flag is the
 # mechanism. A module that wants a non-enforcing lint task has to say so in a
 # comment, the same way a rule has to be declared in detekt.yml.
+#
+# The same reasoning covers a kover `verify` rule: a bound that is absent, zero
+# or far below anything the suite can miss makes `koverVerify` incapable of
+# failing, and a task that cannot fail reports a verdict nobody derived. This
+# replaced the FIXTURE control for `scripts/check-detekt-rule-coverage.py`,
+# which was deleted when the floor moved into detekt-rules/build.gradle.kts —
+# that control proved a *Python parser* applied a floor; this proves the Gradle
+# declaration the gate actually reads is a floor at all.
+#
+# What a static read cannot prove is that a real run below the bound fails the
+# task — so that half lives in the SABOTAGE control
+# `detekt-rule-coverage-floor`, which raises the constant and re-runs
+# `:detekt-rules:koverVerify`. It is the only control in this file that runs
+# Gradle, and it is affordable for a reason worth stating: the module's tests
+# run before it in both surfaces that call this script (ci.yml's Gradle step,
+# and check.sh step 9, whose run the baseline merely moves earlier), so it buys
+# a configuration pass and a verify pass rather than a test suite.
 
 _DETEKT_BLOCK = re.compile(r"detekt\s*\{(.*?)\n\s*\}", re.DOTALL)
+
+#: The lowest kover verify floor this repository accepts, in percent.
+#:
+#: detekt-rules measured 65.1% branch coverage on 2026-10-10 and the floor was
+#: set to 60 in the same sweep (detekt-rules/build.gradle.kts, DETEKT_RULE_BRANCH_FLOOR).
+#: The bound is only asked to be sane, not current: raising a floor needs no edit
+#: here, while zeroing one — or halving it — is the "a floor that cannot fail"
+#: defect and has to be a deliberate change to this constant too.
+_KOVER_MIN_FLOOR = 60
 
 
 def non_enforcing_gradle_tasks() -> list[str]:
@@ -1263,12 +1500,98 @@ def non_enforcing_gradle_tasks() -> list[str]:
     return out
 
 
+def _kover_blocks(text: str) -> list[str]:
+    """The contents of each `kover { … }` block in a Kotlin build script.
+
+    Brace matching, not a regex: a regex cannot balance braces, and the block is
+    where the rules live. Without reading only this far, a `verify { }` block
+    belonging to some other plugin — or a `minValue` anywhere else in the file —
+    would qualify a module that declares no kover floor at all, and the check
+    would be reporting on text it never established was kover's.
+
+    Full-line `//` comments are dropped first, because the comment above the real
+    block quotes the API by name (`reports { total { verify { rule { bound {`),
+    and prose that names a construct must not count as declaring it. A comment
+    with unbalanced braces would otherwise derail the matcher entirely.
+    """
+    without_comments = re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    blocks: list[str] = []
+    for match in re.finditer(r"\bkover\s*\{", without_comments):
+        depth = 0
+        for i in range(match.end() - 1, len(without_comments)):
+            if without_comments[i] == "{":
+                depth += 1
+            elif without_comments[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    blocks.append(without_comments[match.end():i])
+                    break
+    return blocks
+
+
+def kover_verify_rules_without_usable_floor() -> list[str]:
+    """Modules whose `kover { … verify { … bound { minValue } } }` has no usable floor.
+
+    A module qualifies when its `kover` block contains a `verify` block — the
+    two are read in that nesting, so an unrelated `verify {` does not count. It
+    then needs at least one `minValue` bound, declared *inside* the kover block,
+    of at least `_KOVER_MIN_FLOOR` — the *strongest* bound, because one rule that
+    can fail is enough to make the task fail (Kover fails the task when any rule
+    fails).
+
+    A bound may name a constant instead of a literal (`minValue = THE_FLOOR`,
+    with `val THE_FLOOR = 60` in the same file) — that is how the real floor is
+    written, so the constant is resolved, and declarations are read from the
+    whole file because they sit above the block. A bound whose value cannot be
+    resolved is reported like a missing one: a floor this gate cannot read is a
+    floor it cannot vouch for.
+    """
+    out: list[str] = []
+    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+        module = build.parent.name
+        text = build.read_text(encoding="utf-8")
+        # `verify {` as a block *inside* `kover {`: `koverVerify` in prose, the
+        # word `verification` in a task group, and another plugin's verify block
+        # must not qualify a module that declares no kover rule at all.
+        body = "\n".join(_kover_blocks(text))
+        if not re.search(r"\bverify\s*\{", body):
+            continue
+        constants = dict(re.findall(r"\bval\s+(\w+)\s*=\s*(\d+)", text))
+        bounds: list[int] = []
+        unresolvable = 0
+        for raw in re.findall(r"minValue\s*=\s*([A-Za-z_]\w*|\d+)", body):
+            if raw.isdigit():
+                bounds.append(int(raw))
+            elif raw in constants:
+                bounds.append(int(constants[raw]))
+            else:
+                unresolvable += 1
+        if not bounds:
+            out.append(
+                f":{module}:kover verify has no minValue bound"
+                + (
+                    " (the one it names could not be resolved to a number)"
+                    if unresolvable
+                    else ""
+                )
+            )
+        elif max(bounds) < _KOVER_MIN_FLOOR:
+            out.append(
+                f":{module}:kover verify floor {max(bounds)} is below {_KOVER_MIN_FLOOR}"
+            )
+    return out
+
+
 def check_gradle_can_fail() -> list[str]:
     bad = non_enforcing_gradle_tasks()
     if not bad:
         print("  ok  every configured detekt task is enforcing (ignoreFailures != true)")
-        return []
-    return [
+    else:
+        print(f"  !!  {len(bad)} detekt task(s) set ignoreFailures = true")
+    floors = kover_verify_rules_without_usable_floor()
+    if not floors:
+        print(f"  ok  every kover verify rule declares a floor >= {_KOVER_MIN_FLOOR}%")
+    messages = [
         "\n".join(
             [
                 f"  {task} sets `ignoreFailures = true`, so it cannot fail a build.",
@@ -1282,6 +1605,20 @@ def check_gradle_can_fail() -> list[str]:
         )
         for task in bad
     ]
+    messages += [
+        "\n".join(
+            [
+                f"  {finding}, so `koverVerify` passes whatever the tests covered.",
+                "  A floor that cannot fail is the same defect as no floor: the gate",
+                "  reports a verdict nobody derived. Declare `bound { minValue = ... }`",
+                f"  at {_KOVER_MIN_FLOOR} or above (the floor is set below the measured",
+                "  value — see DETEKT_RULE_BRANCH_FLOOR in the module's build file), and",
+                "  record why if it ever has to go down.",
+            ]
+        )
+        for finding in floors
+    ]
+    return messages
 
 
 # ── Part D: a CI step must be blocking unless it declares itself advisory ────
@@ -1461,12 +1798,6 @@ def check_ci_steps_blocking() -> list[str]:
 #: are equivalent. So every asymmetry is declared here with its reason, and an
 #: undeclared one fails the check.
 GATE_PARITY: dict[str, tuple[str, str]] = {
-    "scripts/check-detekt-rule-coverage.py": (
-        "ci",
-        "needs Gradle to produce the kover XML report, so lives in the tests job "
-        "and is not in the static-gates.sh registry; local runs can invoke it "
-        "manually after ./gradlew :detekt-rules:koverXmlReport",
-    ),
     "scripts/check-rebase-compiles.py": (
         "ci",
         "needs a Gradle compile run with rebased DI files, so lives in the tests "
@@ -2137,6 +2468,9 @@ GRADLE_TASK_PARITY: dict[str, tuple[str, str]] = {
         "only interactively (ADR authoring), so a packaged installDist is a "
         "CI-only artifact",
     ),
+    # `:detekt-rules:koverLog` was declared 'ci' here for one revision and needs
+    # no declaration now: check.sh step 9b prints it before verifying, so the
+    # render task is on both surfaces and the default ('both') is the truth.
 }
 
 #: A Gradle task as it is spelled in a shell script or a workflow: `:module:task`.

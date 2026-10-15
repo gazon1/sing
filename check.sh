@@ -113,7 +113,12 @@ echo -e "${GREEN}test run floors met${NC}"
 # the XML is absent would teach the reader that "no results" is acceptable, which is
 # the reading this project is removing.
 echo -e "${YELLOW}=== [7/$TOTAL] gates are wired and can fail ===${NC}"
-python3 scripts/check-gate-wiring.py || {
+# GATE_WIRING_GRADLE=1 because step 8b's koverVerify control is gradle-backed
+# and the daemon is already warm here. The harness skips gradle controls
+# without it: a casual `python3 scripts/check-gate-wiring.py` must not
+# cold-boot a daemon, hold the shared cache lock, and freeze the host — which
+# is exactly what it did once, with no timeout to bound the damage.
+GATE_WIRING_GRADLE=1 python3 scripts/check-gate-wiring.py || {
     echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
     exit 1
 }
@@ -125,6 +130,25 @@ echo -e "${YELLOW}=== [8/$TOTAL] detekt rule unit tests ===${NC}"
     echo -e "${RED}detekt rule unit tests FAILED - a rule cannot be trusted without them${NC}"
     exit 1
 }
+
+echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
+# The floor lives in detekt-rules/build.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) and
+# is enforced by Kover's own verify rule. Naming both tasks here is what keeps CI's
+# identical steps honest — check-gate-wiring.py Part I fails a Gradle task that
+# only one of the two surfaces names.
+#
+# koverLog first, so a local run shows the number it is about to be judged by —
+# the same line ci.yml's advisory summary renders. It exits non-zero when the
+# measurement itself could not happen, which is a failure, not a missing number.
+./gw -q :detekt-rules:koverLog || {
+    echo -e "${RED}could not measure detekt-rule branch coverage${NC}"
+    exit 1
+}
+./gw :detekt-rules:koverVerify || {
+    echo -e "${RED}detekt-rule branch coverage is below the floor (see DETEKT_RULE_BRANCH_FLOOR)${NC}"
+    exit 1
+}
+echo -e "${GREEN}detekt-rule branch coverage floor met${NC}"
 
 echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (when a report exists) ===${NC}"
 # --if-present because koverReport instruments every test task and roughly
