@@ -173,6 +173,10 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "agenda_section_no_date",
     "agenda_section_overdue",
     "agenda_section_upcoming",
+    # byBlocked() — Statistics health drill-down
+    "agenda_section_blocked",
+    # byStagnant() — Statistics health drill-down
+    "agenda_section_not_touched_in_a_while",
     # projectCard(...) — used in flows
     "project_card_project_alpha",
     # profileItem(...) — used in profile flows
