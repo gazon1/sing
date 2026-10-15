@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import sys
+
 from loguru import logger as _logger
 
 # Remove the default handler loguru adds at import time.

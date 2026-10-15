@@ -15,8 +15,8 @@ import io
 import os
 import pathlib
 import sys
-import time
 import tempfile
+import time
 import unittest
 
 _scripts_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "scripts"

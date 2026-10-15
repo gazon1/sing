@@ -6,7 +6,10 @@ what would be generated from SyncContract.FIELD_ALLOWLIST today.
 Run standalone: python3 scripts/check-sync-allowlist-regenerated.py
 Run self-test:  python3 scripts/check-sync-allowlist-regenerated.py --self-test
 """
-import argparse, subprocess, sys, os
+import argparse
+import os
+import subprocess
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)  # project root

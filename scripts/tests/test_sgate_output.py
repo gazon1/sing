@@ -16,6 +16,7 @@ class TestIsCI(unittest.TestCase):
         """CI env var absent → is_ci() returns False."""
         # Make a fresh copy of the module so env changes don't bleed
         import importlib
+
         import sgate.output
         importlib.reload(sgate.output)
         env = {k: v for k, v in os.environ.items() if k != "CI"}

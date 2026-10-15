@@ -34,11 +34,6 @@ from traceability.coverage import (  # noqa: E402
     classify,
 )
 from traceability.junit_xml import parse_junit  # noqa: E402
-from traceability.normalize import (  # noqa: E402
-    NoResultsError,
-    NormalisedResult,
-    read_results,
-)
 from traceability.keys import (  # noqa: E402
     TestKey,
     normalise_classname,
@@ -50,7 +45,12 @@ from traceability.links import (  # noqa: E402
     _scenario_from_prefix_token,
     scan_all,
 )
-from traceability.normalize import normalise  # noqa: E402
+from traceability.normalize import (  # noqa: E402
+    NoResultsError,
+    NormalisedResult,
+    normalise,  # noqa: E402
+    read_results,
+)
 from traceability.render import render_coverage_matrix, render_details, render_result_matrix  # noqa: E402
 from traceability.spec import (  # noqa: E402
     Level,

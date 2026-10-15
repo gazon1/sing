@@ -9,7 +9,6 @@ here without the emulator itself by patching the adb subprocess layer and the
 """
 from __future__ import annotations
 
-import click
 import contextlib
 import io
 import os
@@ -21,30 +20,32 @@ import time
 import unittest
 import unittest.mock
 
-# Import from the package (no hyphen in package name — direct import).
-from emulator import (
-    device_is_ready,
-    find_ready,
-    first_ready_device,
-    popen,
-    try_run,
-    clear_stale_emulator,
-    startup_lock,
-    start_avd,
-    EXIT_OK,
-    EXIT_NOT_READY,
-    EXIT_CRASHED,
-    EXIT_TIMEOUT,
-    EXIT_LOCK,
-    cfg,
-    main,
-)
+import click
 import emulator as ee
 import emulator._cli as _cli
 import emulator._device as _device
 import emulator._startup as _startup
+
+# Import from the package (no hyphen in package name — direct import).
+from emulator import (
+    EXIT_CRASHED,
+    EXIT_LOCK,
+    EXIT_NOT_READY,
+    EXIT_OK,
+    EXIT_TIMEOUT,
+    cfg,
+    clear_stale_emulator,
+    device_is_ready,
+    find_ready,
+    first_ready_device,
+    main,
+    popen,
+    start_avd,
+    startup_lock,
+    try_run,
+)
 from emulator._startup import Acquisition, acquire_device
-from emulator.maestro._testing import Clock, FakeProc, FakeAdb
+from emulator.maestro._testing import Clock, FakeAdb, FakeProc
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 

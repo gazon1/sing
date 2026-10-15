@@ -17,7 +17,7 @@ import sys
 from typing import NamedTuple
 
 from sgate.commands._registry import GATES as _REGISTRY_GATES
-from sgate.commands._registry import GateMode, CmdType
+from sgate.commands._registry import CmdType, GateMode
 
 
 class Gate(NamedTuple):

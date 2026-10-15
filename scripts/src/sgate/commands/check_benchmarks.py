@@ -17,7 +17,6 @@ from sgate.commands.base import CLEAN, INTERNAL_ERROR, IO_ERROR, VALIDATION_FAIL
 from sgate.log import logger
 from sgate.output import gate_fail
 
-
 REGRESSION_THRESHOLD = 3  # 3× warm baseline = failure
 
 

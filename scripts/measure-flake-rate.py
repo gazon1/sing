@@ -102,9 +102,9 @@ import sys
 # Reuse the one ElementTree JUnit reader so a flaky `<flakyFailure>`-shaped
 # `<testcase>` is classified from the same code path every other pipeline uses.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "src"))
-from traceability.junit_xml import TestCaseResult, parse_junit  # noqa: E402
-
 import importlib.util  # noqa: E402
+
+from traceability.junit_xml import TestCaseResult, parse_junit  # noqa: E402
 
 _flaky_spec = importlib.util.spec_from_file_location(
     "check_flaky_tests",

@@ -3,14 +3,13 @@
 Run with: python3 -m unittest discover -s scripts/tests
 """
 
+import importlib.util
 import pathlib
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest import mock
-
-import importlib.util
-import sys
 
 # The script is named find-unwired-surfaces.py (hyphens), not find_unwired_surfaces.
 _scripts_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "scripts"

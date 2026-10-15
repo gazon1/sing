@@ -48,20 +48,21 @@ Exit codes:
 
 from __future__ import annotations
 
-import click
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
-import shlex
-import yaml
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+import click
+import yaml
 
 # Line-buffer both streams: a killed run used to leave a 0-byte log, because
 # stdout is block-buffered on redirect and this file prints one line per gate.

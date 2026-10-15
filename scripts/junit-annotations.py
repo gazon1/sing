@@ -20,9 +20,9 @@ Annotation format:
     ::notice title=Passed on retry::{N} test(s) passed on retry (class: ClassName)
 """
 
-import sys
-import glob as glob_module
 import argparse
+import glob as glob_module
+import sys
 from pathlib import Path
 
 try:

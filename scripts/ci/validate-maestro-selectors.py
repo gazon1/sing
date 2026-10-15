@@ -21,12 +21,13 @@ Exit codes:
     2  Usage / file-not-found error
 """
 
-import yaml
+import os
 import re
 import sys
-import os
 from pathlib import Path
-from typing import Set, List, Tuple
+from typing import List, Set, Tuple
+
+import yaml
 
 
 # ---------------------------------------------------------------------------

@@ -30,12 +30,11 @@ from pathlib import Path
 
 import click
 
+from sgate.commands._runner import Result, handle_result, run, run_capture
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
 from sgate.controls import Control, Edit, GradleTaskParity, Parity
-
 from sgate.log import logger
 from sgate.output import gate_fail
-from sgate.commands._runner import run, run_capture, Result, handle_result
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 # Re-export for convenience
 GateCommand = click.Command

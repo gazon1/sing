@@ -25,17 +25,17 @@ from emulator._startup import (
     _avd_is_running,
     clear_stale_emulator,
     ensure_device,
-    startup_lock,
     start_avd,
+    startup_lock,
 )
 from emulator._types import (
-    EXIT_OK,
-    EXIT_NOT_READY,
     EXIT_CRASHED,
-    EXIT_TIMEOUT,
     EXIT_LOCK,
-    cfg,
+    EXIT_NOT_READY,
+    EXIT_OK,
+    EXIT_TIMEOUT,
     Config,
+    cfg,
 )
 
 # Re-export UPPER_CASE config names from the cfg singleton so that

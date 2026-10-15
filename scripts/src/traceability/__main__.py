@@ -311,6 +311,8 @@ def cmd_scenarios(
     """
     from traceability.speckit import (
         SCENARIOS_DIR as _SCENARIOS_DIR,
+    )
+    from traceability.speckit import (
         SpecSource,
         check_bindings,
         load_declarations,
