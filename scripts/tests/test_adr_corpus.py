@@ -1,10 +1,10 @@
 """Tests for adr_corpus.py — the single owner of ADR corpus discovery (#520).
 
-The bug these guard against is not "a glob was wrong". It is that five consumers
+The bug these guard against is not "a glob was wrong". It is that four consumers
 each had a *correct-looking* glob and disagreed with each other, so the status gate
-could report "all statuses in vocabulary" while 129 files under `deferred/` used a
-vocabulary of their own. A test that only checks today's counts would pass again
-the moment someone adds a sixth consumer with a sixth idea of what the corpus is.
+could report "all statuses in vocabulary" while files used a vocabulary of their own.
+A test that only checks today's counts would pass again the moment someone adds a
+fifth consumer with a fifth idea of what the corpus is.
 
 So these tests assert the *classes* — what belongs to decisions, what does not, and
 what `normalize_status` refuses to do.
@@ -59,7 +59,7 @@ class TestNormalizeStatus(unittest.TestCase):
 
 
 class TestClasses(unittest.TestCase):
-    """Three classes, deliberately not one."""
+    """Two classes, deliberately not three."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -85,9 +85,10 @@ class TestClasses(unittest.TestCase):
 
     def test_deferred_is_not_a_decision(self):
         # The blind spot: slug-named, no date, and the gate never saw it.
+        # Deferred/ was deleted in PR #645; deferred() now returns [].
         write(self.root / 'deferred' / 'some-backlog-item.md', adr('OPEN'))
         self.assertEqual(self.cfg.decisions(), [])
-        self.assertEqual([p.name for p in self.cfg.deferred()], ['some-backlog-item.md'])
+        self.assertEqual([p.name for p in self.cfg.deferred()], [])
 
     def test_archive_is_separate(self):
         write(self.root / 'archive' / '2026-01-01-old.md', adr('archived'))
@@ -106,13 +107,13 @@ class TestClasses(unittest.TestCase):
 
     def test_all_slugs_covers_every_class(self):
         # A superseded target that was archived is still resolvable; moving is not
-        # deleting. Deferred slugs are cited from prose too.
+        # deleting. Deferred slugs are no longer in the filesystem (GH issues #636-643).
         write(self.root / '2026-10-10-live.md', adr('accepted'))
         write(self.root / 'archive' / '2026-01-01-old.md', adr('archived'))
         write(self.root / 'deferred' / 'backlog-thing.md', adr('OPEN'))
         self.assertEqual(
             self.cfg.all_slugs(),
-            {'2026-10-10-live', '2026-01-01-old', 'backlog-thing'},
+            {'2026-10-10-live', '2026-01-01-old'},
         )
 
     def test_missing_subdirs_are_empty_not_an_error(self):
@@ -130,9 +131,8 @@ class TestRealCorpus(unittest.TestCase):
     def test_classes_partition_the_corpus(self):
         decisions = CFG.decisions()
         archived = CFG.archived()
-        deferred = CFG.deferred()
+        deferred = CFG.deferred()  # always []: deferred/ migrated to GH issues (#636-643)
         self.assertGreater(len(decisions), 0)
-        self.assertGreater(len(deferred), 0)
         # No file may be in two classes — that ambiguity is what broke the gate.
         names = [{p.name for p in c} for c in (decisions, archived, deferred)]
         for i, a in enumerate(names):

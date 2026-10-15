@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """check-adr-config-sync.py — no consumer may re-derive the ADR corpus (#520).
 
-Why this exists (2026-10-10): five consumers discovered `docs/decisions/` five
+Why this exists (2026-10-10): four consumers discovered `docs/decisions/` four
 different ways, and they had already drifted apart.
 
-    consumer                         rule                     saw deferred/
-    -------------------------------- ------------------------ -------------
-    check_adr_status.py               dated, top level        no
-    refresh-decisions-digest.py       dated, recursive        yes
-    normalize-adr-frontmatter.py      dated, top level        no
-    check-backlog-status.py           deferred/ + deleted fd  (only here)
-    AdrTools.kt                       any *.md, archive too   yes (archive too)
+    consumer                         rule
+    -------------------------------- ------------------------
+    check_adr_status.py               dated, top level
+    refresh-decisions-digest.py        dated, recursive
+    normalize-adr-frontmatter.py       dated, top level
+    AdrTools.kt                        any *.md, archive too
+
+The backlog (formerly `deferred/`) was migrated to GH issues on 2026-10-15 (PR #645).
 
 The status gate reported "all statuses in vocabulary" while 129 files under
 `deferred/` used a vocabulary of their own. Not carelessness — five
@@ -44,7 +45,6 @@ PYTHON_CONSUMERS = {
     'check_adr_status.py': 'adr_corpus.load(',
     'refresh-decisions-digest.py': 'adr_corpus.load(',
     'normalize-adr-frontmatter.py': 'adr_corpus.load(',
-    'check-backlog-status.py': 'adr_corpus.load(',
 }
 
 # The ADR rules live in `:adr-core` since the CLI was cut off from `:shared` (#542).

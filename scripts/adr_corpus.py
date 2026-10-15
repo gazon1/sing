@@ -21,14 +21,14 @@ The rules now live in `config/docs/adr-corpus.json`, read by every consumer
 (Python via stdlib `json`, Kotlin via kotlinx-serialization). Adding a corpus
 rule means editing that one file, not hunting four globs.
 
-Three classes, deliberately not one:
+Two classes, deliberately not three:
 
 * **decision** — a dated record under `root`, matching `decisionPattern`.
 * **archived** — a dated record under `root/archive/`; left the live corpus but
   still a resolvable reference target. Moving is not deleting.
-* **deferred** — backlog under `root/deferred/`. **Not decisions.** Slug names,
-  no real date, different status vocabulary. Validating these as ADRs is what
-  produced the blind spot in the first place.
+
+The backlog (formerly `deferred/`) was migrated to GH issues #636-643 on 2026-10-15.
+See 2026-10-15-backlog-status-gate-removal.md.
 
 `normalize_status` folds case and strips brackets. It deliberately does NOT map
 out-of-vocabulary values (`CLOSED` -> `accepted`): that is a one-time migration,
@@ -44,10 +44,6 @@ from dataclasses import dataclass
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / 'config' / 'docs' / 'adr-corpus.json'
-
-# Fallbacks for a checkout whose config predates the backlog vocabulary (#516).
-DEFAULT_BACKLOG_STATUSES = ('open', 'partial', 'deferred', 'closed', 'resolved')
-DEFAULT_BACKLOG_OPEN = ('open', 'partial', 'deferred')
 
 # Fallbacks for a checkout whose config predates the frontmatter contract (#518).
 # Same reasoning as above: a fallback keeps a stale checkout working, and
@@ -84,8 +80,6 @@ class AdrCorpusConfig:
     immutable_since: str | None = None
     review_by_field: str = 'review-by'
     review_by_required: bool = False
-    backlog_statuses: frozenset[str] = frozenset(DEFAULT_BACKLOG_STATUSES)
-    backlog_open_states: frozenset[str] = frozenset(DEFAULT_BACKLOG_OPEN)
     frontmatter_keys: frozenset[str] = frozenset(DEFAULT_FRONTMATTER_KEYS)
     frontmatter_key_order: tuple[str, ...] = DEFAULT_FRONTMATTER_KEY_ORDER
     section_keys: frozenset[str] = frozenset(DEFAULT_SECTION_KEYS)
@@ -122,15 +116,6 @@ class AdrCorpusConfig:
 
     def is_valid_status(self, status: str) -> bool:
         return status in self.statuses or status == self.archived_status
-
-    def is_valid_backlog_status(self, status: str) -> bool:
-        """A backlog entry is held to the backlog vocabulary, not the decision one.
-
-        Two lifecycles, two vocabularies. Forcing them together would apply the
-        30-day staleness rule to entries dated 2000-01-01 that were never dated at
-        all (#516).
-        """
-        return status in self.backlog_statuses
 
     def normalize_status(self, raw: str | None) -> str:
         """Fold case and strip brackets. No value mapping — see docstring.
@@ -174,17 +159,21 @@ def archived_in(root: pathlib.Path, cfg: AdrCorpusConfig) -> list[pathlib.Path]:
 
 
 def deferred_in(root: pathlib.Path, cfg: AdrCorpusConfig) -> list[pathlib.Path]:
-    d = root / cfg.deferred_dir
-    if not d.is_dir():
-        return []
-    return [p for p in sorted(d.glob('*.md')) if p.name not in cfg.ignored_files]
+    """Backlog entries. Not ADR decisions — directory migrated to GH issues (#636-643).
+
+    Returns [] since the deferred/ directory was deleted in PR #645.
+    kept here for dataclass field compatibility with Kotlin (AdrCorpus.kt).
+    """
+    return []
 
 
 def all_slugs_in(root: pathlib.Path, cfg: AdrCorpusConfig) -> set[str]:
-    return (
-        {p.stem for p in decisions_in(root, cfg, include_archived=True)}
-        | {p.stem for p in deferred_in(root, cfg)}
-    )
+    """Every slug that exists, wherever it lives.
+
+    Includes `archive/` because a superseded target that was archived is
+    still resolvable. Deferred slugs are no longer in the filesystem (GH issues #636-643).
+    """
+    return {p.stem for p in decisions_in(root, cfg, include_archived=True)}
 
 
 def load(root: pathlib.Path | None = None) -> AdrCorpusConfig:
@@ -192,13 +181,16 @@ def load(root: pathlib.Path | None = None) -> AdrCorpusConfig:
     base = root or ROOT
     raw = json.loads((base / 'config' / 'docs' / 'adr-corpus.json').read_text(encoding='utf-8'))
     vocab = raw['vocabulary']
-    backlog = raw.get('backlogVocabulary', {})
     fm = raw.get('frontmatter', {})
+    # deferredDir is no longer in the JSON (removed 2026-10-15), but the field
+    # stays in the dataclass for Kotlin compatibility.  The value is unused because
+    # deferred_in() returns [].
+    deferred_dir: str = raw.get('deferredDir', 'deferred')
     return AdrCorpusConfig(
         root=base / raw['root'],
         decision_pattern=re.compile(raw['decisionPattern']),
         archive_dir=raw['archiveDir'],
-        deferred_dir=raw['deferredDir'],
+        deferred_dir=deferred_dir,
         ignored_files=frozenset(raw['ignoredFiles']),
         statuses=frozenset(vocab['statuses']),
         archived_status=vocab['archivedStatus'],
@@ -206,8 +198,6 @@ def load(root: pathlib.Path | None = None) -> AdrCorpusConfig:
         immutable_since=(raw.get('immutableSince') or {}).get('date'),
         review_by_field=(raw.get('reviewBy') or {}).get('field', 'review-by'),
         review_by_required=bool((raw.get('reviewBy') or {}).get('required', False)),
-        backlog_statuses=frozenset(backlog.get('statuses', DEFAULT_BACKLOG_STATUSES)),
-        backlog_open_states=frozenset(backlog.get('openStates', DEFAULT_BACKLOG_OPEN)),
         frontmatter_keys=frozenset(fm.get('knownKeys', DEFAULT_FRONTMATTER_KEYS)),
         frontmatter_key_order=tuple(fm.get('keyOrder', DEFAULT_FRONTMATTER_KEY_ORDER)),
         section_keys=frozenset(fm.get('sectionKeys', DEFAULT_SECTION_KEYS)),

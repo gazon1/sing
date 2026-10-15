@@ -12,7 +12,7 @@ from sgate.log import logger
 import sgate
 from sgate.output import gate_fail
 from sgate.commands._runner import run, run_capture
-from sgate.commands._parsers import parse_header, skip_blanks, parse_error_block
+from sgate.commands._parsers import parse_error_block
 from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 KIWI_REQUIRED: ClassVar[bool] = False
@@ -24,7 +24,7 @@ def _parse_backlog_issue_refs(stdout: str | bytes) -> dict:
     """Parse human-readable output from check-backlog-issue-refs.py.
 
     Returns a dict with:
-      - entry_count, open_count, snapshot_issue_count, snapshot_open_count
+      - open_count: number of open backlog issues in the snapshot
       - blocking_errors: list of {file, line, slug, code, message}
       - warnings: list of {issue_num, message}
       - passed: bool
@@ -32,28 +32,21 @@ def _parse_backlog_issue_refs(stdout: str | bytes) -> dict:
     if isinstance(stdout, bytes):
         stdout = stdout.decode("utf-8", errors="replace")
     lines = stdout.splitlines()
-    entry_count = open_count = snapshot_issue_count = snapshot_open_count = 0
+    open_count = 0
     blocking_errors: list[dict] = []
-    warnings: list[dict] = []
     passed = True
 
     i = 0
 
-    # First line: "backlog-issue-refs: N entries, M open"
-    hdr, i = parse_header(lines, i, re.compile(r"backlog-issue-refs:\s*(?P<count>\d+)\s+entries,\s*(?P<open>\d+)\s+open"))
-    if hdr:
-        entry_count = int(hdr["count"])
-        open_count = int(hdr["open"])
+    # First line: "backlog-issue-refs: N open backlog issues"
+    if lines and re.match(r"backlog-issue-refs:\s*\d+\s+open backlog issues", lines[i].strip()):
+        m = re.search(r"\d+", lines[i])
+        if m:
+            open_count = int(m.group())
+        i += 1
 
-    # Second line: "  snapshot: N issues (M open)"
-    hdr2, i = parse_header(lines, i, re.compile(r"\s*snapshot:\s*(?P<count>\d+)\s+issues\s+\((?P<open>\d+)\s+open\)"))
-    if hdr2:
-        snapshot_issue_count = int(hdr2["count"])
-        snapshot_open_count = int(hdr2["open"])
-
-    i = skip_blanks(lines, i)
-
-    # ERROR: lines — use shared helper
+    i_skip = i
+    # ERROR: lines
     for file, line_num, message in parse_error_block(lines, i):
         passed = False
         blocking_errors.append({
@@ -63,42 +56,17 @@ def _parse_backlog_issue_refs(stdout: str | bytes) -> dict:
             "code": "",
             "message": message,
         })
-
-    # Skip to end of parsed error block
-    while i < len(lines) and lines[i].rstrip().startswith("ERROR:"):
-        i += 1
-
-    # Remaining warning lines
-    while i < len(lines):
-        line = lines[i].rstrip()
-        if line.startswith("WARNING:"):
-            m = re.match(r"WARNING:\s*(\d+)\s+open issue\(s\)\s+missing Backlog: field", line)
-            if m:
-                i += 1
-                while i < len(lines) and lines[i].strip().startswith("issue #"):
-                    issue_line = lines[i].strip()
-                    m_issue = re.match(r"issue #(\d+)\s+\[I4\]\s+(.+)", issue_line)
-                    if m_issue:
-                        warnings.append({
-                            "issue_num": int(m_issue.group(1)),
-                            "message": m_issue.group(2).rstrip(),
-                        })
-                    i += 1
-                continue
-        if not line or "  ok  " in line or "⚠" in line or line.startswith("backlog-issue-refs:"):
-            i += 1
-        else:
-            i += 1
+    if not passed:
+        # Count ERROR lines consumed
+        while i_skip < len(lines) and lines[i_skip].rstrip().startswith("ERROR:"):
+            i_skip += 1
 
     return {
         "gate": "backlog-issue-refs",
-        "entry_count": entry_count,
-        "open_entry_count": open_count,
-        "snapshot_issue_count": snapshot_issue_count,
-        "snapshot_open_count": snapshot_open_count,
+        "open_count": open_count,
         "passed": passed,
         "blocking_errors": blocking_errors,
-        "warnings": warnings,
+        "warnings": [],
     }
 
 
@@ -131,12 +99,9 @@ def backlog_issue_refs(check: bool, emit_json: bool) -> None:
 
     try:
         if emit_json:
-            # Capture output and emit structured JSON
             result = run_capture(py_cmd, gate_name)
             parsed = _parse_backlog_issue_refs(result.stdout)
             parsed["exit_code"] = result.returncode
-
-            # Emit JSON to stdout; gate_fail still fires for CI annotations
             if result.returncode != 0:
                 gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
             print(json.dumps(parsed, indent=2))
