@@ -101,10 +101,10 @@ def check_manifest() -> tuple[list[str], list[str], list[str]]:
     registry_duplicates = sorted(registry_duplicates)
 
     # Invalid cmd_types
-    VALID_CMD_TYPES = {"python3", "python3_m", "shell", "bash_c", "path"}
+    from sgate.commands._registry import CmdType
     invalid_cmd_types: list[str] = []
     for spec in _registry.GATES:
-        if spec.cmd_type not in VALID_CMD_TYPES:
+        if spec.cmd_type not in CmdType:
             invalid_cmd_types.append(
                 f"  {spec.name!r}: unknown cmd_type {spec.cmd_type!r}"
             )

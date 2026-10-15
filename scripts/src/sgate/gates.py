@@ -5,8 +5,8 @@ of truth). The Gate namedtuple provides a read-only view of the registry data.
 
 Gate = NamedTuple with fields:
     name: str           — display name from the registry
-    mode: str            — "blocking" or "advisory"
-    command: str         — full command string (reconstructed from GateSpec)
+    mode: GateMode      — blocking or advisory
+    command: str        — full command string (reconstructed from GateSpec)
     comment: str|None   — always None (registry has no inline-comment field)
     sabotage_test: str|None — probe name in check-gate-wiring.py (defaults to name)
     kiwi_required: bool  — from GateSpec.kiwi_required
@@ -17,13 +17,14 @@ import sys
 from typing import NamedTuple
 
 from sgate.commands._registry import GATES as _REGISTRY_GATES
+from sgate.commands._registry import GateMode, CmdType
 
 
 class Gate(NamedTuple):
     """A gate registered in the registry."""
 
     name: str
-    mode: str  # "blocking" | "advisory"
+    mode: GateMode
     command: str
     comment: str | None
     sabotage_test: str | None
@@ -32,25 +33,25 @@ class Gate(NamedTuple):
 
 def _build_command(spec) -> str:
     """Reconstruct the full command string from a GateSpec."""
-    if spec.cmd_type in ("python3", "python3_m"):
+    if spec.cmd_type in (CmdType.PYTHON3, CmdType.PYTHON3_M):
         parts = [sys.executable]
-        if spec.cmd_type == "python3_m":
+        if spec.cmd_type == CmdType.PYTHON3_M:
             parts.append("-m")
-        parts.append(spec.script)
+        parts.append(str(spec.script))
         parts.extend(spec.script_args)
         return " ".join(parts)
-    if spec.cmd_type == "shell":
+    if spec.cmd_type == CmdType.SHELL:
         parts = ["bash", str(spec.script)]
         parts.extend(spec.script_args)
         return " ".join(parts)
-    if spec.cmd_type == "bash_c":
+    if spec.cmd_type == CmdType.BASH_C:
         # Reconstruct: bash -c ". {static_gates_sh} && {func}"
         static_sh = "scripts/ci/static-gates.sh"
         return f"bash -c '. {static_sh} && {spec.bash_func}'"
-    if spec.cmd_type == "path":
+    if spec.cmd_type == CmdType.PATH:
         return " ".join(spec.path_cmd)
     # Fallback for unknown cmd_type: reconstruct from available fields
-    if spec.script:
+    if spec.script and str(spec.script):
         return f"{spec.cmd_type} {spec.script}"
     return f"{spec.cmd_type} (no script)"
 
