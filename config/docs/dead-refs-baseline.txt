@@ -380,6 +380,11 @@ shared/src/jvmTest/kotlin/com/singularity/todo/arch/EnqueueSiteIsScannedTest.kt:
 # this worktree checkout — it is a per-developer local deployment. References in arch-test
 # fixture files are therefore dead in this environment. These are NOT accepted debt; they
 # document real infrastructure that exists elsewhere.
+# this worktree checkout — it is a per-developer local deployment. References in the Kiwi
+# TCMS skill and in arch-test fixture files are therefore dead in this environment.
+# These are NOT accepted debt; they document real infrastructure that exists elsewhere.
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:sync.py
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:infra/kiwi/gen-tls.sh
 .agents/skills/singularity-todo-maestro-flows/SKILL.md:pick-date.yaml
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt:infra/kiwi/sync.py
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt:sync.py
