@@ -173,11 +173,6 @@ class PartFTest(unittest.TestCase):
         # just-recipe-only gates
         self.assertIn('scripts/check-coverage-measurement.py', registered)
 
-    def test_a_python3_invocation_without_a_dot_slash_is_registered(self):
-        """`python3 scripts/x.py` is the commonest spelling in check.sh."""
-        registered = gw.registered_gate_scripts()
-        self.assertIn('scripts/check-backlog-status.py', registered)
-
     def test_a_shell_gate_is_registered(self):
         self.assertIn('scripts/check-detekt-registrations.sh',
                       gw.registered_gate_scripts())

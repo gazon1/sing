@@ -355,47 +355,32 @@ SCRIPT_GATES = [
     ScriptGate(
         name="adr-status-drift",
         cmd=[sys.executable, "scripts/check_adr_status.py"],
-        sabotage_path="docs/decisions/deferred/log-export-has-no-surface.md",
-        # The backlog has its own vocabulary, so an out-of-vocabulary value has to be
-        # introduced where only the backlog check can see it. Sabotaging a dated
-        # decision instead would prove the old rule still works and nothing about
-        # the blind spot #516 closed.
-        #
-        # `CLOSED` would NOT work as the probe: `closed` is a legitimate backlog
-        # status, so the gate would correctly pass and the control would report the
-        # gate as unable to fail. `superseded` is a decision-vocabulary value and has
-        # no place in the backlog.
+        # A real decision file (not deferred/ — that was deleted in PR #645).
+        # The sabotage introduces a status value not in the vocabulary, which the
+        # gate must detect. Using an obviously-invalid value (DEAD-BEEF) rather
+        # than a plausible one (superseded/accepted) to guarantee the gate fails.
+        sabotage_path="docs/decisions/2026-09-05-android-bottom-nav-followups.md",
         sabotage=(
-            "p.write_text(p.read_text().replace('status: open', 'status: superseded', 1))"
+            "p.write_text(p.read_text().replace("
+            "'status: accepted', 'status: DEAD-BEEF', 1))"
         ),
         why=(
-            "backlog entries are held to a different vocabulary from decisions, so a "
-            "gate that only knows the decision vocabulary cannot see 129 files"
+            "a status value outside the vocabulary must be detected; a gate that "
+            "cannot see a bad status is a gate that cannot see drift"
         ),
-    ),
-    ScriptGate(
-        name="backlog-status",
-        cmd=[sys.executable, "scripts/check-backlog-status.py"],
-        # A real entry under deferred/. This control still named the combined
-        # `deferred-backlog.md`, which T2 (PR #508) split into one file per entry and
-        # deleted — so the control had been pointing at a file that no longer exists
-        # and the harness could not even read it to restore what it changed.
-        sabotage_path="docs/decisions/deferred/log-export-has-no-surface.md",
-        # Strip the annotated status line, which is what 42 entries looked like
-        # before 2026-10-05. `parse_single_entry` reads `**Status: X**`, not the
-        # frontmatter, so removing this line is what actually leaves an entry
-        # unclassifiable. A gate that only ever sees annotated files has never been
-        # shown to catch the case it exists for.
-        sabotage="p.write_text(p.read_text().replace('**Status: OPEN**', '', 1))",
-        why="an entry with no readable status cannot be triaged, and a queue nobody can triage is not a queue",
     ),
     ScriptGate(
         name="unwired-backlog-refs",
         cmd=[sys.executable, "scripts/check-unwired-backlog-refs.py"],
-        sabotage_path="scripts/find-unwired-surfaces-baseline.txt",
-        # The anchor named here was inside the deleted combined backlog file, so the
-        # replacement was a no-op and the control passed a sabotage it never applied.
-        sabotage="p.write_text(p.read_text().replace('deferred/editoroverflow-test-tag-unused.md:editoroverflow-test-tag-unused', 'deferred/editoroverflow-test-tag-unused.md:no-such-anchor'))",
+        # A real decision file (not deferred/ — that was deleted in PR #645).
+        sabotage_path="docs/decisions/2026-09-05-koin-suspend-bridge.md",
+        # Corrupt the first `## Context` heading so the anchor no longer exists.
+        # The gate checks that every baseline reference points to an existing heading;
+        # a heading that vanished is the same class of failure as one that never existed.
+        sabotage=(
+            "p.write_text(p.read_text().replace("
+            "'## Context', '## NO-SUCH-HEADING', 1))"
+        ),
         why="an exemption pointing at a heading that does not exist is not an exemption",
     ),
     ScriptGate(
@@ -886,11 +871,6 @@ GATE_EXEMPTIONS: dict[str, str] = {
     # These are local-only gates (do not run in CI) and must not block a PR.
     # Each carries a sabotage control for self-verification; the exemption
     # documents why the registry is not the control authority.
-    "scripts/check-backlog-status.py": (
-        "GATE_PARITY: deliberately NOT in the shared registry, because a PR "
-        "must not be blocked by backlog bookkeeping; the backlog budget and "
-        "'every OPEN entry is tracked' rule are a house-keeping invariant"
-    ),
     "scripts/check-doc-sizes.py": (
         "local doc-size budgets (AGENTS.md <= 240 lines, SKILL.md <= 500 lines) "
         "are a house-keeping invariant; not run in CI, must not block a PR"
@@ -914,6 +894,12 @@ GATE_EXEMPTIONS: dict[str, str] = {
     # These are in the registry and have no control in SCRIPT_GATES. Each exemption
     # documents why the gate is self-checking or why a sabotage control is not
     # the right proving mechanism.
+    "scripts/check-backlog-issue-refs.py": (
+        "advisory: every OPEN backlog GH issue without a Backlog: field is the "
+        "self-revealing failure case; the gate reads the snapshot and checks I4 "
+        "directly, so a sabotage control would need to mutate the snapshot file "
+        "rather than a source file — which would break the gate's own reading"
+    ),
     "scripts/build-version-catalog-gate.py": (
         "auto-generator: the gate proves version catalog is clean by checking for "
         "undeclared literals; the sabotage is removing the generated catalog file "
@@ -1063,34 +1049,6 @@ SABOTAGE_ONLY_GATES = [
             "        '        .withPathSensitivity(PathSensitivity.RELATIVE)\\n', '', 1))"
         ),
         why="a test task reading a tree outside its module reports a stale verdict when that tree is not an input",
-    ),
-    ScriptGate(
-        name="backlog-issue-refs",
-        cmd=[sys.executable, "scripts/check-backlog-issue-refs.py"],
-        # Same dead target as `backlog-status` above, and for the same reason. This
-        # one needs a file whose `**Tracked as:**` is a markdown link, because the
-        # substitution below matches `[#NNN]` — most entries carry a bare `#NNN`.
-        sabotage_path=(
-            "docs/decisions/deferred/"
-            "a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog.md"
-        ),
-        # Introduce a cite to a non-existent issue — I1 violation: the cited issue
-        # does not exist in the snapshot. A gate that cannot detect a broken link
-        # is a gate that lets broken links accumulate.
-        sabotage=(
-            "import re\n"
-            "_t = p.read_text()\n"
-            # Format: **Tracked as:** [#110](...) — the issue number is inside [...].
-            # Replace the first `[#NNN]` with `[#99999]` to cite a non-existent issue.
-            "_t2, _n = re.subn(r'\\[#(\\d+)\\]', '[#99999]', _t, count=1)\n"
-            "assert _n == 1, 'no Tracked as: markdown reference found — the control would be a no-op'\n"
-            "p.write_text(_t2)\n"
-        ),
-        why="a backlog entry citing a non-existent issue is a broken link; the backlog is the reasoning and the issue is the queue, so both must agree",
-        # In SABOTAGE_ONLY_GATES because it currently fails on 11 real I2 violations
-        # (open entries tracking closed issues) — genuine triage work. Waives the
-        # clean-tree guard so the positive control can be demonstrated.
-        needs_clean_run=False,
     ),
 ]
 
@@ -1533,19 +1491,6 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
         "advisory by construction: it runs as `gate advisory` in the shared "
         "registry, so both CI and check.sh report a stale change as a warning "
         "and neither blocks on it",
-    ),
-    "scripts/check-backlog-status.py": (
-        "local",
-        "the backlog budget and the 'every OPEN entry is tracked' rule are a "
-        "housekeeping invariant over a file that changes with every commit; it "
-        "is deliberately NOT in the shared registry, because a PR must not be "
-        "blocked by backlog bookkeeping",
-    ),
-    "scripts/check-backlog-issue-refs.py": (
-        "both",
-        "advisory: the 11 real I2 violations (open entries tracking closed issues) "
-        "need human triage before this can be blocking; I4 (open issues missing "
-        "Backlog: field) is advisory by design since the convention is new",
     ),
 }
 # Both `check-publication-hygiene.py` and `check-readme-claims.py` were declared
