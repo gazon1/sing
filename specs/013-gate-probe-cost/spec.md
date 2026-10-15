@@ -37,19 +37,19 @@ The cost is `O(ADRs × commits-per-ADR)` **subprocess spawns**, not O(ADRs). Eve
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - The ADR gates finish in seconds (Priority: P1)
+### User Story 1 - The two ADR gates are gone, and the registry stays consistent (Priority: P1)
 
-A developer running the static gates gets results for the ADR immutability and frontmatter checks in seconds, not minutes, and the cost does not grow as decisions accumulate.
+A developer running the static gates no longer pays for `closed ADRs keep their body` or `ADR frontmatter drift`, and the removal leaves no dangling entry behind: no registry row naming a deleted script, no sabotage control proving a gate that no longer exists, no live document pointing at a missing file.
 
-**Why this priority**: This is 79 % of the measured cost and the sole reason the suite overruns. Nothing else in this spec matters if these two gates still hang.
+**Why this priority**: This is 79 % of the measured cost, and removing the gate is cheaper than optimising it. It is also the only part that can leave the suite red if done incompletely — a half-removed gate is worse than either state.
 
-**Independent Test**: Run both gates on the full corpus and record wall-clock time. Independently, add N synthetic ADRs with M commits each and confirm the runtime does not scale as N×M subprocess spawns.
+**Independent Test**: Confirm the two gates are absent from the registry and from the static gate list, the script is gone from the working tree, and Parts F, J and H all still pass.
 
 **Acceptance Scenarios**:
 
-1. **Given** the full corpus of 601 ADRs, **When** the immutability gate runs, **Then** it completes in under 5 seconds, down from over 60.
-2. **Given** the full corpus, **When** the frontmatter drift gate runs, **Then** it completes in under 5 seconds.
-3. **Given** an ADR with a long commit history, **When** the gate runs, **Then** the number of spawned processes does not grow with the number of commits.
+1. **Given** the full corpus of 601 ADRs, **When** the static suite runs, **Then** the two ADR gates do not appear in its output and the suite's wall-clock drops by the measured ~120 s.
+2. **Given** a registry cross-check, **When** it runs after the removal, **Then** it reports no control for a deleted gate and no gate entry for a deleted script.
+3. **Given** a closed ADR that mentions the removed gate, **When** the ADR corpus is validated, **Then** the ADR is unchanged and still valid — historical references stay accurate as history.
 
 ---
 
@@ -96,16 +96,20 @@ The measurement used to decide which gates are expensive stays correct as the tr
 
 ### Functional Requirements
 
-- **FR-001**: Reading a repository fact for many records MUST NOT require one spawned process per record. Where the same query is issued for every record, it MUST be issued once.
-- **FR-002**: A query issued once for many records MUST return every record's answer, not a bounded subset. A batched read that silently truncates is worse than a slow one, because it reports a clean result derived from partial data.
-- **FR-003**: The immutability gate MUST preserve its working-tree-versus-HEAD comparison. This is an explicit property of the gate, not an implementation detail.
-- **FR-004**: Per-file history resolution MUST continue to follow renames, or the gate MUST report that it does not.
+> **Scope change, 2026-10-15.** The owner elected removal over optimisation: `closed ADRs keep their body`, `ADR frontmatter drift`, and `scripts/check-adr-immutable.py` are deleted rather than made fast. This removes ~120 s of the measured 151.7 s outright — it deletes the cost instead of shrinking it. FR-001, FR-002, FR-004 and FR-010 were written for the optimisation and are satisfied vacuously; the work they describe is not performed. FR-003 is withdrawn with the gate it protected. FR-011 and FR-012 are added to govern the removal itself.
+
+- **FR-001**: Reading a repository fact for many records MUST NOT require one spawned process per record. Where the same query is issued for every record, it MUST be issued once. *(Vacuous — no such reader remains.)*
+- **FR-002**: A query issued once for many records MUST return every record's answer, not a bounded subset. A batched read that silently truncates is worse than a slow one, because it reports a clean result derived from partial data. *(Vacuous.)*
+- **FR-003**: ~~The immutability gate MUST preserve its working-tree-versus-HEAD comparison.~~ **Withdrawn** — withdrawn along with the gate it protected.
+- **FR-004**: Per-file history resolution MUST continue to follow renames, or the gate MUST report that it does not. *(Vacuous.)*
 - **FR-005**: The liveness gate MUST have an aggregate wall-clock budget, separate from the per-probe budget.
 - **FR-006**: When the aggregate budget is exhausted, the liveness gate MUST name every gate it did not reach. An unreached gate reported as nothing is the failure this subsystem exists to prevent.
 - **FR-007**: Per-probe output capture MUST be bounded, so that several probes running at once cannot exhaust resident memory.
 - **FR-008**: The liveness gate MUST report the set of skipped gates and their reasons on every run, including when that set is empty.
 - **FR-009**: A killed probe MUST NOT leave state that makes a subsequent run fail differently from an uninterrupted one.
-- **FR-010**: Cost MUST NOT scale with the number of commits in an ADR's history.
+- **FR-010**: Cost MUST NOT scale with the number of commits in an ADR's history. *(Vacuous.)*
+- **FR-011**: Removing a gate MUST remove its registry entry, its sabotage control, and every live reference to it in the same change. A control that proves a deleted gate, or a registry entry naming a deleted script, is exactly what Parts F and J cross-check, and leaves both red.
+- **FR-012**: Closed ADRs referencing a removed gate MUST NOT be edited. The removal is recorded where it is visible; the historical references remain accurate as history.
 
 ### Key Entities
 

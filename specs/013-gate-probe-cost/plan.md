@@ -10,12 +10,25 @@ Two ADR gates account for 79 % of the measured liveness cost (120.3 s of 151.7 s
 
 The work has four parts, in dependency order:
 
-1. **Batch the git reads** in `check-adr-immutable.py` — replace per-record and per-commit spawns with a bounded number of queries (`git log` for the commit set, `git cat-file --batch` for blob contents).
-2. **Repair `is_registry_function()`** — it matches command text (`cmd.split()[0]`) and, like the heavyweight filter, can no longer fire since every command became `sgate <subcommand>`. Three registry shell-function gates are therefore probed when the gate's own contract says they must be counted, not probed. This is spec 012 FR-001, second site, same file.
+1. **Remove** `closed ADRs keep their body`, `ADR frontmatter drift`, and `scripts/check-adr-immutable.py` — decided by the repository owner on 2026-10-15, superseding the batching work originally planned for Part 1. This eliminates ~120 s of the measured 151.7 s outright rather than optimising it.
+2. **Repair `is_registry_function()`** — it matches command text (`cmd.split()[0]`) and, like the heavyweight filter, can no longer fire since every command became `sgate <subcommand>`. Registry shell-function gates are therefore probed when the gate's own contract says they must be counted, not probed. This is spec 012 FR-001, second site, same file.
 3. **Bound the liveness probe** with an aggregate wall-clock budget, and report every gate the budget prevented from being reached.
 4. **Bound probe output capture**, so probes running concurrently cannot exhaust resident memory.
 
-Part 1 is the actual bottleneck and is worth 120 of the 131 seconds saved. Parts 2–4 are the guardrails that stop the class from recurring and from becoming a memory incident.
+Part 1 is the actual bottleneck and removes ~120 of the 131 seconds. Parts 2–4 are the guardrails that stop the class from recurring and from becoming a memory incident.
+
+### Part 1 — scope change: removal rather than optimisation
+
+Originally Part 1 batched the git reads in `check-adr-immutable.py`: one `git log` for the commit set plus rename edges, one `git cat-file --batch` for blobs, replacing `O(records × commits)` subprocess spawns with roughly two. That mechanism was verified feasible on this repository (365 commits and N blobs per spawn).
+
+The owner chose removal instead: the gate and its script are not wanted. Removal is strictly cheaper than optimisation — it deletes the cost rather than shrinking it — so the batching research (R1, R2) is retained as evidence of what the cost was, and is not scheduled for implementation.
+
+**Consequences accepted by this decision, stated so they are visible rather than discovered later:**
+
+- **Constitution Principle IV (Immutable Historical Record) loses its automated enforcement.** `check-adr-immutable.py` was the mechanism detecting a closed decision's body being rewritten. Principle IV remains a written policy; it is no longer machine-checked in CI. Three other ADR gates survive (`ADR references are valid`, `ADR status policy`, `ADR corpus rules are shared`), so status vocabulary, reference integrity, and shared rules remain enforced — only body immutability becomes unmonitored.
+- **`ADR frontmatter drift` is advisory**, so its removal costs no blocking enforcement. Its normaliser is still reachable manually.
+- **The `adr-immutable` sabotage control is removed** with its gate. Part F and Part J cross-checks must stay consistent; deleting the script while leaving the control would report a control proving a gate that no longer exists.
+- Closed ADRs referencing these gates are historical records and are **not** edited, per Principle IV itself.
 
 ## Technical Context
 
@@ -46,7 +59,7 @@ Part 1 is the actual bottleneck and is worth 120 of the 131 seconds saved. Parts
 | I. KMP Architecture | No | No application code touched. |
 | II. ADR Before Code | **Yes** | This changes how a gate reaches a verdict, not what the gate decides. It does not change any contract between layers. Recorded as a spec + plan under `specs/`, which is this repo's own precedent for gate-internal work (`2026-10-16-gate-registry-wave-b-strangler`). |
 | III. Validate Early and Often | **Yes** | `singularity-adr validate` runs after ADR changes. This work adds no ADR, so the hook is a no-op; it still runs. |
-| IV. Immutable Historical Record | **Yes, and load-bearing** | The gate being optimised *enforces* this principle. Any optimisation must not weaken it. Hence FR-003 (working-tree comparison preserved) and FR-004 (rename following preserved) are constitutional constraints here, not preferences. |
+| IV. Immutable Historical Record | **Yes — partially withdrawn** | The gate being removed *enforces* this principle. Removing it withdraws its automated enforcement while leaving the policy intact. Accepted by the repository owner on 2026-10-15. Recorded here rather than silently, because a principle that is only written down is weaker than one that is enforced, and the next reader should know which this is. See Part 1 scope change. |
 | V. CI Gates | Yes | No new gate; no gate removed. Verdicts unchanged in class. |
 | VI–VIII | No | Not application code. |
 
@@ -117,16 +130,16 @@ specs/013-gate-probe-cost/
 
 ```text
 scripts/
-├── check-adr-immutable.py     # Part 1 — batch git reads; verdicts unchanged
-├── check-gate-liveness.py     # Part 2 — aggregate budget + `unreached`; Part 3 — output cap
+├── check-gate-liveness.py     # Parts 2, 3, 4 — registry-function detection, aggregate budget, output cap
+├── check-adr-immutable.py     # Part 1 — DELETED (git rm), with its registry entry and sabotage control
 └── tests/
-    ├── test_check_adr_immutable.py   # New — history shapes, renames, dirty tree
-    └── test_check_gate_liveness.py   # New — budget exhaustion, unreachable naming
+    └── test_check_gate_liveness.py   # New — budget exhaustion, unreachable naming, function detection
 
 # Untouched by this work:
-scripts/ci/static-gates.sh    # Registry: no gate added, removed, or reclassified
+scripts/ci/static-gates.sh    # Registry: two gate lines removed, none added or reclassified
 .github/workflows/ci.yml      # Entry point — not modified
 check.sh                      # Entry point — not modified
+docs/scripts/gate-registry.md # Updated to match the reduced registry
 ```
 
 **Structure Decision**: Both targets already exist as standalone gate scripts with unit-test files under `scripts/tests/`; the work extends them in place. No new module, no new package, no new entry point — matching the repo's existing gate layout.
