@@ -1871,7 +1871,7 @@ def check_script_gates_vs_registry() -> list[str]:
     script_to_names: dict[str, list[str]] = {}
     for spec in gates:
         if spec.script:
-            script_to_names.setdefault(spec.script, []).append(spec.name)
+            script_to_names.setdefault(str(spec.script), []).append(spec.name)
 
     # Map: script path -> gate name, built from SCRIPT_GATES command list
     sg_script_to_name: dict[str, str] = {}
@@ -1904,12 +1904,17 @@ def check_script_gates_vs_registry() -> list[str]:
         | {g.cmd[1] for g in FIXTURE_GATES if len(g.cmd) >= 2}
         | set(GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
     )
+    cmd_types_with_scripts = (
+        _registry.CmdType.PYTHON3,
+        _registry.CmdType.PYTHON3_M,
+        _registry.CmdType.SHELL,
+    )
     for spec in gates:
-        if spec.cmd_type not in ("python3", "python3_m", "shell"):
+        if spec.cmd_type not in cmd_types_with_scripts:
             continue
         if not spec.script:
             continue
-        if spec.script in covered_scripts:
+        if str(spec.script) in covered_scripts:
             continue
         errors.append(
             f"Part J: registry gate '{spec.name}' "
