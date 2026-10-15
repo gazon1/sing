@@ -377,6 +377,9 @@ shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/EnqueueSiteIsScannedTest.kt:WidgetStore.kt
 
 # Added 2026-10-15. infra/kiwi/ is a local infrastructure stand that does not exist in
+# this worktree checkout — it is a per-developer local deployment. References in arch-test
+# fixture files are therefore dead in this environment. These are NOT accepted debt; they
+# document real infrastructure that exists elsewhere.
 # this worktree checkout — it is a per-developer local deployment. References in the Kiwi
 # TCMS skill and in arch-test fixture files are therefore dead in this environment.
 # These are NOT accepted debt; they document real infrastructure that exists elsewhere.

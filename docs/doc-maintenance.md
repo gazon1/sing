@@ -231,6 +231,7 @@ reading that ADR first.
 | `grill-me` | renamed to `grilling` | `2026-10-01-tech-debt-reconciled` |
 | `grill-with-docs` | renamed to `grilling` | `2026-10-01-tech-debt-reconciled` |
 | `task-snapshot-testing` | Roborazzi never integrated; notes superseded | `2026-09-30-roborazzi-not-built-superseded` |
+| `kiwi-tcm-stand` | infra/kiwi/ was local-only, never committed; skill pointed to non-existent infra | `2026-10-15-kiwi-tcms-stand-retired` |
 | `sync`, `notifications`, `mcp-server`, `kmp-platform-specific` | described code state, not a procedure — now documents | `2026-10-15-reference-skills-become-documents` |
 
 ---
