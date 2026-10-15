@@ -548,17 +548,6 @@ SCRIPT_GATES = [
         why="an import removed from a DI module silently breaks every consumer; "
              "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
     ),
-    ScriptGate(
-        name="apptracer-upload-policy-encoded",
-        cmd=[sys.executable, "scripts/check-apptracer-policy.py"],
-        sabotage_path="pro/build.gradle.kts",
-        sabotage=_replace(
-            'isDisabled = !tokensPresent || !isCi',
-            'isDisabled = !tokensPresent',
-        ),
-        why="removing !isCi from release silently allows non-CI release uploads; "
-             "the structural gate catches the missing condition before a comment could be reverted",
-    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both

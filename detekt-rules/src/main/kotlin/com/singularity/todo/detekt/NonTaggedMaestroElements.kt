@@ -129,8 +129,10 @@ class NonTaggedMaestroElementsRule(config: Config) : Rule(config, "", null) {
         element.anyDescendantOfType<KtDotQualifiedExpression> { expr ->
             when (val selector = expr.selectorExpression) {
                 is KtNameReferenceExpression -> selector.text == "testTag"
+
                 is KtCallExpression ->
                     (selector.calleeExpression as? KtNameReferenceExpression)?.text == "testTag"
+
                 else -> false
             }
         }

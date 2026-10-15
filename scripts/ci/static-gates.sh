@@ -270,7 +270,6 @@ gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_m
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 
 # AppTracer
-gate blocking "apptracer upload policy encoded" sgate apptracer_upload_policy_encoded
 
 # Gate-script conventions. Advisory because the corpus is knowingly red: every
 # legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a

@@ -1,6 +1,5 @@
 package com.singularity.todo.detekt
 
-import dev.detekt.api.RuleName
 import dev.detekt.test.FakeLanguageVersionSettings
 import dev.detekt.test.TestConfig
 import dev.detekt.test.utils.compileContentForTest
