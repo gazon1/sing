@@ -1699,9 +1699,7 @@ _JUST_FILES = "**/*.just"
 #: `sgate <command>` — a gate delegated to the sgate CLI. The command name is the
 #: stem of a module under scripts/src/sgate/commands/, and that module names the
 #: underlying scripts/check-* it runs. Without this the sgate migration made
-#: every delegated gate invisible to Parts F and H: the registry spells
-#: `sgate backlog_status`, not `python3 scripts/check-backlog-status.py`, so
-#: 20+ real gates were reported as unreachable or uncontrolled.
+#: every delegated gate invisible to Parts F and H.
 _SGATE_INVOCATION = re.compile(r"(?:^|[\s'\"(=|])sgate\s+([a-z][a-z0-9_]*)", re.MULTILINE)
 
 
@@ -2059,12 +2057,19 @@ def reachable_gate_scripts() -> set[str]:
         for match in pattern.finditer(text):
             invoked.add(match.group(1))
         # `sgate <name>` is an invocation of whatever script that command runs.
-        # Without this the sgate migration made 20+ real gates look orphaned:
-        # the registry spells `sgate backlog_status`, and the scanner only knew
-        # `python3 scripts/check-backlog-status.py`.
+        # Without this the sgate migration made 20+ real gates look orphaned.
         for match in _SGATE_INVOCATION.finditer(text):
-            for script in backing.get(match.group(1), []):
-                invoked.add(script)
+            cmd = match.group(1)
+            scripts = backing.get(cmd)
+            # _sgate_backing_scripts() keys by module name; _registry.py is the only
+            # module that carries GateSpec-based gates, and it is keyed as "_registry".
+            # Every command whose name is not a module (e.g. adr_corpus_rules_are_shared)
+            # is therefore not in backing directly. Fall back to the _registry catch-all.
+            if scripts is None and "_registry" in backing:
+                scripts = backing["_registry"]
+            if scripts:
+                for script in scripts:
+                    invoked.add(script)
 
     # Follow delegation. Bounded, because a cycle must terminate: two shims that
     # exec each other would otherwise loop forever, and a gate that hangs is not a

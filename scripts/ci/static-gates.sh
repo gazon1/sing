@@ -280,10 +280,8 @@ gate blocking "ADR references are valid" sgate adr_references_are_valid
 gate blocking "ADR status policy" sgate adr_status_policy
 
 # Five consumers discovered docs/decisions/ five different ways and had already
-# drifted apart — three could not see deferred/, which is how the status gate
-# reported "all statuses in vocabulary" while 129 files used a vocabulary of their
-# own. The rules live in config/docs/adr-corpus.json; this gate keeps every consumer
-# reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
+# drifted apart. The rules live in config/docs/adr-corpus.json; this gate keeps every
+# consumer reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
 gate blocking "ADR corpus rules are shared" sgate adr_corpus_rules_are_shared
 
 # `:adr-cli` shipped 127 MB and 0.30 s of startup to read markdown files, because
