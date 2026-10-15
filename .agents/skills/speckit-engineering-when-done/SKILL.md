@@ -1,5 +1,5 @@
 ---
-name: speckit.engineering.when-done
+name: speckit-engineering-when-done
 description: "Engineering SDD WHEN DONE phase: post-implementation audit, fix criticals, record debt, update/create skills. Use after a completed engineering-sdd pass."
 disable-model-invocation: true
 ---
