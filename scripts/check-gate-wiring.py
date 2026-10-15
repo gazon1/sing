@@ -109,18 +109,6 @@ DETEKT_TASK_EXEMPTIONS: dict[str, str]
 # ── Part A: wiring ─────────────────────────────────────────────────────────
 
 
-def configured_gradle_check_tasks() -> dict[str, str]:
-    """Map `module:task` -> the build file that configures it.
-
-    Detects a `detekt { }` block in a module build file, which is the shape that
-    produced the androidApp instance. Test tasks are found via `useJUnitPlatform`
-    / `withType<Test>`.
-
-    The result is pre-computed by _populate_derived_tables() at module load time.
-    """
-    return CONFIGURED_DETEKT_TASKS
-
-
 def _strip_comments(text: str) -> str:
     """Drop `#` comments from shell source, preserving line structure.
 

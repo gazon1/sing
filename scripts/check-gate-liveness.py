@@ -74,13 +74,37 @@ TRACEBACK_MARKERS = (
 # Skipping the heavyweight ones: this script runs 40 gates and must finish in
 # seconds, not minutes. Each of these either builds the project or is itself a
 # meta-gate that already covers the liveness question.
+#
+# WARNING: this prefix filter used to be the whole mechanism, and it silently
+# stopped matching when the registry moved to `sgate <subcommand>`. Every gate
+# then probed as `sgate ...`, which matches none of these prefixes, so the probe
+# actually ran Gradle-invoking gates (`declared dependencies are used` →
+# `check-dependency-usage.py` → `./gradlew :shared:printResolvedArtifacts`).
+# One cold Kotlin daemon per probe, several concurrently — a probe of the gate
+# registry exhausted RAM on the dev machine (2026-10-15). `resolves_to_gradle()`
+# below is the real defence; these prefixes stay for shell-function and direct
+# invocations that never reach a registry entry.
 SLOW_PREFIXES = (
     './gradlew', 'gradlew', './just', 'just ', 'bash scripts/ci/',
     'python3 -m unittest', 'python3 -m pytest',
 )
 SLOW_NAMES = {
     "gate scripts' own unit tests",
+    # Runs Gradle; see resolves_to_gradle(). Named here too so the skip is
+    # visible where a reader looks for it.
+    "declared dependencies are used",
 }
+
+#: Shapes that mean "this script actually spawns the JVM toolchain", matched in
+#: the gate's *resolved* script so a registry command that wraps one is caught.
+#:
+#: Deliberately the argv-list form (`["./gradlew", …]`), not the bare string.
+#: A bare `./gradlew` also appears in docstrings, in `print()` lines that suggest
+#: a command to the user, and in README fixtures — `check-test-task-ins.py:13`,
+#: `check-baseline-ratchet.py:237`, `check-publication-hygiene.py:387`. Matching
+#: those would skip three cheap gates as "heavyweight" and silently weaken this
+#: gate, which is the same failure as the one this filter just had.
+GRADLE_MARKERS = ('["./gradlew"', "['./gradlew'", '"./gradlew",')
 
 # Marker for gates that must not be probed. Declared in the registry (static-gates.sh)
 # rather than guessed from the script's own filename, so the rule is visible where
@@ -110,10 +134,64 @@ def registry_functions() -> set[str]:
     return set(FUNCTION_RE.findall(REGISTRY.read_text(encoding='utf-8')))
 
 
+_SCRIPT_CMD_TO_GATE: dict[str, str] | None = None
+
+
+def _command_name(display_name: str) -> str:
+    """The CLI command for a gate, derived from its display name.
+
+    The registry stores `room schema integrity`; the registry calls
+    `sgate room_schema_integrity`. Keys must be the command, not the display
+    name, or every lookup misses.
+    """
+    return re.sub(r'[^a-z0-9]+', '_', display_name.lower()).strip('_')
+
+
+def gate_scripts() -> dict[str, str]:
+    """Map `sgate <subcommand>` -> the script path it dispatches to.
+
+    Most registry commands are `sgate <name>`, which says nothing about cost.
+    The registry knows the real script behind each one, so the heavyweight
+    filter reads it from there instead of from the command text.
+    """
+    global _SCRIPT_CMD_TO_GATE
+    if _SCRIPT_CMD_TO_GATE is None:
+        mapping: dict[str, str] = {}
+        try:
+            sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
+            from sgate.commands import _registry  # noqa: PLC0415
+            for spec in _registry.GATES:
+                if spec.name and spec.script:
+                    mapping[_command_name(spec.name)] = str(spec.script)
+        except Exception:  # noqa: BLE001 — a missing registry means "probe it",
+            # which is the pre-2026-10-15 behaviour, not a crash.
+            mapping = {}
+        _SCRIPT_CMD_TO_GATE = mapping
+    return _SCRIPT_CMD_TO_GATE
+
+
+def resolves_to_gradle(cmd: str) -> bool:
+    """True when a registry command ends in a script that cold-boots Gradle."""
+    parts = cmd.split()
+    if len(parts) < 2 or parts[0] != 'sgate':
+        return False
+    script = gate_scripts().get(parts[1])
+    if not script:
+        return False
+    path = ROOT / script
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return any(marker in text for marker in GRADLE_MARKERS)
+
+
 def is_slow(name: str, cmd: str) -> bool:
     if name in SLOW_NAMES:
         return True
-    return any(cmd.startswith(p) for p in SLOW_PREFIXES)
+    if any(cmd.startswith(p) for p in SLOW_PREFIXES):
+        return True
+    return resolves_to_gradle(cmd)
 
 
 def is_registry_function(cmd: str, functions: set[str]) -> bool:
