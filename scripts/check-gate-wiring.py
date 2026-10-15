@@ -960,7 +960,8 @@ CONTROLLED_GATE_SCRIPTS: set[str] = set()
 
 
 def _populate_derived_tables() -> None:
-    """Populate GATE_EXEMPTIONS, GATE_PARITY, and CONTROLLED_GATE_SCRIPTS from the registry.
+    """Populate GATE_EXEMPTIONS, GATE_PARITY, CONTROLLED_GATE_SCRIPTS,
+    GRADLE_TASK_PARITY, and KOVER_MIN_FLOOR from the registry.
 
     Called once at import. The registry is in scripts/src/sgate/commands/_registry.py.
     A bare `import sgate` would pick up whatever is installed — which on this host
@@ -978,6 +979,13 @@ def _populate_derived_tables() -> None:
     for control in reg.GATE_CONTROLS.values():
         if control.proves:
             CONTROLLED_GATE_SCRIPTS.add(control.proves)
+    # GRADLE_TASK_PARITY: CI/local asymmetries for individual Gradle tasks (Part I)
+    global GRADLE_TASK_PARITY, KOVER_MIN_FLOOR
+    GRADLE_TASK_PARITY = {
+        task: (p.scope, p.why)
+        for task, p in reg.GRADLE_TASK_PARITY.items()
+    }
+    KOVER_MIN_FLOOR = reg._KOVER_MIN_FLOOR
 
 
 _populate_derived_tables()
@@ -1428,7 +1436,8 @@ _DETEKT_BLOCK = re.compile(r"detekt\s*\{(.*?)\n\s*\}", re.DOTALL)
 #: The bound is only asked to be sane, not current: raising a floor needs no edit
 #: here, while zeroing one — or halving it — is the "a floor that cannot fail"
 #: defect and has to be a deliberate change to this constant too.
-_KOVER_MIN_FLOOR = 60
+#: Sourced from the registry (_registry._KOVER_MIN_FLOOR) by _populate_derived_tables().
+KOVER_MIN_FLOOR: int
 
 
 def non_enforcing_gradle_tasks() -> list[str]:
@@ -1479,7 +1488,7 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
     A module qualifies when its `kover` block contains a `verify` block — the
     two are read in that nesting, so an unrelated `verify {` does not count. It
     then needs at least one `minValue` bound, declared *inside* the kover block,
-    of at least `_KOVER_MIN_FLOOR` — the *strongest* bound, because one rule that
+    of at least `KOVER_MIN_FLOOR` — the *strongest* bound, because one rule that
     can fail is enough to make the task fail (Kover fails the task when any rule
     fails).
 
@@ -1488,7 +1497,8 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
     written, so the constant is resolved, and declarations are read from the
     whole file because they sit above the block. A bound whose value cannot be
     resolved is reported like a missing one: a floor this gate cannot read is a
-    floor it cannot vouch for.
+    floor it cannot vouch for. The floor minimum is sourced from the registry
+    (_KOVER_MIN_FLOOR) by _populate_derived_tables().
     """
     out: list[str] = []
     for build in sorted(ROOT.glob("*/build.gradle.kts")):
@@ -1519,9 +1529,9 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
                     else ""
                 )
             )
-        elif max(bounds) < _KOVER_MIN_FLOOR:
+        elif max(bounds) < KOVER_MIN_FLOOR:
             out.append(
-                f":{module}:kover verify floor {max(bounds)} is below {_KOVER_MIN_FLOOR}"
+                f":{module}:kover verify floor {max(bounds)} is below {KOVER_MIN_FLOOR}"
             )
     return out
 
@@ -1534,7 +1544,7 @@ def check_gradle_can_fail() -> list[str]:
         print(f"  !!  {len(bad)} detekt task(s) set ignoreFailures = true")
     floors = kover_verify_rules_without_usable_floor()
     if not floors:
-        print(f"  ok  every kover verify rule declares a floor >= {_KOVER_MIN_FLOOR}%")
+        print(f"  ok  every kover verify rule declares a floor >= {KOVER_MIN_FLOOR}%")
     messages = [
         "\n".join(
             [
@@ -2375,63 +2385,8 @@ def reachable_gate_scripts() -> set[str]:
 #: `:desktopApp:test`, so both really do run there, but neither string appears in
 #: `ci.yml`. Demanding the literal spelling would mean adding a redundant
 #: invocation; allowing it silently would be the Part A defect one level up.
-GRADLE_TASK_PARITY: dict[str, tuple[str, str]] = {
-    ":shared:jvmTest": (
-        "covered",
-        "CI reaches it through `koverReport`, which aggregates the test task and "
-        "instruments it. `ci.yml` never spells the task; adding a second literal "
-        "invocation would be noise, not coverage.",
-    ),
-    ":desktopApp:test": (
-        "covered",
-        "same route as :shared:jvmTest — `koverReport` in ci.yml's tests job.",
-    ),
-    ":androidApp:connectedDebugAndroidTest": (
-        "covered",
-        "CI runs it in android-device-tests.yml, not ci.yml. It needs an "
-        "emulator, so it cannot join a PR's cheap surfaces; see "
-        "docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md",
-    ),
-    ":mcp-server:compileKotlin": (
-        "local",
-        "CI compiles this module through :mcp-server:jar, which is a strict "
-        "superset — the DI-graph check runs either way. Naming it locally is "
-        "what makes the validation visible on the surface a developer reads.",
-    ),
-    ":mcp-server:jar": (
-        "ci",
-        "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
-        "itself when the jar is absent. Building it is a CI concern; the "
-        "local loop validates compilation, not the packaged artifact.",
-    ),
-    ":pro:detekt": (
-        "ci",
-        ":pro is included in settings.gradle.kts only under "
-        "-PwithPro=true, so the task does not exist in a plain local build. "
-        "CI's `pro` matrix leg passes the flag.",
-    ),
-    ":pro:testDebugUnitTest": (
-        "ci",
-        "same reason as :pro:detekt — the module is only in the graph when "
-        "-PwithPro=true is passed, which is the `pro` matrix leg's job",
-    ),
-    ":shared:testAndroidHostTest": (
-        "ci",
-        "the Android host source set is built only in its own CI job; see "
-        "openspec/changes/ci-checks-parallel-split for why it was split out",
-    ),
-    ":adr-cli:installDist": (
-        "ci",
-        "adr-gate.yml builds the ADR CLI distribution to run it against the "
-        "repository; the local loop reaches the same invariants through the "
-        "check_adr_*.py gates in the shared registry, and reaches :adr-cli:run "
-        "only interactively (ADR authoring), so a packaged installDist is a "
-        "CI-only artifact",
-    ),
-    # `:detekt-rules:koverLog` was declared 'ci' here for one revision and needs
-    # no declaration now: check.sh step 9b prints it before verifying, so the
-    # render task is on both surfaces and the default ('both') is the truth.
-}
+#: Sourced from the registry (GRADLE_TASK_PARITY) by _populate_derived_tables().
+GRADLE_TASK_PARITY: dict[str, tuple[str, str]]
 
 #: A Gradle task as it is spelled in a shell script or a workflow: `:module:task`.
 _GRADLE_TASK = re.compile(r"(?<![A-Za-z0-9_.-])(:[a-zA-Z][\w-]*:[a-zA-Z][\w-]*)")

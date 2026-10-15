@@ -30,7 +30,7 @@ from pathlib import Path
 
 import click
 
-from sgate.controls import Control, Edit, Parity
+from sgate.controls import Control, Edit, GradleTaskParity, Parity
 
 from sgate.log import logger
 from sgate.output import gate_fail
@@ -57,6 +57,96 @@ class CmdType(StrEnum):
     SHELL = "shell"              # bash <script> [args...]
     BASH_C = "bash_c"            # bash -c ". {static_gates.sh} && {func}"
     PATH = "path"                # run something on PATH
+
+
+# ── Gradle-derived data ─────────────────────────────────────────────────────────
+#
+# Data derived from the Gradle build — file-content analysis that must stay
+# in sync with the build file contents. These live here (not in check-gate-wiring)
+# so they can be read by any consumer, and so the reader in check-gate-wiring
+# flips rather than multiplying the source of truth.
+#
+# Wave (б): Parts A/C/I of check-gate-wiring.py.
+
+#: Minimum kover verify bound that counts as a usable floor, expressed as a
+#: percentage integer (0–100). The strongest bound in any module must meet
+#: this floor, because one rule that can fail is enough to make the task fail.
+_KOVER_MIN_FLOOR: int = 60
+
+#: Declared CI/local asymmetries for individual Gradle tasks.
+#: Each entry maps a task name (`:module:task`) to its declared scope and reason.
+#: A `covered` task is one CI reaches without spelling it (e.g. via `koverReport`);
+#: check.sh must still name it for the rehearsal to be valid.
+GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
+    ":shared:jvmTest": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI reaches it through `koverReport`, which aggregates the test task and "
+            "instruments it. `ci.yml` never spells the task; adding a second literal "
+            "invocation would be noise, not coverage."
+        ),
+    ),
+    ":desktopApp:test": GradleTaskParity(
+        scope="covered",
+        why="same route as :shared:jvmTest — `koverReport` in ci.yml's tests job.",
+    ),
+    ":androidApp:connectedDebugAndroidTest": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI runs it in android-device-tests.yml, not ci.yml. It needs an "
+            "emulator, so it cannot join a PR's cheap surfaces; see "
+            "docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md"
+        ),
+    ),
+    ":mcp-server:compileKotlin": GradleTaskParity(
+        scope="local",
+        why=(
+            "CI compiles this module through :mcp-server:jar, which is a strict "
+            "superset — the DI-graph check runs either way. Naming it locally is "
+            "what makes the validation visible on the surface a developer reads."
+        ),
+    ),
+    ":mcp-server:jar": GradleTaskParity(
+        scope="ci",
+        why=(
+            "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
+            "itself when the jar is absent. Building it is a CI concern; the "
+            "local loop validates compilation, not the packaged artifact."
+        ),
+    ),
+    ":pro:detekt": GradleTaskParity(
+        scope="ci",
+        why=(
+            ":pro is included in settings.gradle.kts only under "
+            "-PwithPro=true, so the task does not exist in a plain local build. "
+            "CI's `pro` matrix leg passes the flag."
+        ),
+    ),
+    ":pro:testDebugUnitTest": GradleTaskParity(
+        scope="ci",
+        why=(
+            "same reason as :pro:detekt — the module is only in the graph when "
+            "-PwithPro=true is passed, which is the `pro` matrix leg's job"
+        ),
+    ),
+    ":shared:testAndroidHostTest": GradleTaskParity(
+        scope="ci",
+        why=(
+            "the Android host source set is built only in its own CI job; see "
+            "openspec/changes/ci-checks-parallel-split for why it was split out"
+        ),
+    ),
+    ":adr-cli:installDist": GradleTaskParity(
+        scope="ci",
+        why=(
+            "adr-gate.yml builds the ADR CLI distribution to run it against the "
+            "repository; the local loop reaches the same invariants through the "
+            "check_adr_*.py gates in the shared registry, and reaches :adr-cli:run "
+            "only interactively (ADR authoring), so a packaged installDist is a "
+            "CI-only artifact"
+        ),
+    ),
+}
 
 
 # ── GateSpec ────────────────────────────────────────────────────────────────────
