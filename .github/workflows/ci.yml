@@ -100,7 +100,12 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - name: Install sgate CLI and its dependencies
-        run: uv pip install --editable scripts/src/
+        run: |
+          set -e
+          # --python ensures uv uses the venv that setup-uv created (VIRTUAL_ENV).
+          # Without it, uv creates its own environment inside .venv/ which is not
+          # the same as what setup-uv provisions (Python 3.12, git, pip settings).
+          uv pip install --python .venv/bin/python --editable scripts/src/ junitparser
 
       # Path-gated preflight: only validate tools when the PR touches CI tooling.
       # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
