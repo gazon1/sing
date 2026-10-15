@@ -12,10 +12,18 @@ class TestParseGateLine(unittest.TestCase):
     """Tests for _parse_gate_line (exercised via load_gates)."""
 
     def test_loads_all_gates_from_static_gates_sh(self):
-        """load_gates() returns a non-empty list of Gate objects."""
+        """load_gates() returns a non-empty list of Gate objects.
+
+        The floor was 30 while the registry held 49. 26 gates were removed on
+        2026-10-15 (ADR governance, backlog, speckit, docs, YAML duplicates), and
+        an assertion that the count only ever grows is an assertion that the
+        registry can never shrink -- which is not a property anyone wants. The floor
+        is now a sanity bound: enough gates to catch a parse regression that
+        silently yields an empty or near-empty list.
+        """
         gates = sgate.gates.load_gates()
         self.assertIsInstance(gates, list)
-        self.assertGreater(len(gates), 30, "Expected 30+ gates in static-gates.sh")
+        self.assertGreater(len(gates), 20, "Expected 20+ gates in static-gates.sh")
 
     def test_gate_names_are_unique(self):
         """No duplicate gate names in the registry."""
@@ -75,16 +83,55 @@ class TestGateRegistryHasExpectedGates(unittest.TestCase):
         )
 
     def test_traceability_gate_exists(self):
-        """The traceability bridge gate is registered."""
-        gates = sgate.gates.load_gates()
-        names = [g.name for g in gates]
-        self.assertIn("speckit scenarios current", names)
+        """The traceability bridge gate is registered.
 
-    def test_adr_config_sync_gate_exists(self):
-        """ADR corpus rules gate is registered."""
+        `speckit scenarios current` was removed with the rest of the speckit group
+        on 2026-10-15. The three gates that actually carry spec-to-test traceability
+        remain, and this asserts on those rather than on the removed one -- kover
+        measures line coverage and cannot tell whether a specified scenario has a
+        test, so these three are the only coverage of that question.
+        """
         gates = sgate.gates.load_gates()
         names = [g.name for g in gates]
-        self.assertIn("ADR corpus rules are shared", names)
+        for required in (
+            "scenario specs valid",
+            "coverage matrix current",
+            "coverage holes did not grow",
+        ):
+            self.assertIn(required, names)
+
+    def test_removed_gate_groups_stay_removed(self):
+        """The 2026-10-15 removal does not creep back.
+
+        A gate deleted for cost reasons stays deleted until someone adds it back
+        deliberately. Without this, restoring one entry to the registry — which
+        looks like an unrelated edit — re-adds CI minutes nobody agreed to.
+        """
+        gates = sgate.gates.load_gates()
+        names = {g.name for g in gates}
+        removed = {
+            # ADR governance
+            "closed ADRs keep their body", "ADR frontmatter drift",
+            "ADR references are valid", "ADR status policy",
+            "ADR corpus rules are shared", "light ADR modules stay light",
+            # backlog
+            "unwired backlog refs", "backlog-issue-refs",
+            # speckit
+            "speckit scenarios current", "speckit stale",
+            "spec-kit issue registry current", "requirement identifiers are unique",
+            # docs / agent-facing text
+            "skills catalog current", "skill frontmatter",
+            "decisions digest within budget", "digest has no double suffix",
+            "no dead doc refs", "no dead skill symbols",
+            "publication hygiene", "publication hygiene self-test",
+            "README claims", "README claims self-test",
+            # YAML — yamllint's key-duplicates rule covers the same property
+            "YAML has no duplicate keys",
+        }
+        self.assertEqual(
+            removed & names, set(),
+            f"gates removed on 2026-10-15 are back: {sorted(removed & names)}",
+        )
 
     def test_blocking_and_advisory_gates_both_present(self):
         """Registry has at least one blocking and one advisory gate."""

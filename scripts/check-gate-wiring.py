@@ -328,51 +328,6 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
-        name="adr-config-sync",
-        cmd=[sys.executable, "scripts/check-adr-config-sync.py"],
-        sabotage_path="scripts/check_adr_status.py",
-        # Appending a module-level glob to a consumer is exactly the regression this
-        # gate exists to catch. (As source text this control was split across two
-        # literals, became a SyntaxError, and took every control below it down with
-        # it — Part B reported nothing at all until the control suite was run rather
-        # than read, #529. The `Control` type above records that lesson.)
-        sabotage=_append('\n_SABOTAGE = sorted(Path("docs/decisions").glob("*.md"))\n'),
-        why=(
-            "the gate's whole claim is that no consumer grows its own glob. "
-            "Appending one to a consumer is exactly the regression it exists to "
-            "catch, and nothing else in the registry fails when that happens: the "
-            "status gate would keep reporting 'all statuses in vocabulary' while "
-            "reading a different corpus than the other four consumers"
-        ),
-    ),
-    ScriptGate(
-        name="yaml-duplicate-keys",
-        cmd=[sys.executable, "scripts/check-yaml-duplicate-keys.py", "--quiet"],
-        sabotage_path="config/detekt/detekt-rules-module.yml",
-        sabotage=_replace('    active: false\n', '    active: false\n    active: true\n', count=1),
-        why=(
-            "a repeated key is a hard error for SnakeYAML and silently last-one-wins "
-            "for other readers. :detekt-rules:detekt is the only consumer of this "
-            "file, and :shared/:desktopApp keep their own configs, so the two most-used "
-            "lint targets still pass while this module's config is unreachable."
-        ),
-    ),
-    ScriptGate(
-        name="adr-module-boundary",
-        cmd=[sys.executable, "scripts/check-adr-module-boundary.py"],
-        sabotage_path="adr-cli/build.gradle.kts",
-        # The regression this gate exists for, restored exactly: the one-line
-        # dependency that put the whole application — Compose, Room, SQLite, Koin,
-        # Koog — on the classpath of a markdown lister, making a 4.9 MB
-        # distribution 127 MB again with every test still green.
-        sabotage=_replace(
-            'implementation(project(":adr-core"))',
-            'implementation(project(":adr-core"))\n    implementation(project(":shared"))',
-            count=1,
-        ),
-        why="a direct `:adr-cli -> :shared` edge, which is the 127 MB",
-    ),
-    ScriptGate(
         name="detekt-registrations",
         cmd=["./scripts/check-detekt-registrations.sh"],
         sabotage_path="config/detekt/detekt.yml",
@@ -443,49 +398,6 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
-        name="adr-immutable",
-        cmd=[sys.executable, "scripts/check-adr-immutable.py"],
-        # The one decision closed *after* `immutableSince`, so the sabotage lands
-        # inside the window. An older one would be grandfathered and the control
-        # would pass on a gate that had checked nothing — which is exactly what the
-        # first version of this control did.
-        sabotage_path="docs/decisions/2026-10-10-adr-file-local-rules-live-in-the-writer.md",
-        sabotage=_replace('## Consequences', '## Consequences\n\nSABOTAGE', count=1),
-        why=(
-            "a closed decision's body is a record of what was decided; rewriting it is "
-            "how a decision trail disappears without any field the gate watches changing"
-        ),
-    ),
-    ScriptGate(
-        name="adr-status-drift",
-        cmd=[sys.executable, "scripts/check_adr_status.py"],
-        # A real decision file (not deferred/ — that was deleted in PR #645).
-        # The sabotage introduces a status value not in the vocabulary, which the
-        # gate must detect. Using an obviously-invalid value (DEAD-BEEF) rather
-        # than a plausible one (superseded/accepted) to guarantee the gate fails.
-        sabotage_path="docs/decisions/2026-09-05-android-bottom-nav-followups.md",
-        sabotage=_replace('status: accepted', 'status: DEAD-BEEF', count=1),
-        why=(
-            "a status value outside the vocabulary must be detected; a gate that "
-            "cannot see a bad status is a gate that cannot see drift"
-        ),
-    ),
-    ScriptGate(
-        name="unwired-backlog-refs",
-        cmd=[sys.executable, "scripts/check-unwired-backlog-refs.py"],
-        # A real decision file (not deferred/ — that was deleted in PR #645).
-        sabotage_path="docs/decisions/2026-09-05-koin-suspend-bridge.md",
-        # Corrupt the first `## Context` heading so the anchor no longer exists.
-        # The gate checks that every baseline reference points to an existing heading;
-        # a heading that vanished is the same class of failure as one that never existed.
-        sabotage=_replace(
-            '## Context',
-            '## NO-SUCH-HEADING',
-            count=1,
-        ),
-        why="an exemption pointing at a heading that does not exist is not an exemption",
-    ),
-    ScriptGate(
         name="dead-settings",
         cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
         # The sabotage removes a baseline entry, so the field it exempts becomes
@@ -516,65 +428,6 @@ SCRIPT_GATES = [
             '"aiSuppressedTagIds",\n        "sabotage_probe_field",',
         ),
         why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
-    ),
-    ScriptGate(
-        name="doc-dead-refs",
-        cmd=[sys.executable, "scripts/check-doc-dead-refs.py"],
-        # README.md, not PROGRESS.md: the dead-ref detector classifies a reference as
-        # *historical* when one of HISTORY_MARKERS appears in the preceding 600 chars,
-        # which PROGRESS.md is full of by design (it is a journal of the past). A
-        # sabotage there is correctly ignored, so it would prove nothing.
-        sabotage_path="README.md",
-        sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
-        why="a new dead reference must fail until baselined",
-    ),
-    ScriptGate(
-        name="skill-symbols",
-        cmd=[sys.executable, "scripts/check-doc-dead-refs.py", "--skill-symbols"],
-        # A skill file, not a source file: the gate answers "does this documented
-        # symbol exist", so the only honest sabotage is a skill naming one that
-        # does not. Sabotaging a source file would prove the opposite direction.
-        sabotage_path=".agents/skills/singularity-todo-quality-tools/SKILL.md",
-        sabotage=_append('\n## Probe\n\nCall `TotallyMadeUpHelperSymbol` here.\n'),
-        why="a stale symbol reference must fail until baselined",
-    ),
-    ScriptGate(
-        name="publication-hygiene",
-        cmd=[sys.executable, "scripts/check-publication-hygiene.py"],
-        # A source file, not the allowlist. The allowlist is the gate's escape
-        # hatch, so widening it is a decision a review should see in the diff of
-        # a real file rather than in a data file that reads as configuration. The
-        # sabotage writes a machine path into a tracked file outside every
-        # allowlisted prefix — the exact shape this gate was written for, and the
-        # one a future editor would reintroduce by pasting a command from a
-        # terminal.
-        sabotage_path="README.md",
-        sabotage=_append('\nBuild it with `cd /home/sabotage/probe`.\n'),
-        why=(
-            "a machine-specific path in a public file is unrecoverable once published. "
-            "Clean-run is waived (needs_clean_run=False): the spec-kit corpus imported "
-            "by #555 (.specify/issues/*.yaml, .specify/workflows/runs/*) carries the "
-            "importing machine's absolute paths and identity in every record — ~9k "
-            "matches, un-triaged real state — so the gate is advisory until the import "
-            "script emits repo-relative provenance and the corpus is re-imported"
-        ),
-        needs_clean_run=False,
-    ),
-    ScriptGate(
-        name="readme-claims",
-        cmd=[sys.executable, "scripts/check-readme-claims.py"],
-        # README.md, because the gate's entire claim is that this file states
-        # numbers which must match the tree. A wrong schema version is the
-        # cheapest drift to introduce and the first thing a reader would see.
-        # The self-tests cover the parse rules; this covers the wiring.
-        sabotage_path="README.md",
-        # Same defect the room-schema control had, found the same way: the schema
-        # moved 38 → 39 → 40 while this entry still replaced the literal 38, so
-        # `replace` matched nothing, the gate read an untouched README, correctly
-        # passed, and the control reported itself broken. Match by regex and
-        # assert, so a version bump cannot silently turn this into a no-op.
-        sabotage=_regex_sub(r'schema v\d+', 'schema v1'),
-        why="a README that contradicts the tree is the first failure a reader sees",
     ),
     ScriptGate(
         name="skill-frontmatter",
@@ -705,26 +558,6 @@ SCRIPT_GATES = [
         ),
         why="removing !isCi from release silently allows non-CI release uploads; "
              "the structural gate catches the missing condition before a comment could be reverted",
-    ),
-    ScriptGate(
-        name="speckit-issue-registry",
-        cmd=[sys.executable, "scripts/check-speckit-issue-registry.py"],
-        sabotage_path=".specify/issues/a-cell-carries-one-state.yaml",
-        # Break the required `type` field: the record no longer names an
-        # openspec-change, which is the malformed-registry shape the gate
-        # reports. Every record carries this field, so the mutation applies.
-        sabotage=_replace('type: openspec-change', 'type: not-openspec-change', count=1),
-        why=(
-            "an issue record whose type, slug or openspec_path is broken is a "
-            "registry entry pointing at nothing, and the registry is what agents "
-            "read as the source of truth. Clean-run is waived (needs_clean_run="
-            "False): every record stores the absolute openspec_path of the "
-            "checkout that imported it (night-work-01), so the corpus is red on "
-            "any machine that is not that one — un-triaged real state until the "
-            "registry is re-imported with repo-relative paths; the gate is "
-            "advisory by registration"
-        ),
-        needs_clean_run=False,
     ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
