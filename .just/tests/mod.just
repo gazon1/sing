@@ -311,7 +311,7 @@ docs-regen:
     set -euo pipefail
     ./scripts/regen-skills-catalog.sh
     ./scripts/refresh-decisions-digest.sh
-    echo "docs-regen: regenerated SKILLS-CATALOG.md and DIGEST.md"
+    echo "docs-regen: regenerated SKILLS-CATALOG.md, DIGEST.md and DIGEST-full.md"
 
 [group('tests')]
 [doc('Run the agent workflow evals (agent behaviour regression)')]

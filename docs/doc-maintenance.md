@@ -175,6 +175,66 @@ grep -r "status: open\|status: deferred" docs/decisions/
 
 ---
 
+## How to write documentation
+
+Added 2026-10-15. These are the rules for *writing*; the sections above decide *whether*
+to write an ADR and how big a file may get.
+
+**Document only what would surprise an experienced engineer.** If a reader who knows
+Kotlin, Gradle and this codebase already knows it, it does not belong in a document.
+The corpus that earns its place is the stuff that is true here and nowhere else — which
+port was deleted and why, which budget is deliberately tight, which invariant a test
+enforces that the types do not.
+
+**Prefer descriptive filenames.** Filenames are the index. `docs/architecture/sync.md`
+is found by looking at the tree; a skill called `singularity-todo-sync` had to be
+discovered through a description that could be truncated out of context. If you cannot
+name a file after what a reader would search for, the file is probably two files.
+
+**Assume the reader can `grep` and follow links.** Do not restate what another document
+already says — name it and move on. Duplicated prose is a second copy to keep in step,
+and it drifts silently, which is worse than being absent.
+
+**Refer to documents by filename in backticks**, e.g. `sync.md`, and by a repo-relative
+path when the name is ambiguous, e.g. `docs/architecture/sync.md`. This is not style:
+`scripts/check-doc-dead-refs.py` resolves backticked paths, so writing them is what lets
+a renamed file be caught. Markdown links and `../` paths are not resolved by that gate,
+which is why they are not used here.
+
+**A skill is a procedure; a document is a state.** A skill answers "what do I do" and
+should survive refactors. A document answers "how does this work now" and is expected to
+be updated in the same commit as the code it describes. Moving a document into a skill
+because it grew a procedure section is the signal it was a document.
+
+**No manual line wrapping** is *not* a rule of this repository. `.editorconfig` sets
+`max_line_length` for `kt`/`kts` only, and Markdown here is written at a comfortable
+reading width.
+
+**Tables are allowed**, and are the right tool for "key → where it lives → what opens
+it". `docs/navigation.md`, `docs/PLATFORM-REFERENCE.md` and the generated
+`docs/scripts/gate-registry.md` all depend on that shape.
+
+## Retired skills
+
+Removed from `.agents/skills/`. Each has an ADR naming it; do not resurrect one without
+reading that ADR first.
+
+| Skill | Why it is gone | ADR |
+|---|---|---|
+| `koin-suspend-bridge` | Koin 4 has no suspend bridge problem left to solve | `2026-09-05-koin-suspend-bridge` |
+| `ai-provider-settings` | provider settings moved into a different module | `2026-09-05-llm-provider-settings` |
+| `secret-migration` | secret storage split into two ports | `2026-09-05-secret-storage-split` |
+| `koog-test-workarounds` | workarounds replaced by the Koog upgrade | `2026-09-05-koog-test-workarounds` |
+| `koog-both-platforms` | superseded by `singularity-todo-kmp-platform-specific` | `2026-09-05-koog-both-platforms` |
+| `vm-koin-scoping` | `viewModelOf` + `koinViewModel` made the guidance wrong | `2026-09-27-vm-koin-scoping-retired` |
+| `koin-di` | split into `koin-dsl` and `di-graph-testing` | `2026-09-27-di-module-aggregator-narrative` |
+| `grill-me` | renamed to `grilling` | `2026-10-01-tech-debt-reconciled` |
+| `grill-with-docs` | renamed to `grilling` | `2026-10-01-tech-debt-reconciled` |
+| `task-snapshot-testing` | Roborazzi never integrated; notes superseded | `2026-09-30-roborazzi-not-built-superseded` |
+| `sync`, `notifications`, `mcp-server`, `kmp-platform-specific` | described code state, not a procedure — now documents | `2026-10-15-reference-skills-become-documents` |
+
+---
+
 ## Top-level docs
 
 | File | Purpose | Who maintains |
@@ -182,7 +242,9 @@ grep -r "status: open\|status: deferred" docs/decisions/
 | `AGENTS.md` | Agent cheatsheet (auto-loaded) | All contributors |
 | `ARCHITECTURE.md` | Full design doc | All contributors |
 | `README.md` | Project intro + quickstart | All contributors |
-| `docs/decisions/DIGEST.md` | Auto-generated ADR index | `refresh-decisions-digest.sh` |
+| `docs/architecture/*.md` | How each subsystem works *now* | Whoever changes it |
+| `docs/decisions/DIGEST.md` | Auto-generated orientation layer | `refresh-decisions-digest.sh` |
+| `docs/decisions/DIGEST-full.md` | Auto-generated decision index | `refresh-decisions-digest.sh` |
 
 Update these when:
 - New feature adds a new package or expect/actual declaration

@@ -1,11 +1,12 @@
----
-name: singularity-todo-notifications
-description: Notification port pattern for KMP with notify-send/at on JVM, AlarmManager+BootReceiver on Android. Use when building cross-platform reminder and notification systems.
----
+# Reminders and notifications
 
-# Singularity TODO — Notification Port Pattern
-
-This skill documents the notification architecture in the Singularity TODO KMP app.
+> **Reference, not a procedure.** This describes the current state of reminders and notifications. It goes
+> stale whenever the code changes, so a change to it updates this file in the same commit.
+> A document that has to be re-read after every refactor is in the wrong place —
+> procedures belong in `.agents/skills/`.
+>
+> Moved out of the skill `singularity-todo-notifications` on 2026-10-15; the reason is recorded in
+> `docs/decisions/2026-10-15-reference-skills-become-documents.md`.
 
 ## Current Architecture (2026-09-22)
 

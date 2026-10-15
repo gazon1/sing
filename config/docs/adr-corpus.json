@@ -16,7 +16,7 @@
 
   "_comment_classes": "Three distinct classes, not one. An ADR is a dated decision record under `root`. An archived ADR keeps its dated name but leaves the live corpus. A file under `deferred/` is backlog, NOT a decision: it carries slug names, no real date, and statuses from a different vocabulary. Treating it as a decision is what produced 129 files the gate could not see.",
 
-  "ignoredFiles": ["DIGEST.md"],
+  "ignoredFiles": ["DIGEST.md", "DIGEST-full.md"],
 
   "vocabulary": {
     "statuses": ["accepted", "deferred", "superseded", "open"],

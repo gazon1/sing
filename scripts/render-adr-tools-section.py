@@ -61,12 +61,26 @@ CATALOG_KT = ROOT / ("shared/src/commonMain/kotlin/com/singularity/todo/mcp"
 BEGIN = "<!-- BEGIN GENERATED: adr-tools -->"
 END = "<!-- END GENERATED: adr-tools -->"
 
-# The skills whose command reference is generated. Both describe the ADR tools, and
+# The documents whose command reference is generated. Both describe the ADR tools, and
 # both had drifted; the rest of each file is prose and stays hand-written.
-SKILLS = (
+#
+# One of the two is no longer a skill. `singularity-todo-mcp-server` moved to
+# `docs/architecture/mcp-server.md` on 2026-10-15 because it described the state of the
+# code rather than a procedure, and this tuple points at wherever it now lives. That is
+# the seam that matters: `check-skill-drift.py` iterates THIS tuple, so a path that is
+# wrong here is invisible there. Deleting an entry would be worse than leaving it stale —
+# the gate would keep passing while checking one document instead of two, and report
+# "OK — 1 document(s)" without anyone reading the number. The count is asserted by
+# `test_render_targets_two_documents_and_both_exist`.
+DOCUMENTS = (
     ROOT / ".agents/skills/singularity-todo-decisions-workflow/SKILL.md",
-    ROOT / ".agents/skills/singularity-todo-mcp-server/SKILL.md",
+    ROOT / "docs/architecture/mcp-server.md",
 )
+
+# Retained under the historical name: it is imported as `renderer.SKILLS` by
+# check-skill-drift.py and by its own tests. Renaming it here would break those callers
+# to make a name accurate, which is the wrong trade.
+SKILLS = DOCUMENTS
 
 # Parsing rules for `AdrSurface.kt` declarations:
 #

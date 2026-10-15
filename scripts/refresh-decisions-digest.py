@@ -11,41 +11,55 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import adr_corpus  # noqa: E402  — single owner of corpus discovery (#520)
+import docs_tree  # noqa: E402  — draws docs/; owns no corpus rule
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS = adr_corpus.load(ROOT)
 DECISIONS_DIR = CORPUS.root
+DOCS_DIR = ROOT / "docs"
+ARCH_DIR = DOCS_DIR / "architecture"
+
+# Two artifacts, split on 2026-10-15 by `2026-10-15-digest-orientation-layer.md`.
+#
+# DIGEST.md is the ALWAYS-LOADED orientation layer: what an agent is told to read before
+# a non-trivial task, so it is read in every session and its size is a tax paid on every
+# task. DIGEST-full.md is the complete index, opened only when the orientation layer has
+# not already answered the question.
+#
+# The split removes the treadmill rather than moving it. Before it, one file was both
+# the always-loaded layer and the complete index, so every new ADR pushed a gate that
+# blocked a PR, and the generator was trimmed four times to keep up: MAX_BULLETS_PER_ADR
+# 6->2, MAX_ITEMS_PER_TAG 10->9, a ~385-line duplicate index dropped, MAX_ACTIVE_ENTRIES
+# capped. A budget that the growth always reaches is a wall, not a ratchet.
+#
+# The orientation layer is instead bounded by *kind*, not by corpus size: a fixed number
+# of recent decisions, one generated tree of `docs/`, and one wrapped line of tags. Adding
+# an ADR cannot grow it past MAX_ORIENTATION_LINES, because nothing in it is one-per-ADR.
 DIGEST = DECISIONS_DIR / 'DIGEST.md'
-MAX_DIGEST_LINES = 1250  # dropped the duplicate slug→tags index (~385 lines) in 2026-10-03
-# 10 -> 9 on 2026-10-11, the day a decision pushed the digest to 1255/1250.
-#
-# `2026-10-04-doc-size-budget-was-already-red.md` settled what to do about an
-# over-budget digest: raise `MAX_DIGEST_LINES` as option 2, "explicitly behind" trimming
-# the generator, because "a generator that can be trimmed at the source is worth more
-# than a larger ceiling". So this lowers what the per-tag sections surface instead.
-#
-# It costs nothing navigable. A tag section is an index inside an index, and it only
-# ever showed the first N of a larger set; the flat `Active entries` list below is the
-# one that names ADRs, and it is untouched. The difference between 10 of 40 and 9 of 40
-# is a line, not a decision that stopped being findable. Measured: 1255 -> 1231 lines,
-# which restores 19 lines of headroom rather than moving the problem to the next ADR.
-MAX_ITEMS_PER_TAG = 9  # per tag section cap; the digest is an index, the ADR body is one link away
-# The two flat sections below were uncapped, and one of them had already been trimmed once
-# for exactly this reason (the duplicate slug->tags index, ~385 lines). An uncapped index
-# is a second copy of the directory listing wearing an index's clothes: it grows by one
-# line per ADR, forever, and the only ways to stay under budget are to stop listing or to
-# stop writing ADRs. Both lists are capped, newest first, with the same
+DIGEST_FULL = DECISIONS_DIR / 'DIGEST-full.md'
+MAX_ORIENTATION_LINES = 120
+MAX_DIGEST_FULL_LINES = 3000
+
+# How many recent decisions the always-loaded layer names. 20 was picked from the
+# measured digest, not tuned: each entry is one `- \`slug\` — title` line, so 20 entries
+# cost ~22 of the 120-line budget and leave the rest for the tree and the pointers.
+ORIENTATION_RECENT = 20
+
+# The caps below now bound DIGEST-full.md only. They were written for a file that every
+# session paid for; on an on-demand index the tradeoff is different — the reader opened
+# it deliberately and wants the tag section, not nine of its forty bullets. They are
+# relaxed rather than removed: an uncapped index is a second copy of the directory
+# listing, and one verbose ADR tagged `always` would fill every section it touches.
+MAX_ITEMS_PER_TAG = 20  # per tag section; the ADR body is one link away
+MAX_BULLETS_PER_ADR = 6  # per ADR inside the per-tag sections
+# The two flat sections below are capped for the same reason, with the same
 # "_... and N more items_" convention the per-tag sections already use.
+#
+# MAX_ACTIVE_ENTRIES covers the whole live corpus (595 records as of 2026-10-15) rather
+# than the previous 300, so "Active entries" is no longer a truncated tail — the honest
+# count line only appears if the corpus actually grows past this.
 MAX_OPEN_DEFERRED = 25
-MAX_ACTIVE_ENTRIES = 300
-# 3 -> 2 on 2026-10-13, the day `2026-10-13-ensure-device-acquires` pushed the
-# digest to 1256/1250. Same reasoning as the MAX_ITEMS_PER_TAG 10 -> 9 change:
-# the per-tag section is an index inside an index, the ADR body is one link away,
-# and the flat `Active entries` list is untouched. Measured 1256 -> 1159, a bigger
-# drop than expected — most ADRs carried more than two bullets in some tag
-# section — so this restores ~90 lines of headroom rather than moving the problem
-# to the next ADR.
-MAX_BULLETS_PER_ADR = 2  # per ADR cap inside the per-tag sections
+MAX_ACTIVE_ENTRIES = 600
 
 
 def parse_argv(argv: list[str]) -> None:
@@ -64,6 +78,68 @@ def parse_argv(argv: list[str]) -> None:
         print(f"refresh-decisions-digest: unknown argument {arg!r}\n"
               "usage: refresh-decisions-digest.sh  (takes no arguments)", file=sys.stderr)
         sys.exit(2)
+
+
+# Root documents that answer "where do I look", with the question each one answers.
+# Existence is not checked here on purpose — `check-doc-dead-refs` already resolves every
+# backticked path in the repo, so a pointer to a file that stops existing is caught there,
+# and duplicating that resolution here would be a second rule to keep in step.
+# The labels are the part that cannot be derived from the filesystem, and they are the
+# entire reason this section is prose rather than generated names.
+ROOT_POINTERS = (
+    ("Rules an agent must not get wrong on any task", "`AGENTS.md`"),
+    ("How the code is laid out", "`ARCHITECTURE.md`"),
+    ("Current domain vocabulary", "`docs/CONTEXT.md`"),
+    ("Nav3 key inventory (container / opener / start route)", "`docs/navigation.md`"),
+    ("expect/actual ports, platform differences", "`docs/PLATFORM-REFERENCE.md`"),
+    ("Which modules have a spec, and which do not", "`openspec/specs/MODULE-INDEX.md`"),
+    ("Procedural skills (loaded by the harness)", "`.agents/skills/`"),
+    ("How documentation is written and sized", "`docs/doc-maintenance.md`"),
+)
+
+
+def render_doc_tree(decision_count: int, deferred_count: int, archived_count: int) -> list[str]:
+    """Draw `docs/` for the orientation layer.
+
+    The drawing lives in `docs_tree.py`, which does not call `adr_corpus.load()` and is
+    therefore not a corpus consumer: this module is, and `check-adr-config-sync.py` fails
+    any directory walk inside a corpus consumer so that #520 cannot recur. The renderer
+    takes every ADR count as an argument for the same reason — it draws directories, and
+    `adr_corpus` decides what a decision is.
+    """
+    return docs_tree.render(
+        DOCS_DIR, DECISIONS_DIR, ARCH_DIR,
+        decision_count=decision_count,
+        deferred_count=deferred_count,
+        archived_count=archived_count,
+        known_slugs=CORPUS.all_slugs(),
+        deferred_dir=CORPUS.deferred_dir,
+        archive_dir=CORPUS.archive_dir,
+    )
+
+
+def wrap_tags(tags: list[str], width: int = 96) -> list[str]:
+    """One wrapped paragraph of `tag` names, so the index costs lines not entries.
+
+    Forty tags at one line each would spend a third of the orientation budget on a list
+    that exists only to say "these words appear in the corpus". Grouped and wrapped it is
+    a handful of lines that a reader scans, and `DIGEST-full.md` holds the per-tag detail.
+    """
+    if not tags:
+        return []
+    lines: list[str] = []
+    current = ""
+    for tag in tags:
+        token = f"`{tag}`"
+        candidate = f"{current} {token}".strip()
+        if current and len(candidate) > width:
+            lines.append(current)
+            current = token
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
 
 
 def main() -> None:
@@ -194,9 +270,11 @@ def main() -> None:
         return f"{bullet} _(from `{slug}`)_"
 
     out: list[str] = []
-    out.append("# Decision Log Digest")
+    out.append("# Decision Log — full index")
     out.append("")
     out.append("Auto-generated from `docs/decisions/`. Run `./scripts/refresh-decisions-digest.sh` to rebuild.")
+    out.append("")
+    out.append("Complete index, opened on demand. The layer every session reads is `DIGEST.md`.")
     out.append("")
     out.append("## Critical")
     out.append("")
@@ -283,11 +361,80 @@ def main() -> None:
                    "`docs/decisions/`_")
     out.append("")
 
-    DIGEST.write_text('\n'.join(out) + '\n')
-    total = len(out)
-    print(f"refreshed {DIGEST} ({total} lines, {len(entries)} entries)")
-    if total > MAX_DIGEST_LINES:
-        print(f"WARNING: DIGEST is {total} lines (limit: {MAX_DIGEST_LINES})", file=sys.stderr)
+    # ── DIGEST-full.md — the complete index ────────────────────────────────
+    DIGEST_FULL.write_text('\n'.join(out) + '\n')
+    full_lines = len(out)
+
+    # ── DIGEST.md — the always-loaded orientation layer ─────────────────────
+    #
+    # Bounded by kind, not by corpus size: a fixed number of recent decisions, one
+    # generated tree, one wrapped line of tags. No section here is one-per-ADR, so a new
+    # ADR cannot push it over MAX_ORIENTATION_LINES — which is the whole point, and the
+    # thing the single-file version could never be.
+    light: list[str] = []
+    light.append("# Documentation map")
+    light.append("")
+    light.append(
+        "Auto-generated. Rebuild: `./scripts/refresh-decisions-digest.sh`. "
+        "Complete decision index: `docs/decisions/DIGEST-full.md`.")
+    light.append("")
+    light.append("## Where to look")
+    light.append("")
+    for question, target in ROOT_POINTERS:
+        light.append(f"- {question} — {target}")
+    light.append(f"- A decision — `docs/decisions/`; this file's *Recent decisions*, "
+                 "or `DIGEST-full.md` for the full index")
+    light.append("")
+    light.append("## docs/")
+    light.append("")
+    live_decisions = CORPUS.decisions(include_archived=False)
+    light.extend(render_doc_tree(
+        len(live_decisions), len(CORPUS.deferred()), len(CORPUS.archived())))
+    light.append("")
+    light.append("## Recent decisions")
+    light.append("")
+    recent = [p for p in reversed(live_decisions)
+              if p.stem not in superseded][:ORIENTATION_RECENT]
+    if recent:
+        for path in recent:
+            slug = path.stem
+            light.append(f"- `{slug}` — {titles.get(slug, '') or '_(no title)_'}")
+    else:
+        light.append("_No dated decisions._")
+    live_total = len([p for p in live_decisions if p.stem not in superseded])
+    if live_total > ORIENTATION_RECENT:
+        light.append(f"- _... and {live_total - ORIENTATION_RECENT} older in "
+                     "`docs/decisions/` (filenames are date-prefixed and "
+                     "self-describing; `grep` them)_")
+    light.append("")
+    all_tags = sorted({t for t in per_tag if t != '_untagged_'})
+    if all_tags:
+        light.append("## Decision tags")
+        light.append("")
+        light.extend(wrap_tags(all_tags))
+        light.append("")
+        light.append("_Per-tag detail in `DIGEST-full.md`._")
+
+    DIGEST.write_text('\n'.join(light) + '\n')
+    light_lines = len(light)
+
+    over = []
+    if light_lines > MAX_ORIENTATION_LINES:
+        over.append(f"DIGEST.md is {light_lines} lines (budget: {MAX_ORIENTATION_LINES})")
+    if full_lines > MAX_DIGEST_FULL_LINES:
+        over.append(f"DIGEST-full.md is {full_lines} lines (budget: {MAX_DIGEST_FULL_LINES})")
+
+    # One machine-readable line, in the shape `sgate decisions_digest_within_budget`
+    # parses. It used to print `WARNING: DIGEST is N lines (limit: M)` to stderr and
+    # exit 0 — which no regex matched and no gate could act on, so the budget that four
+    # rounds of trimming had been paying for was not actually enforced here at all.
+    print(f"refresh-decisions-digest: DIGEST.md is {light_lines} lines "
+          f"(budget: {MAX_ORIENTATION_LINES}), DIGEST-full.md is {full_lines} lines "
+          f"(budget: {MAX_DIGEST_FULL_LINES}), {len(entries)} entries")
+    for line in over:
+        print(line, file=sys.stderr)
+    if over:
+        sys.exit(1)
 
 
 if __name__ == '__main__':

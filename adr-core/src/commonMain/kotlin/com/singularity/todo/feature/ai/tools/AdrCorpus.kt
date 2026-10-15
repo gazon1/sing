@@ -155,7 +155,7 @@ data class AdrCorpusConfig(
             decisionPattern = Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}-"),
             archiveDir = "archive",
             deferredDir = "deferred",
-            ignoredFiles = setOf("DIGEST.md"),
+            ignoredFiles = setOf("DIGEST.md", "DIGEST-full.md"),
             statuses = setOf("accepted", "deferred", "superseded", "open"),
             archivedStatus = "archived",
             staleDays = 30,

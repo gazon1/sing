@@ -144,10 +144,17 @@ collect_and_report() {
 # as the command to `gate`.  Each must be `export -f` so bash -c sees it.
 
 digest_no_double_suffix() {
-  local n
-  n=$(grep -c "_(from " docs/decisions/DIGEST.md 2>/dev/null || echo 0)
+  # Both digests, since 2026-10-15 split one file into two. The path used to be written
+  # inline against DIGEST.md alone, which meant the second artifact would have been
+  # created ungated — the same class of defect as a check that reads a file nobody writes.
+  local n=0
+  local f
+  for f in docs/decisions/DIGEST.md docs/decisions/DIGEST-full.md; do
+    [[ -f "$f" ]] || continue
+    n=$((n + $(grep -c "_(from " "$f" || true)))
+  done
   if ((n > 100)); then
-    echo "DIGEST.md has $n '_(from ' occurrences — double-suffix bug"
+    echo "digests have $n '_(from ' occurrences — double-suffix bug"
     return 1
   fi
 }

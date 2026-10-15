@@ -1,9 +1,14 @@
 # Singularity Todo — Agent Cheatsheet
 
 > Загружается автоматически в каждый чат с агентом. Полная документация: `ARCHITECTURE.md`.
-> Перед нетривиальной задачей прочитай `docs/decisions/DIGEST.md`.
+> Обзор документации: `docs/decisions/DIGEST.md`. Читай перед нетривиальной задачей.
 
 ## Начало задачи
+
+**Обзор документации — один раз за сессию.** `DIGEST.md` перечисляет, что где лежит:
+дерево `docs/`, свежие решения, указатели. Дальше иди по именам файлов (`grep` / `find`),
+а не перечитывай индексы — имена самодостаточны: `docs/architecture/sync.md` описывает sync. Полный индекс
+решений — `DIGEST-full.md`, открывай его только если слоя не хватило.
 
 **`git fetch` — до того, как что-либо сделал, а не на пуше.** Расхождение, найденное
 в начале, стоит один rebase пустого дерева; найденное на пуше — полную перепроверку
@@ -154,7 +159,7 @@ A–G мета-гейта и рецепты — скилл `singularity-todo-qua
 
 Агенты подключаются к `:mcp-server` через stdio и правят задачи/проекты/заметки/теги/ADR.
 Запуск: `./gradlew :mcp-server:build && java -jar mcp-server/build/libs/mcp-server-jvm-*.jar --profile=ai-agent`.
-Полный список tools (22 write/read + 13 AI gen) — `singularity-todo-mcp-server` skill.
+Полный список tools (22 write/read + 13 AI gen) — `docs/architecture/mcp-server.md`.
 
 MCP tools меняют state только через репозитории; `write_adr` пишет в `docs/decisions/`;
 timestamps — `kotlin.time.Instant`; business errors → `isError:true`, internal → `-32603`.
@@ -212,27 +217,23 @@ ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debuggi
 
 ## 🧠 Decision log
 
-Перед нетривиальной задачей прочитай `docs/decisions/DIGEST.md`. Если задача меняет
-архитектуру, контракт или обнаруживает неочевидный workaround — создай запись в
-`docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`./scripts/refresh-decisions-digest.sh`).
-**Писать:** выбор между несколькими разумными вариантами; неочевидный workaround; изменение
-контракта между слоями. **Не писать:** опечатки, форматирование, новый use case по
-существующему паттерну. Формат: frontmatter + `Context / Idea / Decision / Rationale /
-Consequences / Links`; policy — `docs/doc-maintenance.md`.
+Если задача меняет архитектуру, контракт или обнаруживает неочевидный workaround — создай
+запись в `docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest
+(`./scripts/refresh-decisions-digest.sh`). **Писать:** выбор между несколькими разумными
+вариантами; неочевидный workaround; изменение контракта между слоями. **Не писать:**
+опечатки, форматирование, новый use case по существующему паттерну. Формат: frontmatter +
+`Context / Idea / Decision / Rationale / Consequences / Links`; policy —
+`docs/doc-maintenance.md`.
 
 ## 🗂 Skills
 
-Каталог — `docs/SKILLS-CATALOG.md` (auto-generated, не редактировать). Правила написания —
-`writing-for-agents`; навигация по темам — `find-skills` / `wayfinder`. Ключевые:
-`singularity-todo-testable-vm` (canonical VM) · `feature-scaffold` · `test-helpers` ·
-`koin-di` · `mcp-server` · `quality-tools` · `maestro-flows` · `singularity-todo-android-cli`
-(Android Studio integration + Journeys).
+Скилл — это **процедура**: что агент делает. Состояние кода — это документ в
+`docs/architecture/` (см. обзор в `DIGEST.md`). Каталог — `docs/SKILLS-CATALOG.md`
+(auto-generated, не редактировать); правила написания — `writing-for-agents`.
 
 > **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется, покрыт
 > тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`.
 
 Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md`
-(один `CONTEXT.md` в корне, ADR-и в `docs/decisions/`). **Удалённые skill-ы** (не
-воскрешать): `koin-suspend-bridge`, `ai-provider-settings`, `secret-migration`,
-`koog-test-workarounds`, `koog-both-platforms`, `vm-koin-scoping` — причина каждого в
-ADR с его именем.
+(`CONTEXT.md` в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина
+каждого — `docs/doc-maintenance.md`.

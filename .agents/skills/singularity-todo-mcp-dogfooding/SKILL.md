@@ -200,7 +200,7 @@ your own response from inputs already on the DB.
 
 ## Related
 
-- `singularity-todo-mcp-server` — how to host the server itself
+- `docs/architecture/mcp-server.md` — how to host the server itself
 - ADR `2026-09-07-mcp-stdio-blocking-lifecycle` — why the server must
   wrap `createSession` in `done.join()`
 - ADR `2026-09-07-mcp-tool-error-model` — business vs internal errors

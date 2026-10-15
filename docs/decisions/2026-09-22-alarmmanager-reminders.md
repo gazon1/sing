@@ -71,4 +71,4 @@ AlarmReceiver (android:name)    → 4 actions:
 
 - Implementation: `AlarmManagerReminderScheduler.kt`, `AlarmReceiver.kt`, `AndroidNotifier.kt`
 - Pure logic: `ReminderFireLogic.kt`, `ReminderScheduler.kt` (interface)
-- Skill: `.agents/skills/singularity-todo-notifications/SKILL.md`
+- Skill: `docs/architecture/reminders-and-notifications.md`

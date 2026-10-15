@@ -1,9 +1,12 @@
----
-name: singularity-todo-mcp-server
-description: MCP server pattern for Singularity Todo KMP. Use when adding a new :mcp-server Gradle module that exposes existing Koog AI tools as MCP tools to external agents (Claude Code, ZCode CLI, Cursor). Covers io.modelcontextprotocol:kotlin-sdk:0.15.0 Server + StdioTransport, addTool registration, JSON-Schema adapter from Koog SimpleTool<T>, graceful shutdown with PRAGMA wal_checkpoint(PASSIVE), and ZCode MCP config wiring. Read this BEFORE adding write-tools or running the MCP server.
----
+# MCP server
 
-# MCP Server — Exposing AI Tools to External Agents
+> **Reference, not a procedure.** This describes the current state of the MCP server (`:mcp-server`). It goes
+> stale whenever the code changes, so a change to it updates this file in the same commit.
+> A document that has to be re-read after every refactor is in the wrong place —
+> procedures belong in `.agents/skills/`.
+>
+> Moved out of the skill `singularity-todo-mcp-server` on 2026-10-15; the reason is recorded in
+> `docs/decisions/2026-10-15-reference-skills-become-documents.md`.
 
 ## Overview
 

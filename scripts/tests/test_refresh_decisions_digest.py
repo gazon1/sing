@@ -7,10 +7,16 @@ a real option assumes there is a parser and writes around it.
 
 These lock down that the script now refuses arguments it does not implement, with the
 same exit code `singularity-adr` uses for a mistyped subcommand.
+
+The second half covers the 2026-10-15 split into an always-loaded orientation layer and
+an on-demand full index — mostly the *shared* numbers, because a budget declared twice in
+two files is how #520 happened.
 """
 
 import importlib.util
 import pathlib
+import re
+import tempfile
 import unittest
 
 MODULE_PATH = (pathlib.Path(__file__).resolve().parent.parent
@@ -18,6 +24,9 @@ MODULE_PATH = (pathlib.Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('refresh_decisions_digest', MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+SIZES_PATH = ROOT / 'scripts' / 'check-doc-sizes.py'
 
 
 class ArgvTest(unittest.TestCase):
@@ -42,6 +51,106 @@ class ArgvTest(unittest.TestCase):
 
     def test_help_exits_zero(self):
         self.assertEqual(self._exit_code(['--help']), 0)
+
+
+class BudgetIsDeclaredOnceTest(unittest.TestCase):
+    """`check-doc-sizes.py` enforces what this generator aims at.
+
+    Two files now hold the same number. That is the #520 shape — one rule, two owners,
+    already drifted once in this repo (AdrStorage vs the Python corpus rules). The
+    agreement is asserted here rather than left to a comment asking people to remember.
+    """
+
+    @staticmethod
+    def _constant(text: str, name: str) -> int:
+        match = re.search(rf'^{name}\s*=\s*(\d+)', text, re.M)
+        assert match, f'{name} not found in check-doc-sizes.py'
+        return int(match.group(1))
+
+    def test_orientation_budget_matches_the_enforced_budget(self):
+        sizes = SIZES_PATH.read_text(encoding='utf-8')
+        self.assertEqual(mod.MAX_ORIENTATION_LINES, self._constant(sizes, 'DIGEST_MAX'))
+
+    def test_full_digest_budget_matches_the_enforced_budget(self):
+        sizes = SIZES_PATH.read_text(encoding='utf-8')
+        self.assertEqual(mod.MAX_DIGEST_FULL_LINES,
+                         self._constant(sizes, 'DIGEST_FULL_MAX'))
+
+    def test_the_orientation_layer_has_room_for_its_own_sections(self):
+        """A budget below the fixed cost of the sections would fail every run.
+
+        The point of MAX_ORIENTATION_LINES is that it does not track corpus size, so this
+        is a floor check: the sections that never grow must fit inside it.
+        """
+        fixed_cost = len(mod.ROOT_POINTERS) + 12  # pointer rows + headers + tree
+        self.assertLess(fixed_cost, mod.MAX_ORIENTATION_LINES)
+
+
+class OrientationLayerTest(unittest.TestCase):
+
+    def test_wrap_tags_respects_its_width(self):
+        tags = [f'tag-number-{i}' for i in range(40)]
+        for line in mod.wrap_tags(tags, width=96):
+            self.assertLessEqual(len(line), 96)
+
+    def test_wrap_tags_does_not_drop_or_duplicate_a_tag(self):
+        tags = [f'tag-number-{i}' for i in range(40)]
+        joined = ' '.join(mod.wrap_tags(tags, width=96))
+        for tag in tags:
+            self.assertEqual(joined.count(f'`{tag}`'), 1)
+
+    def test_wrap_tags_of_nothing_is_nothing(self):
+        self.assertEqual(mod.wrap_tags([]), [])
+
+    def test_the_tree_says_how_big_the_collapsed_directory_is(self):
+        """Hiding a directory without saying so is the failure mode this file exists to avoid."""
+        lines = mod.render_doc_tree(590, 129, 14)
+        joined = '\n'.join(lines)
+        self.assertIn('590 decisions', joined)
+        self.assertIn('129 deferred backlog entries', joined)
+        self.assertIn('14 non-decision records, excluded', joined)
+
+    def test_the_tree_reports_residual_files_instead_of_hiding_them(self):
+        """`docs/decisions/` holds files that are neither decisions nor backlog."""
+        lines = mod.render_doc_tree(3, 2, 1)
+        joined = '\n'.join(lines)
+        self.assertIn('other note', joined)
+
+    def test_the_collapsed_directory_accounts_for_every_subdirectory(self):
+        """The breakdown must add up, or a reader stops trusting the whole tree."""
+        lines = mod.render_doc_tree(592, 129, 14)
+        joined = '\n'.join(lines)
+        for name in ('archive/', 'deferred/', 'templates/'):
+            self.assertIn(name, joined)
+
+    def test_a_missing_subdirectory_is_absent_not_an_exception(self):
+        """`docs/architecture/` did not exist until the reference-skill migration landed.
+
+        The orientation layer is generated on every `git fetch`, so it must render whatever
+        is on disk rather than require a particular phase to have run.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            docs = pathlib.Path(tmp) / 'docs'
+            decisions = docs / 'decisions'
+            decisions.mkdir(parents=True)
+            (docs / 'testing').mkdir()
+            (decisions / 'deferred').mkdir()
+            (decisions / 'README.md').write_text('not an adr', encoding='utf-8')
+            lines = mod.docs_tree.render(
+                docs, decisions, docs / 'architecture',
+                decision_count=0, deferred_count=0, archived_count=0,
+                known_slugs=set(), deferred_dir='deferred', archive_dir='archive')
+        joined = '\n'.join(lines)
+        # A directory that is not on disk is not listed — the tree shows what exists, and
+        # the rest of it still renders rather than the whole generation failing.
+        self.assertNotIn('architecture/', joined)
+        self.assertIn('testing/', joined)
+        self.assertIn('decisions/', joined)
+        self.assertIn('1 other note', joined)
+
+    def test_the_tree_is_deterministic(self):
+        self.assertEqual(mod.render_doc_tree(5, 5, 5),
+                         mod.render_doc_tree(5, 5, 5))
 
 
 if __name__ == '__main__':

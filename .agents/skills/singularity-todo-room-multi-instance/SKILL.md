@@ -145,7 +145,7 @@ cancelling is a targeted `systemctl stop <name>` and never an enumeration.
 
 - `singularity-todo-room-migration` — schema migrations. Different concern; this file is
   about **runtime** concurrency.
-- `singularity-todo-mcp-server` — the agent-side entry point that opens the same file.
+- `docs/architecture/mcp-server.md` — the agent-side entry point that opens the same file.
 - ADR `2026-10-07-desktop-reminders-systemd-user-timers` — why a second process appeared.
 - ADR `2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs` — why
   there is no job daemon to shell out to.
