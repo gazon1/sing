@@ -232,6 +232,12 @@ class SpecValidation(unittest.TestCase):
             "priority": "P1",
             "status": "confirmed",
             "targets": ["android", "desktop"],
+            # parse_spec requires both and rejects an empty string. They arrived
+            # after this fixture was written; the real scenario specs carry them
+            # (see scenarios/tasks/recurrence/TASK-REC-01.yaml), so the contract
+            # is deliberate and the fixture was the stale side.
+            "preconditions": "a clean state",
+            "expected": "the thing happens",
             "steps": ["do it"],
         }
         data.update(overrides)
@@ -330,7 +336,8 @@ class SpecValidation(unittest.TestCase):
             d = pathlib.Path(tmp)
             body = (
                 "id: TASK-REC-01\ntitle: t\npriority: P1\nstatus: confirmed\n"
-                "targets: [android]\nsteps: [do it]\n"
+                "targets: [android]\npreconditions: a clean state\nexpected: it happens\n"
+                "steps: [do it]\n"
             )
             (d / "tasks/recurrence").mkdir(parents=True)
             (d / "Tasks/Recurrence").mkdir(parents=True)

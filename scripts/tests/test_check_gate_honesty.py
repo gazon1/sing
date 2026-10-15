@@ -39,22 +39,28 @@ class FakeDetekt:
         self.exit_code = exit_code
         self.calls = 0
 
-    def __call__(self):
+    def __call__(self, worktree=None, *args, **kwargs):
+        # `_run_detekt_in(worktree)` runs detekt inside a disposable worktree, and
+        # the probe then reads THAT worktree's report — deliberately isolated from
+        # the live tree's, so a probe can never read a report left by a real run.
+        # Writing to `_mod.REPORT` here (the live-tree path the seam used before
+        # the worktree move) makes every "report exists" assertion fail with
+        # 'detekt wrote no report at all', which hides the branch under test.
         self.calls += 1
         if self.write_report and self.report_rule_id:
-            # The directory may not exist in a clean CI checkout (no Gradle run yet).
-            _mod.REPORT.parent.mkdir(parents=True, exist_ok=True)
-            _mod.REPORT.write_text(f"### app-error-code, {self.report_rule_id} (1)\n")
+            target = (worktree or _mod.ROOT) / "shared" / "build" / "reports" / "detekt" / "detekt.md"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(f"### app-error-code, {self.report_rule_id} (1)\n")
         return self.exit_code, "fake detekt output"
 
 
 def with_fake_detekt(fake, fn, *args, **kwargs):
-    original = _mod.run_detekt
-    _mod.run_detekt = fake
+    original = _mod._run_detekt_in
+    _mod._run_detekt_in = fake
     try:
         return fn(*args, **kwargs)
     finally:
-        _mod.run_detekt = original
+        _mod._run_detekt_in = original
 
 
 class TestProbeMechanics(unittest.TestCase):
@@ -110,13 +116,31 @@ class TestProbeMechanics(unittest.TestCase):
         )
 
     def test_a_stale_report_is_removed_before_the_run(self):
-        # Otherwise a report left by a previous run would be read as this run's evidence.
+        # A report left by a previous run must not be read as this run's evidence.
+        #
+        # Before the move to a disposable worktree this was enforced by deleting the
+        # stale report first. It is now enforced more strongly: the probe reads the
+        # WORKTREE's report path, so a report anywhere else cannot be evidence. The
+        # live tree's report is also left alone rather than deleted, which is the
+        # behaviour worth pinning -- a probe must not destroy a real report that a
+        # developer is looking at.
         _mod.REPORT.parent.mkdir(parents=True, exist_ok=True)
-        _mod.REPORT.write_text("### app-error-code, SomeRule (1)\n")
-        fake = FakeDetekt("Other")
-        with_fake_detekt(fake, probe_once, self.probe)
-        self.assertEqual(fake.calls, 1)
-        self.assertFalse(_mod.REPORT.exists(), "a stale report must not outlive the run")
+        stale = "### app-error-code, SomeRule (1)\n"
+        _mod.REPORT.write_text(stale)
+        try:
+            fake = FakeDetekt("Other")
+            with_fake_detekt(fake, probe_once, self.probe)
+            self.assertEqual(fake.calls, 1)
+            self.assertTrue(
+                _mod.REPORT.exists(),
+                "the live tree's report must survive a probe run",
+            )
+            self.assertEqual(
+                _mod.REPORT.read_text(), stale,
+                "and must be left byte-identical, not rewritten",
+            )
+        finally:
+            _mod.REPORT.unlink(missing_ok=True)
 
 
 class TestProbesAreSelfContained(unittest.TestCase):

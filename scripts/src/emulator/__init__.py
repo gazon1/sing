@@ -9,7 +9,9 @@ Public API:
 """
 from __future__ import annotations
 
-from emulator._cli import main as cli
+from emulator._cli import main
+# Also available as `.cli` for callers that prefer not to shadow the name `main`.
+cli = main
 from emulator._device import (
     adb,
     adb_on,
