@@ -88,19 +88,98 @@ tasks.register("koverHtml") {
 }
 
 // Markdown table from the Kover XML report. Depends on koverReport so the XML
-// is guaranteed to exist when this task runs. Delegates to the Python script
-// (already tested, CI has python3) rather than duplicating XML parsing in Kotlin.
-tasks.register<Exec>("koverMarkdownTable") {
+// is guaranteed to exist when this task runs. Parses the XML natively using
+// javax.xml (available in the Gradle JVM) — no python3 dependency.
+abstract class KoverMarkdownTableTask : DefaultTask() {
+
+    @TaskAction
+    fun generate() {
+        val xmlFile = project.rootProject.layout.buildDirectory
+            .dir("reports/kover/report.xml")
+            .get()
+            .asFile
+
+        if (!xmlFile.exists()) {
+            throw GradleException(
+                "kover-markdown-table: ${xmlFile.absolutePath} not found. " +
+                "Run ':koverReport' first."
+            )
+        }
+
+        val rows = mutableListOf<ModuleCoverage>()
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(xmlFile)
+
+        // Kover may emit <project name="..."> elements. The <counter> elements
+        // appear nested inside them. getElementsByTagName finds elements at ANY depth,
+        // so we must first check whether <project> elements exist at all; if they do,
+        // we read counters per-project rather than globally.
+        val projectEls = doc.getElementsByTagName("project")
+        if (projectEls.length > 0) {
+            for (i in 0 until projectEls.length) {
+                val projectEl = projectEls.item(i) as org.w3c.dom.Element
+                val name = projectEl.getAttribute("name").ifBlank { "?" }
+                val mod = ModuleCoverage(name)
+                val counters = projectEl.getElementsByTagName("counter")
+                for (j in 0 until counters.length) {
+                    updateModuleFromCounter(mod, counters.item(j) as org.w3c.dom.Element)
+                }
+                rows.add(mod)
+            }
+        } else {
+            // No <project> wrappers: scan all counters in document order and keep the
+            // last value of each type — mirrors the Python script's behaviour.
+            val total = ModuleCoverage("total")
+            val allCounters = doc.getElementsByTagName("counter")
+            for (i in 0 until allCounters.length) {
+                updateModuleFromCounter(total, allCounters.item(i) as org.w3c.dom.Element)
+            }
+            rows.add(total)
+        }
+
+        printTable(rows)
+    }
+
+    private fun updateModuleFromCounter(mod: ModuleCoverage, el: org.w3c.dom.Element) {
+        val type = el.getAttribute("type")
+        if (type !in listOf("LINE", "BRANCH", "INSTRUCTION")) return
+        val missed  = el.getAttribute("missed").toIntOrNull()  ?: 0
+        val covered = el.getAttribute("covered").toIntOrNull() ?: 0
+        when (type) {
+            "LINE"        -> { mod.lineMissed   = missed;  mod.lineCovered   = covered }
+            "BRANCH"      -> { mod.branchMissed = missed;  mod.branchCovered = covered }
+            "INSTRUCTION" -> { mod.instrMissed  = missed;  mod.instrCovered  = covered }
+        }
+    }
+
+    private fun printTable(rows: List<ModuleCoverage>) {
+        println("| Module | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
+        println("|---|---|---|---|")
+        for (r in rows) {
+            println("| ${r.name} | ${cell(r.lineCovered,   r.lineMissed)} " +
+                    "| ${cell(r.branchCovered, r.branchMissed)} " +
+                    "| ${cell(r.instrCovered,  r.instrMissed)} |")
+        }
+    }
+
+    private fun cell(covered: Int, missed: Int): String {
+        val total = covered + missed
+        if (total == 0) return "—"
+        return "$covered/$total (${String.format("%.1f", covered * 100.0 / total)}%)"
+    }
+}
+
+private data class ModuleCoverage(val name: String) {
+    var instrCovered = 0; var instrMissed = 0
+    var lineCovered  = 0; var lineMissed  = 0
+    var branchCovered = 0; var branchMissed = 0
+}
+
+tasks.register<KoverMarkdownTableTask>("koverMarkdownTable") {
     group = "verification"
     description = "Parses build/reports/kover/report.xml and prints a markdown coverage table to stdout."
     dependsOn("koverReport")
-    // Lazy evaluation of working directory — resolved at execution time, not configuration time.
-    workingDir = rootProject.layout.projectDirectory.asFile
-    commandLine("python3", "scripts/kover-markdown-table.py")
-    isIgnoreExitValue = false
-    // INHERIT so output goes directly to console (same as `python3` would)
-    standardOutput = System.out
-    errorOutput = System.err
 }
 
 // App coverage floors: INSTRUCTION 27% / BRANCH 20% / LINE 27%.
