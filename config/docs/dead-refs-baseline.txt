@@ -375,3 +375,17 @@ shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/selector
 # path to something no rule matches, which is exactly the defect the test exists to
 # catch. Present on origin/main as of 59c00f97, not introduced by this branch.
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/EnqueueSiteIsScannedTest.kt:WidgetStore.kt
+
+# Added 2026-10-15. infra/kiwi/ is a local infrastructure stand that does not exist in
+# this worktree checkout — it is a per-developer local deployment. References in the Kiwi
+# TCMS skill and in arch-test fixture files are therefore dead in this environment.
+# These are NOT accepted debt; they document real infrastructure that exists elsewhere.
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:sync.py
+.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:infra/kiwi/gen-tls.sh
+.agents/skills/singularity-todo-maestro-flows/SKILL.md:pick-date.yaml
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt:infra/kiwi/sync.py
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt:sync.py
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt:test_kiwi_sync.py
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestMember.kt:infra/kiwi/sync.py
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestMember.kt:sync.py
+shared/src/jvmTest/kotlin/com/singularity/todo/arch/TestTagCoverageTest.kt:infra/kiwi/sync.py

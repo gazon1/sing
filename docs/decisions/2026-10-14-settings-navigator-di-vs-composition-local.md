@@ -1,6 +1,7 @@
 ---
 title: SettingsNavigator — composition-local over DI
 adr: 2026-10-14-settings-navigator-di-vs-composition-local
+status: accepted
 ---
 
 ## Context

@@ -1,6 +1,7 @@
 ---
 title: Attach account — Supabase identity-linking semantic
 adr: 2026-10-14-attach-account-supabase-semantic
+status: accepted
 ---
 
 ## Context
