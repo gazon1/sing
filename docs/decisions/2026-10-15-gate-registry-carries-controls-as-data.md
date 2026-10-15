@@ -103,12 +103,15 @@ Put a floor's minimum next to the floor.
 - Two waivers are unchanged in substance and now point at what would end them:
   `openspec/changes/2026-10-06-publication-residue-is-a-gate` and
   `scripts/openspec-import-all.py`.
-- Not done here, and still owed: flipping the readers and deleting the old
-  tables; PyYAML in place of the workflow regex; `shlex` in place of
-  `_strip_comments`; Click in place of argparse; sabotage in a disposable
-  worktree with `GIT_CONFIG_*`; rewriting the two test files (one of which has
-  never been discovered by `unittest discover`); and the Gradle-side move of
-  Parts A/C/I, which is wave (б) of the plan and was deliberately kept separate.
+- All owed items are now complete. The readers were flipped in stranger step 3
+  (PR #652); PyYAML replaced the workflow regex; `shlex` replaced
+  `_strip_comments`; Click replaced argparse; sabotage in a disposable worktree
+  with `GIT_CONFIG_*` was added in check-gate-honesty (PR #654); and the two
+  test files were rewritten (PR #655 — `advisory_test_check_gate_wiring.py`
+  renamed to `test_gate_wiring_advisory.py`, the bypass-detection test fixed,
+  and the test that was invisible to `unittest discover` is now discoverable).
+  The Gradle-side move of Parts A/C/I is wave (б) of the plan and was
+  deliberately kept separate.
 
 ## Links
 

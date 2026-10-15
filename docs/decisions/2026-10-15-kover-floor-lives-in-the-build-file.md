@@ -91,9 +91,13 @@ asks only the question a static check can answer: is there a bound, inside the
 
 ## Consequences
 
-- Raising the floor is one edit in one file; lowering it past 60 additionally
-  requires editing `_KOVER_MIN_FLOOR` in `check-gate-wiring.py`, which is
-  deliberate friction, not an oversight.
+- The first bullet of §Decision is now superseded: `_KOVER_MIN_FLOOR` in
+  `check-gate-wiring.py` no longer exists. The floor lives in the Gradle build
+  file alone, enforced at configuration time by `require(DETEKT_RULE_BRANCH_FLOOR >= 60)`.
+  Raising or lowering the floor is one edit in `detekt-rules/build.gradle.kts`. The
+  deliberate friction described in the original text — a second edit required in Python
+  — was removed when the registry was given its data-only role and the Python copy
+  was deleted as dead code (Step 9, PR #655).
 - A second module that grows a `kover { verify { … } }` block is covered
   automatically — Part C scans `*/build.gradle.kts` — without any new wiring.
 - `check-gate-wiring.py` now performs two Gradle invocations where it performed
