@@ -149,7 +149,7 @@ A–G мета-гейта и рецепты — скилл `singularity-todo-qua
 **Гейты «меры», а не «булевы»** — все блокирующие; спека:
 `openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.
 `check-test-runs.py --require <set>` (прогнал меньше классов/тестов, чем floor, **или** пропустил
-хоть один) · `check-coverage.py` (покрытие `com.singularity.todo.*` ниже floor 23.0 / 18.3 / 24.4)
+хоть один) · `:koverVerify` (INSTRUCTION/BRANCH/LINE покрытие `com.singularity.todo.*` ниже floor 27/20/27)
 · `check-flaky-tests.py --current DIR --previous DIR` · `unittest discover -s scripts/tests`
 (регрессия в самих гейтах, ≈20 мс). Floor = **минимальный** легитимный прогон: падение —
 расследовать, не регенерировать.

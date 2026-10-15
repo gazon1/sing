@@ -14,7 +14,6 @@ plugins {
     // Kover is NOT listed here: it arrives on the classpath from the settings-level
     // `org.jetbrains.kotlinx.kover.aggregation` plugin (settings.gradle.kts) and is
     // applied to every project from there. Its version is kept in libs.versions.toml
-    // and the two are kept in sync by scripts/build-version-catalog-gate.py.
 }
 
 allprojects {
@@ -62,7 +61,7 @@ allprojects {
 // No `doLast` here: any lambda in a Kotlin build script captures the script instance,
 // which the configuration cache refuses to serialize. Kover does not print the XML path
 // on success (only the HTML task does, via an `onlyIf`), so the path is in the
-// description, and scripts/check-coverage.py is the real consumer.
+// description, and `:koverVerify` is the real consumer.
 tasks.register("koverReport") {
     group = "verification"
     description = "Runs every JVM test task and writes build/reports/kover/report.xml."
@@ -86,4 +85,43 @@ tasks.register("koverHtml") {
     group = "verification"
     description = "Runs every JVM test task and writes build/reports/kover/html."
     dependsOn("koverReport", ":koverHtmlReport")
+}
+
+// App coverage floors: INSTRUCTION 27% / BRANCH 20% / LINE 27%.
+// The settings-level kover plugin applies kover to the root project but only exposes
+// a partial DSL (no `reports { }`). `plugins.withId` reaches the already-applied
+// per-project plugin's full DSL to configure verify rules and log output.
+//
+// Floors rounded down from 2026-10-15 measured values (27.6 / 20.7 / 27.4).
+plugins.withId("org.jetbrains.kotlinx.kover") {
+    configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
+        reports {
+            total {
+                verify {
+                    rule("instruction coverage") {
+                        bound {
+                            minValue = 27
+                            coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.INSTRUCTION
+                        }
+                    }
+                    rule("branch coverage") {
+                        bound {
+                            minValue = 20
+                            coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH
+                        }
+                    }
+                    rule("line coverage") {
+                        bound {
+                            minValue = 27
+                            coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
+                        }
+                    }
+                }
+                log {
+                    coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.INSTRUCTION
+                    format = "app instruction coverage: <value>%"
+                }
+            }
+        }
+    }
 }

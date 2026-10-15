@@ -162,16 +162,14 @@ class PartFTest(unittest.TestCase):
     def test_the_repository_registers_the_gates_it_thinks_it_does(self):
         """The derivation must see every gate surface, not just check.sh.
 
-        Four gates are reachable only through a `just` recipe; a derivation that
-        read only `check.sh` would report the registry complete while three of
+        Three gates are reachable only through a `just` recipe; a derivation that
+        read only `check.sh` would report the registry complete while two of
         the run-evidencing gates were invisible to it.
         """
         registered = gw.registered_gate_scripts()
         self.assertIn('scripts/check-test-runs.py', registered)
-        self.assertIn('scripts/check-coverage.py', registered)
         self.assertIn('scripts/check-flaky-tests.py', registered)
-        # just-recipe-only gates
-        self.assertIn('scripts/check-coverage-measurement.py', registered)
+        # just-recipe-only gates: none remaining after coverage-measurement removal
 
     def test_a_shell_gate_is_registered(self):
         self.assertIn('scripts/check-detekt-registrations.sh',
@@ -230,7 +228,6 @@ class PartFTest(unittest.TestCase):
         self.assertTrue(errors, "an empty registry must report every gate as uncontrolled")
         joined = ' '.join(errors)
         self.assertIn('scripts/check-test-runs.py', joined)
-        self.assertIn('scripts/check-coverage.py', joined)
         # And the registry must be whole again — the negative control has to be
         # a measurement, not a permanent change to the thing being measured.
         self.assertEqual(gw.check_registry_completeness(), [])

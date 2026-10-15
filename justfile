@@ -55,7 +55,6 @@ alias tj     := tests::jvm
 alias tah    := tests::android-host
 alias tdr    := tests::detekt-rules
 alias tgates := tests::gate-scripts
-alias tkr   := tests::kover-rules
 alias tcheck := tests::check
 alias tclean := tests::clean
 alias tm     := tests::ui-maestro
@@ -84,7 +83,6 @@ alias issues-refresh := scripts::issues-refresh
 
 # ----- Coverage shortcuts -----
 alias coverage := tests::coverage
-alias cr       := tests::coverage-ratchet
 
 # ----- DB shortcuts -----
 alias db-a   := android::db-schema

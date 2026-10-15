@@ -150,19 +150,18 @@ echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
 }
 echo -e "${GREEN}detekt-rule branch coverage floor met${NC}"
 
-echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (when a report exists) ===${NC}"
-# --if-present because koverReport instruments every test task and roughly
-# triples the local loop; CI runs it in the same job as the tests on every push.
-#
-# Deliberately NOT --since: this report is produced by a separate, earlier task, so the
-# run-start stamp would make it permanently "stale" and skip the check in silence. Its
-# age is printed instead, and CI — where the report is generated in the same job —
-# enforces freshness with --since.
+echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (app + detekt-rules) ===${NC}"
+# :koverVerify enforces INSTRUCTION 27% / BRANCH 20% / LINE 27% from settings.gradle.kts.
+# :detekt-rules:koverVerify enforces BRANCH 60% from detekt-rules/build.gradle.kts.
+# Skipped when no report exists (same reason as the --if-present it replaces: koverReport
+# instruments every test task and roughly triples the local loop; CI runs it on every push).
 if [ -f build/reports/kover/report.xml ]; then
-    REPORT_AGE=$(( $(date +%s) - $(stat -c %Y build/reports/kover/report.xml) ))
-    echo "    report age: $((REPORT_AGE / 60)) min (re-run ./gw koverReport for a current figure)"
-    python3 scripts/check-coverage.py || {
-        echo -e "${RED}coverage below the recorded floor${NC}"
+    ./gw :koverVerify || {
+        echo -e "${RED}app coverage below the recorded floor${NC}"
+        exit 1
+    }
+    ./gw :detekt-rules:koverVerify || {
+        echo -e "${RED}detekt-rules branch coverage below the recorded floor${NC}"
         exit 1
     }
 else

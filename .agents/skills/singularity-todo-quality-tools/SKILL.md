@@ -384,8 +384,7 @@ keeps one `ClassData` per loaded class, and the Koog classpath alone contributes
 
 ```bash
 ./gradlew koverReport -Ptest.tags=fast,slow   # ~10 min, runs the tests then merges
-python3 scripts/check-coverage.py            # floor: see config/docs/coverage-baseline.txt
-python3 scripts/check-coverage.py --if-present
+./gradlew :koverVerify                       # enforce INSTRUCTION/BRANCH/LINE floors (27/20/27)
 ```
 
 ### Three things that will waste your time if you do not know them

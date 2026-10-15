@@ -10,7 +10,7 @@
 |------|--------|
 | `SKIP_ADB=1 ./check.sh` (7 steps) | ✅ ALL CHECKS PASSED |
 | `:shared:testAndroidHostTest` | ✅ 1045 tests, 0 failures (was 2 red) |
-| `just cr` (coverage-ratchet) | ✅ 687/1006 = 68.29%, at baseline |
+| `just cr` (coverage-ratchet) | ✅ 687/1006 = 68.29%, at baseline — **later removed**: recipe replaced by native `koverVerify` (check.sh step 9) and deleted 2026-10-15 |
 | `ViewModelTestCoverageTest` | ✅ green; allowlist = 11 |
 | `MaestroFlowTagsTest` (ids + runFlow paths) | ✅ green, 55 runFlow refs resolved |
 | `:shared:detekt :desktopApp:detekt` | ✅ 0 findings |
