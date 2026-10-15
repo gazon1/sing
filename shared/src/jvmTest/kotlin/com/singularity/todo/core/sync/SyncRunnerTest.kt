@@ -230,17 +230,30 @@ class SyncRunnerTest {
         // leaving runTest waiting on it.
         val scope = testScope(backgroundScope)
         val shadow = FakeSyncShadowDao()
+        val syncLog = Logger.withTag("SyncRunnerTest")
+        val engineState = SyncEngineState(syncLog, NoOpCrashReportingPort())
+        val outboxDao = FakeSyncOutboxDao()
+        val outboxService =
+            OutboxService(
+                outboxDao = outboxDao,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                scopeProvider = scopeProvider,
+                engineState = engineState,
+                monoNow = { MutableClock().now().toEpochMilliseconds() },
+            )
         val engine = SyncEngine(
             log = Logger.withTag("SyncRunnerTest"),
             api = FakeSyncApiClient(),
             authRepository = FakeSyncAuthRepository(Session.SignedOut),
-            outboxDao = FakeSyncOutboxDao(),
-            deadLetterDao = FakeSyncDeadLetterDao(),
             idGenerator = SequentialIdGenerator(),
             stateRepository = state,
             scopeProvider = scopeProvider,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            outboxService = outboxService,
+            _outboxDao = outboxDao,
+            _deadLetterDao = FakeSyncDeadLetterDao(),
+            syncAuthBridge = fakeSyncAuthBridge(FakeSyncAuthRepository(Session.SignedOut)),
             writerProvider = { fakeSyncDocumentWriter() },
             scheduler = FakeSyncWorkScheduler(),
             clock = MutableClock(),

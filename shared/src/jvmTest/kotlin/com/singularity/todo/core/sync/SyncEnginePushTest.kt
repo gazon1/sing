@@ -59,14 +59,23 @@ class SyncEnginePushTest {
         shadow: FakeSyncShadowDao = FakeSyncShadowDao(),
         policy: PatchRetryPolicy = PatchRetryPolicy(),
     ): Triple<SyncEngine, FakeSyncOutboxDao, FakeSyncDeadLetterDao> {
+        val engineScope = testScope(scope.backgroundScope)
+        val auth = FakeSyncAuthRepository(
+            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+        )
+        val state = SyncEngineState(log, NoOpCrashReportingPort())
+        val outboxService =
+            OutboxService(
+                outboxDao = outbox,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
+                engineState = state,
+                monoNow = { clock.now().toEpochMilliseconds() },
+            )
         val engine = SyncEngine(
             log = log,
             api = api,
-            authRepository = FakeSyncAuthRepository(
-                Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-            ),
-            outboxDao = outbox,
-            deadLetterDao = deadLetter,
+            authRepository = auth,
             idGenerator = SequentialIdGenerator(),
             // push() does not read the scope or the cursor, but the engine needs both
             // wired. Supplied here rather than defaulted so that a future push() that
@@ -77,12 +86,16 @@ class SyncEnginePushTest {
             // halves cannot see each other.
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            outboxService = outboxService,
+            _outboxDao = outbox,
+            _deadLetterDao = deadLetter,
+            syncAuthBridge = fakeSyncAuthBridge(auth),
             writerProvider = { fakeSyncDocumentWriter() },
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = policy,
             clock = clock,
-            scope = testScope(scope.backgroundScope),
+            scope = engineScope,
             crashReporter = NoOpCrashReportingPort(),
             hlcFactory = FakeHlcFactory(),
         )

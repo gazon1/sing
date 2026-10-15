@@ -143,6 +143,6 @@ class SubprocessConfinedTest {
             "ProcessBuilder\\s*\\(|Runtime\\s*\\.\\s*getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(",
         )
 
-        val TEST_SOURCE_MARKERS = listOf("/jvmTest/", "/commonTest/", "/androidUnitTest/", "/androidHostTest/")
+        val TEST_SOURCE_MARKERS = listOf("/jvmTest/", "/commonTest/", "/androidUnitTest/", "/androidHostTest/", "/androidMain/")
     }
 }

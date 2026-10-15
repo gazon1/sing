@@ -36,6 +36,7 @@ tags:
     id: task_editor_title_input
 - inputText: "${RUN_ID} Water the plants"
 - hideKeyboard
+- waitForAnimationToEnd
 
 # ── Open the recurrence picker ────────────────────────────────────────
 # The recurrence row is below the fold on phone after the keyboard is shown.

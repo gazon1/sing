@@ -1305,6 +1305,25 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
      *
      * Reset between tests by [clearCallHistory].
      */
+    /**
+     * When non-null, the next [signIn] call returns this result instead of succeeding.
+     *
+     * Drives the `AUTH-SIGNIN-01` axis: a wrong password response from the server
+     * produces an `AppError.Auth` that the UI must display as "wrong password".
+     *
+     * Reset between tests by [clearCallHistory].
+     */
+    var signInErrorToInject: Throwable? = null
+
+    /**
+     * When non-null, the next [signUp] call returns this result instead of
+     * succeeding.
+     *
+     * A field rather than a one-shot, because a test that checks the UI reaction
+     * to a failure needs the fake to still fail on the next call too.
+     *
+     * Reset between tests by [clearCallHistory].
+     */
     var signUpErrorToInject: Throwable? = null
 
     /**
@@ -1347,8 +1366,14 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
     // silently change identity underneath data a test already seeded — a sign-in
     // that swapped the owner would orphan every row and fail somewhere far from
     // here.
-    override suspend fun signIn(email: String, password: String): Result<Unit> =
-        runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
+    override suspend fun signIn(email: String, password: String): Result<Unit> {
+        val error = signInErrorToInject
+        if (error != null) {
+            signInErrorToInject = null
+            return Result.failure(error)
+        }
+        return runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
+    }
 
     override suspend fun signInAnonymously(): Result<Unit> =
         runCatchingCancellable { _currentSession.value = Session.Anonymous(currentUserId) }
@@ -1403,6 +1428,18 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
     fun setUserId(userId: UserId) {
         _currentSession.value = Session.Anonymous(userId)
     }
+
+    /**
+     * Resets all injectable error/session fields between tests.
+     *
+     * Call this in a `@After` or `@Before` method to ensure test isolation when
+     * using `signInErrorToInject`, `signUpErrorToInject`, or `signUpSessionOnSuccess`.
+     */
+    fun clearCallHistory() {
+        signInErrorToInject = null
+        signUpErrorToInject = null
+        signUpSessionOnSuccess = null
+    }
 }
 
 // ─── ProjectsRepository ──────────────────────────────────────────────────────
@@ -1428,6 +1465,15 @@ class FakeProjectsRepository(
     // one" are the same observation.
     var createOverride: Result<Project>? = null
     var updateOverride: Result<Project>? = null
+    var deleteOverride: Result<Unit>? = null
+    var restoreOverride: Result<Unit>? = null
+
+    fun clearCallHistory() {
+        createOverride = null
+        updateOverride = null
+        deleteOverride = null
+        restoreOverride = null
+    }
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
@@ -1469,11 +1515,14 @@ class FakeProjectsRepository(
         }
     }
 
-    override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Project $id not found or not owned by current user")
-        store.upsert(existing.copy(isDeleted = true, deletedAt = clock.now()))
+    override suspend fun delete(id: ProjectId): Result<Unit> {
+        deleteOverride?.let { return it }
+        return runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Project $id not found or not owned by current user")
+            store.upsert(existing.copy(isDeleted = true, deletedAt = clock.now()))
+        }
     }
 
     override suspend fun upsert(project: Project): Project {
@@ -1483,11 +1532,14 @@ class FakeProjectsRepository(
 
     // ─── SoftDeletable ───────────────────────────────────────────────────────
 
-    override suspend fun restore(id: ProjectId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        val existing = store[id.value]?.takeIf { it.userId == uid }
-            ?: throw NoSuchElementException("Project $id not found or not owned by current user")
-        store.upsert(existing.copy(isDeleted = false, deletedAt = null))
+    override suspend fun restore(id: ProjectId): Result<Unit> {
+        restoreOverride?.let { return it }
+        return runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Project $id not found or not owned by current user")
+            store.upsert(existing.copy(isDeleted = false, deletedAt = null))
+        }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
@@ -1798,6 +1850,22 @@ open class FakeNotesRepository(
 
     fun clear() = store.clear()
 
+    fun clearCallHistory() {
+        createOverride = null
+        updateOverride = null
+        deleteOverride = null
+        restoreOverride = null
+        createWithContentOverride = null
+        createNoteWithTitleOverride = null
+        updateContentOverride = null
+        archiveOverride = null
+        unarchiveOverride = null
+        setPinnedOverride = null
+        setColorOverride = null
+        setSortOrderOverride = null
+        setOutgoingLinksOverride = null
+    }
+
     // ─── Configurable results (for failure-path tests) ────────────────────
     var createOverride: Result<com.singularity.todo.feature.notes.Note>? = null
     var updateOverride: Result<com.singularity.todo.feature.notes.Note>? = null
@@ -1863,9 +1931,10 @@ open class FakeNotesRepository(
     override suspend fun delete(id: com.singularity.todo.feature.notes.NoteId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatchingCancellable {
-            store[id.value]?.let { existing ->
-                store.upsert(existing.copy(deletedAt = clock.now()))
-            }
+            val uid = currentUser.scopedUserId.value
+            val existing = store[id.value]?.takeIf { it.userId == uid }
+                ?: throw NoSuchElementException("Note $id not found or not owned by current user")
+            store.upsert(existing.copy(deletedAt = clock.now()))
         }
     }
 

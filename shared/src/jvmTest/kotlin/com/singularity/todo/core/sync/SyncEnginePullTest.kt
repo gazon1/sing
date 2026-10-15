@@ -65,28 +65,43 @@ class SyncEnginePullTest {
         stateRepository: FakeSyncStateRepository = FakeSyncStateRepository(),
         auth: FakeSyncAuthRepository = FakeSyncAuthRepository(signedIn()),
         scopeProvider: FakeSyncScopeProvider = FakeSyncScopeProvider(scopeFor(auth)),
-    ) = SyncEngine(
-        log = log,
-        api = api,
-        authRepository = auth,
-        outboxDao = FakeSyncOutboxDao(),
-        deadLetterDao = FakeSyncDeadLetterDao(),
-        idGenerator = SequentialIdGenerator(),
-        stateRepository = stateRepository,
-        scopeProvider = scopeProvider,
-        shadowDao = FakeSyncShadowDao(),
-        patchBuilder = fakeSyncPatchBuilder(),
-        writerProvider = { fakeSyncDocumentWriter() },
-        scheduler = FakeSyncWorkScheduler(),
-        // `backgroundScope`, not the test scope. The engine's init collects the auth
-        // session forever, so a scope parented to the test's own job would leave an
-        // active child at the end of the test body — which `runTest` reports as
-        // UncompletedCoroutinesError after a full minute of waiting.
-        clock = clock,
-        scope = testScope(scope.backgroundScope),
-        crashReporter = NoOpCrashReportingPort(),
-        hlcFactory = FakeHlcFactory(),
-    )
+    ): SyncEngine {
+        val engineScope = testScope(scope.backgroundScope)
+        val state = SyncEngineState(log, NoOpCrashReportingPort())
+        val outboxDao = FakeSyncOutboxDao()
+        val outboxService =
+            OutboxService(
+                outboxDao = outboxDao,
+                patchBuilder = fakeSyncPatchBuilder(),
+                scopeProvider = scopeProvider,
+                engineState = state,
+                monoNow = { clock.now().toEpochMilliseconds() },
+            )
+        return SyncEngine(
+            log = log,
+            api = api,
+            authRepository = auth,
+            idGenerator = SequentialIdGenerator(),
+            stateRepository = stateRepository,
+            scopeProvider = scopeProvider,
+            shadowDao = FakeSyncShadowDao(),
+            patchBuilder = fakeSyncPatchBuilder(),
+            outboxService = outboxService,
+            _outboxDao = outboxDao,
+            _deadLetterDao = FakeSyncDeadLetterDao(),
+            writerProvider = { fakeSyncDocumentWriter() },
+            scheduler = FakeSyncWorkScheduler(),
+            // `backgroundScope`, not the test scope. The engine's init collects the auth
+            // session forever, so a scope parented to the test's own job would leave an
+            // active child at the end of the test body — which `runTest` reports as
+            // UncompletedCoroutinesError after a full minute of waiting.
+            clock = clock,
+            scope = engineScope,
+            crashReporter = NoOpCrashReportingPort(),
+            syncAuthBridge = fakeSyncAuthBridge(auth),
+            hlcFactory = FakeHlcFactory(),
+        )
+    }
 
     private fun signedIn() = Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh")
 

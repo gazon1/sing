@@ -80,23 +80,35 @@ class SyncEnginePushIdentityTest {
         val outbox = FakeSyncOutboxDao()
         val shadow = FakeSyncShadowDao()
         val scopes = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1"))
+        val engineScope = testScope(scope.backgroundScope)
+        val state = SyncEngineState(log, NoOpCrashReportingPort())
+        val outboxService =
+            OutboxService(
+                outboxDao = outbox,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                scopeProvider = scopes,
+                engineState = state,
+                monoNow = { clock.now().toEpochMilliseconds() },
+            )
         val engine = SyncEngine(
             log = log,
             api = api,
             authRepository = auth,
-            outboxDao = outbox,
-            deadLetterDao = FakeSyncDeadLetterDao(),
             idGenerator = SequentialIdGenerator(),
             stateRepository = FakeSyncStateRepository(),
+            scopeProvider = scopes,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            outboxService = outboxService,
+            _outboxDao = outbox,
+            _deadLetterDao = FakeSyncDeadLetterDao(),
             writerProvider = { fakeSyncDocumentWriter() },
-            scopeProvider = scopes,
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = PatchRetryPolicy(),
             clock = clock,
-            scope = testScope(scope.backgroundScope),
+            scope = engineScope,
             crashReporter = NoOpCrashReportingPort(),
+            syncAuthBridge = fakeSyncAuthBridge(auth),
             hlcFactory = FakeHlcFactory(),
         )
         return Harness(engine, api, auth, outbox, shadow, scopes)

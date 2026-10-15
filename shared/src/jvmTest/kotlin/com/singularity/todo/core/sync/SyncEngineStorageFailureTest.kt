@@ -87,24 +87,37 @@ class SyncEngineStorageFailureTest {
         outbox: SyncOutboxDao,
         state: SyncStateRepository = FakeSyncStateRepository(),
     ): SyncEngine {
+        val engineScope = testScope(scope.backgroundScope)
+        val auth = FakeSyncAuthRepository(
+            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+        )
         val shadow = FakeSyncShadowDao()
+        val stateHolder = SyncEngineState(log, NoOpCrashReportingPort())
+        val outboxService =
+            OutboxService(
+                outboxDao = outbox,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                scopeProvider = FakeSyncScopeProvider(SyncScope("owner-storage", "profile-1")),
+                engineState = stateHolder,
+                monoNow = { clock.now().toEpochMilliseconds() },
+            )
         return SyncEngine(
             log = log,
             api = api,
-            authRepository = FakeSyncAuthRepository(
-                Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-            ),
-            outboxDao = outbox,
-            deadLetterDao = FakeSyncDeadLetterDao(),
+            authRepository = auth,
             idGenerator = SequentialIdGenerator(),
             stateRepository = state,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            outboxService = outboxService,
+            _outboxDao = outbox,
+            _deadLetterDao = FakeSyncDeadLetterDao(),
+            syncAuthBridge = fakeSyncAuthBridge(auth),
             writerProvider = { fakeSyncDocumentWriter() },
             scopeProvider = FakeSyncScopeProvider(SyncScope("owner-storage", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             clock = clock,
-            scope = testScope(scope.backgroundScope),
+            scope = engineScope,
             crashReporter = NoOpCrashReportingPort(),
             hlcFactory = FakeHlcFactory(),
         )

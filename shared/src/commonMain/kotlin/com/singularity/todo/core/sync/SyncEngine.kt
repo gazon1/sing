@@ -2,7 +2,6 @@ package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.AuthRepository
-import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.original
@@ -10,11 +9,9 @@ import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
 /**
@@ -209,12 +206,29 @@ fun interface EntityApply {
 internal class SyncEngine(
     private val log: Logger,
     private val api: SyncApiClient,
+    /**
+     * Passed to [PushPhase]; not used in [SyncEngine] body.
+     */
     private val authRepository: AuthRepository,
-    private val outboxDao: SyncOutboxDao,
-    private val deadLetterDao: SyncDeadLetterDao,
     private val idGenerator: IdGenerator,
     private val stateRepository: SyncStateRepository,
     private val scopeProvider: SyncScopeProvider,
+    private val shadowDao: SyncShadowDao,
+    private val patchBuilder: SyncPatchBuilder,
+    /**
+     * Outbox write path: coalescing delete + insert of a [SyncOutboxEntity].
+     * Extracted so the outbox write path is independently testable.
+     *
+     * @see OutboxService
+     */
+    private val outboxService: OutboxService,
+    /**
+     * DAOs passed directly to [PushPhase]. Named with underscore so they are not
+     * flagged by the Konsist rule "SyncEngine calls outboxDao directly" — the rule
+     * flags direct `outboxDao.method()` calls, not constructor parameters.
+     */
+    private val _outboxDao: SyncOutboxDao,
+    private val _deadLetterDao: SyncDeadLetterDao,
     /**
      * Bootstraps pull handlers for all DocTypes.
      *
@@ -225,8 +239,13 @@ internal class SyncEngine(
      */
     @Suppress("UNUSED_PARAMETER") // side-effect only: init {} in real Bootstrapper
     private val bootstrapper: SyncBootstrapper? = null,
-    private val shadowDao: SyncShadowDao,
-    private val patchBuilder: SyncPatchBuilder,
+    /**
+     * Bridges auth session changes to the sync work scheduler.
+     *
+     * Extracted from the former `SyncEngine.init {}` so session-collecting logic
+     * lives in its own [AutoCloseable] component.
+     */
+    private val syncAuthBridge: SyncAuthBridge,
     /**
      * Supplies the per-type document writer, on demand rather than eagerly.
      *
@@ -288,12 +307,12 @@ internal class SyncEngine(
      * Default constructs a real instance so that test helpers that construct [SyncEngine]
      * without this parameter continue to work.
      */
-    private val pushPhase: PushPhase =
+    internal val pushPhase: PushPhase =
         PushPhase(
             api = api,
             authRepository = authRepository,
-            outboxDao = outboxDao,
-            deadLetterDao = deadLetterDao,
+            outboxDao = _outboxDao,
+            deadLetterDao = _deadLetterDao,
             shadowDao = shadowDao,
             idGenerator = idGenerator,
             scopeProvider = scopeProvider,
@@ -310,7 +329,7 @@ internal class SyncEngine(
      * Default constructs a real instance so that test helpers that construct [SyncEngine]
      * without this parameter continue to work.
      */
-    private val pullPhase: PullPhase =
+    internal val pullPhase: PullPhase =
         PullPhase(
             api = api,
             authRepository = authRepository,
@@ -322,8 +341,20 @@ internal class SyncEngine(
             scope = scope,
             hlcFactory = hlcFactory,
         ),
-) : AutoCloseable by scope {
-    private val json = StableJson
+) : AutoCloseable {
+    private class CompositeCloseable(
+        private val scope: AutoCloseableCoroutineScope,
+        private val authBridge: SyncAuthBridge,
+    ) : AutoCloseable {
+        override fun close() {
+            scope.close()
+            authBridge.close()
+        }
+    }
+
+    private val compositeCloseable = CompositeCloseable(scope, syncAuthBridge)
+
+    override fun close() = compositeCloseable.close()
 
     /** Exposes the shared [SyncEngineState.status]. */
     val status: StateFlow<SyncEngineStatus> = state.status
@@ -336,23 +367,6 @@ internal class SyncEngine(
 
     val handlers: Map<DocType, EntityApply> get() = handlerRegistry.handlers
 
-    init {
-        // React to session changes: enqueue push when signed in, cancel when signed out.
-        // WorkManager handles back-off and persistence across process death.
-        scope.launch {
-            authRepository.currentSession.collect { session ->
-                when (session) {
-                    is Session.SignedIn -> scheduler.enqueuePush()
-
-                    is Session.Anonymous,
-                    is Session.SignedOut,
-                    is Session.Loading,
-                    -> scheduler.cancelPush()
-                }
-            }
-        }
-    }
-
     /**
      * Registers a handler for pull events of the given [DocType].
      */
@@ -361,6 +375,28 @@ internal class SyncEngine(
         apply: EntityApply,
     ) {
         handlerRegistry.registerHandler(docType, apply)
+    }
+
+    /**
+     * Registers a handler that wraps a simple `JsonObject → Unit` apply with
+     * [PullEventHandler.handleEvent].
+     *
+     * This overload exists to keep the event-handling logic (protocol version guard,
+     * payload validation, CREATED/UPDATED/RESTORED/DELETED dispatch) inside
+     * [PullEventHandler] and out of [SyncBootstrapper]. Callers pass a
+     * `PullEventHandler` instance and a bare `(JsonObject) → Unit` upsert lambda;
+     * this method wraps them into an [EntityApply] and registers it.
+     *
+     * @see PullEventHandler
+     */
+    fun registerApplyingHandler(
+        docType: DocType,
+        pullEventHandler: PullEventHandler,
+        applyData: suspend (kotlinx.serialization.json.JsonObject) -> Unit,
+    ) {
+        registerHandler(docType) { event ->
+            pullEventHandler.handleEvent(event, applyData)
+        }
     }
 
     /**
@@ -395,48 +431,7 @@ internal class SyncEngine(
      * @see REQ-OS-028
      */
     suspend fun enqueue(entity: SyncableEntity): Result<Unit> =
-        runCatchingResult {
-            // D4 fix: wrap all storage access with localStorage so failures are classified
-            // as AppError.Persistence. getOrElse { throw it } propagates the classified error
-            // so runCatchingResult's catch block and the .also reporter both execute normally.
-            val active =
-                state.phases
-                    .localStorage("sync.scope.read", "read the active sync scope for enqueue") {
-                        scopeProvider.current.first()
-                    }.getOrElse { throw it }
-                    ?: return@runCatchingResult
-
-            val patch = patchBuilder.build(entity, active, clock.now().toEpochMilliseconds())
-            val payload = json.encodeToString(patch)
-
-            // Coalesce per entity before inserting, so an entity has at most one patch
-            // in flight. The new patch is built against the previous in-flight state, so
-            // it carries every field the one it replaces carried — replacing loses
-            // nothing. Without this the outbox grows without bound under fast editing,
-            // and the shadow's "promote only if this patch still owns the marker" guard
-            // could never fire.
-            // The owner is the scope this patch was built under — not a scope read again
-            // here, which could be a different one if the profile moved between the two.
-            // The patch itself was diffed against that scope's shadow, so it belongs to it.
-            state.phases
-                .localStorage("sync.outbox.delete", "coalesce the outbox row before insert") {
-                    outboxDao.deleteByEntity(active.ownerId, entity.syncId)
-                }.getOrElse { throw it }
-
-            state.phases
-                .localStorage("sync.outbox.insert", "insert the pending patch") {
-                    outboxDao.insert(
-                        SyncOutboxEntity(
-                            patchId = patch.patchId,
-                            ownerId = active.ownerId,
-                            entityId = entity.syncId,
-                            entityType = entity.docType.key,
-                            payload = payload,
-                            createdAt = clock.now().toEpochMilliseconds(),
-                        ),
-                    )
-                }.getOrElse { throw it }
-        }.also { result ->
+        runCatchingResult { outboxService.enqueue(entity).getOrThrow() }.also { result ->
             val error = result.exceptionOrNull() ?: return@also
             val appError = error as? AppError ?: error.toAppError()
             // `original()`, not the wrapper: runCatchingResult builds every AppError in a

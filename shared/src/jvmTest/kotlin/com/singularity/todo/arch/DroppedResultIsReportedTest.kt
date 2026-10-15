@@ -522,7 +522,7 @@ class DroppedResultIsReportedTest {
             .mapNotNull { report ->
                 val funMatch = FUNCTION_DECLARATION.findAll(source.take(report.range.first)).lastOrNull()
                     ?: return@mapNotNull null
-                val typeMatch = TYPE_DECLARATION.findAll(source.take(funMatch.range.first)).lastOrNull()
+                val typeMatch = enclosingTypeDeclaration(source, funMatch.range.first)
                     ?: return@mapNotNull null
                 val head = source.substring(funMatch.range.last + 1, report.range.first)
                 if (!capturesItsOwnFailure(head)) return@mapNotNull null
@@ -567,6 +567,79 @@ class DroppedResultIsReportedTest {
      */
     private fun capturesItsOwnFailure(headOfFunction: String): Boolean =
         CAPTURES_FAILURE.containsMatchIn(headOfFunction)
+
+    /**
+     * Finds the innermost type declaration that encloses [functionOffset].
+     *
+     * Walks backwards from [functionOffset] collecting all `class`/`interface`/`object`
+     * declarations, then selects the one whose full declaration span (from the type keyword
+     * to its matching `}`) contains the function — which is how Kotlin nesting works: member
+     * functions are declared between a class's opening `{` and closing `}`, so their `fun`
+     * keyword offset falls within the class's full span, not only within the body braces.
+     *
+     * When multiple enclosing types nest, the innermost (largest span) is chosen, so
+     * `CompositeCloseable` inside `SyncEngine` correctly attributes `enqueue` to `SyncEngine`
+     * rather than to `CompositeCloseable`.
+     *
+     * Returns the `MatchResult` of the chosen type, whose `groupValues[1]` is the type name.
+     */
+    private fun enclosingTypeDeclaration(
+        source: String,
+        functionOffset: Int,
+    ): MatchResult? {
+        val candidates = TYPE_DECLARATION.findAll(source.take(functionOffset)).toList()
+        if (candidates.isEmpty()) return null
+
+        // Find the full span of each candidate's declaration (keyword to matching close brace).
+        // Return the innermost enclosing type: the one with the largest span that still encloses
+        // functionOffset.
+        var best: MatchResult? = null
+        var bestSpan = -1
+
+        for (candidate in candidates) {
+            // Find the first `{` at depth 0 after the type keyword. This is the class body's
+            // opening brace. A naive `indexOf('{')` can misidentify a lambda `{` inside the
+            // constructor parameter list (e.g. `Logger.withTag(...) { ... }`) as the class body
+            // when `closingParen` returns early — so we scan forward from after the type keyword,
+            // tracking parentheses depth, and return the first `{` that appears when depth is 0.
+            var bodyOpen = -1
+            var parenDepth = 0
+            var i = candidate.range.last
+            while (i < source.length) {
+                when (source[i]) {
+                    '(' -> parenDepth++
+                    ')' -> parenDepth--
+                    '{' -> if (parenDepth == 0) { bodyOpen = i; break }
+                    '}' -> if (parenDepth == 0) break  // no body found
+                }
+                i++
+            }
+            if (bodyOpen < 0) continue
+
+            // Find the matching close brace for the type body
+            var depth = 0
+            var pos = bodyOpen
+            while (pos < source.length) {
+                when (source[pos]) {
+                    '{' -> depth++
+                    '}' -> {
+                        depth--
+                        if (depth == 0) {
+                            // Full span: [candidate.start, pos]. If functionOffset is inside and
+                            // this span is larger than best, this is the better match.
+                            if (candidate.range.first <= functionOffset && functionOffset <= pos && pos - candidate.range.first > bestSpan) {
+                                best = candidate
+                                bestSpan = pos - candidate.range.first
+                            }
+                            break
+                        }
+                    }
+                }
+                pos++
+            }
+        }
+        return best
+    }
 
     /** A method the caller can be told about: a type the caller can name, and its method. */
     private data class MethodKey(val type: String, val method: String)

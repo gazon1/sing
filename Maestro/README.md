@@ -113,6 +113,24 @@ the expanded form.
 The full catalogue including string values for each constant is in
 `Maestro/TAGS.md`.
 
+## Commands
+
+Every top-level list item in a flow must name a real Maestro command
+(`- tapOn:`, `- runFlow:`, etc.). `MaestroFlowTagsTest` enforces this in CI.
+
+The canonical list lives in `KNOWN_COMMANDS` in `MaestroFlowTagsTest.kt`.
+Two commands in use are not documented on maestro.mobile.dev/cli but are
+shipped with the CLI binary and supported:
+
+- **`exec`** — runs an arbitrary workstation command. Used in `auth/08-signup-network-error.yaml`
+  and `auth/09-signin-network-error.yaml` to toggle airplane mode via `adb shell` for
+  network-error simulation. Runs on the workstation, not the device.
+- **`waitForAnimations`** — waits for all in-flight animations to settle.
+  Used after `exec` calls that change system state, to let the device UI stabilise.
+
+Adding a new command to a flow requires adding it to `KNOWN_COMMANDS` in the same PR,
+otherwise `MaestroFlowTagsTest.every flow command is a real Maestro command` fails.
+
 ## Conventions
 
 **Select on `id:`, not `text:`.** Every selector should be a `TestTags`
@@ -144,9 +162,12 @@ the real cause — the `assertVisible`/`inputText` round-trip.
 1. Pick the subdirectory matching the feature; name it `<verb>-<object>.yaml`.
 2. `runFlow: ../../helpers/launch-clean.yaml` first, unless you need existing
    data (`seed-task.yaml`; new flows should seed their own fixtures inline).
-3. Prefer an existing `TestTags` constant. If the screen has no testTag, add
-   one to `TestTags.kt` and a `Modifier.testTag` at the call site — do not
-   select by visible text as a shortcut.
+3. Prefer an existing `TestTags` constant. If the screen has no testTag:
+   - Add a `const val` or `@Suppress("UnusedParameter") fun` to `TestTags.kt`
+   - Add a `Modifier.testTag(...)` at the Composable call site
+   - Regenerate `Maestro/TAGS.md`: `./gradlew :shared:jvmTest -PupdateGoldens=true`
+     Then commit both files in the same PR — a stale TAGS.md breaks
+     `TestTagsCatalogJvmTest` and the `validate-selectors` CI gate.
 4. Tag it: always `feature`, plus `smoke` for P0 and `regression` for P1.
 5. Run it: `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
 6. On failure, read `~/.maestro/tests/<timestamp>/` — it holds the view
