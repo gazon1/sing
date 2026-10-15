@@ -254,7 +254,7 @@ Before merging any PR that touches a repository:
 - `singularity-todo-clean-architecture-audit` — layer-boundary grep checks
 - `singularity-todo-coroutine-scopes` — `createBackgroundScope()` placement
 - `singularity-todo-decisions-workflow` — when to write an ADR for repository decisions
-- `singularity-todo-kmp-platform-specific` — Room composite PK SQL patterns
+- `docs/PLATFORM-REFERENCE.md` — Room composite PK SQL patterns
 - ADR: `docs/decisions/2026-09-23-mcp-bootstrap-result-pattern.md`
 - ADR: `docs/decisions/2026-09-24-dao-userid-guards.md`
 - ADR: `docs/decisions/2026-09-24-profile-aware-current-user-di.md`

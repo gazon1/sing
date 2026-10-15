@@ -393,7 +393,7 @@ val dbPath = "~/.singularity-todo/singularity-todo.db"  // same for all!
 
 ## Related Skills
 
-- `singularity-todo-mcp-server` — `--profile` argument is parsed here.
+- `docs/architecture/mcp-server.md` — `--profile` argument is parsed here.
 - `singularity-todo-mcp-init` — `McpInitCommand` uses `profileName` in manifest.
 - `singularity-todo-llm-usage-tracking` — `profileId` in `ToolUsageEvent` for per-profile breakdown.
 - `singularity-todo-cli-tool-surface` — authorization uses `currentUser.userId` (profile-aware).

@@ -118,8 +118,11 @@ target/
 __pycache__/
 .zcode
 
-# Auto-generated decision digest (regenerated via post-checkout / post-merge hooks)
+# Auto-generated decision digests (regenerated via post-checkout / post-merge hooks).
+# Two files with different jobs: DIGEST.md is the always-loaded orientation layer,
+# DIGEST-full.md the complete index. See 2026-10-15-digest-orientation-layer.
 docs/decisions/DIGEST.md
+docs/decisions/DIGEST-full.md
 .safety-patches/
 
 # Local environment secrets — contains Android signing keystore + passwords

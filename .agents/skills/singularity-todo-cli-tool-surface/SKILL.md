@@ -318,7 +318,7 @@ val nextCursor = if (items.size > offset + PAGE_SIZE) Cursor(offset + PAGE_SIZE,
 
 ## Related Skills
 
-- `singularity-todo-mcp-server` — how tools are registered in the MCP server.
+- `docs/architecture/mcp-server.md` — how tools are registered in the MCP server.
 - `singularity-todo-ai-tool` — the base `SimpleTool<T>` pattern for all tools.
 - `singularity-todo-llm-usage-tracking` — `UsageRecorder` injection into tools.
 - `singularity-todo-multi-profile` — `currentUser.userId` and `profileId` for authorization.

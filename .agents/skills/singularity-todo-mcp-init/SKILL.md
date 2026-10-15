@@ -255,7 +255,7 @@ put("description", tool.description.take(200))
 
 ## Related Skills
 
-- `singularity-todo-mcp-server` — the main server that calls `McpInitCommand`.
+- `docs/architecture/mcp-server.md` — the main server that calls `McpInitCommand`.
 - `singularity-todo-multi-profile` — how `profileId` is resolved and used.
 - `singularity-todo-cli-tool-surface` — tool metadata (readOnly, destructive) comes from annotations.
 - `singularity-todo-decisions-workflow` — the AGENTS.md format follows the same conventions as decision entries.

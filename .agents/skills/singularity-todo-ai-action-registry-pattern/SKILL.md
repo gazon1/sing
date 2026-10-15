@@ -302,7 +302,7 @@ val useCase = SummarizeNoteUseCase(SummarizeNoteTool(fakeTextGen))
 ## See Also
 
 - `singularity-todo-koog-agent` — how Koog tools are registered in the AI agent
-- `singularity-todo-mcp-server` — how AI tools are exposed via MCP
+- `docs/architecture/mcp-server.md` — how AI tools are exposed via MCP
 - `singularity-todo-feature-scaffold` — canonical CRUD feature template
 - `singularity-todo-sheet-extraction` — how to wire bottom sheets to screens
 - `docs/decisions/2026-09-25-ai-action-registry-design.md` — Phase C ADR

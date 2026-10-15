@@ -197,7 +197,7 @@ Before merging any PR that touches repository `create`/`update`/`restore`:
 
 - `singularity-todo-repository-architecture` — five invariants for Room-backed repositories
 - `singularity-todo-test-helpers` — testing with `FakeProfileAwareCurrentUser`
-- `singularity-todo-sync` — `SyncRepository.enqueue()` semantics, outbox batch push
+- `docs/architecture/sync.md` — `SyncRepository.enqueue()` semantics, outbox batch push
 - `singularity-todo-entity-mapper-completeness` — catches mapper gaps before they cause data loss
 - ADR: `docs/decisions/2026-09-25-no-store-library-local-first-pattern.md`
 - ADR: `docs/decisions/2026-09-25-repository-architecture-gaps.md`

@@ -5,6 +5,8 @@ Budgets follow the Agent Skills spec and the industry rules of thumb:
   - AGENTS.md   <= 240 lines  — see AGENTS_MAX below for why not 250
   - SKILL.md    <= 500 lines  — agentskills.io: "Keep your main SKILL.md under 500 lines"
   - description <= 1024 chars — agentskills.io spec hard cap on the description field
+  - DIGEST.md   <= 120 lines  — the always-loaded orientation layer
+  - DIGEST-full.md <= 3000    — the complete index, opened on demand
 
 AGENTS_MAX is 240, set on 2026-10-05 from a measurement rather than kept as a
 round number. `AGENTS.md` had reached 250/250 — zero headroom — and the reason it
@@ -37,11 +39,25 @@ AGENTS_MD = ROOT / "AGENTS.md"
 DIGEST_MD = ROOT / "docs" / "decisions" / "DIGEST.md"
 ARCHITECTURE_MD = ROOT / "ARCHITECTURE.md"
 PROGRESS_MD = ROOT / "PROGRESS.md"
+DIGEST_FULL_MD = ROOT / "docs" / "decisions" / "DIGEST-full.md"
 
 AGENTS_MAX = 240
 SKILL_MAX = 500
 DESCRIPTION_MAX = 1024
-DIGEST_MAX = 1250  # matches MAX_DIGEST_LINES in refresh-decisions-digest.py
+DIGEST_MAX = 120  # the always-loaded orientation layer; matches MAX_ORIENTATION_LINES
+# 1250 -> 3000 on 2026-10-15, when the digest split in two (2026-10-15-digest-orientation-layer).
+#
+# DIGEST.md was doing two jobs at once — the orientation layer every session reads, and the
+# complete index — so its budget was the wrong one to defend: every new ADR pushed an
+# always-read file towards a ceiling, and the generator was trimmed four times to keep up
+# (MAX_BULLETS_PER_ADR 6->2, MAX_ITEMS_PER_TAG 10->9, a ~385-line duplicate index dropped,
+# MAX_ACTIVE_ENTRIES capped). The trim history is why this number is generous: those caps
+# were priced against a file every task paid to load, and the reader who opens the full
+# index now opened it deliberately.
+#
+# 3000 is above the measured 1950 with headroom, and it is a real ceiling rather than a
+# guess — an on-demand index that grows without bound stops being an index.
+DIGEST_FULL_MAX = 3000  # matches MAX_DIGEST_FULL_LINES in refresh-decisions-digest.py
 # Added 2026-10-05. These two files had no budget at all, so they could grow without
 # limit while the files that do have budgets were trimmed to stay under them. A budget
 # that does not exist is worse than a high one: it hides the growth.
@@ -97,6 +113,7 @@ def main() -> int:
 
     check(AGENTS_MD, AGENTS_MAX, "lines")
     check(DIGEST_MD, DIGEST_MAX, "lines")
+    check(DIGEST_FULL_MD, DIGEST_FULL_MAX, "lines")
     check(ARCHITECTURE_MD, ARCHITECTURE_MAX, "lines")
     check(PROGRESS_MD, PROGRESS_MAX, "lines")
 
@@ -125,7 +142,8 @@ def main() -> int:
     print(
         f"Doc sizes OK: AGENTS.md <= {AGENTS_MAX}, DIGEST.md <= {DIGEST_MAX}, "
         f"ARCHITECTURE.md <= {ARCHITECTURE_MAX}, PROGRESS.md <= {PROGRESS_MAX}, "
-        f"SKILL.md <= {SKILL_MAX} lines, description <= {DESCRIPTION_MAX} chars"
+        f"SKILL.md <= {SKILL_MAX} lines, description <= {DESCRIPTION_MAX} chars, "
+        f"DIGEST-full.md <= {DIGEST_FULL_MAX} lines"
     )
     return 0
 

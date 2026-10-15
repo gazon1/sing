@@ -324,7 +324,7 @@ val priceMicros = ModelPricing.priceOrNull(model, input, output)
 
 ## Related Skills
 
-- `singularity-todo-mcp-server` — MCP tools call `UsageRecorder.record()`.
+- `docs/architecture/mcp-server.md` — MCP tools call `UsageRecorder.record()`.
 - `singularity-todo-cli-tool-surface` — write tools record usage after execution.
 - `singularity-todo-multi-profile` — `profileId` in every `ToolUsageEvent` enables per-profile breakdown.
 - `singularity-todo-pure-formatters` — `SparklineChart` uses `Canvas.drawLine` (pure Compose, no external deps).

@@ -1,9 +1,12 @@
----
-name: singularity-todo-sync
-description: 'Sync architecture for the Singularity Todo KMP app: Hybrid Logical Clock (HLC), ConflictResolver, SyncOutbox, SyncableEntity contract, SupabaseSyncApiClient, and SyncEngine orchestration. Use when adding a new entity to sync, debugging sync conflicts, or understanding the offline-first CRDT-style merge strategy.'
----
+# Sync
 
-# Singularity TODO — Sync Architecture
+> **Reference, not a procedure.** This describes the current state of sync. It goes
+> stale whenever the code changes, so a change to it updates this file in the same commit.
+> A document that has to be re-read after every refactor is in the wrong place —
+> procedures belong in `.agents/skills/`.
+>
+> Moved out of the skill `singularity-todo-sync` on 2026-10-15; the reason is recorded in
+> `docs/decisions/2026-10-15-reference-skills-become-documents.md`.
 
 ## Overview
 

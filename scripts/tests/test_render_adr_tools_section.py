@@ -197,5 +197,35 @@ class DriftGateTest(unittest.TestCase):
         self.assertIn(skill, self._gate())
 
 
+class TargetSetTest(unittest.TestCase):
+    """What the gate actually checks.
+
+    `check-skill-drift.py` iterates `renderer.SKILLS`, so the tuple is the gate's entire
+    input. Shrinking it is the quiet failure: the gate keeps exiting 0, now against one
+    document instead of two, and prints "OK — 1 skill(s)" in a line nobody reads. These
+    pin the size and the existence so that failure cannot be silent.
+    """
+
+    def test_render_targets_two_documents_and_both_exist(self):
+        self.assertEqual(len(renderer.DOCUMENTS), 2)
+        for document in renderer.DOCUMENTS:
+            self.assertTrue(document.is_file(), f'{document} does not exist')
+
+    def test_the_alias_check_skill_drift_imports_is_the_same_tuple(self):
+        """The drift checker reads `renderer.SKILLS`; a copy would drift from it."""
+        self.assertIs(renderer.SKILLS, renderer.DOCUMENTS)
+
+    def test_a_target_is_not_needed_because_another_one_matches(self):
+        """Both documents are compared independently.
+
+        The failure this guards against is a document drifting while its sibling stays
+        correct: a gate that compared only the first target would be green.
+        """
+        expected = renderer.render()
+        for document in renderer.DOCUMENTS:
+            with self.subTest(document=document.name):
+                self.assertEqual(renderer.current_block(document), expected)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
