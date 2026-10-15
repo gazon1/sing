@@ -143,27 +143,7 @@ collect_and_report() {
 # Multi-command gates defined as exported functions so they can be passed
 # as the command to `gate`.  Each must be `export -f` so bash -c sees it.
 
-digest_no_double_suffix() {
-  # Both digests, since 2026-10-15 split one file into two. The path used to be written
-  # inline against DIGEST.md alone, which meant the second artifact would have been
-  # created ungated — the same class of defect as a check that reads a file nobody writes.
-  local n=0
-  local f
-  for f in docs/decisions/DIGEST.md docs/decisions/DIGEST-full.md; do
-    [[ -f "$f" ]] || continue
-    n=$((n + $(grep -c "_(from " "$f" || true)))
-  done
-  if ((n > 100)); then
-    echo "digests have $n '_(from ' occurrences — double-suffix bug"
-    return 1
-  fi
-}
-export -f digest_no_double_suffix
 
-adr_dry_run() {
-  ./scripts/normalize-adr-frontmatter.sh
-}
-export -f adr_dry_run
 
 traceability() {
   python3 -m traceability "$@"

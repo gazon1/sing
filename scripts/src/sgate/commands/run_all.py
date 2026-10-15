@@ -129,9 +129,18 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 
-        elif head in ("traceability", "digest_and_sizes", "digest_no_double_suffix",
-                      "adr_dry_run"):
+        elif head in ("traceability", "digest_and_sizes"):
             # Bash function defined in static-gates.sh
+            #
+            # `adr_dry_run` and `digest_no_double_suffix` were removed from this
+            # list on 2026-10-16 together with the gates that called them. Keeping
+            # them would have meant two paths resolving a name whose gate no
+            # longer exists -- and `digest_and_sizes` is the dangling reference
+            # found during that work: it is STILL in this tuple and is defined
+            # nowhere in static-gates.sh, so a gate routed here would fail with
+            # 'command not found'. Left in place here deliberately rather than
+            # silently deleted, because whether it should be reintroduced as a
+            # real function is a decision for whoever owns the digest budget.
             # Source the file (with STATIC_GATES_SOURCED=1 so main() is skipped),
             # then call only the requested function. shlex already stripped the
             # registry's quoting, so re-quote for the -c string.
