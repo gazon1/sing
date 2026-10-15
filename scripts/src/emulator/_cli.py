@@ -97,11 +97,15 @@ def main(
     serial: str | None,
     timeout: int | None,
     verbose: bool,
-    *,  # force keyword-only so tests can inject deps via keyword
-    _deps: EmulatorDeps | None = None,
 ) -> int:
     """Ensure a usable Android device is available; print its serial on stdout."""
-    deps = _deps if _deps is not None else _emulator_deps
+    # `main` used to take a keyword-only `_deps` for tests, which click could
+    # not deliver: `Command.main(**extra)` forwards unknown keywords to
+    # `make_context`, so `_deps=...` raised `Context.__init__() got an
+    # unexpected keyword argument '_deps'`. The seam was unreachable, and the
+    # tests that named it silently fell through to the module singleton — and
+    # so to a real device. Tests patch `_emulator_deps` instead.
+    deps = _emulator_deps
 
     # Apply CLI overrides to the deps struct.
     if avd is not None:

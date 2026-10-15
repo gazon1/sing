@@ -195,8 +195,16 @@ def main() -> int:
               f"{total + exempt_count + skipped} fields "
               f"({total} scanned, {exempt_count} baselined individually, "
               f"{skipped} exempted by section)")
-        for f in findings:
-            print(f"  [dead-setting] {f}")
+    # The findings are printed in BOTH modes. `--quiet` means "no header, no
+    # summary" — its own help text says "findings only, for CI", and
+    # `sgate settings_read_by_a_feature` parses these `[dead-setting]` lines to
+    # count what it found. Printing them only when NOT quiet meant the gate
+    # exited 1 and reported "0 dead setting(s) found": a real finding rendered
+    # as a count of nothing, which is worse than silence because the number
+    # reads like a measurement.
+    for f in findings:
+        print(f"  [dead-setting] {f}")
+    if not args.quiet:
         if ephemeral:
             print(f"  (not scanned, not persisted: {', '.join(sorted(ephemeral))})")
 

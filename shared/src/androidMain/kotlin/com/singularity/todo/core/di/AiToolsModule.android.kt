@@ -185,7 +185,8 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::CreateProjectTool)
     factoryOf(::UpdateProjectTool)
     // Registered on both platforms, and the Android list used to stop here.
-    // `scripts/check-readme-claims.py` caught the consequence: the AI agent on
+    // The README-claims gate caught the consequence (that gate and its script
+    // were removed on 2026-10-16): the AI agent on
     // Android could create and update a project but had no tool to read the
     // existing ones or delete one, so a conversation that named a project the
     // user could not see or remove. Both tools take only commonMain

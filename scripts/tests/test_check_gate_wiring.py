@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import unittest
+import unittest.mock
 
 
 @contextlib.contextmanager
@@ -596,22 +597,31 @@ class PartGTest(unittest.TestCase):
         self.assertEqual(gw.registry_soft_exits(), [])
 
     def test_the_real_registry_has_no_soft_gate_invocation(self):
-        if not gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry not present in this checkout')
+        self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         self.assertEqual(gw.registry_soft_exits(), [])
 
     def test_both_callers_invoke_the_registry(self):
-        if not gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry not present in this checkout')
+        self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         self.assertEqual(gw.check_registry_wiring(), [],
                          'ci.yml and check.sh must both call scripts/ci/static-gates.sh')
 
     def test_a_missing_registry_is_reported_by_path(self):
-        if gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry exists in this checkout')
-        errors = gw.check_registry_wiring()
+        # Not skipped when the registry happens to exist. The missing-registry
+        # branch is the one that matters — a checkout where the registry was
+        # renamed or lost would otherwise be checked by nobody — and a
+        # `skipTest` on "registry exists" is how that branch went unexecuted in
+        # every normal checkout, permanently and quietly. `check_registry_wiring`
+        # reads the module global at call time, so pointing it at a path that
+        # does not exist reproduces the condition exactly.
+        missing = gw.ROOT / 'scripts' / 'ci' / 'static-gates-absent.sh'
+        self.assertFalse(missing.exists(), 'fixture assumption: the absent path exists')
+        with unittest.mock.patch.object(gw, 'GATE_REGISTRY', missing):
+            errors = gw.check_registry_wiring()
         self.assertTrue(errors)
-        self.assertIn('static-gates.sh', errors[0])
+        # Named by the path it could not find, so the message is actionable
+        # without the reader having to know the canonical filename.
+        self.assertIn('static-gates-absent.sh', errors[0])
+        self.assertIn('check.sh', errors[0])
 
     def test_a_caller_that_bypasses_the_registry_is_reported(self):
         # Rewrites check.sh's call away and restores it. The point is that dropping
@@ -622,8 +632,7 @@ class PartGTest(unittest.TestCase):
         # path: `check_registry_wiring` reads comment-stripped text, so an explanatory
         # comment mentioning the registry does not satisfy it — which is the strictness
         # that makes this test meaningful.
-        if not gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry not present in this checkout')
+        self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         check_sh = gw.ROOT / 'check.sh'
         original = check_sh.read_text(encoding='utf-8')
         # Both spellings are legitimate; the file must contain one of them and

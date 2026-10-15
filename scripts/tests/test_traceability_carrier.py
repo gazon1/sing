@@ -19,6 +19,7 @@ The fix is to ask the link set rather than the filesystem, because the link set
 is the thing that means "this scenario is carried".
 """
 
+import dataclasses
 import pathlib
 import subprocess
 import sys
@@ -79,12 +80,22 @@ class PlanTest(unittest.TestCase):
     def test_the_android_tier_refuses_to_produce_a_compose_test(self):
         from traceability.carrier import CarrierError, render_probe
 
-        plan = self._plan(self.specs["AUTH-SIGNIN-01"], self.android, self.root)
+        # The refusal lives in plan_carrier, not render_probe: refusing while
+        # planning means no half-built CarrierPlan exists for a caller to carry
+        # forward. render_probe keeps its own guard because it is public and
+        # takes any plan — so both entry points are asserted here rather than
+        # only the one the generator happens to use.
         with self.assertRaises(CarrierError) as ctx:
-            render_probe(plan)
+            self._plan(self.specs["AUTH-SIGNIN-01"], self.android, self.root)
         # The message has to name the alternative, or the agent writes the
         # Kotlin test anyway because the error only said no.
         self.assertIn("scenario:AUTH-SIGNIN-01", str(ctx.exception))
+
+        desktop_plan = self._plan(self.specs["AUTH-SIGNIN-01"], self.desktop, self.root)
+        flipped = dataclasses.replace(desktop_plan, target=self.android)
+        with self.assertRaises(CarrierError) as render_ctx:
+            render_probe(flipped)
+        self.assertIn("scenario:AUTH-SIGNIN-01", str(render_ctx.exception))
 
     def test_the_probe_uses_the_plural_selector(self):
         from traceability.carrier import render_probe

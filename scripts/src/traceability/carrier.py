@@ -144,8 +144,8 @@ def plan_carrier(spec: ScenarioSpec, target: Target, root: Path) -> CarrierPlan:
         raise CarrierError(f"{spec.id} has no source path; cannot place a carrier")
     if target is Target.ANDROID:
         raise CarrierError(
-            "plan_carrier is for desktop Kotlin probes; "
-            "Android carriers are Maestro flows — write a flow file under Maestro/flows/"
+            f"the android tier is a Maestro flow, not a Compose test: write a flow "
+            f"tagged `scenario:{spec.id}` under Maestro/flows/ instead"
         )
     subarea = spec.path.parent.name
     class_name = _class_name(spec.id)

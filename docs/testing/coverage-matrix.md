@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**94 scenarios · 25/117 claimed cells automated · 92 holes**
+**94 scenarios · 26/117 claimed cells automated · 91 holes**
 
 ## feature.agenda
 
@@ -59,7 +59,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `AUTH-SESSION-01` | Carry on working after the session stops being valid | ● | ○ | The app keeps working locally. An unobtrusive message says signing in again is needed, without blocking an editor.… |
 | `AUTH-SIGNIN-01` | Sign in to an existing account | ○ | ○ | A wrong password gives one message that does not reveal whether the address exists, and the address stays in the form.… |
 | `AUTH-SIGNUP-01` | Create an account | ○ | ○ | Invalid input is refused beside the field without a request leaving the device. A valid submission shows a pending… |
-| `AUTH-SIGNUP-02` | A sign-up whose address still needs confirmation is not a completed sign-up | ○ | ○ | The user is told the account was created and to check their mail. They are NOT taken into the application as a… |
+| `AUTH-SIGNUP-02` | A sign-up whose address still needs confirmation is not a completed sign-up | ● | ○ | The user is told the account was created and to check their mail. They are NOT taken into the application as a… |
 
 ## feature.backup
 
@@ -216,7 +216,6 @@ Claimed but not automated:
 - `AUTH-SIGNIN-01` / desktop
 - `AUTH-SIGNUP-01` / android
 - `AUTH-SIGNUP-01` / desktop
-- `AUTH-SIGNUP-02` / android
 - `AUTH-SIGNUP-02` / desktop
 - `BACKUP-01` / android
 - `CAL-SYNC-CONNECT-01` / android

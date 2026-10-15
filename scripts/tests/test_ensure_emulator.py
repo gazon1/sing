@@ -611,25 +611,51 @@ class AcquireDeviceTest(unittest.TestCase):
 class MainOutputContractTest(unittest.TestCase):
     """`ensure-emulator` prints the serial on stdout and diagnostics on stderr."""
 
+    def _deps(self, acquisition):
+        """A deps struct whose acquisition is a fake.
+
+        Injection goes through `EmulatorDeps`, swapped into the module
+        attribute `main` reads, NOT through patching `_startup.acquire_device`.
+        The singleton binds `acquire_fn` in `__post_init__` — at import — so a
+        later patch of `_startup.acquire_device` never reaches it and the test
+        silently acquires a REAL device. That is how the "no device" case below
+        came to expect exit 1 while a live emulator made it return 0, and how
+        its sibling passed for the wrong reason: the host's real serial
+        happened to be the string the fixture asserted. A test that consults the
+        machine it runs on is not a test of the contract.
+
+        The fake counts its calls, so a seam that stops being reached fails the
+        test instead of quietly deferring to the host.
+        """
+        calls = []
+
+        def acquire(pin):
+            calls.append(pin)
+            return acquisition
+
+        deps = _cli.EmulatorDeps(acquire_fn=acquire)
+        deps.calls = calls
+        return deps
+
     def test_main_prints_only_the_serial(self):
         out, err = io.StringIO(), io.StringIO()
+        deps = self._deps(Acquisition("emulator-5554", ee.EXIT_OK))
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            with unittest.mock.patch.object(_startup, "acquire_device",
-                                            return_value=Acquisition("emulator-5554",
-                                                                    ee.EXIT_OK)):
+            with unittest.mock.patch.object(_cli, "_emulator_deps", deps):
                 rc = ee.main([], standalone_mode=False)
         self.assertEqual(rc, ee.EXIT_OK)
         self.assertEqual(out.getvalue(), "emulator-5554\n")
+        self.assertEqual(len(deps.calls), 1, "the fake acquisition was bypassed")
 
     def test_main_prints_nothing_when_no_device(self):
         out = io.StringIO()
+        deps = self._deps(Acquisition(None, ee.EXIT_NOT_READY))
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            with unittest.mock.patch.object(_startup, "acquire_device",
-                                            return_value=Acquisition(None,
-                                                                    ee.EXIT_NOT_READY)):
+            with unittest.mock.patch.object(_cli, "_emulator_deps", deps):
                 rc = ee.main([], standalone_mode=False)
         self.assertEqual(rc, ee.EXIT_NOT_READY)
         self.assertEqual(out.getvalue(), "")
+        self.assertEqual(len(deps.calls), 1, "the fake acquisition was bypassed")
 
 
 class IsPhysicalPinTest(unittest.TestCase):

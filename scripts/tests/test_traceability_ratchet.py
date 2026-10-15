@@ -52,15 +52,30 @@ class RealCorpusTest(unittest.TestCase):
         # stale — either the corpus moved (update the file, with a reason) or
         # `_metrics` changed (the file is describing a different measurement
         # than the one the gate performs, which is the failure that matters).
+        #
+        # Every ratcheted metric is asserted, not a hand-picked pair: `holes`
+        # and `dark_scenarios` were pinned here while `unreachable_cells` was
+        # left unchecked, and a hand-written floor drifted by one (dark_scenarios
+        # recorded 69, measured 68) without anything going red — because the
+        # gate reads `max` as a CAP and only nags when the real number is below
+        # it. A floor nothing compares to a measurement is exactly as decorative
+        # as a metric nothing counts.
         specs, coverage = _real_corpus()
         measured, dark = ratchet._metrics(coverage)
-        import json
         config = json.loads(
             (ROOT / 'config/docs/traceability-ratchet.json').read_text(encoding='utf-8')
         )
         recorded = {f['metric']: f for f in config['floors']}
-        self.assertEqual(measured['holes'], recorded['holes']['max'])
-        self.assertEqual(measured['dark_scenarios'], recorded['dark_scenarios']['max'])
+        self.assertEqual(
+            set(recorded), {metric.key for metric in ratchet.METRICS},
+            'every floor in the file, and every ratcheted metric, in one set — '
+            'a metric with no recorded number cannot fail, and a floor for a '
+            'metric that no longer exists reads as coverage',
+        )
+        for metric in ratchet.METRICS:
+            with self.subTest(metric=metric.key):
+                self.assertEqual(measured[metric.key], recorded[metric.key]['max'])
+                self.assertEqual(measured[metric.key], recorded[metric.key]['measured'])
         self.assertEqual(len(dark), measured['dark_scenarios'])
 
     def test_dark_scenarios_exclude_deprecated_and_unclaimed(self):

@@ -314,17 +314,30 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-suppression-intent.py"),
     ),
     # ── Scenario traceability ──────────────────────────────────────────────────────
+    # These two used to be `cmd_type=CmdType.PATH, path_cmd=("traceability", …)`.
+    # There is no `traceability` executable: `[project.scripts]` in
+    # scripts/src/pyproject.toml declares only sgate, ensure-emulator and
+    # run-maestro, and `subprocess.run(["traceability", …])` does not resolve the
+    # bash function `static-gates.sh` exports under that name — an exported
+    # function is not on PATH. Both gates therefore died on FileNotFoundError
+    # and reported "traceability not found" instead of their verdict, on `main`
+    # as well: introduced when the shim modules were replaced by the registry in
+    # e05a68ad. A gate that cannot run is the defect class this repo treats as
+    # loud, and it failed quietly because the failure path looked like a
+    # legitimate red.
     GateSpec(
         name="scenario specs valid",
         mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PATH,
-        path_cmd=("traceability", "validate"),
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("traceability"),
+        script_args=("validate",),
     ),
     GateSpec(
         name="coverage matrix current",
         mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PATH,
-        path_cmd=("traceability", "coverage", "--check"),
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("traceability"),
+        script_args=("coverage", "--check"),
     ),
     GateSpec(
         name="coverage holes did not grow",

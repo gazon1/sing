@@ -1,11 +1,11 @@
 {
   "measurement": "python3 -m traceability validate \u2014 specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-10-15",
-  "commit": "239f1010",
+  "measured_at": "2026-10-16",
+  "commit": "0ee3b677",
   "corpus": {
-    "specs": 26,
-    "claimed_cells": 49,
-    "carriers": 9
+    "specs": 94,
+    "claimed_cells": 119,
+    "carriers": 26
   },
   "floors": [
     {
@@ -17,10 +17,10 @@
     },
     {
       "metric": "dark_scenarios",
-      "max": 69,
-      "measured": 69,
+      "max": 68,
+      "measured": 68,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Dropped 17 -> 15 on ref-night-work-02: TASK-CHECK-01 now has a Maestro carrier on android, so it is no longer dark. 16 dark scenarios remain, all sync or auth scenarios with no carriers committed."
+      "note": "Corrected 69 -> 68 on 2026-10-16, and only the number: nothing in the corpus moved. The 69 was recorded in 511623be by hand and never reproduced — `scripts/src/traceability/` had exactly one commit since (8d0bab79 split an import to satisfy ruff's ICN rule), the scenario corpus and every carrier source (`shared/src/jvmTest`, `desktopApp`, `.maestro`) were byte-identical across that span, and re-running the gate on the 511623be tree measured the same 68. The note this replaces told a third story ('16 dark scenarios remain'), which is how a hand-written floor drifts without anything going red: the gate treats `max` as a cap and only nags when the real number sits BELOW it. That nag is the whole detector here, so the floor has to be the measured number."
     },
     {
       "metric": "unreachable_cells",
