@@ -381,8 +381,18 @@ jobs:
       # once the Gradle step above has run. Called from a static context it fails
       # with "already fails on a clean tree" — a true statement that reads as a
       # false alarm (#206).
+      #
+      # GATE_WIRING_GRADLE=1 because the `detekt-rule-coverage-floor` positive control
+      # is gradle-backed: it raises DETEKT_RULE_BRANCH_FLOOR and requires
+      # :detekt-rules:koverVerify to exit non-zero. Without this env var that control is
+      # SKIPPED here, which is the same as not running it — check.sh has always set the
+      # variable and CI never has, so the control has only ever proven anything locally.
+      # Affordable for the same reason as check.sh: the Gradle step above already ran, so
+      # configuration is cached and the control costs a verify pass, not a test suite.
       - name: Gates are wired and can fail
         if: ${{ !cancelled() }}
+        env:
+          GATE_WIRING_GRADLE: "1"
         run: python3 scripts/check-gate-wiring.py
 
       - name: Upload JUnit results
