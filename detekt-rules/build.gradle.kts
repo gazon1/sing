@@ -113,6 +113,24 @@ tasks.withType<Test>().configureEach {
 // branch, so the head of the list is where the next test goes, not where it ends.
 val DETEKT_RULE_BRANCH_FLOOR = 60
 
+// The floor's minimum lives HERE, not in a gate script that reads it back out of this
+// file. It was `_KOVER_MIN_FLOOR = 60` in scripts/check-gate-wiring.py until 2026-10-15,
+// and that copy was a second home for one number — the exact "three copies of a floor"
+// defect ADR 2026-10-15-kover-floor-lives-in-the-build-file exists to end.
+//
+// The assertion is deliberately the *minimum acceptable*, not a restatement: raising the
+// floor needs no edit here, while lowering it past this line is the "a floor that cannot
+// fail" defect and has to be a deliberate, visible change to this line.
+//
+// `require` rather than a comment because a comment is what the Python regex was reading
+// by proxy. Here it runs on every configuration, including in CI, and a mistake is a
+// configuration failure instead of a passing gate.
+require(DETEKT_RULE_BRANCH_FLOOR >= 60) {
+    "detekt-rules branch coverage floor must not drop below 60% — a lower floor lets " +
+        "koverVerify pass on a suite that stopped exercising the rules, which is the " +
+        "defect this constant exists to prevent. Measured 65.6% on 2026-10-15."
+}
+
 kover {
     reports {
         total {

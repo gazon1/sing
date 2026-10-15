@@ -2147,21 +2147,47 @@ def check_registry_wiring() -> list[str]:
 #   gap and Part F silently passes, so the cross-check must be explicit.
 
 
+def _load_registry():
+    """Import the gate registry from **this** checkout, or fail loudly.
+
+    `sgate` is installed as an editable package, and a sibling worktree can be
+    what is installed: on this host `import sgate` resolved into
+    `…/sprat/scripts/src/sgate` while the gate under test was `…/noddy`. A bare
+    import would then cross-check a different checkout's registry and report a
+    clean bill of health about the wrong repository — the one thing a wiring gate
+    must never do.
+
+    So the local `scripts/src` is put first on the path, the resolved package
+    location is checked against this repo, and a mismatch is an error rather than
+    a warning. There is no fallback: a gate that cannot find its own registry has
+    no verdict, and "skipped" would be indistinguishable from "checked and green".
+    """
+    src_root = ROOT / "scripts" / "src"
+    if str(src_root) not in sys.path:
+        sys.path.insert(0, str(src_root))
+    import sgate  # noqa: PLC0415 — the path must be set first
+
+    resolved = Path(sgate.__file__).resolve()
+    if not resolved.is_relative_to(ROOT):
+        raise RuntimeError(
+            f"imported sgate from {resolved}, which is outside this checkout ({ROOT}). "
+            f"This gate is checking a registry that is not this repository's. "
+            f"Reinstall it from this tree: `uv pip install --system --editable scripts/src/`"
+        )
+    from sgate.commands import _registry  # noqa: PLC0415 — path already resolved
+
+    return _registry
+
+
 def check_script_gates_vs_registry() -> list[str]:
     errors: list[str] = []
+    # A failure here is a failure of the gate, not a skip: an unimportable or
+    # foreign registry means Parts F and J have nothing to check, and reporting
+    # that as "skipped" would convert "not checked" into "checked and green".
     try:
-        import sys
-        # scripts/src must be on the path for the sgate import to work.
-        src_root = str(ROOT / "scripts" / "src")
-        if src_root not in sys.path:
-            sys.path.insert(0, src_root)
-        import importlib
-        _registry = importlib.import_module("sgate.commands._registry")
-    except (ImportError, ModuleNotFoundError):
-        return [
-            "Part J skipped: sgate.commands._registry is not importable "
-            "(sgate may not be installed)"
-        ]
+        _registry = _load_registry()
+    except Exception as exc:  # noqa: BLE001 — reported, never swallowed
+        return [f"Part J could not load this checkout's gate registry: {exc}"]
 
     gates = _registry.GATES
 

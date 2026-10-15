@@ -109,6 +109,26 @@ tasks.register<Exec>("koverMarkdownTable") {
 // per-project plugin's full DSL to configure verify rules and log output.
 //
 // Floors rounded down from 2026-10-15 measured values (27.6 / 20.7 / 27.4).
+//
+// Named constants, not bare literals, because the minimum acceptable floor is policy and
+// the measured value is a fact — mixing them in one number means raising the floor looks
+// like a measurement and lowering it looks like a rounding. The `require` block is the
+// same contract as DETEKT_RULE_BRANCH_FLOOR's in detekt-rules/build.gradle.kts: the build
+// file is the claim, and the claim is checked where it is made.
+val APP_INSTRUCTION_COVERAGE_FLOOR = 27
+val APP_BRANCH_COVERAGE_FLOOR = 20
+val APP_LINE_COVERAGE_FLOOR = 27
+
+require(APP_INSTRUCTION_COVERAGE_FLOOR >= 27) {
+    "app instruction coverage floor must not drop below 27% — measured 27.6% on 2026-10-15"
+}
+require(APP_BRANCH_COVERAGE_FLOOR >= 20) {
+    "app branch coverage floor must not drop below 20% — measured 20.7% on 2026-10-15"
+}
+require(APP_LINE_COVERAGE_FLOOR >= 27) {
+    "app line coverage floor must not drop below 27% — measured 27.4% on 2026-10-15"
+}
+
 plugins.withId("org.jetbrains.kotlinx.kover") {
     configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
         reports {
@@ -116,19 +136,19 @@ plugins.withId("org.jetbrains.kotlinx.kover") {
                 verify {
                     rule("instruction coverage") {
                         bound {
-                            minValue = 27
+                            minValue = APP_INSTRUCTION_COVERAGE_FLOOR
                             coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.INSTRUCTION
                         }
                     }
                     rule("branch coverage") {
                         bound {
-                            minValue = 20
+                            minValue = APP_BRANCH_COVERAGE_FLOOR
                             coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH
                         }
                     }
                     rule("line coverage") {
                         bound {
-                            minValue = 27
+                            minValue = APP_LINE_COVERAGE_FLOOR
                             coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         }
                     }
