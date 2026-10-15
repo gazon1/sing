@@ -100,7 +100,7 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - name: Install sgate CLI and its dependencies
-        run: uv pip install --system --editable scripts/src/
+        run: uv pip install --editable scripts/src/
 
       # Path-gated preflight: only validate tools when the PR touches CI tooling.
       # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
