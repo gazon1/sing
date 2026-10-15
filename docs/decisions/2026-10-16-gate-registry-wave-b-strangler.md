@@ -1,5 +1,5 @@
 ---
-title: "Gate registry wave (б): GRADLE_TASK_PARITY and kover floor moved in, Part A remains outstanding"
+title: "Gate registry wave (б): GRADLE_TASK_PARITY, kover floor, and Part A design complete"
 date: 2026-10-16
 status: accepted
 tags: ["ci", "gates", "gradle", "kover", "registry"]
@@ -81,5 +81,31 @@ the same file-reading code that reads it, with a clear phase separation).
 - `GRADLE_TASK_PARITY` and `_KOVER_MIN_FLOOR` live in `_registry.py`.
 - `controls.py` exports `GradleTaskParity` alongside `Control`, `Edit`, `Parity`.
 - `check-gate-wiring.py` sources both values via `_populate_derived_tables()`.
-- Part A remains in `check-gate-wiring.py` as discovery logic. Its registry
-  representation requires a separate ADR.
+
+## Part A: design decision
+
+`configured_gradle_check_tasks()` is discovery: it scans `*/build.gradle.kts` for
+`detekt { }` blocks. It is not "pure data" in the same sense as `GRADLE_TASK_PARITY`
+— the result is derived from file content rather than being a hand-written table.
+However, the constraint is specifically about `controls.py` (no `subprocess`/`os`/`git`
+imports because it is on the import path of every gate). The file reading already
+lives in `check-gate-wiring.py`'s `_populate_derived_tables()`, which runs once at
+module load.
+
+**Design:**
+
+1. `configured_gradle_check_tasks()` moves from a standalone function to being
+   called inside `_populate_derived_tables()`.
+2. Result stored in module-level `CONFIGURED_DETEKT_TASKS: dict[str, str]`
+   (task name → build file path).
+3. Registry adds `DETEKT_TASK_EXEMPTIONS: frozenset[str]` — modules that have
+   `detekt { }` but are **not** expected to be wired to any gate, with a reason
+   in a comment. The exemption set is the data; the discovery is the applier.
+4. `check_wiring()` reads `CONFIGURED_DETEKT_TASKS` and `DETEKT_TASK_EXEMPTIONS`
+   from the populated namespace.
+
+This keeps the registry as data (the exemptions list) and the applier as code
+(the discovery function). The asymmetry that makes Part A different from Parts I/C
+is: Parts I/C compare declared state against derived state; Part A discovers
+state and checks it is wired. The exemption set bridges the two: discovery stays
+in the applier, but the "why is this module exempt" lives in the registry.

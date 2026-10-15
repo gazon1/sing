@@ -148,6 +148,14 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
     ),
 }
 
+#: Modules that have a `detekt { }` block in their build file but are not wired
+#: to any gate. Each entry is the module name (no leading `:`). An exemption
+#: declares that the configured task is deliberately not invoked by any gate, and
+#: carries the reason so a reader can verify the asymmetry is intentional.
+#: Format: {module_name: reason_string}
+#: Populated in check-gate-wiring.py by _populate_derived_tables().
+DETEKT_TASK_EXEMPTIONS: dict[str, str] = {}
+
 
 # ── GateSpec ────────────────────────────────────────────────────────────────────
 

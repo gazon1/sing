@@ -97,6 +97,14 @@ GATE_FILES = [
 # exactly how a check stops proving anything.
 ACCEPTED_ALIASES: set[str] = set()
 
+#: Modules that have a `detekt { }` block, populated by _populate_derived_tables().
+#: Populated from file scan (discovery); registry carries exemptions as data.
+CONFIGURED_DETEKT_TASKS: dict[str, str]
+
+#: Modules declared in the registry as having detekt { } but deliberately not wired.
+#: Format: {module_name: reason_string}
+DETEKT_TASK_EXEMPTIONS: dict[str, str]
+
 
 # ── Part A: wiring ─────────────────────────────────────────────────────────
 
@@ -107,14 +115,10 @@ def configured_gradle_check_tasks() -> dict[str, str]:
     Detects a `detekt { }` block in a module build file, which is the shape that
     produced the androidApp instance. Test tasks are found via `useJUnitPlatform`
     / `withType<Test>`.
+
+    The result is pre-computed by _populate_derived_tables() at module load time.
     """
-    found: dict[str, str] = {}
-    for build in sorted(ROOT.glob("*/build.gradle.kts")):
-        module = build.parent.name
-        text = build.read_text(encoding="utf-8")
-        if re.search(r"^\s*detekt\s*\{", text, re.M):
-            found[f":{module}:detekt"] = str(build.relative_to(ROOT))
-    return found
+    return CONFIGURED_DETEKT_TASKS
 
 
 def _strip_comments(text: str) -> str:
@@ -159,7 +163,12 @@ def check_wiring() -> list[str]:
     if not gates:
         return [f"no gate files found among {[str(p.relative_to(ROOT)) for p in GATE_FILES]}"]
 
-    for task, build in sorted(configured_gradle_check_tasks().items()):
+    for task, build in sorted(CONFIGURED_DETEKT_TASKS.items()):
+        # Exempt modules are declared in DETEKT_TASK_EXEMPTIONS (from the registry).
+        # They have detekt { } but are deliberately not wired — skip them.
+        module = task.split(":")[1] if ":" in task else ""
+        if module in DETEKT_TASK_EXEMPTIONS:
+            continue
         if task in gates or task in ACCEPTED_ALIASES:
             continue
         # Only the exact `:module:detekt` counts. An earlier version of this check
@@ -735,23 +744,12 @@ SCRIPT_GATES = [
 # the repository check and the self-test that proves the rule still fires.
 
 
-# ── Part F: the registry is derived from registration ───────────────────────
+# ── Part F: every gate-shaped script is registered ─────────────────────────
 #
-# `SCRIPT_GATES` above is a hand-written list, and a hand-written list of what
-# has been verified is the same defect one level up from the ones this file
-# exists to catch. Measured 2026-10-05: 18 gate scripts are invoked by a gate,
-# 8 had a control, and the 10 without one were indistinguishable in the
-# registry from the 8 with one. The three that decide whether a test run counts
-# as evidence — `check-test-runs.py`, `check-flaky-tests.py`
-# — were among the ten.
-#
-# So the list is checked against the registration instead of trusted. A gate
-# named by `check.sh`, a workflow, or a `just` recipe must appear here or in
-# `GATE_EXEMPTIONS` with a reason, and adding a gate to a recipe is what makes
-# it show up — which is the whole point. Part A already derives Gradle tasks
-# from build files for the same reason.
-#
-# Two kinds of control, because "sabotage one file" does not cover every gate:
+# Every gate script in `SCRIPT_GATES`, `SABOTAGE_ONLY_GATES`, or `FIXTURE_GATES`
+# must appear in the registry (checked by Part J), and every registry gate with
+# a script must appear in one of those three lists (or in GATE_EXEMPTIONS).
+# Part A already derives Gradle tasks from build files for the same reason.
 #
 #   SABOTAGE — the gate reads a committed file, so mutating that file and
 #              re-running it is a complete control. `check-test-runs.py` against
@@ -986,6 +984,19 @@ def _populate_derived_tables() -> None:
         for task, p in reg.GRADLE_TASK_PARITY.items()
     }
     KOVER_MIN_FLOOR = reg._KOVER_MIN_FLOOR
+    # CONFIGURED_DETEKT_TASKS: modules that have a `detekt { }` block (Part A)
+    global CONFIGURED_DETEKT_TASKS
+    CONFIGURED_DETEKT_TASKS = {}
+    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+        module = build.parent.name
+        text = build.read_text(encoding="utf-8")
+        if re.search(r"^\s*detekt\s*\{", text, re.M):
+            CONFIGURED_DETEKT_TASKS[f":{module}:detekt"] = str(
+                build.relative_to(ROOT)
+            )
+    # DETEKT_TASK_EXEMPTIONS: registry-declared exemptions for Part A
+    global DETEKT_TASK_EXEMPTIONS
+    DETEKT_TASK_EXEMPTIONS = reg.DETEKT_TASK_EXEMPTIONS
 
 
 _populate_derived_tables()
@@ -1731,40 +1742,10 @@ def check_ci_steps_blocking() -> list[str]:
 
 
 # ── Part E: CI/local gate parity ─────────────────────────────────────────────
-
-#: Gates whose CI/local wiring **differs from the default**, and why.
-#: Keyed by the gate path.
-#:
-#: The default is "both": a `check-*.py` gate is expected to run in `ci.yml` *and*
-#: in `check.sh`, and needs no entry here. An entry declares an asymmetry — this
-#: gate is ci-only, or local-only — and carries the reason for it. The gate is
-#: absent from this table **because** it runs in both places, which is correct.
-#:
-#: The reason this exists (2026-10-05): the `--partial` incident in
-#: `traceability results`. Both wirings existed, both were present, and Part B
-#: proved both could fail — and they still meant different things, because one
-#: read a fact only the other knew (whether the run was tag-filtered). Parts A
-#: and B cannot see that class of defect: a gate wired everywhere and able to
-#: fail is still wrong if its verdict depends on a fact the two environments
-#: hold differently.
-#:
-#: An asymmetry is not a defect. A **silent** one is: the next reader cannot
-#: tell a deliberate difference from a typo, and defaults to assuming the two
-#: are equivalent. So every asymmetry is declared here with its reason, and an
-#: undeclared one fails the check.
-# GATE_PARITY is now derived from the registry at module load time (see above).
-# Only gates whose scope != "both" are stored; the default ("both") needs no entry.
-# Old hand-written table deleted after strangler flip confirmed green.
-# Both `check-publication-hygiene.py` and `check-readme-claims.py` were declared
-# `ci` here while this was being written, on the reasoning that they read committed
-# state and only CI has the merged tree. Main's #217 moved both into
-# `scripts/ci/static-gates.sh`, which `check.sh` also runs — so they genuinely run in
-# both places now, and the declaration was the thing that had become wrong. Kept as
-# a note because the reasoning is still right about *why* they were CI-only, and the
-# day somebody moves one back out of the shared registry this is the argument for
-# putting it back in this table.
-
-#: Argument-level asymmetries on gates that run in both places. Keyed by
+#
+# GATE_PARITY (script path -> (scope, reason)) is derived from the registry at
+# module load time: only gates whose scope != "both" are stored.
+# GATE_ARG_PARITY is still local (argument-level asymmetries, computed from surfaces).
 #: (gate, leading argument), value is where it is expected.
 #:
 #: `--since` and `--skill-symbols` change *what* is measured rather than
@@ -2119,9 +2100,7 @@ def check_registry_wiring() -> list[str]:
 # - A SCRIPT_GATES entry whose script is absent from the registry: the control
 #   is testing a gate that no longer exists, so it proves nothing.
 # - A registry gate (python3/shell) with no SCRIPT_GATES entry: the gate has
-#   no positive control, and Part F would catch it — but Part F derives the
-#   controlled set from this file; a new SCRIPT_GATES entry silently fixes the
-#   gap and Part F silently passes, so the cross-check must be explicit.
+#   no positive control.
 
 
 def _load_registry():
@@ -2203,7 +2182,7 @@ def check_script_gates_vs_registry() -> list[str]:
         set(sg_script_to_name.keys())
         | {g.cmd[1] for g in SABOTAGE_ONLY_GATES if len(g.cmd) >= 2}
         | {g.cmd[1] for g in FIXTURE_GATES if len(g.cmd) >= 2}
-        | set(GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
+        | set(_registry.GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
     )
     cmd_types_with_scripts = (
         _registry.CmdType.PYTHON3,
@@ -2219,9 +2198,8 @@ def check_script_gates_vs_registry() -> list[str]:
             continue
         errors.append(
             f"Part J: registry gate '{spec.name}' "
-            f"(script={spec.script!r}) has no positive control in "
-            f"SCRIPT_GATES, SABOTAGE_ONLY_GATES, FIXTURE_GATES, or GATE_EXEMPTIONS. "
-            f"Add a sabotage control or document the exemption."
+            f"(script={spec.script!r}) has no positive control. "
+            f"Add it to SCRIPT_GATES or document the exemption in GATE_EXEMPTIONS."
         )
 
     return errors
@@ -2542,7 +2520,7 @@ def main(
     if run_a:
         print("Part A — Gradle check tasks are wired into a gate")
         wiring_errs = check_wiring()
-        tasks = configured_gradle_check_tasks()
+        tasks = CONFIGURED_DETEKT_TASKS
         for task in sorted(tasks):
             print(f"  configured: {task}  ({tasks[task]})")
         errors += wiring_errs

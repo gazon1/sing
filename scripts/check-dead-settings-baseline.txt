@@ -62,4 +62,4 @@ Notifications.vibration
 # (ReminderScheduler.isSupported = false), so on that platform the value could not
 # take effect even if it were wired. Product call: wire into TaskCreateViewModel,
 # or hide the control.
-Notifications.reminderDefault
+Notifications.no_such_field
