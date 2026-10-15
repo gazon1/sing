@@ -76,28 +76,41 @@ class SyncEngineEnqueueReportsFailureTest {
         scope: TestScope,
         outbox: SyncOutboxDao,
         crashReporter: CrashReportingPort,
-    ): SyncEngine =
-        SyncEngine(
+    ): SyncEngine {
+        val engineScope = testScope(scope.backgroundScope)
+        val auth = FakeSyncAuthRepository(
+            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+        )
+        val state = SyncEngineState(log, crashReporter)
+        val outboxService =
+            OutboxService(
+                outboxDao = outbox,
+                patchBuilder = fakeSyncPatchBuilder(FakeSyncShadowDao()),
+                scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
+                engineState = state,
+                monoNow = { clock.now().toEpochMilliseconds() },
+            )
+        return SyncEngine(
             log = log,
             api = FakeSyncApiClient(),
-            authRepository =
-                FakeSyncAuthRepository(
-                    Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-                ),
-            outboxDao = outbox,
-            deadLetterDao = FakeSyncDeadLetterDao(),
+            authRepository = auth,
             idGenerator = SequentialIdGenerator(),
             stateRepository = FakeSyncStateRepository(),
+            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
             shadowDao = FakeSyncShadowDao(),
             patchBuilder = fakeSyncPatchBuilder(FakeSyncShadowDao()),
+            outboxService = outboxService,
+            _outboxDao = outbox,
+            _deadLetterDao = FakeSyncDeadLetterDao(),
+            syncAuthBridge = fakeSyncAuthBridge(auth),
             writerProvider = { fakeSyncDocumentWriter() },
-            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-enqueue", "profile-1")),
             scheduler = FakeSyncWorkScheduler(),
             clock = clock,
-            scope = testScope(scope.backgroundScope),
+            scope = engineScope,
             crashReporter = crashReporter,
             hlcFactory = FakeHlcFactory(),
         )
+    }
 
     @Test
     fun `a change that never reached the outbox is reported`() =

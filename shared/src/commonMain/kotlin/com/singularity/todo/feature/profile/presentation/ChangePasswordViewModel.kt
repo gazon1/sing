@@ -60,6 +60,7 @@ class ChangePasswordViewModel(
 
     private fun submit(password: String) {
         vmScope.launch {
+            if (_state.value is ChangePasswordUiState.Loading) return@launch
             updateState { ChangePasswordUiState.Loading }
             authRepository.updatePassword(password).fold(
                 onSuccess = {

@@ -88,6 +88,7 @@ fun domainModule(): List<Module> = buildList {
         },
     )
     add(coreModule())
+    add(syncModule())
     add(aiToolsModule())
     add(genuiModule())
     add(aiSettingsModule())

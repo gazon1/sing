@@ -28,21 +28,27 @@ non-alphanumeric characters with `_`.
 ### Auth
 | Constant | Value | Where |
 |---|---|---|
-| `AUTH_CONTINUE_OFFLINE_BUTTON` | `auth_continue_offline_button` | |
-| `AUTH_EMAIL_INPUT` | `auth_email_input` | |
-| `AUTH_ERROR_TEXT` | `auth_error_text` | |
-| `AUTH_LOADING` | `auth_loading` | |
-| `AUTH_MESSAGE_TEXT` | `auth_message_text` | |
-| `AUTH_PASSWORD_INPUT` | `auth_password_input` | |
-| `AUTH_SAVE_SERVER_BUTTON` | `auth_save_server_button` | |
-| `AUTH_SERVER_KEY_INPUT` | `auth_server_key_input` | |
-| `AUTH_SERVER_URL_INPUT` | `auth_server_url_input` | |
 | `AUTH_ATTACH_ACCOUNT_BUTTON` | `auth_attach_account_button` | |
 | `AUTH_ATTACH_BACK_BUTTON` | `auth_attach_back_button` | |
 | `AUTH_ATTACH_EMAIL_INPUT` | `auth_attach_email_input` | |
 | `AUTH_ATTACH_PASSWORD_INPUT` | `auth_attach_password_input` | |
 | `AUTH_ATTACH_SUBMIT_BUTTON` | `auth_attach_submit_button` | |
+| `AUTH_BACK_BUTTON` | `auth_back_button` | |
+| `AUTH_CONFIRMATION_EMAIL` | `auth_confirmation_email` | |
+| `AUTH_CONFIRMATION_HEADLINE` | `auth_confirmation_headline` | |
+| `AUTH_CONTINUE_OFFLINE_BUTTON` | `auth_continue_offline_button` | |
+| `AUTH_EMAIL_INPUT` | `auth_email_input` | |
+| `AUTH_ERROR_TEXT` | `auth_error_text` | |
+| `AUTH_LOADING` | `auth_loading` | |
+| `AUTH_MAGIC_RESEND_BUTTON` | `auth_magic_resend_button` | |
+| `AUTH_MESSAGE_TEXT` | `auth_message_text` | |
+| `AUTH_PASSWORD_INPUT` | `auth_password_input` | |
+| `AUTH_RESEND_BUTTON` | `auth_resend_button` | |
+| `AUTH_SAVE_SERVER_BUTTON` | `auth_save_server_button` | |
+| `AUTH_SERVER_KEY_INPUT` | `auth_server_key_input` | |
+| `AUTH_SERVER_URL_INPUT` | `auth_server_url_input` | |
 | `AUTH_SIGN_IN_BUTTON` | `auth_sign_in_button` | |
+| `AUTH_SIGN_OUT_BUTTON` | `auth_sign_out_button` | |
 | `AUTH_TOGGLE_MODE_BUTTON` | `auth_toggle_mode_button` | |
 
 ### Navigation
@@ -314,6 +320,7 @@ non-alphanumeric characters with `_`.
 | `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `RESULT_DIALOG` | `result_dialog` | |
+| `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
 
 ## Dynamic functions
 

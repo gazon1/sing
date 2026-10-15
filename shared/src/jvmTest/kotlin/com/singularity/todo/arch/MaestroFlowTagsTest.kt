@@ -255,12 +255,13 @@ class MaestroFlowTagsTest {
         val KNOWN_COMMANDS = setOf(
             "assertAbsent", "assertNotVisible", "assertVisible", "assertTrue", "back",
             "clearState",
-            "copyTextFrom", "doubleTapOn", "eraseText", "extendedWaitUntil", "hideKeyboard",
+            "copyTextFrom", "doubleTapOn", "eraseText", "exec", "extendedWaitUntil",
+            "hideKeyboard",
             "inputRandomText", "inputText", "killApp", "launchApp", "longPressOn",
             "openLink", "openNotifications", "pasteText", "pressKey", "repeat",
             "runFlow", "runScript", "scroll", "scrollUntilVisible", "setAirplaneMode",
             "setOrientation", "startRecording", "stopApp", "stopRecording", "swipe",
-            "takeScreenshot", "tapOn", "waitForAnimationToEnd",
+            "takeScreenshot", "tapOn", "waitForAnimationToEnd", "waitForAnimations",
         )
     }
 }

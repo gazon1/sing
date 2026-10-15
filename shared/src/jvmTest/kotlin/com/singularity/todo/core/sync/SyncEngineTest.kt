@@ -74,24 +74,62 @@ class SyncEngineTest {
         shadow: FakeSyncShadowDao = FakeSyncShadowDao(),
     ): Pair<SyncEngine, AutoCloseableCoroutineScope> {
         val engineScope = testScope(backgroundScope)
+        val state = SyncEngineState(log, NoOpCrashReportingPort())
+        val outboxService = OutboxService(
+            outboxDao = outbox,
+            patchBuilder = fakeSyncPatchBuilder(shadow),
+            scopeProvider = scopeProvider,
+            engineState = state,
+            monoNow = { clock.now().toEpochMilliseconds() },
+        )
         val engine =
             SyncEngine(
                 log = log,
                 api = api,
                 authRepository = auth,
-                outboxDao = outbox,
-                deadLetterDao = FakeSyncDeadLetterDao(),
                 idGenerator = SequentialIdGenerator(),
                 stateRepository = stateRepo,
+                scopeProvider = scopeProvider,
                 shadowDao = shadow,
                 patchBuilder = fakeSyncPatchBuilder(shadow),
+                outboxService = outboxService,
+                _outboxDao = outbox,
+                _deadLetterDao = FakeSyncDeadLetterDao(),
                 writerProvider = { fakeSyncDocumentWriter() },
-                scopeProvider = scopeProvider,
                 scheduler = FakeSyncWorkScheduler(),
                 clock = clock,
                 scope = engineScope,
                 crashReporter = NoOpCrashReportingPort(),
                 hlcFactory = FakeHlcFactory(),
+                state = state,
+                pushPhase = PushPhase(
+                    api = api,
+                    authRepository = auth,
+                    outboxDao = outbox,
+                    deadLetterDao = FakeSyncDeadLetterDao(),
+                    shadowDao = shadow,
+                    idGenerator = SequentialIdGenerator(),
+                    scopeProvider = scopeProvider,
+                    patchBuilder = fakeSyncPatchBuilder(shadow),
+                    monoNow = { clock.now().toEpochMilliseconds() },
+                    phases = state.phases,
+                    writerProvider = { fakeSyncDocumentWriter() },
+                    retryPolicy = PatchRetryPolicy(),
+                    scope = engineScope,
+                ),
+                pullPhase = PullPhase(
+                    api = api,
+                    authRepository = auth,
+                    stateRepository = stateRepo,
+                    clock = clock,
+                    scopeProvider = scopeProvider,
+                    phases = state.phases,
+                    getHandlers = { emptyMap() },
+                    scope = engineScope,
+                    hlcFactory = FakeHlcFactory(),
+                ),
+                bootstrapper = null,
+                syncAuthBridge = fakeSyncAuthBridge(auth),
             )
         return engine to engineScope
     }
@@ -279,24 +317,36 @@ class SyncEngineTest {
         runTest {
             val auth = FakeSyncAuthRepository(Session.SignedOut)
             val outbox = FakeSyncOutboxDao()
+            val scopeProvider = FakeSyncScopeProvider(null)
             val engineScope = testScope(backgroundScope)
+            val state = SyncEngineState(log, NoOpCrashReportingPort())
+            val outboxService =
+                OutboxService(
+                    outboxDao = outbox,
+                    patchBuilder = fakeSyncPatchBuilder(),
+                    scopeProvider = scopeProvider,
+                    engineState = state,
+                    monoNow = { clock.now().toEpochMilliseconds() },
+                )
             val e =
                 SyncEngine(
                     log = log,
                     api = FakeSyncApiClient(),
                     authRepository = auth,
-                    outboxDao = outbox,
-                    deadLetterDao = FakeSyncDeadLetterDao(),
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
                     patchBuilder = fakeSyncPatchBuilder(),
+                    outboxService = outboxService,
+                    _outboxDao = outbox,
+                    _deadLetterDao = FakeSyncDeadLetterDao(),
                     writerProvider = { fakeSyncDocumentWriter() },
-                    scopeProvider = FakeSyncScopeProvider(null),
+                    scopeProvider = scopeProvider,
                     scheduler = FakeSyncWorkScheduler(),
                     clock = clock,
                     scope = engineScope,
                     crashReporter = NoOpCrashReportingPort(),
+                    syncAuthBridge = fakeSyncAuthBridge(auth),
                     hlcFactory = FakeHlcFactory(),
                 )
 
@@ -367,27 +417,38 @@ class SyncEngineTest {
                 }
 
             val outbox = FakeSyncOutboxDao()
+            val auth = FakeSyncAuthRepository(
+                Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+            )
             val engineScope = testScope(backgroundScope)
+            val state = SyncEngineState(log, NoOpCrashReportingPort())
+            val outboxService =
+                OutboxService(
+                    outboxDao = outbox,
+                    patchBuilder = fakeSyncPatchBuilder(),
+                    scopeProvider = throwingProvider,
+                    engineState = state,
+                    monoNow = { clock.now().toEpochMilliseconds() },
+                )
             val e =
                 SyncEngine(
                     log = log,
                     api = FakeSyncApiClient(),
-                    authRepository =
-                        FakeSyncAuthRepository(
-                            Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
-                        ),
-                    outboxDao = outbox,
-                    deadLetterDao = FakeSyncDeadLetterDao(),
+                    authRepository = auth,
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
                     patchBuilder = fakeSyncPatchBuilder(),
+                    outboxService = outboxService,
+                    _outboxDao = outbox,
+                    _deadLetterDao = FakeSyncDeadLetterDao(),
                     writerProvider = { fakeSyncDocumentWriter() },
                     scopeProvider = throwingProvider,
                     scheduler = FakeSyncWorkScheduler(),
                     clock = clock,
                     scope = engineScope,
                     crashReporter = NoOpCrashReportingPort(),
+                    syncAuthBridge = fakeSyncAuthBridge(auth),
                     hlcFactory = FakeHlcFactory(),
                 )
 
@@ -416,27 +477,38 @@ class SyncEngineTest {
                         entityId: String,
                     ): Unit = throw IllegalStateException("outbox delete failed")
                 }
+            val auth = FakeSyncAuthRepository(
+                Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+            )
             val engineScope = testScope(backgroundScope)
+            val state = SyncEngineState(log, NoOpCrashReportingPort())
+            val outboxService =
+                OutboxService(
+                    outboxDao = throwingOutbox,
+                    patchBuilder = fakeSyncPatchBuilder(),
+                    scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
+                    engineState = state,
+                    monoNow = { clock.now().toEpochMilliseconds() },
+                )
             val e =
                 SyncEngine(
                     log = log,
                     api = FakeSyncApiClient(),
-                    authRepository =
-                        FakeSyncAuthRepository(
-                            Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
-                        ),
-                    outboxDao = throwingOutbox,
-                    deadLetterDao = FakeSyncDeadLetterDao(),
+                    authRepository = auth,
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
                     patchBuilder = fakeSyncPatchBuilder(),
+                    outboxService = outboxService,
+                    _outboxDao = throwingOutbox,
+                    _deadLetterDao = FakeSyncDeadLetterDao(),
                     writerProvider = { fakeSyncDocumentWriter() },
                     scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                     scheduler = FakeSyncWorkScheduler(),
                     clock = clock,
                     scope = engineScope,
                     crashReporter = NoOpCrashReportingPort(),
+                    syncAuthBridge = fakeSyncAuthBridge(auth),
                     hlcFactory = FakeHlcFactory(),
                 )
 
@@ -463,27 +535,38 @@ class SyncEngineTest {
                     override suspend fun insert(entity: SyncOutboxEntity): Unit =
                         throw IllegalStateException("outbox insert failed")
                 }
+            val auth = FakeSyncAuthRepository(
+                Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
+            )
             val engineScope = testScope(backgroundScope)
+            val state = SyncEngineState(log, NoOpCrashReportingPort())
+            val outboxService =
+                OutboxService(
+                    outboxDao = throwingOutbox,
+                    patchBuilder = fakeSyncPatchBuilder(),
+                    scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
+                    engineState = state,
+                    monoNow = { clock.now().toEpochMilliseconds() },
+                )
             val e =
                 SyncEngine(
                     log = log,
                     api = FakeSyncApiClient(),
-                    authRepository =
-                        FakeSyncAuthRepository(
-                            Session.SignedIn(UserId("owner-1"), "t@x.com", "access", "refresh"),
-                        ),
-                    outboxDao = throwingOutbox,
-                    deadLetterDao = FakeSyncDeadLetterDao(),
+                    authRepository = auth,
                     idGenerator = SequentialIdGenerator(),
                     stateRepository = FakeSyncStateRepository(),
                     shadowDao = FakeSyncShadowDao(),
                     patchBuilder = fakeSyncPatchBuilder(),
+                    outboxService = outboxService,
+                    _outboxDao = throwingOutbox,
+                    _deadLetterDao = FakeSyncDeadLetterDao(),
                     writerProvider = { fakeSyncDocumentWriter() },
                     scopeProvider = FakeSyncScopeProvider(SyncScope("owner-1", "profile-1")),
                     scheduler = FakeSyncWorkScheduler(),
                     clock = clock,
                     scope = engineScope,
                     crashReporter = NoOpCrashReportingPort(),
+                    syncAuthBridge = fakeSyncAuthBridge(auth),
                     hlcFactory = FakeHlcFactory(),
                 )
 

@@ -114,6 +114,7 @@ class AuthViewModel(
 
     private fun signIn(email: String, password: String) {
         vmScope.launch {
+            if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.signIn(email, password).fold(
                 onSuccess = {
@@ -131,6 +132,7 @@ class AuthViewModel(
 
     private fun signUp(email: String, password: String) {
         vmScope.launch {
+            if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.signUp(email, password).fold(
                 onSuccess = {
@@ -164,6 +166,7 @@ class AuthViewModel(
 
     private fun signInAnonymously() {
         vmScope.launch {
+            if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.signInAnonymously().fold(
                 onSuccess = {
@@ -180,6 +183,7 @@ class AuthViewModel(
 
     private fun migrateAnonymousTo(email: String, password: String) {
         vmScope.launch {
+            if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.migrateAnonymousTo(email, password).fold(
                 onSuccess = {
@@ -218,6 +222,7 @@ class AuthViewModel(
 
     private fun verifyMagicLink(email: String, token: String) {
         vmScope.launch {
+            if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.verifyMagicLink(email, token).fold(
                 onSuccess = {
@@ -234,6 +239,7 @@ class AuthViewModel(
 
     private fun sendMagicLink(email: String) {
         vmScope.launch {
+            if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
             authRepository.sendMagicLink(email).fold(
                 onSuccess = {

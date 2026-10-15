@@ -691,4 +691,153 @@ class ArchitectureTest {
             "Nav3 backStack seed / start mismatch must be resolved with explicit backStack.add()",
         ) { it }
     }
+
+    /**
+     * `SyncEngine` is a coordinator: it owns no business logic.
+     *
+     * - No `init{}` block: phase construction and handler registration happen at
+     *   construction time through primary-constructor delegation, not through an
+     *   `init {}` block that would hide sequencing.
+     * - No direct `outboxDao` calls: outbox writes go through `OutboxService`, push
+     *   logic lives in `PushPhase`, and pull logic in `PullPhase`. `SyncEngine`
+     *   coordinates the two phases without implementing either.
+     *
+     * This rule will break if an `init {}` block or a direct `outboxDao.` call
+     * is added to `SyncEngine` — that code belongs in the phase classes.
+     */
+    @Test
+    fun `SyncEngine must not own business logic`() {
+        val engineFile =
+            scope.files.find { it.path.replace('\\', '/').endsWith("core/sync/SyncEngine.kt") }
+                ?: error("SyncEngine.kt not found in commonMain")
+
+        val code = engineFile.codeOnly()
+
+        val initBlockPattern = Regex("""\binit\s*\{""")
+        val outboxDaoCallPattern = Regex("""\boutboxDao\.\w+\s*\(""")
+
+        val offenders = mutableListOf<String>()
+        if (initBlockPattern.containsMatchIn(code)) {
+            offenders.add("SyncEngine has an init {} block — business logic belongs in PushPhase / PullPhase")
+        }
+        if (outboxDaoCallPattern.containsMatchIn(code)) {
+            offenders.add("SyncEngine calls outboxDao directly — outbox writes belong in OutboxService / PushPhase")
+        }
+        assertNoOffenders(
+            offenders,
+            "SyncEngine must not own business logic (no init{} and no direct outboxDao calls)",
+        ) { it }
+    }
+
+    /**
+     * `OutboxService` is a stateless service: it receives all its dependencies through
+     * the primary constructor and has exactly one public entry point ([OutboxService.enqueue]).
+     * No `init{}` block — construction-time sequencing would hide the order in which
+     * [SyncPhaseReporter] operations are recorded, and that order is load-bearing
+     * (REQ-OS-028: the local-storage phase labels must match the span labels in production).
+     *
+     * This rule breaks when someone adds an `init{}` block to `OutboxService`.
+     */
+    @Test
+    fun `OutboxService must not own stateful logic`() {
+        val outboxFile =
+            scope.files.find {
+                it.path.replace('\\', '/').endsWith("core/sync/OutboxService.kt")
+            } ?: error("OutboxService.kt not found in commonMain")
+
+        val code = outboxFile.codeOnly()
+        val initBlockPattern = Regex("""\binit\s*\{""")
+
+        val offenders = mutableListOf<String>()
+        if (initBlockPattern.containsMatchIn(code)) {
+            offenders.add(
+                "OutboxService has an init {} block — sequencing logic belongs " +
+                    "in the caller (SyncEngine), not here. Phase-label ordering is load-bearing.",
+            )
+        }
+        assertNoOffenders(
+            offenders,
+            "OutboxService must not own stateful logic (no init{} block)",
+        ) { it }
+    }
+
+    /**
+     * `SyncBootstrapper` registers pull handlers but does not implement event-handling logic.
+     *
+     * The actual per-event processing (protocol version guard, JsonObject payload
+     * validation, CREATED/UPDATED/RESTORED/DELETED dispatch, exception classification)
+     * lives in `PullEventHandler`. `SyncBootstrapper` creates one and delegates to it
+     * from the handler lambda, but the handler *implementation* (the lambda body that
+     * calls `pullEventHandler.handleEvent`) is the event-handling logic — and that
+     * logic must not live inside `SyncBootstrapper`'s `init {}`.
+     *
+     * This rule breaks when someone adds event-handling code directly in the
+     * `SyncBootstrapper.init {}` block or in any other part of the bootstrapper,
+     * instead of in `PullEventHandler`.
+     *
+     * Fix: move the `pullEventHandler.handleEvent` call out of `SyncBootstrapper.init {}`
+     * and into the `registerHandler` call site in `SyncEngine`:
+     * `engine.registerHandler(type) { event -> pullEventHandler.handleEvent(event) { ... } }`.
+     * `SyncBootstrapper` is then left with only the handler registration loop.
+     */
+    @Test
+    fun `SyncBootstrapper must not own event-handling logic`() {
+        val bootstrapperFile =
+            scope.files.find { it.path.replace('\\', '/').endsWith("core/sync/SyncBootstrapper.kt") }
+                ?: error("SyncBootstrapper.kt not found in commonMain")
+
+        val code = bootstrapperFile.codeOnly()
+
+        // The event-handling call: pullEventHandler.handleEvent is invoked inside the
+        // registerHandler lambda. If this call appears in the bootstrapper's init {}
+        // block, the bootstrapper owns the event-handling logic.
+        val handleEventPattern = Regex("""pullEventHandler\.handleEvent""")
+
+        val offenders = mutableListOf<String>()
+        if (handleEventPattern.containsMatchIn(code)) {
+            offenders.add(
+                "SyncBootstrapper calls pullEventHandler.handleEvent — " +
+                    "event-handling logic belongs in PullEventHandler, not here",
+            )
+        }
+        assertNoOffenders(
+            offenders,
+            "SyncBootstrapper must not own event-handling logic",
+        ) { it }
+    }
+
+    /**
+     * `PushPhase` and `PullPhase` must not create their own `StateFlow`.
+     *
+     * `SyncEngine` owns a single `SyncEngineState` that is the authoritative source of
+     * sync status, last push result, and last pull result. Both phases report through
+     * `SyncPhaseReporter` (injected as `phases`) and expose their outcomes via
+     * `SyncEngine`'s public `StateFlow` properties. A phase that instantiates its own
+     * `StateFlow` creates a parallel source of truth that is invisible to `SyncEngine`'s
+     * observers and breaks the single-state invariant.
+     *
+     * This rule scans the two phase files for `MutableStateFlow` construction. The
+     * `SyncPhaseReporter` interface and `SyncEngineState` are the sanctioned conduit.
+     */
+    @Test
+    fun `SyncEngine child phases must not create their own StateFlow`() {
+        val phaseFiles = scope.files.filter { file ->
+            val path = file.path.replace('\\', '/')
+            path.endsWith("core/sync/PushPhase.kt") || path.endsWith("core/sync/PullPhase.kt")
+        }
+
+        val offenders = phaseFiles
+            .filter { file ->
+                // MutableStateFlow(...) is the direct creation; StateFlow is the read-only
+                // interface and is fine to hold as a property. The ban is on creating one.
+                Regex("""MutableStateFlow\s*\(""").containsMatchIn(file.codeOnly())
+            }
+            .map { it.path }
+
+        assertNoOffenders(
+            offenders,
+            "PushPhase and PullPhase must not create MutableStateFlow — " +
+                "report through SyncPhaseReporter injected as 'phases'",
+        ) { it }
+    }
 }

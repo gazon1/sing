@@ -90,6 +90,9 @@ class SyncEngineOutboxOwnershipTest {
         retryPolicy: PatchRetryPolicy = PatchRetryPolicy(),
     ): Harness {
         val api = FakeSyncApiClient()
+        val auth = FakeSyncAuthRepository(
+            Session.SignedIn(UserId.fromString(activeOwner), "a@x.com", "access", "refresh"),
+        )
         val outbox = FakeSyncOutboxDao()
         val shadow = FakeSyncShadowDao()
         val dead = FakeSyncDeadLetterDao()
@@ -97,17 +100,23 @@ class SyncEngineOutboxOwnershipTest {
         val engine = SyncEngine(
             log = log,
             api = api,
-            authRepository = FakeSyncAuthRepository(
-                Session.SignedIn(UserId.fromString(activeOwner), "a@x.com", "access", "refresh"),
-            ),
-            outboxDao = outbox,
-            deadLetterDao = dead,
+            authRepository = auth,
             idGenerator = SequentialIdGenerator(),
             stateRepository = FakeSyncStateRepository(),
+            scopeProvider = scopes,
             shadowDao = shadow,
             patchBuilder = fakeSyncPatchBuilder(shadow),
+            outboxService = OutboxService(
+                outboxDao = outbox,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                scopeProvider = scopes,
+                engineState = SyncEngineState(log, NoOpCrashReportingPort()),
+                monoNow = { clock.now().toEpochMilliseconds() },
+            ),
+            _outboxDao = outbox,
+            _deadLetterDao = dead,
+            syncAuthBridge = fakeSyncAuthBridge(auth),
             writerProvider = { fakeSyncDocumentWriter() },
-            scopeProvider = scopes,
             scheduler = FakeSyncWorkScheduler(),
             retryPolicy = retryPolicy,
             clock = clock,
