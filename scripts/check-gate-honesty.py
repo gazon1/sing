@@ -27,12 +27,14 @@ plugin classpath, and the real report file.
 
 ## What it does, and what it refuses to do
 
-For each probe: write a temporary file containing a known violation, run the real detekt task,
-assert the report contains the expected rule id, then **restore the file unconditionally**.
+For each probe: `git worktree add --detach` creates a disposable worktree in a temp
+directory, the probe file is planted inside it, `:shared:detekt` is run there (with
+`./gw` for GRADLE_USER_HOME isolation), and the worktree is removed when done.
 
-It never leaves the tree modified, and it never reports success on its own evidence — a probe that
-does not fire is a failure, not a pass, because a probe that cannot fail is the thing this script
-exists to catch.
+The live tree is never touched. Git identity is isolated per-probe via `GIT_CONFIG_*`
+parameters, so a global `core.hooksPath` does not fire the repository's hooks inside
+the worktree. A probe that does not fire is a failure — not a pass — because a probe
+that cannot fail is the thing this script exists to catch.
 
 ## Why it is slow, and why that is fine
 
@@ -46,6 +48,7 @@ The probes are additive, so `--only NAME` runs one.
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import shutil
 import subprocess
@@ -126,11 +129,14 @@ PROBES = [
 REPORT = ROOT / "shared/build/reports/detekt/detekt.md"
 
 
-def run_detekt() -> tuple[int, str]:
-    """Run the real detekt task. Returns (exit code, combined output)."""
+def _run_detekt_in(worktree: pathlib.Path) -> tuple[int, str]:
+    """Run :shared:detekt inside a worktree. Returns (exit code, output tail)."""
+    # Use ./gw to get GRADLE_USER_HOME isolation (per ADR 2026-10-04).
+    # Detekt writes shared/build/reports/detekt/detekt.md inside the worktree,
+    # so each probe gets its own report file and they never contend.
     proc = subprocess.run(
-        [str(GRADLEW), ":shared:detekt", "--console=plain"],
-        cwd=ROOT,
+        [str(worktree / "gw"), ":shared:detekt", "--console=plain"],
+        cwd=worktree,
         capture_output=True,
         text=True,
     )
@@ -138,22 +144,58 @@ def run_detekt() -> tuple[int, str]:
 
 
 def probe_once(probe: Probe) -> tuple[bool, str]:
-    """Plant, run, read, restore. Returns (fired, detail)."""
-    backup = probe.path.with_suffix(".kt.bak")
-    pre_existing = probe.path.exists()
-    if pre_existing:
-        shutil.copy2(probe.path, backup)
-    elif REPORT.exists():
-        # A stale report would be read as this probe's evidence if detekt did not rewrite it.
-        REPORT.unlink()
+    """Run one probe inside a disposable worktree.
+
+    The probe file is planted in an isolated git worktree, detekt is run there,
+    and the worktree is removed when done. The live tree is never touched.
+    GIT_CONFIG_* parameters ensure the worktree's git identity is isolated from
+    any global config (e.g. a shared hooksPath).
+    """
+    wt_dir = pathlib.Path(tempfile.mkdtemp(prefix="gate-honesty-"))
+    worktree = wt_dir / "probe-tree"
+
+    # git config for this invocation only — does not pollute ~/.gitconfig or
+    # the repository's per-worktree config. The two settings are the minimum
+    # needed to avoid git warnings about identity; the value is otherwise
+    # irrelevant since no commit is made.
+    git_env = {
+        **os.environ,
+        "GIT_CONFIG_COUNT": "2",
+        "GIT_CONFIG_KEY_0": "user.email",
+        "GIT_CONFIG_VALUE_0": "gate-honesty@local",
+        "GIT_CONFIG_KEY_1": "user.name",
+        "GIT_CONFIG_VALUE_1": "Gate Honesty",
+    }
 
     try:
-        probe.path.write_text(probe.body, encoding="utf-8")
-        code, output = run_detekt()
+        # Create disposable worktree. --detach = detached HEAD, no branch needed.
+        # --reason is stored by git worktree prune; it appears in `git worktree list`.
+        wt_result = subprocess.run(
+            [
+                "git", "-C", str(ROOT),
+                "worktree", "add",
+                "--detach",
+                "--reason", f"gate-honesty probe {probe.name}",
+                str(worktree),
+            ],
+            capture_output=True, text=True, env=git_env,
+        )
+        if wt_result.returncode != 0:
+            return False, f"git worktree add failed: {wt_result.stderr}"
 
-        if not REPORT.exists():
+        # Plant the probe file inside the worktree.
+        wt_probe = worktree / probe.path.relative_to(ROOT)
+        wt_probe.parent.mkdir(parents=True, exist_ok=True)
+        wt_probe.write_text(probe.body, encoding="utf-8")
+
+        # The worktree's report is isolated from the live tree's.
+        wt_report = worktree / "shared" / "build" / "reports" / "detekt" / "detekt.md"
+
+        code, output = _run_detekt_in(worktree)
+
+        if not wt_report.exists():
             return False, "detekt wrote no report at all"
-        report = REPORT.read_text(encoding="utf-8", errors="replace")
+        report = wt_report.read_text(encoding="utf-8", errors="replace")
         if probe.rule_id not in report:
             return False, (
                 f"the report does not mention {probe.rule_id}. "
@@ -162,14 +204,16 @@ def probe_once(probe: Probe) -> tuple[bool, str]:
                 f"If you just changed detekt-rules/, try `./gw --stop` first — see #136."
             )
         return True, f"{probe.rule_id} reported the planted violation"
+
     finally:
-        if pre_existing:
-            shutil.move(str(backup), str(probe.path))
-        elif probe.path.exists():
-            probe.path.unlink()
-        # Leave no report claiming a violation that no longer exists.
-        if REPORT.exists():
-            REPORT.unlink()
+        # Remove the worktree. --force needed if the process was interrupted;
+        # --reason persists in the worktree list entry.
+        subprocess.run(
+            ["git", "-C", str(ROOT), "worktree", "remove", "--force", str(worktree)],
+            capture_output=True,
+        )
+        # Also remove the temp directory (worktree remove can leave it behind on crash).
+        shutil.rmtree(wt_dir, ignore_errors=True)
 
 
 def main() -> int:
