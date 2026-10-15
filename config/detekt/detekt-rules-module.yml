@@ -411,3 +411,20 @@ ktlint:
 # the KDoc's promise went unkept. Activating it surfaces the pre-existing
 # violations, which are baselined rather than fixed, so "declared" here means
 # "reported", not "clean". See 2026-10-04-ci-test-tag-filter-and-vacuous-gates.
+# Added 2026-10-13. Bans two patterns that silently break Maestro UI test coverage:
+#   1. testTag = "" (empty string) — element permanently invisible to Maestro.
+#   2. Interactive composable with no testTag in feature/ source directories.
+# Wired 2026-10-13: implemented and registered in META-INF/services but had no
+# detekt.yml block, so check-detekt-registrations.sh would have caught it.
+#
+# ACTIVE: false since 2026-10-14. The provider was never registered in
+# META-INF/services until then, so the rule had never actually run — the moment it
+# loaded it reported 578 untagged interactive composables across feature/. The rule
+# itself was repaired in the same pass (tag-call detection, feature-package and
+# private scoping, canonical handler policy, plus narrowing pattern 2 to files that
+# already reference TestTags — see NonTaggedMaestroElements.kt), which brought the
+# count from 578 to 26 across 12 real feature screens. Clearing those 26 is tagging
+# work for the Maestro tranche (it adds constants to TestTags.kt, which parallel
+# tranches own); the detekt baseline ratchet (scripts/check-baseline-ratchet.py)
+# forbids absorbing them into baseline-shared.xml. Turning the rule on is a
+# deliberate ratchet: tag the 26, then flip this.

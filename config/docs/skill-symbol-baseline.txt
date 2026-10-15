@@ -62,7 +62,6 @@
 .agents/skills/singularity-todo-detekt-rules-authoring/SKILL.md:Provider
 .agents/skills/singularity-todo-detekt-rules-authoring/SKILL.md:RuleName
 .agents/skills/singularity-todo-detekt-rules-authoring/SKILL.md:RuleSetProvider
-.agents/skills/singularity-todo-detekt-workflow/SKILL.md:XxxProvider
 .agents/skills/singularity-todo-di-graph-testing/SKILL.md:Context
 .agents/skills/singularity-todo-di-graph-testing/SKILL.md:NoDefinitionFoundException
 .agents/skills/singularity-todo-di-graph-testing/SKILL.md:Port
@@ -79,8 +78,6 @@
 .agents/skills/singularity-todo-document-style-detail/SKILL.md:XxxMetaChipsRow
 .agents/skills/singularity-todo-document-style-detail/SKILL.md:XxxOrganizationSection
 .agents/skills/singularity-todo-document-style-detail/SKILL.md:XxxTasksList
-.agents/skills/singularity-todo-domain-logic-pattern/SKILL.md:Clock
-.agents/skills/singularity-todo-domain-logic-pattern/SKILL.md:IllegalArgumentException
 .agents/skills/singularity-todo-domain-logic-pattern/SKILL.md:UseCase
 .agents/skills/singularity-todo-domain-logic-pattern/SKILL.md:ViewModel
 .agents/skills/singularity-todo-draft-restoration/SKILL.md:FakeAutosaveScheduler
@@ -102,19 +99,12 @@
 .agents/skills/singularity-todo-icon-registry/SKILL.md:PriorityIconRegistry
 .agents/skills/singularity-todo-icon-registry/SKILL.md:Resources
 .agents/skills/singularity-todo-icon-registry/SKILL.md:TagIconRegistry
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:JvmPromptExecutorPort
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:LocalSaveableStateRegistry
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:MultiLLMPromptExecutor
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:NoDefinitionFoundException
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:SavedStateConfiguration
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:SerializersModule
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:TasksScreen
-.agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:ViewModel
 .agents/skills/singularity-todo-kmp-reorderable/SKILL.md:DragAndDropTarget
 .agents/skills/singularity-todo-kmp-reorderable/SKILL.md:DragHandle
 .agents/skills/singularity-todo-kmp-reorderable/SKILL.md:LaunchedEffect
 .agents/skills/singularity-todo-kmp-reorderable/SKILL.md:LazyColumn
 .agents/skills/singularity-todo-kmp-reorderable/SKILL.md:MultiplatformDragAndDrop
+.agents/skills/singularity-todo-koin-dsl/SKILL.md:PlatformModuleMirrorTest
 .agents/skills/singularity-todo-koog-agent/SKILL.md:JvmKoogFactory
 .agents/skills/singularity-todo-koog-agent/SKILL.md:KoogClock
 .agents/skills/singularity-todo-koog-agent/SKILL.md:PromptExecutor
@@ -128,12 +118,7 @@
 .agents/skills/singularity-todo-llm-usage-tracking/SKILL.md:UsageRecorder
 .agents/skills/singularity-todo-maestro-flows/SKILL.md:SyncConfigScreen
 .agents/skills/singularity-todo-mcp-init/SKILL.md:McpInitCommand
-.agents/skills/singularity-todo-mcp-server/SKILL.md:JSONElement
-.agents/skills/singularity-todo-mcp-server/SKILL.md:PASSIVE
-.agents/skills/singularity-todo-mcp-server/SKILL.md:TextContent
-.agents/skills/singularity-todo-mcp-server/SKILL.md:ToolDescriptor
-.agents/skills/singularity-todo-mcp-server/SKILL.md:ToolSchema
-.agents/skills/singularity-todo-mcp-server/SKILL.md:UsageRecorder
+.agents/skills/singularity-todo-monthly-doc-audit/SKILL.md:MAX_DIGEST_LINES
 .agents/skills/singularity-todo-multi-select/SKILL.md:BackHandler
 .agents/skills/singularity-todo-multi-select/SKILL.md:BulkDelete
 .agents/skills/singularity-todo-multi-select/SKILL.md:NotesScreen
@@ -158,8 +143,6 @@
 .agents/skills/singularity-todo-notes-ux-patterns/SKILL.md:ListItem
 .agents/skills/singularity-todo-notes-ux-patterns/SKILL.md:NoteView
 .agents/skills/singularity-todo-notes-ux-patterns/SKILL.md:NotesScreen
-.agents/skills/singularity-todo-notifications/SKILL.md:SCHEDULE_EXACT_ALARM
-.agents/skills/singularity-todo-preview-with-koin/SKILL.md:Clock
 .agents/skills/singularity-todo-preview-with-koin/SKILL.md:NotificationHost
 .agents/skills/singularity-todo-preview-with-koin/SKILL.md:PreviewKoin
 .agents/skills/singularity-todo-preview-with-koin/SKILL.md:SavedAgendaEditScreen
@@ -202,11 +185,6 @@
 .agents/skills/singularity-todo-swipe-actions/SKILL.md:SpringAnimation
 .agents/skills/singularity-todo-swipe-actions/SKILL.md:SwipeToDismiss
 .agents/skills/singularity-todo-swipe-actions/SKILL.md:SwipeToDismissBox
-.agents/skills/singularity-todo-sync/SKILL.md:CREATE
-.agents/skills/singularity-todo-sync/SKILL.md:ConflictResolverTest
-.agents/skills/singularity-todo-sync/SKILL.md:SyncOperation
-.agents/skills/singularity-todo-sync/SKILL.md:SyncOutbox
-.agents/skills/singularity-todo-sync/SKILL.md:UPDATE
 .agents/skills/singularity-todo-task-callback-groups/SKILL.md:Actions
 .agents/skills/singularity-todo-task-callback-groups/SKILL.md:NoteCardActions
 .agents/skills/singularity-todo-task-callback-groups/SKILL.md:TaskDetailActions
@@ -230,13 +208,6 @@
 .agents/skills/singularity-todo-task-detail-ux/SKILL.md:TaskDetailViewModel
 .agents/skills/singularity-todo-task-detail-ux/SKILL.md:TaskEditorScreen
 .agents/skills/singularity-todo-task-detail-ux/SKILL.md:TextButton
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:AndroidComposeRule
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:KindSheet
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:RemindersSection
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:TaskChecklistSection
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:TaskHeroSection
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:TaskMetaChipsRow
-.agents/skills/singularity-todo-task-snapshot-testing/SKILL.md:TaskSubtasksSection
 .agents/skills/singularity-todo-test-flaky-prevention/SKILL.md:FakeRepository
 .agents/skills/singularity-todo-test-flaky-prevention/SKILL.md:ScheduledExecutorService
 .agents/skills/singularity-todo-test-flaky-prevention/SKILL.md:StandardTestDispatcher
@@ -266,18 +237,20 @@
 .agents/skills/singularity-todo-vm-intent-pattern/SKILL.md:TaskDetailViewModel
 .agents/skills/singularity-todo-vm-intent-pattern/SKILL.md:TaskEditorReducerTest
 .agents/skills/singularity-todo-vm-intent-pattern/SKILL.md:TaskEditorViewModel
-.agents/skills/singularity-todo-vm-koin-scoping-RETIRED/SKILL.md:SharingStarted
 .agents/skills/singularity-todo-vm-migration-playbook/SKILL.md:Channel
 .agents/skills/singularity-todo-vm-migration-playbook/SKILL.md:MutableSharedFlow
 .agents/skills/singularity-todo-vm-migration-playbook/SKILL.md:UncompletedCoroutinesError
 .agents/skills/singularity-todo-write-pipeline/SKILL.md:IllegalArgumentException
-
-# Added 2026-10-13: stale references in kiwi-tcm-stand skill. These classes
-# were part of the Kiwi TCMS proxy infrastructure that was designed but the
-# specific class names drifted. The skill describes the architecture
-# accurately; the class names need updating when the kiwi stand is next
-# touched. Not silenced via _EXTERNAL_SYMBOLS because they are project-
-# specific, not framework types.
-.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:BatchPropertiesTest
-.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:KiwiError
-.agents/skills/singularity-todo-kiwi-tcm-stand/SKILL.md:SessionTransport
+.agents/skills/speckit-engineering-converge/SKILL.md:FAIL
+.agents/skills/speckit-engineering-converge/SKILL.md:NOT_RUN
+.agents/skills/speckit-engineering-implement/SKILL.md:AutoMigration
+.agents/skills/speckit-engineering-plan/SKILL.md:AutoMigration
+.agents/skills/speckit-engineering-specify/SKILL.md:Mutex
+.agents/skills/speckit-engineering-verify/SKILL.md:FAIL
+.agents/skills/speckit-engineering-verify/SKILL.md:NOT_APPLICABLE
+.agents/skills/speckit-engineering-verify/SKILL.md:NOT_RUN
+.agents/skills/speckit-engineering-verify/SKILL.md:PASS
+.agents/skills/speckit-engineering-when-done/SKILL.md:Inputs
+.agents/skills/speckit-engineering-when-done/SKILL.md:Outputs
+.agents/skills/speckit-engineering-when-done/SKILL.md:Process
+.agents/skills/speckit-engineering-when-done/SKILL.md:Purpose
