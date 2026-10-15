@@ -106,7 +106,11 @@ asks only the question a static check can answer: is there a bound, inside the
   unreadable.
 - The Python renderer's removal is a net deletion of capability in one respect:
   it re-derived the percentage from XML. `koverLog` prints the same digits from
-  the same report, and `just tkr` prints them with the per-rule breakdown.
+  the same report. The `just tkr` recipe (coverage-ratchet, which delegated to
+  `scripts/detekt-rule-coverage.py`) was removed in the coverage-script cleanup;
+  per-rule branch breakdown is no longer available locally, but the CI job summary
+  renders it via `kover-markdown-table.py` and the native `koverMarkdownTable`
+  Gradle task.
 
 ## Links
 

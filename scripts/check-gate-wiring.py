@@ -2106,9 +2106,15 @@ def check_registry_wiring() -> list[str]:
     # deleting the real call while leaving the prose would pass — the same "a
     # check that greps the wrong thing and reports success" defect this file
     # exists to catch, one function over.
+    # The `||` (or `;&`, etc.) lookahead is required to avoid false-positives from
+    # comment lines and echo strings that merely mention "sgate run-all" without
+    # actually invoking it.  After _strip_comments(), the only surviving mention
+    # is the echo line inside the error handler:  `see sgate run-all output above`.
+    # Without the lookahead that line would incorrectly satisfy the pattern,
+    # masking a sabotage of the actual call (e.g. `sgate run-x ||`).
     invocation = re.compile(
         r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
-        r"|(?:^|\s)sgate\s+run-all\b"
+        r"|(?:^|\s)sgate\s+run-all\b(?=\s*[||;&])"
     )
 
     for name, path in sorted(callers.items()):

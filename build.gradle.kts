@@ -87,6 +87,22 @@ tasks.register("koverHtml") {
     dependsOn("koverReport", ":koverHtmlReport")
 }
 
+// Markdown table from the Kover XML report. Depends on koverReport so the XML
+// is guaranteed to exist when this task runs. Delegates to the Python script
+// (already tested, CI has python3) rather than duplicating XML parsing in Kotlin.
+tasks.register<Exec>("koverMarkdownTable") {
+    group = "verification"
+    description = "Parses build/reports/kover/report.xml and prints a markdown coverage table to stdout."
+    dependsOn("koverReport")
+    // Lazy evaluation of working directory — resolved at execution time, not configuration time.
+    workingDir = rootProject.layout.projectDirectory.asFile
+    commandLine("python3", "scripts/kover-markdown-table.py")
+    isIgnoreExitValue = false
+    // INHERIT so output goes directly to console (same as `python3` would)
+    standardOutput = System.out
+    errorOutput = System.err
+}
+
 // App coverage floors: INSTRUCTION 27% / BRANCH 20% / LINE 27%.
 // The settings-level kover plugin applies kover to the root project but only exposes
 // a partial DSL (no `reports { }`). `plugins.withId` reaches the already-applied
