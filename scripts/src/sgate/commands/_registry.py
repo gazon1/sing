@@ -205,14 +205,16 @@ GATES: tuple[GateSpec, ...] = (
     GateSpec(
         name="scenario specs valid",
         mode="blocking",
-        cmd_type="path",
-        path_cmd=("traceability", "validate"),
+        cmd_type="python3_m",
+        script="traceability",
+        script_args=("validate",),
     ),
     GateSpec(
         name="coverage matrix current",
         mode="blocking",
-        cmd_type="path",
-        path_cmd=("traceability", "coverage", "--check"),
+        cmd_type="python3_m",
+        script="traceability",
+        script_args=("coverage", "--check"),
     ),
     GateSpec(
         name="coverage holes did not grow",
@@ -223,14 +225,16 @@ GATES: tuple[GateSpec, ...] = (
     GateSpec(
         name="speckit scenarios current",
         mode="blocking",
-        cmd_type="path",
-        path_cmd=("traceability", "coverage", "--check"),
+        cmd_type="python3_m",
+        script="traceability",
+        script_args=("coverage", "--check"),
     ),
     GateSpec(
         name="speckit stale",
         mode="advisory",
-        cmd_type="path",
-        path_cmd=("traceability", "validate"),
+        cmd_type="python3_m",
+        script="traceability",
+        script_args=("validate",),
     ),
     # ── Server schema ─────────────────────────────────────────────────────────────
     GateSpec(
