@@ -403,7 +403,7 @@ class PartGTest(unittest.TestCase):
         if not gw.GATE_REGISTRY.is_file():
             self.skipTest('registry not present in this checkout')
         self.assertEqual(gw.check_registry_wiring(), [],
-                         'ci.yml and check.sh must both call scripts/ci/static-gates.sh')
+                         'ci.yml and check.sh must both invoke the registry (via bash scripts/ci/static-gates.sh or sgate run-all)')
 
     def test_a_missing_registry_is_reported_by_path(self):
         if gw.GATE_REGISTRY.is_file():
@@ -417,10 +417,9 @@ class PartGTest(unittest.TestCase):
         # ONE of the two callers is caught; a gate suite that runs in CI only, or
         # locally only, is an asymmetry nobody would notice.
         #
-        # The rewrite targets the *invocation*, not the first occurrence of the
-        # path: `check_registry_wiring` reads comment-stripped text, so an explanatory
-        # comment mentioning the registry does not satisfy it — which is the strictness
-        # that makes this test meaningful.
+        # The rewrite targets the actual call line (`sgate run-all ||` at start of
+        # line), not a comment that mentions the command: replacing the `||` suffix
+        # to `||` is unambiguous — an echo message about the command has no `||`.
         if not gw.GATE_REGISTRY.is_file():
             self.skipTest('registry not present in this checkout')
         check_sh = gw.ROOT / 'check.sh'

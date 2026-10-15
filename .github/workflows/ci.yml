@@ -286,7 +286,7 @@ jobs:
       # INSTRUCTION coverage. Advisory: the blocking coverage check is :koverVerify above.
       - name: Coverage table (advisory, CI summary)
         if: ${{ !cancelled() }}
-        run: python3 scripts/kover-markdown-table.py >> "$GITHUB_STEP_SUMMARY" || true
+        run: ./gw :koverMarkdownTable >> "$GITHUB_STEP_SUMMARY" || true
 
       # Advisory by construction, and declared so: this step only *renders* the two
       # numbers into the job summary. Both are enforced as blocking steps elsewhere —

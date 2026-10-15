@@ -2073,9 +2073,15 @@ def check_registry_wiring() -> list[str]:
     # deleting the real call while leaving the prose would pass — the same "a
     # check that greps the wrong thing and reports success" defect this file
     # exists to catch, one function over.
+    # The `||` (or `;&`, etc.) lookahead is required to avoid false-positives from
+    # comment lines and echo strings that merely mention "sgate run-all" without
+    # actually invoking it.  After _strip_comments(), the only surviving mention
+    # is the echo line inside the error handler:  `see sgate run-all output above`.
+    # Without the lookahead that line would incorrectly satisfy the pattern,
+    # masking a sabotage of the actual call (e.g. `sgate run-x ||`).
     invocation = re.compile(
         r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
-        r"|(?:^|\s)sgate\s+run-all\b"
+        r"|(?:^|\s)sgate\s+run-all\b(?=\s*[||;&])"
     )
 
     for name, path in sorted(callers.items()):
@@ -2106,6 +2112,38 @@ def check_registry_wiring() -> list[str]:
 #   no positive control, and Part F would catch it — but Part F derives the
 #   controlled set from this file; a new SCRIPT_GATES entry silently fixes the
 #   gap and Part F silently passes, so the cross-check must be explicit.
+
+
+def _load_registry():
+    """Import the gate registry from **this** checkout, or fail loudly.
+
+    `sgate` is installed as an editable package, and a sibling worktree can be
+    what is installed: on this host `import sgate` resolved into
+    `…/sprat/scripts/src/sgate` while the gate under test was `…/noddy`. A bare
+    import would then cross-check a different checkout's registry and report a
+    clean bill of health about the wrong repository — the one thing a wiring gate
+    must never do.
+
+    So the local `scripts/src` is put first on the path, the resolved package
+    location is checked against this repo, and a mismatch is an error rather than
+    a warning. There is no fallback: a gate that cannot find its own registry has
+    no verdict, and "skipped" would be indistinguishable from "checked and green".
+    """
+    src_root = ROOT / "scripts" / "src"
+    if str(src_root) not in sys.path:
+        sys.path.insert(0, str(src_root))
+    import sgate  # noqa: PLC0415 — the path must be set first
+
+    resolved = Path(sgate.__file__).resolve()
+    if not resolved.is_relative_to(ROOT):
+        raise RuntimeError(
+            f"imported sgate from {resolved}, which is outside this checkout ({ROOT}). "
+            f"This gate is checking a registry that is not this repository's. "
+            f"Reinstall it from this tree: `uv pip install --system --editable scripts/src/`"
+        )
+    from sgate.commands import _registry  # noqa: PLC0415 — path already resolved
+
+    return _registry
 
 
 def check_script_gates_vs_registry() -> list[str]:

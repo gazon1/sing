@@ -336,6 +336,14 @@ coverage-html:
     set -euo pipefail
     ./gw koverHtml
 
+[group('coverage')]
+[doc('Print the kover markdown coverage table to stdout')]
+[working-directory(justfile_directory())]
+coverage-markdown:
+    #!/bin/bash
+    set -euo pipefail
+    ./gw koverMarkdownTable
+
 # ---------------------------------------------------------------------------
 # check — run tests + lint (report-only initially)
 # ---------------------------------------------------------------------------
