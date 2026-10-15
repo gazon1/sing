@@ -464,7 +464,7 @@ gate-maestro tags="agenda" serial="":
         run-maestro
 
 [group('tests')]
-[doc('Report detekt-rule line coverage (which rules are under-tested)')]
+[doc('Report detekt-rule line and branch coverage (which rules are under-tested)')]
 [working-directory(justfile_directory())]
 kover-rules:
     #!/bin/bash

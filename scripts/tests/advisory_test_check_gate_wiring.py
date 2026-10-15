@@ -291,8 +291,7 @@ class PartFTest(unittest.TestCase):
         target = gw.ROOT / gate.sabotage_path
         try:
             target.write_text(moved, encoding='utf-8')
-            ns = {'p': target}
-            exec(gate.sabotage, ns)
+            gate.sabotage(target)
             sabotaged = target.read_text(encoding='utf-8')
         finally:
             target.write_text(original, encoding='utf-8')
@@ -316,7 +315,7 @@ class PartFTest(unittest.TestCase):
                 continue
             before = target.read_text(encoding='utf-8')
             try:
-                exec(gate.sabotage, {'p': target})
+                gate.sabotage(target)
                 after = target.read_text(encoding='utf-8')
             finally:
                 target.write_text(before, encoding='utf-8')

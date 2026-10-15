@@ -215,6 +215,22 @@ gate blocking "unwired backlog refs" sgate unwired_backlog_refs
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 gate blocking "YAML has no duplicate keys" sgate yaml_has_no_duplicate_keys
 
+# Workflow + YAML lint, two real tools over the corpus the gates above only
+# parse. actionlint checks GitHub Actions *semantics* — expressions, action
+# inputs, and script-injection: on 2026-10-15 it flagged adr-gate.yml for
+# splicing the attacker-controlled PR title straight into a `run:` block
+# (`TITLE="${{ github.event.pull_request.title }}"`), which no in-repo gate
+# caught. yamllint re-parses every tracked YAML with ruamel, a stricter parser
+# than the PyYAML the duplicate-key gate uses, so a defect one parser accepts
+# silently still fails here. Its config (.yamllint.yml) is structure-only: the
+# default profile was 213/220 line-length noise, and a gate that is red on the
+# day it lands is a gate nobody reads. Both binaries must be on PATH — CI's
+# static job installs them (pinned: actionlint 1.7.7, yamllint 1.38.0); a
+# missing binary is a loud 127, not a skip, because an unreachable gate is worse
+# than an absent one.
+gate blocking "GitHub workflows are valid" actionlint
+gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml"
+
 # Lint-rule governance
 gate blocking "detekt rules config is current" sgate detekt_rules_config_is_current --check
 gate blocking "detekt rule inventory is current" sgate detekt_rule_inventory_is_current --check
@@ -223,8 +239,11 @@ gate blocking "detekt baseline ratchet" sgate detekt_baseline_ratchet
 gate blocking "lint rules are declared decisions" sgate lint_rules_are_declared_decisions
 gate blocking "file-level suppressions explain themselves" sgate file_level_suppressions_explain_themselves
 # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
-# This gate runs in ci.yml's `tests` job (where Gradle is available), not here.
-# See gate "detekt-rule branch coverage" and "kover verify" in ci.yml.
+# This gate runs in ci.yml's `tests` job (where Gradle is available), not here:
+# it is the Gradle task `:detekt-rules:koverVerify`, named by ci.yml's
+# "Kover verify (detekt-rules)" step and by check.sh step 9b. The floor itself
+# lives in detekt-rules/build.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) as a Kover
+# verify rule; Part C of check-gate-wiring.py holds it to a usable value.
 
 # Scenario traceability
 # traceability validate/coverage resolve the installed `traceability` package from

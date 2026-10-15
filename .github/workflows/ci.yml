@@ -102,6 +102,24 @@ jobs:
       - name: Install sgate CLI and its dependencies
         run: uv pip install --system --editable scripts/src/
 
+      # actionlint + yamllint back the two workflow/YAML lint gates in
+      # scripts/ci/static-gates.sh ("GitHub workflows are valid",
+      # "YAML is structurally valid"). Both must be on PATH before
+      # `sgate run-all`, or those gates fail with a loud 127 — the designed
+      # behaviour, since an unreachable gate is worse than an absent one.
+      # Versions are pinned (not @latest) so a gate result cannot drift under
+      # us: a lint that passes on 1.7.7 and fails on 1.8.0 is a gate whose
+      # floor moved without anyone deciding it should.
+      - name: Install YAML/workflow lint tools (pinned)
+        run: |
+          python -m pip install --disable-pip-version-check "yamllint==1.38.0"
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" actionlint
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          actionlint --version
+          yamllint --version
+
       # Path-gated preflight: only validate tools when the PR touches CI tooling.
       # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
       #
@@ -276,19 +294,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           python3 scripts/check-coverage.py --since "$RUN_STARTED" 2>&1 | \
             grep -v "^$" >> "$GITHUB_STEP_SUMMARY" || true
-          # Render detekt-rules branch coverage into the job summary.
+          # Render detekt-rules branch coverage into the job summary. `koverLog`,
+          # not a second parser: the number comes from the same kover block that
+          # declares the floor (detekt-rules/build.gradle.kts), and it needs no
+          # XML report — the old Python renderer read one that only the gate step
+          # generated, so the summary had been showing its "report not found"
+          # failure for as long as the step existed. The line is printed as
+          # koverLog prints it, unrounded: a summary that rounds a coverage number
+          # is a second, quieter claim about it. grep keeps a failed Gradle run
+          # out of the summary; `|| true` is what declares this half advisory.
           {
             echo ""
             echo "**detekt-rules branch coverage**"
           } >> "$GITHUB_STEP_SUMMARY"
-          python3 scripts/check-detekt-rule-coverage.py 2>&1 | \
-            grep -v "^$" >> "$GITHUB_STEP_SUMMARY" || true
+          ./gradlew -q :detekt-rules:koverLog 2>&1 | \
+            grep "^detekt-rules branch coverage" >> "$GITHUB_STEP_SUMMARY" || true
 
-      # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
-      # Blocking: generates the kover XML report then enforces the floor.
-      # Runs here (not in static) because it needs Gradle to run koverXmlReport.
+      # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%),
+      # declared once — DETEKT_RULE_BRANCH_FLOOR in detekt-rules/build.gradle.kts —
+      # and enforced by Kover's own verify rule, not by a script that parses Kover's
+      # XML. Blocking.
+      # Runs here (not in the static-gates registry) because it needs Gradle.
+      # `./check.sh` names the same task, so the local loop rehearses this gate:
+      # scripts/check-gate-wiring.py Part I would fail otherwise.
       - name: Kover verify (detekt-rules)
-        run: bash scripts/ci/kover-verify-gate.sh
+        run: ./gradlew :detekt-rules:koverVerify
 
       # desktop only, deliberately. The android target's results come from
       # :androidApp:connectedDebugAndroidTest, which no CI job runs, and

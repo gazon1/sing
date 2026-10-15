@@ -1,3 +1,5 @@
+import kotlinx.kover.gradle.plugin.dsl.CoverageUnit
+
 plugins {
     kotlin("jvm")
     // Added 2026-10-05. The rule-coverage debt for this module was tracked as prose in
@@ -65,16 +67,71 @@ tasks.withType<Test>().configureEach {
 // 2026-10-05 both had 100%-of-file coverage in the sense that mattered and zero
 // behavioural coverage.
 //
-// The floor is enforced by :detekt-rules:test (which koverReport depends on) and the
-// check-detekt-rule-coverage.py Python gate (wired in ci.yml). kover 0.9.x's project-
-// level Kotlin DSL does not expose the verify{} block (the underlying Java API
-// VerifyExtension.verify exists but the Kotlin DSL binding is absent in this version),
-// so koverVerify cannot be configured via build.gradle.kts here.
+// The floor is enforced by the native `:detekt-rules:koverVerify` task: ci.yml's
+// "Kover verify (detekt-rules)" step names it, `./check.sh` names it, and `check`
+// (where `verify.onCheck` defaults to true for the total variant) runs it too.
+// The earlier claim that kover 0.9.x's project-level Kotlin DSL has no `verify{}`
+// binding was wrong — checked against the 0.9.9 sources, `reports { total { verify {
+// rule { bound { } } } } }` is exactly the API below.
+//
+// What renders the number is `:detekt-rules:koverLog` (the `log {}` block below):
+// ci.yml's advisory summary step greps its single line, and check.sh prints the same
+// line before verifying. It replaced scripts/check-detekt-rule-coverage.py, a second
+// parser of this XML whose own input was only produced by the gate step — so the
+// summary had been rendering its "report not found" failure all along. Why both
+// scripts and their copies of the floor are gone:
+// docs/decisions/2026-10-15-kover-floor-lives-in-the-build-file.md
+//
+// Two controls hold this file instead of a second copy of the number. Part C of
+// check-gate-wiring.py (kover_verify_rules_without_usable_floor) reads the
+// *declaration*: a bound it cannot resolve to at least _KOVER_MIN_FLOOR, or a
+// `minValue` that lives outside the `kover { }` block below, is a finding — the same
+// way a detekt block with ignoreFailures = true is one. The SABOTAGE control
+// `detekt-rule-coverage-floor` in that same file raises the constant below to 100 and
+// requires koverVerify to fail, because nothing Python-side reads the bound at run
+// time and therefore nothing Python-side can show the task honours it. It is the only
+// control there that runs Gradle, and the module's tests run before it in both
+// surfaces that call that script.
+//
+// Branch coverage, not line: a guard that never fires is the failure this measures,
+// and `just tkr` (scripts/detekt-rule-coverage.py) says *which* rule it is — its
+// branch section generates the list below, and it, not this comment, is current.
+
+// Branch-coverage floor for the custom rules: 60%, set below the 65.1% (627/963 branches)
+// measured 2026-10-10 via `just tkr`. A floor, not a target — raise it in the same
+// commit that raises coverage, and never lower it without recording why here; below 60
+// also means editing _KOVER_MIN_FLOOR in scripts/check-gate-wiring.py, which is
+// deliberate friction rather than an oversight.
+//
+// The gap is a list, not a percentage. `just tkr`'s branch section printed this on
+// 2026-10-15 — 65.6% (725/1105), worst ten by missed branch:
+// NoEmptyOnClickLambdaRule (31), NoPopupWithoutResourceIdMapping (29),
+// PassThroughUseCaseRule (22), NoSwallowedCancellation (20),
+// NoUnwiredReporterInBindingPolicy (17), NoRealDelayInTestRule (16),
+// IntentMethodNameRule (16), NoOpUpdateStateRule (16), NoCoroutineLaunchInInit (16),
+// ProhibitUserIdInObserveRule (15) — 34 of 60 rule classes had at least one missed
+// branch, so the head of the list is where the next test goes, not where it ends.
+val DETEKT_RULE_BRANCH_FLOOR = 60
+
 kover {
     reports {
         total {
             html { onCheck = false }
             xml { onCheck = true }   // generate report during test/check phase
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound {
+                        minValue = DETEKT_RULE_BRANCH_FLOOR
+                        coverageUnits = CoverageUnit.BRANCH
+                    }
+                }
+            }
+            // Printed by `:detekt-rules:koverLog` — the number ci.yml's summary step
+            // renders. Same constant, same unit as the rule above.
+            log {
+                coverageUnits = CoverageUnit.BRANCH
+                format = "detekt-rules branch coverage: <value>%"
+            }
         }
     }
 }
