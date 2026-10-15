@@ -1,5 +1,5 @@
 ---
-name: speckit.engineering.planning
+name: speckit-engineering-planning
 description: "Engineering SDD PLANNING phase: grill the open request to improve it, then synthesize a structured plan artifact. Use at the start of a new engineering-sdd pass."
 disable-model-invocation: true
 ---

@@ -1,7 +1,7 @@
 ---
 title: "ADR: SyncEngine test hooks for G4/G5 integration tests"
 date: 2026-10-14
-status: proposed
+status: open
 tags: [sync, testing, architecture]
 description: Engine-level injection points to enable G4 (sign-out mid-cycle) and G5 (scope null during syncOnce) integration tests.
 ---

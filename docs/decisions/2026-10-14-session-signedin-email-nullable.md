@@ -1,6 +1,7 @@
 ---
 title: "Session.SignedIn.email is non-nullable String"
 adr: 2026-10-14-session-signedin-email-nullable
+status: accepted
 ---
 
 ## Context

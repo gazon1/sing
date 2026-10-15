@@ -1,6 +1,7 @@
 ---
 title: StubAuthRepository — why it stays in androidMain
 adr: 2026-10-14-stubauthrepository-jvmmain-boundary
+status: accepted
 ---
 
 ## Context

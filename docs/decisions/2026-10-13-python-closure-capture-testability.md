@@ -1,7 +1,10 @@
-# ADR: Python Testability — Closure Capture Anti-Pattern
+---
+date: 2026-10-13
+status: accepted
+tags: [python, testing, architecture]
+---
 
-**Date:** 2026-10-13
-**Status:** accepted
+# ADR: Python Testability — Closure Capture Anti-Pattern
 
 ## Context
 

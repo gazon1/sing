@@ -1,5 +1,5 @@
 ---
-name: speckit.engineering.repeat-check
+name: speckit-engineering-repeat-check
 description: "At the REPEAT gate, suggest the next logical improvement or refactoring step from the artifact corpus. Use as input to the REPEAT gate decision."
 disable-model-invocation: true
 ---

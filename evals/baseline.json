@@ -21,11 +21,15 @@
     "skill-update": {
       "grade": "pass",
       "notes": "Skill update task with clear constraints and expected output"
+    },
+    "doc-vs-code-navigation": {
+      "grade": "pass",
+      "notes": "Phase 5 eval — tests whether agent points to docs/architecture/sync.md vs. SyncEngine.kt when asked about sync push. Runner is a YAML validator; actual agent run is manual."
     }
   },
   "summary": {
-    "total": 5,
-    "passed": 5,
+    "total": 6,
+    "passed": 6,
     "failed": 0
   },
   "grader_metrics": {

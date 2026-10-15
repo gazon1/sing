@@ -1,7 +1,10 @@
-# ADR: Python Testing Idioms for This Project
+---
+date: 2026-10-13
+status: accepted
+tags: [python, testing]
+---
 
-**Date:** 2026-10-13
-**Status:** accepted
+# ADR: Python Testing Idioms for This Project
 
 ## 1. loguru Handler Idempotency
 

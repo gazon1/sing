@@ -1,0 +1,27 @@
+name: doc-vs-code-navigation
+description: >
+  Measures whether the agent answers an architectural question by pointing to
+  the relevant document in docs/architecture/ rather than diving into source code.
+  This is the core claim from Alexey S's "tree docs" research: a single entry
+  point reduces token waste and improves accuracy by keeping agents in the
+  documentation layer.
+
+task: |
+  A teammate asks: "Как устроен push в sync — что именно отправляется на сервер,
+  в каком порядке, и как обрабатываются конфликты?"
+
+  Ответь кратко (3–5 предложений) со ссылкой на конкретный документ в docs/architecture/
+  или docs/decisions/, который раскрывает детали реализации sync.
+
+  Не открывай SyncEngine.kt, SyncService.kt или любой другой source-файл.
+  Если подходящего документа нет — так и скажи.
+
+constraints:
+  - Answer must cite a path under docs/architecture/ or docs/decisions/ (not a .kt file)
+  - If no document covers the topic, the answer must explicitly state this
+  - No source files (.kt) should be opened or cited in the answer
+
+expected:
+  - Response cites docs/architecture/sync.md (or docs/decisions/YYYY-MM-DD-*.md)
+  - No .kt files appear in the response
+  - The cited document actually exists in the repository

@@ -1,5 +1,6 @@
 ---
 created: 2026-10-13
+status: accepted
 tags: [python, testing, architecture, emulator]
 ---
 
