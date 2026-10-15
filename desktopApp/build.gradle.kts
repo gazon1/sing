@@ -17,6 +17,15 @@ val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
     isCanBeResolved = true
 }
 
+kotlin {
+    // The app runs on 21 — the JDK gradle-daemon-jvm.properties pins the daemon
+    // to, and the only one desktop flows are verified on. Toolchaining here
+    // makes that independent of whichever JDK happens to launch Gradle (the
+    // launcher on this host is 25), so compile, test forks and `run` all use 21
+    // without relying on daemon inheritance (#413).
+    jvmToolchain(21)
+}
+
 sourceSets {
     test {
         java.srcDirs("src/jvmTest")
@@ -192,6 +201,11 @@ tasks.withType<Test>().configureEach {
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
+        // #413/#414 stack-depth probe: the startup StackOverflowError was
+        // attributed to deep Compose + Koin entry composition. 4 MB rules depth
+        // out as the cause — a recurrence under this flag falsifies the
+        // stack-depth hypothesis instead of silently "fixing" it.
+        "-Xss4m",
     )
     // -javaagent for kotlinx-coroutines-debug: required for JDK 21+ compatibility;
     // DebugProbes.install() emits a dynamic-loading warning on JDK 21 and fails on JDK 22+.

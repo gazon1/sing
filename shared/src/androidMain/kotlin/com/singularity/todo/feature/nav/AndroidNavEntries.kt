@@ -47,11 +47,17 @@ import org.koin.compose.koinInject
  *   (#91) for the same reason as the desktop provider: a date computed outside the
  *   Koin graph is a date a test cannot reach. Not a composable, so the caller
  *   resolves the clock and passes the result.
+ * @param pomodoroTimer injected as a default argument, i.e. once per *shell*
+ *   composition, not inside the Pomodoro entry's content (#414): resolving the Koin
+ *   graph from entry content runs `Scope.get` deep inside NavDisplay's composition
+ *   stack, and a factory binding recreated the timer on every visit to the tab.
  */
 @Composable
 fun createAppEntryProvider(
     nav: NavCallbacks,
     today: kotlinx.datetime.LocalDate = systemToday(),
+    pomodoroTimer: PomodoroTimer = koinInject(),
+    pomodoroTaskList: PomodoroTaskListProvider = koinInject(),
 ): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
     // ─── Top-level tabs ────────────────────────────────────────────────
 
@@ -67,8 +73,8 @@ fun createAppEntryProvider(
 
     entry<AppDestination.Pomodoro> {
         PomodoroScreen(
-            timer = koinInject<PomodoroTimer>(),
-            taskListProvider = koinInject<PomodoroTaskListProvider>(),
+            timer = pomodoroTimer,
+            taskListProvider = pomodoroTaskList,
         )
     }
 

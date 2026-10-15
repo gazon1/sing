@@ -56,11 +56,17 @@ import org.koin.compose.koinInject
  *   test that binds a fixed `Clock` in its module was overridden by a second,
  *   un-injectable read of the host's wall clock. `CalendarFlowTest` failed on exactly
  *   this — the harness supplied a fixed clock, the app rendered the host's month.
+ * @param pomodoroTimer injected as a default argument, i.e. once per *shell*
+ *   composition, not inside the Pomodoro entry's content (#414): resolving the Koin
+ *   graph from entry content runs `Scope.get` deep inside NavDisplay's composition
+ *   stack, and a factory binding recreated the timer on every visit to the tab.
  */
 @Composable
 fun createJvmEntryProvider(
     nav: NavCallbacks,
     today: kotlinx.datetime.LocalDate = systemToday(),
+    pomodoroTimer: PomodoroTimer = koinInject(),
+    pomodoroTaskList: PomodoroTaskListProvider = koinInject(),
 ): (AppDestination) -> NavEntry<AppDestination> {
     // Hoisted top-level graph stacks — see the KDoc above for why they must live in the
     // shell composition rather than inside the entry content.
@@ -92,8 +98,8 @@ fun createJvmEntryProvider(
 
         entry<AppDestination.Pomodoro> {
             PomodoroScreen(
-                timer = koinInject<PomodoroTimer>(),
-                taskListProvider = koinInject<PomodoroTaskListProvider>(),
+                timer = pomodoroTimer,
+                taskListProvider = pomodoroTaskList,
             )
         }
 

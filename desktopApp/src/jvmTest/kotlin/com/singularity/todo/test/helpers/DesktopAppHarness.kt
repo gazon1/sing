@@ -113,7 +113,10 @@ fun runDesktopAppTest(
     installRingBuffer(ringBuffer)
     initTestLogging()
 
-    setContent { KoinIsolatedContext(app) { App(deeplinkViewId = null, deeplinkTaskId = null) } }
+    // App(viewId, taskId, magicEmail, magicToken): no flow under test opens
+    // through a deeplink, so all four stay null — and the call stays on one
+    // line: runDesktopAppTest sits right under the LongMethod limit.
+    setContent { KoinIsolatedContext(app) { App(null, null, null, null) } }
 
     val testClassName = currentTestClassSimpleName()
 
