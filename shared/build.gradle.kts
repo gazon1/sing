@@ -389,7 +389,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     //
     // Gradle leaves no record of whether a run was filtered, so `./gw :shared:jvmTest
     // --tests 'SomeOneClass'` rewrites the XML directory with one class's results and
-    // every gate that reads it — `check-test-runs.py`, `check-coverage.py`,
+    // every gate that reads it — `check-test-runs.py`,
     // `check-flaky-tests.py` — reports a verdict it cannot source. The gates were right
     // and useless: they said "a suite stopped running" about a tree where nothing had.
     //

@@ -76,10 +76,10 @@ tasks.withType<Test>().configureEach {
 //
 // What renders the number is `:detekt-rules:koverLog` (the `log {}` block below):
 // ci.yml's advisory summary step greps its single line, and check.sh prints the same
-// line before verifying. It replaced scripts/check-detekt-rule-coverage.py, a second
-// parser of this XML whose own input was only produced by the gate step — so the
-// summary had been rendering its "report not found" failure all along. Why both
-// scripts and their copies of the floor are gone:
+// line before verifying. Both replaced scripts/detekt-rule-coverage.py, a Python parser
+// of this XML whose own input was only produced by the gate step — so the summary
+// had been rendering its "report not found" failure all along. Why the script and
+// its copy of the floor are gone:
 // docs/decisions/2026-10-15-kover-floor-lives-in-the-build-file.md
 //
 // Two controls hold this file instead of a second copy of the number. Part C of
@@ -94,8 +94,8 @@ tasks.withType<Test>().configureEach {
 // surfaces that call that script.
 //
 // Branch coverage, not line: a guard that never fires is the failure this measures,
-// and `just tkr` (scripts/detekt-rule-coverage.py) says *which* rule it is — its
-// branch section generates the list below, and it, not this comment, is current.
+// and `just tkr` (`:detekt-rules:koverXmlReport :detekt-rules:koverLog`) prints
+// the per-rule table — its branch section generates the list below.
 
 // Branch-coverage floor for the custom rules: 60%, set below the 65.1% (627/963 branches)
 // measured 2026-10-10 via `just tkr`. A floor, not a target — raise it in the same

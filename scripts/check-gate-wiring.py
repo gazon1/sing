@@ -737,7 +737,7 @@ SCRIPT_GATES = [
 # exists to catch. Measured 2026-10-05: 18 gate scripts are invoked by a gate,
 # 8 had a control, and the 10 without one were indistinguishable in the
 # registry from the 8 with one. The three that decide whether a test run counts
-# as evidence — `check-test-runs.py`, `check-coverage.py`, `check-flaky-tests.py`
+# as evidence — `check-test-runs.py`, `check-flaky-tests.py`
 # — were among the ten.
 #
 # So the list is checked against the registration instead of trusted. A gate
@@ -776,9 +776,8 @@ class FixtureGate:
     are: written once, parsed once, at import.
 
     `needs_clean_run` records whether the gate can be run at all without its
-    input. Two of the three here cannot: `check-flaky-tests.py` requires
-    `--current` and `check-coverage-measurement.py` requires a `log`, so there
-    is no invocation that means "the clean repository" to them. The clean-run
+    input. One of the three here cannot: `check-flaky-tests.py` requires
+    `--current`, so there is no invocation that means "the clean repository" to it. The clean-run
     guard is not weakened for them — it is *inapplicable*, and saying so
     explicitly is the point. A guard that is silently skipped for an unstated
     reason is the same defect one level up: a check that cannot run, reported
@@ -847,23 +846,6 @@ def _setup_measure_flake_rate(root: Path) -> None:
     (root / "empty-baseline.txt").write_text("", encoding="utf-8")
 
 
-def _setup_coverage(root: Path) -> None:
-    """A Kover report that measures nothing — must satisfy no floor."""
-    (root / "report.xml").write_text(
-        '<?xml version="1.0"?><report name="Kover"><package name="p">'
-        '<class name="A" sourcefilename="A.kt"><method name="m" covered="false">'
-        '<counter type="INSTRUCTION" missed="10" covered="0"/></method>'
-        "</class></package></report>",
-        encoding="utf-8",
-    )
-
-
-def _setup_coverage_measurement(root: Path) -> None:
-    """A build log where the test task was UP-TO-DATE — no execution happened."""
-    (root / "build.log").write_text(
-        "> Task :shared:jvmTest UP-TO-DATE\nBUILD SUCCESSFUL in 3s\n",
-        encoding="utf-8",
-    )
 
 
 FIXTURE_GATES = [
@@ -904,20 +886,6 @@ FIXTURE_GATES = [
             "is probed for, but here it is the N-run aggregator's own gate logic "
             "(rate ceiling + baseline acknowledgement) that must not be swallows"
         ),
-        needs_clean_run=False,
-    ),
-    FixtureGate(
-        name="coverage",
-        cmd=[sys.executable, "scripts/check-coverage.py", "--report", "{tmp}/report.xml"],
-        setup=_setup_coverage,
-        why="a coverage report that measures nothing must not satisfy a floor that was recorded from a real run",
-        needs_clean_run=False,
-    ),
-    FixtureGate(
-        name="coverage-measurement",
-        cmd=[sys.executable, "scripts/check-coverage-measurement.py", "{tmp}/build.log"],
-        setup=_setup_coverage_measurement,
-        why="a coverage report produced without the tests running describes no execution at all",
         needs_clean_run=False,
     ),
     # The detekt-rule-coverage fixture that used to close this list was retired
@@ -1840,9 +1808,6 @@ GATE_PARITY: dict[str, tuple[str, str]] = {
 #: *whether* a gate runs, so a name-only comparison would call them both and
 #: miss the difference that matters.
 GATE_ARG_PARITY: dict[tuple[str, str], str] = {
-    ("scripts/check-coverage.py", "--since"): (
-        "ci"
-    ),
     ("scripts/check-doc-dead-refs.py", "--skill-symbols"): (
         "both"
     ),
@@ -1851,10 +1816,6 @@ GATE_ARG_PARITY: dict[tuple[str, str], str] = {
 }
 
 _ADVISORY_NOTE = {
-    ("scripts/check-coverage.py", "--since"): (
-        "CI measures the delta since the run started; the bare call measures "
-        "the absolute floor. Same gate, different question."
-    ),
     ("scripts/check-doc-dead-refs.py", "--skill-symbols"): (
         "a second variant covering SKILL.md symbol references, which the bare "
         "call does not check; it now comes from the shared registry, so it runs "
@@ -2029,9 +1990,9 @@ def sgate_backing_scripts() -> dict[str, list[str]]:
 def registered_gate_scripts() -> dict[str, list[str]]:
     """Gate script path -> the files that invoke it.
 
-    `just` recipes are included, not just `check.sh` and CI: four gates
-    (`check-adr-references`, `check-coverage-measurement`, `check-gate-honesty`,
-    `check-kiwi-gaps`) are reachable only through a recipe, and a registry that
+    `just` recipes are included, not just `check.sh` and CI: three gates
+    (`check-adr-references`, `check-gate-honesty`, `check-kiwi-gaps`)
+    are reachable only through a recipe, and a registry that
     looked only at `check.sh` would not see them at all.
 
     `sgate <name>` invocations count too, resolved through the command module
