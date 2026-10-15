@@ -24,7 +24,8 @@
     },
     "doc-vs-code-navigation": {
       "grade": "pass",
-      "notes": "Phase 5 eval — tests whether agent points to docs/architecture/sync.md vs. SyncEngine.kt when asked about sync push. Runner is a YAML validator; actual agent run is manual."
+      "date": "2026-10-15",
+      "notes": "Phase 5 eval PASS (2026-10-15). Question: 'Как устроен push в sync?' Constraints: cites docs/architecture/sync.md (not .kt files), document covers pushPending(), SyncApi.push(), conflict resolution. All 6/6 constraints verified manually. Answer: 3 sentences citing sync.md §push and §conflict-resolution. Document exists (246 lines), covers all required topics."
     }
   },
   "summary": {
