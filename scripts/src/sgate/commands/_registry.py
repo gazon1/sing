@@ -138,11 +138,11 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
     ":adr-cli:installDist": GradleTaskParity(
         scope="ci",
         why=(
-            "adr-gate.yml builds the ADR CLI distribution to run it against the "
-            "repository; the local loop reaches the same invariants through the "
-            "check_adr_*.py gates in the shared registry, and reaches :adr-cli:run "
-            "only interactively (ADR authoring), so a packaged installDist is a "
-            "CI-only artifact"
+            "ci.yml's adr-gate job builds the ADR CLI distribution to run it "
+            "against the repository; the local loop reaches the same invariants "
+            "through the check_adr_*.py gates in the shared registry, and reaches "
+            ":adr-cli:run only interactively (ADR authoring), so a packaged "
+            "installDist is a CI-only artifact"
         ),
     ),
 }

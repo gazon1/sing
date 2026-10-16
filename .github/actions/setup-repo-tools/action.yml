@@ -20,7 +20,7 @@ description: >
       static job is deliberately JVM-free (~1 min, no Gradle) and the registry
       says the Python gate belongs here. The shim now calls
       scripts/check_adr_status.py, which is the same rule the CLI wraps. The
-      CLI itself still runs, in adr-gate.yml, where it is installed on purpose.
+      CLI itself still runs, in ci.yml's adr-gate job, where it is installed on purpose.
       Requiring it here made the static job pay a JVM build it cannot afford.
 
     speckit / specify — `sgate speckit_stale` runs scripts/check-openspec-stale.py

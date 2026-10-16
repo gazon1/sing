@@ -169,7 +169,7 @@ Also note: a `condition:` written without `{{ }}` is silently **always-true**. `
 evaluate a bare expression. `condition_is_never_evaluated()` exists to reject exactly that.
 
 The existing `openspec-change`, `adr-create` and `adr-batch` workflows **do** interpolate free text
-into `run:` blocks — including unquoted heredocs — and `adr-gate.yml` passes an unsanitized pull
+into `run:` blocks — including unquoted heredocs — and ci.yml's `spec-create` job passes an unsanitized pull
 request title into one of them. Fixing those is tracked separately; this workflow is immune by
 construction.
 
