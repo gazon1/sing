@@ -16,6 +16,9 @@ import tempfile
 import unittest
 
 SCRIPT = pathlib.Path(__file__).resolve().parent.parent / 'check-gradle-test-population.py'
+#: The gate now imports its parser from here; a fixture that forgot it would fail
+#: loudly rather than silently testing a different code path.
+PARSER = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'workflow_gradle.py'
 
 # The shape that produced the finding: one test run, then a Kover invocation without
 # the selector. Gradle's default is excludeTags("slow"), so the re-run measures a
@@ -151,6 +154,9 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
         script_dest.parent.mkdir(parents=True, exist_ok=True)
         script_dest.write_text(SCRIPT.read_text())
         script_dest.chmod(0o755)
+        parser_dest = root / 'scripts' / 'src' / 'workflow_gradle.py'
+        parser_dest.parent.mkdir(parents=True, exist_ok=True)
+        parser_dest.write_text(PARSER.read_text())
         for rel, content in files.items():
             path = root / rel
             path.parent.mkdir(parents=True, exist_ok=True)

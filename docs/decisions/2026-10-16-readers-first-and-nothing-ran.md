@@ -111,6 +111,7 @@ empty finding list is what a broken parser looks like, and it reads as a pass.
 - Runs: <https://github.com/gazon1/sing/actions/runs/38942680186> (green, contains
   the `koverMarkdownTable` failure), <https://github.com/gazon1/sing/actions/runs/38933517902>
   (the traceability failure this family starts from)
+- [2026-10-16-a-control-must-reproduce-the-real-defect.md](2026-10-16-a-control-must-reproduce-the-real-defect.md)
 - [2026-10-16-ci-gradle-step-cannot-fail.md](2026-10-16-ci-gradle-step-cannot-fail.md)
 - [2026-10-16-one-test-population-per-ci-job.md](2026-10-16-one-test-population-per-ci-job.md)
 - [2026-10-05-test-task-external-inputs.md](2026-10-05-test-task-external-inputs.md)

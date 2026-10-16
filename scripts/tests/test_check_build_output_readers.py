@@ -20,7 +20,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / 'check-build-output-readers.py'
-SIBLING = ROOT / 'check-gradle-test-population.py'
+#: The gate imports its parser from here.
+PARSER = ROOT / 'src' / 'workflow_gradle.py'
 
 # The shape that failed silently on 2026-10-16: the flake reader sits after three
 # Gradle invocations that can each re-run the shared test task.
@@ -164,10 +165,12 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
         root = pathlib.Path(tmp)
         scripts = root / 'scripts'
         scripts.mkdir(parents=True)
-        for name, source in ((SCRIPT.name, SCRIPT), (SIBLING.name, SIBLING)):
-            dest = scripts / name
-            dest.write_text(source.read_text())
-            dest.chmod(0o755)
+        script_dest = scripts / SCRIPT.name
+        script_dest.write_text(SCRIPT.read_text())
+        script_dest.chmod(0o755)
+        parser_dest = scripts / 'src' / PARSER.name
+        parser_dest.parent.mkdir(parents=True, exist_ok=True)
+        parser_dest.write_text(PARSER.read_text())
         for rel, content in files.items():
             path = root / rel
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -235,5 +238,30 @@ class TheGateStillSees(unittest.TestCase):
         self.assertIn('is a test-capable Gradle invocation that runs before it', out)
 
 
+
+class TheControlReproducesTheDefect(unittest.TestCase):
+    """The probe must land where the rule bites.
+
+    The previous control appended a bare `./gradlew :koverVerify` to the end of
+    ci.yml, which lands in `nightly-alert`: one test-capable invocation, no
+    reader. The gate ignores such a job by design, so the probe passed a
+    sabotaged input and certified nothing. Applying the control to the real
+    workflow and seeing the gate fail is what pins that.
+    """
+
+    def test_the_control_edit_reproduces_the_violation_in_the_real_workflow(self):
+        sys.path.insert(0, str(ROOT / 'src'))
+        from sgate.commands._registry import GATE_CONTROLS
+
+        control = GATE_CONTROLS['build-output-readers']
+        real = (ROOT.parent / control.path).read_text()
+        self.assertEqual(
+            real.count(control.edit.old),
+            1,
+            f'control anchor {control.edit.old!r} no longer occurs exactly once in {control.path}',
+        )
+        code, out = run_gate({control.path: real.replace(control.edit.old, control.edit.new)})
+        self.assertEqual(code, 1, out)
+        self.assertIn('reads build/test-results', out)
 if __name__ == '__main__':
     unittest.main()

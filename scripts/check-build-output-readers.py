@@ -76,30 +76,26 @@ Exit codes:
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import pathlib
 import sys
 
 import click
-import yaml
+
+# `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
+# loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
+# package is invisible; this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+import workflow_gradle as wg  # noqa: E402
+
+if _added:
+    sys.path.remove(_scripts_src)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
-
-#: Reused from the population gate rather than copied. A fourth copy of these
-#: predicates would be a fourth thing to keep in step, and the two gates disagree
-#: about what "a test-capable Gradle invocation" is only if one of them is wrong.
-#: `importlib` rather than `import`: the sibling's filename carries a dash.
-def _load_population_gate() -> object:
-    path = ROOT / "scripts" / "check-gradle-test-population.py"
-    spec = importlib.util.spec_from_file_location("_gradle_test_population", path)
-    if spec is None or spec.loader is None:  # pragma: no cover - unreadable sibling
-        raise RuntimeError(f"cannot load {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
 
 #: Build-output directories a test or coverage task rewrites. A reader of anything
 #: else is out of scope by construction.
@@ -108,34 +104,6 @@ READ_PATHS = (
     "build/reports",
     "build/traceability",
 )
-
-
-def _steps(path: pathlib.Path) -> list[tuple[str, int, str, str]]:
-    """`(job, position, step_name, run_text)` for every step that runs something.
-
-    Position is the step's ordinal *within the job*, not a line number. Line
-    numbers are not usable here: a `run:` block can be one folded YAML scalar,
-    a `|` block of continuation lines, or a single line, and a Gradle invocation
-    written across backslash continuations is one command whose only line carrying
-    `./gradlew` is its first. Feeding one line at a time to the parser is what
-    made the main Gradle run invisible to it, and the sabotage control passed a
-    sabotaged workflow for exactly that reason (caught on 2026-10-16, run
-    38961950540 — the first run to catch it was the one that failed).
-    """
-    gate = _load_population_gate()
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    steps: list[tuple[str, int, str, str]] = []
-    for job_name, job in (data.get("jobs") or {}).items():
-        if not isinstance(job, dict):
-            continue
-        position = 0
-        for step in job.get("steps") or []:
-            if not isinstance(step, dict) or not isinstance(step.get("run"), str):
-                continue
-            steps.append((str(job_name), position, str(step.get("name", "run")), step["run"]))
-            position += 1
-    del gate  # loaded only to keep the dependency explicit for readers of this file
-    return steps
 
 
 def _reads_build_output(text: str) -> str | None:
@@ -155,40 +123,37 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str]]:
     never a violation ahead of one. Every later one is a re-run risk, because
     nothing stops it from being out of date.
     """
-    gate = _load_population_gate()
     violations: list[str] = []
     listing: list[str] = []
 
     for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
         relative = str(workflow.relative_to(ROOT))
-        jobs: dict[str, list[tuple[int, str, str]]] = {}
-        for job, position, name, text in _steps(workflow):
-            jobs.setdefault(job, []).append((position, name, text))
+        jobs: dict[str, list[wg.Step]] = {}
+        for step in wg.iter_steps(workflow, ROOT):
+            jobs.setdefault(step.job, []).append(step)
 
-        for job, entries in sorted(jobs.items()):
+        for job, steps in sorted(jobs.items()):
             writers: list[tuple[int, str]] = []
-            for position, name, text in entries:
-                for _location, _selector, test_capable, _tasks in gate._invocations(  # noqa: SLF001
-                    text, f"{relative}::{job}::{name}"
-                ):
-                    if test_capable:
-                        writers.append((position, name))
+            for step in steps:
+                if any(inv.test_capable
+                       for inv in wg.iter_invocations(step.text, step.name)):
+                    writers.append((step.position, step.name))
             if len(writers) < 2:
                 # A job with one test-capable invocation has nothing that can rewrite
                 # what its readers read.
                 continue
 
-            for position, name, text in entries:
-                reads = _reads_build_output(text)
+            for step in steps:
+                reads = _reads_build_output(step.text)
                 if not reads:
                     continue
                 if verbose:
-                    listing.append(f"  {relative}::{job}::{name} reads {reads}")
+                    listing.append(f"  {relative}::{job}::{step.name} reads {reads}")
                 for writer_position, writer_name in writers[1:]:
-                    if writer_position >= position:
+                    if writer_position >= step.position:
                         break
                     violations.append(
-                        f"{relative}::{job}::{name} reads {reads}, but "
+                        f"{relative}::{job}::{step.name} reads {reads}, but "
                         f"{writer_name} is a test-capable Gradle invocation that runs "
                         f"before it — a later invocation may re-run the task and "
                         f"overwrite the directory this step reads"
