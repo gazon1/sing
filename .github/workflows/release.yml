@@ -259,12 +259,13 @@ jobs:
           # and in scripts/tests/test_release_version.py.
           echo "package version: $PKG_VERSION (tag version: $VERSION)"
           case "$FMT" in
-            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$PKG_VERSION" ;;
-            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$PKG_VERSION" ;;
+            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$PKG_VERSION" -PdesktopAppVersion="$VERSION" -PdesktopAppVersionCode="$VERSION_CODE" ;;
+            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$PKG_VERSION" -PdesktopAppVersion="$VERSION" -PdesktopAppVersionCode="$VERSION_CODE" ;;
           esac
         env:
           FMT: ${{ matrix.fmt }}
           VERSION: ${{ needs.meta.outputs.version }}
+          VERSION_CODE: ${{ needs.meta.outputs.version_code }}
           PKG_VERSION: ${{ needs.meta.outputs.package_version }}
 
       - name: Stage and verify the packaged version
@@ -312,6 +313,49 @@ jobs:
 
           mkdir -p dist
           cp "$f" "dist/$APP_NAME-$VERSION-$LABEL.$FMT"
+
+      # The step above reads headers. This one installs the file and runs it.
+      #
+      # Both release verifications that shipped this repository's first ever release
+      # were wrong about correct artifacts — one read a v1 signature an APK with
+      # minSdk 26 does not have, the other compared a version against jpackage's own
+      # `RELEASE=1` — and both were metadata checks, which is the cheapest place for
+      # that class of defect to live. A package can declare the right version, carry
+      # the right files, and still not install or start (#664).
+      #
+      # Kept as a separate step rather than folded into the one above, for the same
+      # reason: the header checks catch a mis-staged or mis-tagged artifact early and
+      # cheaply, and they are still worth running once an install check exists.
+      - name: Install and smoke the packaged launcher
+        env:
+          FMT: ${{ matrix.fmt }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          shopt -s nullglob
+          case "$FMT" in
+            deb)
+              src=(desktopApp/build/compose/binaries/main/deb/*.deb)
+              image=ubuntu:24.04
+              install='apt-get update -qq; apt-get install -y --no-install-recommends ./app.deb'
+              ;;
+            rpm)
+              src=(desktopApp/build/compose/binaries/main/rpm/*.rpm)
+              image=fedora:41
+              install='dnf install -y ./app.rpm'
+              ;;
+          esac
+          if (( ! ${#src[@]} )); then
+            echo "::error::No $FMT package to install; the Package step should have built one"
+            exit 1
+          fi
+          mkdir -p /tmp/smoke
+          cp "${src[0]}" "/tmp/smoke/app.$FMT"
+          # The checkout is not mounted into the container — only the package and the
+          # one script that reads it. Mounting the workspace would let the install see
+          # a Gradle tree and measure the runner instead of the package.
+          docker run --rm -v /tmp/smoke:/w -v "$GITHUB_WORKSPACE/scripts/release:/s:ro" -w /w \
+            -e INSTALL_CMD="$install" -e PKG_FORMAT="$FMT" -e EXPECT_VERSION="$VERSION" \
+            "$image" bash /s/install-and-smoke.sh
 
       - uses: actions/upload-artifact@v7
         with:

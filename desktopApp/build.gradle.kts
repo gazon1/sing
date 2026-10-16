@@ -10,7 +10,16 @@ plugins {
 }
 
 val desktopAppVersion = (project.findProperty("desktopAppVersion") as String?) ?: "0.1.0"
-val desktopAppVersionCode = 0
+
+// `desktopAppVersion` and `packageVersion` are different properties on purpose, and
+// until 2026-10-16 the release pipeline set only the second. The package then declared
+// 0.2.1 while every jar inside it reported 0.1.0 through `-Dsingularity.version`, which
+// is what `singularity-todo --version` prints and what the in-app update gate compares
+// against the releases feed. A user who installed the 0.2.1 package was told 0.1.0
+// forever. The install-and-smoke step in release.yml now runs the installed launcher
+// and asserts this value, which is the only check that could have caught it.
+val desktopAppVersionCode =
+    (project.findProperty("desktopAppVersionCode") as String?)?.toIntOrNull() ?: 0
 
 val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
     isCanBeConsumed = false

@@ -184,25 +184,42 @@ class JvmReminderScheduler(
 /**
  * Where a `systemd --user` reminder unit finds the launcher.
  *
- * ## Why this is a constant and not a lookup
+ * ## This path was wrong until 2026-10-16
  *
- * jpackage puts a Deb's launcher on `PATH` under its `packageName`, so this string is
- * derived from `packageName = "singularity-todo"` in `desktopApp/build.gradle.kts` — a
- * different file, in a different Gradle module, that nothing referenced until
- * `JvmReminderSchedulerLauncherPathTest` did. Rename the package and every Desktop
- * reminder stops arming, on every installed machine, with the failure surfacing only when
- * a user goes looking for an 18:00 reminder that never arrived.
+ * It used to be `/usr/bin/singularity-todo`, on the belief — stated here, and asserted by
+ * `JvmReminderSchedulerLauncherPathTest` — that "jpackage puts a Deb's launcher on `PATH`
+ * under its `packageName`". It does not. Read out of a published package:
  *
- * That test reads this value, so the two cannot drift without a failing build.
+ * ```
+ * $ dpkg-deb -c singularity-0.2.1-rc.1-linux-x64.deb | grep bin/singularity
+ * -rwxr-xr-x root/root 17688 ./opt/singularity-todo/bin/singularity-todo
+ * $ rpm -qlp singularity-0.2.1-rc.1-linux-x64.rpm | grep bin/singularity
+ * /opt/singularity-todo/bin/singularity-todo
+ * ```
  *
- * ## Why it is not resolved at runtime
+ * No `/usr/bin/singularity-todo` is installed and no symlink is created, by either
+ * format. Every reminder unit therefore failed to start with `systemd-run` exiting
+ * non-zero — the one case where the failure *is* loud, because `schedule` throws, but
+ * only for users who had already installed a package and set a reminder.
+ *
+ * ## Why the old test did not catch it
+ *
+ * It compared this constant against `packageName` read from `desktopApp/build.gradle.kts`
+ * and derived `/usr/bin/<packageName>` itself — a constant compared with a constant. Both
+ * halves came from the same false belief, so the agreement was evidence of nothing. A test
+ * that certifies the wrong premise is worse than no test, because it reads as coverage.
+ * The expectation is now the path jpackage actually installs, and the release pipeline
+ * installs the package and runs the launcher before anything is published (#664), so the
+ * claim is checked against a real `.deb`/`.rpm` rather than against this file's opinion.
+ *
+ * ## Why it is still a constant and not a lookup
  *
  * `which singularity-todo` would tolerate a rename by finding whatever is installed — and
  * would also find a *different* binary if the name were ever taken. The point of the
  * constant is that the unit runs **this** app and nothing else, which is the containment
  * property that outlived the deleted `at` backend.
  */
-internal const val REMINDER_LAUNCHER_PATH = "/usr/bin/singularity-todo"
+internal const val REMINDER_LAUNCHER_PATH = "/opt/singularity-todo/bin/singularity-todo"
 
 /**
  * The systemd unit name for one reminder.
