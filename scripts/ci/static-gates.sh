@@ -173,6 +173,11 @@ gate blocking "test-task external inputs declared" sgate test_task_external_inpu
 # executed and the traceability step reported a target that had in fact been measured
 # as producing nothing. Parity is the property that survives either up-to-date outcome.
 gate blocking "gradle invocations keep one test population" sgate gradle_test_population
+# The other half of the same boundary. A gate that reads build output and runs
+# after a second Gradle invocation may be reading a directory that invocation
+# re-ran: the traceability step failed this way on run 38933517902, and the flake
+# step would have done it silently while being continue-on-error.
+gate blocking "build-output readers precede the invocations that rewrite them" sgate build_output_readers
 gate blocking "declared dependencies are used" sgate declared_dependencies_are_used
 gate blocking "room schema integrity" sgate room_schema_integrity
 # A gate that dies instead of reporting is indistinguishable from a gate that

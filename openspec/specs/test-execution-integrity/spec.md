@@ -461,3 +461,55 @@ positive control drops the selector from a `:koverVerify` step in `ci.yml`.
 - **Given** a step naming only compile or assemble tasks
 - **When** it follows a test run in the same job
 - **Then** the population gate SHALL NOT treat it as a second population
+
+### Requirement: REQ-18 "Nothing ran" is reported as its own verdict
+
+A gate that compares a measurement against a floor SHALL distinguish, in its
+reported verdict and in its exit code, between:
+
+- a run that happened and breached the floor (**regression**), and
+- the absence of a run (**nothing ran**).
+
+Absence SHALL NOT be reported as a regression, and SHALL NOT be reported as the
+absence of individual test classes derived from the same absence.
+
+**Rationale:** measured 2026-10-16 (#683). `check-test-runs.py`, run in a worktree
+with no results on disk, reported `Test runs below the recorded floor — a suite
+stopped running` and then named all 326 declared `@Tag("fast")` classes as having
+produced no JUnit report. Every sentence was true and none of them was the fact:
+no run had happened, so no floor was compared and no class was individually
+skipped. The volume of true-but-irrelevant output is what makes a message read as
+catastrophe, and it sends the reader to investigate a regression that does not
+exist. `EXIT_NO_RUN` is distinct from the regression code so a caller that reads
+only the exit code is not misled either.
+
+#### Scenario: A required source set has no results
+
+- **Given** a source set passed to `--require` with no result directory on disk
+- **When** the gate runs
+- **Then** it SHALL exit `EXIT_NO_RUN`
+- **And** it SHALL say that nothing ran and name the command that would produce
+  the results
+- **And** it SHALL NOT report a floor breach
+
+#### Scenario: A required source set has an empty results directory
+
+- **Given** a source set passed to `--require` whose results directory exists but
+  holds no report
+- **When** the gate runs
+- **Then** it SHALL exit `EXIT_NO_RUN`
+- **And** it SHALL NOT describe the count as `0 tests` against a floor, which
+  reads as a loss of the entire suite
+
+#### Scenario: Nothing ran and the by-results check would also fire
+
+- **Given** a required source set with no results
+- **When** the gate runs
+- **Then** it SHALL NOT additionally report every declared class as missing
+- **And** the missing-class check SHALL be skipped for that source set
+
+#### Scenario: A run happened and breached the floor
+
+- **Given** a source set whose results are present and below the recorded floor
+- **When** the gate runs
+- **Then** it SHALL exit `1` and report the regression

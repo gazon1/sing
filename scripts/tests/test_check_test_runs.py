@@ -252,6 +252,12 @@ class TestGate(unittest.TestCase):
     def _baseline(self, text: str) -> None:
         ctr.BASELINE.write_text(text, encoding="utf-8")
 
+    def _empty_results_dir(self) -> pathlib.Path:
+        """The results directory Gradle creates before it writes anything into it."""
+        d = self.tmp / "results" / "jvmTest"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
     def _results(self, classes: int, tests: int, skipped: int = 0) -> pathlib.Path:
         d = self.tmp / "results" / "jvmTest"
         for i in range(classes):
@@ -287,12 +293,42 @@ class TestGate(unittest.TestCase):
         self.assertEqual(ctr.main(), 1)
 
     def test_missing_results_fail_only_when_required(self):
+        # The expected code changed from 1 to EXIT_NO_RUN in #683. Both are
+        # failures; the point of the split is that a caller can tell "the suite
+        # stopped running" (a regression to investigate) from "nothing ran"
+        # (a step nobody executed). Asserting 1 here would pin the conflation
+        # back in place, which is the defect the exit code exists to remove.
         self._baseline("shared:jvmTest 1 1 0\n")
         self.assertEqual(ctr.main(), 0)
         saved_argv = sys.argv
         sys.argv = ["check-test-runs.py", "--require", "shared:jvmTest"]
         try:
-            self.assertEqual(ctr.main(), 1)
+            self.assertEqual(ctr.main(), ctr.EXIT_NO_RUN)
+        finally:
+            sys.argv = saved_argv
+
+    def test_empty_results_directory_is_nothing_ran_not_a_zero_test_run(self):
+        """An empty directory counts 0 tests, which against a floor of 50 reads
+        as '50 tests stopped running'. Nothing ran — the verdict must say so."""
+        self._empty_results_dir()
+        self._baseline("shared:jvmTest 50 1 0\n")
+        saved_argv = sys.argv
+        sys.argv = ["check-test-runs.py", "--require", "shared:jvmTest"]
+        try:
+            self.assertEqual(ctr.main(), ctr.EXIT_NO_RUN)
+        finally:
+            sys.argv = saved_argv
+
+    def test_nothing_ran_does_not_also_report_every_class_as_missing(self):
+        """One absent run must not produce 326 lines of 'class produced no
+        JUnit report'. The list was true and it was the reason the message read
+        as a catastrophe instead of as 'you have not run the tests'."""
+        self._empty_results_dir()
+        self._baseline("shared:jvmTest 50 1 0\n")
+        saved_argv = sys.argv
+        sys.argv = ["check-test-runs.py", "--require", "shared:jvmTest"]
+        try:
+            self.assertEqual(ctr.main(), ctr.EXIT_NO_RUN)
         finally:
             sys.argv = saved_argv
 

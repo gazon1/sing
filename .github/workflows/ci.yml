@@ -323,6 +323,38 @@ jobs:
             echo "_result matrix not produced (see the step above)_" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Compares with the last green run of THIS branch, falling back to main.
+      # The previous version filtered on $GITHUB_REF_NAME, which on a PR is
+      # "<n>/merge" and so never matched — it silently skipped on every PR.
+      #
+      # Placement is load-bearing, and it is the same reason the traceability
+      # normaliser sits above this: `--current` reads `shared/build/test-results/
+      # jvmTest`, and every Gradle invocation below this step can re-run
+      # `:shared:jvmTest` and overwrite that directory. A flake rate computed from
+      # a re-measured set compares this run against a previous run's set and calls
+      # the difference flaky — which is the one thing a flake measurement must not
+      # do. It ran after `Coverage floors`, `Coverage table` and
+      # `Kover verify (detekt-rules)`, any of which pulls the shared test task.
+      - name: Flake analysis vs previous run (advisory)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          prev_on() {
+            gh run list --workflow ci.yml --branch "$1" --status success --limit 1 \
+              --json databaseId --jq '.[0].databaseId // empty'
+          }
+          PREV=$(prev_on "$BRANCH")
+          [ -n "$PREV" ] || PREV=$(prev_on main)
+          if [ -z "$PREV" ]; then echo "no previous successful run — skipped"; exit 0; fi
+          gh run download "$PREV" -n junit-results -D /tmp/prev-run || { echo "no junit-results in run $PREV — skipped"; exit 0; }
+          python3 scripts/check-flaky-tests.py \
+            --current shared/build/test-results/jvmTest \
+            --previous /tmp/prev-run \
+            --summary "$GITHUB_STEP_SUMMARY"
+
       # Detekt passed before this point — if DI/import files changed in a rebase,
       # this catches a compile break that `jvmTest` (already green) might miss.
       - name: Post-rebase DI compile
@@ -388,29 +420,6 @@ jobs:
       # scripts/check-gate-wiring.py Part I would fail otherwise.
       - name: Kover verify (detekt-rules)
         run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow
-
-      # Compares with the last green run of THIS branch, falling back to main.
-      # The previous version filtered on $GITHUB_REF_NAME, which on a PR is
-      # "<n>/merge" and so never matched — it silently skipped on every PR.
-      - name: Flake analysis vs previous run (advisory)
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-        run: |
-          prev_on() {
-            gh run list --workflow ci.yml --branch "$1" --status success --limit 1 \
-              --json databaseId --jq '.[0].databaseId // empty'
-          }
-          PREV=$(prev_on "$BRANCH")
-          [ -n "$PREV" ] || PREV=$(prev_on main)
-          if [ -z "$PREV" ]; then echo "no previous successful run — skipped"; exit 0; fi
-          gh run download "$PREV" -n junit-results -D /tmp/prev-run || { echo "no junit-results in run $PREV — skipped"; exit 0; }
-          python3 scripts/check-flaky-tests.py \
-            --current shared/build/test-results/jvmTest \
-            --previous /tmp/prev-run \
-            --summary "$GITHUB_STEP_SUMMARY"
 
       # The meta-gate runs HERE, not in the `static` job and not in the shared
       # registry. Part B proves `check-test-runs.py` can fail by sabotaging its

@@ -443,6 +443,20 @@ def load_baseline(path: pathlib.Path):
     return entries
 
 
+#: Distinct from 1 ("a suite stopped running") so a caller — CI, or a person at a
+#: terminal — can tell the two apart without parsing prose. Both are failures; only
+#: one of them is about the suite.
+#:
+#: Measured 2026-10-16 (#683). Locally, with no run on disk at all, this gate
+#: reported "Test runs below the recorded floor — a suite stopped running" and then
+#: listed all 326 declared `@Tag("fast")` classes as having produced no report. Both
+#: sentences were true and neither was the fact: the suite had not stopped running,
+#: it had never started, and the 326 classes were missing because there was no run to
+#: be missing from. The volume of the wrong-but-true output is what makes a message
+#: read as catastrophe, so the verdict is now its own.
+EXIT_NO_RUN = 3
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quiet", action="store_true", help="print failures only")
@@ -678,6 +692,12 @@ def main() -> int:
         return 1
 
     regressions = []
+    nothing_ran: list[str] = []
+    # Labels whose absence is already reported as "nothing ran". The by-results
+    # check below would otherwise re-report every declared class as missing for the
+    # same reason, which is how one absent run produced 326 lines of "class
+    # produced no JUnit report" and read as a catastrophic loss of coverage.
+    empty_results: set[str] = set()
     for label, (base_tests, max_skipped) in sorted(baseline.items()):
         actual = observed.get(label)
         if actual is None:
@@ -691,11 +711,19 @@ def main() -> int:
                         f"from an earlier run, not this one"
                     )
                 else:
-                    regressions.append(
-                        f"{label}: produced no test results in a job that requires it"
+                    nothing_ran.append(
+                        f"{label}: no test results on disk"
                     )
+                    empty_results.add(label)
             continue
         classes, tests, skipped = actual
+        if label in required and tests == 0:
+            # An empty results directory is the same fact as a missing one: the
+            # task produced nothing. Counting it as "0 tests against a floor of
+            # 2785" describes a loss of 2785 tests, which is the opposite of true.
+            nothing_ran.append(f"{label}: results directory present but empty")
+            empty_results.add(label)
+            continue
         if tests < base_tests:
             regressions.append(
                 f"{label}: {tests} tests in {classes} classes, "
@@ -729,7 +757,7 @@ def main() -> int:
     # a form of JUnit annotation this file has never heard of is caught here even
     # if both text predicates miss it.
     for label in sorted(observed):
-        if label not in EXPECTED_CLASS_SOURCES:
+        if label not in EXPECTED_CLASS_SOURCES or label in empty_results:
             continue
         try:
             expected = expected_fast_classes(label)
@@ -752,6 +780,24 @@ def main() -> int:
                 f"{label}: {len(missing)} @Tag(\"fast\") class(es) declared in the "
                 f"sources produced no JUnit report: {', '.join(missing)}"
             )
+
+    if nothing_ran:
+        print("\nNothing ran — this is NOT a test regression:", file=sys.stderr)
+        for line in nothing_ran:
+            print(f"  {line}", file=sys.stderr)
+        print(
+            "\nThese source sets are required here, and their results are absent or empty.\n"
+            "There is no count to compare against a floor, so no floor was compared.\n"
+            "Run them (./gradlew :shared:jvmTest :desktopApp:test) and re-run this gate;\n"
+            "the counts it prints afterwards are the ones worth reading.",
+            file=sys.stderr,
+        )
+        print(
+            "\nExit code 3, not 1: 'nothing ran' is a different fact from 'a suite\n"
+            "stopped running', and a caller that conflates them sends the next person\n"
+            "to investigate a regression that does not exist.",
+            file=sys.stderr,
+        )
 
     if regressions:
         print("\nTest runs below the recorded floor — a suite stopped running:", file=sys.stderr)
@@ -807,6 +853,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    if nothing_ran:
+        return EXIT_NO_RUN
 
     if not args.quiet:
         print("Test run floors met.")
