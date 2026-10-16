@@ -302,6 +302,45 @@ class FakeTasksSettingsRepository(
     }
 }
 
+// ─── NotificationsSettingsRepository ──────────────────────────────────────────
+
+/**
+ * Standalone in-memory [NotificationsSettingsRepository], for the consumers that read
+ * exactly one notification setting rather than the whole [FakeSettingsRepository].
+ *
+ * [ProjectDetailViewModel] reads only `reminderDefault`; bringing up the full settings
+ * fake for that would couple its tests to unrelated sections.
+ */
+class FakeNotificationsSettingsRepository(
+    initialReminderDefault: ReminderOffset = ReminderOffset.AT_DUE,
+) : NotificationsSettingsRepository {
+    private val _enabled = MutableStateFlow(true)
+    private val _sound = MutableStateFlow(true)
+    private val _vibration = MutableStateFlow(true)
+    private val _reminderDefault = MutableStateFlow(initialReminderDefault)
+
+    override val enabled: Flow<Boolean> = _enabled.asStateFlow()
+    override val sound: Flow<Boolean> = _sound.asStateFlow()
+    override val vibration: Flow<Boolean> = _vibration.asStateFlow()
+    override val reminderDefault: Flow<ReminderOffset> = _reminderDefault.asStateFlow()
+
+    override suspend fun setEnabled(value: Boolean) {
+        _enabled.value = value
+    }
+
+    override suspend fun setSound(value: Boolean) {
+        _sound.value = value
+    }
+
+    override suspend fun setVibration(value: Boolean) {
+        _vibration.value = value
+    }
+
+    override suspend fun setReminderDefault(value: ReminderOffset) {
+        _reminderDefault.value = value
+    }
+}
+
 // ─── BackupRepository ─────────────────────────────────────────────────────────
 
 class FakeBackupRepository : BackupRepository {

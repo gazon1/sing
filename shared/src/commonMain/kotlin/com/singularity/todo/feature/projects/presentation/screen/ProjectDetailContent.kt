@@ -133,6 +133,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         reminderOffset = content.ui.reminderOffsetMinutes?.let { m ->
                             ReminderOffset.entries.firstOrNull { it.minutes == m }
                         },
+                        defaultReminderOffset = content.ui.defaultReminderOffset,
                         actions = actions,
                         tagGroups = c.tagGroups,
                         inheritedTagGroupIds = c.ui.project.inheritedTagGroupIds,

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.components
 
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
@@ -109,6 +110,7 @@ fun ProjectDetailSheetsHost(
 
         is ActiveSheet.PickReminder -> ReminderPickerSheet(
             currentOffset = currentContent?.reminderOffset,
+            defaultOffset = currentContent?.defaultReminderOffset ?: ReminderOffset.AT_DUE,
             onSelect = { offset ->
                 currentContent?.actions?.onSetReminder(offset.minutes)
                 onSheetDismiss()

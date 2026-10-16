@@ -9,6 +9,9 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
+import com.singularity.todo.core.notifications.NotificationsSettingsRepository
+import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -72,6 +75,16 @@ class ProjectDetailViewModel(
     private val updateTask: UpdateTaskUseCase,
     private val createTaskUseCase: CreateTaskUseCase,
     private val projectReminders: ProjectRemindersRepository,
+    /**
+     * Read for exactly one value: `reminderDefault`, the user's default reminder
+     * offset from Notification settings.
+     *
+     * It preselects the reminder picker when the project has no reminder yet — it
+     * does not create one. Before this read the setting was persisted, exported,
+     * rendered in Settings, and consumed by nothing: a control whose value changed
+     * nothing anywhere, which is what `check-dead-settings` exists to name.
+     */
+    private val notificationsSettings: NotificationsSettingsRepository,
     val clock: Clock,
     private val log: Logger,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
@@ -155,6 +168,17 @@ class ProjectDetailViewModel(
     private val reminderOffsetFlow = MutableStateFlow<Int?>(null)
 
     /**
+     * The user's default reminder offset, as configured in Notification settings.
+     *
+     * Seeded with [SettingsDefaults.Notifications.REMINDER_DEFAULT] rather than
+     * `null` so the picker always has something to preselect, then overwritten by
+     * the stored value. Seeded from the constant instead of from the repository's
+     * own default so this class does not silently become a second source of truth
+     * for what "no setting" means.
+     */
+    private val defaultReminderOffsetFlow = MutableStateFlow(SettingsDefaults.Notifications.REMINDER_DEFAULT)
+
+    /**
      * Draft state — single source of truth for editable name/description.
      *
      * Declared before the `init` blocks that use it. Kotlin runs property
@@ -184,6 +208,12 @@ class ProjectDetailViewModel(
                         )
                     }
                 }
+        }
+
+        // The configured default offset — preselects the picker, creates nothing.
+        vmScope.launch {
+            notificationsSettings.reminderDefault
+                .collect { defaultReminderOffsetFlow.value = it }
         }
 
         // Project reminders — read the stored instant back as an offset from the due date.
@@ -312,17 +342,41 @@ class ProjectDetailViewModel(
                 projectState,
                 parentOptionsFlow,
                 availableTasksFlow,
-                reminderOffsetFlow,
+                reminderOffsetsFlow,
                 tagGroupOptionsFlow,
-            ) { state, parentOptions, availableTasks, reminderOffset, tagGroups ->
+            ) { state, parentOptions, availableTasks, offsets, tagGroups ->
                 if (state is ProjectDetailUiState.Content) {
-                    state.copy(parentOptions = parentOptions, availableTasks = availableTasks, tagGroups = tagGroups)
+                    state.copy(
+                        parentOptions = parentOptions,
+                        availableTasks = availableTasks,
+                        tagGroups = tagGroups,
+                        ui = state.ui.copy(
+                            reminderOffsetMinutes = offsets.current,
+                            defaultReminderOffset = offsets.default,
+                        ),
+                    )
                 } else {
                     state
                 }
             }.collect { setState(it) }
         }
     }
+
+    /**
+     * The project's own offset and the user's configured default, as one value.
+     *
+     * Both are consumed by the same picker and both travel into the same `copy`, so
+     * they are folded rather than combined separately: `combine` here is already at
+     * kotlinx's five-argument limit, and a sixth argument would need a vararg call
+     * that collapses to `Array<Any?>`. Mirrors [TaskVisibility].
+     */
+    private data class ReminderOffsets(
+        val current: Int?,
+        val default: ReminderOffset,
+    )
+
+    private val reminderOffsetsFlow =
+        combine(reminderOffsetFlow, defaultReminderOffsetFlow, ::ReminderOffsets)
 
     // ─── Silent debounce for inline edits ───────────────────────────────────────
 
