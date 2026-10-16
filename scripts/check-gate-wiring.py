@@ -849,6 +849,25 @@ SABOTAGE_ONLY_GATES = [
         sabotage=_strip_suppression_reason,
         why="a file-level suppression with no recorded reason switches a rule off for every future call in that file",
     ),
+    # Drop the selector from one Gradle invocation that follows the test run.
+    # The tree stays perfectly valid — every command still works, the suite is
+    # still green — and the only symptom is that this invocation measures Gradle's
+    # default (excludeTags("slow")) instead of the population the job selected.
+    # Measured on 2026-10-16: run 38933517902 failed its traceability step with
+    # "declared target produced zero testcases" for a target that had just been
+    # measured, because the advisory kover table step re-ran the desktop tests
+    # without the selector and the slow scenario classes were skipped.
+    ScriptGate(
+        name="gradle-test-population",
+        cmd=[sys.executable, "scripts/check-gradle-test-population.py"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=_replace(
+            "run: ./gradlew :koverVerify -Ptest.tags=fast,slow",
+            "run: ./gradlew :koverVerify",
+            count=1,
+        ),
+        why="two Gradle invocations in one job can disagree about which tests \"the tests\" are, and the gate that reads build/test-results/ afterwards is then measuring a population nobody ran",
+    ),
     ScriptGate(
         name="test-task-inputs",
         cmd=[sys.executable, "scripts/check-test-task-inputs.py"],

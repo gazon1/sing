@@ -414,3 +414,50 @@ but it was hiding a real defect behind a declaration that looked honest.
 - **When** the step runs
 - **Then** the defect SHALL be recorded where a later step or issue can act on it
 - **And** an advisory marker SHALL NOT be the only record of it
+
+### Requirement: REQ-17 One Gradle invocation's test population is the job's population
+
+Within a CI job, every Gradle invocation capable of running test tasks SHALL select
+the same test population. An absent `-Ptest.tags` is a selection of its own — the
+Gradle default, which every module in this repository maps to `excludeTags("slow")`
+— and SHALL NOT be used where the job selects another population.
+
+A step that reads `*/build/test-results/` to decide anything SHALL NOT be preceded
+by a Gradle invocation that can rewrite it without the job's selection.
+
+**Rationale:** measured 2026-10-16 on run `38933517902`. `check-test-runs` counted
+`desktopApp:test: 44 classes, 135 tests, 0 skipped`, and the traceability step,
+nine steps later, exited 2 with "declared target produced zero testcases" for
+`desktop`. Both were right: the advisory `:koverMarkdownTable` step (`|| true`) was
+the first invocation whose test task was out of date, it re-ran `:desktopApp:test`
+without `-Ptest.tags`, and the `@Tag("slow")` scenario classes were **skipped
+rather than executed**. The suite stayed green and the directory the traceability
+step was handed contained no scenario testcase. The traceable property is parity —
+which invocation executes the task is Gradle's up-to-date check to decide, and no
+workflow can be reordered into determinism.
+
+Enforced by `scripts/check-gradle-test-population.py`
+("gradle invocations keep one test population" in the shared registry), whose own
+positive control drops the selector from a `:koverVerify` step in `ci.yml`.
+
+#### Scenario: A later invocation drops the job's selection
+
+- **Given** a job whose test run selects `-Ptest.tags=fast,slow`
+- **And** a later step in that job runs a Gradle task that can execute the same
+  test task
+- **When** the later step omits `-Ptest.tags`
+- **Then** the population gate SHALL fail
+- **And** the report SHALL name the surface and both invocations
+
+#### Scenario: Every invocation selects the default
+
+- **Given** a job or `check.sh` whose test invocations all omit `-Ptest.tags`
+- **When** the population gate runs
+- **Then** it SHALL pass, because they agree
+- **And** it SHALL report that the agreed population is Gradle's default
+
+#### Scenario: A compile-only invocation after a test run
+
+- **Given** a step naming only compile or assemble tasks
+- **When** it follows a test run in the same job
+- **Then** the population gate SHALL NOT treat it as a second population
