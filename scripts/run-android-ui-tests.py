@@ -160,7 +160,16 @@ def ensure_device(serial: str | None) -> str | None:
             stderr=subprocess.PIPE,
         )
         return result.stdout.strip().splitlines()[-1]
-    except (subprocess.CalledProcessError, OSError):
+    except subprocess.CalledProcessError as exc:
+        # The emulator module reports its verdict on stderr — which tool is missing,
+        # which exit code, and why. It used to be captured and dropped, so a
+        # acquisition that failed in CI printed "could not produce a ready device"
+        # and the reason lived in a pipe nobody read. In CI that cost a full
+        # 15-minute run to learn that `emulator` was not on PATH.
+        sys.stderr.write(exc.stderr or "")
+        sys.stderr.flush()
+        return None
+    except OSError:
         return None
 
 

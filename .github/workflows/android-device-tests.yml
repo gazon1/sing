@@ -134,6 +134,18 @@ jobs:
             echo "$sdk_root/build-tools/37.0.0"
           } >> "$GITHUB_PATH"
 
+          # Assert the two things the next step silently depends on. A missing
+          # `emulator` binary is reported by `ensure-emulator` as exit 1 with
+          # "'emulator' binary not found in PATH" and an AVD that was never
+          # created is reported as a crash during start-up — both about a minute
+          # into a 15-minute job, and neither naming this step. Checked here
+          # instead, where the answer is immediate and specific.
+          test -x "$sdk_root/emulator/emulator" \
+            || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
+          "$cmdline/avdmanager" list avd | grep -q "Name: $AVD_NAME" \
+            || { echo "::error::AVD $AVD_NAME was not created"; exit 1; }
+          echo "emulator: $sdk_root/emulator/emulator, AVD: $AVD_NAME"
+
       # loguru, pydantic and click — the emulator module's own dependencies. The
       # same action the static job uses, with the two linters it installs turned
       # off: they are this repository's gates, not the emulator's, and this job
