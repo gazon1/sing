@@ -1,0 +1,1 @@
+{"uuid":"bfcbcd9b-eda0-4edf-aec3-b9464ea8d1e9","name":"state is readable as a StateFlow so a coordinator always has a current value()","children":["6d6b8f6d-64e5-4064-baf0-07ef47cc196e"],"befores":[],"afters":[],"start":1792174018807,"stop":1792174018812}

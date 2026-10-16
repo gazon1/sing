@@ -1,0 +1,1 @@
+{"uuid":"fab905e1-d1e0-4926-b820-054f85b312e8","name":"analyzeDependencies returns no cycle for isolated task()","children":["50d9be79-79e9-47bc-8494-ab4be1329096"],"befores":[],"afters":[],"start":1792171987563,"stop":1792171987567}

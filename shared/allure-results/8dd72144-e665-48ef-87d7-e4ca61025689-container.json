@@ -1,0 +1,1 @@
+{"uuid":"8dd72144-e665-48ef-87d7-e4ca61025689","name":"EventBus tryEmit returns true when buffer has capacity()","children":["401ce8c5-dcc0-406d-aebb-e22c174d9a09"],"befores":[],"afters":[],"start":1792174018840,"stop":1792174018850}

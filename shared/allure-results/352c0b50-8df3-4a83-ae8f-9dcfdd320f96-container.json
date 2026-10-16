@@ -1,0 +1,1 @@
+{"uuid":"352c0b50-8df3-4a83-ae8f-9dcfdd320f96","name":"a cancelled event is read as cancelled, not as absent()","children":["f499cefb-e3b1-4e7c-ae13-a9eb8ebbd8f2"],"befores":[],"afters":[],"start":1792171986583,"stop":1792171986586}
