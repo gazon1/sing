@@ -110,13 +110,26 @@ READ_PATHS = (
 
 
 def _steps(path: pathlib.Path) -> list[tuple[str, str]]:
-    """`(step_label, run_text)` in declaration order for every job in one workflow."""
+    """`(step_label, run_text)` in declaration order for every job in one workflow.
+
+    The text handed to `evaluate` is a **logical line**, not a physical one: a
+    backslash-continued block is one command, and `ci.yml`'s readers are written that
+    way —
+
+        python3 scripts/check-flaky-tests.py \\
+          --current shared/build/test-results/jvmTest \\
+          --previous /tmp/prev-run
+
+    Splitting that into three lines hides the path from a reader that only looks at one
+    line at a time, which is how the rule came to pass on the very step its docstring
+    names as the reason it exists.
+    """
     gate = _load_population_gate()
     jobs = gate._workflow_jobs(path)  # noqa: SLF001 — one parser, shared on purpose
     steps: list[tuple[str, str]] = []
     for job_name, body in jobs.items():
-        for index, text in enumerate(body.split("\n"), start=1):
-            steps.append((f"{path.relative_to(ROOT)}::{job_name}:{index}", text))
+        for line_no, text in gate._logical_lines(body):  # noqa: SLF001
+            steps.append((f"{path.relative_to(ROOT)}::{job_name}:{line_no}", text))
     return steps
 
 
@@ -149,13 +162,13 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str]]:
             jobs.setdefault(job, []).append((line_no, text))
 
         for job, entries in sorted(jobs.items()):
-            invocations: list[tuple[int, str]] = []
+            invocations: list[tuple[int, str, str]] = []
             for line_no, text in entries:
-                for location, _selector, test_capable, _tasks in gate._invocations(  # noqa: SLF001
-                    text, f"{job}:{line_no}"
+                for location, _selector, test_capable, tasks in gate._invocations(  # noqa: SLF001
+                    text, job
                 ):
                     if test_capable:
-                        invocations.append((line_no, location))
+                        invocations.append((line_no, location, ", ".join(tasks)))
             if len(invocations) < 2:
                 # A job with one test-capable invocation has nothing that can rewrite
                 # what its readers read.
@@ -167,14 +180,14 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str]]:
                     continue
                 if verbose:
                     listing.append(f"  {job}:{line_no} reads {reads}")
-                for inv_line, location in invocations[1:]:
+                for inv_line, location, tasks in invocations[1:]:
                     if inv_line >= line_no:
                         break
                     violations.append(
-                        f"{job}:{line_no} reads {reads}, but {location} is a "
-                        f"test-capable Gradle invocation that runs before it — a later "
-                        f"invocation may re-run the task and overwrite the directory "
-                        f"this step reads"
+                        f"{job}:{line_no} reads {reads}, but {location} "
+                        f"[{tasks}] is a test-capable Gradle invocation that runs "
+                        f"before it — a later invocation may re-run the task and "
+                        f"overwrite the directory this step reads"
                     )
     return violations, listing
 

@@ -147,10 +147,51 @@ def _is_test_task(token: str) -> bool:
     return bool(_TEST_SUFFIX.match(bare)) and "test" in bare.lower()
 
 
+def _logical_lines(script: str) -> list[tuple[int, str]]:
+    """`(first physical line, command text)` per logical command.
+
+    A backslash-continued block is one command, and reading it as several is what made
+    the producer invisible. `ci.yml`'s test job opens with
+
+        ./gradlew --continue \
+          --no-build-cache \
+          :shared:jvmTest :desktopApp:test …
+
+    and per-line parsing saw `./gradlew --continue` followed by a lone continuation
+    marker — a launcher with no tasks — then
+    discarded every continuation line, because none of them repeats `./gradlew`. The
+    invocation that *produces* the test results was therefore reported as `test_capable=False`
+    and did not exist as far as the caller was concerned. `check-build-output-readers.py`
+    then treated the *next* real invocation as the producer and exempted it, which is
+    precisely the violation its docstring says this parser exists to catch: `Flake analysis
+    vs previous run` reads `shared/build/test-results/jvmTest` and sits after
+    `:koverVerify`.
+
+    A trailing backslash is what the shell itself treats as continuation, so matching it
+    is not a heuristic about this repository's formatting — it is the grammar.
+    """
+    lines = script.splitlines()
+    joined: list[tuple[int, str]] = []
+    buffer: list[str] = []
+    start = 0
+    for line_no, line in enumerate(lines, start=1):
+        if not buffer:
+            start = line_no
+        if line.rstrip().endswith("\\"):
+            buffer.append(line.rstrip()[:-1].strip())
+            continue
+        buffer.append(line)
+        joined.append((start, " ".join(part for part in buffer if part)))
+        buffer = []
+    if buffer:
+        joined.append((start, " ".join(part for part in buffer if part)))
+    return joined
+
+
 def _invocations(script: str, origin: str) -> list[Invocation]:
     """Return `(location, selector, test_capable, tasks)` per invocation, in order."""
     found: list[Invocation] = []
-    for line_no, line in enumerate(script.splitlines(), start=1):
+    for line_no, line in _logical_lines(script):
         if _FULL_LINE_COMMENT.match(line):
             continue
         for fragment in _SPLIT.split(line):

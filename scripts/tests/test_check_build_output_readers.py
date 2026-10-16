@@ -178,5 +178,76 @@ class TheGateStillSees(unittest.TestCase):
         self.assertIn('is a test-capable Gradle invocation that runs before it', out)
 
 
+class ContinuedLinesAreOneCommand(unittest.TestCase):
+    """A backslash-continued block is one command, and reading it as several hid the
+    exact violation this gate's docstring names as its reason to exist.
+
+    `ci.yml` writes its flake reader that way — the path it reads sits on a
+    continuation line — and its producing Gradle invocation spans fourteen lines with
+    its tasks on them. Under one-physical-line-at-a-time parsing neither half was
+    visible: `./gradlew --continue` looked task-less and therefore harmless, and the
+    reader looked path-less and therefore absent. Both mistakes cancelled out into a
+    pass.
+    """
+
+    # Every command below is multi-line, and the three properties the rule turns on —
+    # tasks on the invocation, a build-output path on the reader, their relative
+    # order — live exclusively on continuation lines.
+    _PRELUDE = """\
+name: ci
+on: [push]
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Gradle
+        run: |
+          ./gradlew --continue \\
+            --no-build-cache \\
+            :shared:jvmTest :desktopApp:test \\
+            -Ptest.tags=fast,slow
+"""
+
+    _FLAKE_READER = """\
+      - name: flake analysis
+        run: |
+          python3 scripts/check-flaky-tests.py \\
+            --current shared/build/test-results/jvmTest \\
+            --previous /tmp/prev-run
+"""
+
+    _KOVER_WRITER = """\
+      - name: coverage floors
+        run: |
+          ./gradlew :koverVerify \\
+            -Ptest.tags=fast,slow
+"""
+
+    #: The shape `ci.yml` is required to keep: read first, then re-run.
+    READER_THEN_WRITER = _PRELUDE + _FLAKE_READER + _KOVER_WRITER
+
+    #: The shape this gate exists to reject: a second test-capable invocation lands
+    #: between the results and the step that consumes them.
+    WRITER_THEN_READER = _PRELUDE + _KOVER_WRITER + _FLAKE_READER
+
+    def test_a_reader_after_a_continued_writer_fails(self):
+        code, out = run_gate({'.github/workflows/ci.yml': self.WRITER_THEN_READER})
+        self.assertEqual(code, 1, out)
+        self.assertIn('reads build/test-results', out)
+
+    def test_a_reader_before_a_continued_writer_passes(self):
+        code, out = run_gate({'.github/workflows/ci.yml': self.READER_THEN_WRITER})
+        self.assertEqual(code, 0, out)
+
+    def test_the_continued_producer_is_still_seen_as_the_producer(self):
+        # If the continued producer were invisible, the *only* test-capable
+        # invocation would be :koverVerify, and the fixture above would pass for the
+        # wrong reason. Assert the producer is enumerated with its tasks.
+        _, out = run_gate({'.github/workflows/ci.yml': self.WRITER_THEN_READER})
+        violations = [line for line in out.splitlines() if 'test-capable Gradle invocation' in line]
+        self.assertEqual(len(violations), 1, out)
+        self.assertIn(':koverVerify', violations[0])
+
+
 if __name__ == '__main__':
     unittest.main()
