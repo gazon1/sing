@@ -353,29 +353,45 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: Checksums
-        run: |
-          cd dist
-          # `./*`, not `*`: a filename starting with `-` would be read as an option.
-          sha256sum ./* > SHA256SUMS.txt
-          echo "--- SHA256SUMS ---"
-          cat SHA256SUMS.txt
-
       - name: Artifact manifest
         env:
           VERSION: ${{ needs.meta.outputs.version }}
           VERSION_CODE: ${{ needs.meta.outputs.version_code }}
           PRERELEASE: ${{ needs.meta.outputs.prerelease }}
         run: |
-          cat > dist/MANIFEST.txt <<EOF
-          version=$VERSION
-          version_code=$VERSION_CODE
-          prerelease=$PRERELEASE
+          # The values are computed first and written second. Inside a heredoc the
+          # `shopt` / array-assignment / command-substitution lines are *text*, not
+          # commands: the previous version wrote all three into MANIFEST.txt verbatim
+          # and left `files=` empty, because `artifacts` was never assigned. A manifest
+          # that lists shell source instead of the files it exists to list is worse
+          # than no manifest — it reads like a description and describes nothing.
           shopt -s nullglob
           artifacts=(dist/*.apk dist/*.deb dist/*.rpm)
+          if (( ! ${#artifacts[@]} )); then
+            echo "::error::no artifacts to describe — the release would ship a manifest naming nothing"
+            exit 1
+          fi
           files=$(printf '%s\n' "${artifacts[@]##*/}" | sort | tr '\n' ' ')
-          EOF
+          {
+            echo "version=$VERSION"
+            echo "version_code=$VERSION_CODE"
+            echo "prerelease=$PRERELEASE"
+            echo "files=$files"
+          } > dist/MANIFEST.txt
           cat dist/MANIFEST.txt
+
+      - name: Checksums
+        run: |
+          cd dist
+          # `./*`, not `*`: a filename starting with `-` would be read as an option.
+          # Runs after the manifest so every file that ships is covered — the manifest
+          # is part of the release too, and an unhashed file in a release is a file
+          # nobody can verify. SHA256SUMS.txt itself is the one exception, and it is
+          # correct that way round: the shell expands `./*` before the redirect creates
+          # the file, so it never hashes itself.
+          sha256sum ./* > SHA256SUMS.txt
+          echo "--- SHA256SUMS ---"
+          cat SHA256SUMS.txt
 
       # --draft so a human reads the notes first.
       # TODO: actions/attest-build-provenance (once OCI attestations support KMP).
