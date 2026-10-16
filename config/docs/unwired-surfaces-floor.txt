@@ -1,0 +1,12 @@
+# unwired-surfaces floor — the number of BLOCKING findings this gate may report.
+#
+# Counted 2026-10-16 against source roots: shared/src, androidApp/src, desktopApp/src, adr-cli/src, adr-core/src, core-base/src, mcp-server/src, pro/src, tools/unwritten-properties/src.
+#
+# One-directional on purpose. Lowering it is the debt being paid down and needs no
+# justification; raising it is a new unwired surface and must be argued in review.
+# Exempt rows are not counted: they do not fail the build, so counting them would
+# make the floor move whenever an exemption's wording changed.
+#
+# Rewrite with: scripts/find-unwired-surfaces.py --update-floor
+
+4

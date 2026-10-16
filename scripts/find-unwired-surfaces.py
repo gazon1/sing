@@ -31,9 +31,24 @@ Shapes detected (via Detector table — add new rows, not new loops):
 Shape 5 is not checked here (navigation): reachable routes are a data question
 the Maestro suite answers better than a static scan.
 
+## The floor
+
+The gate is **advisory**, and an advisory gate with no measured count can only
+grow: nothing records how many findings existed before, so the next session
+starts from zero knowledge — the same failure as the `dark_scenarios` floor that
+drifted unnoticed. `config/docs/unwired-surfaces-floor.txt` records the count as
+of 2026-10-16. A run whose blocking count **exceeds** it fails; a lower count
+passes and says so, and the floor is lowered in the same change that lowers the
+count.
+
+The floor is compared against blocking findings only. `exempt` rows are
+reported and deliberately do not fail the build, so counting them would make the
+floor move when somebody merely renames an exemption's message.
+
 Usage:
     scripts/find-unwired-surfaces.py           # human-readable report
     scripts/find-unwired-surfaces.py --quiet   # findings only, for CI
+    scripts/find-unwired-surfaces.py --update-floor   # write the current count
 
 Exit code is 1 when anything is reported, so it can gate a check.
 """
@@ -49,7 +64,34 @@ from typing import Callable
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-SOURCE_ROOTS = ["shared/src", "androidApp/src", "desktopApp/src"]
+# Every Gradle module whose source is production code, plus the two app modules.
+#
+# This list was three entries and left five modules out (#543). That is not a milder
+# version of the same gap: a symbol in a module that is never globbed cannot be found,
+# so it cannot be reported unwired either. The gate read as complete while covering
+# roughly half the tree, and fixing the findings it did report could never have made it
+# true.
+#
+# Two things keep it honest, both in scripts/tests/test_find_unwired_surfaces.py:
+# every root here is asserted to exist on disk and to be actually globbed, and every
+# Kotlin module named in settings.gradle.kts is asserted to appear here. The second is
+# the one that catches a *new* module — the first cannot, because this list is the
+# specification it reads.
+#
+# `:detekt-rules` is deliberately absent: its rules are instantiated through
+# `RuleSetProvider`, which a call-site scan cannot see, so every finding there would be
+# noise. The test names it as excluded rather than leaving the absence unexplained.
+SOURCE_ROOTS = [
+    "shared/src",
+    "androidApp/src",
+    "desktopApp/src",
+    "adr-cli/src",
+    "adr-core/src",
+    "core-base/src",
+    "mcp-server/src",
+    "pro/src",
+    "tools/unwritten-properties/src",
+]
 
 # ── Comment stripping ───────────────────────────────────────────────────────
 
@@ -1013,9 +1055,63 @@ DETECTORS: list[Detector] = [
 # ── Main ────────────────────────────────────────────────────────────────────
 
 
+FLOOR_FILE = ROOT / "config" / "docs" / "unwired-surfaces-floor.txt"
+
+FLOOR_HEADER = """\
+# unwired-surfaces floor — the number of BLOCKING findings this gate may report.
+#
+# Counted 2026-10-16 against source roots: {roots}.
+#
+# One-directional on purpose. Lowering it is the debt being paid down and needs no
+# justification; raising it is a new unwired surface and must be argued in review.
+# Exempt rows are not counted: they do not fail the build, so counting them would
+# make the floor move whenever an exemption's wording changed.
+#
+# Rewrite with: scripts/find-unwired-surfaces.py --update-floor
+"""
+
+
+def read_floor() -> int:
+    """Return the recorded floor. A missing or malformed file is an error, not zero."""
+    if not FLOOR_FILE.is_file():
+        print(
+            f"::error::{FLOOR_FILE} does not exist — the gate has no measured baseline. "
+            f"Create it with: scripts/find-unwired-surfaces.py --update-floor",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    text = FLOOR_FILE.read_text(encoding="utf-8")
+    values = [
+        line.strip() for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    if len(values) != 1 or not values[0].isdigit():
+        print(
+            f"::error::{FLOOR_FILE} must hold exactly one integer line "
+            f"({len(values)} non-comment line(s) found). A floor that cannot be read "
+            f"is a floor that cannot fail.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    return int(values[0])
+
+
+def write_floor(count: int) -> None:
+    FLOOR_FILE.parent.mkdir(parents=True, exist_ok=True)
+    FLOOR_FILE.write_text(
+        FLOOR_HEADER.format(roots=", ".join(SOURCE_ROOTS)) + f"\n{count}\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quiet", action="store_true", help="print findings only")
+    parser.add_argument(
+        "--update-floor",
+        action="store_true",
+        help="rewrite the floor with the current blocking count and exit",
+    )
     args = parser.parse_args()
 
     files = kotlin_files()
@@ -1028,34 +1124,52 @@ def main() -> int:
         pre_result = detector.precompute(code)
         findings.extend(detector.check(code, corpus, pre_result))
 
-    if not findings:
-        if not args.quiet:
-            print("No unwired surfaces found.")
-        return 0
-
-    for kind, message in sorted(findings):
-        print(f"[{kind}] {message}")
-
     # An exempt row is reported and does not fail the build. It is printed rather than
     # dropped so that the decision stays visible in the log of the run that honoured it —
     # a gate that stops mentioning its exemptions is a gate whose exemptions nobody
     # remembers agreeing to.
     blocking = [f for f in findings if f[0] != "exempt"]
+
+    if args.update_floor:
+        write_floor(len(blocking))
+        print(f"wrote {FLOOR_FILE}: {len(blocking)} blocking finding(s)")
+        return 0
+
+    for kind, message in sorted(findings):
+        print(f"[{kind}] {message}")
+
     if blocking:
         print(f"\n{len(blocking)} finding(s).", file=sys.stderr)
-        return 1
-
-    exempted = len(findings)  # every remaining row is an exemption at this point
-    if exempted:
+    elif findings:
         print(
-            f"\n0 blocking finding(s); {exempted} exempted. Every exemption must name a "
+            f"\n0 blocking finding(s); {len(findings)} exempted. Every exemption must name a "
             f"live entry in docs/deferred-backlog.md — see "
             f"scripts/check-unwired-backlog-refs.py.",
             file=sys.stderr,
         )
     else:
         print("\nNo unwired surfaces found.", file=sys.stderr)
-    return 0
+
+    floor = read_floor()
+    if len(blocking) > floor:
+        print(
+            f"::error::unwired surfaces rose from the recorded floor of {floor} to "
+            f"{len(blocking)}. Either wire the new surface, or argue it in review and "
+            f"then run: scripts/find-unwired-surfaces.py --update-floor",
+            file=sys.stderr,
+        )
+        return 1
+    if len(blocking) < floor:
+        # Not a failure, but not silent either: an unnoticed drop is how a stale floor
+        # becomes a ratchet that permits a rise back to the old number.
+        print(
+            f"unwired surfaces fell from the recorded floor of {floor} to "
+            f"{len(blocking)} — lower the floor in the same change "
+            f"(scripts/find-unwired-surfaces.py --update-floor) so it cannot rise back "
+            f"unnoticed."
+        )
+
+    return 1 if blocking else 0
 
 
 if __name__ == "__main__":
