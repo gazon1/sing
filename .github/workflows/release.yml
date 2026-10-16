@@ -243,12 +243,26 @@ jobs:
         run: |
           # -PpackageVersion is required, not optional: without it the Gradle build falls
           # back to its own default ("0.1.0") and the verify step below then compares that
-          # against the tag and fails for every version that is not 0.1.0. The full version
-          # goes in, suffix included — rpm splits it into VERSION/RELEASE and deb takes it
-          # as-is, which is exactly what the verify step reconstructs.
-          case "${{ matrix.fmt }}" in
-            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$VERSION" ;;
-            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$VERSION" ;;
+          # against the tag and fails for every version that is not 0.1.0.
+          #
+          # The two formats cannot take the same string. Compose Desktop refuses a dash
+          # in an RPM version outright — "Illegal version for 'Rpm': '0.2.1-rc.1' is not
+          # a valid version … rpm package version must not contain a dash '-'" — so a
+          # prerelease tag fails at packaging time, not at verification. deb takes
+          # `0.2.1-rc.1` as-is. The dash becomes an underscore for rpm: rpm allows it,
+          # and it keeps the two forms recognisably the same release instead of
+          # collapsing `rc.1` into something that reads like a different version.
+          #
+          # The verify step recomputes this identically, so the two can never disagree
+          # about which string the package is expected to carry.
+          case "$FMT" in
+            deb) pkg_version="$VERSION" ;;
+            rpm) pkg_version="${VERSION//-/_}" ;;
+          esac
+          echo "package version for $FMT: $pkg_version"
+          case "$FMT" in
+            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$pkg_version" ;;
+            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$pkg_version" ;;
           esac
         env:
           FMT: ${{ matrix.fmt }}
@@ -273,6 +287,7 @@ jobs:
               fi
               f="${matches[0]}"
               embedded=$(dpkg-deb -f "$f" Version | sed 's/-[0-9].*$//')
+              expected="$VERSION"
               ;;
             rpm)
               shopt -s nullglob
@@ -288,20 +303,28 @@ jobs:
               #
               # RELEASE 1 is jpackage's default packaging revision, not a version suffix:
               # rpm built from 0.2.1 reports 0.2.1-1. Appending it unconditionally made
-              # every plain release fail the comparison below against its own tag, while a
-              # genuine prerelease suffix (0.2.1-rc.1 -> RELEASE=rc.1) must still count.
+              # every plain release fail the comparison below against its own tag. A
+              # non-default RELEASE is still counted, so a packaging revision that differs
+              # from the default cannot slip through as if it were the version.
               if [[ -n "$rel" && "$rel" != "1" ]]; then
                 embedded="$ver-$rel"
               else
                 embedded="$ver"
               fi
+              # The Package step turned the tag's dash into an underscore, because rpm
+              # refuses a dash in the version at all. Undo it here so this compares the
+              # package against the same string the tag names, not against a shape that
+              # happens to match whatever was built.
+              expected="${VERSION//-/_}"
               ;;
           esac
           echo "embedded $FMT version: $embedded"
-          # Exact match (prerelease "1.2.3-rc.1" has already been stripped to "1.2.3"
-          # for the packageVersion by the time it reaches here).
-          [[ "$embedded" == "$VERSION" ]] \
-            || { echo "::error::${FMT^^} declares version '$embedded' but the tag says '$VERSION'"; exit 1; }
+          echo "expected from tag '$VERSION': $expected"
+          # Exact match. A prerelease suffix is part of the tag, so it has to survive into
+          # the package — the point of the comparison is that the artifact says which
+          # release it is, not merely that some release was built.
+          [[ "$embedded" == "$expected" ]] \
+            || { echo "::error::${FMT^^} declares version '$embedded' but the tag '$VERSION' maps to '$expected' for this format"; exit 1; }
 
           mkdir -p dist
           cp "$f" "dist/$APP_NAME-$VERSION-$LABEL.$FMT"
