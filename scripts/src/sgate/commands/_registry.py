@@ -358,6 +358,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-sync-allowlist-regenerated.py"),
     ),
+    # ── Releases ───────────────────────────────────────────────────────────────────
+    GateSpec(
+        name="releases describe themselves",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-release-tags.py"),
+    ),
     # ── Maestro ───────────────────────────────────────────────────────────────────
     GateSpec(
         name="maestro selectors valid",
@@ -382,6 +389,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
 # by script path, because display names are prose and one script can
 # back two gates with two different controls.
 GATE_CONTROLS: dict[str, Control] = {
+    'release-tags': Control(kind='sabotage', proves='scripts/check-release-tags.py', argv=('{python}', 'scripts/check-release-tags.py'), path='config/docs/releases-snapshot.json', edit=Edit(kind='replace', old='    "v0.2.1-rc.1"\n  ],', new='    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],', count=1), why='a tag that produced no release is the failure this gate exists for: `meta` proved the tag was on main with a green CI run, `publish` still did not run, and nothing said so. The probe appends exactly such a tag — recorded as neither released nor excused.'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
     'gate-liveness': Control(kind='sabotage', proves='scripts/check-gate-liveness.py', argv=('{python}', 'scripts/check-gate-liveness.py'), path='scripts/check-backlog-issue-refs.py', edit=Edit(kind='replace', old='import sys', new='import sys\nraise AttributeError("\'NoneType\' object has no attribute \'loader\'")', count=1), why='a gate that raises instead of reporting has no opinion at all, and an advisory gate whose output nobody reads will stay that way indefinitely'),

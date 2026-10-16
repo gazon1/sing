@@ -257,6 +257,12 @@ gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_m
 # Maestro
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 
+# Releases. `meta` proves a tag was on main with a green CI run; it says nothing
+# about whether a release came out of it, nor whether the release that exists
+# describes the assets it actually carries. `publish` had never run, so neither
+# half had ever been checked by anything.
+gate blocking "releases describe themselves" sgate releases_describe_themselves
+
 # AppTracer
 
 # Gate-script conventions. Advisory because the corpus is knowingly red: every

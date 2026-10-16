@@ -89,6 +89,22 @@ jobs:
                 --json databaseId --jq 'length')
           [ "$n" = 1 ] || { echo "::error::no successful ci.yml run for $GITHUB_SHA"; exit 1; }
 
+          # A tag that already has a release must not be rebuilt.
+          #
+          # The tag is force-movable, so a tag that has been through three runs can
+          # sit on a commit whose artifacts are attached to a release built from an
+          # earlier one — the tag says 0.2.1-rc.1 while the release holds binaries
+          # from whatever the tag pointed at before. Nothing detected that: `gh release
+          # create` fails on an existing release, but only after the whole pipeline has
+          # spent ten minutes building everything it is about to throw away.
+          #
+          # A draft is a release. If this needs to happen again, delete the release
+          # first, so the tag and the artifacts it names never disagree even briefly.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::error::a release already exists for $GITHUB_REF_NAME; delete it (and the tag) rather than force-moving the tag"
+            exit 1
+          fi
+
   android:
     needs: meta
     runs-on: ubuntu-24.04

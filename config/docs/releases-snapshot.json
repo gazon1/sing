@@ -1,0 +1,37 @@
+{
+  "releases": [
+    {
+      "assets": [
+        {
+          "name": "MANIFEST.txt"
+        },
+        {
+          "name": "SHA256SUMS.txt"
+        },
+        {
+          "name": "singularity-0.2.1-rc.1-android.apk"
+        },
+        {
+          "name": "singularity-0.2.1-rc.1-linux-x64.deb"
+        },
+        {
+          "name": "singularity-0.2.1-rc.1-linux-x64.rpm"
+        }
+      ],
+      "draft": true,
+      "manifest": "version=0.2.1-rc.1\nversion_code=2001\nprerelease=true\nfiles=singularity-0.2.1-rc.1-android.apk singularity-0.2.1-rc.1-linux-x64.deb singularity-0.2.1-rc.1-linux-x64.rpm \n",
+      "prerelease": true,
+      "sha256sums": "795941077b13bfd52ecdc22cc7c08d28a74b3ddda0c506a7848220e776cf014e  ./MANIFEST.txt\n01f9c5a8be0f90f50bb326ec164a5313a790c01ea665cf9dd0e33a9e9825653c  ./singularity-0.2.1-rc.1-android.apk\nabeedb36e6cdc1122e34a911152e7b9292bbea612900e6a4785fe551ef28b541  ./singularity-0.2.1-rc.1-linux-x64.deb\n3f58a28b140d4ed285ff4a2a559b1e80de0d4bb26f9d13414284a1cc90f37379  ./singularity-0.2.1-rc.1-linux-x64.rpm\n",
+      "tag": "v0.2.1-rc.1"
+    }
+  ],
+  "tags": [
+    "v0.1.0",
+    "v0.2.0",
+    "v0.2.1-rc.1"
+  ],
+  "tags_without_release": {
+    "v0.1.0": "Rejected by the meta gate: 'no successful ci.yml run for 4f4a7f4be07907184d70894fe3ab5494c541b141'. CI could not install itself at that commit (#635), so no green run existed to accept. Fixed in #657.",
+    "v0.2.0": "Rejected by the meta gate for the same reason \u2014 'no successful ci.yml run for 239f101029e02d664e7e67a46c1f3a1bafb0d6e9' \u2014 not, as an earlier PR description guessed, on the version check. Both v0.2.0 attempts died before packaging."
+  }
+}
