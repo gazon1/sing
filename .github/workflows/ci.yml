@@ -118,7 +118,11 @@ jobs:
       - name: Install sgate CLI and its dependencies
         run: |
           uv venv "$HOME/ci-venv"
-          VIRTUAL_ENV="$HOME/ci-venv" uv pip install --editable scripts/src/
+          # junitparser is not optional in this job either: setup-repo-tools
+          # declares it required because scripts/junit-annotations.py imports it.
+          # Nothing here ever installed it, so that check failed on every run —
+          # one step later each time an earlier blocker was fixed.
+          VIRTUAL_ENV="$HOME/ci-venv" uv pip install --editable scripts/src/ junitparser
           echo "$HOME/ci-venv/bin" >> "$GITHUB_PATH"
 
       # actionlint + yamllint back the two workflow/YAML lint gates in
