@@ -442,6 +442,84 @@ class TestDetectorTable(unittest.TestCase):
         self.assertEqual(rc, 1)
 
 
+class TestSourceRootsCoverProduction(unittest.TestCase):
+    """Every production module is scanned — the gap #543 recorded.
+
+    `SOURCE_ROOTS` was three entries, and the modules missing from it were not a
+    milder version of the same gap: no symbol in `:adr-core`, `:core-base` or
+    `:mcp-server` could be *found*, so none could be reported unwired. The
+    detector looked complete and covered a third of the tree.
+
+    Extending a list is one line and easy to regress, so every root is asserted
+    here — including that the directory it names exists in this repository, which
+    is the half that turns "the path is spelled right" into "the code is read".
+    """
+
+    def test_every_declared_root_exists_in_this_repository(self):
+        for root in fus.SOURCE_ROOTS:
+            with self.subTest(root=root):
+                self.assertTrue(
+                    (fus.ROOT / root).is_dir(),
+                    f"{root} is listed in SOURCE_ROOTS but does not exist — the gate would "
+                    f"scan nothing there and still report success",
+                )
+
+    def test_no_kotlin_module_is_missing_from_the_list(self):
+        # The other half of the same gap. `test_each_root_is_actually_read` can only
+        # assert that a listed root is read; it cannot notice a module that was never
+        # listed, because the list is the specification it reads. So the specification
+        # is checked against `settings.gradle.kts` instead — which is the file a new
+        # module is added to.
+        settings = (fus.ROOT / "settings.gradle.kts").read_text(encoding="utf-8")
+        listed = {line.split('"')[1] for line in settings.splitlines() if line.startswith("include(") and '"' in line}
+        # A Gradle module `:tools:unwritten-properties` and a root
+        # `tools/unwritten-properties/src` name the same tree; the suffix is not a
+        # difference in coverage, so it is stripped before comparing.
+        covered = {
+            r[: -len("/src")] if r.endswith("/src") else r
+            for r in fus.SOURCE_ROOTS
+        }
+
+        # `:detekt-rules` is deliberately not covered: it is a Gradle plugin whose
+        # rules are instantiated through `RuleSetProvider`, which a call-site scan
+        # cannot see, so listing it would produce findings that are all noise.
+        excluded = {"detekt-rules", "build-logic"}
+        missing = sorted(
+            name for name in listed
+            if name.lstrip(":").replace(":", "/") not in covered
+            and name.lstrip(":").split("/")[0] not in excluded
+        )
+        self.assertEqual([], missing, f"Gradle modules not covered by SOURCE_ROOTS: {missing}")
+
+    def test_each_root_is_actually_read(self):
+        # The proof #543 asked for, per root: plant an unwired symbol under that root
+        # and require the detector to report it. A root in the list that is never
+        # globbed produces no finding, which is indistinguishable from the symbol
+        # being wired.
+        for root in fus.SOURCE_ROOTS:
+            with self.subTest(root=root):
+                src = fus.ROOT / root
+                probe_dir = next(
+                    (d for d in src.rglob("main") if d.is_dir()), None
+                ) or next((d for d in src.rglob("kotlin") if d.is_dir()), None)
+                self.assertIsNotNone(probe_dir, f"{root} has no main/kotlin source dir")
+                probe = probe_dir / "ZzProbeCoverage.kt"
+                probe.write_text(
+                    "package singularity.todo.probe\n\nfun ZzProbeCoverageCard() = Unit\n",
+                    encoding="utf-8",
+                )
+                try:
+                    files = fus.kotlin_files()
+                    self.assertTrue(
+                        any(p == probe for p in files),
+                        f"{root} is in SOURCE_ROOTS but kotlin_files() did not return a file "
+                        f"planted under it — the root is listed and ignored",
+                    )
+                finally:
+                    probe.unlink()
+
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -523,3 +601,103 @@ class TestStartupUnwiredDetector(unittest.TestCase):
             "shared/src/commonMain/A.kt": "fun flushLogs() = Unit\n",
         })
         self.assertEqual(1, len(findings), findings)
+
+
+class TestFloor(unittest.TestCase):
+    """The ratchet: an advisory gate needs a recorded number, or it can only grow.
+
+    The floor is the whole reason this gate is actionable. `unwired surfaces` is
+    advisory because it is knowingly red; without a recorded count, "4 findings"
+    in a future session carries no information — nobody can tell a new unwired
+    surface from the four that were always there.
+
+    Each branch below is a failure mode a ratchet can have, and each is asserted
+    with the input that produces it rather than described.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.floor = pathlib.Path(self.tmp) / "floor.txt"
+        patch = mock.patch.object(fus, "FLOOR_FILE", self.floor)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def _run(self, argv):
+        with mock.patch.object(sys, "argv", ["find-unwired-surfaces.py", *argv]):
+            return fus.main()
+
+    def _write(self, text):
+        self.floor.write_text(text, encoding="utf-8")
+
+    def test_update_floor_writes_the_blocking_count_and_not_the_exempt_rows(self):
+        # The repository currently reports 4 blocking rows and 2 exempted ones. Writing
+        # 6 would make the floor a function of how loudly exemptions are phrased.
+        with mock.patch.object(fus, "kotlin_files", lambda: []), \
+             mock.patch.object(fus, "DETECTORS", []):
+            self.assertEqual(0, self._run(["--update-floor"]))
+        self.assertEqual("0", [l for l in self.floor.read_text().splitlines()
+                               if l.strip() and not l.startswith("#")][0])
+
+    def test_a_missing_floor_is_an_error_rather_than_zero(self):
+        # Zero would be the friendliest default and the wrong one: it silently makes
+        # every existing finding a regression and turns a bookkeeping omission into
+        # a wall of red that gets "fixed" by raising the floor to whatever is there.
+        with mock.patch.object(fus, "kotlin_files", lambda: []), \
+             mock.patch.object(fus, "DETECTORS", []):
+            with mock.patch.object(sys, "argv", ["x"]):
+                with self.assertRaises(SystemExit) as ctx:
+                    fus.main()
+        self.assertEqual(2, ctx.exception.code)
+
+    def test_a_floor_that_cannot_be_read_fails_loudly(self):
+        for text in ("", "x", "1 2", "# only a comment\n"):
+            with self.subTest(text=text):
+                self._write(text)
+                with mock.patch.object(fus, "kotlin_files", lambda: []), \
+                     mock.patch.object(fus, "DETECTORS", []):
+                    with mock.patch.object(sys, "argv", ["x"]):
+                        with self.assertRaises(SystemExit) as ctx:
+                            fus.main()
+                self.assertEqual(2, ctx.exception.code)
+
+    def test_rising_above_the_floor_fails(self):
+        self._write("# floor\n0\n")
+        with mock.patch.object(fus, "kotlin_files", lambda: []), \
+             mock.patch.object(fus, "DETECTORS", []):
+            with mock.patch.object(sys, "argv", ["x"]):
+                with mock.patch.object(fus, "DETECTORS", [_one_finding("boom")]):
+                    self.assertEqual(1, fus.main())
+
+    def test_a_finding_of_kind_exempt_does_not_count_against_the_floor(self):
+        self._write("0\n")
+        with mock.patch.object(fus, "kotlin_files", lambda: []):
+            with mock.patch.object(sys, "argv", ["x"]):
+                with mock.patch.object(fus, "DETECTORS", [_one_finding("exempted", "exempt")]):
+                    self.assertEqual(0, fus.main())
+
+    def test_falling_below_the_floor_passes_and_says_so(self):
+        # Silently passing is how a stale floor becomes permission to rise back to the
+        # old number. The count dropping is news; it is printed.
+        self._write("7\n")
+        with mock.patch.object(fus, "kotlin_files", lambda: []), \
+             mock.patch.object(fus, "DETECTORS", []):
+            with mock.patch.object(sys, "argv", ["x"]):
+                self.assertEqual(0, fus.main())
+
+
+class _FakeDetector:
+    """A detector that always returns the same rows, to drive the floor arithmetic."""
+
+    def __init__(self, message, kind="screen"):
+        self._rows = [(kind, message)]
+
+    def precompute(self, code):
+        return None
+
+    def check(self, code, corpus, pre):
+        return list(self._rows)
+
+
+def _one_finding(message, kind="screen"):
+    return _FakeDetector(message, kind)
