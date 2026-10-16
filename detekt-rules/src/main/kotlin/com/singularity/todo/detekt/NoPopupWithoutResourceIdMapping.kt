@@ -176,8 +176,10 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
                     // reference — not a bare KtNameReferenceExpression.
                     val name = when (selector) {
                         is KtNameReferenceExpression -> selector.text
+
                         is org.jetbrains.kotlin.psi.KtCallExpression ->
                             (selector.calleeExpression as? KtNameReferenceExpression)?.text
+
                         else -> null
                     }
                     if (name == "mapTestTagsAsResourceIds") return true

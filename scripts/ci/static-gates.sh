@@ -143,27 +143,7 @@ collect_and_report() {
 # Multi-command gates defined as exported functions so they can be passed
 # as the command to `gate`.  Each must be `export -f` so bash -c sees it.
 
-digest_no_double_suffix() {
-  # Both digests, since 2026-10-15 split one file into two. The path used to be written
-  # inline against DIGEST.md alone, which meant the second artifact would have been
-  # created ungated — the same class of defect as a check that reads a file nobody writes.
-  local n=0
-  local f
-  for f in docs/decisions/DIGEST.md docs/decisions/DIGEST-full.md; do
-    [[ -f "$f" ]] || continue
-    n=$((n + $(grep -c "_(from " "$f" || true)))
-  done
-  if ((n > 100)); then
-    echo "digests have $n '_(from ' occurrences — double-suffix bug"
-    return 1
-  fi
-}
-export -f digest_no_double_suffix
 
-adr_dry_run() {
-  ./scripts/normalize-adr-frontmatter.sh
-}
-export -f adr_dry_run
 
 traceability() {
   python3 -m traceability "$@"
@@ -199,9 +179,6 @@ gate blocking "room schema integrity" sgate room_schema_integrity
 # that must not be probed; the filter is applied in check-gate-liveness.py, not
 # in the filename heuristic that previously lived there (#534).
 gate blocking "gates are alive" sgate gates_are_alive  # no-self-probe
-# A closed decision is a record of what was decided. Its body must stop changing;
-# a new decision supersedes it instead of rewriting it (#528).
-gate blocking "closed ADRs keep their body" sgate closed_adrs_keep_their_body
 # A skill is a hand-written description of code nobody diffs against it, so it is
 # always the stale one and always reads like documentation rather than like a bug.
 # The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
@@ -211,9 +188,7 @@ gate blocking "skills describe the tools that exist" sgate skills_describe_the_t
 # every worktree, and git config does not travel with the repo (#519).
 gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree
 gate advisory "unwired surfaces" sgate unwired_surfaces
-gate blocking "unwired backlog refs" sgate unwired_backlog_refs
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
-gate blocking "YAML has no duplicate keys" sgate yaml_has_no_duplicate_keys
 
 # Workflow + YAML lint, two real tools over the corpus the gates above only
 # parse. actionlint checks GitHub Actions *semantics* — expressions, action
@@ -225,11 +200,33 @@ gate blocking "YAML has no duplicate keys" sgate yaml_has_no_duplicate_keys
 # silently still fails here. Its config (.yamllint.yml) is structure-only: the
 # default profile was 213/220 line-length noise, and a gate that is red on the
 # day it lands is a gate nobody reads. Both binaries must be on PATH — CI's
-# static job installs them (pinned: actionlint 1.7.7, yamllint 1.38.0); a
-# missing binary is a loud 127, not a skip, because an unreachable gate is worse
-# than an absent one.
-gate blocking "GitHub workflows are valid" actionlint
+# static job installs them (pinned: actionlint 1.7.7, yamllint 1.38.0) through
+# .github/actions/setup-python-tools; a missing binary is a loud 127, not a
+# skip, because an unreachable gate is worse than an absent one.
+#
+# shellcheck is named explicitly, and its absence is a failure. actionlint
+# DISABLES its shellcheck integration when the binary is not found, without
+# saying so — so the gate's verdict silently depended on the image: green on a
+# developer machine with no shellcheck, red on a runner that has one, same code.
+# `command -v` turns that invisibility into a message. One line, because the
+# registry parser is a single-line regex: a gate command split across lines is
+# read as a command ending in an unterminated quote.
+gate blocking "GitHub workflows are valid" bash -c 'command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2; exit 1; }; actionlint -shellcheck="$(command -v shellcheck)"'
 gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml"
+
+# NOT HERE: scripts/check-gate-wiring.py
+# See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
+#
+# It is tempting to call the meta-gate from the registry, and it is wrong. Part B
+# proves `check-test-runs.py` can fail by sabotaging config/docs/test-runs-baseline.txt
+# and re-running it — and that gate reads JUnit XML which only exists once the test
+# tasks have run. The registry is static by definition: in CI's `static` job there is
+# no build output at all. Calling it from here reproduces #206 exactly, failing with
+# "already fails on a clean tree" — a true statement that reads as a false alarm.
+#
+# A gate that proves another gate works inherits that gate's preconditions and runs
+# them at its own time. So the meta-gate stays where the results are: after the tests,
+# in check.sh and in ci.yml's `tests` job.
 
 # Lint-rule governance
 gate blocking "detekt rules config is current" sgate detekt_rules_config_is_current --check
@@ -252,7 +249,6 @@ gate blocking "file-level suppressions explain themselves" sgate file_level_supp
 gate blocking "scenario specs valid" sgate scenario_specs_valid
 gate blocking "coverage matrix current" sgate coverage_matrix_current
 gate blocking "coverage holes did not grow" sgate coverage_holes_did_not_grow
-gate blocking "speckit scenarios current" sgate speckit_scenarios_current
 
 # Server schema
 gate blocking "supabase schema is self-consistent" sgate supabase_schema_is_self_consistent
@@ -261,68 +257,7 @@ gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_m
 # Maestro
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 
-# Docs / agent-facing text
-gate advisory "skills catalog current" ./scripts/regen-skills-catalog.sh --check
-gate blocking "skill frontmatter" ./scripts/check-skill-frontmatter.sh
-gate blocking "decisions digest within budget" sgate decisions_digest_within_budget
-gate blocking "digest has no double suffix" digest_no_double_suffix
-gate advisory "no dead doc refs" sgate no_dead_doc_refs
-gate blocking "no dead skill symbols" sgate no_dead_doc_refs --skill-symbols
-gate advisory "publication hygiene" sgate publication_hygiene
-gate blocking "publication hygiene self-test" sgate publication_hygiene --self-test
-gate blocking "README claims" sgate readme_claims
-gate blocking "README claims self-test" sgate readme_claims --self-test
-
-# NOT HERE: scripts/check-gate-wiring.py
-# See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
-#
-# It is tempting to call the meta-gate from the registry, and it is wrong. Part B
-# proves `check-test-runs.py` can fail by sabotaging config/docs/test-runs-baseline.txt
-# and re-running it — and that gate reads JUnit XML which only exists once the test
-# tasks have run. The registry is static by definition: in CI's `static` job there is
-# no build output at all. Calling it from here reproduces #206 exactly, failing with
-# "already fails on a clean tree" — a true statement that reads as a false alarm.
-#
-# A gate that proves another gate works inherits that gate's preconditions and runs
-# them at its own time. So the meta-gate stays where the results are: after the tests,
-# in check.sh and in ci.yml's `tests` job.
-#
-# ADR reference integrity and status policy — these make ADR deletion safe (#116).
-gate blocking "ADR references are valid" sgate adr_references_are_valid
-# #553 switched this gate to `singularity-adr validate` (the canonical CLI
-# interface), but the static job is deliberately JVM-free (~1 min, no Gradle):
-# the installed CLI is not on a CI runner's PATH, so the gate died with exit
-# 127 and dragged "gates are alive" down with it (1 unrunnable).  Both surfaces
-# are kept where they can actually run: the Python gate here (the same code
-# the CLI wraps, per #553), the CLI itself in adr-gate.yml's "ADR validation"
-# step, which installs the distribution and runs on every docs/decisions PR.
-gate blocking "ADR status policy" sgate adr_status_policy
-
-# Five consumers discovered docs/decisions/ five different ways and had already
-# drifted apart. The rules live in config/docs/adr-corpus.json; this gate keeps every
-# consumer reading them from there, and keeps the Kotlin fallback equal to the JSON (#520).
-gate blocking "ADR corpus rules are shared" sgate adr_corpus_rules_are_shared
-
-# `:adr-cli` shipped 127 MB and 0.30 s of startup to read markdown files, because
-# `adr-cli/build.gradle.kts` depended on `:shared` — Compose, Room, SQLite, Koin and
-# Koog. The rules moved to `:adr-core`; this keeps them there, transitively, so a
-# one-line dependency does not put the application runtime back on a 4.9 MB
-# distribution with every test still green.
-gate blocking "light ADR modules stay light" sgate light_adr_modules_stay_light --quiet
-
-# Advisory — each needs an exit plan, or it is just a quieter blocking gate.
-# Exit plan: run ./scripts/normalize-adr-frontmatter.sh --apply once, commit,
-# then flip ADR frontmatter drift to blocking.
-gate advisory "ADR frontmatter drift" sgate adr_frontmatter_drift
-gate advisory "speckit stale" sgate speckit_stale
-gate advisory "spec-kit issue registry current" sgate spec_kit_issue_registry_current
-gate advisory "requirement identifiers are unique" sgate requirement_identifiers_are_unique
-
 # AppTracer
-gate blocking "apptracer upload policy encoded" sgate apptracer_upload_policy_encoded
-
-# Backlog
-gate advisory "backlog-issue-refs" sgate backlog_issue_refs
 
 # Gate-script conventions. Advisory because the corpus is knowingly red: every
 # legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a

@@ -29,6 +29,11 @@ class CurrentProjectContent(
     val isArchived: Boolean,
     val childProjects: List<Project>,
     val reminderOffset: ReminderOffset?,
+    /**
+     * Preselects [ReminderPicker] when [reminderOffset] is null — the user's default
+     * from Notification settings. Never creates a reminder on its own.
+     */
+    val defaultReminderOffset: ReminderOffset = ReminderOffset.AT_DUE,
     val actions: ProjectDetailActions,
     val tagGroups: List<TagGroupOption> = emptyList(),
     val inheritedTagGroupIds: Set<TagGroupId> = emptySet(),

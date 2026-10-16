@@ -5,12 +5,12 @@ import json
 from typing import ClassVar
 
 import click
-from sgate.log import logger
 
 import sgate
+from sgate.commands._runner import Result, run, run_capture
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, KIWI_UNAVAILABLE, register
+from sgate.log import logger
 from sgate.output import gate_fail
-from sgate.commands._runner import run, run_capture, Result
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, KIWI_UNAVAILABLE, register
 
 KIWI_REQUIRED: ClassVar[bool] = False
 

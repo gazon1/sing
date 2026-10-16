@@ -53,10 +53,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v5
       - name: Validate Maestro selectors
         run: |
-          pip install pyyaml --quiet
-          python scripts/ci/validate-maestro-selectors.py
+          # A venv, not the system environment: the runner's /usr is
+          # EXTERNALLY-MANAGED and its user cannot write /usr/local, so a plain
+          # `pip install` exits 1 here. Same shape as the installs in ci.yml.
+          uv venv "$HOME/ci-venv"
+          VIRTUAL_ENV="$HOME/ci-venv" uv pip install pyyaml
+          PATH="$HOME/ci-venv/bin:$PATH" python scripts/ci/validate-maestro-selectors.py
 
   # Decides suite and shard count in one place, so the matrix is arithmetic rather
   # than four hand-maintained job entries.

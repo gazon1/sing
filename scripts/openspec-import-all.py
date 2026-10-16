@@ -20,10 +20,11 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import sys
 import re
-import yaml
+import sys
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).parent.parent.resolve()
 OPSSPEC_CHANGES = ROOT / "openspec" / "changes"

@@ -61,8 +61,8 @@ class DeviceDeps:
 
 def _default_device_deps() -> DeviceDeps:
     """Lazily build the real DeviceDeps to avoid circular imports at module scope."""
-    from emulator._startup import acquire_device
     from emulator._device import adb, adb_on, device_alive
+    from emulator._startup import acquire_device
     from emulator.maestro._artifacts import capture_artifacts
     from emulator.maestro._device import (
         device_model,
@@ -74,6 +74,8 @@ def _default_device_deps() -> DeviceDeps:
     from emulator.maestro._fixtures import cleanup_run_fixtures
     from emulator.maestro._provenance import (
         apk_sha_from_device as _apk_sha_from_device,
+    )
+    from emulator.maestro._provenance import (
         git_sha as _git_sha,
     )
     from emulator.maestro._subprocess import try_run

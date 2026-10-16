@@ -74,13 +74,37 @@ TRACEBACK_MARKERS = (
 # Skipping the heavyweight ones: this script runs 40 gates and must finish in
 # seconds, not minutes. Each of these either builds the project or is itself a
 # meta-gate that already covers the liveness question.
+#
+# WARNING: this prefix filter used to be the whole mechanism, and it silently
+# stopped matching when the registry moved to `sgate <subcommand>`. Every gate
+# then probed as `sgate ...`, which matches none of these prefixes, so the probe
+# actually ran Gradle-invoking gates (`declared dependencies are used` →
+# `check-dependency-usage.py` → `./gradlew :shared:printResolvedArtifacts`).
+# One cold Kotlin daemon per probe, several concurrently — a probe of the gate
+# registry exhausted RAM on the dev machine (2026-10-15). `resolves_to_gradle()`
+# below is the real defence; these prefixes stay for shell-function and direct
+# invocations that never reach a registry entry.
 SLOW_PREFIXES = (
     './gradlew', 'gradlew', './just', 'just ', 'bash scripts/ci/',
     'python3 -m unittest', 'python3 -m pytest',
 )
 SLOW_NAMES = {
     "gate scripts' own unit tests",
+    # Runs Gradle; see resolves_to_gradle(). Named here too so the skip is
+    # visible where a reader looks for it.
+    "declared dependencies are used",
 }
+
+#: Shapes that mean "this script actually spawns the JVM toolchain", matched in
+#: the gate's *resolved* script so a registry command that wraps one is caught.
+#:
+#: Deliberately the argv-list form (`["./gradlew", …]`), not the bare string.
+#: A bare `./gradlew` also appears in docstrings, in `print()` lines that suggest
+#: a command to the user, and in README fixtures — `check-test-task-ins.py:13`,
+#: `check-baseline-ratchet.py:237`, `check-publication-hygiene.py:387`. Matching
+#: those would skip three cheap gates as "heavyweight" and silently weaken this
+#: gate, which is the same failure as the one this filter just had.
+GRADLE_MARKERS = ('["./gradlew"', "['./gradlew'", '"./gradlew",')
 
 # Marker for gates that must not be probed. Declared in the registry (static-gates.sh)
 # rather than guessed from the script's own filename, so the rule is visible where
@@ -110,20 +134,98 @@ def registry_functions() -> set[str]:
     return set(FUNCTION_RE.findall(REGISTRY.read_text(encoding='utf-8')))
 
 
+_SCRIPT_CMD_TO_GATE: dict[str, str] | None = None
+
+
+def _command_name(display_name: str) -> str:
+    """The CLI command for a gate, derived from its display name.
+
+    The registry stores `room schema integrity`; the registry calls
+    `sgate room_schema_integrity`. Keys must be the command, not the display
+    name, or every lookup misses.
+    """
+    return re.sub(r'[^a-z0-9]+', '_', display_name.lower()).strip('_')
+
+
+def gate_scripts() -> dict[str, str]:
+    """Map `sgate <subcommand>` -> the script path it dispatches to.
+
+    Most registry commands are `sgate <name>`, which says nothing about cost.
+    The registry knows the real script behind each one, so the heavyweight
+    filter reads it from there instead of from the command text.
+    """
+    global _SCRIPT_CMD_TO_GATE
+    if _SCRIPT_CMD_TO_GATE is None:
+        mapping: dict[str, str] = {}
+        try:
+            sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
+            from sgate.commands import _registry  # noqa: PLC0415
+            for spec in _registry.GATES:
+                if spec.name and spec.script:
+                    mapping[_command_name(spec.name)] = str(spec.script)
+        except Exception:  # noqa: BLE001 — a missing registry means "probe it",
+            # which is the pre-2026-10-15 behaviour, not a crash.
+            mapping = {}
+        _SCRIPT_CMD_TO_GATE = mapping
+    return _SCRIPT_CMD_TO_GATE
+
+
+def resolves_to_gradle(cmd: str) -> bool:
+    """True when a registry command ends in a script that cold-boots Gradle."""
+    parts = cmd.split()
+    if len(parts) < 2 or parts[0] != 'sgate':
+        return False
+    script = gate_scripts().get(parts[1])
+    if not script:
+        return False
+    path = ROOT / script
+    # Self-match. This file contains GRADLE_MARKERS as a literal, so it always
+    # matches itself. Reporting "gates are alive spawns the JVM toolchain" would
+    # be false — it spawns subprocesses of other gates, and skipping it is
+    # already handled by the `# no-self-probe` marker in the registry.
+    if path.resolve() == pathlib.Path(__file__).resolve():
+        return False
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return any(marker in text for marker in GRADLE_MARKERS)
+
+
 def is_slow(name: str, cmd: str) -> bool:
     if name in SLOW_NAMES:
         return True
-    return any(cmd.startswith(p) for p in SLOW_PREFIXES)
+    if any(cmd.startswith(p) for p in SLOW_PREFIXES):
+        return True
+    return resolves_to_gradle(cmd)
 
 
-def is_registry_function(cmd: str, functions: set[str]) -> bool:
-    """True when the gate's first word is a shell function from the registry.
+def is_registry_function(cmd: str) -> bool:
+    """True when the gate is a shell function from the registry, not a script.
 
-    Those gates are *not* probeable out of context — they need the harness that
+    Those gates are *not probeable out of context* -- they need the harness that
     sourced them. Reporting them as unrunnable would be a false positive on every
     run, so they are counted and named instead of probed.
+
+    Resolved through the registry, not by matching the command's first word. The
+    text form (`cmd.split()[0] in functions`) worked until the sgate refactor
+    rewrote every command to `sgate <subcommand>`, at which point the first word
+    was always `sgate` and the check could no longer fire -- the same silent no-op
+    that disabled the heavyweight filter on 2026-10-15, in the same file.
     """
-    return bool(cmd.split()[:1] and cmd.split()[0] in functions)
+    parts = cmd.split()
+    if len(parts) < 2 or parts[0] != 'sgate':
+        return False
+    try:
+        sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
+        from sgate.commands import _registry  # noqa: PLC0415
+    except Exception:  # noqa: BLE001 -- unresolvable means "not a known function",
+        # which is the pre-2026-10-15 answer for every command, not a crash.
+        return False
+    return any(
+        _command_name(spec.name) == parts[1] and spec.bash_func
+        for spec in _registry.GATES
+    )
 
 
 def probe(name: str, cmd: str, budget: int = PROBE_TIMEOUT) -> tuple[str, str]:
@@ -200,7 +302,7 @@ def main() -> int:
     if args.list:
         for level, name, cmd in targets:
             print(f'{level:9} {name}')
-        print(f'\n{len(targets)} probeable, {skipped} skipped as slow')
+        print(f'\n{len(targets)} probeable, {skipped} skipped')
         return 0
 
     functions = registry_functions()
@@ -211,7 +313,7 @@ def main() -> int:
     via_function: list[str] = []
 
     for level, name, cmd in targets:
-        if is_registry_function(cmd, functions):
+        if is_registry_function(cmd):
             via_function.append(name)
             continue
         verdict, detail = probe(name, cmd)
@@ -239,13 +341,37 @@ def main() -> int:
     for name, detail in dead:
         print(f'ERROR: gate "{name}" died instead of reporting: {detail}')
 
+    # The skip set, named. FR-008 of spec 013: an unreported skip is
+    # indistinguishable from a skip that never fired, which is exactly how the
+    # heavyweight filter stayed dead after the sgate refactor on 2026-10-15 --
+    # it reported a plausible number every run and stopped doing its job. The
+    # explicit 0 matters as much as the entries.
+    slow_skipped = []
+    for _l, n, c in gates:
+        if not is_slow(n, c):
+            continue
+        if n in SLOW_NAMES:
+            why = 'named as heavyweight in SLOW_NAMES'
+        elif any(c.startswith(p) for p in SLOW_PREFIXES):
+            why = 'command form matches a heavyweight prefix'
+        else:
+            why = 'resolved script spawns the JVM toolchain'
+        slow_skipped.append((n, why))
+    if slow_skipped:
+        print('')
+        print(f'{len(slow_skipped)} gate(s) skipped as heavyweight, by rule:')
+        for n, why in sorted(slow_skipped):
+            print(f'  skip  {n} — {why}')
+    else:
+        print('note: 0 gates skipped as heavyweight')
+
     print('')
     probed = len(targets) - len(via_function)
     print(f'check-gate-liveness.py: {probed} gate(s) probed, '
           f'{len(dead)} died, {len(unrunnable)} unrunnable, {len(slow)} slow, '
           f'{len(findings)} reported findings, '
           f'{len(via_function)} shell-function gates, '
-          + (f'{skipped} skipped as slow' if skipped else '0 skipped as slow'))
+          + (f'{skipped} skipped' if skipped else '0 skipped'))
 
     if dead or unrunnable:
         print('A gate that dies is indistinguishable from a gate that passes, for every '

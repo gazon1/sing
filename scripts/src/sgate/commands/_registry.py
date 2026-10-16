@@ -30,12 +30,11 @@ from pathlib import Path
 
 import click
 
-from sgate.controls import Control, Edit, Parity
-
+from sgate.commands._runner import Result, handle_result, run, run_capture
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
+from sgate.controls import Control, Edit, GradleTaskParity, Parity
 from sgate.log import logger
 from sgate.output import gate_fail
-from sgate.commands._runner import run, run_capture, Result, handle_result
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
 
 # Re-export for convenience
 GateCommand = click.Command
@@ -57,6 +56,104 @@ class CmdType(StrEnum):
     SHELL = "shell"              # bash <script> [args...]
     BASH_C = "bash_c"            # bash -c ". {static_gates.sh} && {func}"
     PATH = "path"                # run something on PATH
+
+
+# ── Gradle-derived data ─────────────────────────────────────────────────────────
+#
+# Data derived from the Gradle build — file-content analysis that must stay
+# in sync with the build file contents. These live here (not in check-gate-wiring)
+# so they can be read by any consumer, and so the reader in check-gate-wiring
+# flips rather than multiplying the source of truth.
+#
+# Wave (б): Parts A/C/I of check-gate-wiring.py.
+
+#: Minimum kover verify bound that counts as a usable floor, expressed as a
+#: percentage integer (0–100). The strongest bound in any module must meet
+#: this floor, because one rule that can fail is enough to make the task fail.
+_KOVER_MIN_FLOOR: int = 60
+
+#: Declared CI/local asymmetries for individual Gradle tasks.
+#: Each entry maps a task name (`:module:task`) to its declared scope and reason.
+#: A `covered` task is one CI reaches without spelling it (e.g. via `koverReport`);
+#: check.sh must still name it for the rehearsal to be valid.
+GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
+    ":shared:jvmTest": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI reaches it through `koverReport`, which aggregates the test task and "
+            "instruments it. `ci.yml` never spells the task; adding a second literal "
+            "invocation would be noise, not coverage."
+        ),
+    ),
+    ":desktopApp:test": GradleTaskParity(
+        scope="covered",
+        why="same route as :shared:jvmTest — `koverReport` in ci.yml's tests job.",
+    ),
+    ":androidApp:connectedDebugAndroidTest": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI runs it in android-device-tests.yml, not ci.yml. It needs an "
+            "emulator, so it cannot join a PR's cheap surfaces; see "
+            "docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md"
+        ),
+    ),
+    ":mcp-server:compileKotlin": GradleTaskParity(
+        scope="local",
+        why=(
+            "CI compiles this module through :mcp-server:jar, which is a strict "
+            "superset — the DI-graph check runs either way. Naming it locally is "
+            "what makes the validation visible on the surface a developer reads."
+        ),
+    ),
+    ":mcp-server:jar": GradleTaskParity(
+        scope="ci",
+        why=(
+            "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
+            "itself when the jar is absent. Building it is a CI concern; the "
+            "local loop validates compilation, not the packaged artifact."
+        ),
+    ),
+    ":pro:detekt": GradleTaskParity(
+        scope="ci",
+        why=(
+            ":pro is included in settings.gradle.kts only under "
+            "-PwithPro=true, so the task does not exist in a plain local build. "
+            "CI's `pro` matrix leg passes the flag."
+        ),
+    ),
+    ":pro:testDebugUnitTest": GradleTaskParity(
+        scope="ci",
+        why=(
+            "same reason as :pro:detekt — the module is only in the graph when "
+            "-PwithPro=true is passed, which is the `pro` matrix leg's job"
+        ),
+    ),
+    ":shared:testAndroidHostTest": GradleTaskParity(
+        scope="ci",
+        why=(
+            "the Android host source set is built only in its own CI job; see "
+            "openspec/changes/ci-checks-parallel-split for why it was split out"
+        ),
+    ),
+    ":adr-cli:installDist": GradleTaskParity(
+        scope="ci",
+        why=(
+            "ci.yml's adr-gate job builds the ADR CLI distribution to run it "
+            "against the repository; the local loop reaches the same invariants "
+            "through the check_adr_*.py gates in the shared registry, and reaches "
+            ":adr-cli:run only interactively (ADR authoring), so a packaged "
+            "installDist is a CI-only artifact"
+        ),
+    ),
+}
+
+#: Modules that have a `detekt { }` block in their build file but are not wired
+#: to any gate. Each entry is the module name (no leading `:`). An exemption
+#: declares that the configured task is deliberately not invoked by any gate, and
+#: carries the reason so a reader can verify the asymmetry is intentional.
+#: Format: {module_name: reason_string}
+#: Populated in check-gate-wiring.py by _populate_derived_tables().
+DETEKT_TASK_EXEMPTIONS: dict[str, str] = {}
 
 
 # ── GateSpec ────────────────────────────────────────────────────────────────────
@@ -151,12 +248,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-gate-liveness.py"),
     ),
     GateSpec(
-        name="closed ADRs keep their body",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-adr-immutable.py"),
-    ),
-    GateSpec(
         name="skills describe the tools that exist",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -177,23 +268,10 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
-        name="unwired backlog refs",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-unwired-backlog-refs.py"),
-    ),
-    GateSpec(
         name="settings read by a feature",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-dead-settings.py"),
-        script_args=("--quiet",),
-    ),
-    GateSpec(
-        name="YAML has no duplicate keys",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-yaml-duplicate-keys.py"),
         script_args=("--quiet",),
     ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
@@ -236,35 +314,36 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-suppression-intent.py"),
     ),
     # ── Scenario traceability ──────────────────────────────────────────────────────
+    # These two used to be `cmd_type=CmdType.PATH, path_cmd=("traceability", …)`.
+    # There is no `traceability` executable: `[project.scripts]` in
+    # scripts/src/pyproject.toml declares only sgate, ensure-emulator and
+    # run-maestro, and `subprocess.run(["traceability", …])` does not resolve the
+    # bash function `static-gates.sh` exports under that name — an exported
+    # function is not on PATH. Both gates therefore died on FileNotFoundError
+    # and reported "traceability not found" instead of their verdict, on `main`
+    # as well: introduced when the shim modules were replaced by the registry in
+    # e05a68ad. A gate that cannot run is the defect class this repo treats as
+    # loud, and it failed quietly because the failure path looked like a
+    # legitimate red.
     GateSpec(
         name="scenario specs valid",
         mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PATH,
-        path_cmd=("traceability", "validate"),
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("traceability"),
+        script_args=("validate",),
     ),
     GateSpec(
         name="coverage matrix current",
         mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PATH,
-        path_cmd=("traceability", "coverage", "--check"),
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("traceability"),
+        script_args=("coverage", "--check"),
     ),
     GateSpec(
         name="coverage holes did not grow",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-traceability-ratchet.py"),
-    ),
-    GateSpec(
-        name="speckit scenarios current",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PATH,
-        path_cmd=("traceability", "coverage", "--check"),
-    ),
-    GateSpec(
-        name="speckit stale",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PATH,
-        path_cmd=("traceability", "validate"),
     ),
     # ── Server schema ─────────────────────────────────────────────────────────────
     GateSpec(
@@ -287,153 +366,10 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/ci/validate-maestro-selectors.py"),
     ),
     # ── Docs / agent-facing text ───────────────────────────────────────────────────
-    GateSpec(
-        name="skills catalog current",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.SHELL,
-        script=Path("scripts/regen-skills-catalog.sh"),
-        script_args=("--check",),
-    ),
-    GateSpec(
-        name="skill frontmatter",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.SHELL,
-        script=Path("scripts/check-skill-frontmatter.sh"),
-    ),
-    GateSpec(
-        name="decisions digest within budget",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.BASH_C,
-        bash_func="digest_and_sizes",
-    ),
-    GateSpec(
-        name="digest has no double suffix",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.BASH_C,
-        bash_func="digest_no_double_suffix",
-    ),
-    GateSpec(
-        name="no dead doc refs",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-doc-dead-refs.py"),
-        extra_flags=(
-            ExtraFlag(
-                param="skill_symbols",
-                flag="--skill-symbols",
-                help="Check Kotlin symbol references in skills",
-                script_arg="--skill-symbols",
-            ),
-        ),
-    ),
-    GateSpec(
-        name="no dead skill symbols",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-doc-dead-refs.py"),
-        script_args=("--skill-symbols",),
-    ),
-    GateSpec(
-        name="publication hygiene",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-publication-hygiene.py"),
-        extra_flags=(
-            ExtraFlag(
-                param="self_test",
-                flag="--self-test",
-                help="Prove the rules fire on a known-bad corpus",
-                script_arg="--self-test",
-            ),
-        ),
-    ),
-    GateSpec(
-        name="publication hygiene self-test",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-publication-hygiene.py"),
-        script_args=("--self-test",),
-    ),
-    GateSpec(
-        name="README claims",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-readme-claims.py"),
-        extra_flags=(
-            ExtraFlag(
-                param="self_test",
-                flag="--self-test",
-                help="Prove the rules fire on a known-bad corpus",
-                script_arg="--self-test",
-            ),
-        ),
-    ),
-    GateSpec(
-        name="README claims self-test",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-readme-claims.py"),
-        script_args=("--self-test",),
-    ),
     # ── ADR governance ─────────────────────────────────────────────────────────────
-    GateSpec(
-        name="ADR references are valid",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-adr-references.py"),
-    ),
-    GateSpec(
-        name="ADR status policy",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check_adr_status.py"),
-    ),
-    GateSpec(
-        name="ADR corpus rules are shared",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-adr-config-sync.py"),
-    ),
-    GateSpec(
-        name="light ADR modules stay light",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-adr-module-boundary.py"),
-        script_args=("--quiet",),
-    ),
-    GateSpec(
-        name="ADR frontmatter drift",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.BASH_C,
-        bash_func="adr_dry_run",
-    ),
     # ── spec-kit ──────────────────────────────────────────────────────────────────
-    GateSpec(
-        name="spec-kit issue registry current",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-speckit-issue-registry.py"),
-    ),
-    GateSpec(
-        name="requirement identifiers are unique",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-req-id-uniqueness.py"),
-    ),
     # ── AppTracer ─────────────────────────────────────────────────────────────────
-    GateSpec(
-        name="apptracer upload policy encoded",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-apptracer-policy.py"),
-    ),
     # ── Backlog ───────────────────────────────────────────────────────────────────
-    GateSpec(
-        name="backlog-issue-refs",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-backlog-issue-refs.py"),
-    ),
 )
 
 
@@ -446,25 +382,15 @@ _REGISTERED: tuple[GateSpec, ...] = (
 # by script path, because display names are prose and one script can
 # back two gates with two different controls.
 GATE_CONTROLS: dict[str, Control] = {
-    'adr-config-sync': Control(kind='sabotage', proves='scripts/check-adr-config-sync.py', argv=('{python}', 'scripts/check-adr-config-sync.py'), path='scripts/check_adr_status.py', edit=Edit(kind='append', new='\n_SABOTAGE = sorted(Path("docs/decisions").glob("*.md"))\n'), why="the gate's whole claim is that no consumer grows its own glob. Appending one to a consumer is exactly the regression it exists to catch, and nothing else in the registry fails when that happens: the status gate would keep reporting 'all statuses in vocabulary' while reading a different corpus than the other four consumers"),
-    'yaml-duplicate-keys': Control(kind='sabotage', proves='scripts/check-yaml-duplicate-keys.py', argv=('{python}', 'scripts/check-yaml-duplicate-keys.py', '--quiet'), path='config/detekt/detekt-rules-module.yml', edit=Edit(kind='replace', old='    active: false\n', new='    active: false\n    active: true\n', count=1), why="a repeated key is a hard error for SnakeYAML and silently last-one-wins for other readers. :detekt-rules:detekt is the only consumer of this file, and :shared/:desktopApp keep their own configs, so the two most-used lint targets still pass while this module's config is unreachable."),
-    'adr-module-boundary': Control(kind='sabotage', proves='scripts/check-adr-module-boundary.py', argv=('{python}', 'scripts/check-adr-module-boundary.py'), path='adr-cli/build.gradle.kts', edit=Edit(kind='replace', old='implementation(project(":adr-core"))', new='implementation(project(":adr-core"))\n    implementation(project(":shared"))', count=1), why='a direct `:adr-cli -> :shared` edge, which is the 127 MB'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
     'gate-liveness': Control(kind='sabotage', proves='scripts/check-gate-liveness.py', argv=('{python}', 'scripts/check-gate-liveness.py'), path='scripts/check-backlog-issue-refs.py', edit=Edit(kind='replace', old='import sys', new='import sys\nraise AttributeError("\'NoneType\' object has no attribute \'loader\'")', count=1), why='a gate that raises instead of reporting has no opinion at all, and an advisory gate whose output nobody reads will stay that way indefinitely'),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
     'skill-drift': Control(kind='sabotage', proves='scripts/check-skill-drift.py', argv=('{python}', 'scripts/check-skill-drift.py'), path='.agents/skills/singularity-todo-decisions-workflow/SKILL.md', edit=Edit(kind='replace', old='`singularity-adr validate`', new='`singularity-adr verifai`', count=1), why='a skill that lists commands the tool does not have sends an agent to run something that does not exist'),
-    'adr-immutable': Control(kind='sabotage', proves='scripts/check-adr-immutable.py', argv=('{python}', 'scripts/check-adr-immutable.py'), path='docs/decisions/2026-10-10-adr-file-local-rules-live-in-the-writer.md', edit=Edit(kind='replace', old='## Consequences', new='## Consequences\n\nSABOTAGE', count=1), why="a closed decision's body is a record of what was decided; rewriting it is how a decision trail disappears without any field the gate watches changing"),
-    'adr-status-drift': Control(kind='sabotage', proves='scripts/check_adr_status.py', argv=('{python}', 'scripts/check_adr_status.py'), path='docs/decisions/2026-09-05-android-bottom-nav-followups.md', edit=Edit(kind='replace', old='status: accepted', new='status: DEAD-BEEF', count=1), why='a status value outside the vocabulary must be detected; a gate that cannot see a bad status is a gate that cannot see drift'),
-    'unwired-backlog-refs': Control(kind='sabotage', proves='scripts/check-unwired-backlog-refs.py', argv=('{python}', 'scripts/check-unwired-backlog-refs.py'), path='docs/decisions/2026-09-05-koin-suspend-bridge.md', edit=Edit(kind='replace', old='## Context', new='## NO-SUCH-HEADING', count=1), why='an exemption pointing at a heading that does not exist is not an exemption'),
     'dead-settings': Control(kind='sabotage', proves='scripts/check-dead-settings.py', argv=('{python}', 'scripts/check-dead-settings.py', '--quiet'), path='scripts/check-dead-settings-baseline.txt', edit=Edit(kind='replace', old='Notifications.reminderDefault', new='Notifications.no_such_field', count=-1), why='a persisted setting rendered in Settings and read by no feature is a control that looks like it works; every baseline line is a claim that needs its own justification'),
     'doc-sizes': Control(kind='sabotage', proves='scripts/check-doc-sizes.py', argv=('{python}', 'scripts/check-doc-sizes.py'), path='AGENTS.md', edit=Edit(kind='append', new='\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'), why='the budget must be able to fail; `--warn-only || status=1` could not'),
     'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
-    'skill-symbols': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--skill-symbols'), path='.agents/skills/singularity-todo-quality-tools/SKILL.md', edit=Edit(kind='append', new='\n## Probe\n\nCall `TotallyMadeUpHelperSymbol` here.\n'), why='a stale symbol reference must fail until baselined'),
-    'publication-hygiene': Control(kind='sabotage', proves='scripts/check-publication-hygiene.py', argv=('{python}', 'scripts/check-publication-hygiene.py'), path='README.md', edit=Edit(kind='append', new='\nBuild it with `cd /home/sabotage/probe`.\n'), why="a machine-specific path in a public file is unrecoverable once published. Clean-run is waived (needs_clean_run=False): the spec-kit corpus imported by #555 (.specify/issues/*.yaml, .specify/workflows/runs/*) carries the importing machine's absolute paths and identity in every record — ~9k matches, un-triaged real state — so the gate is advisory until the import script emits repo-relative provenance and the corpus is re-imported", needs_clean_run=False, tracked_by='openspec/changes/2026-10-06-publication-residue-is-a-gate'),
-    'readme-claims': Control(kind='sabotage', proves='scripts/check-readme-claims.py', argv=('{python}', 'scripts/check-readme-claims.py'), path='README.md', edit=Edit(kind='regex', pattern='schema v\\d+', repl='schema v1'), why='a README that contradicts the tree is the first failure a reader sees'),
-    'skill-frontmatter': Control(kind='sabotage', proves='scripts/check-skill-frontmatter.sh', argv=('./scripts/check-skill-frontmatter.sh',), path='.agents/skills/singularity-todo-koin-dsl/SKILL.md', edit=Edit(kind='drop_second_line'), why='a skill without a description is undiscoverable, so the check must reject it'),
     'provenance': Control(kind='sabotage', proves='scripts/check-provenance.py', argv=('{python}', 'scripts/check-provenance.py'), path='config/legal/provenance-registry.tsv', edit=Edit(kind='drop_lines', old='QueryTokenizer'), why='a GPL upstream named in production code with no registry row is a licence claim nobody is tracking'),
     'pro-licence-boundary': Control(kind='sabotage', proves='scripts/check-pro-licence-boundary.py', argv=('{python}', 'scripts/check-pro-licence-boundary.py'), path='shared/build.gradle.kts', edit=Edit(kind='append', new='\ndependencies { implementation("ru.ok.tracer:tracer-crash-report:1.4.0") }\n'), why='proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour'),
     'traceability-ratchet': Control(kind='sabotage', proves='scripts/check-traceability-ratchet.py', argv=('{python}', 'scripts/check-traceability-ratchet.py'), path='scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml', edit=Edit(kind='regex', pattern='^targets: \\[android\\]$', repl='targets: [android, desktop]', flags='MULTILINE'), why='a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff'),
@@ -472,15 +398,13 @@ GATE_CONTROLS: dict[str, Control] = {
     'dependency-usage': Control(kind='sabotage', proves='scripts/check-dependency-usage.py', argv=('{python}', 'scripts/check-dependency-usage.py', '--quiet'), path='scripts/dependency-usage-allowlist.txt', edit=Edit(kind='drop_lines', old='kermit-koin'), why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one"),
     'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
-    'apptracer-upload-policy-encoded': Control(kind='sabotage', proves='scripts/check-apptracer-policy.py', argv=('{python}', 'scripts/check-apptracer-policy.py'), path='pro/build.gradle.kts', edit=Edit(kind='replace', old='isDisabled = !tokensPresent || !isCi', new='isDisabled = !tokensPresent', count=-1), why='removing !isCi from release silently allows non-CI release uploads; the structural gate catches the missing condition before a comment could be reverted'),
-    'speckit-issue-registry': Control(kind='sabotage', proves='scripts/check-speckit-issue-registry.py', argv=('{python}', 'scripts/check-speckit-issue-registry.py'), path='.specify/issues/a-cell-carries-one-state.yaml', edit=Edit(kind='replace', old='type: openspec-change', new='type: not-openspec-change', count=1), why='an issue record whose type, slug or openspec_path is broken is a registry entry pointing at nothing, and the registry is what agents read as the source of truth. Clean-run is waived (needs_clean_run=False): every record stores the absolute openspec_path of the checkout that imported it (night-work-01), so the corpus is red on any machine that is not that one — un-triaged real state until the registry is re-imported with repo-relative paths; the gate is advisory by registration', needs_clean_run=False, tracked_by='scripts/openspec-import-all.py'),
     'req-id-uniqueness': Control(kind='fixture', proves='scripts/check-req-id-uniqueness.py', argv=('{python}', 'scripts/check-req-id-uniqueness.py', '--root', '{tmp}/repo'), fixture='setup_req_id_uniqueness', why='the collision this gate exists for, in the exact shape the tree had: a change that ADDs an identifier the spec already defines. The clean corpus would pass, so needs_clean_run is False — on this repository the corpus is still red (log-export-surface vs add-log-export), which is why the gate is registered advisory.', needs_clean_run=False),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost'),
     'adr-references': Control(kind='sabotage', proves='scripts/check-adr-references.py', argv=('{python}', 'scripts/check-adr-references.py'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\n'), why='a prose reference to a dated-ADR slug carries no path, so a moved or deleted ADR leaves a dangling claim nothing else sees'),
-    'rule-intent': Control(kind='sabotage', proves='scripts/check-rule-intent.py', argv=('{python}', 'scripts/check-rule-intent.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>', count=1), why="a rule producing findings that nobody declared means it is running on detekt's defaults, unchosen"),
     'openspec-stale': Control(kind='sabotage', proves='scripts/check-openspec-stale.py', argv=('{python}', 'scripts/check-openspec-stale.py'), path='openspec/changes/detekt-rule-has-positive-control', edit=Edit(kind='age_dir', days=30), why='an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness'),
+    'rule-intent': Control(kind='sabotage', proves='scripts/check-rule-intent.py', argv=('{python}', 'scripts/check-rule-intent.py'), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='style:\n    MagicNumber:', new='style:\n    MagicNumber:\n      active: false', count=1), why='a rule that reports findings must be one the author chose; a detekt rule absent from detekt.yml runs on detekt built-in defaults, and 18 such rules were producing 247 of 428 baseline entries with nobody deciding'),
     'suppression-intent': Control(kind='sabotage', proves='scripts/check-suppression-intent.py', argv=('{python}', 'scripts/check-suppression-intent.py'), path='shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt', edit=Edit(kind='strip_suppression_reason'), why='a file-level suppression with no recorded reason switches a rule off for every future call in that file'),
     'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n        .withPropertyName("maestroFlows")\n        .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
     'detekt-rule-coverage-floor': Control(kind='sabotage', proves='gw', argv=('./gw', '-q', ':detekt-rules:koverVerify'), path='detekt-rules/build.gradle.kts', edit=Edit(kind='regex', pattern='^(val DETEKT_RULE_BRANCH_FLOOR = )\\d+$', repl='\\g<1>100', flags='MULTILINE'), why='branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through', needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Kover verify (detekt-rules)'),
@@ -498,7 +422,6 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-provenance.py': Control(kind='exempt', proves='scripts/check-provenance.py', reason='provenance audit for Apache-2.0 / FSL-1.1 publication; runs locally before publication commits, not as a CI gate; the sabotage control is the provenance-registry.tsv itself'),
     'scripts/check-pro-licence-boundary.py': Control(kind='exempt', proves='scripts/check-pro-licence-boundary.py', reason='Apache-2.0 / pro licence boundary check; runs locally before publication commits, not as a CI gate; the sabotage control is the direction check itself'),
     'scripts/check-rebase-compiles.py': Control(kind='exempt', proves='scripts/check-rebase-compiles.py', reason='GATE_PARITY: needs a Gradle compile run with rebased DI files, so lives in the CI tests job after the rebase step and is not in the static-gates.sh registry; sabotage control is the rebase step'),
-    'scripts/check-backlog-issue-refs.py': Control(kind='exempt', proves='scripts/check-backlog-issue-refs.py', reason="advisory: every OPEN backlog GH issue without a Backlog: field is the self-revealing failure case; the gate reads the snapshot and checks I4 directly, so a sabotage control would need to mutate the snapshot file rather than a source file — which would break the gate's own reading"),
     'scripts/build-version-catalog-gate.py': Control(kind='exempt', proves='scripts/build-version-catalog-gate.py', reason='auto-generator: the gate proves version catalog is clean by checking for undeclared literals; the sabotage is removing the generated catalog file and asserting the gate fails — but the generator is the gate, so `test_version_catalog_gate_self_repairs` is the real control'),
     'scripts/tests': Control(kind='exempt', proves='scripts/tests', reason='meta-gate: `python3 -m unittest discover` is the gate; corrupting a test file would be the sabotage, but the unittest runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
     'scripts/find-unwired-surfaces.py': Control(kind='exempt', proves='scripts/find-unwired-surfaces.py', reason="Part J cross-check itself is the control: the --registry-cross flag verifies this gate has no sabotage control and documents the exemption; the script's own test is scripts/tests/test_find_unwired_surfaces.py"),
@@ -507,7 +430,6 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-detekt-registrations.sh': Control(kind='exempt', proves='scripts/check-detekt-registrations.sh', reason='shell-gate: the sabotage is removing a rule from the registrations file and asserting the gate fails; equivalent to `rm config/detekt/rule_registrations.toml && gate detekt-rule-registry` — but Part J cross-check itself is what catches it when the control goes missing'),
     'scripts/ci/validate-maestro-selectors.py': Control(kind='exempt', proves='scripts/ci/validate-maestro-selectors.py', reason='CI-only gate: runs in the Maestro flow job, not locally; sabotage would be corrupting the selector files and asserting the gate fails; Part J cross-check itself is the backstop when the control goes missing'),
     'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && gate skills-catalog` — the output-diff is the control'),
-    'scripts/check-skill-frontmatter.sh': Control(kind='exempt', proves='scripts/check-skill-frontmatter.sh', reason="shell-gate: sabotage is stripping the description from a SKILL.md file and asserting the gate fails; already in SCRIPT_GATES under the 'skill-frontmatter' name — Part J cross-check itself is the backstop"),
 }
 
 # Populate `GateSpec.control` from the declarations above.

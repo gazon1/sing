@@ -13,31 +13,31 @@ import tempfile
 import unittest
 import unittest.mock
 
+import emulator.maestro
+import emulator.maestro._artifacts as _artifacts
+import emulator.maestro._cli as _cli
+import emulator.maestro._device as _device
+import emulator.maestro._fixtures as _fixtures
+import emulator.maestro._provenance as _provenance
+
+# Submodules for patching _cli.main() (which still uses module globals).
+import emulator.maestro._subprocess as _subprocess
+
+# DeviceDeps for the new testable signature of run_one_flow.
+from emulator._startup import Acquisition
+from emulator._types import EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
+
 # Import from the package directly.
 from emulator.maestro import (
+    FakeMaestro,
+    FakeMaestroResult,
     collect_flows,
     filter_flows_by_tag,
     flow_has_tag,
     flow_tags,
     run_one_flow,
-    FakeMaestro,
-    FakeMaestroResult,
 )
-import emulator.maestro
-
-# DeviceDeps for the new testable signature of run_one_flow.
-from emulator._startup import Acquisition
-from emulator._types import EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
-from emulator.maestro._types import EXIT_FAIL, EXIT_PASS
-from emulator.maestro._types import DeviceDeps
-
-# Submodules for patching _cli.main() (which still uses module globals).
-import emulator.maestro._subprocess as _subprocess
-import emulator.maestro._device as _device
-import emulator.maestro._provenance as _provenance
-import emulator.maestro._fixtures as _fixtures
-import emulator.maestro._artifacts as _artifacts
-import emulator.maestro._cli as _cli
+from emulator.maestro._types import EXIT_FAIL, EXIT_PASS, DeviceDeps
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 

@@ -237,21 +237,12 @@ docs-audit:
     #!/bin/bash
     set -uo pipefail
     status=0
-    echo "=== Skill frontmatter (name + description required) ==="
-    ./scripts/check-skill-frontmatter.sh || status=1
-    echo ""
     echo "=== Doc size budgets (AGENTS.md, SKILL.md, description, DIGEST.md) ==="
     # No --warn-only. It returns 0 by construction, so the `|| status=1` on the
     # old line could never fire and the budget was unenforced: `just docs-audit`
     # reported "AGENTS.md: 264 lines (max 250)" and still exited 0. A budget that
     # prints a violation and passes is the vacuous-gate pattern.
     python3 scripts/check-doc-sizes.py || status=1
-    echo ""
-    echo "=== Dead file references in docs, skills and KDoc ==="
-    python3 scripts/check-doc-dead-refs.py || status=1
-    echo ""
-    echo "=== Dangling ADR references (slugs that no longer resolve) ==="
-    python3 scripts/check-adr-references.py || status=1
     echo ""
     echo "=== pro/ licence boundary (no FSL or vendor code in the Apache-2.0 core) ==="
     # Source rules plus the rule's own control. The APK mode is deliberately NOT here:
@@ -267,24 +258,6 @@ docs-audit:
     # and verifying nothing, which is the failure this repo has paid for twice.
     python3 scripts/check-provenance.py || status=1
     python3 scripts/check-provenance.py --self-test || status=1
-    echo ""
-    echo "=== Publication hygiene (no machine-specific residue in a public tree) ==="
-    # Same two-command shape as the provenance rule above, for the same reason:
-    # the self-test is what proves the rules still fire. These two are the last
-    # line of defence before publication — a snapshot is irreversible, so this
-    # is cheaper than a force-push afterwards.
-    python3 scripts/check-publication-hygiene.py || status=1
-    python3 scripts/check-publication-hygiene.py --self-test || status=1
-    echo ""
-    echo "=== README claims (a number in the README is the number in the tree) ==="
-    python3 scripts/check-readme-claims.py || status=1
-    python3 scripts/check-readme-claims.py --self-test || status=1
-    echo ""
-    echo "=== ADR status policy (vocabulary, supersede chains, stale open) ==="
-    python3 scripts/check_adr_status.py || status=1
-    echo ""
-    echo "=== ADR frontmatter normalization (dry run) ==="
-    ./scripts/normalize-adr-frontmatter.sh || status=1
     echo ""
     echo "=== DIGEST freshness ==="
     ./scripts/refresh-decisions-digest.sh

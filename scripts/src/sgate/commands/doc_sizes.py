@@ -9,9 +9,9 @@ from pydantic import BaseModel
 
 import sgate
 from sgate.commands._runner import run_capture
+from sgate.commands.base import register
 from sgate.models import GatePayload
 from sgate.output import gate_fail, gate_warn
-from sgate.commands.base import register
 
 GATE_NAME = "doc_sizes"
 

@@ -7,13 +7,13 @@ from typing import ClassVar
 
 import click
 from pydantic import BaseModel
-from sgate.log import logger
 
 import sgate
-from sgate.output import gate_fail
-from sgate.commands._runner import run_capture, Result
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
+from sgate.commands._runner import Result, run_capture
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
+from sgate.log import logger
 from sgate.models import GatePayload
+from sgate.output import gate_fail
 
 # Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = False

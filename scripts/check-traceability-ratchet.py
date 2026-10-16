@@ -178,10 +178,10 @@ def main() -> int:
 
     # Imported here, after the config check, so a missing config reports itself
     # rather than surfacing as an ImportError from inside a try/except below.
+    from traceability import SCENARIOS_DIR  # noqa: PLC0415
     from traceability.coverage import build_coverage  # noqa: PLC0415
     from traceability.links import scan_all  # noqa: PLC0415
     from traceability.spec import load_specs  # noqa: PLC0415
-    from traceability import SCENARIOS_DIR  # noqa: PLC0415
 
     specs = load_specs(SCENARIOS_DIR)
     links = scan_all(specs, ROOT)

@@ -12,7 +12,6 @@ import sgate
 from sgate.commands.base import CLEAN, CONFIG_ERROR, INTERNAL_ERROR, register
 from sgate.log import logger
 
-
 EXIT_CODES_RE = re.compile(r"Exit codes:\s*(?:\n\s*\d+\s*=\s*[^\n]+)+", re.MULTILINE)
 _GATE_NAME_RE = re.compile(r"^@click\.command\(['\"]([^'\"]+)['\"]")
 

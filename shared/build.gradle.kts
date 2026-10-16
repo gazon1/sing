@@ -340,9 +340,11 @@ tasks.withType<Test>().configureEach {
             // excludes them — so a CI step passing a tag list silently skips
             // every test that carries no @Tag. TestTagCoverageTest (arch) fails
             // the build for a class in a tag-filtered source set that has no
-            // @Tag; the finding and the reasoning behind that gate's scope are
-            // under "an-untagged-test-class-is-invisible-to-a-tag-filtered-run"
-            // in `docs/decisions/deferred/an-untagged-test-class-is-invisible-to-a-tag-filtered-run.md`.
+            // @Tag; the finding and the reasoning behind that gate's scope are in
+            // `docs/decisions/2026-10-04-ci-test-tag-filter-and-vacuous-gates.md`.
+            // (This pointer read `docs/decisions/deferred/an-untagged-test-class-...`,
+            // which PR #645 deleted with the whole deferred/ tree; the deferred
+            // entry had been promoted into that ADR.)
             tags == listOf("all") -> Unit
             else -> includeTags(*tags.toTypedArray())
         }
@@ -676,10 +678,12 @@ dependencies {
     // Robolectric cannot load on this host, so `AndroidSyncDiGraphResolutionTest`
     // compiled, ran, and then failed with `UnsatisfiedLinkError: no sqliteJni in
     // java.library.path` the moment it built the database. The stack stays for that test
-    // because the fix is a native library in `jniLibs`, not a build change; the finding,
-    // and the smallest fix, are under
+    // because the fix is a native library in `jniLibs`, not a build change. The finding
+    // and the smallest fix were recorded as
     // "the-android-graph-test-runs-but-cannot-open-a-database" in
-    // `docs/decisions/deferred/the-android-graph-test-runs-but-cannot-open-a-database.md`.
+    // `docs/decisions/deferred/`, a tree PR #645 deleted along with 128 other
+    // deferred entries migrated to GitHub issues; the finding itself is not lost,
+    // it just has no file to point at.
     add("androidHostTestRuntimeOnly", libs.junit.vintage.engine)
     // The other three were described above as load-bearing and were not declared; the
     // Vintage engine alone puts JUnit4 on the Platform but supplies no Android runtime,

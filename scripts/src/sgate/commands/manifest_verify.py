@@ -74,10 +74,9 @@ def check_manifest() -> tuple[list[str], list[str], list[str]]:
         - registry_duplicates: duplicate gate names in the registry
         - invalid_cmd_types: registry entries with unknown cmd_type
     """
-    from sgate.commands import _registry
-
     # Load gates from static-gates.sh
     import sgate.gates
+    from sgate.commands import _registry
 
     shell_gates = sgate.gates.load_gates()
     shell_gate_names = {g.name for g in shell_gates}

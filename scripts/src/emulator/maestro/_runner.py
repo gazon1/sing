@@ -9,7 +9,14 @@ from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
 from emulator._types import EXIT_CRASHED, EXIT_LOCK, EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
-from emulator.maestro._types import APP_ID, EXIT_FAIL, EXIT_PASS, DeviceDeps, ROOT, _default_device_deps
+from emulator.maestro._types import (
+    APP_ID,
+    EXIT_FAIL,
+    EXIT_PASS,
+    ROOT,
+    DeviceDeps,
+    _default_device_deps,
+)
 
 #: Why an acquisition failed, so a recovery that gives up says which of the four
 #: it hit. "Could not obtain a device" alone cannot tell a wedged emulator from a

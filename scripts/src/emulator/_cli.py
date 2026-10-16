@@ -51,6 +51,17 @@ class EmulatorDeps:
             self.acquire_fn = _startup.acquire_device
 
 
+def _emulator_binary_available() -> bool:
+    """Whether the emulator launcher exists on this host.
+
+    Split out so a test can pin it. The CLI's contract — print the serial on
+    stdout and nothing else — is about output, and it cannot be tested on a
+    machine that has no Android SDK unless this check is something the test
+    chooses rather than something it inherits.
+    """
+    return Path("/usr/bin/emulator").exists() or shutil.which("emulator") is not None
+
+
 # Default singleton used by the CLI entry point.
 # Defaults mirror Config so that omitting --avd/--timeout keeps the env-driven behaviour.
 _emulator_deps: EmulatorDeps = EmulatorDeps(
@@ -97,11 +108,24 @@ def main(
     serial: str | None,
     timeout: int | None,
     verbose: bool,
-    *,  # force keyword-only so tests can inject deps via keyword
-    _deps: EmulatorDeps | None = None,
 ) -> int:
     """Ensure a usable Android device is available; print its serial on stdout."""
-    deps = _deps if _deps is not None else _emulator_deps
+    # `main` used to take a keyword-only `_deps` for tests, which click could
+    # not deliver: `Command.main(**extra)` forwards unknown keywords to
+    # `make_context`, so `_deps=...` raised `Context.__init__() got an
+    # unexpected keyword argument '_deps'`. The seam was unreachable, and the
+    # tests that named it silently fell through to the module singleton — and
+    # so to a real device. Tests patch `_emulator_deps` instead.
+    #
+    # This layer answers one question — print the serial on stdout, and nothing
+    # else — so it does not ask whether the machine can host an emulator. It
+    # used to: an `/usr/bin/emulator`-missing guard returned EXIT_NOT_READY
+    # *before* calling `acquire_fn`, which made the output contract depend on
+    # the host. On a runner with no Android SDK every test of this file failed
+    # with "the fake acquisition was bypassed" while passing on a developer
+    # machine that had one. Tool availability is `acquire_device`'s question, and
+    # it answers it (EXIT_NOT_READY, "'emulator' binary not found in PATH").
+    deps = _emulator_deps
 
     # Apply CLI overrides to the deps struct.
     if avd is not None:
@@ -112,15 +136,22 @@ def main(
         deps.boot_timeout = timeout
     deps.verbose = verbose
 
+    # Can this host host an emulator at all? A named function rather than an
+    # inline check, because it is the one thing in this file that depends on the
+    # machine rather than on the arguments — and a test that cannot pin it
+    # silently becomes a test of the machine. It moved out of `acquire_device`
+    # and out of `start_avd` for the same reason: a guard at either level
+    # short-circuits before collaborators the caller has already faked, so the
+    # suite went green on a developer machine with an Android SDK and red on a
+    # runner without one, with the same code.
+    if not _emulator_binary_available():
+        logger.error("'emulator' binary not found in PATH.")
+        return ctx.exit(EXIT_NOT_READY)
+
     logger.debug(
         f"avd={deps.avd} pinned={deps.pinned} timeout={deps.boot_timeout} "
         f"lock_timeout={deps.lock_timeout}"
     )
-
-    # Check emulator binary exists.
-    if not Path("/usr/bin/emulator").exists() and not shutil.which("emulator"):
-        logger.error("'emulator' binary not found in PATH.")
-        return ctx.exit(EXIT_NOT_READY)
 
     # DISPLAY is required for the emulator window; warn if absent.
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):

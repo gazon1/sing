@@ -203,7 +203,7 @@ class Control:
 
 @dataclass(frozen=True)
 class Parity:
-    """A declared CI/local asymmetry, and the reason it is allowed."""
+    """A declared CI/local asymmetry for a gate itself, and the reason it is allowed."""
 
     #: `ci` — CI only. `local` — check.sh/just only. `both` — the default.
     scope: Literal["ci", "local", "both"] = "both"
@@ -214,4 +214,20 @@ class Parity:
     why: str = ""
 
 
-__all__ = ["Control", "ControlKind", "Edit", "EditKind", "Parity"]
+@dataclass(frozen=True)
+class GradleTaskParity:
+    """A declared CI/local asymmetry for a Gradle task, and the reason it is allowed.
+
+    Used by ``check_gradle_task_parity`` in check-gate-wiring.py to validate
+    that every Gradle task named by a surface is named by the right surfaces.
+    """
+
+    #: `ci` — CI only. `local` — check.sh/just only. `covered` — CI reaches
+    #: the task without spelling it (e.g. through a composite task), so check.sh
+    #: must still name it. `both` — the default (named by both surfaces).
+    scope: Literal["ci", "local", "covered", "both"] = "both"
+    #: Why the asymmetry is correct. An empty reason is rejected by the gate.
+    why: str = ""
+
+
+__all__ = ["Control", "ControlKind", "Edit", "EditKind", "GradleTaskParity", "Parity"]

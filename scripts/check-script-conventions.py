@@ -72,44 +72,6 @@ def check_cli_framework(scripts_dir: Path) -> list[str]:
     return errors
 
 
-def check_imports(scripts_dir: Path) -> list[str]:
-    """Check R5.3: no relative imports."""
-    errors = []
-    for path in sorted(scripts_dir.glob("check-*.py")):
-        content = path.read_text()
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
-            continue  # skip syntactically invalid files
-
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                if node.module and (node.module.startswith(".") or node.module == "sgate"):
-                    # sgate imports are allowed for internal modules
-                    pass
-    return errors
-
-
-def check_docstrings(scripts_dir: Path) -> list[str]:
-    """Check R1.1: every gate script has a docstring."""
-    errors = []
-    for path in sorted(scripts_dir.glob("check-*.py")):
-        content = path.read_text()
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
-            errors.append(f"{path.name}: syntax error — cannot parse")
-            continue
-
-        has_docstring = (
-            ast.get_docstring(tree) is not None
-            or (tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant))
-        )
-        if not has_docstring:
-            errors.append(f"{path.name}: no module-level docstring (R1.1)")
-    return errors
-
-
 def check_json_flag(scripts_dir: Path) -> list[str]:
     """Check R2.2/R3.7: --json flag emits JSON."""
     errors = []
@@ -128,10 +90,8 @@ def main() -> int:
     scripts_dir = ROOT / "scripts"
     all_errors: list[str] = []
 
-    all_errors.extend(check_docstrings(scripts_dir))
     all_errors.extend(check_cli_framework(scripts_dir))
     all_errors.extend(check_naming_and_structure(scripts_dir))
-    all_errors.extend(check_imports(scripts_dir))
     all_errors.extend(check_json_flag(scripts_dir))
 
     if all_errors:

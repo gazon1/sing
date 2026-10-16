@@ -5,6 +5,7 @@ package com.singularity.todo.feature.projects
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -22,6 +23,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeNotificationsSettingsRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.FakeProjectRemindersRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -91,11 +93,13 @@ class ProjectDetailViewModelTest {
     private val fakeCurrentUser = FakeProfileAwareCurrentUser(fakeAuthRepo, fakeProfileRepo)
     private val fakeProjectReminders = FakeProjectRemindersRepository()
     private val fakeTagGroupRepo = FakeTagGroupRepository(fakeCurrentUser)
+    private val fakeNotificationSettings = FakeNotificationsSettingsRepository()
 
     private fun createVm(
         scope: CoroutineScope,
         taskRepo: TaskRepository = fakeTaskRepo,
         fakeProjectReminders: FakeProjectRemindersRepository = this.fakeProjectReminders,
+        notificationsSettings: FakeNotificationsSettingsRepository = this.fakeNotificationSettings,
     ): ProjectDetailViewModel {
         val vm = ProjectDetailViewModel(
             projectId = ProjectId("p1"),
@@ -107,6 +111,7 @@ class ProjectDetailViewModelTest {
             updateTask = UpdateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW)),
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW), fakeCurrentUser),
             projectReminders = fakeProjectReminders,
+            notificationsSettings = notificationsSettings,
             clock = FakeClock(TEST_NOW),
             log = Logger,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
@@ -288,6 +293,54 @@ class ProjectDetailViewModelTest {
         )
     }
     // ─── Project reminder ──────────────────────────────────────────────────────
+
+    /**
+     * The configured default offset reaches the state, so the picker can preselect it.
+     *
+     * This is the read that makes `Notifications.reminderDefault` a live setting
+     * instead of a persisted-and-ignored one — `check-dead-settings` reports the
+     * setting when nothing outside the settings plumbing reads it, and this is the
+     * consumer that ends that.
+     */
+    @Test
+    fun `the configured default reminder offset reaches the state`() = runTest {
+        fakeProjectsRepo.seed(seedProject())
+        val settings = FakeNotificationsSettingsRepository(initialReminderDefault = ReminderOffset.ONE_HOUR)
+        val vm = createVm(backgroundScope, notificationsSettings = settings)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertEquals(
+            ReminderOffset.ONE_HOUR,
+            (vm.stateFlow.value as? ProjectDetailUiState.Content)?.ui?.defaultReminderOffset,
+            "the picker has no other source for the user's default offset",
+        )
+    }
+
+    /**
+     * The default preselects; it never creates. A reminder the user did not ask for is
+     * a notification they cannot explain, so this is the boundary the wiring must not
+     * cross — and the reason the value is threaded through state rather than applied
+     * in `setReminder`.
+     */
+    @Test
+    fun `the default offset does not create a reminder on its own`() = runTest {
+        fakeProjectsRepo.seed(seedProject().copy(dueDate = kotlinx.datetime.LocalDate(2026, 10, 15)))
+        val settings = FakeNotificationsSettingsRepository(initialReminderDefault = ReminderOffset.ONE_DAY)
+        val vm = createVm(backgroundScope, notificationsSettings = settings)
+        advanceUntilIdle()
+        runCurrent()
+
+        assertTrue(
+            fakeProjectReminders.all().isEmpty(),
+            "a default offset is a preselection; only an explicit SetReminder writes a row",
+        )
+        assertEquals(
+            null,
+            (vm.stateFlow.value as? ProjectDetailUiState.Content)?.ui?.reminderOffsetMinutes,
+            "no reminder exists, so the project has no offset of its own to show",
+        )
+    }
 
     /**
      * The reminder is authored as an offset from the due date and stored as an

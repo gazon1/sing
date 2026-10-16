@@ -34,11 +34,6 @@ from traceability.coverage import (  # noqa: E402
     classify,
 )
 from traceability.junit_xml import parse_junit  # noqa: E402
-from traceability.normalize import (  # noqa: E402
-    NoResultsError,
-    NormalisedResult,
-    read_results,
-)
 from traceability.keys import (  # noqa: E402
     TestKey,
     normalise_classname,
@@ -50,7 +45,12 @@ from traceability.links import (  # noqa: E402
     _scenario_from_prefix_token,
     scan_all,
 )
-from traceability.normalize import normalise  # noqa: E402
+from traceability.normalize import (  # noqa: E402
+    NoResultsError,
+    NormalisedResult,
+    normalise,  # noqa: E402
+    read_results,
+)
 from traceability.render import render_coverage_matrix, render_details, render_result_matrix  # noqa: E402
 from traceability.spec import (  # noqa: E402
     Level,
@@ -232,6 +232,12 @@ class SpecValidation(unittest.TestCase):
             "priority": "P1",
             "status": "confirmed",
             "targets": ["android", "desktop"],
+            # parse_spec requires both and rejects an empty string. They arrived
+            # after this fixture was written; the real scenario specs carry them
+            # (see scenarios/tasks/recurrence/TASK-REC-01.yaml), so the contract
+            # is deliberate and the fixture was the stale side.
+            "preconditions": "a clean state",
+            "expected": "the thing happens",
             "steps": ["do it"],
         }
         data.update(overrides)
@@ -330,7 +336,8 @@ class SpecValidation(unittest.TestCase):
             d = pathlib.Path(tmp)
             body = (
                 "id: TASK-REC-01\ntitle: t\npriority: P1\nstatus: confirmed\n"
-                "targets: [android]\nsteps: [do it]\n"
+                "targets: [android]\npreconditions: a clean state\nexpected: it happens\n"
+                "steps: [do it]\n"
             )
             (d / "tasks/recurrence").mkdir(parents=True)
             (d / "Tasks/Recurrence").mkdir(parents=True)

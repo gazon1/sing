@@ -11,10 +11,13 @@ import time
 
 from emulator._device import (
     adb as _parent_adb,
+)
+from emulator._device import (
     adb_on as _parent_adb_on,
+)
+from emulator._device import (
     device_alive as _parent_device_alive,
 )
-
 from emulator.maestro._subprocess import run as _subprocess_run
 from emulator.maestro._types import APP_ID, GW, ROOT
 

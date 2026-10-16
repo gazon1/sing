@@ -12,10 +12,9 @@ from __future__ import annotations
 import subprocess
 import sys
 
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR
 from sgate.log import logger
 from sgate.output import gate_fail
-from sgate.commands.base import INTERNAL_ERROR, IO_ERROR
-
 
 # Re-export CompletedProcess for callers who want to capture output
 Result = subprocess.CompletedProcess

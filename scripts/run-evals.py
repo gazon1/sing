@@ -7,12 +7,12 @@ Usage: python3 scripts/run-evals.py [--task <name>|all]
 """
 
 import argparse
+import json
+import os
+import re
 import subprocess
 import sys
-import os
 from pathlib import Path
-import json
-import re
 
 EVALS_DIR = Path(__file__).parent.parent / "evals"
 TASKS_DIR = EVALS_DIR / "tasks"

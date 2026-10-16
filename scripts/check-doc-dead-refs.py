@@ -22,10 +22,10 @@ from __future__ import annotations
 
 import argparse
 import pathlib
-from pathlib import PurePosixPath
 import re
-import sys
 import subprocess
+import sys
+from pathlib import PurePosixPath
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"

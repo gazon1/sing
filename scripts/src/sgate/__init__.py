@@ -23,18 +23,15 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from sgate import log
-from sgate import output
-from sgate import repo
-from sgate import gates
+from sgate import gates, log, output, repo
 from sgate.commands.base import (
-    GateCommand,
     CLEAN,
-    VALIDATION_FAILURE,
-    IO_ERROR,
     CONFIG_ERROR,
-    KIWI_UNAVAILABLE,
     INTERNAL_ERROR,
+    IO_ERROR,
+    KIWI_UNAVAILABLE,
+    VALIDATION_FAILURE,
+    GateCommand,
 )
 
 # Public re-exports

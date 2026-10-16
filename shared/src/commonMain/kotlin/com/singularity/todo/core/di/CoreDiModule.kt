@@ -34,6 +34,8 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UuidIdGenerator
 import com.singularity.todo.core.network.createHttpClient
+import com.singularity.todo.core.notifications.DataStoreNotificationsSettingsRepository
+import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.reportingScope
@@ -126,6 +128,21 @@ fun coreModule(): org.koin.core.module.Module =
         // anyone reading the diff — the class was constructed in a `single` body, so nothing
         // about the binding was visible from `SpotlightTourController` alone.
         single<OnboardingSettingsRepository> { DataStoreOnboardingSettingsRepository(get()) }
+
+        // The Notifications section of the same DataStore, bound on its own so a
+        // feature can read ONE setting without taking the whole `SettingsRepository`.
+        // `ProjectDetailViewModel` reads `reminderDefault` and nothing else, and
+        // wiring that without a binding is what KOIN-D003
+        // "Missing definition: NotificationsSettingsRepository" reported at
+        // compile time — the class was constructed inside a `single` body, so the
+        // missing edge was invisible from the ViewModel's own diff.
+        //
+        // A second instance, deliberately: `DataStoreNotificationsSettingsRepository`
+        // holds no state of its own, it is a set of preferences keys over the
+        // already-bound `DataStore<Preferences>`, so it cannot disagree with the
+        // copy inside `SettingsRepository`. Binding it as a `factory` says exactly
+        // that, and would break loudly if that ever stops being true.
+        factory<NotificationsSettingsRepository> { DataStoreNotificationsSettingsRepository(get()) }
 
         // ─── Drafts ──────────────────────────────────────────────────────────
         // DraftStore uses the same per-platform DataStore<Preferences> binding.

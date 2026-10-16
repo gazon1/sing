@@ -9,9 +9,8 @@ import click
 
 import sgate
 from sgate.commands._runner import run_capture
-from sgate.output import gate_fail, gate_warn
 from sgate.commands.base import register
-
+from sgate.output import gate_fail, gate_warn
 
 # "light ADR modules reach no application module"
 _OK_PATTERN = re.compile(r"light ADR modules reach no application module")

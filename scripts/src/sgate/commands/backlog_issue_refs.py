@@ -7,13 +7,13 @@ import sys
 from typing import ClassVar
 
 import click
-from sgate.log import logger
 
 import sgate
-from sgate.output import gate_fail
-from sgate.commands._runner import run, run_capture
 from sgate.commands._parsers import parse_error_block
-from sgate.commands.base import IO_ERROR, INTERNAL_ERROR, register
+from sgate.commands._runner import run, run_capture
+from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
+from sgate.log import logger
+from sgate.output import gate_fail
 
 KIWI_REQUIRED: ClassVar[bool] = False
 

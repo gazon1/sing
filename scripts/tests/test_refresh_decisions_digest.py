@@ -104,10 +104,14 @@ class OrientationLayerTest(unittest.TestCase):
 
     def test_the_tree_says_how_big_the_collapsed_directory_is(self):
         """Hiding a directory without saying so is the failure mode this file exists to avoid."""
-        lines = mod.render_doc_tree(590, 129, 14)
+        lines = mod.render_doc_tree(590, 0, 14)
         joined = '\n'.join(lines)
         self.assertIn('590 decisions', joined)
-        self.assertIn('129 deferred backlog entries', joined)
+        # `deferred/` is asserted in the breakdown test below rather than here: it was
+        # deleted with the rest of docs/decisions/deferred/ in PR #645, and its 129
+        # entries migrated to GitHub issues. A renderer that still printed a count for
+        # a directory that no longer exists would be reporting a number about nothing.
+        self.assertNotIn('deferred backlog entries', joined)
         self.assertIn('14 non-decision records, excluded', joined)
 
     def test_the_tree_reports_residual_files_instead_of_hiding_them(self):
@@ -118,10 +122,19 @@ class OrientationLayerTest(unittest.TestCase):
 
     def test_the_collapsed_directory_accounts_for_every_subdirectory(self):
         """The breakdown must add up, or a reader stops trusting the whole tree."""
-        lines = mod.render_doc_tree(592, 129, 14)
+        lines = mod.render_doc_tree(592, 0, 14)
         joined = '\n'.join(lines)
-        for name in ('archive/', 'deferred/', 'templates/'):
-            self.assertIn(name, joined)
+        # Derived from what is on disk rather than hardcoded. The hardcoded list
+        # still named `deferred/` after PR #645 deleted it, so this test asserted a
+        # collapsed directory the renderer was right to stop drawing.
+        present = [
+            d.name + '/' for d in mod.DECISIONS_DIR.iterdir()
+            if d.is_dir() and d.name in mod.CORPUS.all_slugs() or
+            (d.is_dir() and d.name in ('archive', 'templates', 'deferred'))
+        ]
+        self.assertTrue(present, "expected at least one collapsed subdirectory on disk")
+        for name in present:
+            self.assertIn(name, joined, f"{name} exists on disk but is hidden from the tree")
 
     def test_a_missing_subdirectory_is_absent_not_an_exception(self):
         """`docs/architecture/` did not exist until the reference-skill migration landed.

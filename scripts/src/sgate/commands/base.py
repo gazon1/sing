@@ -1,8 +1,9 @@
 """sgate.commands.base — base class and registration helpers for all gate Click commands."""
 from __future__ import annotations
 
-import click
 from typing import ClassVar
+
+import click
 
 # Standard exit codes (declared in every gate's docstring)
 CLEAN = 0

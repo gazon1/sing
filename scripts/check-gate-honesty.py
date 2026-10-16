@@ -170,11 +170,16 @@ def probe_once(probe: Probe) -> tuple[bool, str]:
     try:
         # Create disposable worktree. --detach = detached HEAD, no branch needed.
         # --reason is stored by git worktree prune; it appears in `git worktree list`.
+        # git requires --lock alongside --reason, and refuses the worktree outright
+        # without it. The lock is what we want anyway: the worktree is deleted below,
+        # so anything holding it open is a bug worth surfacing rather than unlocking
+        # silently.
         wt_result = subprocess.run(
             [
                 "git", "-C", str(ROOT),
                 "worktree", "add",
                 "--detach",
+                "--lock",
                 "--reason", f"gate-honesty probe {probe.name}",
                 str(worktree),
             ],

@@ -17,6 +17,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 
 @contextlib.contextmanager
@@ -395,22 +396,26 @@ class PartGTest(unittest.TestCase):
         self.assertEqual(gw.registry_soft_exits(), [])
 
     def test_the_real_registry_has_no_soft_gate_invocation(self):
-        if not gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry not present in this checkout')
+        self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         self.assertEqual(gw.registry_soft_exits(), [])
 
     def test_both_callers_invoke_the_registry(self):
-        if not gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry not present in this checkout')
+        self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         self.assertEqual(gw.check_registry_wiring(), [],
                          'ci.yml and check.sh must both invoke the registry (via bash scripts/ci/static-gates.sh or sgate run-all)')
 
     def test_a_missing_registry_is_reported_by_path(self):
-        if gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry exists in this checkout')
-        errors = gw.check_registry_wiring()
+        # Not skipped when the registry happens to exist — see the same test in
+        # test_check_gate_wiring.py. The condition is reproduced by pointing the
+        # module global at a path that does not exist, because
+        # `check_registry_wiring` reads it at call time.
+        missing = gw.ROOT / 'scripts' / 'ci' / 'static-gates-absent.sh'
+        self.assertFalse(missing.exists(), 'fixture assumption: the absent path exists')
+        with unittest.mock.patch.object(gw, 'GATE_REGISTRY', missing):
+            errors = gw.check_registry_wiring()
         self.assertTrue(errors)
-        self.assertIn('static-gates.sh', errors[0])
+        self.assertIn('static-gates-absent.sh', errors[0])
+        self.assertIn('check.sh', errors[0])
 
     def test_a_caller_that_bypasses_the_registry_is_reported(self):
         # Rewrites check.sh's call away and restores it. The point is that dropping
@@ -420,8 +425,7 @@ class PartGTest(unittest.TestCase):
         # The rewrite targets the actual call line (`sgate run-all ||` at start of
         # line), not a comment that mentions the command: replacing the `||` suffix
         # to `||` is unambiguous — an echo message about the command has no `||`.
-        if not gw.GATE_REGISTRY.is_file():
-            self.skipTest('registry not present in this checkout')
+        self.assertTrue(gw.GATE_REGISTRY.is_file(), 'fixture assumption: the gate registry ships')
         check_sh = gw.ROOT / 'check.sh'
         original = check_sh.read_text(encoding='utf-8')
         # check.sh now invokes the registry via `sgate run-all ||`; the test must

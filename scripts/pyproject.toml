@@ -19,3 +19,34 @@ sgate = "sgate.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["sgate*"]
+
+# ruff — the lint half of what check-script-conventions.py used to do.
+#
+# Why split rather than replace: the three rules ruff cannot express are the
+# interesting ones. `files must be named check-*.py`, `this script must use
+# argparse`, and `this script must appear in the gate registry` are all
+# *requirements about a pattern ruff must accept*. ruff only rejects; it cannot
+# require. Those stay in check-script-conventions.py, which is why that file is
+# still there rather than deleted.
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# I    import sorting — 51 violations, all auto-fixable, zero judgement
+# D100 module docstring — already clean, adopted to keep it that way
+# ICN  import conventions — already clean
+#
+# Deliberately NOT adopted:
+#   D1xx full docstring family — 712 D102 + 120 D103 violations. Adopting it is
+#     the whole migration that made check-script-conventions.py advisory and
+#     knowingly red; it is a real piece of work, not a config line.
+#   N8   naming — 12 N802 in scripts/src/emulator/_types.py, all functions
+#     named for the constant they return. Judgement calls, not defects.
+select = ["I", "D100", "ICN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sgate"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -378,8 +378,7 @@ class BackfillTest(unittest.TestCase):
     """
 
     def test_orphans_are_advisory_and_include_the_legacy_corpus(self):
-        from traceability import SCENARIOS_DIR
-        from traceability import speckit
+        from traceability import SCENARIOS_DIR, speckit
         from traceability.spec import load_specs
 
         declarations = speckit.load_declarations()
@@ -502,8 +501,7 @@ class RealTreeBindingTest(unittest.TestCase):
         self.assertEqual(declarations["POMODORO-01"].spec, "specs/002-pomodoro-timer/spec.md")
 
     def test_bound_scenarios_pass_the_check(self):
-        from traceability import SCENARIOS_DIR
-        from traceability import speckit
+        from traceability import SCENARIOS_DIR, speckit
         from traceability.spec import load_specs
 
         declarations = speckit.load_declarations()
@@ -519,8 +517,7 @@ class RealTreeBindingTest(unittest.TestCase):
     def test_a_todo_body_is_a_problem(self):
         """A declared-but-unwritten scenario renders as a hole indistinguishable
         from a hole a human chose to leave. So a surviving TODO is blocking."""
-        from traceability import SCENARIOS_DIR
-        from traceability import speckit
+        from traceability import SCENARIOS_DIR, speckit
         from traceability.spec import load_specs
 
         declarations = speckit.load_declarations()

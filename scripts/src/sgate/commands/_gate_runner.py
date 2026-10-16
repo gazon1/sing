@@ -28,10 +28,10 @@ from typing import Callable, ParamSpec, TypeVar
 
 import click
 
-from sgate.log import logger
-from sgate.output import gate_fail
 from sgate.commands._runner import run, run_capture
 from sgate.commands.base import INTERNAL_ERROR
+from sgate.log import logger
+from sgate.output import gate_fail
 
 P = ParamSpec("P")
 R = TypeVar("R")

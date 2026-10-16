@@ -28,6 +28,7 @@
 | `NoUnreportedFailurePath` | `NoUnreportedFailurePathRule.kt` | `no-unreported-failure-path` | A ViewModel that can fail but never passes a `CrashReportingPort` sends its failures | `NoUnreportedFailurePathRuleTest` | yes |
 | `NoUnwiredReporterInBinding` | `NoUnwiredReporterInBindingRule.kt` | `no-unreported-failure-path` | Flags a Koin `viewModel { … }` binding that constructs a ViewModel without passing it a | `NoUnwiredReporterInBindingRuleTest` | yes |
 | `NoViewModelScopeInProduction` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | Bans direct usage of `viewModelScope.launch`, `viewModelScope.async`, | `NoViewModelScopeInProductionRuleTest` | yes |
+| `NonTaggedMaestroElements` | `NonTaggedMaestroElements.kt` | `non-tagged-maestro-elements` | Bans two anti-patterns that silently break Maestro UI test coverage: | `NonTaggedMaestroElementsRuleTest` | **no** |
 | `PassThroughUseCase` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | Flags methods inside `*UseCase` classes that are pure pass-throughs to a Repository. | `PassThroughUseCaseRuleTest` | yes |
 | `ProhibitUserIdInObserve` | `UserScopedRepositoryRulesProvider.kt` | `user-scoped-repository` | Bans `userId` and `scopedUserId` parameters in observe methods of repository interfaces. | `RuleFiresSmokeTest (shared)` | yes |
 | `RepositoryInterfaceMustHaveKDoc` | `KDocEnforcementRules.kt` | `kdoc-enforcement` | Requires class-level KDoc on every repository interface, so the contract is written down where it is depended on. | `RuleFiresSmokeTest (shared)` | yes |
@@ -36,6 +37,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**28 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**29 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

@@ -9,7 +9,6 @@ here without the emulator itself by patching the adb subprocess layer and the
 """
 from __future__ import annotations
 
-import click
 import contextlib
 import io
 import os
@@ -21,30 +20,32 @@ import time
 import unittest
 import unittest.mock
 
-# Import from the package (no hyphen in package name — direct import).
-from emulator import (
-    device_is_ready,
-    find_ready,
-    first_ready_device,
-    popen,
-    try_run,
-    clear_stale_emulator,
-    startup_lock,
-    start_avd,
-    EXIT_OK,
-    EXIT_NOT_READY,
-    EXIT_CRASHED,
-    EXIT_TIMEOUT,
-    EXIT_LOCK,
-    cfg,
-    main,
-)
+import click
 import emulator as ee
 import emulator._cli as _cli
 import emulator._device as _device
 import emulator._startup as _startup
+
+# Import from the package (no hyphen in package name — direct import).
+from emulator import (
+    EXIT_CRASHED,
+    EXIT_LOCK,
+    EXIT_NOT_READY,
+    EXIT_OK,
+    EXIT_TIMEOUT,
+    cfg,
+    clear_stale_emulator,
+    device_is_ready,
+    find_ready,
+    first_ready_device,
+    main,
+    popen,
+    start_avd,
+    startup_lock,
+    try_run,
+)
 from emulator._startup import Acquisition, acquire_device
-from emulator.maestro._testing import Clock, FakeProc, FakeAdb
+from emulator.maestro._testing import Clock, FakeAdb, FakeProc
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -610,25 +611,84 @@ class AcquireDeviceTest(unittest.TestCase):
 class MainOutputContractTest(unittest.TestCase):
     """`ensure-emulator` prints the serial on stdout and diagnostics on stderr."""
 
+    def _deps(self, acquisition):
+        """A deps struct whose acquisition is a fake.
+
+        Injection goes through `EmulatorDeps`, swapped into the module
+        attribute `main` reads, NOT through patching `_startup.acquire_device`.
+        The singleton binds `acquire_fn` in `__post_init__` — at import — so a
+        later patch of `_startup.acquire_device` never reaches it and the test
+        silently acquires a REAL device. That is how the "no device" case below
+        came to expect exit 1 while a live emulator made it return 0, and how
+        its sibling passed for the wrong reason: the host's real serial
+        happened to be the string the fixture asserted. A test that consults the
+        machine it runs on is not a test of the contract.
+
+        The fake counts its calls, so a seam that stops being reached fails the
+        test instead of quietly deferring to the host.
+        """
+        calls = []
+
+        def acquire(pin):
+            calls.append(pin)
+            return acquisition
+
+        deps = _cli.EmulatorDeps(acquire_fn=acquire)
+        deps.calls = calls
+        return deps
+
+    def _run_main(self, acquisition):
+        """Call the CLI with the fake acquisition AND a pinned host capability.
+
+        `_emulator_binary_available` is what the CLI asks before it will try to
+        acquire anything, and it asks it about the machine. On a runner with no
+        Android SDK the answer is False, `main` returns EXIT_NOT_READY, and the
+        fake is never reached — which is how this file's two contract tests read
+        as "the fake acquisition was bypassed" in CI while passing on a machine
+        that has an emulator. Pinning the capability is what makes them a test of
+        the output contract instead of a test of the host.
+        """
+        deps = self._deps(acquisition)
+        return deps, unittest.mock.patch.object(
+            _cli, "_emulator_binary_available", return_value=True
+        )
+
     def test_main_prints_only_the_serial(self):
         out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            with unittest.mock.patch.object(_startup, "acquire_device",
-                                            return_value=Acquisition("emulator-5554",
-                                                                    ee.EXIT_OK)):
-                rc = ee.main([], standalone_mode=False)
+        deps, pinned_host = self._run_main(Acquisition("emulator-5554", ee.EXIT_OK))
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+             unittest.mock.patch.object(_cli, "_emulator_deps", deps), pinned_host:
+            rc = ee.main([], standalone_mode=False)
         self.assertEqual(rc, ee.EXIT_OK)
         self.assertEqual(out.getvalue(), "emulator-5554\n")
+        self.assertEqual(len(deps.calls), 1, "the fake acquisition was bypassed")
 
     def test_main_prints_nothing_when_no_device(self):
         out = io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            with unittest.mock.patch.object(_startup, "acquire_device",
-                                            return_value=Acquisition(None,
-                                                                    ee.EXIT_NOT_READY)):
-                rc = ee.main([], standalone_mode=False)
+        deps, pinned_host = self._run_main(Acquisition(None, ee.EXIT_NOT_READY))
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()), \
+             unittest.mock.patch.object(_cli, "_emulator_deps", deps), pinned_host:
+            rc = ee.main([], standalone_mode=False)
         self.assertEqual(rc, ee.EXIT_NOT_READY)
         self.assertEqual(out.getvalue(), "")
+        self.assertEqual(len(deps.calls), 1, "the fake acquisition was bypassed")
+
+
+    def test_a_host_without_the_emulator_binary_never_reaches_acquisition(self):
+        # The mirror of the two tests above, so the capability check is an
+        # asserted behaviour rather than an inherited accident: without the
+        # binary the CLI says so, prints nothing to stdout, and does not attempt
+        # to acquire at all — even with a ready device, because the guard runs
+        # first.
+        deps = self._deps(Acquisition("emulator-5554", ee.EXIT_OK))
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+             unittest.mock.patch.object(_cli, "_emulator_deps", deps), \
+             unittest.mock.patch.object(_cli, "_emulator_binary_available", return_value=False):
+            rc = ee.main([], standalone_mode=False)
+        self.assertEqual(rc, ee.EXIT_NOT_READY)
+        self.assertEqual(out.getvalue(), "")
+        self.assertEqual(deps.calls, [], "the guard must run before acquisition")
 
 
 class IsPhysicalPinTest(unittest.TestCase):

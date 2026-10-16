@@ -267,16 +267,20 @@ hooks:
 
 ### Где прописано
 
-- `.github/workflows/adr-gate.yml` — триггерится на `.specify/**` и `docs/decisions/**`
-- `scripts/ci/static-gates.sh` — заменяет `openspec stale` на `spec-kit issue registry current`
+- `.github/workflows/ci.yml`, джобы `adr-gate` и `spec-create` — фильтр путей
+  (`.specify/**`, `docs/decisions/**`, `openspec/**`) считается в джобе `changes`
+  и передаётся как `needs.changes.outputs.adr`. Раньше это был отдельный workflow
+  `adr-gate.yml` с `paths:`; GitHub применяет `paths:` ко всему workflow, а не к
+  джобе, поэтому при переносе фильтр переехал в условие джобы.
+- `scripts/ci/static-gates.sh` — реестр гейтов, заменяет `openspec stale` на
+  `spec-kit issue registry current`
 
-### adr-gate.yml джобы
+### Джобы ADR (в ci.yml)
 
 | Джоб | Триггер | Что делает |
 |---|---|---|
-| `validate` | push/PR | `adr-ci` workflow |
-| `check-registry` | PR | `check-speckit-issue-registry.py` |
-| `pr-checks` | PR | `openspec-change` с `ci_mode=true` |
+| `adr-gate` | push/PR с ADR-путями либо `main` | ADR validation, stale (advisory), refresh DIGEST, `adr-ci` workflow |
+| `spec-create` | PR с ADR-путями | `openspec-change`: создаёт ADR-артефакты и коммитит их |
 
 ### static-gates.sh
 

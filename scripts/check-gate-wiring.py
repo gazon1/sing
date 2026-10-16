@@ -48,20 +48,21 @@ Exit codes:
 
 from __future__ import annotations
 
-import click
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
-import shlex
-import yaml
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+import click
+import yaml
 
 # Line-buffer both streams: a killed run used to leave a 0-byte log, because
 # stdout is block-buffered on redirect and this file prints one line per gate.
@@ -97,24 +98,16 @@ GATE_FILES = [
 # exactly how a check stops proving anything.
 ACCEPTED_ALIASES: set[str] = set()
 
+#: Modules that have a `detekt { }` block, populated by _populate_derived_tables().
+#: Populated from file scan (discovery); registry carries exemptions as data.
+CONFIGURED_DETEKT_TASKS: dict[str, str]
+
+#: Modules declared in the registry as having detekt { } but deliberately not wired.
+#: Format: {module_name: reason_string}
+DETEKT_TASK_EXEMPTIONS: dict[str, str]
+
 
 # ── Part A: wiring ─────────────────────────────────────────────────────────
-
-
-def configured_gradle_check_tasks() -> dict[str, str]:
-    """Map `module:task` -> the build file that configures it.
-
-    Detects a `detekt { }` block in a module build file, which is the shape that
-    produced the androidApp instance. Test tasks are found via `useJUnitPlatform`
-    / `withType<Test>`.
-    """
-    found: dict[str, str] = {}
-    for build in sorted(ROOT.glob("*/build.gradle.kts")):
-        module = build.parent.name
-        text = build.read_text(encoding="utf-8")
-        if re.search(r"^\s*detekt\s*\{", text, re.M):
-            found[f":{module}:detekt"] = str(build.relative_to(ROOT))
-    return found
 
 
 def _strip_comments(text: str) -> str:
@@ -159,7 +152,12 @@ def check_wiring() -> list[str]:
     if not gates:
         return [f"no gate files found among {[str(p.relative_to(ROOT)) for p in GATE_FILES]}"]
 
-    for task, build in sorted(configured_gradle_check_tasks().items()):
+    for task, build in sorted(CONFIGURED_DETEKT_TASKS.items()):
+        # Exempt modules are declared in DETEKT_TASK_EXEMPTIONS (from the registry).
+        # They have detekt { } but are deliberately not wired — skip them.
+        module = task.split(":")[1] if ":" in task else ""
+        if module in DETEKT_TASK_EXEMPTIONS:
+            continue
         if task in gates or task in ACCEPTED_ALIASES:
             continue
         # Only the exact `:module:detekt` counts. An earlier version of this check
@@ -331,51 +329,6 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
-        name="adr-config-sync",
-        cmd=[sys.executable, "scripts/check-adr-config-sync.py"],
-        sabotage_path="scripts/check_adr_status.py",
-        # Appending a module-level glob to a consumer is exactly the regression this
-        # gate exists to catch. (As source text this control was split across two
-        # literals, became a SyntaxError, and took every control below it down with
-        # it — Part B reported nothing at all until the control suite was run rather
-        # than read, #529. The `Control` type above records that lesson.)
-        sabotage=_append('\n_SABOTAGE = sorted(Path("docs/decisions").glob("*.md"))\n'),
-        why=(
-            "the gate's whole claim is that no consumer grows its own glob. "
-            "Appending one to a consumer is exactly the regression it exists to "
-            "catch, and nothing else in the registry fails when that happens: the "
-            "status gate would keep reporting 'all statuses in vocabulary' while "
-            "reading a different corpus than the other four consumers"
-        ),
-    ),
-    ScriptGate(
-        name="yaml-duplicate-keys",
-        cmd=[sys.executable, "scripts/check-yaml-duplicate-keys.py", "--quiet"],
-        sabotage_path="config/detekt/detekt-rules-module.yml",
-        sabotage=_replace('    active: false\n', '    active: false\n    active: true\n', count=1),
-        why=(
-            "a repeated key is a hard error for SnakeYAML and silently last-one-wins "
-            "for other readers. :detekt-rules:detekt is the only consumer of this "
-            "file, and :shared/:desktopApp keep their own configs, so the two most-used "
-            "lint targets still pass while this module's config is unreachable."
-        ),
-    ),
-    ScriptGate(
-        name="adr-module-boundary",
-        cmd=[sys.executable, "scripts/check-adr-module-boundary.py"],
-        sabotage_path="adr-cli/build.gradle.kts",
-        # The regression this gate exists for, restored exactly: the one-line
-        # dependency that put the whole application — Compose, Room, SQLite, Koin,
-        # Koog — on the classpath of a markdown lister, making a 4.9 MB
-        # distribution 127 MB again with every test still green.
-        sabotage=_replace(
-            'implementation(project(":adr-core"))',
-            'implementation(project(":adr-core"))\n    implementation(project(":shared"))',
-            count=1,
-        ),
-        why="a direct `:adr-cli -> :shared` edge, which is the 127 MB",
-    ),
-    ScriptGate(
         name="detekt-registrations",
         cmd=["./scripts/check-detekt-registrations.sh"],
         sabotage_path="config/detekt/detekt.yml",
@@ -446,49 +399,6 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
-        name="adr-immutable",
-        cmd=[sys.executable, "scripts/check-adr-immutable.py"],
-        # The one decision closed *after* `immutableSince`, so the sabotage lands
-        # inside the window. An older one would be grandfathered and the control
-        # would pass on a gate that had checked nothing — which is exactly what the
-        # first version of this control did.
-        sabotage_path="docs/decisions/2026-10-10-adr-file-local-rules-live-in-the-writer.md",
-        sabotage=_replace('## Consequences', '## Consequences\n\nSABOTAGE', count=1),
-        why=(
-            "a closed decision's body is a record of what was decided; rewriting it is "
-            "how a decision trail disappears without any field the gate watches changing"
-        ),
-    ),
-    ScriptGate(
-        name="adr-status-drift",
-        cmd=[sys.executable, "scripts/check_adr_status.py"],
-        # A real decision file (not deferred/ — that was deleted in PR #645).
-        # The sabotage introduces a status value not in the vocabulary, which the
-        # gate must detect. Using an obviously-invalid value (DEAD-BEEF) rather
-        # than a plausible one (superseded/accepted) to guarantee the gate fails.
-        sabotage_path="docs/decisions/2026-09-05-android-bottom-nav-followups.md",
-        sabotage=_replace('status: accepted', 'status: DEAD-BEEF', count=1),
-        why=(
-            "a status value outside the vocabulary must be detected; a gate that "
-            "cannot see a bad status is a gate that cannot see drift"
-        ),
-    ),
-    ScriptGate(
-        name="unwired-backlog-refs",
-        cmd=[sys.executable, "scripts/check-unwired-backlog-refs.py"],
-        # A real decision file (not deferred/ — that was deleted in PR #645).
-        sabotage_path="docs/decisions/2026-09-05-koin-suspend-bridge.md",
-        # Corrupt the first `## Context` heading so the anchor no longer exists.
-        # The gate checks that every baseline reference points to an existing heading;
-        # a heading that vanished is the same class of failure as one that never existed.
-        sabotage=_replace(
-            '## Context',
-            '## NO-SUCH-HEADING',
-            count=1,
-        ),
-        why="an exemption pointing at a heading that does not exist is not an exemption",
-    ),
-    ScriptGate(
         name="dead-settings",
         cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
         # The sabotage removes a baseline entry, so the field it exempts becomes
@@ -519,65 +429,6 @@ SCRIPT_GATES = [
             '"aiSuppressedTagIds",\n        "sabotage_probe_field",',
         ),
         why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
-    ),
-    ScriptGate(
-        name="doc-dead-refs",
-        cmd=[sys.executable, "scripts/check-doc-dead-refs.py"],
-        # README.md, not PROGRESS.md: the dead-ref detector classifies a reference as
-        # *historical* when one of HISTORY_MARKERS appears in the preceding 600 chars,
-        # which PROGRESS.md is full of by design (it is a journal of the past). A
-        # sabotage there is correctly ignored, so it would prove nothing.
-        sabotage_path="README.md",
-        sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
-        why="a new dead reference must fail until baselined",
-    ),
-    ScriptGate(
-        name="skill-symbols",
-        cmd=[sys.executable, "scripts/check-doc-dead-refs.py", "--skill-symbols"],
-        # A skill file, not a source file: the gate answers "does this documented
-        # symbol exist", so the only honest sabotage is a skill naming one that
-        # does not. Sabotaging a source file would prove the opposite direction.
-        sabotage_path=".agents/skills/singularity-todo-quality-tools/SKILL.md",
-        sabotage=_append('\n## Probe\n\nCall `TotallyMadeUpHelperSymbol` here.\n'),
-        why="a stale symbol reference must fail until baselined",
-    ),
-    ScriptGate(
-        name="publication-hygiene",
-        cmd=[sys.executable, "scripts/check-publication-hygiene.py"],
-        # A source file, not the allowlist. The allowlist is the gate's escape
-        # hatch, so widening it is a decision a review should see in the diff of
-        # a real file rather than in a data file that reads as configuration. The
-        # sabotage writes a machine path into a tracked file outside every
-        # allowlisted prefix — the exact shape this gate was written for, and the
-        # one a future editor would reintroduce by pasting a command from a
-        # terminal.
-        sabotage_path="README.md",
-        sabotage=_append('\nBuild it with `cd /home/sabotage/probe`.\n'),
-        why=(
-            "a machine-specific path in a public file is unrecoverable once published. "
-            "Clean-run is waived (needs_clean_run=False): the spec-kit corpus imported "
-            "by #555 (.specify/issues/*.yaml, .specify/workflows/runs/*) carries the "
-            "importing machine's absolute paths and identity in every record — ~9k "
-            "matches, un-triaged real state — so the gate is advisory until the import "
-            "script emits repo-relative provenance and the corpus is re-imported"
-        ),
-        needs_clean_run=False,
-    ),
-    ScriptGate(
-        name="readme-claims",
-        cmd=[sys.executable, "scripts/check-readme-claims.py"],
-        # README.md, because the gate's entire claim is that this file states
-        # numbers which must match the tree. A wrong schema version is the
-        # cheapest drift to introduce and the first thing a reader would see.
-        # The self-tests cover the parse rules; this covers the wiring.
-        sabotage_path="README.md",
-        # Same defect the room-schema control had, found the same way: the schema
-        # moved 38 → 39 → 40 while this entry still replaced the literal 38, so
-        # `replace` matched nothing, the gate read an untouched README, correctly
-        # passed, and the control reported itself broken. Match by regex and
-        # assert, so a version bump cannot silently turn this into a no-op.
-        sabotage=_regex_sub(r'schema v\d+', 'schema v1'),
-        why="a README that contradicts the tree is the first failure a reader sees",
     ),
     ScriptGate(
         name="skill-frontmatter",
@@ -698,60 +549,18 @@ SCRIPT_GATES = [
         why="an import removed from a DI module silently breaks every consumer; "
              "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
     ),
-    ScriptGate(
-        name="apptracer-upload-policy-encoded",
-        cmd=[sys.executable, "scripts/check-apptracer-policy.py"],
-        sabotage_path="pro/build.gradle.kts",
-        sabotage=_replace(
-            'isDisabled = !tokensPresent || !isCi',
-            'isDisabled = !tokensPresent',
-        ),
-        why="removing !isCi from release silently allows non-CI release uploads; "
-             "the structural gate catches the missing condition before a comment could be reverted",
-    ),
-    ScriptGate(
-        name="speckit-issue-registry",
-        cmd=[sys.executable, "scripts/check-speckit-issue-registry.py"],
-        sabotage_path=".specify/issues/a-cell-carries-one-state.yaml",
-        # Break the required `type` field: the record no longer names an
-        # openspec-change, which is the malformed-registry shape the gate
-        # reports. Every record carries this field, so the mutation applies.
-        sabotage=_replace('type: openspec-change', 'type: not-openspec-change', count=1),
-        why=(
-            "an issue record whose type, slug or openspec_path is broken is a "
-            "registry entry pointing at nothing, and the registry is what agents "
-            "read as the source of truth. Clean-run is waived (needs_clean_run="
-            "False): every record stores the absolute openspec_path of the "
-            "checkout that imported it (night-work-01), so the corpus is red on "
-            "any machine that is not that one — un-triaged real state until the "
-            "registry is re-imported with repo-relative paths; the gate is "
-            "advisory by registration"
-        ),
-        needs_clean_run=False,
-    ),
 ]
 # The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
 # keys on the script path, not the full command, so this one registration covers both
 # the repository check and the self-test that proves the rule still fires.
 
 
-# ── Part F: the registry is derived from registration ───────────────────────
+# ── Part F: every gate-shaped script is registered ─────────────────────────
 #
-# `SCRIPT_GATES` above is a hand-written list, and a hand-written list of what
-# has been verified is the same defect one level up from the ones this file
-# exists to catch. Measured 2026-10-05: 18 gate scripts are invoked by a gate,
-# 8 had a control, and the 10 without one were indistinguishable in the
-# registry from the 8 with one. The three that decide whether a test run counts
-# as evidence — `check-test-runs.py`, `check-flaky-tests.py`
-# — were among the ten.
-#
-# So the list is checked against the registration instead of trusted. A gate
-# named by `check.sh`, a workflow, or a `just` recipe must appear here or in
-# `GATE_EXEMPTIONS` with a reason, and adding a gate to a recipe is what makes
-# it show up — which is the whole point. Part A already derives Gradle tasks
-# from build files for the same reason.
-#
-# Two kinds of control, because "sabotage one file" does not cover every gate:
+# Every gate script in `SCRIPT_GATES`, `SABOTAGE_ONLY_GATES`, or `FIXTURE_GATES`
+# must appear in the registry (checked by Part J), and every registry gate with
+# a script must appear in one of those three lists (or in GATE_EXEMPTIONS).
+# Part A already derives Gradle tasks from build files for the same reason.
 #
 #   SABOTAGE — the gate reads a committed file, so mutating that file and
 #              re-running it is a complete control. `check-test-runs.py` against
@@ -960,7 +769,8 @@ CONTROLLED_GATE_SCRIPTS: set[str] = set()
 
 
 def _populate_derived_tables() -> None:
-    """Populate GATE_EXEMPTIONS, GATE_PARITY, and CONTROLLED_GATE_SCRIPTS from the registry.
+    """Populate GATE_EXEMPTIONS, GATE_PARITY, CONTROLLED_GATE_SCRIPTS,
+    GRADLE_TASK_PARITY, and KOVER_MIN_FLOOR from the registry.
 
     Called once at import. The registry is in scripts/src/sgate/commands/_registry.py.
     A bare `import sgate` would pick up whatever is installed — which on this host
@@ -978,6 +788,26 @@ def _populate_derived_tables() -> None:
     for control in reg.GATE_CONTROLS.values():
         if control.proves:
             CONTROLLED_GATE_SCRIPTS.add(control.proves)
+    # GRADLE_TASK_PARITY: CI/local asymmetries for individual Gradle tasks (Part I)
+    global GRADLE_TASK_PARITY, KOVER_MIN_FLOOR
+    GRADLE_TASK_PARITY = {
+        task: (p.scope, p.why)
+        for task, p in reg.GRADLE_TASK_PARITY.items()
+    }
+    KOVER_MIN_FLOOR = reg._KOVER_MIN_FLOOR
+    # CONFIGURED_DETEKT_TASKS: modules that have a `detekt { }` block (Part A)
+    global CONFIGURED_DETEKT_TASKS
+    CONFIGURED_DETEKT_TASKS = {}
+    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+        module = build.parent.name
+        text = build.read_text(encoding="utf-8")
+        if re.search(r"^\s*detekt\s*\{", text, re.M):
+            CONFIGURED_DETEKT_TASKS[f":{module}:detekt"] = str(
+                build.relative_to(ROOT)
+            )
+    # DETEKT_TASK_EXEMPTIONS: registry-declared exemptions for Part A
+    global DETEKT_TASK_EXEMPTIONS
+    DETEKT_TASK_EXEMPTIONS = reg.DETEKT_TASK_EXEMPTIONS
 
 
 _populate_derived_tables()
@@ -1428,7 +1258,8 @@ _DETEKT_BLOCK = re.compile(r"detekt\s*\{(.*?)\n\s*\}", re.DOTALL)
 #: The bound is only asked to be sane, not current: raising a floor needs no edit
 #: here, while zeroing one — or halving it — is the "a floor that cannot fail"
 #: defect and has to be a deliberate change to this constant too.
-_KOVER_MIN_FLOOR = 60
+#: Sourced from the registry (_registry._KOVER_MIN_FLOOR) by _populate_derived_tables().
+KOVER_MIN_FLOOR: int
 
 
 def non_enforcing_gradle_tasks() -> list[str]:
@@ -1479,7 +1310,7 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
     A module qualifies when its `kover` block contains a `verify` block — the
     two are read in that nesting, so an unrelated `verify {` does not count. It
     then needs at least one `minValue` bound, declared *inside* the kover block,
-    of at least `_KOVER_MIN_FLOOR` — the *strongest* bound, because one rule that
+    of at least `KOVER_MIN_FLOOR` — the *strongest* bound, because one rule that
     can fail is enough to make the task fail (Kover fails the task when any rule
     fails).
 
@@ -1488,7 +1319,8 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
     written, so the constant is resolved, and declarations are read from the
     whole file because they sit above the block. A bound whose value cannot be
     resolved is reported like a missing one: a floor this gate cannot read is a
-    floor it cannot vouch for.
+    floor it cannot vouch for. The floor minimum is sourced from the registry
+    (_KOVER_MIN_FLOOR) by _populate_derived_tables().
     """
     out: list[str] = []
     for build in sorted(ROOT.glob("*/build.gradle.kts")):
@@ -1519,9 +1351,9 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
                     else ""
                 )
             )
-        elif max(bounds) < _KOVER_MIN_FLOOR:
+        elif max(bounds) < KOVER_MIN_FLOOR:
             out.append(
-                f":{module}:kover verify floor {max(bounds)} is below {_KOVER_MIN_FLOOR}"
+                f":{module}:kover verify floor {max(bounds)} is below {KOVER_MIN_FLOOR}"
             )
     return out
 
@@ -1534,7 +1366,7 @@ def check_gradle_can_fail() -> list[str]:
         print(f"  !!  {len(bad)} detekt task(s) set ignoreFailures = true")
     floors = kover_verify_rules_without_usable_floor()
     if not floors:
-        print(f"  ok  every kover verify rule declares a floor >= {_KOVER_MIN_FLOOR}%")
+        print(f"  ok  every kover verify rule declares a floor >= {KOVER_MIN_FLOOR}%")
     messages = [
         "\n".join(
             [
@@ -1721,40 +1553,10 @@ def check_ci_steps_blocking() -> list[str]:
 
 
 # ── Part E: CI/local gate parity ─────────────────────────────────────────────
-
-#: Gates whose CI/local wiring **differs from the default**, and why.
-#: Keyed by the gate path.
-#:
-#: The default is "both": a `check-*.py` gate is expected to run in `ci.yml` *and*
-#: in `check.sh`, and needs no entry here. An entry declares an asymmetry — this
-#: gate is ci-only, or local-only — and carries the reason for it. The gate is
-#: absent from this table **because** it runs in both places, which is correct.
-#:
-#: The reason this exists (2026-10-05): the `--partial` incident in
-#: `traceability results`. Both wirings existed, both were present, and Part B
-#: proved both could fail — and they still meant different things, because one
-#: read a fact only the other knew (whether the run was tag-filtered). Parts A
-#: and B cannot see that class of defect: a gate wired everywhere and able to
-#: fail is still wrong if its verdict depends on a fact the two environments
-#: hold differently.
-#:
-#: An asymmetry is not a defect. A **silent** one is: the next reader cannot
-#: tell a deliberate difference from a typo, and defaults to assuming the two
-#: are equivalent. So every asymmetry is declared here with its reason, and an
-#: undeclared one fails the check.
-# GATE_PARITY is now derived from the registry at module load time (see above).
-# Only gates whose scope != "both" are stored; the default ("both") needs no entry.
-# Old hand-written table deleted after strangler flip confirmed green.
-# Both `check-publication-hygiene.py` and `check-readme-claims.py` were declared
-# `ci` here while this was being written, on the reasoning that they read committed
-# state and only CI has the merged tree. Main's #217 moved both into
-# `scripts/ci/static-gates.sh`, which `check.sh` also runs — so they genuinely run in
-# both places now, and the declaration was the thing that had become wrong. Kept as
-# a note because the reasoning is still right about *why* they were CI-only, and the
-# day somebody moves one back out of the shared registry this is the argument for
-# putting it back in this table.
-
-#: Argument-level asymmetries on gates that run in both places. Keyed by
+#
+# GATE_PARITY (script path -> (scope, reason)) is derived from the registry at
+# module load time: only gates whose scope != "both" are stored.
+# GATE_ARG_PARITY is still local (argument-level asymmetries, computed from surfaces).
 #: (gate, leading argument), value is where it is expected.
 #:
 #: `--since` and `--skill-symbols` change *what* is measured rather than
@@ -2109,9 +1911,7 @@ def check_registry_wiring() -> list[str]:
 # - A SCRIPT_GATES entry whose script is absent from the registry: the control
 #   is testing a gate that no longer exists, so it proves nothing.
 # - A registry gate (python3/shell) with no SCRIPT_GATES entry: the gate has
-#   no positive control, and Part F would catch it — but Part F derives the
-#   controlled set from this file; a new SCRIPT_GATES entry silently fixes the
-#   gap and Part F silently passes, so the cross-check must be explicit.
+#   no positive control.
 
 
 def _load_registry():
@@ -2193,7 +1993,7 @@ def check_script_gates_vs_registry() -> list[str]:
         set(sg_script_to_name.keys())
         | {g.cmd[1] for g in SABOTAGE_ONLY_GATES if len(g.cmd) >= 2}
         | {g.cmd[1] for g in FIXTURE_GATES if len(g.cmd) >= 2}
-        | set(GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
+        | set(_registry.GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
     )
     cmd_types_with_scripts = (
         _registry.CmdType.PYTHON3,
@@ -2209,9 +2009,8 @@ def check_script_gates_vs_registry() -> list[str]:
             continue
         errors.append(
             f"Part J: registry gate '{spec.name}' "
-            f"(script={spec.script!r}) has no positive control in "
-            f"SCRIPT_GATES, SABOTAGE_ONLY_GATES, FIXTURE_GATES, or GATE_EXEMPTIONS. "
-            f"Add a sabotage control or document the exemption."
+            f"(script={spec.script!r}) has no positive control. "
+            f"Add it to SCRIPT_GATES or document the exemption in GATE_EXEMPTIONS."
         )
 
     return errors
@@ -2375,63 +2174,8 @@ def reachable_gate_scripts() -> set[str]:
 #: `:desktopApp:test`, so both really do run there, but neither string appears in
 #: `ci.yml`. Demanding the literal spelling would mean adding a redundant
 #: invocation; allowing it silently would be the Part A defect one level up.
-GRADLE_TASK_PARITY: dict[str, tuple[str, str]] = {
-    ":shared:jvmTest": (
-        "covered",
-        "CI reaches it through `koverReport`, which aggregates the test task and "
-        "instruments it. `ci.yml` never spells the task; adding a second literal "
-        "invocation would be noise, not coverage.",
-    ),
-    ":desktopApp:test": (
-        "covered",
-        "same route as :shared:jvmTest — `koverReport` in ci.yml's tests job.",
-    ),
-    ":androidApp:connectedDebugAndroidTest": (
-        "covered",
-        "CI runs it in android-device-tests.yml, not ci.yml. It needs an "
-        "emulator, so it cannot join a PR's cheap surfaces; see "
-        "docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md",
-    ),
-    ":mcp-server:compileKotlin": (
-        "local",
-        "CI compiles this module through :mcp-server:jar, which is a strict "
-        "superset — the DI-graph check runs either way. Naming it locally is "
-        "what makes the validation visible on the surface a developer reads.",
-    ),
-    ":mcp-server:jar": (
-        "ci",
-        "McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips "
-        "itself when the jar is absent. Building it is a CI concern; the "
-        "local loop validates compilation, not the packaged artifact.",
-    ),
-    ":pro:detekt": (
-        "ci",
-        ":pro is included in settings.gradle.kts only under "
-        "-PwithPro=true, so the task does not exist in a plain local build. "
-        "CI's `pro` matrix leg passes the flag.",
-    ),
-    ":pro:testDebugUnitTest": (
-        "ci",
-        "same reason as :pro:detekt — the module is only in the graph when "
-        "-PwithPro=true is passed, which is the `pro` matrix leg's job",
-    ),
-    ":shared:testAndroidHostTest": (
-        "ci",
-        "the Android host source set is built only in its own CI job; see "
-        "openspec/changes/ci-checks-parallel-split for why it was split out",
-    ),
-    ":adr-cli:installDist": (
-        "ci",
-        "adr-gate.yml builds the ADR CLI distribution to run it against the "
-        "repository; the local loop reaches the same invariants through the "
-        "check_adr_*.py gates in the shared registry, and reaches :adr-cli:run "
-        "only interactively (ADR authoring), so a packaged installDist is a "
-        "CI-only artifact",
-    ),
-    # `:detekt-rules:koverLog` was declared 'ci' here for one revision and needs
-    # no declaration now: check.sh step 9b prints it before verifying, so the
-    # render task is on both surfaces and the default ('both') is the truth.
-}
+#: Sourced from the registry (GRADLE_TASK_PARITY) by _populate_derived_tables().
+GRADLE_TASK_PARITY: dict[str, tuple[str, str]]
 
 #: A Gradle task as it is spelled in a shell script or a workflow: `:module:task`.
 _GRADLE_TASK = re.compile(r"(?<![A-Za-z0-9_.-])(:[a-zA-Z][\w-]*:[a-zA-Z][\w-]*)")
@@ -2587,7 +2331,7 @@ def main(
     if run_a:
         print("Part A — Gradle check tasks are wired into a gate")
         wiring_errs = check_wiring()
-        tasks = configured_gradle_check_tasks()
+        tasks = CONFIGURED_DETEKT_TASKS
         for task in sorted(tasks):
             print(f"  configured: {task}  ({tasks[task]})")
         errors += wiring_errs

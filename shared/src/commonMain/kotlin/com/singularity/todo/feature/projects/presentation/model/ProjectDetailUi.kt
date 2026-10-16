@@ -50,6 +50,17 @@ data class ProjectDetailUi(
      * after the due date moves.
      */
     val reminderOffsetMinutes: Int? = null,
+    /**
+     * The user's configured default reminder offset, from
+     * `Notifications.reminderDefault`.
+     *
+     * Used ONLY to preselect the picker when the project has no reminder of its own —
+     * it never creates one. `null` [reminderOffsetMinutes] means "nothing chosen yet",
+     * and the picker must show *something* selected; falling back to `AT_DUE` would
+     * ignore a setting the user deliberately chose elsewhere.
+     */
+    val defaultReminderOffset: com.singularity.todo.core.reminders.ReminderOffset =
+        com.singularity.todo.core.reminders.ReminderOffset.AT_DUE,
 ) {
     val progressFraction: Float
         get() = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
