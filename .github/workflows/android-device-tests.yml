@@ -136,15 +136,31 @@ jobs:
 
           # Assert the two things the next step silently depends on. A missing
           # `emulator` binary is reported by `ensure-emulator` as exit 1 with
-          # "'emulator' binary not found in PATH" and an AVD that was never
-          # created is reported as a crash during start-up — both about a minute
-          # into a 15-minute job, and neither naming this step. Checked here
-          # instead, where the answer is immediate and specific.
+          # "'emulator' binary not found in PATH" and an AVD the emulator cannot
+          # find is reported as "exited with rc=1 during start-up" — both about a
+          # minute into a 15-minute job, and neither naming this step.
           test -x "$sdk_root/emulator/emulator" \
             || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
-          "$cmdline/avdmanager" list avd | grep -q "Name: $AVD_NAME" \
-            || { echo "::error::AVD $AVD_NAME was not created"; exit 1; }
-          echo "emulator: $sdk_root/emulator/emulator, AVD: $AVD_NAME"
+
+          # The runner image creates AVDs somewhere `avdmanager` calls home and
+          # `emulator` does not. Run 38970523791 died with "Unknown AVD name
+          # [singularity-api36]" and "no file singularity-api36.ini in
+          # $HOME/.android/avd": avdmanager wrote the .ini under a path the
+          # emulator's search order ($ANDROID_AVD_HOME, $ANDROID_SDK_HOME/avd,
+          # $HOME/.android/avd) never visits. Locate the file that was actually
+          # written and point the emulator at its directory — a home is a
+          # property of the image, so it is read, not assumed.
+          avd_ini="$(find "$HOME" -maxdepth 6 -name "$AVD_NAME.ini" -print -quit 2>/dev/null || true)"
+          [ -n "$avd_ini" ] \
+            || { echo "::error::no $AVD_NAME.ini exists under \$HOME"; exit 1; }
+          export ANDROID_AVD_HOME="$(dirname "$avd_ini")"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          # Ask the tool that has to find it. `avdmanager list avd` proved nothing
+          # here: it passed on the run where the emulator could not see the AVD.
+          "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
+            || { echo "::error::emulator -list-avds does not list $AVD_NAME (ANDROID_AVD_HOME=$ANDROID_AVD_HOME)"; exit 1; }
+          echo "emulator: $sdk_root/emulator/emulator, AVD $AVD_NAME in $ANDROID_AVD_HOME"
 
       # loguru, pydantic and click — the emulator module's own dependencies. The
       # same action the static job uses, with the two linters it installs turned
