@@ -68,11 +68,6 @@ import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
-<<<<<<< Updated upstream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-=======
->>>>>>> Stashed changes
 import kotlinx.coroutines.flow.first
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
