@@ -87,6 +87,21 @@ Thumbs.db
 **/reports/
 **/jvm-test-results/
 
+# Allure results.
+#
+# A symptom, not a design: the build files say these go to
+# `<module>/build/allure-results/` and set `allure.results.directory` to say so,
+# but the Allure 2.x JUnit listener resolves its own directory relative to the
+# forked JVM's working directory and ignores that key (it is allure-kotlin's
+# spelling). The result lands in `<module>/allure-results/` — outside `build/`,
+# so the entries above did not cover it, and ~10k files sat untracked in
+# `git status` after a local run.
+#
+# Ignoring the symptom is not the fix; see `.github/workflows/ci.yml`, which
+# uploads `*/build/allure-results/**/*` — the path that is never written to —
+# with `if-no-files-found: ignore`. Filed as an issue rather than fixed here.
+**/allure-results/
+
 # KSP generated
 **/ksp/
 
