@@ -37,7 +37,7 @@ set -euo pipefail
 
 : "${INSTALL_CMD:?INSTALL_CMD is the command that installs the package inside the container}"
 : "${PKG_FORMAT:?PKG_FORMAT is deb or rpm}"
-: "${PACKAGE:?PACKAGE is the path to the built package}"
+: "${PACKAGE:?PACKAGE is the path to the built package inside the container}"
 : "${EXPECT_VERSION:?EXPECT_VERSION is the version the tag named}"
 
 # jpackage's postinst calls `xdg-desktop-menu install`, and that script aborts with
@@ -59,6 +59,14 @@ set -euo pipefail
 # directories at all. Tracked as #686.
 mkdir -p /usr/share/applications /usr/share/desktop-directories
 export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# The mount is the only thing carrying the artifact into the container, and a `cp`
+# that produced nothing leaves an empty directory that `apt-get install ./app.deb`
+# reports as "No such file" — a message about a filename, not about the copy.
+[ -f "$PACKAGE" ] || {
+    echo "::error::$PACKAGE is not inside the container; the mount or the copy failed" >&2
+    exit 1
+}
 
 # `bash -c`, not bare `$INSTALL_CMD`: word splitting would pass `;`, `>` and `2>&1`
 # to apt as literal arguments — which is what an unquoted expansion turns them into.
