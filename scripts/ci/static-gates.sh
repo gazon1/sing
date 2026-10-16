@@ -167,6 +167,12 @@ gate blocking "version catalog has no literals" sgate version_catalog_has_no_lit
 # block-buffered stdout, so the file's last lines can be stale stdout alone.
 gate blocking "gate scripts' own unit tests" bash -c 'python3 -m unittest discover -s scripts/tests -v; rc=$?; echo "__unittest_rc=$rc"; exit $rc'
 gate blocking "test-task external inputs declared" sgate test_task_external_inputs_declared
+# One population per job. Measured 2026-10-16 (run 38933517902): a later Gradle
+# invocation re-ran :desktopApp:test *without* -Ptest.tags, whose Gradle default is
+# excludeTags("slow"), so the @Tag("slow") scenario classes were skipped rather than
+# executed and the traceability step reported a target that had in fact been measured
+# as producing nothing. Parity is the property that survives either up-to-date outcome.
+gate blocking "gradle invocations keep one test population" sgate gradle_test_population
 gate blocking "declared dependencies are used" sgate declared_dependencies_are_used
 gate blocking "room schema integrity" sgate room_schema_integrity
 # A gate that dies instead of reporting is indistinguishable from a gate that
