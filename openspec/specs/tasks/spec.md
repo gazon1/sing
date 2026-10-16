@@ -170,3 +170,132 @@ scenarios:
   - desktop
   group: timetracking
 ```
+
+## Requirements
+
+The scenarios above are the source of truth for behaviour: their steps and
+expectations live in `scripts/src/traceability/scenarios/**`, and this section
+only states the requirement each group of them belongs to. The ids are repeated
+here so a reader arriving from a requirement can find the scenario without
+reading the matrix.
+
+### Requirement: A task can be created and reached
+
+The system SHALL create a task from the FAB and SHALL place the new task in the
+Inbox when no due date was given.
+
+#### Scenario: Create a task from the FAB and see it in the Inbox
+- **WHEN** the user creates a task from the FAB without choosing a due date
+- **THEN** the task appears in the Inbox
+
+#### Scenario: Create a task with all attribute fields filled
+- **WHEN** the user fills every attribute field and saves
+- **THEN** the task is created with those attributes
+
+#### Scenario: Create a daily recurring task
+- **WHEN** the user creates a task with a daily recurrence
+- **THEN** the task repeats daily
+
+#### Scenario: Cyrillic task title is created, saved, and displayed correctly
+- **WHEN** the user enters a non-Latin title
+- **THEN** it is stored and rendered unchanged
+
+### Requirement: A task opens, and its title is protected
+
+The system SHALL open a task's detail screen when its row is tapped, and SHALL
+reject an empty title without modifying the existing one.
+
+#### Scenario: Tapping a task row opens its detail screen with the correct title
+- **WHEN** the user taps a task row
+- **THEN** the detail screen opens showing that task's title
+
+#### Scenario: Empty title is rejected; original title remains intact
+- **WHEN** the user clears the title and tries to save
+- **THEN** the save is rejected and the title is unchanged
+
+### Requirement: Completion, deletion and archiving each have an undo where the user expects one
+
+The system SHALL toggle completion from the row checkbox, SHALL delete from the
+detail screen's overflow menu, SHALL offer Undo after a delete, and SHALL archive
+from the long-press context menu.
+
+#### Scenario: Tapping the checkbox toggles the task's completion state
+- **WHEN** the user taps a task's checkbox
+- **THEN** the task's completion state toggles
+
+#### Scenario: Delete a task from its detail screen overflow menu
+- **WHEN** the user deletes a task from its overflow menu
+- **THEN** the task is removed
+
+#### Scenario: Deleting a task shows an Undo snackbar and Undo restores it
+- **WHEN** the user deletes a task
+- **THEN** Undo is offered and restores the task when used
+
+#### Scenario: Long-press opens context menu; archive removes the task
+- **WHEN** the user long-presses a task and archives it
+- **THEN** the task is archived
+
+### Requirement: Task attributes are editable from the editor
+
+The system SHALL let the user set priority and due date from the editor's
+attribute rows, SHALL leave a task undated when the date picker is cancelled, and
+SHALL pre-fill a due date only where a tab says it should.
+
+#### Scenario: Set task priority from the editor attribute row
+- **WHEN** the user picks a priority
+- **THEN** the task carries it
+
+#### Scenario: Set task due date from the editor attribute row
+- **WHEN** the user picks a due date
+- **THEN** the task carries it
+
+#### Scenario: Cancelling the date picker leaves the task undated
+- **WHEN** the user cancels the date picker
+- **THEN** the task has no due date
+
+#### Scenario: FAB from Today tab pre-fills the due date to Today
+- **WHEN** the user creates a task from the Today tab
+- **THEN** the due date defaults to today
+
+#### Scenario: FAB from Inbox tab does NOT pre-fill a due date
+- **WHEN** the user creates a task from the Inbox tab
+- **THEN** no due date is set
+
+### Requirement: Agenda placement follows the due date
+
+The system SHALL place each task in the agenda bucket its due date belongs to,
+and SHALL return to the originating tab after a task is saved.
+
+#### Scenario: Tasks appear in the correct agenda date-bucket sections
+- **WHEN** tasks with different due dates are shown
+- **THEN** each appears under its own bucket
+
+#### Scenario: Creating from a tab returns to that tab after save
+- **WHEN** the user saves a task created from a tab
+- **THEN** that tab is shown again
+
+### Requirement: A task carries its own child work
+
+The system SHALL support checklist items and subtasks on a task, each with its
+own lifecycle.
+
+#### Scenario: Add a checklist item to a task
+- **WHEN** the user adds a checklist item
+- **THEN** it appears on the task
+
+#### Scenario: Subtask lifecycle — add, toggle, delete
+- **WHEN** the user adds, toggles and deletes a subtask
+- **THEN** each operation is reflected on the task
+
+### Requirement: Time can be tracked against a task
+
+The system SHALL let the user start a time-tracking session from a task and stop
+it again.
+
+#### Scenario: Start and stop a time-tracking session on a task
+- **WHEN** the user starts and then stops a session
+- **THEN** the elapsed time is recorded against the task
+
+#### Scenario: Start a timer on a task from its detail view
+- **WHEN** the user starts a timer from the task's detail view
+- **THEN** the timer runs for that task
