@@ -637,25 +637,58 @@ class MainOutputContractTest(unittest.TestCase):
         deps.calls = calls
         return deps
 
+    def _run_main(self, acquisition):
+        """Call the CLI with the fake acquisition AND a pinned host capability.
+
+        `_emulator_binary_available` is what the CLI asks before it will try to
+        acquire anything, and it asks it about the machine. On a runner with no
+        Android SDK the answer is False, `main` returns EXIT_NOT_READY, and the
+        fake is never reached — which is how this file's two contract tests read
+        as "the fake acquisition was bypassed" in CI while passing on a machine
+        that has an emulator. Pinning the capability is what makes them a test of
+        the output contract instead of a test of the host.
+        """
+        deps = self._deps(acquisition)
+        return deps, unittest.mock.patch.object(
+            _cli, "_emulator_binary_available", return_value=True
+        )
+
     def test_main_prints_only_the_serial(self):
         out, err = io.StringIO(), io.StringIO()
-        deps = self._deps(Acquisition("emulator-5554", ee.EXIT_OK))
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            with unittest.mock.patch.object(_cli, "_emulator_deps", deps):
-                rc = ee.main([], standalone_mode=False)
+        deps, pinned_host = self._run_main(Acquisition("emulator-5554", ee.EXIT_OK))
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+             unittest.mock.patch.object(_cli, "_emulator_deps", deps), pinned_host:
+            rc = ee.main([], standalone_mode=False)
         self.assertEqual(rc, ee.EXIT_OK)
         self.assertEqual(out.getvalue(), "emulator-5554\n")
         self.assertEqual(len(deps.calls), 1, "the fake acquisition was bypassed")
 
     def test_main_prints_nothing_when_no_device(self):
         out = io.StringIO()
-        deps = self._deps(Acquisition(None, ee.EXIT_NOT_READY))
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            with unittest.mock.patch.object(_cli, "_emulator_deps", deps):
-                rc = ee.main([], standalone_mode=False)
+        deps, pinned_host = self._run_main(Acquisition(None, ee.EXIT_NOT_READY))
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()), \
+             unittest.mock.patch.object(_cli, "_emulator_deps", deps), pinned_host:
+            rc = ee.main([], standalone_mode=False)
         self.assertEqual(rc, ee.EXIT_NOT_READY)
         self.assertEqual(out.getvalue(), "")
         self.assertEqual(len(deps.calls), 1, "the fake acquisition was bypassed")
+
+
+    def test_a_host_without_the_emulator_binary_never_reaches_acquisition(self):
+        # The mirror of the two tests above, so the capability check is an
+        # asserted behaviour rather than an inherited accident: without the
+        # binary the CLI says so, prints nothing to stdout, and does not attempt
+        # to acquire at all — even with a ready device, because the guard runs
+        # first.
+        deps = self._deps(Acquisition("emulator-5554", ee.EXIT_OK))
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+             unittest.mock.patch.object(_cli, "_emulator_deps", deps), \
+             unittest.mock.patch.object(_cli, "_emulator_binary_available", return_value=False):
+            rc = ee.main([], standalone_mode=False)
+        self.assertEqual(rc, ee.EXIT_NOT_READY)
+        self.assertEqual(out.getvalue(), "")
+        self.assertEqual(deps.calls, [], "the guard must run before acquisition")
 
 
 class IsPhysicalPinTest(unittest.TestCase):
