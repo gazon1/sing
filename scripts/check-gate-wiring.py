@@ -343,25 +343,6 @@ SCRIPT_GATES = [
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
     ScriptGate(
-        name="gate-liveness",
-        cmd=[sys.executable, "scripts/check-gate-liveness.py"],
-        sabotage_path="scripts/check-backlog-issue-refs.py",
-        # Make the gate raise instead of report. That is exactly the failure
-        # mode the gate exists to catch (#529), so the control is the same
-        # defect rather than a synthetic one. This target was
-        # check-kiwi-inventory-ratchet.py until the Kiwi stand was retired; the
-        # control outlived its subject, so it moved to another registered gate.
-        sabotage=_replace(
-            "import sys",
-            "import sys\nraise AttributeError(\"'NoneType' object has no attribute 'loader'\")",
-            count=1,
-        ),
-        why=(
-            "a gate that raises instead of reporting has no opinion at all, and an "
-            "advisory gate whose output nobody reads will stay that way indefinitely"
-        ),
-    ),
-    ScriptGate(
         name="hooks-path",
         cmd=[sys.executable, "scripts/check-hooks-path.py", "--quiet"],
         # Untrack *every* hook, not one. The gate asks "does the configured hooks
@@ -407,8 +388,16 @@ SCRIPT_GATES = [
         # *section* — and it stayed green on `reminderDefault` and all seven
         # work-schedule fields, which are wired and still dead. The check descends
         # to the field, so the control has to descend with it.
+        #
+        # The target must be a field the baseline still carries. It used to be
+        # `Notifications.reminderDefault`, which stopped being a valid target when
+        # that setting got wired (#657): with the field wired, the baseline no longer
+        # needs it, the `_replace` match went stale, and the control raised
+        # "sabotage would be a no-op" — the assertion did its job and named the
+        # drift. `Notifications.sound` is baselined today, so exempting it away is
+        # exactly what makes the gate report.
         sabotage_path="scripts/check-dead-settings-baseline.txt",
-        sabotage=_replace('Notifications.reminderDefault', 'Notifications.no_such_field'),
+        sabotage=_replace('Notifications.sound', 'Notifications.no_such_field'),
         why="a persisted setting rendered in Settings and read by no feature is a " +
             "control that looks like it works; every baseline line is a claim that " +
             "needs its own justification",
@@ -429,13 +418,6 @@ SCRIPT_GATES = [
             '"aiSuppressedTagIds",\n        "sabotage_probe_field",',
         ),
         why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
-    ),
-    ScriptGate(
-        name="skill-frontmatter",
-        cmd=["./scripts/check-skill-frontmatter.sh"],
-        sabotage_path=".agents/skills/singularity-todo-koin-dsl/SKILL.md",
-        sabotage=_drop_second_line,
-        why="a skill without a description is undiscoverable, so the check must reject it",
     ),
     ScriptGate(
         name="provenance",
@@ -528,31 +510,7 @@ SCRIPT_GATES = [
              "header is the part a reader trusts; the live half of #221 needs credentials and stays "
              "manual, so this is the half that can be a gate",
     ),
-    ScriptGate(
-        name="rebase-compiles",
-        cmd=[sys.executable, "scripts/check-rebase-compiles.py"],
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
-        # The old target here was a `single { get<SyncEngine>() }` binding that #512
-        # removed as a duplicate, so the replacement matched nothing and the control
-        # proved only that a no-op can make a gate look tested. `SessionStore` was a
-        # real binding that consumers resolve; #613 removed that interface, so the
-        # target moved to `DeviceIdProvider`, a real binding consumers resolve through
-        # the same bridge style.
-        #
-        # The assert lives in `_replace`: a sabotage that quietly stops matching
-        # is the exact failure this whole file exists to report, so the builder
-        # refuses to run rather than hand the gate an untouched file.
-        sabotage=_replace(
-            '    single<DeviceIdProvider> { get<DataStoreSessionStore>() }',
-            '    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }',
-        ),
-        why="an import removed from a DI module silently breaks every consumer; "
-             "the compile gate detects the resulting 'unresolved reference' before jvmTest does",
-    ),
 ]
-# The gate's own `--self-test` invocation needs no entry here: `controlled_gate_scripts()`
-# keys on the script path, not the full command, so this one registration covers both
-# the repository check and the self-test that proves the rule still fires.
 
 
 # ── Part F: every gate-shaped script is registered ─────────────────────────

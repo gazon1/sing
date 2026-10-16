@@ -38,7 +38,6 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -216,7 +215,12 @@ fun syncModule(): org.koin.core.module.Module = module {
 
     // Backoff policy for rejected patches. One instance so the outbox, the push path
     // and the settings screen all agree on what "too many attempts" means.
-    singleOf(::PatchRetryPolicy)
+    //
+    // Explicit lambda, not `singleOf(::PatchRetryPolicy)`: Koin resolves the constructor
+    // reflectively and does NOT apply Kotlin default arguments, so `singleOf` demands a
+    // `Long` in the graph for `baseDelayMs` and `maxDelayMs` and fails at resolution time
+    // with NoDefinitionFoundException. Constructing it here applies those defaults.
+    single { PatchRetryPolicy() }
 
     // Per-scope sync state, in the database rather than in flat preferences — the
     // download cursor is meaningless without knowing whose cursor it is. The legacy

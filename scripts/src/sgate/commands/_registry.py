@@ -425,11 +425,44 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/build-version-catalog-gate.py': Control(kind='exempt', proves='scripts/build-version-catalog-gate.py', reason='auto-generator: the gate proves version catalog is clean by checking for undeclared literals; the sabotage is removing the generated catalog file and asserting the gate fails — but the generator is the gate, so `test_version_catalog_gate_self_repairs` is the real control'),
     'scripts/tests': Control(kind='exempt', proves='scripts/tests', reason='meta-gate: `python3 -m unittest discover` is the gate; corrupting a test file would be the sabotage, but the unittest runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
     'scripts/find-unwired-surfaces.py': Control(kind='exempt', proves='scripts/find-unwired-surfaces.py', reason="Part J cross-check itself is the control: the --registry-cross flag verifies this gate has no sabotage control and documents the exemption; the script's own test is scripts/tests/test_find_unwired_surfaces.py"),
+    'scripts/check-gate-liveness.py': Control(
+        kind='exempt',
+        proves='scripts/tests/test_check_gate_liveness.py',
+        reason=(
+            'the gate *executes* other gates, so a sabotage control has to corrupt a script a '
+            'registered gate actually runs — and three successive targets did not. '
+            'check-kiwi-inventory-ratchet.py went with the retired Kiwi stand; '
+            'check-backlog-issue-refs.py went with the removed backlog-issue-refs gate; '
+            'check-skill-drift.py is not the script `sgate skills_describe_the_tools_that_exist` '
+            'executes, so the injected raise never ran. All three passed a deliberately sabotaged '
+            'input, i.e. they certified nothing. The proving is '
+            'scripts/tests/test_check_gate_liveness.py (registry parsing, the heavyweight filter, '
+            'the self-match skip) plus `check.sh`, which runs this gate for real on every '
+            'invocation. A working control is still available if wanted: synthesise a two-gate '
+            'registry fixture and assert the probe reports the dead entry.'
+        ),
+    ),
     'scripts/gen-detekt-rules-config.py': Control(kind='exempt', proves='scripts/gen-detekt-rules-config.py', reason='auto-generator: sabotage is deleting the generated config and asserting the gate fails; equivalent to `rm config/detekt/detekt-rules.yml && gate detekt-rules-config` — the output-diff is the control'),
     'scripts/gen-detekt-rule-table.py': Control(kind='exempt', proves='scripts/gen-detekt-rule-table.py', reason='auto-generator: sabotage is deleting the generated table and asserting the gate fails; equivalent to `rm docs/detekt/rule_table.md && gate detekt-rule-inventory` — the output-diff is the control'),
     'scripts/check-detekt-registrations.sh': Control(kind='exempt', proves='scripts/check-detekt-registrations.sh', reason='shell-gate: the sabotage is removing a rule from the registrations file and asserting the gate fails; equivalent to `rm config/detekt/rule_registrations.toml && gate detekt-rule-registry` — but Part J cross-check itself is what catches it when the control goes missing'),
     'scripts/ci/validate-maestro-selectors.py': Control(kind='exempt', proves='scripts/ci/validate-maestro-selectors.py', reason='CI-only gate: runs in the Maestro flow job, not locally; sabotage would be corrupting the selector files and asserting the gate fails; Part J cross-check itself is the backstop when the control goes missing'),
     'scripts/regen-skills-catalog.sh': Control(kind='exempt', proves='scripts/regen-skills-catalog.sh', reason='shell-gate auto-generator: sabotage is removing the generated catalog and asserting the gate fails; equivalent to `rm docs/SKILLS-CATALOG.md && gate skills-catalog` — the output-diff is the control'),
+    'traceability': Control(
+        kind='exempt',
+        proves='scripts/tests/test_traceability.py',
+        reason=(
+            'corpus-scanning gates ("scenario specs valid", "coverage matrix current"), invoked '
+            'as `python3 -m traceability` rather than by script path — so the registry records '
+            'the module name, not a file, and no single committed file is their input. The '
+            'proving is scripts/tests/test_traceability.py, which asserts the rejections '
+            'directly: `test_p0_is_rejected`, `test_declared_area_must_match_the_path`, '
+            '`test_matching_declared_area_is_accepted`. Adding a sabotage control here would '
+            'mean corrupting a real scenario spec and re-running a full corpus scan on every '
+            'gate-wiring check, to re-prove what those unit tests already pin. If a control is '
+            'wanted later, the cheap honest form is a FIXTURE: synthesise a two-spec corpus and '
+            'assert `traceability validate` rejects it.'
+        ),
+    ),
 }
 
 # Populate `GateSpec.control` from the declarations above.

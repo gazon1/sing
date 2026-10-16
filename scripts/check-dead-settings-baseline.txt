@@ -55,11 +55,3 @@ Greeting.afternoonEndHour
 Notifications.sound
 Notifications.vibration
 
-# --- Notifications — the documented live instance ---------------------------
-# See docs/decisions/2026-10-07-reminders-capability-gate.md. "Default Reminder"
-# is persisted, exported, imported and rendered, and no task is ever given it.
-# On top of that, Desktop now refuses task reminders outright
-# (ReminderScheduler.isSupported = false), so on that platform the value could not
-# take effect even if it were wired. Product call: wire into TaskCreateViewModel,
-# or hide the control.
-Notifications.no_such_field

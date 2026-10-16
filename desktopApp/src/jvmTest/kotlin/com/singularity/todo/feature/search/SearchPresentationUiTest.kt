@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performTextInput
 import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
 import com.singularity.todo.test.helpers.assertTextEnabled
-import com.singularity.todo.test.helpers.assertTextNotEnabled
+import com.singularity.todo.test.helpers.assertButtonNotEnabled
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
@@ -57,7 +57,7 @@ class SearchPresentationUiTest {
             onNode(hasSetTextAction()).performTextClearance()
 
             // Save button must be disabled for blank input
-            assertTextNotEnabled("Save")
+            assertButtonNotEnabled("Save")
         }
 
     @Test
@@ -124,7 +124,7 @@ class SearchPresentationUiTest {
 
             onNode(hasSetTextAction()).performTextClearance()
 
-            assertTextNotEnabled("Rename")
+            assertButtonNotEnabled("Rename")
         }
 
     @Test

@@ -185,11 +185,28 @@ jobs:
 
           # Verify signing: the certificate SHA-256 fingerprint must match the repo
           # variable (never trust an APK you did not build to have the right key).
-          cert_sha256=$(keytool -printcert -jarfile "$apk" 2>/dev/null \
-            | sed -n 's/SHA-256: \(.*\)/\1/p' \
+          #
+          # apksigner, not `keytool -printcert -jarfile`: that reads the certificate from
+          # META-INF/*.RSA, which only a v1 (JAR) signature writes. minSdk is 26, so AGP
+          # does not produce a v1 signature at all and keytool finds nothing to print —
+          # it exits quietly, the fingerprint comes back empty, and the check fails with
+          # "got , want …" while the APK is in fact correctly signed. apksigner reads the
+          # v2/v3 block and is the tool that matches how this APK is actually signed.
+          # It is taken from the same build-tools directory as aapt2 above, so the two
+          # never disagree about versions.
+          apksigner="$(dirname "$aapt2")/apksigner"
+          if [[ ! -x "$apksigner" ]]; then
+            echo "::error::No apksigner at $apksigner — is the build-tools install complete?"
+            exit 1
+          fi
+          cert_sha256=$("$apksigner" verify --print-certs "$apk" \
+            | sed -n 's/.*certificate SHA-256 digest: *//p' \
+            | head -n1 \
             | tr -d ': \n' \
             | tr '[:upper:]' '[:lower:]')
           expected_sha256=${{ vars.ANDROID_CERT_FINGERPRINT }}
+          [[ -n "$cert_sha256" ]] \
+            || { echo "::error::Could not read a signing certificate from $apk"; exit 1; }
           [[ "$cert_sha256" == "$expected_sha256" ]] \
             || { echo "::error::APK signing cert mismatch (got $cert_sha256, want $expected_sha256)"; exit 1; }
 
@@ -224,12 +241,18 @@ jobs:
 
       - name: Package
         run: |
+          # -PpackageVersion is required, not optional: without it the Gradle build falls
+          # back to its own default ("0.1.0") and the verify step below then compares that
+          # against the tag and fails for every version that is not 0.1.0. The full version
+          # goes in, suffix included — rpm splits it into VERSION/RELEASE and deb takes it
+          # as-is, which is exactly what the verify step reconstructs.
           case "${{ matrix.fmt }}" in
-            deb) ./gradlew :desktopApp:packageDeb ;;
-            rpm) ./gradlew :desktopApp:packageRpm ;;
+            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$VERSION" ;;
+            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$VERSION" ;;
           esac
         env:
           FMT: ${{ matrix.fmt }}
+          VERSION: ${{ needs.meta.outputs.version }}
 
       - name: Stage and verify the packaged version
         env:
@@ -259,11 +282,19 @@ jobs:
                 exit 1
               fi
               f="${matches[0]}"
-              # RPM VERSION field contains only the upstream number; RELEASE carries the suffix.
               ver=$(rpm -qp --queryformat '%{VERSION}' "$f")
               rel=$(rpm -qp --queryformat '%{RELEASE}' "$f")
               # Reconstruct the full version as the package evaluator sees it.
-              embedded="$ver${rel:+-$rel}"
+              #
+              # RELEASE 1 is jpackage's default packaging revision, not a version suffix:
+              # rpm built from 0.2.1 reports 0.2.1-1. Appending it unconditionally made
+              # every plain release fail the comparison below against its own tag, while a
+              # genuine prerelease suffix (0.2.1-rc.1 -> RELEASE=rc.1) must still count.
+              if [[ -n "$rel" && "$rel" != "1" ]]; then
+                embedded="$ver-$rel"
+              else
+                embedded="$ver"
+              fi
               ;;
           esac
           echo "embedded $FMT version: $embedded"

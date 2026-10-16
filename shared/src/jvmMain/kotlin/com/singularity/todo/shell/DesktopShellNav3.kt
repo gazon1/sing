@@ -3,6 +3,8 @@ package com.singularity.todo.shell
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -158,7 +160,19 @@ fun DesktopShellNav3Root(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize()) {
+                // Five tabs + a divider + eight menu entries is a fixed column that is
+                // taller than a 1024x768 window, so without a scroll the trailing entries —
+                // Settings last of all — are clipped and unreachable. The drawer looked
+                // complete while one destination simply could not be opened, and a click on
+                // the clipped node resolves in the semantics tree but lands outside the
+                // window, so the navigation it names silently never happens. Same defect and
+                // same fix as the settings nav rail (see SettingsNavRail).
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                ) {
                     Text(
                         text = "Navigation",
                         style = MaterialTheme.typography.labelMedium,

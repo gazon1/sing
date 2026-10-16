@@ -11,7 +11,7 @@ import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
-import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -72,7 +72,7 @@ class CalendarSyncImportScenarioTest {
             ),
         ) {
             openDrawer()
-            clickContentDescription("Settings")
+            clickContentDescriptionScrolled("Settings")
             clickTag(TestTags.settingsTab("Calendar"))
             clickTag(TestTags.CalendarSync.providerSegment("Google Calendar"))
 

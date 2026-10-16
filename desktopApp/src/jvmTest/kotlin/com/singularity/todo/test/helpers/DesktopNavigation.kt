@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 
 /**
  * Content descriptions of the desktop shell's own controls.
@@ -133,7 +134,11 @@ fun DesktopComposeUiTest.goBack() = step("goBack") {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.tapTab(label: String) = step("tapTab", label) {
     openDrawer()
-    onNode(drawerEntry(label)).performClick()
+    // Scroll before clicking: the drawer's trailing entries sit below the fold of the
+    // 1024x768 test window, and clicking a composed-but-off-screen node dispatches to a
+    // coordinate outside the window — a no-op that never closes the drawer, so the wait
+    // below would fail on the symptom instead of the cause.
+    onNode(drawerEntry(label)).performScrollTo().performClick()
     waitUntil(
         conditionDescription = "drawer closes after selecting '$label'",
         timeoutMillis = TIMEOUT_MS,

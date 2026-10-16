@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -20,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
 
 /** Generous upper bound; real transitions settle in well under a second. */
@@ -338,6 +340,24 @@ fun DesktopComposeUiTest.assertContentDescriptionDisplayed(desc: String) {
 }
 
 /**
+ * [assertContentDescriptionDisplayed] for a node that may sit below the fold of a
+ * scrollable container: scrolls it into view first, then asserts.
+ *
+ * The difference is the whole point. "Displayed" is a claim that the user can see the
+ * node *right now*; in a scrolling column that is false for the trailing entries until
+ * someone scrolls, and true afterwards. "Reachable" is the claim a navigation test
+ * actually wants, and it is the one that keeps failing if the container stops scrolling.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertContentDescriptionReachable(desc: String) {
+    awaitContentDescription(desc).performScrollTo()
+    awaitDisplayed(
+        matcher = hasContentDescription(desc),
+        description = "node with contentDescription '$desc' is displayed after scrolling",
+    )
+}
+
+/**
  * The generic display-wait: waits until the first node matching [matcher] is
  * *displayed*, then asserts it. Use for composite matchers no tag/text/cdesc
  * helper covers — e.g. `hasText("Edit") and hasClickAction()` — so that a
@@ -395,6 +415,39 @@ fun DesktopComposeUiTest.assertTextEnabled(text: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.assertTextNotEnabled(text: String) {
     awaitText(text).assertIsNotEnabled()
+}
+
+/**
+ * [assertTextNotEnabled] for a *button* whose label is [text].
+ *
+ * The two are not interchangeable. `assertTextNotEnabled("Rename")` matches the `Text`
+ * inside the button, and that node carries no `Disabled` property — `enabled = false` on
+ * a Material3 `TextButton` decorates the button node, not its label. So the text-level
+ * assertion fails on a correctly disabled control, and passes on a button that was never
+ * disabled at all: it says nothing about the thing under test.
+ *
+ * `hasClickAction()` selects the control rather than its label. A disabled
+ * `Modifier.clickable` keeps its click semantics and adds `Disabled`, so this matcher
+ * still resolves while the control is off — and `assertIsEnabled`/`assertIsNotEnabled`
+ * then read the property that actually describes the button.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertButtonNotEnabled(text: String) {
+    awaitDisplayed(
+        matcher = hasText(text) and hasClickAction(),
+        description = "button labelled '$text' is displayed",
+    )
+    onNode(hasText(text) and hasClickAction()).assertIsNotEnabled()
+}
+
+/** [assertButtonNotEnabled] for a button that must be enabled. */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertButtonEnabled(text: String) {
+    awaitDisplayed(
+        matcher = hasText(text) and hasClickAction(),
+        description = "button labelled '$text' is displayed",
+    )
+    onNode(hasText(text) and hasClickAction()).assertIsEnabled()
 }
 
 /**
