@@ -360,3 +360,57 @@ regression, which is how an unreachable floor was recorded in the first place.
 - **Given** an existing floor entry
 - **When** the floor is updated from a run whose counts are lower
 - **Then** the tool does not report it as a rise
+
+### Requirement: REQ-16 A CI step's reported status is its command's status
+
+A CI job step SHALL report failure when the command it runs fails.
+
+Where a step's command is a pipeline, the step SHALL arrange for the pipeline's
+exit status to be the status of the **command that can fail**, and not of a
+trailing `tee`, `cat`, or similar. Enabling `pipefail`, or asserting
+`${PIPESTATUS[0]}` explicitly, are the two forms that satisfy this.
+
+A step that is intended to be advisory SHALL declare it as advisory — through
+`continue-on-error` or an explicit `|| true` — and SHALL NOT use a declaration
+as a substitute for fixing a failure the step surfaced.
+
+**Rationale:** `ci.yml` ran its entire Gradle phase as
+`./gradlew … 2>&1 | tee build.log`. GitHub executes `run:` with `bash -e {0}`,
+which sets errexit but **not** `pipefail`, so the pipeline returned `tee`'s exit
+status — always 0. The step reported success for every Gradle outcome, including
+`:shared:detekt FAILED` and `:androidApp:detekt FAILED`; run `38902346697` is
+green and contains both. Every other requirement in this spec constrains a check
+that *runs* — and all of them were downstream of a step whose failures could not
+be reported at all.
+
+This is the same defect class as REQ-13 and REQ-14 one level up. Those make a
+check that runs be unable to fail; this makes the *report* of the check unable to
+be wrong. It is strictly worse, because every other invariant here depends on it.
+
+The second property exists because `|| true` was doing two jobs at once. On
+`ci.yml` it marked a summary-rendering step advisory, and it also swallowed a
+genuine Gradle validation error
+(`:adr-core:koverGenerateArtifact` using `:adr-core:compileKotlinJvm`'s output
+without a declared dependency). The marker was not lying — the step is advisory —
+but it was hiding a real defect behind a declaration that looked honest.
+
+#### Scenario: A failing build behind a pipe
+
+- **Given** a CI step whose command is `./gradlew … 2>&1 | tee build.log`
+- **When** `./gradlew` exits non-zero
+- **Then** the step SHALL be reported as failed
+- **And** the log file SHALL still contain the build output
+
+#### Scenario: A pipeline with an intentionally failing member
+
+- **Given** a step whose pipeline contains a command expected to fail
+- **When** the step runs
+- **Then** the step SHALL report the status of that command unless it declares
+  itself advisory
+
+#### Scenario: An advisory step surfaces a real failure
+
+- **Given** an advisory step whose underlying command reports a genuine defect
+- **When** the step runs
+- **Then** the defect SHALL be recorded where a later step or issue can act on it
+- **And** an advisory marker SHALL NOT be the only record of it

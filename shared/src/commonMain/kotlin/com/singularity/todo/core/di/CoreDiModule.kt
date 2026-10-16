@@ -14,7 +14,6 @@ import com.singularity.todo.core.auth.AuthGateway
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
-import com.singularity.todo.core.auth.DevAuthRepository
 import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.SupabaseAuthGateway
@@ -27,7 +26,6 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.StubRemoteBackupService
-import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
@@ -40,7 +38,6 @@ import com.singularity.todo.core.notifications.NotificationsContributor
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.platform.monoClockMillis
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.security.SecureStorageAdapter
@@ -72,8 +69,6 @@ import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
-import com.singularity.todo.feature.sync.presentation.SyncViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first

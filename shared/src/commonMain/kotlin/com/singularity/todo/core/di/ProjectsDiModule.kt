@@ -1,6 +1,5 @@
 package com.singularity.todo.core.di
 
-import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository

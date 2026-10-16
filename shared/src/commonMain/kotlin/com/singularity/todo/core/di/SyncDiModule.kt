@@ -3,7 +3,6 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.platform.monoClockMillis
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
-import com.singularity.todo.core.sync.DeviceIdProvider
 import com.singularity.todo.core.sync.HlcFactory
 import com.singularity.todo.core.sync.OutboxService
 import com.singularity.todo.core.sync.PatchRetryPolicy

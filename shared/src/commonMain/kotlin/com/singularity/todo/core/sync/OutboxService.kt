@@ -1,7 +1,6 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.flow.first

@@ -6,7 +6,6 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
