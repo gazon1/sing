@@ -98,65 +98,19 @@ fun ChangePasswordScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Enter a new password for your account.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Password field
-            OutlinedTextField(
-                value = password,
-                onValueChange = {
+            ChangePasswordForm(
+                password = password,
+                isLoading = state is ChangePasswordUiState.Loading,
+                errorMessage = errorMessage,
+                onPasswordChange = {
                     password = it
                     errorMessage = null
                 },
-                label = { Text("New Password") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(PASSWORD_TAG),
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                isError = errorMessage != null,
+                onSubmit = {
+                    errorMessage = null
+                    viewModel.onIntent(ChangePasswordIntent.Submit(password))
+                },
             )
-
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = errorMessage!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (state is ChangePasswordUiState.Loading) {
-                ButtonSpinner(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(TestTags.AUTH_LOADING),
-                )
-            } else {
-                Button(
-                    onClick = {
-                        errorMessage = null
-                        viewModel.onIntent(ChangePasswordIntent.Submit(password))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(SUBMIT_TAG),
-                    enabled = password.isNotBlank(),
-                ) {
-                    Text("Change Password")
-                }
-            }
         }
     }
 }
@@ -212,58 +166,83 @@ internal fun ChangePasswordScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Enter a new password for your account.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ChangePasswordForm(
+                password = password,
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onPasswordChange = onPasswordChange,
+                onSubmit = onSubmit,
             )
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(32.dp))
+/**
+ * The password form, from the intro text down to the Change Password button.
+ *
+ * Shared by [ChangePasswordScreen] and [ChangePasswordScreenContent], which differ
+ * only in where the password and the error come from — the two used to be two copies
+ * of this block, and only one of them could be right after a label change.
+ */
+@Composable
+private fun ChangePasswordForm(
+    password: String,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onPasswordChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
+    Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = { Text("New Password") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(PASSWORD_TAG),
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                isError = errorMessage != null,
-            )
+    Text(
+        text = "Enter a new password for your account.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = errorMessage!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
-                )
-            }
+    Spacer(modifier = Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+    // Password field
+    OutlinedTextField(
+        value = password,
+        onValueChange = onPasswordChange,
+        label = { Text("New Password") },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(PASSWORD_TAG),
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        singleLine = true,
+        isError = errorMessage != null,
+    )
 
-            if (isLoading) {
-                ButtonSpinner(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(TestTags.AUTH_LOADING),
-                )
-            } else {
-                Button(
-                    onClick = onSubmit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(SUBMIT_TAG),
-                    enabled = password.isNotBlank(),
-                ) {
-                    Text("Change Password")
-                }
-            }
+    if (errorMessage != null) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = errorMessage,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag(TestTags.AUTH_ERROR_TEXT),
+        )
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    if (isLoading) {
+        ButtonSpinner(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_LOADING),
+        )
+    } else {
+        Button(
+            onClick = onSubmit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(SUBMIT_TAG),
+            enabled = password.isNotBlank(),
+        ) {
+            Text("Change Password")
         }
     }
 }

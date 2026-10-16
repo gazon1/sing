@@ -130,12 +130,22 @@ jobs:
       # signal (those children) is exactly what we want, and a test that fails
       # one attempt and passes another is what we are counting. A retry would
       # mask the very nondeterminism this job exists to measure.
+      #
+      # `set -o pipefail` for the same reason as ci.yml, and it matters more here:
+      # without it this step reported success for a fully red test suite, and the job
+      # that exists to measure flakiness would have measured nothing while its
+      # artifacts looked healthy. A flake is "pass then fail", so a broken build that
+      # never reports failure is also a build that never reports a flake.
+      #
+      # The comparison steps below read `attempt-*.log` and the uploaded JUnit XML,
+      # not this step's status, so nothing downstream depended on it being 0.
       - name: Gradle (full test suite, attempt ${{ matrix.attempt }})
-        run: >
-          ./gradlew --no-parallel --rerun-tasks
-          :shared:jvmTest :desktopApp:test
-          -Ptest.tags=fast,slow
-          2>&1 | tee attempt-${{ matrix.attempt }}.log
+        run: |
+          set -o pipefail
+          ./gradlew --no-parallel --rerun-tasks \
+            :shared:jvmTest :desktopApp:test \
+            -Ptest.tags=fast,slow \
+            2>&1 | tee attempt-${{ matrix.attempt }}.log
 
       # Uploaded unconditionally and under a per-attempt name: a result set that
       # exists solely when something broke cannot answer "which tests flaked on

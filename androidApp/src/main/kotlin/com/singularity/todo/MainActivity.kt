@@ -38,8 +38,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val resolved = resolveDeepLinkIntents(intent)
-        if (resolved.deeplinkTaskId != null || resolved.deeplinkViewId != null ||
-            resolved.deeplinkMagicEmail != null || resolved.deeplinkMagicToken != null) {
+        // Split into two named checks rather than one four-term condition: `ComplexCondition`
+        // reads a single long `||` chain as a smell, and this one was not one — it is
+        // "did the intent resolve to anything", which is one question with four answers.
+        val hasDeepLink = resolved.deeplinkTaskId != null || resolved.deeplinkViewId != null
+        val hasMagicLink = resolved.deeplinkMagicEmail != null || resolved.deeplinkMagicToken != null
+        if (hasDeepLink || hasMagicLink) {
             setContent {
                 App(
                     deeplinkViewId = resolved.deeplinkViewId,

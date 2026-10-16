@@ -7,6 +7,7 @@ import com.singularity.todo.core.error.fold
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -99,6 +100,107 @@ class DebugSeedActivity :
         }
     }
 
+    /**
+     * The profile the entities must land in, switched before anything is written.
+     *
+     * Split out of [seed] because it is the one part of seeding that is not a single
+     * entity write: `switchTo` moves `activeProfileId`, which is what
+     * `ProfileAwareCurrentUser.scopedUserId` resolves against, so it has to happen
+     * before the first insert rather than alongside the others.
+     */
+    private suspend fun switchToProfileIfRequested(
+        params: Map<String, String>,
+        profileRepo: ProfileRepository,
+    ) {
+        if (!params.containsKey("profile")) return
+        val profileName = params["profile"]!!
+        val existing = profileRepo.findByName(profileName)
+        if (existing != null) {
+            profileRepo.switchTo(existing.id)
+            return
+        }
+        val now = Clock.System.now()
+        val newProfile = Profile(
+            id = ProfileId.generate(),
+            name = profileName,
+            emoji = "🔹",
+            colorIdx = 0,
+            isDefault = false,
+            createdAt = now,
+            updatedAt = now,
+        )
+        profileRepo.create(newProfile)
+        profileRepo.switchTo(newProfile.id)
+    }
+
+    /** Seeds the one entity the params name. A link seeds at most one kind. */
+    private suspend fun seedEntity(
+        params: Map<String, String>,
+        userId: UserId,
+        taskRepo: TaskRepository,
+        notesRepo: NotesRepository,
+        projectsRepo: ProjectsRepository,
+    ) {
+        when {
+            params.containsKey("task") -> seedTask(params, userId, taskRepo)
+
+            params.containsKey("note") -> notesRepo.createNoteWithTitle(params["note"]!!)
+
+            params.containsKey("project") -> seedProject(params, userId, projectsRepo)
+
+            // Profile creation and switch are handled by switchToProfileIfRequested.
+            params.containsKey("profile") -> Unit
+        }
+    }
+
+    private suspend fun seedTask(
+        params: Map<String, String>,
+        userId: UserId,
+        taskRepo: TaskRepository,
+    ) {
+        val title = params["task"]!!
+        val dueDate = params["due"]?.let { resolveDate(it) }
+        val now = Clock.System.now()
+
+        val input: CreateTaskInput = TaskDomain.createInput(
+            title = title,
+            kind = TaskKind.Task,
+            dueDate = dueDate,
+        ).fold(
+            left = { error -> throw IllegalArgumentException("Invalid input: $error") },
+            right = { it },
+        )
+
+        taskRepo.upsert(
+            TaskDomain.buildTask(
+                input = input,
+                id = TaskId.generate(),
+                createdAt = now,
+                updatedAt = now,
+                userId = userId,
+            ),
+        )
+    }
+
+    private suspend fun seedProject(
+        params: Map<String, String>,
+        userId: UserId,
+        projectsRepo: ProjectsRepository,
+    ) {
+        val now = Clock.System.now()
+        projectsRepo.create(
+            Project(
+                id = ProjectId.generate(),
+                name = params["project"]!!,
+                color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
+                description = null,
+                createdAt = now,
+                updatedAt = now,
+                userId = userId,
+            ),
+        )
+    }
+
     private suspend fun seed(params: Map<String, String>) {
         val taskRepo: TaskRepository by inject()
         val notesRepo: NotesRepository by inject()
@@ -106,115 +208,25 @@ class DebugSeedActivity :
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
 
-        // Cleanup wins over seeding: a cleanup link carries no entity params, and
-        // honouring both would mean a link that deletes the fixture it just made.
-        if (params.containsKey("reset")) {
-            resetContent(
-                taskRepo = taskRepo,
-                notesRepo = notesRepo,
-                projectsRepo = projectsRepo,
-            )
-            return
-        }
-
-        params["cleanup"]?.let { prefixes ->
-            cleanup(
-                prefixes = prefixes.split(',').map { it.trim() }.filter { it.isNotEmpty() },
-                taskRepo = taskRepo,
-                notesRepo = notesRepo,
-                projectsRepo = projectsRepo,
-            )
-            return
-        }
-
         // Ensure default profile exists so repositories are functional.
         profileRepo.ensureDefaults()
 
         // Switch to the target profile BEFORE seeding any entity.
         // This updates activeProfileId, which in turn updates
         // ProfileAwareCurrentUser.scopedUserId — used by createNoteWithTitle.
-        if (params.containsKey("profile")) {
-            val profileName = params["profile"]!!
-            val existing = profileRepo.findByName(profileName)
-            if (existing != null) {
-                profileRepo.switchTo(existing.id)
-            } else {
-                val now = Clock.System.now()
-                val newProfile = Profile(
-                    id = ProfileId.generate(),
-                    name = profileName,
-                    emoji = "🔹",
-                    colorIdx = 0,
-                    isDefault = false,
-                    createdAt = now,
-                    updatedAt = now,
-                )
-                profileRepo.create(newProfile)
-                profileRepo.switchTo(newProfile.id)
-            }
-        }
+        switchToProfileIfRequested(params, profileRepo)
 
         // Use the scoped userId for all entity writes. When profile= was given,
         // switchTo above updated activeProfileId so currentUser.current returns
         // the correct scoped id. When no profile= was given, this is the current
         // profile's scoped userId.
-        val userId = currentUser.current
-
-        when {
-            params.containsKey("task") -> {
-                val title = params["task"]!!
-                val dueDate = params["due"]?.let { resolveDate(it) }
-                val now = Clock.System.now()
-
-                val input: CreateTaskInput = TaskDomain.createInput(
-                    title = title,
-                    kind = TaskKind.Task,
-                    dueDate = dueDate,
-                ).fold(
-                    left = { error -> throw IllegalArgumentException("Invalid input: $error") },
-                    right = { it },
-                )
-
-                val task = TaskDomain.buildTask(
-                    input = input,
-                    id = TaskId.generate(),
-                    createdAt = now,
-                    updatedAt = now,
-                    userId = userId,
-                )
-
-                taskRepo.upsert(task)
-            }
-
-            params.containsKey("note") -> {
-                val title = params["note"]!!
-                // createNoteWithTitle reads currentUser.scopedUserId internally.
-                // Since we called switchTo above when profile= was given,
-                // scopedUserId is already correct for the target profile.
-                notesRepo.createNoteWithTitle(title)
-            }
-
-            params.containsKey("project") -> {
-                val name = params["project"]!!
-                val now = Clock.System.now()
-
-                val project = Project(
-                    id = ProjectId.generate(),
-                    name = name,
-                    color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
-                    description = null,
-                    createdAt = now,
-                    updatedAt = now,
-                    userId = userId,
-                )
-
-                projectsRepo.create(project)
-            }
-
-            params.containsKey("profile") -> {
-                // Profile creation and switch already handled above.
-            }
-        }
+        seedEntity(
+            params = params,
+            userId = currentUser.current,
+            taskRepo = taskRepo,
+            notesRepo = notesRepo,
+            projectsRepo = projectsRepo,
+        )
     }
 
     /**

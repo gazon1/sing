@@ -1,7 +1,6 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.appearance.AppearanceContributor
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
@@ -69,8 +68,11 @@ import com.singularity.todo.feature.reminders.data.ReminderRepositoryImpl
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
+<<<<<<< Updated upstream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+=======
+>>>>>>> Stashed changes
 import kotlinx.coroutines.flow.first
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -182,12 +184,17 @@ fun coreModule(): org.koin.core.module.Module =
         // AuthRepository: real Supabase-backed implementation.
         // For CI эмулятор testing without Supabase, use testAuthModule() which
         // overrides this binding via SingularityApp.extraKoinModules with allowOverride=true.
+        // The scope is the `reportingScope` factory bound above rather than a
+        // hand-rolled `SupervisorJob() + Dispatchers.Default`: choosing the dispatcher
+        // is the platform layer's job (`NoDirectDispatchers` says so), and the factory
+        // is where the failure handler — mandatory, per `createBackgroundScope` — is
+        // attached. Same SupervisorJob, same dispatcher, one less place to forget.
         single<AuthRepository> {
             SupabaseAuthRepository(
                 log = Logger.withTag("AuthRepository"),
                 gateway = get(),
                 sessionStore = get(),
-                scope = AutoCloseableCoroutineScope(SupervisorJob() + Dispatchers.Default),
+                scope = get(),
             )
         }
 

@@ -56,118 +56,22 @@ fun AccountSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         activeProfile?.let { profile ->
-            SettingsSection(title = "Account") {
-                Text(
-                    text = "Active profile",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = profile.emoji,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape),
-                    )
-                    Column {
-                        Text(
-                            text = profile.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = profile.id.value,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
+            ActiveProfileSection(profile)
         }
 
         // Change password — only shown for signed-in accounts.
         if (session is Session.SignedIn) {
-            SettingsSection(title = "Security") {
-                FilledTonalButton(
-                    onClick = { settingsNavigator.openChangePassword() },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                    Text(
-                        text = "  Change password",
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                }
-            }
+            ChangePasswordSection(onChangePassword = { settingsNavigator.openChangePassword() })
         }
 
-        SettingsSection(title = "Profiles") {
-            FilledTonalButton(
-                onClick = { settingsNavigator.openProfileSwitcher() },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Person, contentDescription = null)
-                Text(
-                    text = "  Switch profile",
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-            }
-            Text(
-                text = "Switch to a different profile (Personal, AI Agent, etc.). Each profile has its own tasks, projects, and tags.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
+        ProfileSwitcherSection(onSwitchProfile = { settingsNavigator.openProfileSwitcher() })
 
         // Attach account — only shown for anonymous sessions.
         if (authVm.session.value is Session.Anonymous) {
-            SettingsSection(title = "Account") {
-                FilledTonalButton(
-                    onClick = { settingsNavigator.openAttachAccount() },
-                    modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_ATTACH_ACCOUNT_BUTTON),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text(
-                        text = "  Attach account",
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                }
-                Text(
-                    text = "Create an account using your current anonymous session's data.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
+            AttachAccountSection(onAttachAccount = { settingsNavigator.openAttachAccount() })
         }
 
-        SettingsSection(title = "Sign out") {
-            FilledTonalButton(
-                onClick = { authVm.onIntent(AuthIntent.SignOut) },
-                modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_SIGN_OUT_BUTTON),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
-                Text(
-                    text = "  Sign out",
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-            }
-            Text(
-                text = "You will stay on this device. To remove all data, delete the app.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
+        SignOutSection(onSignOut = { authVm.onIntent(AuthIntent.SignOut) })
     }
 }
 
@@ -220,98 +124,147 @@ internal fun AccountSettingsScreenPreviewContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         activeProfile?.let { profile ->
-            SettingsSection(title = "Account") {
-                Text(
-                    text = "Active profile",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = profile.emoji,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape),
-                    )
-                    Column {
-                        Text(
-                            text = profile.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = profile.id.value,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
+            ActiveProfileSection(profile)
         }
 
         // Change password — only shown for signed-in accounts.
         if (session is Session.SignedIn) {
-            SettingsSection(title = "Security") {
-                FilledTonalButton(
-                    onClick = onChangePassword,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                    Text(
-                        text = "  Change password",
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                }
-            }
+            ChangePasswordSection(onChangePassword = onChangePassword)
         }
 
-        SettingsSection(title = "Profiles") {
-            FilledTonalButton(
-                onClick = onNavigateToProfileSwitcher,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Person, contentDescription = null)
-                Text(
-                    text = "  Switch profile",
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-            }
-            Text(
-                text = "Switch to a different profile (Personal, AI Agent, etc.). Each profile has its own tasks, projects, and tags.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
+        ProfileSwitcherSection(onSwitchProfile = onNavigateToProfileSwitcher)
 
-        SettingsSection(title = "Sign out") {
-            FilledTonalButton(
-                onClick = onSignOut,
-                modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_SIGN_OUT_BUTTON),
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
+        SignOutSection(onSignOut = onSignOut)
+    }
+}
+
+// ─── Sections ──────────────────────────────────────────────────────────────
+//
+// One definition per row of this screen, shared by [AccountSettingsScreen] and
+// [AccountSettingsScreenPreviewContent]. The two were byte-identical for three of
+// the four rows, so a label or test tag changed in one was a divergence the other
+// only revealed in a screenshot.
+
+@Composable
+private fun ActiveProfileSection(profile: Profile) {
+    SettingsSection(title = "Account") {
+        Text(
+            text = "Active profile",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = profile.emoji,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape),
+            )
+            Column {
                 Text(
-                    text = "  Sign out",
-                    modifier = Modifier.padding(end = 8.dp),
+                    text = profile.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = profile.id.value,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                text = "You will stay on this device. To remove all data, delete the app.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
         }
     }
 }
 
-// ─── Preview helpers ─────────────────────────────────────────────────────────
+/** Change password — only shown for signed-in accounts. */
+@Composable
+private fun ChangePasswordSection(onChangePassword: () -> Unit) {
+    SettingsSection(title = "Security") {
+        FilledTonalButton(
+            onClick = onChangePassword,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Person, contentDescription = null)
+            Text(
+                text = "  Change password",
+                modifier = Modifier.padding(end = 8.dp),
+            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+        }
+    }
+}
 
+@Composable
+private fun ProfileSwitcherSection(onSwitchProfile: () -> Unit) {
+    SettingsSection(title = "Profiles") {
+        FilledTonalButton(
+            onClick = onSwitchProfile,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Person, contentDescription = null)
+            Text(
+                text = "  Switch profile",
+                modifier = Modifier.padding(end = 8.dp),
+            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+        }
+        Text(
+            text = "Switch to a different profile (Personal, AI Agent, etc.). Each profile has " +
+                "its own tasks, projects, and tags.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
 
+/** Attach account — only shown for anonymous sessions. */
+@Composable
+private fun AttachAccountSection(onAttachAccount: () -> Unit) {
+    SettingsSection(title = "Account") {
+        FilledTonalButton(
+            onClick = onAttachAccount,
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_ATTACH_ACCOUNT_BUTTON),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Text(
+                text = "  Attach account",
+                modifier = Modifier.padding(end = 8.dp),
+            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+        }
+        Text(
+            text = "Create an account using your current anonymous session's data.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun SignOutSection(onSignOut: () -> Unit) {
+    SettingsSection(title = "Sign out") {
+        FilledTonalButton(
+            onClick = onSignOut,
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.AUTH_SIGN_OUT_BUTTON),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
+            Text(
+                text = "  Sign out",
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
+        Text(
+            text = "You will stay on this device. To remove all data, delete the app.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}

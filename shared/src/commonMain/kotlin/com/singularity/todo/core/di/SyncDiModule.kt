@@ -38,6 +38,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.scope.Scope
 import org.koin.dsl.module
 
 /**
@@ -115,77 +116,7 @@ fun syncModule(): org.koin.core.module.Module = module {
     // as a constructor parameter. Its init {} runs during this call and registers all
     // pull handlers. Previously it was a standalone single {} that nobody retrieved, so
     // Koin never instantiated it and zero handlers were registered in production.
-    single {
-        val state =
-            SyncEngineState(
-                log = Logger.withTag("SyncEngine"),
-                crashReporter = get(),
-            )
-        // Outbox write path: built after state so it can access state.phases.
-        val outboxService =
-            OutboxService(
-                outboxDao = get(),
-                patchBuilder = get(),
-                scopeProvider = get(),
-                engineState = state,
-                monoNow = { monoClockMillis },
-            )
-        val pushPhase =
-            PushPhase(
-                api = get(),
-                authRepository = get(),
-                outboxDao = get(),
-                deadLetterDao = get(),
-                shadowDao = get(),
-                idGenerator = get(),
-                scopeProvider = get(),
-                patchBuilder = get(),
-                monoNow = { monoClockMillis },
-                phases = state.phases,
-                writerProvider = { get<SyncDocumentWriter>() },
-                retryPolicy = get(),
-                scope = get(),
-            )
-        // getHandlers lambda uses get<SyncEngine>() — Koin resolves engine as a singleton,
-        // so this returns the same instance. The lambda is not invoked during construction.
-        val pullPhase =
-            PullPhase(
-                api = get(),
-                authRepository = get(),
-                stateRepository = get(),
-                clock = get(),
-                scopeProvider = get(),
-                phases = state.phases,
-                getHandlers = { get<SyncEngine>().handlers },
-                scope = get(),
-                hlcFactory = get(),
-            )
-        SyncEngine(
-            log = Logger.withTag("SyncEngine"),
-            api = get(),
-            authRepository = get(),
-            idGenerator = get(),
-            stateRepository = get(),
-            scopeProvider = get(),
-            shadowDao = get(),
-            patchBuilder = get(),
-            outboxService = outboxService,
-            _outboxDao = get(),
-            _deadLetterDao = get(),
-            writerProvider = { get<SyncDocumentWriter>() },
-            scheduler = get(),
-            retryPolicy = get(),
-            clock = get(),
-            scope = get(),
-            crashReporter = get(),
-            hlcFactory = get(),
-            state = state,
-            pushPhase = pushPhase,
-            pullPhase = pullPhase,
-            bootstrapper = null,
-            syncAuthBridge = get(),
-        )
-    }
+    single { syncEngine() }
 
     // Force bootstrapper instantiation so its init {} runs and registers handlers.
     //
@@ -241,17 +172,7 @@ fun syncModule(): org.koin.core.module.Module = module {
     }
 
     // SyncRunner is internal.
-    single {
-        SyncRunner(
-            engine = get(),
-            coordinator = get(),
-            periodicTrigger = get(),
-            authRepository = get(),
-            stateRepository = get(),
-            scopeProvider = get(),
-            scope = get(),
-        )
-    }
+    single { syncRunner() }
 
     // Public facade.
     single<SyncRepository> {
@@ -281,31 +202,12 @@ fun syncModule(): org.koin.core.module.Module = module {
     // SyncDocumentWriter: the one statement of "which repository stores which DocType".
     // Registered before the engine and the bootstrapper so both get the same table —
     // two lists would be two answers to that question. See #203.
-    single {
-        SyncDocumentWriter(
-            taskRepo = get<TaskRepository>(),
-            noteRepo = get<NotesRepository>(),
-            projectRepo = get<ProjectsRepository>(),
-            tagRepo = get<TagsRepository>(),
-            tagGroupRepo = get<TagGroupRepository>(),
-            timeTrackingRepo = get<TimeTrackingRepository>(),
-        )
-    }
+    single { syncDocumentWriter() }
 
     // SeedPlanner: the one-time upload of data that existed before sign-in. It
     // shares the bootstrapper's reach into the feature repositories for the same
     // reason — a bootstrapper is the one place that knows every entity type.
-    single {
-        SeedPlanner(
-            stateRepository = get(),
-            enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
-            taskRepo = get<TaskRepository>(),
-            noteRepo = get<NotesRepository>(),
-            projectRepo = get<ProjectsRepository>(),
-            tagRepo = get<TagsRepository>(),
-            tagGroupRepo = get<TagGroupRepository>(),
-        )
-    }
+    single { seedPlanner() }
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
 
@@ -324,3 +226,122 @@ fun syncModule(): org.koin.core.module.Module = module {
         )
     }
 }
+
+// ─── Binding bodies ─────────────────────────────────────────────────────────
+//
+// The `single { }` definitions stay inside `module { }` — that is where the Koin
+// compiler plugin sees the types and can check the graph. Only the constructor
+// calls moved out, into `Scope` receivers: a helper keeps `get()` inside the
+// definition's own laziness (the instance is still built on first `get<>()`), and
+// each one is now a name in the file rather than another forty lines of the
+// module function.
+
+/**
+ * The engine, and the three collaborators that must share its
+ * [SyncEngineState] — the outbox write path, the push phase and the pull phase.
+ * Built in that order because each of the last three reads `state.phases`.
+ */
+private fun Scope.syncEngine(): SyncEngine {
+    val state =
+        SyncEngineState(
+            log = Logger.withTag("SyncEngine"),
+            crashReporter = get(),
+        )
+    // Outbox write path: built after state so it can access state.phases.
+    val outboxService =
+        OutboxService(
+            outboxDao = get(),
+            patchBuilder = get(),
+            scopeProvider = get(),
+            engineState = state,
+            monoNow = { monoClockMillis },
+        )
+    val pushPhase =
+        PushPhase(
+            api = get(),
+            authRepository = get(),
+            outboxDao = get(),
+            deadLetterDao = get(),
+            shadowDao = get(),
+            idGenerator = get(),
+            scopeProvider = get(),
+            patchBuilder = get(),
+            monoNow = { monoClockMillis },
+            phases = state.phases,
+            writerProvider = { get<SyncDocumentWriter>() },
+            retryPolicy = get(),
+            scope = get(),
+        )
+    // getHandlers lambda uses get<SyncEngine>() — Koin resolves engine as a singleton,
+    // so this returns the same instance. The lambda is not invoked during construction.
+    val pullPhase =
+        PullPhase(
+            api = get(),
+            authRepository = get(),
+            stateRepository = get(),
+            clock = get(),
+            scopeProvider = get(),
+            phases = state.phases,
+            getHandlers = { get<SyncEngine>().handlers },
+            scope = get(),
+            hlcFactory = get(),
+        )
+    return SyncEngine(
+        log = Logger.withTag("SyncEngine"),
+        api = get(),
+        authRepository = get(),
+        idGenerator = get(),
+        stateRepository = get(),
+        scopeProvider = get(),
+        shadowDao = get(),
+        patchBuilder = get(),
+        outboxService = outboxService,
+        _outboxDao = get(),
+        _deadLetterDao = get(),
+        writerProvider = { get<SyncDocumentWriter>() },
+        scheduler = get(),
+        retryPolicy = get(),
+        clock = get(),
+        scope = get(),
+        crashReporter = get(),
+        hlcFactory = get(),
+        state = state,
+        pushPhase = pushPhase,
+        pullPhase = pullPhase,
+        bootstrapper = null,
+        syncAuthBridge = get(),
+    )
+}
+
+private fun Scope.syncRunner(): SyncRunner =
+    SyncRunner(
+        engine = get(),
+        coordinator = get(),
+        periodicTrigger = get(),
+        authRepository = get(),
+        stateRepository = get(),
+        scopeProvider = get(),
+        scope = get(),
+    )
+
+/** The one statement of "which repository stores which DocType". */
+private fun Scope.syncDocumentWriter(): SyncDocumentWriter =
+    SyncDocumentWriter(
+        taskRepo = get<TaskRepository>(),
+        noteRepo = get<NotesRepository>(),
+        projectRepo = get<ProjectsRepository>(),
+        tagRepo = get<TagsRepository>(),
+        tagGroupRepo = get<TagGroupRepository>(),
+        timeTrackingRepo = get<TimeTrackingRepository>(),
+    )
+
+private fun Scope.seedPlanner(): SeedPlanner =
+    SeedPlanner(
+        stateRepository = get(),
+        enqueue = { entity -> get<SyncEngine>().enqueue(entity) },
+        taskRepo = get<TaskRepository>(),
+        noteRepo = get<NotesRepository>(),
+        projectRepo = get<ProjectsRepository>(),
+        tagRepo = get<TagsRepository>(),
+        tagGroupRepo = get<TagGroupRepository>(),
+    )

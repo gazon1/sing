@@ -597,48 +597,68 @@ class DroppedResultIsReportedTest {
         var bestSpan = -1
 
         for (candidate in candidates) {
-            // Find the first `{` at depth 0 after the type keyword. This is the class body's
-            // opening brace. A naive `indexOf('{')` can misidentify a lambda `{` inside the
-            // constructor parameter list (e.g. `Logger.withTag(...) { ... }`) as the class body
-            // when `closingParen` returns early — so we scan forward from after the type keyword,
-            // tracking parentheses depth, and return the first `{` that appears when depth is 0.
-            var bodyOpen = -1
-            var parenDepth = 0
-            var i = candidate.range.last
-            while (i < source.length) {
-                when (source[i]) {
-                    '(' -> parenDepth++
-                    ')' -> parenDepth--
-                    '{' -> if (parenDepth == 0) { bodyOpen = i; break }
-                    '}' -> if (parenDepth == 0) break  // no body found
-                }
-                i++
-            }
-            if (bodyOpen < 0) continue
-
-            // Find the matching close brace for the type body
-            var depth = 0
-            var pos = bodyOpen
-            while (pos < source.length) {
-                when (source[pos]) {
-                    '{' -> depth++
-                    '}' -> {
-                        depth--
-                        if (depth == 0) {
-                            // Full span: [candidate.start, pos]. If functionOffset is inside and
-                            // this span is larger than best, this is the better match.
-                            if (candidate.range.first <= functionOffset && functionOffset <= pos && pos - candidate.range.first > bestSpan) {
-                                best = candidate
-                                bestSpan = pos - candidate.range.first
-                            }
-                            break
-                        }
-                    }
-                }
-                pos++
+            // Full span of the declaration is [candidate.first, body.last]. If functionOffset
+            // falls inside it and the span is larger than the best seen so far, this candidate is
+            // the better match.
+            val body = typeBodyBounds(source, candidate.range.last) ?: continue
+            val enclosesOffset = candidate.range.first <= functionOffset &&
+                functionOffset <= body.last
+            val span = body.last - candidate.range.first
+            if (enclosesOffset && span > bestSpan) {
+                best = candidate
+                bestSpan = span
             }
         }
         return best
+    }
+
+    /**
+     * Index range of the type body that starts after [afterTypeKeyword], or `null` when there is
+     * no body (or the braces never balance).
+     */
+    private fun typeBodyBounds(source: String, afterTypeKeyword: Int): IntRange? {
+        val bodyOpen = classBodyOpen(source, afterTypeKeyword) ?: return null
+        val bodyClose = matchingBrace(source, bodyOpen) ?: return null
+        return bodyOpen..bodyClose
+    }
+
+    /**
+     * Index of the first `{` at depth 0 after [afterTypeKeyword] — the type body's opening brace.
+     *
+     * A naive `indexOf('{')` can misidentify a lambda `{` inside the constructor parameter list
+     * (e.g. `Logger.withTag(...) { ... }`) as the class body when `closingParen` returns early —
+     * so we scan forward tracking parentheses depth, and return the first `{` at depth 0.
+     */
+    private fun classBodyOpen(source: String, afterTypeKeyword: Int): Int? {
+        var parenDepth = 0
+        var i = afterTypeKeyword
+        while (i < source.length) {
+            when (source[i]) {
+                '(' -> parenDepth++
+                ')' -> parenDepth--
+                '{' -> if (parenDepth == 0) return i
+                '}' -> if (parenDepth == 0) return null // no body found
+            }
+            i++
+        }
+        return null
+    }
+
+    /** Index of the `}` matching the `{` at [bodyOpen], or `null` when the source runs out. */
+    private fun matchingBrace(source: String, bodyOpen: Int): Int? {
+        var depth = 0
+        var pos = bodyOpen
+        while (pos < source.length) {
+            val char = source[pos]
+            if (char == '{') {
+                depth++
+            } else if (char == '}') {
+                depth--
+                if (depth == 0) return pos
+            }
+            pos++
+        }
+        return null
     }
 
     /** A method the caller can be told about: a type the caller can name, and its method. */

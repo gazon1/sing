@@ -144,9 +144,8 @@ class OutboxServiceTest {
     fun `delete failure propagates as Result-failure`() = runTest {
         val outbox =
             object : FakeSyncOutboxDao() {
-                override suspend fun deleteByEntity(ownerId: String, entityId: String) {
+                override suspend fun deleteByEntity(ownerId: String, entityId: String) =
                     throw IllegalStateException("delete failed")
-                }
             }
         val svc = service(outbox = outbox)
 
@@ -165,9 +164,8 @@ class OutboxServiceTest {
     fun `insert failure propagates as Result-failure`() = runTest {
         val outbox =
             object : FakeSyncOutboxDao() {
-                override suspend fun insert(entity: SyncOutboxEntity) {
+                override suspend fun insert(entity: SyncOutboxEntity) =
                     throw IllegalStateException("insert failed")
-                }
             }
         val svc = service(outbox = outbox)
 

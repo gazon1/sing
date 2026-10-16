@@ -291,9 +291,7 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
  * Standalone in-memory [TasksSettingsRepository] for isolated testing of the Tasks
  * settings section without bringing up the full [FakeSettingsRepository].
  */
-class FakeTasksSettingsRepository(
-    initialStalenessThresholdDays: Int = 21,
-) : TasksSettingsRepository {
+class FakeTasksSettingsRepository(initialStalenessThresholdDays: Int = 21) : TasksSettingsRepository {
     private val _stalenessThresholdDays = MutableStateFlow(initialStalenessThresholdDays)
     override val stalenessThresholdDays: Flow<Int> = _stalenessThresholdDays.asStateFlow()
 
@@ -311,9 +309,8 @@ class FakeTasksSettingsRepository(
  * [ProjectDetailViewModel] reads only `reminderDefault`; bringing up the full settings
  * fake for that would couple its tests to unrelated sections.
  */
-class FakeNotificationsSettingsRepository(
-    initialReminderDefault: ReminderOffset = ReminderOffset.AT_DUE,
-) : NotificationsSettingsRepository {
+class FakeNotificationsSettingsRepository(initialReminderDefault: ReminderOffset = ReminderOffset.AT_DUE) :
+    NotificationsSettingsRepository {
     private val _enabled = MutableStateFlow(true)
     private val _sound = MutableStateFlow(true)
     private val _vibration = MutableStateFlow(true)
@@ -1335,15 +1332,6 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
 
     // ─── Error injection axis ────────────────────────────────────────────────
 
-    /**
-     * When non-null, the next [signUp] call returns this result instead of
-     * succeeding.
-     *
-     * A field rather than a one-shot, because a test that checks the UI reaction
-     * to a failure needs the fake to still fail on the next call too.
-     *
-     * Reset between tests by [clearCallHistory].
-     */
     /**
      * When non-null, the next [signIn] call returns this result instead of succeeding.
      *

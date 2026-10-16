@@ -364,6 +364,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-sync-allowlist-regenerated.py"),
     ),
+    # ── Workflow semantics ──────────────────────────────────────────────────────────
+    GateSpec(
+        name="workflow steps keep their exit status",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-workflow-exit-status.py"),
+    ),
     # ── Releases ───────────────────────────────────────────────────────────────────
     GateSpec(
         name="releases describe themselves",

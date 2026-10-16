@@ -12,7 +12,9 @@ import com.singularity.todo.core.ui.MviEvent
  * [AuthUiEvent.NavigateToHome] for emit calls and as [AuthNavigationEvent.NavigateToHome]
  * for navigation-only callers.
  */
-sealed interface AuthUiEvent : MviEvent, AuthNavigationEvent {
+sealed interface AuthUiEvent :
+    MviEvent,
+    AuthNavigationEvent {
     data object NavigateToHome : AuthUiEvent, AuthNavigationEvent by AuthNavigateHome
     data class Error(val message: String) : AuthUiEvent
 
