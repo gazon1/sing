@@ -35,11 +35,29 @@ class GateResult:
     exit_code: int
     duration_ms: int = 0
     error: str = ""
+    #: Captured output, kept so a failing gate can say WHY. A table row reading
+    #: "exit=1" is not a diagnosis; see `OUTPUT_TAIL_LINES` at the print site.
+    stdout: str = ""
+    stderr: str = ""
 
 
 # Pattern to parse gate lines from static-gates.sh:
 #   gate blocking|advisory "name" command...
 _GATE_LINE = re.compile(r'^gate\s+(blocking|advisory)\s+"([^"]+)"\s+(.+)$')
+
+#: How much of a failing gate's output to print. Bounded because `declared
+#: dependencies are used` alone emits tens of thousands of lines on a real
+#: failure, and a log nobody can scroll is the same as no log.
+OUTPUT_TAIL_LINES = 40
+
+#: Lines that mark a failure wherever they appear in a gate's output. The tail
+#: alone is not enough: every delegated `sgate` gate ends its stderr with a burst
+#: of loguru DEBUG lines, so the last 40 lines of a real failure can contain none
+#: of the failure. These are kept even when they are far above the tail.
+FAILURE_LINE = re.compile(
+    r'(^|\s)(FAIL|ERROR)(:|\s)|Traceback|AssertionError|^FAILED|^Ran \d+ tests|'
+    r'::error|violation'
+)
 
 
 def _load_static_gates() -> list[tuple[str, str, str]]:
@@ -73,6 +91,16 @@ def _slug(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", slug)
     slug = slug.strip("_")
     return slug
+
+
+def _decode(raw: bytes | str | None) -> str:
+    """Gate output as text. Gate scripts print in UTF-8; a stray byte must not
+    turn a readable failure into a UnicodeDecodeError raised from the reporter."""
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    return raw.decode("utf-8", errors="replace")
 
 
 def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResult:
@@ -172,6 +200,8 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             passed=passed,
             exit_code=rc,
             duration_ms=duration_ms,
+            stdout=_decode(result.stdout),
+            stderr=_decode(result.stderr),
         )
 
     except subprocess.TimeoutExpired:
@@ -323,6 +353,34 @@ def run_all(emit_json: bool, concurrency: int,
             f"Advisory Gates ({sum(1 for r in advisory if r.passed)}/{len(advisory)} passed)",
             advisory, "yellow",
         ))
+
+    # Print what each failing gate said. Every gate here runs with
+    # `capture_output=True`, so without this the whole table is the entire
+    # report: a reader learns that "gate scripts' own unit tests" exited 1 and
+    # nothing else, in a job whose log has no other copy of the output. That is
+    # the failure mode this repo treats as loud — a gate that cannot be read
+    # cannot be fixed from its log.
+    for r in results:
+        if r.passed:
+            continue
+        body = r.error or ""
+        for stream_name, text in (("stdout", r.stdout), ("stderr", r.stderr)):
+            if not text.strip():
+                continue
+            lines = text.splitlines()
+            tail = lines[-OUTPUT_TAIL_LINES:]
+            marks = [line for line in lines[:-OUTPUT_TAIL_LINES] if FAILURE_LINE.search(line)]
+            body += f"\n{stream_name} ({len(lines)} lines):\n"
+            if marks:
+                body += (
+                    f"[the {len(marks)} line(s) above the tail that name a failure]\n"
+                )
+                body += "\n".join(marks[:OUTPUT_TAIL_LINES])
+                body += "\n[...tail...]\n"
+            body += "\n".join(tail)
+        if not body:
+            body = "(the gate produced no output at all)"
+        console.print(Panel(body, title=f"[bold red]{r.name}[/bold red]", border_style="red"))
 
     raise SystemExit(0 if overall_ok else 1)
 
