@@ -69,7 +69,6 @@ fun projectsModule(): org.koin.core.module.Module = module {
             projectReminders = get(),
             notificationsSettings = get(),
             clock = get(),
-            log = Logger.withTag("ProjectDetail"),
             crashReporter = get(),
         )
     }
