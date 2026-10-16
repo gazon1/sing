@@ -26,19 +26,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Passed as -D on the Gradle command line, NOT via GRADLE_OPTS: GRADLE_OPTS
-  # reaches the Gradle client JVM only, and worked before solely because
-  # --no-daemon ran the build inside it. desktopApp's harness reads these as
-  # system properties of the forked test JVM (DesktopAppHarness.kt:138-140),
-  # forwarded via providers.systemProperty (desktopApp/build.gradle.kts:166-177),
-  # so command-line -D is what actually reaches the tests now.
-  #
-  # maxAttempts is absent on main on purpose: repeat(0) skips every test body.
-  RETRY_ARGS: >-
-    ${{ github.event_name == 'pull_request'
-    && '-Dretry.maxAttempts=2 -Dretry.failOnPassedAfterRetry=false'
-    || '-Dretry.failOnPassedAfterRetry=true' }}
 
 jobs:
   # Path-filter detection — always runs so ci-gate can wait for it; downstream jobs
@@ -268,6 +255,22 @@ jobs:
       # The Gradle log is captured so check-test-runs.py can exempt UP-TO-DATE tasks
       # from the freshness check (a second consecutive run would otherwise falsely flag
       # a legitimately cached task as stale).
+      # Test properties are passed as -D on the Gradle command line, NOT via
+      # GRADLE_OPTS: that reaches the Gradle client JVM only, and worked before
+      # solely because --no-daemon ran the build inside it. desktopApp's harness
+      # reads these as system properties of the forked test JVM
+      # (DesktopAppHarness.kt:138-140), forwarded via providers.systemProperty
+      # (desktopApp/build.gradle.kts:166-177).
+      #
+      # Retry flags are spelled here, one GitHub expression per flag, instead of
+      # arriving as a single RETRY_ARGS env var expanded unquoted. Unquoted word
+      # splitting is exactly what actionlint's shellcheck pass reports as SC2086,
+      # and the gate could not have caught it: this job died during install and
+      # never reached `sgate run-all`. One flag per expression leaves nothing to
+      # split, and quoting the variable instead would have handed Gradle a single
+      # "-D a -D b" argument.
+      #
+      # maxAttempts is absent on push on purpose: repeat(0) skips every test body.
       - name: Gradle (tests + coverage + detekt)
         run: >
           ./gradlew --continue
@@ -280,7 +283,9 @@ jobs:
           :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt
           -Ptest.tags=fast,slow
           -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail
-          $RETRY_ARGS
+          ${{ github.event_name == 'pull_request' && '-Dretry.maxAttempts=2' || '' }}
+          ${{ github.event_name == 'pull_request' && '-Dretry.failOnPassedAfterRetry=false' || '' }}
+          ${{ github.event_name != 'pull_request' && '-Dretry.failOnPassedAfterRetry=true' || '' }}
           2>&1 | tee build.log
 
       # Install junitparser before the annotation step. Blocking: if this fails,
