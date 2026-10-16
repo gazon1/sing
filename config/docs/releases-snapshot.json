@@ -9,6 +9,30 @@
           "name": "SHA256SUMS.txt"
         },
         {
+          "name": "singularity-0.2.1-android.apk"
+        },
+        {
+          "name": "singularity-0.2.1-linux-x64.deb"
+        },
+        {
+          "name": "singularity-0.2.1-linux-x64.rpm"
+        }
+      ],
+      "draft": true,
+      "manifest": "version=0.2.1\nversion_code=2001\nprerelease=false\nfiles=singularity-0.2.1-android.apk singularity-0.2.1-linux-x64.deb singularity-0.2.1-linux-x64.rpm\n",
+      "prerelease": false,
+      "sha256sums": "3a14d5f0cda0587e5b32e65bb474bfac0c2129e30addbbe48e12348b10565e10  ./MANIFEST.txt\na9ac21a5f0299ec5910431981b028e8e798bfa524a11c51a5016e641d032ea07  ./singularity-0.2.1-android.apk\nc9b308960dd63529a7bb754b85a69416dc64a11452f30f90931bb911a1ca1587  ./singularity-0.2.1-linux-x64.deb\nf01766cb3ce6646fab8d5b9fe7cc5903f904a5d14d568bd815398a0505e2f191  ./singularity-0.2.1-linux-x64.rpm\n",
+      "tag": "v0.2.1"
+    },
+    {
+      "assets": [
+        {
+          "name": "MANIFEST.txt"
+        },
+        {
+          "name": "SHA256SUMS.txt"
+        },
+        {
           "name": "singularity-0.2.1-rc.1-android.apk"
         },
         {
@@ -28,6 +52,7 @@
   "tags": [
     "v0.1.0",
     "v0.2.0",
+    "v0.2.1",
     "v0.2.1-rc.1"
   ],
   "tags_without_release": {
