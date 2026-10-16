@@ -44,6 +44,21 @@ def run(
         if result.stdout:
             sys.stdout.write(result.stdout.decode())
             sys.stdout.flush()
+        # Forward the child's stderr instead of dropping it.
+        #
+        # `check-gate-liveness.py` decides "died instead of reported" by looking
+        # for a traceback on stderr. Every registry gate runs through this runner,
+        # so while stderr was captured and discarded, no gate could ever show one:
+        # a gate that raised was reported as `exit 1: violation` and judged alive.
+        # The liveness gate was not weak on one gate — it was blind on all of them,
+        # which is why its own sabotage control kept passing after the subject it
+        # aimed at had been retired.
+        #
+        # A finding is unaffected: gates report findings on stdout (`ERROR:` lines)
+        # and exit non-zero, and this changes nothing about their exit status.
+        if result.stderr:
+            sys.stderr.write(result.stderr.decode())
+            sys.stderr.flush()
         if result.returncode != 0:
             gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
             raise SystemExit(result.returncode)

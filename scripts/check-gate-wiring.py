@@ -266,14 +266,6 @@ def _hooks_path_restore(p: Path) -> None:
     subprocess.run(["git", "add", "--", ".githooks"], cwd=p.parent.parent, check=True)
 
 
-def _drop_second_line(p: Path) -> None:
-    """skill-frontmatter: delete a SKILL.md's description line."""
-    lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
-    assert len(lines) > 1, "nothing to drop — the control would be a no-op"
-    del lines[1]
-    p.write_text("".join(lines), encoding="utf-8")
-
-
 def _strip_suppression_reason(p: Path) -> None:
     """suppression-intent: remove the comment justification under `@file:Suppress`."""
     lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -1984,19 +1976,25 @@ def check_script_gates_vs_registry() -> list[str]:
 # Two things make this harder than a `grep`, and both were found by writing the
 # first version of it and watching it produce the wrong answer.
 #
-# 1. The name has two spellings here. `check-skill-frontmatter.sh` uses a hyphen;
-#    `check_skill_frontmatter.py` and `check_adr_status.py` use an underscore. A
-#    pattern that accepts only `check-` sees 26 of the 29 gate scripts and calls
-#    that the complete set — the failure mode this file's own comments warn about
-#    twice ("a derivation that quietly sees a third of its input is worse than no
+# 1. The name has two spellings here. `check-detekt-registrations.sh` uses a
+#    hyphen; `check_adr_status.py` uses an underscore. A pattern that accepts
+#    only `check-` sees most of the gate scripts and calls that the complete set
+#    — the failure mode this file's own comments warn about twice ("a
+#    derivation that quietly sees a third of its input is worse than no
 #    derivation, because it reports a short list and calls it complete").
+#    `check-skill-frontmatter.sh` used to be the hyphen example and was deleted
+#    in #657, when its gate was retired; keeping it as the illustration would
+#    have left a comment pointing at a file that no longer exists, which is the
+#    same shape of drift as the dead command that caused this issue.
 #
-# 2. A shim is an invocation. `check-skill-frontmatter.sh` is six lines and ends
-#    in `exec python3 "$ROOT/scripts/check_skill_frontmatter.py" "$@"`. The
+# 2. A shim is an invocation. `refresh-decisions-digest.sh` is a few lines and
+#    ends in `exec python3 "$SCRIPT_DIR/refresh_decisions_digest.py" "$@"`. The
 #    Python file is therefore reachable, and a scanner that reads only the
 #    surface text calls it an orphan. So reachability follows delegation, which
 #    is the opposite of what a reader expects: the *target* of an `exec` counts
-#    as reached, not the shim that reached it.
+#    as reached, not the shim that reached it. The three live shims spell their
+#    base directory three ways — `$ROOT/`, `$SCRIPT_DIR/`, bare — which is why
+#    _SHIM_DELEGATION accepts any shell variable.
 
 #: A script is a gate candidate when its basename starts with `check` — hyphen or
 #: underscore, both spellings are in use — and ends in a script extension.

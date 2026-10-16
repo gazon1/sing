@@ -8,7 +8,7 @@
 # reason a future reader cannot tell a decision from an oversight, which is the
 # distinction the gate exists to preserve.
 #
-# Nothing is exempt right now. The 11 entries below are the gate's findings from
+# Nothing is exempt right now. The 10 entries below are the gate's findings from
 # 2026-10-07, and they are the *decisions still to be made* — recorded so the gate
 # can go green while the product call stays visible and greppable.
 #
@@ -55,3 +55,21 @@ Greeting.afternoonEndHour
 Notifications.sound
 Notifications.vibration
 
+# --- Notifications — reminderDefault is wired; the exemption is gone ---------
+# It WAS baselined here. docs/decisions/2026-10-07-reminders-capability-gate.md
+# recorded it as persisted, exported, imported, rendered — and given to no task.
+# That is no longer true: `ProjectDetailViewModel` reads it to preselect the
+# project reminder picker, and `ReminderPickerSheet` consumes the value it hands
+# down. `core/di/CoreDiModule.kt` binds `NotificationsSettingsRepository` for
+# exactly that one read.
+#
+# The entry stayed after the wiring landed, and because an exemption for a field
+# the gate no longer reports is inert, it also made this file's own control a
+# no-op: `dead-settings`'s sabotage used to rewrite that very line, so with
+# nothing left to report the gate passed against its own sabotage. A stale
+# exemption is not a harmless leftover — it is a claim the gate stops being able
+# to check. The control now aims at `Notifications.sound` instead.
+#
+# The residual product question from that ADR is narrower now: `reminderDefault`
+# preselects a *project* reminder. Per-task reminders may still never receive it.
+# That is a new finding for a new entry, not a reason to keep this one.
