@@ -723,9 +723,10 @@ class PartHTest(unittest.TestCase):
                          'composite action')
 
     def test_a_shim_delegated_gate_is_reachable(self):
-        # `check-skill-frontmatter.sh` execs the .py. Reading only surface text
-        # calls the .py an orphan, and then a future editor "fixes" a gate that
-        # was never broken.
+        # A shim that execs the .py. Reading only surface text calls the .py an
+        # orphan, and then a future editor "fixes" a gate that was never broken.
+        # The names below are a synthetic repo, not live gates: the real
+        # check-skill-frontmatter gate was retired in #657.
         self._repo_with({
             'scripts/check-skill-frontmatter.sh':
                 '#!/usr/bin/env bash\nset -euo pipefail\nROOT="$PWD"\n'
@@ -737,9 +738,9 @@ class PartHTest(unittest.TestCase):
         self.assertEqual(gw.check_gate_reachability(), [])
 
     def test_both_name_spellings_are_candidates(self):
-        # Two of the three gates whose name uses an underscore would be invisible
-        # to a hyphen-only pattern, which would then report a short list and call
-        # it complete.
+        # An underscore-spelled script is invisible to a hyphen-only pattern,
+        # which would then report a short list and call it complete. Synthetic
+        # names: the real check-skill-frontmatter gate was retired in #657.
         self._repo_with({
             'scripts/check_adr_status.py': '#!/usr/bin/env python3\n',
             'scripts/check-skill-frontmatter.sh': '#!/usr/bin/env bash\n',
@@ -946,3 +947,4 @@ class GradleControlSkipTest(unittest.TestCase):
             os.environ.pop(gw.GRADLE_ENV, None)
             if saved is not None:
                 os.environ[gw.GRADLE_ENV] = saved
+
