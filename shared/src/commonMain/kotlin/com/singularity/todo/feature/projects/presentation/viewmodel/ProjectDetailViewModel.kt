@@ -179,6 +179,22 @@ class ProjectDetailViewModel(
     private val defaultReminderOffsetFlow = MutableStateFlow(SettingsDefaults.Notifications.REMINDER_DEFAULT)
 
     /**
+     * The project's own offset and the user's configured default, as one value.
+     *
+     * Both are consumed by the same picker and both travel into the same `copy`, so
+     * they are folded rather than combined separately: `combine` here is already at
+     * kotlinx's five-argument limit, and a sixth argument would need a vararg call
+     * that collapses to `Array<Any?>`. Mirrors [TaskVisibility].
+     */
+    private data class ReminderOffsets(
+        val current: Int?,
+        val default: ReminderOffset,
+    )
+
+    private val reminderOffsetsFlow =
+        combine(reminderOffsetFlow, defaultReminderOffsetFlow, ::ReminderOffsets)
+
+    /**
      * Draft state — single source of truth for editable name/description.
      *
      * Declared before the `init` blocks that use it. Kotlin runs property
@@ -361,22 +377,6 @@ class ProjectDetailViewModel(
             }.collect { setState(it) }
         }
     }
-
-    /**
-     * The project's own offset and the user's configured default, as one value.
-     *
-     * Both are consumed by the same picker and both travel into the same `copy`, so
-     * they are folded rather than combined separately: `combine` here is already at
-     * kotlinx's five-argument limit, and a sixth argument would need a vararg call
-     * that collapses to `Array<Any?>`. Mirrors [TaskVisibility].
-     */
-    private data class ReminderOffsets(
-        val current: Int?,
-        val default: ReminderOffset,
-    )
-
-    private val reminderOffsetsFlow =
-        combine(reminderOffsetFlow, defaultReminderOffsetFlow, ::ReminderOffsets)
 
     // ─── Silent debounce for inline edits ───────────────────────────────────────
 
