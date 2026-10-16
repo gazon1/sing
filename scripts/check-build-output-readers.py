@@ -82,6 +82,7 @@ import pathlib
 import sys
 
 import click
+import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -109,14 +110,31 @@ READ_PATHS = (
 )
 
 
-def _steps(path: pathlib.Path) -> list[tuple[str, str]]:
-    """`(step_label, run_text)` in declaration order for every job in one workflow."""
+def _steps(path: pathlib.Path) -> list[tuple[str, int, str, str]]:
+    """`(job, position, step_name, run_text)` for every step that runs something.
+
+    Position is the step's ordinal *within the job*, not a line number. Line
+    numbers are not usable here: a `run:` block can be one folded YAML scalar,
+    a `|` block of continuation lines, or a single line, and a Gradle invocation
+    written across backslash continuations is one command whose only line carrying
+    `./gradlew` is its first. Feeding one line at a time to the parser is what
+    made the main Gradle run invisible to it, and the sabotage control passed a
+    sabotaged workflow for exactly that reason (caught on 2026-10-16, run
+    38961950540 — the first run to catch it was the one that failed).
+    """
     gate = _load_population_gate()
-    jobs = gate._workflow_jobs(path)  # noqa: SLF001 — one parser, shared on purpose
-    steps: list[tuple[str, str]] = []
-    for job_name, body in jobs.items():
-        for index, text in enumerate(body.split("\n"), start=1):
-            steps.append((f"{path.relative_to(ROOT)}::{job_name}:{index}", text))
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    steps: list[tuple[str, int, str, str]] = []
+    for job_name, job in (data.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        position = 0
+        for step in job.get("steps") or []:
+            if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+                continue
+            steps.append((str(job_name), position, str(step.get("name", "run")), step["run"]))
+            position += 1
+    del gate  # loaded only to keep the dependency explicit for readers of this file
     return steps
 
 
@@ -131,50 +149,49 @@ def _reads_build_output(text: str) -> str | None:
 def evaluate(verbose: bool = False) -> tuple[list[str], list[str]]:
     """Return `(violations, listing)`.
 
-    Per job: the test-capable Gradle invocations in order, and the lines that read
-    build output. The *first* test-capable invocation is the producer — it is what
-    creates the results a reader later consumes, so it is never a violation ahead of
-    one. Every later one is a re-run risk, because nothing stops it from being
-    out of date.
+    Per job: the steps that run a test-capable Gradle invocation, in order, and the
+    steps that read build output. The *first* test-capable invocation is the
+    producer — it is what creates the results a reader later consumes, so it is
+    never a violation ahead of one. Every later one is a re-run risk, because
+    nothing stops it from being out of date.
     """
     gate = _load_population_gate()
     violations: list[str] = []
     listing: list[str] = []
 
     for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
-        jobs: dict[str, list[tuple[int, str]]] = {}
-        for label, text in _steps(workflow):
-            job, _, tail = label.rpartition(":")
-            line_no = int(tail)
-            jobs.setdefault(job, []).append((line_no, text))
+        relative = str(workflow.relative_to(ROOT))
+        jobs: dict[str, list[tuple[int, str, str]]] = {}
+        for job, position, name, text in _steps(workflow):
+            jobs.setdefault(job, []).append((position, name, text))
 
         for job, entries in sorted(jobs.items()):
-            invocations: list[tuple[int, str]] = []
-            for line_no, text in entries:
-                for location, _selector, test_capable, _tasks in gate._invocations(  # noqa: SLF001
-                    text, f"{job}:{line_no}"
+            writers: list[tuple[int, str]] = []
+            for position, name, text in entries:
+                for _location, _selector, test_capable, _tasks in gate._invocations(  # noqa: SLF001
+                    text, f"{relative}::{job}::{name}"
                 ):
                     if test_capable:
-                        invocations.append((line_no, location))
-            if len(invocations) < 2:
+                        writers.append((position, name))
+            if len(writers) < 2:
                 # A job with one test-capable invocation has nothing that can rewrite
                 # what its readers read.
                 continue
 
-            for line_no, text in entries:
+            for position, name, text in entries:
                 reads = _reads_build_output(text)
                 if not reads:
                     continue
                 if verbose:
-                    listing.append(f"  {job}:{line_no} reads {reads}")
-                for inv_line, location in invocations[1:]:
-                    if inv_line >= line_no:
+                    listing.append(f"  {relative}::{job}::{name} reads {reads}")
+                for writer_position, writer_name in writers[1:]:
+                    if writer_position >= position:
                         break
                     violations.append(
-                        f"{job}:{line_no} reads {reads}, but {location} is a "
-                        f"test-capable Gradle invocation that runs before it — a later "
-                        f"invocation may re-run the task and overwrite the directory "
-                        f"this step reads"
+                        f"{relative}::{job}::{name} reads {reads}, but "
+                        f"{writer_name} is a test-capable Gradle invocation that runs "
+                        f"before it — a later invocation may re-run the task and "
+                        f"overwrite the directory this step reads"
                     )
     return violations, listing
 
