@@ -65,8 +65,12 @@ runs:
         set -euo pipefail
         VENV="$HOME/ci-venv"
         uv venv "$VENV"
+        # junitparser is not an extra: setup-repo-tools declares it required in
+        # every job that runs it, because scripts/junit-annotations.py imports
+        # it. Leaving it to the job steps meant each job had to remember, and the
+        # tests job's copy had been failing for three different reasons in a row.
         # shellcheck disable=SC2086  # extra-packages is a deliberate word list
-        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ ${{ inputs.extra-packages }}
+        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ junitparser ${{ inputs.extra-packages }}
         echo "bin=$VENV/bin" >> "$GITHUB_OUTPUT"
         # Every later step in the job resolves plain `python3`, `sgate` and
         # `actionlint` through this. Written to GITHUB_PATH rather than exported,
