@@ -50,10 +50,21 @@ private const val RELEASES_URL = "https://github.com/singularity-todo/singularit
  * a helper binary is a reminder that silently does not fire on every machine where nobody
  * remembered to install it.
  *
+ * `--version` is the same idea for the packaging pipeline: the installed launcher, its
+ * bundled runtime and the app jars are only proven to work together if something actually
+ * runs the installed binary. A metadata check reads `dpkg -f` and a `rpm -qp`, which stay
+ * green on a package whose launcher cannot load a single jar (#664).
+ *
  * Every ordinary launch arrives here with no arguments, so the dispatch is a single
  * `parse` returning null, and the GUI path is unchanged.
  */
 fun main(args: Array<String>) {
+    if (args.any { it == "--version" }) {
+        val version = appVersion()
+        println("singularity-todo ${version.name} (${version.code})")
+        return
+    }
+
     val fireRequest = JvmReminderFireCommand.parse(args)
     if (fireRequest != null) {
         fireReminder(fireRequest)

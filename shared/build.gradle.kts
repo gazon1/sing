@@ -540,10 +540,19 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     )
     // The Desktop packaging script, read by `JvmReminderSchedulerLauncherPathTest`.
     //
-    // That test pins `/usr/bin/singularity-todo` — the path a `systemd --user` reminder
-    // unit executes — against jpackage's `packageName`, which lives in this file. Two
-    // files, two modules, and until now zero references: renaming the package would leave
-    // every Desktop reminder silently unable to fire, discovered after installation.
+    // That test pins `/opt/singularity-todo/bin/singularity-todo` — the path a
+    // `systemd --user` reminder unit executes — against jpackage's `packageName`, which
+    // lives in this file. Two files, two modules, and until now zero references:
+    // renaming the package would leave every Desktop reminder silently unable to fire,
+    // discovered after installation.
+    //
+    // It also carries the premise: jpackage's default `installationPath` is
+    // `/opt/<packageName>`, and no `/usr/bin` symlink is created. The test used to pin
+    // `/usr/bin/<packageName>` on the belief that it was, which no package ever
+    // produced; it was a constant compared with a constant and passed against the exact
+    // bug it existed to prevent. The release pipeline now installs the real package and
+    // runs the launcher before publishing (#664), so the path is checked against an
+    // artifact rather than only against this file's opinion.
     //
     // The path is declared rather than derived. Deriving it from `commonMain.root` by
     // walking parent directories is exactly what the `maestro.root` comment above calls
