@@ -90,14 +90,29 @@ tasks.register("koverHtml") {
 // Markdown table from the Kover XML report. Depends on koverReport so the XML
 // is guaranteed to exist when this task runs. Parses the XML natively using
 // javax.xml (available in the Gradle JVM) — no python3 dependency.
+//
+// The report path arrives as a task *input*, not as `project.rootProject.layout`
+// read inside the action. The configuration cache forbids reaching for `project`
+// at execution time, and this task did exactly that — so it has failed on every
+// invocation since configuration-cache hardening (2026-10-16, CI run 38942680186
+// among others). `ci.yml` marks the step `|| true`, so the failure was invisible
+// and the coverage table has been missing from the job summary on every run while
+// the workflow claimed to report one. The local recipe `just coverage-markdown`
+// was broken the same way.
+//
+// Input over the *directory* rather than the file, deliberately: `@InputFile`
+// would fail Gradle's own validation with "file does not exist" whenever the XML
+// is absent, which replaces a message that names the fix (":koverReport first")
+// with one that does not.
 abstract class KoverMarkdownTableTask : DefaultTask() {
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val reportsDir: ConfigurableFileCollection
 
     @TaskAction
     fun generate() {
-        val xmlFile = project.rootProject.layout.buildDirectory
-            .dir("reports/kover/report.xml")
-            .get()
-            .asFile
+        val xmlFile = reportsDir.singleFile.resolve("report.xml")
 
         if (!xmlFile.exists()) {
             throw GradleException(
@@ -179,6 +194,10 @@ private data class ModuleCoverage(val name: String) {
 tasks.register<KoverMarkdownTableTask>("koverMarkdownTable") {
     group = "verification"
     description = "Parses build/reports/kover/report.xml and prints a markdown coverage table to stdout."
+    // Configuration time, not action time — the same boundary the input exists to
+    // enforce. `layout` here is the project's own, resolved while the configuration
+    // cache is being written.
+    reportsDir.from(layout.buildDirectory.dir("reports/kover"))
     dependsOn("koverReport")
 }
 

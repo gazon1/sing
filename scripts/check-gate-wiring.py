@@ -857,6 +857,24 @@ SABOTAGE_ONLY_GATES = [
     # "declared target produced zero testcases" for a target that had just been
     # measured, because the advisory kover table step re-ran the desktop tests
     # without the selector and the slow scenario classes were skipped.
+    # Insert one Gradle invocation between the test run and the steps that read its
+    # output. Every reader is already in place and still reads
+    # `build/test-results` — what changes is that a step above it can now re-run the
+    # test task. That is the shape both real instances had: readers written after
+    # Gradle steps that already existed.
+    ScriptGate(
+        name="build-output-readers",
+        cmd=[sys.executable, "scripts/check-build-output-readers.py"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=_replace(
+            "      # Emit GitHub annotations per failing/retry-passed test from JUnit XML.\n",
+            "      - name: late coverage pass\n"
+            "        run: ./gradlew :koverVerify -Ptest.tags=fast,slow\n\n"
+            "      # Emit GitHub annotations per failing/retry-passed test from JUnit XML.\n",
+            count=1,
+        ),
+        why="a step that reads build output can be ordered after an invocation that rewrites it, and the numbers it reports are then from a run nobody looked at",
+    ),
     ScriptGate(
         name="gradle-test-population",
         cmd=[sys.executable, "scripts/check-gradle-test-population.py"],
