@@ -26,11 +26,37 @@ import kotlin.test.assertTrue
  * throws when `systemd-run` fails, so the failure is at least loud *after* installation;
  * this test moves it to *before*.
  *
+ * ## What this test was wrong about
+ *
+ * It asserted `REMINDER_LAUNCHER_PATH == "/usr/bin/${packagedName()}"`, on the stated
+ * premise that "jpackage puts a Deb's launcher on `PATH` under its `packageName`".
+ * That premise is false. Both halves of the assertion came from the same belief, so it
+ * was a constant compared with a constant: it would have kept passing against the exact
+ * bug it existed to prevent, and its docstring claimed it "matches what the Deb actually
+ * installs" while never reading a Deb.
+ *
+ * The real layout, read out of a published package on 2026-10-16:
+ *
+ * ```
+ * $ dpkg-deb -c singularity-0.2.1-rc.1-linux-x64.deb | grep bin/singularity
+ * -rwxr-xr-x root/root 17688 ./opt/singularity-todo/bin/singularity-todo
+ * $ rpm -qlp singularity-0.2.1-rc.1-linux-x64.rpm | grep bin/singularity
+ * /opt/singularity-todo/bin/singularity-todo
+ * ```
+ *
+ * jpackage's default `installationPath` is `/opt/<packageName>`, and it creates no
+ * `/usr/bin` symlink. The expectation below is now that path, and the release pipeline's
+ * install-and-smoke step installs the package and executes the launcher before anything
+ * is published (#664) — so the claim this file makes is also checked against a real
+ * artifact, rather than only against another constant.
+ *
  * ## Why it reads the build script
  *
- * The alternative — deriving the path from `packageName` at runtime — cannot be done,
- * because `packageName` is packaging metadata that vanishes once a Deb exists. Asserting
- * the two agree at build time is the only moment at which both are available.
+ * The alternative — deriving the path at runtime — cannot be done: `packageName` is
+ * packaging metadata that vanishes once a Deb exists. Asserting the two agree at build
+ * time is the only moment at which both are available. It is still worth doing: the
+ * *premise* is now one a package can falsify, where before it was one only the build
+ * script agreed with.
  */
 @Tag("fast")
 class JvmReminderSchedulerLauncherPathTest {
@@ -56,7 +82,10 @@ class JvmReminderSchedulerLauncherPathTest {
 
     @Test
     fun `the reminder launcher path matches what the Deb actually installs`() {
-        val expected = "/usr/bin/${packagedName()}"
+        // jpackage's default installationPath for a Linux package is `/opt/<packageName>`,
+        // and it does not symlink the launcher onto PATH. Verified against both published
+        // formats on 2026-10-16; the release pipeline re-checks it on every real package.
+        val expected = "/opt/${packagedName()}/bin/${packagedName()}"
 
         assertEquals(
             expected,
@@ -64,6 +93,25 @@ class JvmReminderSchedulerLauncherPathTest {
             "a reminder unit runs this exact path. If the package was renamed, update " +
                 "REMINDER_LAUNCHER_PATH — or every Desktop reminder silently stops firing " +
                 "on every installed machine.",
+        )
+    }
+
+    /**
+     * The failure this test previously could not see, stated as an assertion.
+     *
+     * `/usr/bin/<packageName>` is the path people expect and the path nothing installs.
+     * If this ever passes again, the premise above has been reintroduced and every
+     * reminder is broken again.
+     */
+    @Test
+    fun `the launcher path is not the PATH location jpackage never creates`() {
+        val notInstalled = "/usr/bin/${packagedName()}"
+
+        assertTrue(
+            !REMINDER_LAUNCHER_PATH.startsWith(notInstalled),
+            "REMINDER_LAUNCHER_PATH is $REMINDER_LAUNCHER_PATH, which is the /usr/bin location " +
+                "that no published package creates. This is the bug the test above used to " +
+                "assert was correct.",
         )
     }
 
