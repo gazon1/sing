@@ -83,3 +83,18 @@ fun DesktopComposeUiTest.clickTagScrolled(tag: String) {
 fun DesktopComposeUiTest.scrollToTag(tag: String) {
     awaitTag(tag).performScrollTo()
 }
+
+/**
+ * [clickTagScrolled] for a node identified by content description.
+ *
+ * The navigation drawer is a scrollable column whose last entry (Settings) sits below
+ * the fold of the 1024x768 test window. Such a node is *composed*, so `awaitContentDescription`
+ * finds it and a plain `performClick` succeeds without error — but the click lands on a
+ * coordinate outside the window and the navigation it names never happens. That failure
+ * is silent: the next assertion fails somewhere else entirely. Anything addressed by
+ * what the user reads must go through here.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clickContentDescriptionScrolled(desc: String) {
+    awaitContentDescription(desc).performScrollTo().performClick()
+}

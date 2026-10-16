@@ -6,7 +6,7 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.assertTextDisplayed
-import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -48,7 +48,7 @@ class CalendarSyncSystemScenarioTest {
     @DisplayName("CAL-SYNC-SYSTEM-01 the system panel says why it cannot work and leaves Google selectable")
     fun the_system_panel_says_why_it_cannot_work() = runDesktopAppTest {
         openDrawer()
-        clickContentDescription("Settings")
+        clickContentDescriptionScrolled("Settings")
         clickTag(TestTags.settingsTab("Calendar"))
 
         // The message names the constraint *and* reassures the user their tasks are
