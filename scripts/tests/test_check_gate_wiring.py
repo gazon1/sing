@@ -817,6 +817,45 @@ class PartITest(unittest.TestCase):
         gw.ROOT = tmp
         self.addCleanup(setattr, gw, 'ROOT', original_root)
 
+    def test_a_task_on_a_continuation_line_still_counts(self):
+        """`ci.yml` writes its Gradle invocation as a `|` block of `\\` continuations
+        since PR #690. A reader that split on newlines before matching would see
+        `./gradlew --continue \\` with no task in it — which is exactly how the
+        sibling readers gate stopped seeing the run that produces the results. Part I
+        is a whole-file regex and has no such hole; this pins that."""
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: |\n'
+            '          ./gradlew --continue \\\n'
+            '            :common:task \\\n'
+            '            :androidApp:detekt\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':androidApp:detekt', errors[0])
+
+    def test_a_task_in_a_folded_scalar_counts(self):
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: >\n'
+            '          ./gradlew --continue :common:task :androidApp:detekt\n',
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':androidApp:detekt', errors[0])
+
+    def test_a_task_named_only_in_a_comment_does_not_count(self):
+        """The check greps for command text; a comment reading
+        "(:androidApp:detekt was one)" is prose, and treating it as presence is the
+        same defect one level up."""
+        self._surfaces(
+            './gw :common:task --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: >\n'
+            '          ./gradlew :common:task\n'
+            '          # :androidApp:detekt used to be here\n',
+        )
+        self.assertEqual(gw.check_gradle_task_parity(), [])
+
     def test_a_task_named_only_by_ci_is_reported(self):
         self._surfaces(
             './gw :common:task --quiet\n',
@@ -893,6 +932,87 @@ class PartITest(unittest.TestCase):
                            encoding='utf-8')
         self.assertEqual(gw.check_gradle_task_parity(), [],
                          'release.yml is packaging, not verification')
+
+
+class PartHResolutionTest(unittest.TestCase):
+    """The `sgate <name>` fallback (#682).
+
+    The old code answered any command name it could not resolve with the scripts of
+    *every* module in the registry — 32 of the 33 reachable candidates came from one
+    unresolvable name, `run-all`, whose dash the invocation regex did not even match.
+    """
+
+    def test_a_retired_gate_is_not_reachable_through_run_all(self):
+        """The whole point, asserted on the real repository.
+
+        `check.sh` invokes `sgate run-all`, and #690's change made the dash in that
+        name invisible to the invocation regex — so `run` resolved to nothing, and
+        the blanket fallback answered by marking every script any command module
+        names reachable. 32 of 33 candidates came from that one answer, which is how
+        `check-backlog-issue-refs.py` — retired in #657, wired nowhere — survived
+        every Part H run.
+        """
+        reachable = gw.reachable_gate_scripts()
+        self.assertNotIn(
+            'scripts/check-backlog-issue-refs.py', reachable,
+            'a gate wired to nothing is reachable only through the blanket fallback',
+        )
+
+    def test_the_command_module_name_is_the_one_a_surface_writes(self):
+        """Five modules rename themselves (`run_all.py` registers `run-all`), and a
+        surface writing the registered name must resolve to it."""
+        self.assertEqual(
+            gw._registered_command_name('@click.command("run-all")', 'run_all'),
+            'run-all',
+        )
+        self.assertEqual(
+            gw._registered_command_name('@click.command()', 'manifest_verify'),
+            'manifest_verify',
+        )
+
+    def test_a_command_named_only_in_a_comment_is_not_an_invocation(self):
+        self.assertEqual(
+            [m.group(1) for m in gw._SGATE_INVOCATION.finditer('# sgate and its parsers\n')],
+            ['and'],
+        )
+        self.assertIn('run-all', [m.group(1) for m in
+                                  gw._SGATE_INVOCATION.finditer('gate blocking "x" sgate run-all\n')])
+
+    def test_the_exclusion_list_cannot_hold_a_deleted_script(self):
+        """An exemption whose subject was deleted is a hole wearing a reason."""
+        gw.REACHABILITY_EXCLUSIONS['scripts/definitely-not-here.py'] = 'test-only'
+        self.addCleanup(gw.REACHABILITY_EXCLUSIONS.pop, 'scripts/definitely-not-here.py', None)
+        errors = gw.check_reachability_exclusions_are_live()
+        self.assertTrue(any('no longer exists' in e for e in errors), errors)
+
+    def test_the_real_exclusions_are_live(self):
+        self.assertEqual(gw.check_reachability_exclusions_are_live(), [])
+
+
+class PartJJoinTest(unittest.TestCase):
+    """Part J keyed on `cmd[1]`, which answered one of three command shapes."""
+
+    def test_a_module_command_joins_on_its_module(self):
+        self.assertEqual(
+            gw._control_identity([sys.executable, '-m', 'traceability', 'validate']),
+            'traceability',
+        )
+
+    def test_a_one_element_shell_command_is_not_dropped(self):
+        self.assertEqual(
+            gw._control_identity(['./scripts/check-x.sh']),
+            'scripts/check-x.sh',
+        )
+
+    def test_a_script_command_joins_on_its_path(self):
+        self.assertEqual(
+            gw._control_identity([sys.executable, 'scripts/check-x.py', '--quiet']),
+            'scripts/check-x.py',
+        )
+
+    def test_a_command_naming_no_registry_gate_returns_nothing(self):
+        self.assertIsNone(gw._control_identity([]))
+        self.assertIsNone(gw._control_identity([sys.executable, '--quiet']))
 
 
 class GateDeadlineTest(unittest.TestCase):

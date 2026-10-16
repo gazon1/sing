@@ -1735,7 +1735,13 @@ _JUST_FILES = "**/*.just"
 #: stem of a module under scripts/src/sgate/commands/, and that module names the
 #: underlying scripts/check-* it runs. Without this the sgate migration made
 #: every delegated gate invisible to Parts F and H.
-_SGATE_INVOCATION = re.compile(r"(?:^|[\s'\"(=|])sgate\s+([a-z][a-z0-9_]*)", re.MULTILINE)
+#: `sgate <command>` in a surface. The command name may contain a dash — `sgate
+#: run-all` is the driver every surface invokes — and a character class without
+#: one matched the `run` in `run-all`, which resolved to nothing and, under the old
+#: blanket fallback, marked all 32 registry scripts reachable.
+_SGATE_INVOCATION = re.compile(
+    r"(?:^|[\s'\"(=|])sgate\s+([a-z][a-z0-9_-]*)", re.MULTILINE
+)
 
 
 def _sgate_backing_scripts() -> dict[str, list[str]]:
@@ -1750,6 +1756,13 @@ def _sgate_backing_scripts() -> dict[str, list[str]]:
     cmd_dir = ROOT / "scripts" / "src" / "sgate" / "commands"
     if not cmd_dir.is_dir():
         return out
+    # Keyed by the *registered command name*, not the module filename. Five modules
+    # rename themselves — `check_benchmarks.py` registers `check-benchmarks`,
+    # `manifest_verify.py` registers `manifest-verify`, and `run_all.py` registers
+    # `run-all` — so a surface writing `sgate manifest-verify` matched no module and
+    # fell through to the catch-all, which marked every registry script reachable
+    # because one unresolvable name existed anywhere. The name a surface writes is
+    # the identity that has to resolve.
     # Both spellings appear in the shims:
     #   repo_root / "scripts/check-x.py"          (one literal)
     #   repo_root / "scripts" / "check-x.py"      (two literals)
@@ -1768,9 +1781,88 @@ def _sgate_backing_scripts() -> dict[str, list[str]]:
         # control for a gate that does not exist.
         found = {s for s in found if (ROOT / s).is_file()}
         if found:
-            out[mod.stem] = sorted(found)
+            name = _registered_command_name(text, mod.stem)
+            out[name] = sorted(set(out.get(name, [])) | found)
+    for name, scripts in _registry_backing_scripts().items():
+        out[name] = sorted(set(out.get(name, [])) | set(scripts))
     return out
 
+
+def _registered_command_name(module_text: str, fallback: str) -> str:
+    """The name `@click.command("…")` registers, or the module stem when unnamed.
+
+    The surface writes the command name; the module is only where it is written.
+    """
+    match = re.search(r'@click\.command\(\s*"([\w-]+)"\s*\)', module_text)
+    return match.group(1) if match else fallback
+
+
+def _registry_backing_scripts() -> dict[str, list[str]]:
+    """Registry-derived gate command → its script.
+
+    Most gates are not shim modules at all: `sgate version_catalog_has_no_literals`
+    is generated from a `GateSpec` in `_registry.py`. The old fallback reached them
+    only because the `_registry` module's own text contains every script path as a
+    literal — so *any* unresolvable name marked all of them reached. This derives
+    the mapping instead, using the registry's own slug rule, so a name a surface
+    writes resolves to the one script it runs.
+    """
+    reg = _load_registry()
+    out: dict[str, list[str]] = {}
+    for spec in reg.GATES:
+        if not spec.script:
+            continue
+        script = str(spec.script)
+        if not script.endswith((".py", ".sh")):
+            continue
+        if not (ROOT / script).is_file():
+            continue
+        command = reg._module_name(spec.name)
+        out[command] = sorted(set(out.get(command, [])) | {script})
+    return out
+
+
+def _module_backed_gate_commands() -> set[str]:
+    """Commands of registered gates implemented as `python3 -m <module>`.
+
+    The registry records a module name in `GateSpec.script` for these, so the file
+    is not under `scripts/check-*.py` and nothing in the backing map can match.
+    They are exempt from the reachability corpus for the same reason Part F exempts
+    them from needing a control: the proving is their own unit tests.
+    """
+    reg = _load_registry()
+    return {
+        reg._module_name(spec.name)
+        for spec in reg.GATES
+        if spec.script and not str(spec.script).endswith((".py", ".sh"))
+    }
+
+
+def _registered_gate_scripts() -> list[str]:
+    """Scripts of every gate in the registry — what `sgate run-all` actually runs.
+
+    Narrow on purpose. The old fallback marked reachable *every* script any command
+    module names, which is a superset of the registry: a gate retired in #657 kept
+    its command module, and `sgate run-all` — the one invocation whose name resolved
+    to no module — carried that whole superset into the reachable set. Part H then
+    reported 33 of 33 candidates reachable and could not report the orphan it exists
+    to find.
+    """
+    reg = _load_registry()
+    return sorted(
+        str(spec.script) for spec in reg.GATES if spec.script and str(spec.script).endswith((".py", ".sh"))
+    )
+
+
+#: `sgate` commands that run no check script and therefore back nothing. Listed so
+#: the "this invocation resolves to nothing" report has a known-good baseline; a
+#: name outside this set that resolves to nothing is a typo or a retired gate.
+_NON_GATE_SGATE_COMMANDS = frozenset({"info", "render-registry"})
+
+#: `sgate` invocations that resolved to no command module, filled by
+#: `reachable_gate_scripts()` and reported by `check_gate_reachability()`. A list
+#: rather than a return value because every other caller wants only the set.
+_UNRESOLVED_SGATE_INVOCATIONS: list[str] = []
 
 _SGATE_BACKING: dict[str, list[str]] | None = None
 
@@ -1969,6 +2061,37 @@ def _load_registry():
     return _registry
 
 
+def _control_identity(cmd: list[str]) -> str | None:
+    """The registry identity a control command names, or None if it names none.
+
+    Three shapes exist and `cmd[1]` only ever answered one of them:
+
+    * `[python3, "scripts/check-x.py", …]` — `cmd[1]` is the script path
+    * `[python3, "-m", "traceability", …]` — `cmd[1]` is the literal `"-m"`, which
+      matches no registry entry. The two `traceability` gates therefore had no
+      control as far as this join could tell, and were covered only because #669
+      added a `GATE_EXEMPTIONS` entry. The next `-m` gate gets the same exemption
+      by accident, and this join reports the wrong reason.
+    * `["./scripts/check-x.sh"]` — a one-element shell command. `len(cmd) >= 2` is
+      false, so the entry left the join entirely.
+
+    Resolved by shape, not by index: a module command keys on its module, anything
+    else on its first non-flag argument. A command with no such argument names no
+    registry gate and is skipped rather than joined on a wrong key.
+    """
+    if not cmd:
+        return None
+    if len(cmd) >= 3 and cmd[1] == "-m":
+        return cmd[2]
+    if len(cmd) == 1:
+        return cmd[0][2:] if cmd[0].startswith("./") else cmd[0]
+    for token in cmd[1:]:
+        if token.startswith("-"):
+            continue
+        return token[2:] if token.startswith("./") else token
+    return None
+
+
 def check_script_gates_vs_registry() -> list[str]:
     errors: list[str] = []
     # A failure here is a failure of the gate, not a skip: an unimportable or
@@ -1987,14 +2110,24 @@ def check_script_gates_vs_registry() -> list[str]:
         if spec.script:
             script_to_names.setdefault(str(spec.script), []).append(spec.name)
 
-    # Map: script path -> gate name, built from SCRIPT_GATES command list
+    # Two maps, because they answer different questions.
+    #
+    # `control_script_to_name` is every control's registry identity — used to decide
+    # which registered gates have a control. `sg_script_to_name` is only the controls
+    # that claim to be *registry* controls, and it is the one checked for naming a
+    # script the registry does not have. A SABOTAGE_ONLY or FIXTURE control for a
+    # local-only gate legitimately names a script that was never registered; treating
+    # it as a registry claim turns a documented local gate into a Part J failure.
+    control_script_to_name: dict[str, str] = {}
+    for sg in (*SCRIPT_GATES, *SABOTAGE_ONLY_GATES, *FIXTURE_GATES):
+        key = _control_identity(sg.cmd)
+        if key is not None:
+            control_script_to_name[key] = sg.name
     sg_script_to_name: dict[str, str] = {}
     for sg in SCRIPT_GATES:
-        if len(sg.cmd) >= 2:
-            script_path = sg.cmd[1]
-            if script_path.startswith("./"):
-                script_path = script_path[2:]
-            sg_script_to_name[script_path] = sg.name
+        key = _control_identity(sg.cmd)
+        if key is not None:
+            sg_script_to_name[key] = sg.name
 
     # 1. SCRIPT_GATES entries whose script is absent from the registry.
     #    GATE_EXEMPTIONS is consulted: gates intentionally absent from the registry
@@ -2012,12 +2145,7 @@ def check_script_gates_vs_registry() -> list[str]:
     # 2. Registry gates with a script that have no positive control.
     #    Controls: SCRIPT_GATES, SABOTAGE_ONLY_GATES, FIXTURE_GATES.
     #    GATE_EXEMPTIONS scripts are also considered covered (they have a reason).
-    covered_scripts = (
-        set(sg_script_to_name.keys())
-        | {g.cmd[1] for g in SABOTAGE_ONLY_GATES if len(g.cmd) >= 2}
-        | {g.cmd[1] for g in FIXTURE_GATES if len(g.cmd) >= 2}
-        | set(_registry.GATE_EXEMPTIONS.keys())  # exempt: has a documented reason
-    )
+    covered_scripts = set(control_script_to_name) | set(_registry.GATE_EXEMPTIONS.keys())
     cmd_types_with_scripts = (
         _registry.CmdType.PYTHON3,
         _registry.CmdType.PYTHON3_M,
@@ -2095,6 +2223,19 @@ _REACH_SURFACES = (
 #: this repository uses `"$ROOT/scripts/…"`, and a scanner written against that one
 #: spelling silently misses `$PWD/` and `${HERE}/`, which is how a reachable gate
 #: gets reported as an orphan and an editor "fixes" a gate that was never broken.
+#: Any mention of `scripts/check-*.py|.sh` inside a gate script's own text. Broader
+#: than `_SHIM_DELEGATION` on purpose: gate-to-gate invocation is how one gate ends
+#: up running another, and it is invisible to a scanner that only reads surfaces.
+#: The path must be in *command position* — preceded by an interpreter, a shell, or
+#: `./`. Bare prose in a docstring does not count, and that distinction is the whole
+#: reason this is narrower than "any mention": `check-gate-liveness.py` writes
+#: "check-backlog-issue-refs.py went with the removed backlog-issue-refs gate" in its
+#: exemption text, and matching that would keep a retired gate reachable by accident
+#: while appearing to check.
+_GATE_TO_GATE_CALL = re.compile(
+    r"(?:python3\s+|bash\s+|sh\s+|\./)(scripts/check[-_][\w.-]+\.(?:py|sh))"
+)
+
 _SHIM_DELEGATION = re.compile(
     r"exec\s+(?:python3|bash|sh)\s+[\"']?"
     r"(?:\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/)?(?:scripts/)?"
@@ -2119,6 +2260,8 @@ def gate_candidate_scripts() -> list[str]:
 def reachable_gate_scripts() -> set[str]:
     """Gate scripts named by a surface, plus everything those shims delegate to."""
     invoked: set[str] = set()
+    global _UNRESOLVED_SGATE_INVOCATIONS
+    _UNRESOLVED_SGATE_INVOCATIONS = []
     pattern = re.compile(
         r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?"
         r"(scripts/check[-_][\w.-]+\.(?:py|sh))"
@@ -2129,6 +2272,12 @@ def reachable_gate_scripts() -> set[str]:
             text = surface.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        # Comments are prose, and prose mentions commands. `.github/actions/
+        # setup-repo-tools/action.yml` says "…sgate and its parsers…" in a comment,
+        # which the invocation regex reads as a command called `and`.
+        text = "\n".join(
+            "" if line.lstrip().startswith("#") else line for line in text.splitlines()
+        )
         for match in pattern.finditer(text):
             invoked.add(match.group(1))
         # `sgate <name>` is an invocation of whatever script that command runs.
@@ -2136,15 +2285,27 @@ def reachable_gate_scripts() -> set[str]:
         for match in _SGATE_INVOCATION.finditer(text):
             cmd = match.group(1)
             scripts = backing.get(cmd)
-            # _sgate_backing_scripts() keys by module name; _registry.py is the only
-            # module that carries GateSpec-based gates, and it is keyed as "_registry".
-            # Every command whose name is not a module (e.g. adr_corpus_rules_are_shared)
-            # is therefore not in backing directly. Fall back to the _registry catch-all.
-            if scripts is None and "_registry" in backing:
-                scripts = backing["_registry"]
+            if scripts is None and cmd in _module_backed_gate_commands():
+                # `python3 -m traceability validate` and friends: a registered gate
+                # whose implementation is a module rather than a script. It runs
+                # something, backs no `scripts/check-*` file, and is not a typo — so
+                # it is resolved, and saying otherwise sent every surface that runs
+                # it to the "names no sgate command" report.
+                continue
+            if scripts is None and cmd == "run-all":
+                # The driver: it runs every registered gate, and only those.
+                scripts = _registered_gate_scripts()
             if scripts:
                 for script in scripts:
                     invoked.add(script)
+            elif cmd not in _NON_GATE_SGATE_COMMANDS:
+                # Loud rather than broad. A name that resolves to nothing is either a
+                # command that runs no check script (info, render-registry) or a typo,
+                # and the difference matters: the old behaviour answered both by
+                # marking all 32 registry scripts reachable.
+                _UNRESOLVED_SGATE_INVOCATIONS.append(
+                    f"{surface.relative_to(ROOT)}: sgate {cmd}"
+                )
 
     # Follow delegation. Bounded, because a cycle must terminate: two shims that
     # exec each other would otherwise loop forever, and a gate that hangs is not a
@@ -2162,6 +2323,15 @@ def reachable_gate_scripts() -> set[str]:
                 for candidate in (f"scripts/{match.group(1)}",):
                     if (ROOT / candidate).is_file() and candidate not in invoked:
                         found.add(candidate)
+            # A gate that runs another gate reaches it. `check-detekt-registrations.sh`
+            # invokes `check-doc-dead-refs.py` by path, and that is the only thing
+            # running it — so scanning surfaces alone reported it as an orphan while
+            # it executed on every run. The loop is bounded by the same frontier, so
+            # a gate-to-gate cycle still terminates.
+            for match in _GATE_TO_GATE_CALL.finditer(body):
+                candidate = match.group(1)
+                if (ROOT / candidate).is_file() and candidate not in invoked:
+                    found.add(candidate)
         if not found:
             break
         invoked |= found
@@ -2290,11 +2460,89 @@ def check_gradle_task_parity() -> list[str]:
     return errors
 
 
+#: Gate-shaped scripts Part H does not report, each with the reason and the issue
+#: that will remove the entry. The alternative — a gate that cannot be reached and
+#: cannot be deleted without deciding something else first — is a permanent,
+#: invisible hole; an entry here is a decision that is visible in review.
+#:
+#: `check_gate_reachability` asserts every entry still exists on disk, so this list
+#: cannot accumulate scripts that were later deleted: a stale entry is an error.
+#: All four are the same shape: a positive control is declared in `GATE_CONTROLS`, no
+#: `GateSpec` registers them, and no surface invokes them. The control survived the
+#: registration, which is why nobody noticed the gate had stopped running — Part J
+#: counts controls, Part H counts reachability, and each was reading the other half
+#: of the same fact.
+#:
+#: Whether each is deleted or re-registered is a decision, not a cleanup, so it is
+#: filed (https://github.com/gazon1/sing/issues/697) rather than taken here. What is
+#: taken here is that Part H now says so out loud instead of counting them reached
+#: because of one unresolvable command name.
+_WIRED_BY_NOBODY = (
+    "has a positive control in GATE_CONTROLS, no GateSpec, and no surface that invokes "
+    "it — it is not run, and never has been since its registration went. Whether to "
+    "delete it or register it is tracked in "
+    "https://github.com/gazon1/sing/issues/697"
+)
+
+REACHABILITY_EXCLUSIONS: dict[str, str] = {
+    "scripts/check-backlog-issue-refs.py": (
+        "Retired with the backlog-issue-refs gate in #657 — the registration went, the "
+        "script stayed, and the exemption text for `check-gate-liveness.py` already "
+        "describes it as gone. Deleting it also means re-pointing that gate-liveness "
+        "control, whose sabotage target names this path. " + _WIRED_BY_NOBODY
+    ),
+    "scripts/check-adr-references.py": (
+        "Its own unit tests pin the behaviour (GATE_EXEMPTIONS says so), and the "
+        "control exists, but nothing in check.sh, the registry or any recipe runs it. "
+        + _WIRED_BY_NOBODY
+    ),
+    "scripts/check-doc-dead-refs.py": (
+        "Reachable-looking: `check-detekt-registrations.sh` names it — in a comment, "
+        "explaining what the dead-reference check is for. A prose mention is not an "
+        "invocation, which is why the gate-to-gate scan requires command position. "
+        + _WIRED_BY_NOBODY
+    ),
+    "scripts/check-req-id-uniqueness.py": (
+        "Its control's own text says the gate 'is registered advisory' — it is not; "
+        "the advisory entry was never added to GATES. The control documents an intent "
+        "the registry does not carry. " + _WIRED_BY_NOBODY
+    ),
+}
+
+
+def check_reachability_exclusions_are_live() -> list[str]:
+    """Every exclusion must still describe a file that exists.
+
+    An exemption whose subject was deleted is a hole wearing a reason: Part H can
+    never report that script again, and nothing is left to look at. Checked
+    separately from `check_gate_reachability` so a fixture that rebinds ROOT is
+    not judged against this repository's files.
+    """
+    errors: list[str] = []
+    for excluded in REACHABILITY_EXCLUSIONS:
+        if not (ROOT / excluded).is_file():
+            errors.append(
+                f"{excluded} is listed in REACHABILITY_EXCLUSIONS but no longer exists. "
+                f"Remove the entry: the exemption list is a record of a decision still "
+                f"open, not a place where deletions go to hide."
+            )
+    return errors
+
+
 def check_gate_reachability() -> list[str]:
     errors: list[str] = []
     reachable = reachable_gate_scripts()
+
+    for unresolved in _UNRESOLVED_SGATE_INVOCATIONS:
+        errors.append(
+            f"{unresolved} names no sgate command that runs a check script, so nothing "
+            f"was marked reachable because of it. Previously this invocation silently "
+            f"marked every script any command module names — 32 of the 33 candidates — "
+            f"reachable, which is how a gate retired in #657 stayed on disk with a "
+            f"shim still pointing at it. Rename the command, or delete the invocation."
+        )
     for script in gate_candidate_scripts():
-        if script in reachable:
+        if script in reachable or script in REACHABILITY_EXCLUSIONS:
             continue
         errors.append(
             f"{script} can fail and is named by no gate surface — check.sh, the "
@@ -2422,6 +2670,7 @@ def main(
         orphans = [s for s in candidates if s not in reachable]
         print(f"  {len(candidates)} candidate(s), {len(reachable & set(candidates))} reachable")
         errors += check_gate_reachability()
+        errors += check_reachability_exclusions_are_live()
         if not orphans:
             print("  ok  no gate-shaped script is left unreachable")
 

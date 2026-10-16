@@ -33,10 +33,9 @@ because `flake.yml` already had to spell the reason out in a comment.
 Within one job (or `check.sh`, which is the local equivalent), every Gradle
 invocation that can run tests must select the **same** population.
 
-*Test-capable* means the invocation names a test task or an aggregate that depends
-on one: `test`, `jvmTest`, `connectedDebugAndroidTest`, `check`, `build`, or
-anything under Kover (`koverVerify`, `koverReport`, `koverHtml`,
-`koverMarkdownTable`, `koverLog`) — Kover reads the binary reports those test
+*Test-capable* means the invocation names a test task or an aggregate that
+depends on one: `test`, `jvmTest`, `connectedDebugAndroidTest`, `check`,
+`build`, or anything under Kover — Kover reads the binary reports those test
 tasks produce, so a Kover task that runs them is a test run.
 
 A selector is `-Ptest.tags=<value>`. "Absent" is a selector too: it is Gradle's
@@ -54,10 +53,15 @@ into determinism. Parity is the property that survives either outcome.
 
 ## What it does not do
 
-It does not run Gradle, so it cannot tell whether a task would actually re-run. It
+It does not run Gradle, so it cannot tell whether a task *would* re-run. It
 compares *declared intent* across invocations. That is the part a diff can change
 silently and a reviewer cannot see; whether the task really re-ran is the
 up-to-date check's job.
+
+What "an invocation" means is defined once, in `scripts/src/workflow_gradle.py`.
+This file used to define it privately, and the sibling readers gate defined it
+differently; the disagreement was silent until the readers gate's own sabotage
+control passed a sabotaged workflow. See that module for the incident.
 
 Usage:
   python3 scripts/check-gradle-test-population.py [--verbose]
@@ -72,118 +76,31 @@ from __future__ import annotations
 
 import json
 import pathlib
-import re
 import sys
 
 import click
-import yaml
+
+# `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
+# loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
+# package is invisible; this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+import workflow_gradle as wg  # noqa: E402
+
+if _added:
+    sys.path.remove(_scripts_src)
+
+import yaml  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 LOCAL_SURFACE = ROOT / "check.sh"
 
-#: A Gradle invocation. `./gw` is the repo's pass-through wrapper (check.sh:15).
-_GRADLE = re.compile(r"(?:^|[\s;&|(])(?:\./gradlew|\./gw)\b")
 
-#: `-Ptest.tags=fast,slow` and the space-separated `-Ptest.tags all` both bind.
-_SELECTOR = re.compile(r"-Ptest\.tags[= ]([^\s;&|)]+)")
-
-#: Fragments are split on shell separators so a pipeline cannot hide an invocation.
-_SPLIT = re.compile(r"[|\n;&]+")
-
-#: A trailing backslash continues the command onto the next line. This is not a
-#: cosmetic detail: `ci.yml` writes its main Gradle invocation as a block of
-#: `--flag \` lines, and only the first carries `./gradlew`. Split on newlines
-#: first and the whole invocation is read as `--continue` plus nothing — no tasks,
-#: therefore not test-capable — and every gate built on this parser quietly stops
-#: seeing the run that produces the results. Measured 2026-10-16: the sabotage
-#: control for `check-build-output-readers.py` passed a sabotaged workflow for
-#: exactly this reason.
-_LINE_CONTINUATION = re.compile(r"\\\n\s*")
-
-#: A whole-line shell comment. Trailing `# ...` is deliberately NOT stripped:
-#: `./gradlew foo # runs the tests` is still an invocation.
-_FULL_LINE_COMMENT = re.compile(r"^\s*#")
-
-#: Exact task names that pull in a test task, module-qualified or bare.
-_EXACT_TEST_TASKS = frozenset(
-    {
-        "test",
-        "check",
-        "build",
-        "jvmTest",
-        "testAndroidHostTest",
-        "androidHostTest",
-        "connectedDebugAndroidTest",
-    }
-)
-
-#: Task-name suffixes that mark a test task: `jvmTest`, `testAndroidHostTest`.
-#: Anchored on a segment boundary so `latest` and `koverMarkdownTable` are not
-#: mistaken for one — `koverMarkdownTable` is matched as a Kover task instead.
-_TEST_SUFFIX = re.compile(r"^(?:[A-Za-z0-9_.-]+:)*(?:[A-Za-z0-9_.-]*[Tt]est)$")
-
-#: Anything under Kover. Kover's aggregate tasks read the binary reports the test
-#: tasks produce, so an invocation that runs one can run those tests.
-_KOVER = re.compile(r"^:?(?:[A-Za-z0-9_.-]+:)*kover[A-Za-z0-9]*$")
-
-
-def _is_named_task(token: str) -> bool:
-    """A command-line word that reads as a task name.
-
-    Excludes the launcher itself, flags, property assignments, and the two things a
-    run block splices in rather than names: a GitHub expression and a shell redirect.
-    """
-    if token.startswith("-") or "=" in token or "${{" in token or ">" in token:
-        return False
-    if re.match(r"^\d", token):
-        return False
-    return not _GRADLE.search(token)
-
-
-def _is_test_task(token: str) -> bool:
-    """True when this command-line word names a task that runs tests.
-
-    Flags and property assignments are not tasks, which is why ``-Ptest.tags=…``
-    cannot make an invocation test-capable on its own.
-    """
-    if token.startswith("-") or "=" in token:
-        return False
-    bare = token.rsplit(":", 1)[-1]
-    if bare in _EXACT_TEST_TASKS:
-        return True
-    if _KOVER.match(token):
-        return True
-    return bool(_TEST_SUFFIX.match(bare)) and "test" in bare.lower()
-
-
-def _invocations(script: str, origin: str) -> list[Invocation]:
-    """Return `(location, selector, test_capable, tasks)` per invocation, in order.
-
-    Line continuations are joined *before* the script is split, and the location
-    reported is the first line of the command — which is what a reader of the
-    workflow recognises as the invocation's position.
-    """
-    found: list[Invocation] = []
-    joined = _LINE_CONTINUATION.sub(" ", script)
-    for line_no, line in enumerate(joined.splitlines(), start=1):
-        if _FULL_LINE_COMMENT.match(line):
-            continue
-        for fragment in _SPLIT.split(line):
-            fragment = fragment.strip()
-            if not _GRADLE.search(fragment):
-                continue
-            match = _SELECTOR.search(fragment)
-            selector = match.group(1) if match else None
-            tasks = tuple(word for word in fragment.split() if _is_named_task(word))
-            found.append((f"{origin}:{line_no}", selector, bool(tasks) and any(
-                _is_test_task(task) for task in tasks
-            ), tasks))
-    return found
-
-
-def _workflow_jobs(path: pathlib.Path) -> dict[str, str]:
-    """`{job_name: script_text}` for every job step that runs something inline."""
+def _workflow_bodies(path: pathlib.Path) -> dict[str, str]:
+    """`{job_name: every inline run text in that job, in order}`."""
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     bodies: dict[str, list[str]] = {}
     for job_name, job in (data.get("jobs") or {}).items():
@@ -195,26 +112,23 @@ def _workflow_jobs(path: pathlib.Path) -> dict[str, str]:
     return {name: "\n".join(texts) for name, texts in bodies.items()}
 
 
-#: One Gradle invocation: `(location, selector, test_capable, tasks)`.
-#: `selector` is `None` for an absent `-Ptest.tags`, which is a population of its own.
-Invocation = tuple[str, str | None, bool, tuple[str, ...]]
-
-
-def _surfaces() -> list[tuple[str, list[Invocation]]]:
+def _surfaces() -> list[tuple[str, list[wg.Invocation]]]:
     """Every job (and `check.sh`) with at least one Gradle invocation."""
-    found: list[tuple[str, list[Invocation]]] = []
+    found: list[tuple[str, list[wg.Invocation]]] = []
     for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
         try:
-            jobs = _workflow_jobs(workflow)
+            jobs = _workflow_bodies(workflow)
         except yaml.YAMLError as exc:
             raise RuntimeError(f"{workflow}: {exc}") from exc
         relative = str(workflow.relative_to(ROOT))
         for job_name, body in sorted(jobs.items()):
-            invocations = _invocations(body, f"{relative}::{job_name}")
+            invocations = list(wg.iter_invocations(body, f"{relative}::{job_name}"))
             if invocations:
                 found.append((f"{relative}::{job_name}", invocations))
     if LOCAL_SURFACE.exists():
-        invocations = _invocations(LOCAL_SURFACE.read_text(encoding="utf-8"), LOCAL_SURFACE.name)
+        invocations = list(wg.iter_invocations(
+            LOCAL_SURFACE.read_text(encoding="utf-8"), LOCAL_SURFACE.name
+        ))
         if invocations:
             found.append((LOCAL_SURFACE.name, invocations))
     return found
@@ -228,21 +142,26 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
 
     for surface, invocations in _surfaces():
         if verbose:
-            for location, selector, test_capable, tasks in invocations:
-                kind = "test-capable" if test_capable else "compile-only"
-                chosen = f"-Ptest.tags={selector}" if selector else "Gradle default"
-                named = " ".join(tasks) if tasks else "(no task named)"
-                listing.append(f"  {location}: {kind}, {chosen}, tasks: {named}")
+            for invocation in invocations:
+                kind = "test-capable" if invocation.test_capable else "compile-only"
+                chosen = (
+                    f"-Ptest.tags={invocation.selector}"
+                    if invocation.selector
+                    else "Gradle default"
+                )
+                named = " ".join(invocation.tasks) if invocation.tasks else "(no task named)"
+                listing.append(f"  {invocation.location}: {kind}, {chosen}, tasks: {named}")
 
-        tests = [inv for inv in invocations if inv[2]]
+        tests = [inv for inv in invocations if inv.test_capable]
         if len(tests) < 2:
             continue
 
-        selectors = {selector for _, selector, _, _ in tests}
+        selectors = {inv.selector for inv in tests}
         if len(selectors) > 1:
             rendered = ", ".join(
-                (f"{loc} → -Ptest.tags={sel}" if sel else f"{loc} → Gradle default")
-                for loc, sel, _, _ in tests
+                (f"{inv.location} → -Ptest.tags={inv.selector}" if inv.selector
+                 else f"{inv.location} → Gradle default")
+                for inv in tests
             )
             violations.append(
                 f"{surface}: {len(tests)} test-capable Gradle invocations disagree about "

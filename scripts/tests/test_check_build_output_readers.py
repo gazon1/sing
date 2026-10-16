@@ -20,7 +20,8 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / 'check-build-output-readers.py'
-SIBLING = ROOT / 'check-gradle-test-population.py'
+#: The gate imports its parser from here.
+PARSER = ROOT / 'src' / 'workflow_gradle.py'
 
 # The shape that failed silently on 2026-10-16: the flake reader sits after three
 # Gradle invocations that can each re-run the shared test task.
@@ -164,10 +165,12 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
         root = pathlib.Path(tmp)
         scripts = root / 'scripts'
         scripts.mkdir(parents=True)
-        for name, source in ((SCRIPT.name, SCRIPT), (SIBLING.name, SIBLING)):
-            dest = scripts / name
-            dest.write_text(source.read_text())
-            dest.chmod(0o755)
+        script_dest = scripts / SCRIPT.name
+        script_dest.write_text(SCRIPT.read_text())
+        script_dest.chmod(0o755)
+        parser_dest = scripts / 'src' / PARSER.name
+        parser_dest.parent.mkdir(parents=True, exist_ok=True)
+        parser_dest.write_text(PARSER.read_text())
         for rel, content in files.items():
             path = root / rel
             path.parent.mkdir(parents=True, exist_ok=True)
