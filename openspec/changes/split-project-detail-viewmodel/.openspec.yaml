@@ -1,0 +1,16 @@
+schema: spec-driven
+
+# This is a pure internal refactor. ProjectDetailViewModel's observable
+# behaviour — the ProjectDetailUiState it emits, the intents it accepts, and the
+# screen contract it satisfies — is unchanged. What changes is where that logic
+# lives inside the module.
+skip_specs: true
+
+goal: >
+  Reduce ProjectDetailViewModel from 573 lines to a state machine plus an intent
+  dispatch table, by extracting the two concerns whose code is currently
+  interleaved across four separate regions of the file — project reminders and
+  task-list derivation — into collaborators that hold no state flows. Also remove
+  a constructor parameter that is declared and never read.
+
+affected_areas: [shared]
