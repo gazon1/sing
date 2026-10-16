@@ -1,16 +1,13 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
-import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -23,15 +20,11 @@ import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
-import com.singularity.todo.feature.reminders.ProjectReminder
-import com.singularity.todo.feature.reminders.ProjectReminderId
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
@@ -44,14 +37,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
 
 /**
  * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
@@ -86,7 +76,6 @@ class ProjectDetailViewModel(
      */
     private val notificationsSettings: NotificationsSettingsRepository,
     val clock: Clock,
-    private val log: Logger,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectDetailUiState, ProjectDetailIntent.Domain, ProjectDetailUiEvent>(
@@ -109,31 +98,12 @@ class ProjectDetailViewModel(
     /**
      * Hides tasks blocked by unfinished dependencies.
      *
-     * Folded into [TaskVisibility] rather than combined as a sixth flow: the
-     * `combine` below is already at kotlinx's five-argument limit, and a vararg
-     * call would collapse to `Array<Any?>`. Two toggles that always travel
-     * together are one input, not two.
+     * Folded into [TaskVisibility] rather than combined as a sixth flow — see that
+     * type's KDoc for the arity reason.
      */
     private val hideBlockedFlow = MutableStateFlow(false)
 
-    /** The two independent list filters, as one value. */
-    private data class TaskVisibility(val hideCompleted: Boolean = false, val hideBlocked: Boolean = false)
-
     private val visibilityFlow = combine(hideCompletedFlow, hideBlockedFlow, ::TaskVisibility)
-
-    /**
-     * Ids of tasks blocked by an unfinished dependency, resolved against the
-     * **full** task list.
-     *
-     * Never computed against a filtered list. A dependency that "Hide completed"
-     * or another filter has hidden still blocks whatever it blocks — resolving
-     * against the survivors would let hiding a task retroactively unblock its
-     * dependents. Mirrors `AgendaEvaluator`, which passes the complete list too.
-     *
-     * Built only when the filter is on, so the default view pays nothing for it.
-     */
-    private fun blockedIds(allTasks: List<Task>): Set<TaskId> =
-        TaskComputed.blockedIds(allTasks)
 
     /** Emits null on start (loading placeholder), then the project flow. */
     private val _projectFlow = MutableStateFlow<Project?>(null)
@@ -159,40 +129,34 @@ class ProjectDetailViewModel(
     private val tagGroupOptionsFlow = MutableStateFlow<List<TagGroupOption>>(emptyList())
 
     /**
-     * The project's current reminder offset in minutes, or null when none is set.
+     * When this project's reminder fires, and what the picker should preselect.
      *
-     * The repository stores an absolute [ProjectReminder.fireAt]; this state holds the
-     * derived offset so the picker can show what the user actually chose, and so a due
-     * date edit can re-anchor the reminder without asking the user to re-pick it.
+     * Declared before the `init` below because a collector launched from that
+     * `init` reads it — see [draftState] for why that ordering is load-bearing
+     * rather than cosmetic.
      */
-    private val reminderOffsetFlow = MutableStateFlow<Int?>(null)
-
-    /**
-     * The user's default reminder offset, as configured in Notification settings.
-     *
-     * Seeded with [SettingsDefaults.Notifications.REMINDER_DEFAULT] rather than
-     * `null` so the picker always has something to preselect, then overwritten by
-     * the stored value. Seeded from the constant instead of from the repository's
-     * own default so this class does not silently become a second source of truth
-     * for what "no setting" means.
-     */
-    private val defaultReminderOffsetFlow = MutableStateFlow(SettingsDefaults.Notifications.REMINDER_DEFAULT)
-
-    /**
-     * The project's own offset and the user's configured default, as one value.
-     *
-     * Both are consumed by the same picker and both travel into the same `copy`, so
-     * they are folded rather than combined separately: `combine` here is already at
-     * kotlinx's five-argument limit, and a sixth argument would need a vararg call
-     * that collapses to `Array<Any?>`. Mirrors [TaskVisibility].
-     */
-    private data class ReminderOffsets(
-        val current: Int?,
-        val default: ReminderOffset,
+    private val reminderCoordinator = ProjectReminderCoordinator(
+        projectId = projectId,
+        project = { _projectFlow.value },
+        reminders = projectReminders,
+        defaultOffset = notificationsSettings.reminderDefault,
     )
 
-    private val reminderOffsetsFlow =
-        combine(reminderOffsetFlow, defaultReminderOffsetFlow, ::ReminderOffsets)
+    /**
+     * The ViewModel's own slot for the pair, feeding the second `combine`.
+     *
+     * Seeded with [SettingsDefaults.Notifications.REMINDER_DEFAULT] rather than a
+     * null default so the picker always has something to preselect before the
+     * first emission arrives. Seeded from the constant rather than from the
+     * repository's own default so this class does not silently become a second
+     * source of truth for what "no setting" means.
+     */
+    private val reminderOffsetsFlow = MutableStateFlow(
+        ReminderOffsets(
+            current = null,
+            default = SettingsDefaults.Notifications.REMINDER_DEFAULT,
+        ),
+    )
 
     /**
      * Draft state — single source of truth for editable name/description.
@@ -227,27 +191,11 @@ class ProjectDetailViewModel(
         }
 
         // The configured default offset — preselects the picker, creates nothing.
+        // Both reminder values (the project's own offset and the user's default)
+        // arrive as one [ReminderOffsets] emission, so the collector below is the
+        // only thing in this file that knows reminders have two inputs.
         vmScope.launch {
-            notificationsSettings.reminderDefault
-                .collect { defaultReminderOffsetFlow.value = it }
-        }
-
-        // Project reminders — read the stored instant back as an offset from the due date.
-        vmScope.launch {
-            projectReminders.watchByProject(projectId)
-                .collect { reminders ->
-                    val project = _projectFlow.value
-                    val due = project?.dueDate
-                    reminderOffsetFlow.value = if (project == null || due == null) {
-                        null
-                    } else {
-                        val dueMillis = due.atStartOfDayIn(TimeZone.currentSystemDefault())
-                            .toEpochMilliseconds()
-                        reminders.firstOrNull()?.let { reminder ->
-                            ((dueMillis - reminder.fireAt) / MILLIS_PER_MINUTE).toInt()
-                        }
-                    }
-                }
+            reminderCoordinator.offsets.collect { reminderOffsetsFlow.value = it }
         }
 
         // Parent-picker options
@@ -268,14 +216,7 @@ class ProjectDetailViewModel(
         // Quick-add picker candidates
         vmScope.launch {
             taskRepo.observeByFilter(TaskFilter.All)
-                .map { all ->
-                    all.filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
-                        .sortedWith(
-                            compareBy<Task, kotlinx.datetime.LocalDate?>(
-                                nullsLast(),
-                            ) { it.dueDate }.thenByDescending { it.updatedAt },
-                        )
-                }
+                .map { all -> ProjectTaskListDeriver.quickAddCandidates(all, projectId) }
                 .collect { availableTasksFlow.value = it }
         }
 
@@ -332,16 +273,21 @@ class ProjectDetailViewModel(
                     project.isDeleted -> ProjectDetailUiState.NotFound
 
                     else -> {
-                        val visibleTasks = tasks.filter { task ->
-                            (!visibility.hideCompleted || task.completedAt == null) &&
-                                (!visibility.hideBlocked || task.id !in blockedIds(tasks))
+                        // `blockedIds` is resolved against the unfiltered list and only
+                        // when the filter is on — see ProjectTaskListDeriver.
+                        val blocked = if (visibility.hideBlocked) {
+                            ProjectTaskListDeriver.blockedIds(tasks)
+                        } else {
+                            emptySet()
                         }
                         ProjectDetailUiState.Content(
                             ui = ProjectDetailUi(
                                 project = project,
-                                tasks = visibleTasks.take(5),
-                                totalCount = tasks.size,
-                                completedCount = tasks.count { it.completedAt != null },
+                                tasks = ProjectTaskListDeriver.preview(tasks, visibility, blocked),
+                                // Counts come from the *unfiltered* list: "5 of 23"
+                                // must not become "5 of 5" when rows are hidden.
+                                totalCount = ProjectTaskListDeriver.totalCount(tasks),
+                                completedCount = ProjectTaskListDeriver.completedCount(tasks),
                                 childProjects = childProjects,
                                 parent = parent,
                             ),
@@ -510,64 +456,25 @@ class ProjectDetailViewModel(
     }
 
     /**
-     * Attach, re-anchor or remove the project's reminder.
+     * Delegates the reminder write to [ProjectReminderCoordinator] and maps the
+     * outcome onto a one-shot event.
      *
-     * Stored as an absolute [ProjectReminder.fireAt] because that is what an alarm
-     * scheduler needs, but *authored* as an offset from the due date — so editing the
-     * due date re-anchors the alarm instead of leaving a reminder that fires at the
-     * old instant. [reminderOffsetFlow] converts it back for the picker.
-     *
-     * A project with no due date has nothing to anchor to, so picking an offset there
-     * reports an error rather than silently dropping the request.
-     *
-     * ## The row this writes is never fired
-     *
-     * There is no `ProjectReminderScheduler` on any platform, so this persists an
-     * instant that nothing will ever act on. The method is correct and tested, and the
-     * UI is gated off via `PROJECT_REMINDERS_SUPPORTED` so no user can reach it — the
-     * re-anchoring logic is worth keeping for the scheduler follow-up. Do not call it
-     * from a new surface before that flag is flipped.
+     * The coordinator returns a value rather than emitting, because it holds no
+     * event bus — the ViewModel stays the only thing that can put something in
+     * front of the user. The three cases below are the same three the old inline
+     * helper produced; none of them is a new branch.
      */
     private fun setReminder(offsetMinutes: Int?) {
         vmScope.launch {
-            val due = _projectFlow.value?.dueDate
-            if (offsetMinutes != null && due == null) {
-                emit(ProjectDetailUiEvent.ShowError("Set a due date before adding a reminder."))
-                return@launch
-            }
+            when (val outcome = reminderCoordinator.set(offsetMinutes)) {
+                is SetReminderOutcome.NoDueDate ->
+                    emit(ProjectDetailUiEvent.ShowError("Set a due date before adding a reminder."))
 
-            val existing = projectReminders.watchByProject(projectId).first().firstOrNull()
-            val result = if (offsetMinutes == null) {
-                projectReminders.deleteByProject(projectId)
-            } else {
-                val startOfDay = due!!.atStartOfDayIn(TimeZone.currentSystemDefault())
-                projectReminders.upsert(
-                    ProjectReminder(
-                        // Reuse the existing id so re-picking updates in place instead of
-                        // leaving one alarm row per change.
-                        id = existing?.id ?: ProjectReminderId.generate(),
-                        projectId = projectId,
-                        // The repository asserts ownership and re-stamps the owner, so the
-                        // VM does not need to know the current user id.
-                        userId = existing?.userId ?: UserId(ANONYMOUS_SENTINEL),
-                        fireAt = startOfDay.toEpochMilliseconds() - offsetMinutes * MILLIS_PER_MINUTE,
-                    ),
-                )
+                is SetReminderOutcome.Failed ->
+                    emit(ProjectDetailUiEvent.ShowError("Reminder: ${outcome.cause.message}"))
+
+                is SetReminderOutcome.Applied, is SetReminderOutcome.Removed -> Unit
             }
-            result.onFailure { emit(ProjectDetailUiEvent.ShowError("Reminder: ${it.message}")) }
         }
     }
 }
-
-/**
- * Placeholder owner for a newly created project reminder.
- *
- * [ProjectRemindersRepositoryImpl.upsert] asserts the caller may write this entity and
- * then re-stamps the real owner, so this value never reaches the database. It exists
- * only because the domain model is total — a reminder with no owner is not a state the
- * type system should allow, even transiently.
- */
-private const val ANONYMOUS_SENTINEL = "anonymous"
-
-/** Milliseconds in a minute — converts a due-date gap into a stored fire offset. */
-private const val MILLIS_PER_MINUTE = 60_000L

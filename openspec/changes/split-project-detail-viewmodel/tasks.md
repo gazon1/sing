@@ -8,7 +8,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
 
 ## Phase 1 — Foundation: pure task-list derivation
 
-- [ ] **T001** [P] Create `ProjectTaskListDeriver` with `blockedIds`, `visible`,
+- [x] **T001** [P] Create `ProjectTaskListDeriver` with `blockedIds`, `visible`,
       `children` and the `take(5)` + sort projection, as pure functions with no
       coroutines and no repository dependency.
   - Files: `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectTaskListDeriver.kt`
@@ -19,7 +19,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
     `:269-277`. Do not reformat or "improve" while moving — a diff that mixes a
     move with an edit cannot be reviewed.
 
-- [ ] **T002** [P] Write `ProjectTaskListDeriverTest` covering hide-completed,
+- [x] **T002** [P] Write `ProjectTaskListDeriverTest` covering hide-completed,
       hide-blocked, dependency-blocking, the `take(5)` cap, and sort order.
   - Files: `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectTaskListDeriverTest.kt`
   - Depends on: T001
@@ -31,7 +31,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
 
 ## Phase 2 — Core: reminder coordinator
 
-- [ ] **T003** [P] Create `ProjectReminderCoordinator` taking
+- [x] **T003** [P] Create `ProjectReminderCoordinator` taking
       `ProjectRemindersRepository`, `NotificationsSettingsRepository`,
       `projectId` and a project `Flow`, exposing `offsets(): Flow<ReminderOffsets>`
       and `suspend fun set(offsetMinutes: Int?)`.
@@ -42,7 +42,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
   - The `fireAt = dueDate − offset` rule must be a **named function** here, not an
     inline lambda in a collector. That naming is the point of the extraction.
 
-- [ ] **T004** [P] Write `ProjectReminderCoordinatorTest` for the four reminder
+- [x] **T004** [P] Write `ProjectReminderCoordinatorTest` for the four reminder
       rules: `fireAt = dueDate − offset`, default preselects without creating,
       `null` removes, and no-due-date rejects.
   - Files: `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectReminderCoordinatorTest.kt`
@@ -56,7 +56,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
 
 ## Phase 3 — Integration: rewire the ViewModel
 
-- [ ] **T005** Replace the inline reminder collectors (`:168-199`, `:232-249`)
+- [x] **T005** Replace the inline reminder collectors (`:168-199`, `:232-249`)
       and `setReminder` (`:531-559`) with the coordinator, keeping
       `reminderOffsetsFlow` as the ViewModel's slot for the combine.
   - Files: `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt`
@@ -65,7 +65,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
   - Acceptance: AC-01, AC-04
   - All six reminder tests must pass **unmodified**.
 
-- [ ] **T006** Replace the inline task-list derivation at `:135` and `:269-279`
+- [x] **T006** Replace the inline task-list derivation at `:135` and `:269-279`
       with calls into `ProjectTaskListDeriver`.
   - Files: `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectDetailViewModel.kt`
   - Depends on: T001
@@ -74,7 +74,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
   - T005 and T006 both edit `ProjectDetailViewModel.kt`, so they are **not**
     marked `[P]` and must be serialised.
 
-- [ ] **T007** Confirm the screen contract is untouched: `stateFlow`,
+- [x] **T007** Confirm the screen contract is untouched: `stateFlow`,
       `lastEditedAt`, `draftState.state`, `clock`, `events`, `onIntent` all keep
       their types, and no new `collectAsStateWithLifecycle` was added.
   - Files: `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/screen/ProjectDetailContent.kt` (read-only check)
@@ -87,7 +87,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
 
 ## Phase 4 — Cleanup
 
-- [ ] **T008** Remove the unused `log: Logger` constructor parameter and the
+- [x] **T008** Remove the unused `log: Logger` constructor parameter and the
       matching `log = Logger.withTag("ProjectDetail")` DI argument.
   - Files: `ProjectDetailViewModel.kt`,
       `core/di/ProjectsDiModule.kt`
@@ -97,7 +97,7 @@ Legend: `[P]` = genuinely independent of the other marked tasks (disjoint files)
   - Acceptance: AC-07
   - Must confirm the koin-compiler graph still verifies (AC-06).
 
-- [ ] **T009** Run the full gate suite and record the real outcome.
+- [x] **T009** Run the full gate suite and record the real outcome.
   - Files: none
   - Depends on: T008
   - Verification: `./check.sh` and

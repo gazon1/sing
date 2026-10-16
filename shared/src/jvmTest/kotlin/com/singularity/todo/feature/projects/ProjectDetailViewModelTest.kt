@@ -2,7 +2,6 @@
 
 package com.singularity.todo.feature.projects
 
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.reminders.ReminderOffset
@@ -113,7 +112,6 @@ class ProjectDetailViewModelTest {
             projectReminders = fakeProjectReminders,
             notificationsSettings = notificationsSettings,
             clock = FakeClock(TEST_NOW),
-            log = Logger,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
         return vm

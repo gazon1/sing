@@ -146,6 +146,47 @@ No test proves a parameter is unused, so this is verified by the DI graph
 compiling and by grep: `log` must not appear in the VM file or in
 `ProjectsDiModule.kt`'s binding.
 
+## What actually happened
+
+Measured after implementation:
+
+- `ProjectDetailViewModel.kt` 573 → **480** lines. Less than the split implied,
+  because the ViewModel keeps both `combine`s, the 11 state slots and a 13-branch
+  intent table — roughly 240 lines that are irreducibly the state machine. What
+  the number does *not* show is the real change: the reminder concern is now one
+  file instead of four regions of one file, and is directly testable.
+- `ProjectTaskListDeriver` 128 lines, 13 tests.
+- `ProjectReminderCoordinator` 188 lines, 12 tests.
+- `:shared:jvmTest` — 328 classes, 2827 tests, 0 failures, 0 skipped. The 19
+  existing `ProjectDetailViewModelTest` cases pass **unmodified** except for
+  dropping the `log = Logger` named argument (T008); not one assertion changed.
+
+### Two things the plan got wrong
+
+1. **A test asserted a scenario that cannot occur.** The first version of the
+   deriver test claimed "a hidden blocker still blocks its dependent". It cannot
+   happen: "hide completed" only hides *completed* tasks, and a completed
+   dependency does not block, so no unfinished blocker is ever hidden by these
+   two filters. The test was replaced with the rule that is reachable —
+   completing a dependency unblocks its dependent, and hiding it changes nothing.
+   The `blockedIds` KDoc overstated the same consequence and was corrected; the
+   *contract* (pass the full list) still holds, because the same function serves
+   `AgendaEvaluator`, whose filters can hide an unfinished task.
+2. **The spec said the existing suite passes unmodified; T008 forces one edit.**
+   Removing a constructor parameter means the DI binding and the test's
+   `createVm` helper each lose a named argument. That is mechanical — no
+   assertion moved — but the spec's wording was too strong and is amended here
+   rather than quietly ignored.
+
+### Detekt
+
+`:shared:detekt` does **not** pass locally on this branch — 109 issues, all in
+files this change never touched. It also fails on `main` under the same
+invocation, at 111. So the refactor introduces no new finding and removes two
+(the two multi-line `data class` signatures it deleted). CI's detekt step was
+green at HEAD; the local/CI divergence is pre-existing and is not explained by
+this change.
+
 ## Risks and mitigations
 
 | Risk | Mitigation |
