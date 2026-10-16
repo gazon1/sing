@@ -91,6 +91,16 @@ _SELECTOR = re.compile(r"-Ptest\.tags[= ]([^\s;&|)]+)")
 #: Fragments are split on shell separators so a pipeline cannot hide an invocation.
 _SPLIT = re.compile(r"[|\n;&]+")
 
+#: A trailing backslash continues the command onto the next line. This is not a
+#: cosmetic detail: `ci.yml` writes its main Gradle invocation as a block of
+#: `--flag \` lines, and only the first carries `./gradlew`. Split on newlines
+#: first and the whole invocation is read as `--continue` plus nothing — no tasks,
+#: therefore not test-capable — and every gate built on this parser quietly stops
+#: seeing the run that produces the results. Measured 2026-10-16: the sabotage
+#: control for `check-build-output-readers.py` passed a sabotaged workflow for
+#: exactly this reason.
+_LINE_CONTINUATION = re.compile(r"\\\n\s*")
+
 #: A whole-line shell comment. Trailing `# ...` is deliberately NOT stripped:
 #: `./gradlew foo # runs the tests` is still an invocation.
 _FULL_LINE_COMMENT = re.compile(r"^\s*#")
@@ -148,9 +158,15 @@ def _is_test_task(token: str) -> bool:
 
 
 def _invocations(script: str, origin: str) -> list[Invocation]:
-    """Return `(location, selector, test_capable, tasks)` per invocation, in order."""
+    """Return `(location, selector, test_capable, tasks)` per invocation, in order.
+
+    Line continuations are joined *before* the script is split, and the location
+    reported is the first line of the command — which is what a reader of the
+    workflow recognises as the invocation's position.
+    """
     found: list[Invocation] = []
-    for line_no, line in enumerate(script.splitlines(), start=1):
+    joined = _LINE_CONTINUATION.sub(" ", script)
+    for line_no, line in enumerate(joined.splitlines(), start=1):
         if _FULL_LINE_COMMENT.match(line):
             continue
         for fragment in _SPLIT.split(line):

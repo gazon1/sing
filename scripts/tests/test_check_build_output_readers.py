@@ -116,6 +116,48 @@ jobs:
 '''
 
 
+# The exact shape that hid the main Gradle run from the parser. `ci.yml` writes its
+# test run as a `|` block of backslash continuations (since PR #690), so only the
+# first line carries `./gradlew` and a parser that splits on newlines sees
+# `--continue` with no task at all — not a test-capable invocation. With the run
+# invisible, the sabotage control passed a sabotaged workflow and the gate could
+# not detect its own premise. Found by the control itself: "gate
+# 'build-output-readers' PASSED a deliberately sabotaged input" on run 38961950540.
+CONTINUATION_SHAPED_SABOTAGE = '''
+name: ci
+on: [push]
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Gradle (tests)
+        run: |
+          set -o pipefail
+          ./gradlew --continue \\
+            --no-build-cache \\
+            :shared:jvmTest \\
+            -Ptest.tags=fast,slow \\
+            2>&1 | tee build.log
+      - name: late coverage pass
+        run: ./gradlew :koverVerify -Ptest.tags=fast,slow
+      - name: counts
+        run: |
+          python3 scripts/check-test-runs.py --require shared:jvmTest \\
+            --current shared/build/test-results/jvmTest
+'''
+
+CONTINUATION_SHAPED_CLEAN = CONTINUATION_SHAPED_SABOTAGE.replace(
+    '''      - name: late coverage pass
+        run: ./gradlew :koverVerify -Ptest.tags=fast,slow
+''',
+    '''      - name: counts
+        run: |
+          python3 scripts/check-test-runs.py --require shared:jvmTest \\
+            --current shared/build/test-results/jvmTest
+''',
+)
+
+
 def run_gate(files: dict[str, str]) -> tuple[int, str]:
     """Materialise a fake repo — both scripts included — and run the gate."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -158,6 +200,21 @@ class OrderingIsTheRule(unittest.TestCase):
     def test_a_reader_in_one_job_is_not_implicated_by_another_job(self):
         code, out = run_gate({'.github/workflows/ci.yml': TWO_JOBS})
         self.assertEqual(code, 0, out)
+
+
+class MultiLineGradleCommandIsOneInvocation(unittest.TestCase):
+    """A `run:` block of `\\` continuations is one command, not N lines."""
+
+    def test_the_continuation_shaped_run_is_the_producer_not_a_gap(self):
+        # Without the producer being recognised there is only one test-capable
+        # invocation, the job is skipped, and the gate reports nothing.
+        code, out = run_gate({'.github/workflows/ci.yml': CONTINUATION_SHAPED_CLEAN})
+        self.assertEqual(code, 0, out)
+
+    def test_a_second_invocation_after_the_run_is_still_detected(self):
+        code, out = run_gate({'.github/workflows/ci.yml': CONTINUATION_SHAPED_SABOTAGE})
+        self.assertEqual(code, 1, out)
+        self.assertIn('late coverage pass', out)
 
 
 class TheGateStillSees(unittest.TestCase):
