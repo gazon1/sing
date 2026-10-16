@@ -22,6 +22,42 @@ Contract:
     whole change is about.
   * A brand-new baseline file (first commit) is allowed once, then ratchets.
 
+## What this does NOT check — read before trusting it
+
+**This proves "this change did not grow the baseline". It does not prove
+"detekt is green".** Those are different claims, and for a long time the two
+were treated as one.
+
+It never runs detekt. It compares a file against git. So a change that adds
+violating code and does not touch the baseline is invisible to it — correctly,
+by its own contract, and silently.
+
+That gap was load-bearing once. On 2026-10-16, 60 findings existed in
+`:shared` and `:androidApp` that the baseline did not cover, and all four links
+of the chain that let them sit there were open at once:
+
+  1. violating code was written, and the baseline was not regenerated;
+  2. this ratchet reported green, because the baseline file did not change;
+  3. `:shared:detekt` FAILED;
+  4. CI did not notice, because the Gradle step ran as
+     `./gradlew … 2>&1 | tee build.log` and, without `pipefail`, a pipeline
+     returns the exit code of `tee` — always 0.
+
+So "the ratchet is green" and "detekt is green" diverged with nothing between
+them. See docs/decisions/2026-10-16-ci-gradle-step-cannot-fail.md.
+
+**Where "detekt is green" is actually enforced:**
+
+  * locally — `check.sh:189` runs the module detekt tasks and fails on error,
+    so `./check.sh` is a real signal;
+  * in CI — only once the Gradle step's exit code survives. Until then, a green
+    CI run says nothing about lint, and the only honest reading of it is "the
+    Python gates passed".
+
+The cheapest way to use this file honestly: treat it as a *budget* check — it
+tells you the debt floor is not being lowered. To know whether the code is
+actually clean, run `./check.sh`, not this script.
+
 Usage:
   python3 scripts/check-baseline-ratchet.py [--baseline <path>] [--max-growth N]
 

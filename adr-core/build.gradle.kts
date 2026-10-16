@@ -66,3 +66,28 @@ dependencies {
     detektPlugins(libs.detekt.formatting)
     detektPlugins(project(":detekt-rules"))
 }
+
+/**
+ * `:adr-core:koverGenerateArtifact` consumes `:adr-core:compileKotlinJvm`'s output
+ * directory, and Gradle 9 reports that as an implicit dependency unless one side
+ * declares it. CI hit it on 2026-10-16 during `koverMarkdownTable`:
+ *
+ *     Task ':adr-core:koverGenerateArtifact' uses this output of task
+ *     ':adr-core:compileKotlinJvm' without declaring an explicit or implicit dependency
+ *
+ * The step that surfaced it is `|| true`, so the failure was reported and then
+ * ignored — which is how a real Gradle validation error sat in a green run.
+ *
+ * It is not reliably reproducible locally: the validation fires only when the
+ * output directory does not already exist, so a warm `build/` hides it. That is
+ * why it is fixed rather than investigated further — Gradle's own remedy is to
+ * declare the dependency, and it costs three lines.
+ *
+ * `matching { }.configureEach {}` rather than `tasks.named(...)`: Kover is applied
+ * at the settings level, so its tasks are not guaranteed to exist at the point this
+ * script's body runs. The lazy form cannot fail configuration if that ordering
+ * changes.
+ */
+tasks.matching { it.name == "koverGenerateArtifact" }.configureEach {
+    dependsOn(tasks.named("compileKotlinJvm"))
+}

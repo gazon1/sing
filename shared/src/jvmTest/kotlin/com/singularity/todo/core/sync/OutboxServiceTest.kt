@@ -3,9 +3,7 @@
 package com.singularity.todo.core.sync
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.test.helpers.MutableClock
 import com.singularity.todo.core.sync.ThrowingSyncScopeProvider
 
