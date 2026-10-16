@@ -1988,13 +1988,19 @@ def check_script_gates_vs_registry() -> list[str]:
 #    same shape of drift as the dead command that caused this issue.
 #
 # 2. A shim is an invocation. `refresh-decisions-digest.sh` is a few lines and
-#    ends in `exec python3 "$SCRIPT_DIR/refresh_decisions_digest.py" "$@"`. The
+#    ends in `exec python3 "$SCRIPT_DIR/refresh-decisions-digest.py" "$@"`. The
 #    Python file is therefore reachable, and a scanner that reads only the
 #    surface text calls it an orphan. So reachability follows delegation, which
 #    is the opposite of what a reader expects: the *target* of an `exec` counts
-#    as reached, not the shim that reached it. The three live shims spell their
-#    base directory three ways — `$ROOT/`, `$SCRIPT_DIR/`, bare — which is why
-#    _SHIM_DELEGATION accepts any shell variable.
+#    as reached, not the shim that reached it.
+#
+#    All three live shims spell the base directory the same way (`$SCRIPT_DIR/`),
+#    but _SHIM_DELEGATION accepts any shell variable, a bare `scripts/`, and an
+#    optional `./`. That is deliberate: this pattern was first written against
+#    `check-skill-frontmatter.sh`, which used `"$ROOT/scripts/…"`, and a
+#    matcher built for that one spelling would silently miss every other. The
+#    first version of this comment then named a file that no longer existed —
+#    the same drift it exists to prevent.
 
 #: A script is a gate candidate when its basename starts with `check` — hyphen or
 #: underscore, both spellings are in use — and ends in a script extension.
