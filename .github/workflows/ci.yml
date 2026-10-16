@@ -99,19 +99,27 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      # Three flags, each earned. `--system` is the default target, `--prefix
-      # "$HOME/.local"` redirects it: the runner's user cannot write
-      # /usr/local/lib/python3.12/dist-packages (Permission denied), and
-      # $HOME/.local/bin is already on PATH. `--break-system-packages` is still
-      # required because /usr carries an EXTERNALLY-MANAGED marker (PEP 668) and
-      # uv honours it — without it this exits 2 with "The interpreter at `/usr`
-      # is externally managed". f6ae1bbb (#635) replaced `python -m pip install`
-      # with a bare `uv pip install --system` and lost all of that, so `sgate`
-      # never landed on the runner: `Static gates` died on its second step,
-      # before `sgate run-all` ever started, and the red job said nothing about
-      # the gates inside it.
+      # A venv of our own, on PATH for every later step in the job.
+      #
+      # Three earlier attempts at this step failed in a row, each for a reason
+      # that looked like the previous one had worked:
+      #   1. `python -m pip install` -> replaced in f6ae1bbb (#635)
+      #   2. `uv pip install --system` -> "The interpreter at `/usr` is externally
+      #      managed" (PEP 668); sgate never installed and `Static gates` died on
+      #      its second step, before `sgate run-all` ever ran
+      #   3. `+ --break-system-packages` -> "Permission denied" writing
+      #      /usr/local/lib/python3.12/dist-packages
+      #   4. `+ --prefix "$HOME/.local"` -> installed, but `python3 -c "import
+      #      sgate"` in setup-repo-tools still failed: the runner's user site is
+      #      not on that interpreter's path
+      # A venv sidesteps all of it — nothing to break, nothing external to
+      # honour — and putting its bin first on PATH is what makes plain `python3`
+      # and plain `sgate` resolve to it for the rest of the job.
       - name: Install sgate CLI and its dependencies
-        run: uv pip install --system --break-system-packages --prefix "$HOME/.local" --editable scripts/src/
+        run: |
+          uv venv "$HOME/ci-venv"
+          VIRTUAL_ENV="$HOME/ci-venv" uv pip install --editable scripts/src/
+          echo "$HOME/ci-venv/bin" >> "$GITHUB_PATH"
 
       # actionlint + yamllint back the two workflow/YAML lint gates in
       # scripts/ci/static-gates.sh ("GitHub workflows are valid",
@@ -123,11 +131,10 @@ jobs:
       # floor moved without anyone deciding it should.
       - name: Install YAML/workflow lint tools (pinned)
         run: |
-          # uv, not `python -m pip`: the runner's /usr is EXTERNALLY-MANAGED, so
-          # pip exits 1 here exactly as `uv pip install --system` did before it
-          # carried these flags. Same target as the sgate install above, so both
-          # tools end up in $HOME/.local/bin, which is already on PATH.
-          uv pip install --system --break-system-packages --prefix "$HOME/.local" "yamllint==1.38.0"
+          # Into the same venv as the sgate install above, for the same reasons:
+          # the runner's /usr is EXTERNALLY-MANAGED and unwritable. The actionlint
+          # binary below goes to $HOME/.local/bin, which is already on PATH.
+          VIRTUAL_ENV="$HOME/ci-venv" uv pip install "yamllint==1.38.0"
           mkdir -p "$HOME/.local/bin"
           curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
             | tar -xz -C "$HOME/.local/bin" actionlint
@@ -218,7 +225,10 @@ jobs:
       # scope, so without the package the step dies with ModuleNotFoundError and
       # checks no gate at all.
       - name: Install sgate CLI and its dependencies
-        run: uv pip install --system --break-system-packages --prefix "$HOME/.local" --editable scripts/src/
+        run: |
+          uv venv "$HOME/ci-venv"
+          VIRTUAL_ENV="$HOME/ci-venv" uv pip install --editable scripts/src/
+          echo "$HOME/ci-venv/bin" >> "$GITHUB_PATH"
 
       # A fresh checkout runs every test task, so results older than this stamp
       # cannot belong to this run.
@@ -279,7 +289,7 @@ jobs:
       # blocking because the annotation step below must not silently produce zero
       # annotations — and it was producing zero annotations.
       - name: Install junitparser for annotations
-        run: uv pip install --system --break-system-packages --prefix "$HOME/.local" junitparser
+        run: VIRTUAL_ENV="$HOME/ci-venv" uv pip install junitparser
 
       # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
       # Parses desktop JUnit XML with junitparser and emits ::error / ::notice commands.
