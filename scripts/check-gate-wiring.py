@@ -450,6 +450,25 @@ SCRIPT_GATES = [
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
     ),
     ScriptGate(
+        name="release-tags",
+        cmd=[sys.executable, "scripts/check-release-tags.py"],
+        # A tag that produced no release is the failure this gate was written after:
+        # `meta` proved the tag was on main with a green CI run, `publish` still did
+        # not run, and the run ended with a red X that nobody read as "no release
+        # exists". Three tags had already done it. Appending an unreleased tag to the
+        # snapshot reproduces exactly that state — recorded as neither released nor
+        # excused in `tags_without_release`.
+        sabotage_path="config/docs/releases-snapshot.json",
+        sabotage=_replace(
+            '    "v0.2.1-rc.1"\n  ],',
+            '    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],',
+        ),
+        why=(
+            "a tag whose pipeline ran to green `meta` and produced no release leaves "
+            "the version tagged but unshipped, and nothing in the pipeline says so"
+        ),
+    ),
+    ScriptGate(
         name="room-schema-integrity",
         cmd=[sys.executable, "scripts/check-room-schema-integrity.py"],
         # The exact defect this gate was written after: `SyncColumns.server_version`
