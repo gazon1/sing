@@ -50,6 +50,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       version_code: ${{ steps.v.outputs.version_code }}
       prerelease: ${{ steps.v.outputs.prerelease }}
+      package_version: ${{ steps.v.outputs.package_version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -59,33 +60,22 @@ jobs:
         env:
           RAW: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
         run: |
-          v="${RAW#v}"
-          re='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
-          [[ $v =~ $re ]] || { echo "::error::'$RAW' is not X.Y.Z[-suffix]"; exit 1; }
-
-          # Parse major.minor.patch (required) and optional prerelease suffix.
-          if [[ $v == *-* ]]; then
-            base="${v%%-*}"
-            suffix="${v#*-}"
-          else
-            base="$v"
-            suffix=""
-          fi
-          IFS='.' read -r maj min patch <<< "$base"
-          maj="${maj#0}" && maj="${maj:-0}"   # "01" -> 1, "" -> 0
-          min="${min#0}" && min="${min:-0}"
-          patch="${patch#0}" && patch="${patch:-0}"
-
-          # versionCode scheme: major*1000000 + minor*1000 + patch
-          # Assert bounds: minor < 1000, patch < 1000
-          [[ $min -lt 1000 ]] || { echo "::error::minor=$min must be < 1000"; exit 1; }
-          [[ $patch -lt 1000 ]] || { echo "::error::patch=$patch must be < 1000"; exit 1; }
-          version_code=$(( maj * 1000000 + min * 1000 + patch ))
-
+          # All of this arithmetic lives in scripts/release_version.py, with tests.
+          # It used to be bash here, where nothing could check it: six defects had to
+          # be found by running the pipeline before it completed once. The shell now
+          # runs the decision; it does not make it.
+          #
+          # `out=$(cmd)` and then `eval`, never `eval "$(cmd)"`: in the latter form the
+          # exit status of `cmd` is the status of `eval`, which succeeds on empty input.
+          # A rejected version would then leave `version` empty and the release would
+          # proceed. Assigning first is what preserves the failure.
+          out=$(python3 scripts/release_version.py parse "$RAW") || exit 1
+          eval "$out"
           {
-            echo "version=$v"
+            echo "version=$version"
             echo "version_code=$version_code"
-            if [[ -n $suffix ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi
+            echo "prerelease=$prerelease"
+            echo "package_version=$package_version"
           } >> "$GITHUB_OUTPUT"
 
       - name: Tag must be on main and have a green CI run
@@ -241,40 +231,25 @@ jobs:
 
       - name: Package
         run: |
-          # -PpackageVersion is required, not optional: without it the Gradle build falls
-          # back to its own default ("0.1.0") and the verify step below then compares that
-          # against the tag and fails for every version that is not 0.1.0.
-          #
-          # The version has to be acceptable to BOTH formats, and there is no separator
-          # that both allow: rpm rejects a dash, deb rejects an underscore, and
+          # The version was derived once, in `meta`, by scripts/release_version.py, and
+          # is passed through unchanged. It has to be acceptable to BOTH formats:
           # `packageVersion` is a single property on `nativeDistributions`, which
-          # declares Deb and Rpm together. Compose validates it against every declared
-          # format while *configuring* the project, so a string rejected by one format
-          # fails the whole build — including in the job that packages only the other.
-          # That is why this is one string for both, not a per-format branch.
-          #
-          # Measured, not assumed — `./gradlew :desktopApp:packageRpm --dry-run` against
-          # the configuration, which is where the check happens:
-          #
-          #   0.2.1-rc.1   rejected (rpm: must not contain a dash)
-          #   0.2.1_rc.1   rejected (deb: upstream version may not contain '_')
-          #   0.2.1rc.1    accepted      <- used
-          #   0.2.1.rc.1   accepted, 0.2.1+rc.1 accepted, 0.2.1~rc.1 accepted
-          #
-          # The dash is dropped rather than replaced, because every replacement is a
-          # character one of the two formats forbids. `0.2.1rc.1` still reads as a
-          # prerelease of 0.2.1, and the release is titled after the tag
-          # (`v0.2.1-rc.1`) while the packages carry `0.2.1rc.1`; the verify step
-          # prints both so the difference is visible rather than silent.
-          pkg_version="${VERSION//-/}"
-          echo "package version: $pkg_version (tag: $VERSION)"
+          # declares Deb and Rpm together, and Compose validates it against every
+          # declared format while *configuring* the project — so a string one format
+          # refuses fails the whole build, including in the job that packages only the
+          # other. Two tag runs were lost to getting this wrong; the reasoning and the
+          # measurement are in
+          # docs/decisions/2026-10-16-desktop-package-version-must-satisfy-rpm-and-deb.md
+          # and in scripts/tests/test_release_version.py.
+          echo "package version: $PKG_VERSION (tag version: $VERSION)"
           case "$FMT" in
-            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$pkg_version" ;;
-            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$pkg_version" ;;
+            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$PKG_VERSION" ;;
+            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$PKG_VERSION" ;;
           esac
         env:
           FMT: ${{ matrix.fmt }}
           VERSION: ${{ needs.meta.outputs.version }}
+          PKG_VERSION: ${{ needs.meta.outputs.package_version }}
 
       - name: Stage and verify the packaged version
         env:
@@ -294,11 +269,8 @@ jobs:
                 exit 1
               fi
               f="${matches[0]}"
-              embedded=$(dpkg-deb -f "$f" Version | sed 's/-[0-9].*$//')
-              # The same string the Package step derived: one version for both
-              # formats, because `packageVersion` is validated against every declared
-              # format at configuration time.
-              expected="${VERSION//-/}"
+              embedded=$(dpkg-deb -f "$f" Version | python3 -c \
+                'import sys; sys.path.insert(0, "scripts"); import release_version as rv; print(rv.deb_embedded(sys.stdin.read().strip()))')
               ;;
             rpm)
               shopt -s nullglob
@@ -310,32 +282,17 @@ jobs:
               f="${matches[0]}"
               ver=$(rpm -qp --queryformat '%{VERSION}' "$f")
               rel=$(rpm -qp --queryformat '%{RELEASE}' "$f")
-              # Reconstruct the full version as the package evaluator sees it.
-              #
-              # RELEASE 1 is jpackage's default packaging revision, not a version suffix:
-              # rpm built from 0.2.1 reports 0.2.1-1. Appending it unconditionally made
-              # every plain release fail the comparison below against its own tag. A
-              # non-default RELEASE is still counted, so a packaging revision that differs
-              # from the default cannot slip through as if it were the version.
-              if [[ -n "$rel" && "$rel" != "1" ]]; then
-                embedded="$ver-$rel"
-              else
-                embedded="$ver"
-              fi
-              # The Package step dropped the tag's dash, because neither format pair
-              # accepts a replacement character. Recompute it here so this compares
-              # the package against the string the tag maps to, not against a shape
-              # that happens to match whatever was built.
-              expected="${VERSION//-/}"
+              embedded=$(python3 -c \
+                'import sys; sys.path.insert(0, "scripts"); import release_version as rv; print(rv.rpm_embedded(sys.argv[1], sys.argv[2]))' \
+                "$ver" "$rel")
               ;;
           esac
-          echo "embedded $FMT version: $embedded"
-          echo "expected from tag '$VERSION': $expected"
-          # Exact match. A prerelease suffix is part of the tag, so it has to survive into
-          # the package — the point of the comparison is that the artifact says which
-          # release it is, not merely that some release was built.
-          [[ "$embedded" == "$expected" ]] \
-            || { echo "::error::${FMT^^} declares version '$embedded' but the tag '$VERSION' maps to '$expected' for this format"; exit 1; }
+          # The expected string is derived from the tag by the same module that derived
+          # it for packaging, so the two cannot drift apart by construction — they
+          # already disagreed once, when one side was computed in bash and the other in
+          # a different shell step.
+          python3 scripts/release_version.py verify \
+            --format "$FMT" --embedded "$embedded" --tag "$VERSION"
 
           mkdir -p dist
           cp "$f" "dist/$APP_NAME-$VERSION-$LABEL.$FMT"
@@ -370,25 +327,15 @@ jobs:
           VERSION_CODE: ${{ needs.meta.outputs.version_code }}
           PRERELEASE: ${{ needs.meta.outputs.prerelease }}
         run: |
-          # The values are computed first and written second. Inside a heredoc the
-          # `shopt` / array-assignment / command-substitution lines are *text*, not
-          # commands: the previous version wrote all three into MANIFEST.txt verbatim
-          # and left `files=` empty, because `artifacts` was never assigned. A manifest
-          # that lists shell source instead of the files it exists to list is worse
-          # than no manifest — it reads like a description and describes nothing.
           shopt -s nullglob
           artifacts=(dist/*.apk dist/*.deb dist/*.rpm)
           if (( ! ${#artifacts[@]} )); then
             echo "::error::no artifacts to describe — the release would ship a manifest naming nothing"
             exit 1
           fi
-          files=$(printf '%s\n' "${artifacts[@]##*/}" | sort | tr '\n' ' ')
-          {
-            echo "version=$VERSION"
-            echo "version_code=$VERSION_CODE"
-            echo "prerelease=$PRERELEASE"
-            echo "files=$files"
-          } > dist/MANIFEST.txt
+          args=()
+          for a in "${artifacts[@]}"; do args+=(--file "${a##*/}"); done
+          python3 scripts/release_version.py manifest --tag "$VERSION" "${args[@]}" > dist/MANIFEST.txt
           cat dist/MANIFEST.txt
 
       - name: Checksums
