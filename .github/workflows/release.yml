@@ -355,6 +355,7 @@ jobs:
           # a Gradle tree and measure the runner instead of the package.
           docker run --rm -v /tmp/smoke:/w -v "$GITHUB_WORKSPACE/scripts/release:/s:ro" -w /w \
             -e INSTALL_CMD="$install" -e PKG_FORMAT="$FMT" -e EXPECT_VERSION="$VERSION" \
+            -e PACKAGE="/w/app.$FMT" \
             "$image" bash /s/install-and-smoke.sh
 
       - uses: actions/upload-artifact@v7
