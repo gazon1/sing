@@ -224,12 +224,18 @@ jobs:
 
       - name: Package
         run: |
+          # -PpackageVersion is required, not optional: without it the Gradle build falls
+          # back to its own default ("0.1.0") and the verify step below then compares that
+          # against the tag and fails for every version that is not 0.1.0. The full version
+          # goes in, suffix included — rpm splits it into VERSION/RELEASE and deb takes it
+          # as-is, which is exactly what the verify step reconstructs.
           case "${{ matrix.fmt }}" in
-            deb) ./gradlew :desktopApp:packageDeb ;;
-            rpm) ./gradlew :desktopApp:packageRpm ;;
+            deb) ./gradlew :desktopApp:packageDeb -PpackageVersion="$VERSION" ;;
+            rpm) ./gradlew :desktopApp:packageRpm -PpackageVersion="$VERSION" ;;
           esac
         env:
           FMT: ${{ matrix.fmt }}
+          VERSION: ${{ needs.meta.outputs.version }}
 
       - name: Stage and verify the packaged version
         env:

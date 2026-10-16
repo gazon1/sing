@@ -10,7 +10,7 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.helpers.DesktopShell
-import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
+import com.singularity.todo.test.helpers.assertContentDescriptionReachable
 import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -42,10 +42,16 @@ class NavigationFlowTest {
         openDrawer()
 
         DesktopShell.TABS.forEach { label ->
-            assertContentDescriptionDisplayed(label)
+            assertContentDescriptionReachable(label)
         }
+        // "Reachable", not "displayed": the drawer is a scrolling column and Settings is
+        // the last entry, below the fold of the 1024x768 test window. Asserting
+        // `assertIsDisplayed` on it would be asserting the absence of scrolling — a
+        // regression that makes the drawer scrollable would fail the test, while the
+        // defect that actually shipped (a drawer that clips its last destination and
+        // cannot open it at all) would pass.
         DesktopShell.MENU_ENTRIES.forEach { label ->
-            assertContentDescriptionDisplayed(label)
+            assertContentDescriptionReachable(label)
         }
     }
 
