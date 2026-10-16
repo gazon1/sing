@@ -137,16 +137,26 @@ def clear_stale_emulator() -> None:
                 pass
 
 
-def _tail_log(n: int = 20) -> None:
+def _tail_log(n: int = 20, level: str = "debug") -> None:
     """Copy the tail of the last emulator log to the debug log.
 
     Goes to stderr through loguru, never to stdout: the CLI's stdout carries the
     device serial and nothing else, so ``SERIAL=$(ensure-emulator)`` stays valid.
+
+    `level` is a parameter because a start-up crash and a boot timeout are not the
+    same event. It used to print at debug in both, and nobody runs with `--verbose`
+    in CI — so "emulator exited with rc=1 during start-up" reached the log with no
+    cause attached, and the cause is the only thing in the file worth having.
     """
     if not _emu.cfg.log_file.exists():
+        if level == "error":
+            logger.error(f"(no emulator log at {_emu.cfg.log_file})")
         return
     for line in _emu.cfg.log_file.read_text(errors="replace").splitlines()[-n:]:
-        logger.debug(f"emulator log | {line}")
+        # loguru's `log()` takes UPPERCASE level names and raises ValueError on
+        # "error" — which surfaced as the CLI exiting 1 instead of its own
+        # EXIT_CRASHED, the one exit code this file is careful to preserve.
+        logger.log(level.upper(), f"emulator log | {line}")
 
 
 # ── AVD start ─────────────────────────────────────────────────────────────────
@@ -229,7 +239,7 @@ def start_avd(pin: str) -> int:
                     break
 
                 logger.error(f"emulator exited with rc={rc} during start-up")
-                _tail_log()
+                _tail_log(level="error")
                 return EXIT_CRASHED
 
             if find_ready(pin):
@@ -243,7 +253,7 @@ def start_avd(pin: str) -> int:
         f"emulator was still not ready after {startup_attempts} attempt(s) "
         f"of {_emu.cfg.BOOT_TIMEOUT}s"
     )
-    _tail_log()
+    _tail_log(level="error")
     return EXIT_TIMEOUT
 
 
