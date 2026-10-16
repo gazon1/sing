@@ -1,0 +1,1 @@
+{"uuid":"66f40591-a017-421f-90eb-2f8b6075e206","name":"emitting after close does not disturb work that called it()","children":["51c0037b-c304-401f-a82e-75627e289cbd"],"befores":[],"afters":[],"start":1792171986068,"stop":1792171986107}

@@ -263,6 +263,11 @@ gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_m
 # Maestro
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 
+# Workflow semantics. actionlint reads a workflow as YAML plus GitHub's expression
+# language; neither knows that in POSIX a pipeline's status is the *last* command's.
+# Four CI steps piped, so their failures could not fail them.
+gate blocking "workflow steps keep their exit status" sgate workflow_steps_keep_their_exit_status
+
 # Releases. `meta` proves a tag was on main with a green CI run; it says nothing
 # about whether a release came out of it, nor whether the release that exists
 # describes the assets it actually carries. `publish` had never run, so neither

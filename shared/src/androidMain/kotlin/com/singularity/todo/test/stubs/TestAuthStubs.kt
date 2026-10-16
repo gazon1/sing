@@ -77,23 +77,21 @@ class StubAuthRepository : AuthRepository {
      */
     var attachFailure = false
 
-    private fun isUnconfirmedPropSet(): Boolean {
-        return try {
+    private fun isUnconfirmedPropSet(): Boolean =
+        try {
             val process = Runtime.getRuntime().exec(arrayOf("getprop", "debug.stub_auth.unconfirmed_signup"))
             process.inputStream.bufferedReader().readText().trim() == "true"
         } catch (_: Exception) {
             false
         }
-    }
 
-    private fun isFailurePropSet(prop: String): Boolean {
-        return try {
+    private fun isFailurePropSet(prop: String): Boolean =
+        try {
             val process = Runtime.getRuntime().exec(arrayOf("getprop", prop))
             process.inputStream.bufferedReader().readText().trim() == "true"
         } catch (_: Exception) {
             false
         }
-    }
 
     private fun networkFailure(): Result<Nothing> = Result.failure(
         Exception("StubAuthRepository: simulated network error"),

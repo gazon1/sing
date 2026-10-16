@@ -108,29 +108,7 @@ fun AttachAccountScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Create an account with your current anonymous session.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Your data will be preserved and linked to this account.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            AuthFormFields(
-                emailTag = TestTags.AUTH_ATTACH_EMAIL_INPUT,
-                passwordTag = TestTags.AUTH_ATTACH_PASSWORD_INPUT,
-                submitTag = TestTags.AUTH_ATTACH_SUBMIT_BUTTON,
-                submitLabel = "Attach Account",
+            AttachAccountForm(
                 email = form.value.email,
                 password = form.value.password,
                 isLoading = state is AuthUiState.Loading,
@@ -210,29 +188,7 @@ internal fun AttachAccountScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Create an account with your current anonymous session.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Your data will be preserved and linked to this account.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            AuthFormFields(
-                emailTag = TestTags.AUTH_ATTACH_EMAIL_INPUT,
-                passwordTag = TestTags.AUTH_ATTACH_PASSWORD_INPUT,
-                submitTag = TestTags.AUTH_ATTACH_SUBMIT_BUTTON,
-                submitLabel = "Attach Account",
+            AttachAccountForm(
                 email = email,
                 password = password,
                 isLoading = isLoading,
@@ -244,4 +200,56 @@ internal fun AttachAccountScreenContent(
             )
         }
     }
+}
+
+/**
+ * The attach-account body: two lines of explanation above [AuthFormFields].
+ *
+ * Shared by [AttachAccountScreen] and [AttachAccountScreenContent]. Both rendered
+ * the same copy of this block, so a wording change reached one screen until someone
+ * opened the other.
+ */
+@Composable
+private fun AttachAccountForm(
+    email: String,
+    password: String,
+    isLoading: Boolean,
+    errorMessage: String?,
+    message: String?,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Text(
+        text = "Create an account with your current anonymous session.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    Text(
+        text = "Your data will be preserved and linked to this account.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Spacer(modifier = Modifier.height(32.dp))
+
+    AuthFormFields(
+        emailTag = TestTags.AUTH_ATTACH_EMAIL_INPUT,
+        passwordTag = TestTags.AUTH_ATTACH_PASSWORD_INPUT,
+        submitTag = TestTags.AUTH_ATTACH_SUBMIT_BUTTON,
+        submitLabel = "Attach Account",
+        email = email,
+        password = password,
+        isLoading = isLoading,
+        errorMessage = errorMessage,
+        message = message,
+        onEmailChange = onEmailChange,
+        onPasswordChange = onPasswordChange,
+        onSubmit = onSubmit,
+    )
 }

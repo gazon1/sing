@@ -52,7 +52,9 @@ object SettingsNamespace {
  * Flat [userId] is preserved because [com.singularity.todo.feature.profile.ProfileAwareCurrentUser]
  * and the one-shot [SettingsDataStoreMigration] depend on it.
  */
-interface SettingsRepository : SettingsReader, TasksSettingsRepository {
+interface SettingsRepository :
+    SettingsReader,
+    TasksSettingsRepository {
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT = SettingsDefaults.Ai.SYSTEM_PROMPT

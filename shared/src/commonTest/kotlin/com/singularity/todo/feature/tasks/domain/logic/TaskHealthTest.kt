@@ -68,7 +68,9 @@ class TaskHealthTest {
             dependsOn = setOf(blocker.id),
         )
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(blocker, t), today, now,
+            listOf(blocker, t),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )
@@ -84,7 +86,9 @@ class TaskHealthTest {
         val t = task("t1", dependsOn = setOf(blocker.id))
 
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(blocker, t), today, now,
+            listOf(blocker, t),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )
@@ -98,7 +102,9 @@ class TaskHealthTest {
         val t = task("t1", dependsOn = setOf(blocker.id))
 
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(blocker, t), today, now,
+            listOf(blocker, t),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )
@@ -111,7 +117,9 @@ class TaskHealthTest {
     fun `an undated untouched task is stagnant`() {
         val t = task("t1", updated = now - 40.days)
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(t), today, now,
+            listOf(t),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )
@@ -124,7 +132,9 @@ class TaskHealthTest {
     fun `a recently touched task is not stagnant`() {
         val t = task("t1", updated = now - 3.days)
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(t), today, now,
+            listOf(t),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )
@@ -142,7 +152,9 @@ class TaskHealthTest {
     fun `a dated task is never stagnant`() {
         val t = task("t1", due = today.plus(30, DateTimeUnit.DAY), updated = now - 200.days)
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(t), today, now,
+            listOf(t),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )
@@ -161,7 +173,9 @@ class TaskHealthTest {
         val done = task("done", updated = now - 90.days, completed = now - 1.days)
         val trashed = task("trashed", updated = now - 90.days, trashed = now - 1.days)
         val summary = summarizeTaskHealthFromSelectors(
-            listOf(done, trashed), today, now,
+            listOf(done, trashed),
+            today,
+            now,
             stagnationWindow = 21.days,
             lastActivityOf = { it.updatedAt },
         )

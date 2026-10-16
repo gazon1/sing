@@ -81,9 +81,8 @@ sealed interface SettingsSection {
     /**
      * Task-related settings such as the staleness threshold for undated tasks.
      */
-    data class Tasks(
-        val stalenessThresholdDays: Int = SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS,
-    ) : SettingsSection
+    data class Tasks(val stalenessThresholdDays: Int = SettingsDefaults.Tasks.STALENESS_THRESHOLD_DAYS) :
+        SettingsSection
 }
 
 /**

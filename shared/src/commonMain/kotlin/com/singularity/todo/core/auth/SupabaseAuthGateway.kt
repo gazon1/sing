@@ -111,6 +111,7 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
             val result = auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)
             when (result) {
                 is io.github.jan.supabase.auth.OtpVerifyResult.Authenticated -> result.session.toRemote()
+
                 is io.github.jan.supabase.auth.OtpVerifyResult.VerifiedNoSession -> throw AppError.Unauthorized(
                     "Magic link verified but no session was issued",
                     code = "auth.no_session",

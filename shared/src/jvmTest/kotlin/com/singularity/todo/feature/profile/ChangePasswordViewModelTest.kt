@@ -30,14 +30,22 @@ class ChangePasswordViewModelTest {
     ): ChangePasswordViewModel {
         val repository = object : AuthRepository {
             override val currentSession: StateFlow<Session> = MutableStateFlow(
-                Session.SignedIn(UserId("u"), "t@x.com", "a", "r"),
+                Session.SignedIn(
+                    UserId("u"),
+                    "t@x.com",
+                    "a",
+                    "r",
+                ),
             )
             override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
             override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
             override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
             override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
             override suspend fun signOut(): Result<Unit> = Result.success(Unit)
-            override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> = Result.success(Unit)
+            override suspend fun migrateAnonymousTo(
+                email: String,
+                password: String,
+            ): Result<Unit> = Result.success(Unit)
             override suspend fun updatePassword(newPassword: String): Result<Unit> = updatePassword(newPassword)
             override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
             override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)

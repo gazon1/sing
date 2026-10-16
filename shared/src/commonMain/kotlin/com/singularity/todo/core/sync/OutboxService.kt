@@ -43,37 +43,78 @@ internal class OutboxService(
      *
      * @see REQ-OS-028
      */
-    suspend fun enqueue(entity: SyncableEntity): Result<Unit> {
-        val active =
-            phases
-                .localStorage("sync.scope.read", "read the active sync scope for enqueue") {
-                    scopeProvider.current.first()
-                }.getOrElse { return Result.failure(it.toAppError()) }
-                ?: return Result.success(Unit)
+    suspend fun enqueue(entity: SyncableEntity): Result<Unit> =
+        readActiveScope()
+            .map { active -> active?.let { insertCoalesced(entity, it) } ?: Result.success(Unit) }
+            .fold(
+                onSuccess = { it },
+                onFailure = { Result.failure(it) },
+            )
+            .asAppError()
 
+    /**
+     * The scope the write is attributed to, or `null` when the device has no active
+     * scope — a signed-out device has nothing to push for, so this is not an error.
+     */
+    private suspend fun readActiveScope(): Result<SyncScope?> =
+        phases
+            .localStorage("sync.scope.read", "read the active sync scope for enqueue") {
+                scopeProvider.current.first()
+            }
+
+    /**
+     * The coalesce-then-insert pair. Split from [enqueue] because the delete must not
+     * run when there is no active scope, and a single `flatMap` over two phases would
+     * hide that ordering behind a chain of guards.
+     */
+    private suspend fun insertCoalesced(
+        entity: SyncableEntity,
+        active: SyncScope,
+    ): Result<Unit> =
+        deleteCoalesceRow(active, entity).fold(
+            onSuccess = { insertRow(entity, active) },
+            onFailure = { Result.failure(it) },
+        )
+
+    /** Coalesce per entity before inserting: an entity has at most one patch in flight. */
+    private suspend fun deleteCoalesceRow(
+        active: SyncScope,
+        entity: SyncableEntity,
+    ): Result<Unit> =
+        phases.localStorage("sync.outbox.delete", "coalesce the outbox row before insert") {
+            outboxDao.deleteByEntity(active.ownerId, entity.syncId)
+        }
+
+    private suspend fun insertRow(
+        entity: SyncableEntity,
+        active: SyncScope,
+    ): Result<Unit> =
+        phases.localStorage("sync.outbox.insert", "insert the pending patch") {
+            outboxDao.insert(pendingRow(entity, active))
+        }
+
+    /** The row this entity becomes, built against the current state rather than reused. */
+    private suspend fun pendingRow(
+        entity: SyncableEntity,
+        active: SyncScope,
+    ): SyncOutboxEntity {
         val patch = patchBuilder.build(entity, active, monoNow())
         val payload = json.encodeToString(patch)
-
-        // Coalesce per entity before inserting: an entity has at most one patch in flight.
-        phases
-            .localStorage("sync.outbox.delete", "coalesce the outbox row before insert") {
-                outboxDao.deleteByEntity(active.ownerId, entity.syncId)
-            }.getOrElse { return Result.failure(it.toAppError()) }
-
-        phases
-            .localStorage("sync.outbox.insert", "insert the pending patch") {
-                outboxDao.insert(
-                    SyncOutboxEntity(
-                        patchId = patch.patchId,
-                        ownerId = active.ownerId,
-                        entityId = entity.syncId,
-                        entityType = entity.docType.key,
-                        payload = payload,
-                        createdAt = patch.timestampMs ?: monoNow(),
-                    ),
-                )
-            }.getOrElse { return Result.failure(it.toAppError()) }
-
-        return Result.success(Unit)
+        return SyncOutboxEntity(
+            patchId = patch.patchId,
+            ownerId = active.ownerId,
+            entityId = entity.syncId,
+            entityType = entity.docType.key,
+            payload = payload,
+            createdAt = patch.timestampMs ?: monoNow(),
+        )
     }
+
+    /** The phase reporter already returns [com.singularity.todo.core.error.AppError]; this
+     *  normalises anything else that arrives from a future phase implementation. */
+    private fun <T> Result<T>.asAppError(): Result<T> =
+        fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { Result.failure(it.toAppError()) },
+        )
 }

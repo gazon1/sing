@@ -140,11 +140,14 @@ fun summarizeTaskHealthFromSelectors(
     val perTask = open.map { task ->
         when {
             overdueSelector.matches(task, context) -> TaskHealth(TaskHealthBucket.OVERDUE)
+
             blockedSelector.matches(task, context) -> TaskHealth(TaskHealthBucket.BLOCKED)
+
             stagnantSelector?.matches(task, context) == true -> {
                 val stalled = now - lastActivityOf(task)
                 TaskHealth(TaskHealthBucket.STAGNANT, stalledFor = stalled)
             }
+
             else -> TaskHealth(TaskHealthBucket.FINE)
         }
     }

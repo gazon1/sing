@@ -123,9 +123,13 @@ class PullEventHandlerTest {
     fun `null data → Skipped`() = runTest {
         val h = handler()
         val e = SyncEvent(
-            serverLsn = 1L, entityId = "e1", entityType = DocType.Task,
-            eventType = SyncEventType.CREATED, data = null,
-            createdAt = 0L, hlc = null,
+            serverLsn = 1L,
+            entityId = "e1",
+            entityType = DocType.Task,
+            eventType = SyncEventType.CREATED,
+            data = null,
+            createdAt = 0L,
+            hlc = null,
             protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION,
         )
         val outcome = h.handleEvent(e) { }
@@ -239,5 +243,5 @@ private class CapturingCrashReporter : CrashReportingPort {
         reported += error to issueKey
     }
 
-    override fun addBreadcrumb(message: String) {}
+    override fun addBreadcrumb(message: String): Unit = Unit
 }

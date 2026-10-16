@@ -225,22 +225,41 @@ jobs:
       # "-D a -D b" argument.
       #
       # maxAttempts is absent on push on purpose: repeat(0) skips every test body.
+      #
+      # `set -o pipefail`, and it is the whole reason this step can fail at all.
+      #
+      # `... 2>&1 | tee build.log` returns tee's status, which is 0. GitHub's default
+      # shell is `bash -e` with no pipefail, so this step had been reporting success
+      # for every Gradle failure it contained: tests, detekt, koverReport, all of them.
+      # Measured on 2026-10-16 on a pristine origin/main: `:shared:detekt` fails with
+      # 109 findings, and the "JVM tests, detekt, coverage" job on that same commit is
+      # green. The 109 findings were invisible because nothing that read them could
+      # fail.
+      #
+      # `check-test-runs.py --gradle-log build.log` did not catch it either: it reads
+      # the log to exempt UP-TO-DATE tasks from its freshness floor, and a failed task
+      # has run and produced XML just as a passing one has.
+      #
+      # The log is still written, because two steps below read it. The exit status is
+      # now Gradle's again. `scripts/check-workflow-exit-status.py` fails if a `run:`
+      # block in any workflow pipes without this, so the pipe cannot come back.
       - name: Gradle (tests + coverage + detekt)
-        run: >
-          ./gradlew --continue
-          --no-build-cache
-          --no-parallel
-          :mcp-server:jar
-          koverReport
-          koverHtml
-          :detekt-rules:test
-          :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt
-          -Ptest.tags=fast,slow
-          -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail
-          ${{ github.event_name == 'pull_request' && '-Dretry.maxAttempts=2' || '' }}
-          ${{ github.event_name == 'pull_request' && '-Dretry.failOnPassedAfterRetry=false' || '' }}
-          ${{ github.event_name != 'pull_request' && '-Dretry.failOnPassedAfterRetry=true' || '' }}
-          2>&1 | tee build.log
+        run: |
+          set -o pipefail
+          ./gradlew --continue \
+            --no-build-cache \
+            --no-parallel \
+            :mcp-server:jar \
+            koverReport \
+            koverHtml \
+            :detekt-rules:test \
+            :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
+            -Ptest.tags=fast,slow \
+            -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail \
+            ${{ github.event_name == 'pull_request' && '-Dretry.maxAttempts=2' || '' }} \
+            ${{ github.event_name == 'pull_request' && '-Dretry.failOnPassedAfterRetry=false' || '' }} \
+            ${{ github.event_name != 'pull_request' && '-Dretry.failOnPassedAfterRetry=true' || '' }} \
+            2>&1 | tee build.log
 
       # junitparser arrived with the tooling step above. It was installed here
       # separately because that install kept failing for three different reasons
@@ -585,8 +604,14 @@ jobs:
           OPENSPEC_VERSION: ${{ vars.OPENSPEC_VERSION || '1.14.0' }}
         run: npm install --global "@fission-ai/openspec@${OPENSPEC_VERSION}"
 
+      # `set -o pipefail` again: this step installs the tool the rest of the job runs.
+      # With the pipeline swallowing the status, a failed `installDist` left the job
+      # proceeding to invoke a binary from the previous run or no binary at all, and
+      # `singularity-adr validate` then failed on its own — a symptom three steps away
+      # from the cause. `scripts/check-workflow-exit-status.py` found this one.
       - name: Install singularity-adr
         run: |
+          set -o pipefail
           ./gradlew :adr-cli:installDist 2>&1 | tail -5
           ADR_BIN="$PWD/adr-cli/build/install/singularity-adr/bin/singularity-adr"
           chmod +x "$ADR_BIN"
@@ -637,8 +662,12 @@ jobs:
       - name: Install spec-kit
         run: uv tool install specify-cli
 
+      # Same swallow as the adr-gate job's copy above; `check-workflow-exit-status.py`
+      # reported both, which is the point of running it over every workflow rather than
+      # the one the defect was found in.
       - name: Install singularity-adr
         run: |
+          set -o pipefail
           ./gradlew :adr-cli:installDist 2>&1 | tail -5
           echo "$PWD/adr-cli/build/install/singularity-adr/bin" >> "$GITHUB_PATH"
 

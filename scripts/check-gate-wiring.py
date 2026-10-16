@@ -450,6 +450,23 @@ SCRIPT_GATES = [
         why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
     ),
     ScriptGate(
+        name="workflow-exit-status",
+        cmd=[sys.executable, "scripts/check-workflow-exit-status.py"],
+        # The defect this gate exists for, restored exactly: four CI steps piped their
+        # output into `tee`/`tail` and inherited that command's exit status, so a failing
+        # `./gradlew` — 109 detekt findings on main — reported success. The sabotage puts
+        # the pipe back on the step that runs every test and detekt task.
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=_replace(
+            "          set -o pipefail\n          ./gradlew --continue \\\n",
+            "          ./gradlew --continue \\\n",
+        ),
+        why=(
+            "a step whose status is the pipeline's last command cannot fail on its "
+            "producer; the JVM job stayed green through 109 detekt findings for that reason"
+        ),
+    ),
+    ScriptGate(
         name="release-tags",
         cmd=[sys.executable, "scripts/check-release-tags.py"],
         # A tag that produced no release is the failure this gate was written after:

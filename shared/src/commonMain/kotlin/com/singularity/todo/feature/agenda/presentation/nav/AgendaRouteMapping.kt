@@ -131,7 +131,7 @@ fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
     is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.Inbox
 
     // Not used
-    AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.Inbox // Not used
+    AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.Inbox
 
     AgendaStartRoute.Blocked -> AgendaPresets.byBlocked()
 

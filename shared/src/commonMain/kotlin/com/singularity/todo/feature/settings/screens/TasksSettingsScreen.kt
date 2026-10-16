@@ -76,7 +76,8 @@ private fun StalenessThresholdSlider(
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = "An undated, incomplete task becomes stale after $value days without activity. Used by Statistics to flag stagnant tasks.",
+            text = "An undated, incomplete task becomes stale after $value days without activity. " +
+                "Used by Statistics to flag stagnant tasks.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
