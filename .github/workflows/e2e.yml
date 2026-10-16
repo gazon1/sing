@@ -55,7 +55,10 @@ jobs:
       - uses: actions/checkout@v7
       - name: Validate Maestro selectors
         run: |
-          pip install pyyaml --quiet
+          # uv rather than bare `pip`: the runner's /usr is EXTERNALLY-MANAGED and
+          # its user cannot write /usr/local, so a plain `pip install` fails here.
+          # Same three flags as the gate suite's installs in ci.yml.
+          uv pip install --system --break-system-packages --prefix "$HOME/.local" pyyaml
           python scripts/ci/validate-maestro-selectors.py
 
   # Decides suite and shard count in one place, so the matrix is arithmetic rather

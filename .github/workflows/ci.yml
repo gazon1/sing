@@ -123,7 +123,11 @@ jobs:
       # floor moved without anyone deciding it should.
       - name: Install YAML/workflow lint tools (pinned)
         run: |
-          python -m pip install --disable-pip-version-check "yamllint==1.38.0"
+          # uv, not `python -m pip`: the runner's /usr is EXTERNALLY-MANAGED, so
+          # pip exits 1 here exactly as `uv pip install --system` did before it
+          # carried these flags. Same target as the sgate install above, so both
+          # tools end up in $HOME/.local/bin, which is already on PATH.
+          uv pip install --system --break-system-packages --prefix "$HOME/.local" "yamllint==1.38.0"
           mkdir -p "$HOME/.local/bin"
           curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
             | tar -xz -C "$HOME/.local/bin" actionlint
