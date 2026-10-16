@@ -99,8 +99,18 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
+      # `--break-system-packages` is not optional here. The runner's system
+      # interpreter carries an EXTERNALLY-MANAGED marker (PEP 668), and uv honours
+      # it: without the flag this exits 2 with "The interpreter at `/usr` is
+      # externally managed" and installs nothing. f6ae1bbb (#635) replaced
+      # `python -m pip install` with `uv pip install --system` and lost that
+      # flag's behaviour, so sgate never landed on the runner — and every gate
+      # that shells out to it died at its first step rather than running. The
+      # downstream symptom was a red `Static gates` job that said nothing about
+      # the gates. Installing into the system environment is intended here: the
+      # whole job runs `sgate` from PATH, not from a virtualenv.
       - name: Install sgate CLI and its dependencies
-        run: uv pip install --system --editable scripts/src/
+        run: uv pip install --system --break-system-packages --editable scripts/src/
 
       # actionlint + yamllint back the two workflow/YAML lint gates in
       # scripts/ci/static-gates.sh ("GitHub workflows are valid",
@@ -193,6 +203,14 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
+      # This job runs `python3 scripts/check-gate-wiring.py` ("Gates are wired and
+      # can fail"), which is a click command — the import is at module scope, so
+      # without the package installed the step dies with ModuleNotFoundError: No
+      # module named 'click' and never checks a single gate. Only junitparser was
+      # installed here before, so this job could not run the gate it exists to run.
+      - name: Install sgate CLI and its dependencies
+        run: uv pip install --system --break-system-packages --editable scripts/src/
+
       # A fresh checkout runs every test task, so results older than this stamp
       # cannot belong to this run.
       - name: Stamp run start
@@ -246,8 +264,11 @@ jobs:
       # the annotation step would silently produce zero annotations (no junitparser
       # on PATH). Separated from the static job's pip install so it only runs
       # when the tests job actually runs.
+      #
+      # `--break-system-packages` for the same reason as the static job's install:
+      # the runner's interpreter is EXTERNALLY-MANAGED and uv refuses without it.
       - name: Install junitparser for annotations
-        run: uv pip install --system junitparser
+        run: uv pip install --system --break-system-packages junitparser
 
       # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
       # Parses desktop JUnit XML with junitparser and emits ::error / ::notice commands.
