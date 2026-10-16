@@ -149,10 +149,35 @@ jobs:
         env:
           VERSION: ${{ needs.meta.outputs.version }}
         run: |
-          apk=$(ls androidApp/build/outputs/apk/release/*unsigned*.apk 2>/dev/null \
-                || ls androidApp/build/outputs/apk/release/*.apk | head -n1)
+          # Shopt nullglob + an explicit preference order, rather than `ls … | head -n1`:
+          # parsing `ls` breaks on any filename with a space or a dash, and `head`
+          # picks by directory order, so which APK got released was not a decision
+          # anyone wrote down. An unsigned build wins; otherwise the first match in
+          # a sorted, expanded list does.
+          shopt -s nullglob
+          unsigned=(androidApp/build/outputs/apk/release/*unsigned*.apk)
+          signed=(androidApp/build/outputs/apk/release/*.apk)
+          if (( ${#unsigned[@]} )); then
+            apk="${unsigned[0]}"
+          elif (( ${#signed[@]} )); then
+            apk="${signed[0]}"
+          else
+            echo "::error::No APK found under androidApp/build/outputs/apk/release"
+            exit 1
+          fi
           # Exact match: a release tagged 1.2.3 must ship 1.2.3, not 1.2.30 or 1.2.3-rc.1.
-          embedded=$("$ANDROID_HOME"/build-tools/*/aapt2 dump badging "$apk" \
+          # The build-tools version is a glob, so it is expanded into an array and
+          # the highest one chosen explicitly: passing the glob straight to the
+          # command name is exactly what SC2211 flags, and "whatever the shell
+          # picked" is not a version decision anyone reviewed.
+          shopt -s nullglob
+          aapt2_candidates=("$ANDROID_HOME"/build-tools/*/aapt2)
+          if (( ! ${#aapt2_candidates[@]} )); then
+            echo "::error::No aapt2 under $ANDROID_HOME/build-tools — is ANDROID_HOME set?"
+            exit 1
+          fi
+          aapt2="${aapt2_candidates[${#aapt2_candidates[@]} - 1]}"
+          embedded=$("$aapt2" dump badging "$apk" \
             | sed -n "s/^package: name='[^']*' versionCode='[^']*' versionName='\([^']*\)'.*/\1/p")
           echo "embedded versionName: $embedded"
           [[ "$embedded" == "$VERSION" ]] \
@@ -163,7 +188,7 @@ jobs:
           cert_sha256=$(keytool -printcert -jarfile "$apk" 2>/dev/null \
             | sed -n 's/SHA-256: \(.*\)/\1/p' \
             | tr -d ': \n' \
-            | tr 'A-Z' 'a-z')
+            | tr '[:upper:]' '[:lower:]')
           expected_sha256=${{ vars.ANDROID_CERT_FINGERPRINT }}
           [[ "$cert_sha256" == "$expected_sha256" ]] \
             || { echo "::error::APK signing cert mismatch (got $cert_sha256, want $expected_sha256)"; exit 1; }
@@ -214,11 +239,26 @@ jobs:
         run: |
           case "$FMT" in
             deb)
-              f=$(ls desktopApp/build/compose/binaries/main/deb/*."$FMT" | head -n1)
+              # Array + explicit empty check instead of `ls … | head -n1`: parsing
+              # `ls` breaks on names with dashes or spaces, and a silent empty
+              # `$f` turns into a confusing dpkg error instead of "not built".
+              shopt -s nullglob
+              matches=(desktopApp/build/compose/binaries/main/deb/*."$FMT")
+              if (( ! ${#matches[@]} )); then
+                echo "::error::No $FMT package was built; run the desktop package step first"
+                exit 1
+              fi
+              f="${matches[0]}"
               embedded=$(dpkg-deb -f "$f" Version | sed 's/-[0-9].*$//')
               ;;
             rpm)
-              f=$(ls desktopApp/build/compose/binaries/main/rpm/*."$FMT" | head -n1)
+              shopt -s nullglob
+              matches=(desktopApp/build/compose/binaries/main/rpm/*."$FMT")
+              if (( ! ${#matches[@]} )); then
+                echo "::error::No $FMT package was built; run the desktop package step first"
+                exit 1
+              fi
+              f="${matches[0]}"
               # RPM VERSION field contains only the upstream number; RELEASE carries the suffix.
               ver=$(rpm -qp --queryformat '%{VERSION}' "$f")
               rel=$(rpm -qp --queryformat '%{RELEASE}' "$f")
@@ -262,7 +302,8 @@ jobs:
       - name: Checksums
         run: |
           cd dist
-          sha256sum * > SHA256SUMS.txt
+          # `./*`, not `*`: a filename starting with `-` would be read as an option.
+          sha256sum ./* > SHA256SUMS.txt
           echo "--- SHA256SUMS ---"
           cat SHA256SUMS.txt
 
@@ -276,7 +317,9 @@ jobs:
           version=$VERSION
           version_code=$VERSION_CODE
           prerelease=$PRERELEASE
-          files=$(ls dist/*.apk dist/*.deb dist/*.rpm 2>/dev/null | xargs -n1 basename | sort | tr '\n' ' ')
+          shopt -s nullglob
+          artifacts=(dist/*.apk dist/*.deb dist/*.rpm)
+          files=$(printf '%s\n' "${artifacts[@]##*/}" | sort | tr '\n' ' ')
           EOF
           cat dist/MANIFEST.txt
 

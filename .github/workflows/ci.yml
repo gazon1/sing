@@ -82,56 +82,11 @@ jobs:
       # uv manages the Python toolchain and project dependencies from pyproject.toml.
       # python-version is still declared so setup-python pins the interpreter;
       # uv reads it from there rather than managing its own version pins.
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.12"
-          enable-cache: true
-      # A venv of our own, on PATH for every later step in the job.
-      #
-      # Three earlier attempts at this step failed in a row, each for a reason
-      # that looked like the previous one had worked:
-      #   1. `python -m pip install` -> replaced in f6ae1bbb (#635)
-      #   2. `uv pip install --system` -> "The interpreter at `/usr` is externally
-      #      managed" (PEP 668); sgate never installed and `Static gates` died on
-      #      its second step, before `sgate run-all` ever ran
-      #   3. `+ --break-system-packages` -> "Permission denied" writing
-      #      /usr/local/lib/python3.12/dist-packages
-      #   4. `+ --prefix "$HOME/.local"` -> installed, but `python3 -c "import
-      #      sgate"` in setup-repo-tools still failed: the runner's user site is
-      #      not on that interpreter's path
-      # A venv sidesteps all of it — nothing to break, nothing external to
-      # honour — and putting its bin first on PATH is what makes plain `python3`
-      # and plain `sgate` resolve to it for the rest of the job.
-      - name: Install sgate CLI and its dependencies
-        run: |
-          uv venv "$HOME/ci-venv"
-          # junitparser is not optional in this job either: setup-repo-tools
-          # declares it required because scripts/junit-annotations.py imports it.
-          # Nothing here ever installed it, so that check failed on every run —
-          # one step later each time an earlier blocker was fixed.
-          VIRTUAL_ENV="$HOME/ci-venv" uv pip install --editable scripts/src/ junitparser
-          echo "$HOME/ci-venv/bin" >> "$GITHUB_PATH"
-
-      # actionlint + yamllint back the two workflow/YAML lint gates in
-      # scripts/ci/static-gates.sh ("GitHub workflows are valid",
-      # "YAML is structurally valid"). Both must be on PATH before
-      # `sgate run-all`, or those gates fail with a loud 127 — the designed
-      # behaviour, since an unreachable gate is worse than an absent one.
-      # Versions are pinned (not @latest) so a gate result cannot drift under
-      # us: a lint that passes on 1.7.7 and fails on 1.8.0 is a gate whose
-      # floor moved without anyone deciding it should.
-      - name: Install YAML/workflow lint tools (pinned)
-        run: |
-          # Into the same venv as the sgate install above, for the same reasons:
-          # the runner's /usr is EXTERNALLY-MANAGED and unwritable. The actionlint
-          # binary below goes to $HOME/.local/bin, which is already on PATH.
-          VIRTUAL_ENV="$HOME/ci-venv" uv pip install "yamllint==1.38.0"
-          mkdir -p "$HOME/.local/bin"
-          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
-            | tar -xz -C "$HOME/.local/bin" actionlint
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          actionlint --version
-          yamllint --version
+      # venv + sgate + junitparser + yamllint + actionlint + shellcheck, once.
+      # See .github/actions/setup-python-tools/action.yml for what each of the
+      # four earlier attempts at installing these was missing.
+      - name: Set up gate tooling
+        uses: ./.github/actions/setup-python-tools
 
       # Path-gated preflight: only validate tools when the PR touches CI tooling.
       # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
@@ -201,25 +156,15 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - uses: astral-sh/setup-uv@v5
+      # Same action as the static job, one reason: this job runs
+      # `python3 scripts/check-gate-wiring.py` ("Gates are wired and can fail"),
+      # whose `import click` sits at module scope. The job that exists to prove
+      # gates can fail could not run the gate.
+      - name: Set up gate tooling
+        uses: ./.github/actions/setup-python-tools
         with:
-          python-version: "3.12"
-          enable-cache: true
-
-      # This job runs `python3 scripts/check-gate-wiring.py` ("Gates are wired and
-      # can fail"), which is a click command — the import is at module scope, so
-      # without the package installed the step dies with ModuleNotFoundError: No
-      # module named 'click' and never checks a single gate. Only junitparser was
-      # installed here before, so this job could not run the gate it exists to run.
-      # Same install as the static job, same reason: this job runs
-      # `python3 scripts/check-gate-wiring.py`, whose `import click` is at module
-      # scope, so without the package the step dies with ModuleNotFoundError and
-      # checks no gate at all.
-      - name: Install sgate CLI and its dependencies
-        run: |
-          uv venv "$HOME/ci-venv"
-          VIRTUAL_ENV="$HOME/ci-venv" uv pip install --editable scripts/src/
-          echo "$HOME/ci-venv/bin" >> "$GITHUB_PATH"
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
 
       # A fresh checkout runs every test task, so results older than this stamp
       # cannot belong to this run.
@@ -288,17 +233,9 @@ jobs:
           ${{ github.event_name != 'pull_request' && '-Dretry.failOnPassedAfterRetry=true' || '' }}
           2>&1 | tee build.log
 
-      # Install junitparser before the annotation step. Blocking: if this fails,
-      # the annotation step would silently produce zero annotations (no junitparser
-      # on PATH). Separated from the static job's pip install so it only runs
-      # when the tests job actually runs.
-      #
-      # Same three flags as the sgate install above: the runner's user cannot
-      # write /usr/local, and /usr is EXTERNALLY-MANAGED. This step is labelled
-      # blocking because the annotation step below must not silently produce zero
-      # annotations — and it was producing zero annotations.
-      - name: Install junitparser for annotations
-        run: VIRTUAL_ENV="$HOME/ci-venv" uv pip install junitparser
+      # junitparser arrived with the tooling step above. It was installed here
+      # separately because that install kept failing for three different reasons
+      # in a row; one installer now serves both jobs.
 
       # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
       # Parses desktop JUnit XML with junitparser and emits ::error / ::notice commands.

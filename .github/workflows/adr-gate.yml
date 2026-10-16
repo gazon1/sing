@@ -39,7 +39,7 @@ jobs:
       - name: Install spec-kit
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           uv tool install specify-cli
 
       # The adr-ci workflow's openspec-validate step shells out to the
@@ -56,7 +56,7 @@ jobs:
           ./gradlew :adr-cli:installDist 2>&1 | tail -5
           ADR_BIN="$PWD/adr-cli/build/install/singularity-adr/bin/singularity-adr"
           chmod +x "$ADR_BIN"
-          echo "$PWD/adr-cli/build/install/singularity-adr/bin" >> $GITHUB_PATH
+          echo "$PWD/adr-cli/build/install/singularity-adr/bin" >> "$GITHUB_PATH"
 
       - name: ADR validation
         run: singularity-adr validate
@@ -101,13 +101,13 @@ jobs:
       - name: Install spec-kit
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           uv tool install specify-cli
 
       - name: Install singularity-adr
         run: |
           ./gradlew :adr-cli:installDist 2>&1 | tail -5
-          echo "$PWD/adr-cli/build/install/singularity-adr/bin" >> $GITHUB_PATH
+          echo "$PWD/adr-cli/build/install/singularity-adr/bin" >> "$GITHUB_PATH"
 
       - name: Extract ADR slug from PR title
         id: extract-slug
@@ -125,8 +125,8 @@ jobs:
           TITLE="$PR_TITLE"
           # Convert title to kebab-case slug
           SLUG=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9 ]//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/-+/-/g' | sed 's/^-//' | sed 's/-$//')
-          echo "slug=$SLUG" >> $GITHUB_OUTPUT
-          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
       - name: Run openspec-change workflow
         run: |

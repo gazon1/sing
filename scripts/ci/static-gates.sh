@@ -200,10 +200,18 @@ gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # silently still fails here. Its config (.yamllint.yml) is structure-only: the
 # default profile was 213/220 line-length noise, and a gate that is red on the
 # day it lands is a gate nobody reads. Both binaries must be on PATH — CI's
-# static job installs them (pinned: actionlint 1.7.7, yamllint 1.38.0); a
-# missing binary is a loud 127, not a skip, because an unreachable gate is worse
-# than an absent one.
-gate blocking "GitHub workflows are valid" actionlint
+# static job installs them (pinned: actionlint 1.7.7, yamllint 1.38.0) through
+# .github/actions/setup-python-tools; a missing binary is a loud 127, not a
+# skip, because an unreachable gate is worse than an absent one.
+#
+# shellcheck is named explicitly, and its absence is a failure. actionlint
+# DISABLES its shellcheck integration when the binary is not found, without
+# saying so — so the gate's verdict silently depended on the image: green on a
+# developer machine with no shellcheck, red on a runner that has one, same code.
+# `command -v` turns that invisibility into a message. One line, because the
+# registry parser is a single-line regex: a gate command split across lines is
+# read as a command ending in an unterminated quote.
+gate blocking "GitHub workflows are valid" bash -c 'command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2; exit 1; }; actionlint -shellcheck="$(command -v shellcheck)"'
 gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml"
 
 # NOT HERE: scripts/check-gate-wiring.py

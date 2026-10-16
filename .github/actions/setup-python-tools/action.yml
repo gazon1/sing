@@ -1,0 +1,115 @@
+name: 'Setup gate tooling'
+description: >-
+  Install everything the gate suite shells out to: the sgate CLI (editable from
+  scripts/src/), junitparser, yamllint, actionlint and shellcheck — into one
+  venv, once, for whichever job calls it.
+
+# Why this exists
+# --------------
+# The four pieces were installed in three different places, and each copy failed
+# on its own terms before any gate ran:
+#
+#   1. `python -m pip install` — fine until f6ae1bbb switched CI to uv
+#   2. `uv pip install --system` — "interpreter at /usr is externally managed"
+#   3. `+ --break-system-packages` — Permission denied on /usr/local
+#   4. `+ --prefix "$HOME/.local"` — installed, but `python3 -c "import sgate"`
+#      in a later step could not see it: that interpreter has no user site on
+#      its path
+#
+# A venv on PATH answers all four. Everything else here exists for one more
+# reason: a gate that cannot run looks exactly like a gate that has nothing to
+# report. `Static gates` was red on every run since #635 and said nothing about
+# the 22 gates it never reached.
+
+inputs:
+  python-version:
+    description: Python version for the venv (ci.yml pins 3.12 for the gate suite)
+    required: false
+    default: '3.12'
+  extra-packages:
+    description: >-
+      Space-separated pip requirements to install alongside scripts/src. Empty
+      installs only the package itself.
+    required: false
+    default: ''
+  with-yaml-lint:
+    description: Install the pinned yamllint (the "YAML is structurally valid" gate needs it)
+    required: false
+    default: 'true'
+  with-action-lint:
+    description: >-
+      Install the pinned actionlint AND shellcheck. Both, deliberately: actionlint
+      silently disables its shellcheck integration when the binary is missing,
+      so a lint that passes locally on a machine without shellcheck and fails on
+      a runner with it is the same gate reporting two different verdicts.
+    required: false
+    default: 'true'
+
+outputs:
+  venv-bin:
+    description: The venv's bin directory, for steps that need it in one `run:`
+    value: ${{ steps.venv.outputs.bin }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: true
+
+    - name: Create the venv and install the gate suite
+      id: venv
+      shell: bash
+      run: |
+        set -euo pipefail
+        VENV="$HOME/ci-venv"
+        uv venv "$VENV"
+        # shellcheck disable=SC2086  # extra-packages is a deliberate word list
+        VIRTUAL_ENV="$VENV" uv pip install --editable scripts/src/ ${{ inputs.extra-packages }}
+        echo "bin=$VENV/bin" >> "$GITHUB_OUTPUT"
+        # Every later step in the job resolves plain `python3`, `sgate` and
+        # `actionlint` through this. Written to GITHUB_PATH rather than exported,
+        # because an export dies with the step that made it.
+        echo "$VENV/bin" >> "$GITHUB_PATH"
+
+    - name: Install the YAML/workflow linters (pinned)
+      if: ${{ inputs.with-yaml-lint == 'true' || inputs.with-action-lint == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        VENV="$HOME/ci-venv"
+        # Pinned, not @latest: a lint that passes on one version and fails on
+        # the next is a gate whose floor moved without anyone deciding it.
+        if [[ "${{ inputs.with-yaml-lint }}" == 'true' ]]; then
+          VIRTUAL_ENV="$VENV" uv pip install "yamllint==1.38.0"
+        fi
+        if [[ "${{ inputs.with-action-lint }}" == 'true' ]]; then
+          # shellcheck comes from the venv like everything else, and actionlint
+          # gets an explicit path to it below — actionlint silently DISABLES
+          # its shellcheck integration when the binary is not found, so the
+          # gate's verdict otherwise depends on what the image happens to have.
+          VIRTUAL_ENV="$VENV" uv pip install "shellcheck-py==0.11.0.1"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+            | tar -xz -C "$VENV/bin" actionlint
+          "$VENV/bin/actionlint" --version
+          "$VENV/bin/shellcheck" --version | head -1
+        fi
+
+    - name: Verify the suite can import itself
+      shell: bash
+      run: |
+        set -euo pipefail
+        # The step that failed with ModuleNotFoundError: No module named 'click'
+        # in the tests job, which ran check-gate-wiring.py without ever
+        # installing scripts/src — so the job that exists to prove gates can
+        # fail could not run the gate.
+        python3 -c "import sgate" || {
+          echo "::error ::sgate is not importable after this action — nothing below it will run"
+          exit 1
+        }
+        python3 -c "import traceability" || {
+          echo "::error ::traceability is not importable after this action"
+          exit 1
+        }
+        echo "sgate + traceability: importable"
