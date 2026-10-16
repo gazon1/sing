@@ -154,3 +154,36 @@ has anything real to hide.
 - ADR `2026-10-04-measurement-integrity` — the principle both findings violate
 - `specs/test-execution-integrity/spec.md`
 - Failed run: <https://github.com/gazon1/sing/actions/runs/38902346697>
+## Addendum — found while validating this change (run 38933517902)
+
+The first CI run of this PR failed in a step its own diff never touched:
+`Normalise desktop results into the scenario matrix`, exit 2, "declared target
+produced zero testcases". It is worth recording because it is the same defect
+class one level down — a measurement that reports on state it does not own.
+
+`desktopApp/build/test-results/test/` is written by `:desktopApp:test` and read by
+the normaliser. In `ci.yml` the normaliser ran *after* four further Gradle
+invocations, any of which can re-run the test task and overwrite that directory.
+In this run it was the advisory `:koverMarkdownTable` step (`|| true`) that found
+its test task out of date and re-ran it — without `-Ptest.tags`, and the default
+in every module's `useJUnitPlatform` block is `excludeTags("slow")`. The
+`@Tag("slow")` scenario classes were therefore *skipped, not executed*: the suite
+stayed green, `check-test-runs` had already counted the full 135 desktop tests
+three steps earlier, and the normaliser was handed a directory in which every
+scenario testcase was absent. The run had measured them; the step said it had not.
+
+Two changes, because either alone leaves the trap open:
+
+- **Placement.** The normaliser now runs immediately after `Executed test counts`,
+  so its input is the test run's own output rather than a race with later Gradle
+  steps. `flake.yml` already carried the same reasoning in a comment; here it
+  becomes the step order.
+- **Selector parity.** Every Gradle invocation in that job now passes
+  `-Ptest.tags=fast,slow`, the same selector as the test run. This is the part
+  that is not redundancy: whichever invocation ends up executing the task must
+  measure the same population, or "up-to-date" and "re-run" become two different
+  answers to the same question.
+
+Note what this was *not*: not a traceability bug. The normaliser's exit 2 was
+correct — the directory it was given really did contain no scenario testcases.
+The bug was upstream, in who owned that directory.
