@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Prove the lint gate is actually measuring, by planting a violation and reading the report.
 
+## Migration note
+
+Migrated 2026-10-17 from argparse to Click, following the established sgate pattern:
+- `@click.command()` + `@click.option()` + `@click.argument()` + `@click.pass_context`
+- `click.echo()` replaces `print()`; `click.echo(..., err=True)` replaces `print(..., file=sys.stderr)`
+- Exit via `ctx.exit(code)` / `raise ctx.exit(code)` using constants from sgate.commands.base
+- `main()` wrapper calls `cli.main(standalone_mode=False)` and returns `int`
+
 ## Why this exists
 
 Three defects in one session, all the same shape, all found by hand rather than by a gate:
@@ -47,7 +55,6 @@ The probes are additive, so `--only NAME` runs one.
 
 from __future__ import annotations
 
-import argparse
 import os
 import pathlib
 import shutil
@@ -55,6 +62,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import Annotated
+
+import click
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GRADLEW = ROOT / "gw"
@@ -221,52 +231,87 @@ def probe_once(probe: Probe) -> tuple[bool, str]:
         shutil.rmtree(wt_dir, ignore_errors=True)
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument(
-        "--only",
-        action="append",
-        help="run one probe by name (repeatable); default runs all",
-    )
-    ap.add_argument("--list", action="store_true", help="list probe names and exit")
-    args = ap.parse_args()
+# ── CLI ─────────────────────────────────────────────────────────────────────
 
-    if args.list:
+
+@click.command("check-gate-honesty")
+@click.option(
+    "--only",
+    type=str,
+    multiple=True,
+    help="run one probe by name (repeatable); default runs all",
+)
+@click.option("--list", is_flag=True, help="list probe names and exit")
+@click.argument("PROBE", nargs=-1, type=str)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    only: tuple[str, ...],
+    list: bool,
+    probe: tuple[str, ...],
+) -> None:
+    """Prove the lint gate is actually measuring, by planting a violation and reading the report.
+
+    PROBE is an optional positional probe name for backward compatibility with --only.
+    Exit codes:
+      0 = all probes fired (gate is measuring)
+      1 = one or more probes did not fire
+      2 = no probe matches the given name
+    """
+    # Support both positional PROBE and --only for backward compatibility.
+    selected_names = set(only) | set(probe)
+
+    if list:
         for p in PROBES:
-            print(f"{p.name}\t{p.rule_id}")
-        return 0
+            click.echo(f"{p.name}\t{p.rule_id}")
+        raise ctx.exit(0)
 
-    selected = [p for p in PROBES if not args.only or p.name in args.only]
+    selected = [p for p in PROBES if not selected_names or p.name in selected_names]
     if not selected:
-        print(f"no probe matches {args.only}", file=sys.stderr)
-        return 2
+        click.echo(f"no probe matches {selected_names!r}", err=True)
+        raise ctx.exit(2)
 
-    print("=" * 72)
-    print("GATE HONESTY — can the lint gate tell a clean tree from a broken one?")
-    print("=" * 72)
+    click.echo("=" * 72)
+    click.echo("GATE HONESTY — can the lint gate tell a clean tree from a broken one?")
+    click.echo("=" * 72)
 
     failures = 0
-    for probe in selected:
-        print(f"\n→ {probe.name}  (expects {probe.rule_id})")
-        print(f"  {probe.why}")
+    for p in selected:
+        click.echo(f"\n→ {p.name}  (expects {p.rule_id})")
+        click.echo(f"  {p.why}")
         started = time.monotonic()
-        fired, detail = probe_once(probe)
+        fired, detail = probe_once(p)
         took = time.monotonic() - started
         if fired:
-            print(f"  FIRED — {detail}  ({took:.0f}s)")
+            click.echo(f"  FIRED — {detail}  ({took:.0f}s)")
         else:
             failures += 1
-            print(f"  DID NOT FIRE — {detail}  ({took:.0f}s)")
+            click.echo(f"  DID NOT FIRE — {detail}  ({took:.0f}s)")
 
-    print("\n" + "=" * 72)
+    click.echo("\n" + "=" * 72)
     if failures:
-        print(f"FAILED: {failures}/{len(selected)} probe(s) did not fire.")
-        print("A probe that cannot fire is the defect this script exists to catch, so this is a")
-        print("failure of the *check*, not a pass with nothing to report.")
-        return 1
-    print(f"OK: {len(selected)}/{len(selected)} probes fired. The gate is measuring.")
-    print("A green `just lint` from here is evidence rather than an absence of evidence.")
-    return 0
+        click.echo(f"FAILED: {failures}/{len(selected)} probe(s) did not fire.")
+        click.echo("A probe that cannot fire is the defect this script exists to catch, so this is a")
+        click.echo("failure of the *check*, not a pass with nothing to report.")
+        raise ctx.exit(1)
+    click.echo(f"OK: {len(selected)}/{len(selected)} probes fired. The gate is measuring.")
+    click.echo("A green `just lint` from here is evidence rather than an absence of evidence.")
+    raise ctx.exit(0)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Parse arguments and dispatch to the requested command.
+
+    Exit codes:
+      0 = all probes fired (gate is measuring)
+      1 = one or more probes did not fire
+      2 = no probe matches the given name
+    """
+    try:
+        return cli.main(args=argv, standalone_mode=False)
+    except SystemExit:
+        # Propagate Click's SystemExit with its code.
+        raise
 
 
 if __name__ == "__main__":
