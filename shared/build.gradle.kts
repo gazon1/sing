@@ -477,9 +477,13 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin").asFile.absolutePath,
     )
     // Allure test reporting — results written to build/allure-results/
-    // The directory is per-task to avoid collisions when tests run in parallel.
-    val allureDir = layout.buildDirectory.dir("allure-results").map { it.asFile.absolutePath }
-    systemProperty("allure.results.directory", allureDir)
+    // allure-kotlin's `allure.results.directory` key is NOT read by allure-junit5's listener;
+    // the listener computes its results path relative to the forked JVM's working directory.
+    // Setting workingDir on the forked JVM makes it write to <module>/build/allure-results/,
+    // which is where the CI upload step and the existing .gitignore `**/build/` entry
+    // expect it. The directory is per-task to avoid collisions when tests run in parallel.
+    val allureDir = layout.buildDirectory.dir("allure-results").get().asFile
+    workingDir = allureDir.also { it.mkdirs() }
     // The tests above read files OUTSIDE :shared while they run, so those trees are
     // inputs to this task whether or not they feed the compiler. Without this, editing
     // a desktopApp or mcp-server test leaves :shared:jvmTest UP-TO-DATE, and an

@@ -227,8 +227,11 @@ tasks.withType<Test>().configureEach {
         .absolutePath
     jvmArgs("-javaagent:$coroutinesDebugAgentPath")
     // Allure test reporting — results written to build/allure-results/
-    val allureDir = layout.buildDirectory.dir("allure-results").map { it.asFile.absolutePath }
-    systemProperty("allure.results.directory", allureDir)
+    // (#694) Eagerly resolved absolute path so the system property is a plain String,
+    // not a Provider — systemProperty does not call `.get()` on a Provider the way
+    // workingDir does, so lazy resolution silently did nothing before.
+    val allureDir = layout.buildDirectory.dir("allure-results").get().asFile.absoluteFile
+    systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
 }
 
 dependencies {

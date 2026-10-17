@@ -9,6 +9,7 @@ import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
@@ -24,6 +25,7 @@ import com.singularity.todo.feature.proposals.proposalModule
 import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import kotlin.time.Clock
@@ -77,8 +79,14 @@ fun domainModule(): List<Module> = buildList {
                 )
             }
             factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-            viewModelOf(::AccountSettingsViewModel)
-            viewModelOf(::ChangePasswordViewModel)
+            // Explicit lambda (not viewModelOf(::AccountSettingsViewModel)): Koin's reflective
+            // constructor resolution does NOT apply Kotlin default arguments. The constructor
+            // has defaults for crashReporter and scope, and viewModelOf fails to resolve them
+            // because reportingScope(get()) cannot be called reflectively. The explicit lambda
+            // applies Kotlin defaults at the call site. See #662.
+            viewModel { AccountSettingsViewModel(get(), get(), reportingScope(get())) }
+            // Same issue as above: ChangePasswordViewModel has defaults for crashReporter and scope.
+            viewModel { ChangePasswordViewModel(get(), get(), reportingScope(get())) }
 
             // The sync scope is the one place that needs both the session and the
             // profile, which is why it is bound here and not in coreModule(): sync
