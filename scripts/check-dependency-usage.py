@@ -32,6 +32,10 @@ script reads the *contents* of each jar/aar to learn the package roots it actual
 contributes. Comparing those roots against the imports in the source set that
 resolved them answers the question without guessing.
 
+## Migration note
+
+Migrated from argparse to Click (2026-10-17).
+
 Usage:
     ./gradlew :shared:printResolvedArtifacts -q > /tmp/resolved.tsv
     python3 scripts/check-dependency-usage.py --resolved /tmp/resolved.tsv
@@ -40,13 +44,14 @@ Exit codes: 0 = no unused dependency, 1 = findings, 2 = could not measure.
 """
 from __future__ import annotations
 
-import argparse
 import re
 import subprocess
-import sys
 import zipfile
 from collections import defaultdict
 from pathlib import Path
+
+import click
+from sgate.commands.base import IO_ERROR, VALIDATION_FAILURE
 
 WORKSPACE = Path(__file__).resolve().parent.parent
 
@@ -156,6 +161,8 @@ def _roots_from_bytes(data: bytes) -> set[str]:
 
 
 def load_resolved(path: Path) -> list[tuple[str, str, Path]]:
+    if not path.exists():
+        return []
     rows = []
     for line in path.read_text().splitlines():
         parts = line.split("\t")
@@ -285,18 +292,21 @@ def _qualified_references() -> set[str]:
     return prefixes
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--resolved",
-        type=Path,
-        help="TSV from :shared:printResolvedArtifacts. Omit to invoke Gradle.",
-    )
-    parser.add_argument("--quiet", action="store_true")
-    args = parser.parse_args()
-
-    if args.resolved:
-        rows = load_resolved(args.resolved)
+@click.command()
+@click.option(
+    "--resolved",
+    type=click.Path(path_type=Path),
+    help="TSV from :shared:printResolvedArtifacts. Omit to invoke Gradle.",
+)
+@click.option("--quiet", is_flag=True, help="Suppress informational output")
+@click.pass_context
+def cli(ctx: click.Context, resolved: Path | None, quiet: bool) -> None:
+    """Check for declared dependencies that nothing imports."""
+    if resolved:
+        rows = load_resolved(resolved)
+        if not rows:
+            click.echo(f"could not measure: resolved file not found or empty: {resolved}", err=True)
+            raise ctx.exit(IO_ERROR)
     else:
         result = subprocess.run(
             ["./gradlew", ":shared:printResolvedArtifacts", "-q"],
@@ -306,8 +316,8 @@ def main() -> int:
             check=False,
         )
         if result.returncode != 0:
-            print("could not measure: printResolvedArtifacts failed", file=sys.stderr)
-            return 2
+            click.echo("could not measure: printResolvedArtifacts failed", err=True)
+            raise ctx.exit(IO_ERROR)
         tmp = Path("/tmp/_resolved.tsv")
         tmp.write_text(result.stdout)
         rows = load_resolved(tmp)
@@ -322,12 +332,12 @@ def main() -> int:
     # Positive control: a gate that scanned nothing reports "no findings", which
     # is indistinguishable from a clean tree.
     if len(rows) < MIN_ARTEFACTS:
-        print(
+        click.echo(
             f"could not measure: only {len(rows)} artifacts resolved "
             f"(floor {MIN_ARTEFACTS}) — treating this as a scan failure, not a pass",
-            file=sys.stderr,
+            err=True,
         )
-        return 2
+        raise ctx.exit(IO_ERROR)
 
     imports_by_set = {s: imports_for(s) for s in SOURCE_SET_DIRS}
 
@@ -370,8 +380,8 @@ def main() -> int:
         if module not in roots_by_coordinate:
             skipped_unmeasured.append((key, module))
 
-    if not args.quiet:
-        print(
+    if not quiet:
+        click.echo(
             f"scanned {len(rows)} resolved artifacts across {len(roots_by_coordinate)} coordinates; "
             f"{len(declared_modules)} of them declared by this project"
         )
@@ -381,7 +391,7 @@ def main() -> int:
             # desktopApp-only dependency lands here. Reporting it as a finding
             # would train the reader to ignore the list, which is what the real
             # findings below are for.
-            print(
+            click.echo(
                 f"{len(skipped_unmeasured)} declared dependencies resolve in other source sets "
                 f"only (tests, detekt, other modules) — not examined here"
             )
@@ -393,55 +403,63 @@ def main() -> int:
         stale = sorted(allowlist - found_coordinates)
 
         if unexpected:
-            print(
+            click.echo(
                 f"\n{len(unexpected)} declared dependencies contribute packages nothing "
                 f"imports and are not in the allowlist:\n",
-                file=sys.stderr,
+                err=True,
             )
             for coordinate in unexpected:
-                print(f"  {coordinate}", file=sys.stderr)
-            print(
+                click.echo(f"  {coordinate}", err=True)
+            click.echo(
                 "\nRemove the dependency, or — if it is genuinely used through a "
                 "reflection lookup, a service loader, or an annotation processor — add it "
                 "to scripts/dependency-usage-allowlist.txt with the reason it cannot be "
                 "seen by an import.",
-                file=sys.stderr,
+                err=True,
             )
-            return 1
+            raise ctx.exit(VALIDATION_FAILURE)
 
         if ceiling is not None and len(allowlist) > ceiling:
-            print(
+            click.echo(
                 f"\nthe allowlist grew from {ceiling} to {len(allowlist)} entries. "
                 f"Exempting a dependency is not the same as removing it: either delete "
                 f"the dependency (and its line here), or state the exemption and raise "
                 f"scripts/dependency-usage-allowlist.ceiling in the same commit — with a "
                 f"reason, not a number.",
-                file=sys.stderr,
+                err=True,
             )
-            return 1
+            raise ctx.exit(VALIDATION_FAILURE)
 
         if stale:
             # Not a failure: a dependency that became used again, or a typo'd
             # coordinate, should not hold the gate red. Worth saying out loud,
             # because a stale line is indistinguishable from a not-yet-checked one.
-            print(
+            click.echo(
                 f"\nnote: {len(stale)} allowlist entries no longer match any finding — "
                 f"the dependency is now used, or the coordinate is wrong: "
                 f"{', '.join(stale)}",
-                file=sys.stderr,
+                err=True,
             )
 
-        if not args.quiet:
-            print(
+        if not quiet:
+            click.echo(
                 f"no unexpected unused dependencies "
                 f"({len(findings)} known, allowlisted, tracked in #211)"
             )
-        return 0
+        raise ctx.exit(0)
 
-    if not args.quiet:
-        print("no unused dependencies")
-    return 0
+    if not quiet:
+        click.echo("no unused dependencies")
+    raise ctx.exit(0)
+
+
+def main() -> int:
+    """Wrapper entry point for standalone execution."""
+    try:
+        return cli.main(standalone_mode=False)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
