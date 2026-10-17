@@ -130,19 +130,28 @@ jobs:
         run: >
           npx --yes "@fission-ai/openspec@${SPECKIT_VERSION}" validate --all --json --strict
 
-            :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt \
-            :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
-            --auto-correct --console=plain || true
-          if git diff --quiet; then
-            echo "auto-correct changed nothing; the verdict below measures the pushed tree"
-          else
-            echo ""
-            echo "::error::detekt --auto-correct rewrote the pushed commit's sources."
-            echo "The commit that was pushed does not satisfy detekt on its own."
-            echo "Run 'just detekt-fix', review the result, and amend."
-            git diff --stat
-            exit 1
-          fi
+      - name: Detekt auto-correct (commit + push)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: |
+            gradle
+            gradlew
+            shared/
+            desktopApp/
+            androidApp/
+            mcp-server/
+            adr-cli/
+            adr-core/
+            core-base/
+            detekt-rules/
+          sparse-checkout-cone-mode: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detekt auto-correct
+        run: bash scripts/ci/detekt-auto-fix.sh "static" "${{ github.run_id }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # One Gradle invocation => one JVM start, one configuration phase, and the
   # tests run ONCE. The previous shape ran jvmTest twice (this job and
@@ -217,43 +226,14 @@ jobs:
       # nothing. The step's only output is the correction, so it must not be served
       # from a cache.
       #
-      # It would be wrong to stop here, though. A correction made in CI is not
-      # committed, so a green detekt step one step later would be green on a tree
-      # nobody pushed — the shape this repo already has an ADR for ("a gate that
-      # passes a sabotaged input"). So the diff the correcting pass produced IS the
-      # finding: the step fails, names the files, and says `just detekt-fix` plus an
-      # amend.
-      #
-      # The correcting pass is advisory on its own (`|| true`): detekt exits non-zero
-      # precisely when it corrected something, and the diff check is the verdict for
-      # that. Without it the files would never be written and the diff would always
-      # be empty — the check would pass vacuously.
-      - name: Detekt auto-correct before the verdict
-        run: |
-          set -o pipefail
-          # A dirty tree would make `git diff` mean something else: the step could
-          # attribute a checkout-side change to the correcting pass.
-          if ! git diff --quiet; then
-            echo "::error::working tree is dirty before the auto-correct step"
-            git diff --name-only
-            exit 1
-          fi
-          for task in \
-            :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt \
-            :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt
-          do
-            ./gradlew "$task" --auto-correct --no-build-cache --console=plain || true
-          done
-          if git diff --quiet; then
-            echo "auto-correct changed nothing; the verdict below measures the pushed tree"
-          else
-            echo ""
-            echo "::error::detekt --auto-correct rewrote the pushed commit's sources."
-            echo "The commit that was pushed does not satisfy detekt on its own."
-            echo "Run 'just detekt-fix', review the result, and amend."
-            git diff --stat
-            exit 1
-          fi
+      # The script commits and pushes the auto-correct result to
+      # `detekt-auto-fix/<job>/<run-id>`. The CI verdict is still produced by the
+      # separate `git diff` step below (which now measures an already-fixed tree).
+      # See docs/decisions/YYYY-MM-DD-detekt-auto-fix-ci-commit.md.
+      - name: Detekt auto-correct (commit + push)
+        run: bash scripts/ci/detekt-auto-fix.sh "tests" "${{ github.run_id }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # koverReport already dependsOn :shared:jvmTest, :shared:testAndroidHostTest,
       # :desktopApp:test, :mcp-server:test and :androidApp:test (build.gradle.kts:67-79).
