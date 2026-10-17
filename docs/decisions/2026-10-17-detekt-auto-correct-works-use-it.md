@@ -106,17 +106,55 @@ forward as fact.
   planted file and a byte-level diff is checkable; "auto-correct is inert" was
   not.
 
+## Three ways to observe "inert" without it being inert
+
+The first experiment above is not the whole story, and this is the part that
+makes the old conclusion so believable. Three *silent* shapes produce a file that
+never changes, none of which is detekt being broken:
+
+1. **The flag is not passed.** The recipe had dropped it; that is what was true
+   here.
+2. **The task is UP-TO-DATE.** Without `--rerun-tasks`, Gradle serves detekt from
+   the previous run's inputs and never looks at the file. Measured:
+   `:shared:detekt --auto-correct --no-parallel` finished in 658 ms and left a
+   planted violation in place.
+3. **Several detekt tasks in one invocation.** The flag reaches only the **last**
+   detekt task. Measured on 2026-10-17 with a planted `StringTemplate` violation:
+
+   | invocation | rewritten? |
+   |---|---|
+   | `:shared:detekt` alone | yes |
+   | `:desktopApp:detekt :shared:detekt` | yes (shared is last) |
+   | `:shared:detekt :desktopApp:detekt` | **no** — reported, wrote nothing |
+   | `:shared:detekt :mcp-server:detekt` | **no** |
+   | `:shared:detekt :desktopApp:detekt :mcp-server:detekt :detekt-rules:detekt` | **no** |
+   | all eight modules, one invocation each | yes |
+
+   A task list therefore corrects one module and silently skips the rest. The
+   skipped ones *report* their findings, so the run still fails and the failure
+   looks like detekt declining to fix them.
+
+The conclusion "auto-correct is inert" is what you get from every one of these,
+and from a probe file that no rule covers. The only measurement that separates
+them is a **planted violation of a correctable rule plus a byte-level diff of the
+file afterwards** — checking the exit code, or the finding count, checks neither.
+
+Every caller therefore runs **one Gradle invocation per detekt task**: `just
+detekt-fix`, `.githooks/pre-push`, and the CI step below.
+
 ## Automation
 
 Both surfaces that stand between an edit and `main` now run the correcting pass
 first, so the verdict they report is about a corrected tree:
 
-- **pre-push** (`.githooks/pre-push`): `:shared:detekt :desktopApp:detekt
-  --auto-correct --rerun-tasks`, before the structural gates' Gradle successor.
-  A non-zero exit means files were rewritten; the push stops and prints the diff,
-  because those files belong in the commit being pushed.
+- **pre-push** (`.githooks/pre-push`): `:shared:detekt` and `:desktopApp:detekt`,
+  one invocation each with `--auto-correct --rerun-tasks`, before the Gradle
+  suite. A non-zero exit means files were rewritten; the push stops and prints the
+  diff, because those files belong in the commit being pushed.
 - **CI** (`ci.yml`, step *Detekt auto-correct before the verdict*): the same
-  modules, immediately before the Gradle step that runs the detekt verdicts.
+  modules the Gradle step below measures — one invocation each — immediately
+  before it. No `--rerun-tasks` there: a fresh checkout has nothing to be
+  up-to-date against, and the flag would only buy a recompile.
 
 The CI shape is the delicate one. Correcting inside CI and then measuring is the
 obvious implementation and it is wrong: the correction is not committed, so a
@@ -143,15 +181,21 @@ use, so "what CI measured" and "what I ran locally" are the same measurement.
   does not make anything pass that was failing.
 - The next change to `detekt-fix` should keep the two passes separate. Merging
   them makes a formatter failure indistinguishable from a clean tree.
+- **Do not collapse the per-module loop into one Gradle invocation.** It is
+  faster, it passes every check in this repository, and it silently stops
+  correcting every module except the last one. That is the whole defect class
+  this ADR exists to close.
 - A CI run whose auto-correct step fails is reporting a real defect in the pushed
   commit, not a CI problem. Do not "fix" it by adding `|| true` to the step's
   last command: that is precisely the change that makes the check vacuous.
-- `just gate-honesty` still plants violations for the *analysis* path. A probe
-  for the *correcting* path — plant, correct, assert the file changed — is the
-  obvious addition, and is what would have caught this.
-- The CI step costs a second detekt analysis per run. If that ever needs to go,
-  the honest way is to drop the step and say so, not to let the correction pass
-  run without its diff check.
+- `just gate-honesty` still plants violations for the *analysis* path. The
+  *correcting* path needs the same treatment — plant a correctable violation, run
+  one invocation, assert the file changed on disk — and it would have caught this
+  on the first attempt instead of after a wrong ADR, a wrong recipe and a gate
+  that passed a sabotaged input.
+- The CI step costs one Gradle configuration phase per detekt module. If that
+  ever needs to go, the honest way is to drop the step and say so, not to merge
+  the invocations.
 
 ## Links
 

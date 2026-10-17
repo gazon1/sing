@@ -197,26 +197,37 @@ jobs:
       # Correct first, measure second — and do not let the correction hide the debt.
       #
       # `--auto-correct` works; the claim that it was inert is superseded by
-      # docs/decisions/2026-10-17-detekt-auto-correct-works-use-it.md (the original
-      # probe reported "0 findings" as "0 corrections" and conflated the two). It
-      # runs here, before the Gradle step below, so that step measures a corrected
-      # tree — the same order `just detekt-fix` uses.
+      # docs/decisions/2026-10-17-detekt-auto-correct-works-use-it.md. It runs here,
+      # before the Gradle step below, so that step measures a corrected tree — the
+      # same order `just detekt-fix` and the pre-push hook use.
       #
-      # It would be wrong to stop there. If this pass rewrites a file, the commit
-      # that was pushed needed corrections, and a green detekt step one step later
-      # would then be green on a tree nobody pushed — the shape this repo already
-      # has an ADR for ("a gate that passes a sabotaged input"). So the diff the
-      # correcting pass produced IS the finding: the step fails and lists the files,
-      # and the fix is `just detekt-fix` plus an amend.
+      # One Gradle invocation per module, never several in one. Measured on
+      # 2026-10-17 with a planted StringTemplate violation: `:shared:detekt
+      # :desktopApp:detekt --auto-correct` reported the finding and rewrote
+      # nothing, while the same two tasks one invocation each did rewrite it —
+      # and `:desktopApp:detekt :shared:detekt` in a single invocation rewrote it
+      # again. The flag reaches only the last detekt task of an invocation, so a
+      # list silently corrects one module and silently skips the rest. That is
+      # indistinguishable from "inert" unless you check the file afterwards, which
+      # is why the old ADR's conclusion was plausible for a week.
       #
-      # No `--rerun-tasks` here: this is the job's first Gradle invocation, so the
-      # detekt tasks have nothing to be up-to-date against. It is needed locally
-      # (a second pass over an unchanged tree), not here.
+      # No `--rerun-tasks` here (unlike the hook): this is the job's first Gradle
+      # invocation, so no detekt task can be UP-TO-DATE over the checked-out tree.
+      # `--no-build-cache` for the same reason — a restored analysis rewrites
+      # nothing. The step's only output is the correction, so it must not be served
+      # from a cache.
+      #
+      # It would be wrong to stop here, though. A correction made in CI is not
+      # committed, so a green detekt step one step later would be green on a tree
+      # nobody pushed — the shape this repo already has an ADR for ("a gate that
+      # passes a sabotaged input"). So the diff the correcting pass produced IS the
+      # finding: the step fails, names the files, and says `just detekt-fix` plus an
+      # amend.
       #
       # The correcting pass is advisory on its own (`|| true`): detekt exits non-zero
-      # precisely when it corrected something, and the step's own diff check is the
-      # verdict for that. Without it the files would never be written and the diff
-      # would always be empty — the check would pass vacuously.
+      # precisely when it corrected something, and the diff check is the verdict for
+      # that. Without it the files would never be written and the diff would always
+      # be empty — the check would pass vacuously.
       - name: Detekt auto-correct before the verdict
         run: |
           set -o pipefail
@@ -225,6 +236,22 @@ jobs:
           if ! git diff --quiet; then
             echo "::error::working tree is dirty before the auto-correct step"
             git diff --name-only
+            exit 1
+          fi
+          for task in \
+            :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt \
+            :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt
+          do
+            ./gradlew "$task" --auto-correct --no-build-cache --console=plain || true
+          done
+          if git diff --quiet; then
+            echo "auto-correct changed nothing; the verdict below measures the pushed tree"
+          else
+            echo ""
+            echo "::error::detekt --auto-correct rewrote the pushed commit's sources."
+            echo "The commit that was pushed does not satisfy detekt on its own."
+            echo "Run 'just detekt-fix', review the result, and amend."
+            git diff --stat
             exit 1
           fi
 

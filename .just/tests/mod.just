@@ -221,8 +221,18 @@ detekt-fix:
     # `--rerun-tasks` on the correcting pass only: without it the task can be
     # UP-TO-DATE from the verification pass that ran a moment ago, and a cached task
     # rewrites nothing.
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
-        --auto-correct --rerun-tasks --console=plain || true
+    #
+    # One invocation per module, and this is measured, not stylistic. With a planted
+    # StringTemplate violation, `:shared:detekt :desktopApp:detekt --auto-correct`
+    # REPORTED the finding and rewrote nothing; the same two tasks one invocation
+    # each rewrote it, and `:desktopApp:detekt :shared:detekt` in a single
+    # invocation rewrote it again. The flag reaches only the LAST detekt task of an
+    # invocation, so a task list silently corrects one module and skips the rest —
+    # which looks exactly like the inertness ADR 2026-10-09 recorded. Collapsing
+    # this loop back into one call reintroduces that bug in a form nobody can see.
+    for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
+        ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
+    done
     ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
         --console=plain
 
