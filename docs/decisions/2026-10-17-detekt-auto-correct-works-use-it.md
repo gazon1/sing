@@ -142,6 +142,28 @@ file afterwards** — checking the exit code, or the finding count, checks neith
 Every caller therefore runs **one Gradle invocation per detekt task**: `just
 detekt-fix`, `.githooks/pre-push`, and the CI step below.
 
+## The verdict is the diff, not the exit code
+
+A fourth trap, found by running the pre-push hook against a planted violation:
+a correcting detekt run that **rewrote** the file ended `BUILD SUCCESSFUL` and
+exited 0 — it corrected the violation and then had nothing left to report. The
+hook's first version treated a non-zero exit as "files were rewritten" and
+therefore passed on exactly the push it was added to catch: the planted
+`StringTemplate` violation sat corrected on disk while the hook printed OK.
+
+So the check that matters is a comparison of the tree before and after the pass,
+in both surfaces:
+
+- **pre-push**: `git status --porcelain` before the loop versus after. Not "is
+  the tree dirty" — uncommitted work in progress is normal, and a hook that
+  refused to run on a dirty tree teaches people to reach for `--no-verify`.
+- **CI**: a fresh checkout, so `git diff` after the pass, guarded by a
+  clean-tree check first (otherwise `git diff` attributes someone else's change
+  to the correction).
+
+`just detekt-fix` needs neither: its second, report-only pass is the verdict,
+which is the whole reason the two passes stay separate.
+
 ## Automation
 
 Both surfaces that stand between an edit and `main` now run the correcting pass

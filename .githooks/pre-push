@@ -71,25 +71,35 @@ echo ""
 # serves detekt UP-TO-DATE over the unchanged tree and corrects nothing. That
 # is the third way to observe "inert" and be right about nothing.
 #
-# A non-zero exit from a correcting pass means detekt rewrote something. That is
-# not a build failure to be worked around — the correction is the output, and
-# pushing it un-amended would carry the debt to CI, which has no way to fix it.
-# So the push stops here, with the diff shown.
+# The verdict is the DIFF, not the exit code. Measured: a correcting detekt run
+# that rewrote a planted violation ended `BUILD SUCCESSFUL` and exited 0 — it
+# corrected the file and then had nothing left to report. A hook that watched the
+# exit code passed on exactly the push it was added to catch, with the violation
+# already fixed on disk and its author never told.
+#
+# The comparison is against `git status --porcelain` from before the loop, not
+# against "is the tree dirty": uncommitted work in progress is normal here, and a
+# hook that refused to run on a dirty tree would push people to --no-verify.
 echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
 
+BEFORE="$(git status --porcelain)"
+
 for task in :shared:detekt :desktopApp:detekt; do
-    if ! ./gradlew "$task" \
-        --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain
-    then
-        echo ""
-        echo "pre-push FAILED — detekt auto-correct rewrote files ($task)."
-        echo "Review the diff below, amend the commit, and push again (or --no-verify)."
-        git --no-pager diff --stat
-        exit 1
-    fi
+    ./gradlew "$task" \
+        --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain || true
 done
 
-echo "=== detekt auto-correct OK ==="
+AFTER="$(git status --porcelain)"
+
+if [ "$BEFORE" != "$AFTER" ]; then
+    echo ""
+    echo "pre-push FAILED — detekt auto-correct rewrote files. Review the diff below,"
+    echo "amend the commit, and push again (or push with --no-verify)."
+    git --no-pager diff --stat
+    exit 1
+fi
+
+echo "detekt auto-correct changed nothing"
 echo ""
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
