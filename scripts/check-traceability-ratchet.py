@@ -79,6 +79,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import click
+from sgate.commands.base import run
 
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE
 
@@ -268,13 +269,7 @@ def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
     raise ctx.exit(CLEAN if accept_growth else VALIDATION_FAILURE)
 
 
-def main() -> int:
-    try:
-        cli.main(standalone_mode=False)
-    except SystemExit:
-        raise
-    return CLEAN  # unreachable in Click standalone_mode=False
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

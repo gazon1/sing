@@ -27,6 +27,7 @@ import sys
 from pathlib import PurePosixPath
 
 import click
+from sgate.commands.base import run
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
@@ -873,12 +874,7 @@ def cli(
     raise ctx.exit(ret)
 
 
-def main(argv: list[str] | None = None) -> int:
-    try:
-        return cli.main(argv, standalone_mode=False)
-    except SystemExit:
-        raise  # let it propagate
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

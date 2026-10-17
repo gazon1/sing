@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 import click
+from sgate.commands.base import run
 
 # Files whose changes warrant a targeted compile after a rebase.
 # Covers the DI surface that most often breaks after a large rebase:
@@ -174,12 +175,7 @@ def cli(ctx: click.Context, quiet: bool) -> None:
         raise ctx.exit(VALIDATION_FAILURE)
 
 
-def main(argv=None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

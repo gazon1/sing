@@ -65,6 +65,7 @@ import time
 from typing import Annotated
 
 import click
+from sgate.commands.base import run
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GRADLEW = ROOT / "gw"
@@ -299,20 +300,7 @@ def cli(
     raise ctx.exit(0)
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Parse arguments and dispatch to the requested command.
-
-    Exit codes:
-      0 = all probes fired (gate is measuring)
-      1 = one or more probes did not fire
-      2 = no probe matches the given name
-    """
-    try:
-        return cli.main(args=argv, standalone_mode=False)
-    except SystemExit:
-        # Propagate Click's SystemExit with its code.
-        raise
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

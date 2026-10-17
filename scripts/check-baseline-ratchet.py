@@ -81,7 +81,7 @@ from pathlib import Path
 
 import click
 
-from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register, run
 
 # Detekt baseline entries look like:
 #   <ID>RuleName:File.kt:Fqcn$signature</ID>
@@ -348,22 +348,10 @@ def _check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> boo
     return True
 
 
-def main() -> int:
-    """Entry point used by tests; calls the Click command and returns the exit code.
-
-    Uses standalone_mode=False so that ctx.exit() raises SystemExit directly
-    rather than calling sys.exit() inside Click's main(). This allows tests to
-    verify the exit code via either the SystemExit exception or the return value.
-    """
-    try:
-        result = cli.main(standalone_mode=False)
-        return result if result is not None else 0
-    except SystemExit as exc:
-        return exc.code if exc.code is not None else 0
 
 
 if __name__ == "__main__":
     register(cli)
     # Use standalone_mode=False so ctx.exit() raises SystemExit with the real code,
     # not Click's internal sys.exit(0) that standalone_mode=True always calls.
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

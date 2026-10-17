@@ -63,6 +63,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import click
+from sgate.commands.base import run
 import yaml
 
 # Line-buffer both streams: a killed run used to leave a 0-byte log, because
@@ -2633,7 +2634,8 @@ def check_gate_reachability() -> list[str]:
 @click.option("--reachability", is_flag=True, help="Part H only")
 @click.option("--gradle-parity", "gradle_parity", is_flag=True, help="Part I only")
 @click.option("--registry-cross", "registry_cross", is_flag=True, help="Part J only")
-def main(
+@click.pass_context
+def main(ctx: click.Context,
     wiring: bool,
     can_fail: bool,
     gradle_can_fail: bool,
@@ -2757,15 +2759,15 @@ def main(
                   "all registry gates with scripts have controls")
 
     if errors:
-        print("")
+        click.echo("")
         for err in errors:
-            print(f"ERROR: {err}")
-        print("")
-        print("A gate that cannot fail, or a check task nobody invokes, is worse than")
-        print("no gate: it converts 'not checked' into 'checked and green'.")
-        raise SystemExit(1)
+            click.echo(f"ERROR: {err}")
+        click.echo("")
+        click.echo("A gate that cannot fail, or a check task nobody invokes, is worse than")
+        click.echo("no gate: it converts 'not checked' into 'checked and green'.")
+        raise ctx.exit(1)
 
-    print("\ncheck-gate-wiring: OK")
+    click.echo("\ncheck-gate-wiring: OK")
 
 
 # Applied at the bottom: `_load_registry` is defined further down, and the
@@ -2775,4 +2777,4 @@ SABOTAGE_ONLY_GATES = _prefer_registry_controls(SABOTAGE_ONLY_GATES)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(run(main))

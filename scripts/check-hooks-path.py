@@ -40,6 +40,7 @@ import subprocess
 import sys
 
 import click
+from sgate.commands.base import run
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -117,12 +118,7 @@ def cli(ctx: click.Context, quiet: bool) -> None:
     raise ctx.exit(CLEAN)
 
 
-def main(argv=None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

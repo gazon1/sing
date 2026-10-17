@@ -47,6 +47,7 @@ import pathlib
 import sys
 
 import click
+from sgate.commands.base import run
 
 # `scripts/src` on sys.path so `traceability.junit_xml` resolves. When loaded by a
 # test harness (importlib.util.spec_from_file_location), sys.path[0] is
@@ -229,12 +230,7 @@ def cli(ctx: click.Context, current: str, previous: str, baseline: str,
     raise ctx.exit(CLEAN)
 
 
-def main(argv=None) -> int:
-    try:
-        return cli.main(argv, standalone_mode=False)
-    except SystemExit:
-        raise
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

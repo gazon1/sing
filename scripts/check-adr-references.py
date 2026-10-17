@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import click
+from sgate.commands.base import run
 import pathlib
 import re
 
@@ -275,12 +276,7 @@ def cli(ctx: click.Context, update_baseline: bool, baseline: str, list_cited: bo
     raise ctx.exit(CLEAN)
 
 
-def main(argv=None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

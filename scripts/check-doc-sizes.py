@@ -33,6 +33,7 @@ import re
 import sys
 
 import click
+from sgate.commands.base import run
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
@@ -134,9 +135,7 @@ def cli(ctx: click.Context, warn_only: bool) -> None:
     raise ctx.exit(CLEAN)
 
 
-def main(args: list[str] | None = None) -> int:
-    return cli.main(standalone_mode=False, args=args)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

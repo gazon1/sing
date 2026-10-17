@@ -44,9 +44,13 @@ which asserts that a hand-edited skill fails and a regenerated one passes.
 
 from __future__ import annotations
 
+from __future__ import annotations
+
 import importlib.util
 import pathlib
-import sys
+
+import click
+from sgate.commands.base import run
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -61,15 +65,17 @@ renderer = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(renderer)
 
 
-def main() -> int:
+@click.command()
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     try:
         expected = renderer.render()
     except renderer.ParseError as exc:
-        print(f'check-skill-drift: {exc}', file=sys.stderr)
-        print('check-skill-drift: the renderer could not read the tool surface, so nothing '
+        click.echo(f'check-skill-drift: {exc}', err=True)
+        click.echo('check-skill-drift: the renderer could not read the tool surface, so nothing '
               'can be compared. A gate that cannot read its own input is not a green gate.',
-              file=sys.stderr)
-        return 1
+              err=True)
+        raise ctx.exit(1)
 
     drifted: list[pathlib.Path] = []
     missing: list[pathlib.Path] = []
@@ -83,30 +89,30 @@ def main() -> int:
             drifted.append(skill)
 
     for path in missing:
-        print(f'ERROR: {path.relative_to(ROOT)} does not exist — the generated section has '
+        click.echo(f'ERROR: {path.relative_to(ROOT)} does not exist — the generated section has '
               f'nowhere to live')
 
     for path in drifted:
         rel = path.relative_to(ROOT)
         current = renderer.current_block(path)
         if current is None:
-            print(f'ERROR: {rel} has no "{renderer.BEGIN}" block. The ADR tool surface is '
+            click.echo(f'ERROR: {rel} has no "{renderer.BEGIN}" block. The ADR tool surface is '
                   f'generated, not maintained by hand; restore it with:')
         else:
-            print(f'ERROR: {rel} — the generated "ADR tools" section does not match the code.')
-            print(f'  the skill says: {_first_difference(current, expected)}')
-        print(f'  fix with: python3 scripts/render-adr-tools-section.py')
+            click.echo(f'ERROR: {rel} — the generated "ADR tools" section does not match the code.')
+            click.echo(f'  the skill says: {_first_difference(current, expected)}')
+        click.echo(f'  fix with: python3 scripts/render-adr-tools-section.py')
 
     if drifted or missing:
-        print('')
-        print('A skill that lists tools the code no longer has is worse than no skill: an')
-        print('agent reads it and calls something that does not exist, or trusts a promise')
-        print('about a tool whose behaviour has changed.')
-        return 1
+        click.echo('')
+        click.echo('A skill that lists tools the code no longer has is worse than no skill: an')
+        click.echo('agent reads it and calls something that does not exist, or trusts a promise')
+        click.echo('about a tool whose behaviour has changed.')
+        raise ctx.exit(1)
 
-    print(f'check-skill-drift: OK — {len(renderer.SKILLS)} skill(s) match the ADR tool surface '
+    click.echo(f'check-skill-drift: OK — {len(renderer.SKILLS)} skill(s) match the ADR tool surface '
           f'({len(renderer.commands())} command(s), {len(renderer.mcp_adr_tools())} MCP tool(s))')
-    return 0
+    raise ctx.exit(0)
 
 
 def _first_difference(actual: str, expected: str) -> str:
@@ -123,4 +129,4 @@ def _first_difference(actual: str, expected: str) -> str:
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(run(cli))

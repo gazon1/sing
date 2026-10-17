@@ -39,6 +39,7 @@ Usage:
 from __future__ import annotations
 
 import click
+from sgate.commands.base import run
 import pathlib
 import re
 import shlex
@@ -396,12 +397,7 @@ def cli(ctx: click.Context, list_gates: bool, include_slow: bool) -> None:
     raise ctx.exit(CLEAN)
 
 
-def main(argv=None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

@@ -62,6 +62,7 @@ Exit code is 1 when anything is reported, so it can gate a check.
 from __future__ import annotations
 
 import click
+from sgate.commands.base import run
 import pathlib
 import re
 
@@ -229,12 +230,7 @@ def cli(ctx: click.Context, quiet: bool) -> None:
     raise ctx.exit(CLEAN)
 
 
-def main(argv=None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

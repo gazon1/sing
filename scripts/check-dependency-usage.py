@@ -51,6 +51,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import click
+from sgate.commands.base import run
 from sgate.commands.base import IO_ERROR, VALIDATION_FAILURE
 
 WORKSPACE = Path(__file__).resolve().parent.parent
@@ -453,13 +454,7 @@ def cli(ctx: click.Context, resolved: Path | None, quiet: bool) -> None:
     raise ctx.exit(0)
 
 
-def main() -> int:
-    """Wrapper entry point for standalone execution."""
-    try:
-        return cli.main(standalone_mode=False)
-    except SystemExit:
-        raise
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

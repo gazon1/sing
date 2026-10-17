@@ -81,6 +81,7 @@ import pathlib
 import sys
 
 import click
+from sgate.commands.base import run
 
 # `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
 # loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
@@ -165,7 +166,8 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str]]:
 @click.option("--verbose", is_flag=True, help="List every build-output reader found.")
 @click.option("--check", is_flag=True, help="Dry-run: report without a non-zero exit.")
 @click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
-def main(verbose: bool, check: bool, emit_json: bool) -> None:
+@click.pass_context
+def cli(ctx: click.Context, verbose: bool, check: bool, emit_json: bool) -> None:
     """A step that reads build output must read it first."""
     try:
         violations, listing = evaluate(verbose=verbose)
@@ -175,12 +177,12 @@ def main(verbose: bool, check: bool, emit_json: bool) -> None:
                                   ensure_ascii=False))
         else:
             click.echo(f"check_build_output_readers: ERROR — {exc}", err=True)
-        sys.exit(2)
+        raise ctx.exit(2)
 
     if emit_json:
         click.echo(json.dumps({"passed": not violations, "blocking_errors": violations},
                               ensure_ascii=False))
-        sys.exit(0 if (not violations or check) else 1)
+        raise ctx.exit(0 if (not violations or check) else 1)
 
     for line in listing:
         click.echo(line)
@@ -193,7 +195,7 @@ def main(verbose: bool, check: bool, emit_json: bool) -> None:
             "after an invocation that can rewrite it",
             err=True,
         )
-        sys.exit(0 if check else 1)
+        raise ctx.exit(0 if check else 1)
 
     click.echo(
         "check_build_output_readers: OK — every step that reads build output precedes "
@@ -202,4 +204,4 @@ def main(verbose: bool, check: bool, emit_json: bool) -> None:
 
 
 if __name__ == "__main__":
-    main()  # pylint: disable=no-value-for-parameter
+    raise SystemExit(run(cli))

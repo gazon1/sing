@@ -68,6 +68,7 @@ import zipfile
 from pathlib import Path
 
 import click
+from sgate.commands.base import run
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -605,12 +606,7 @@ def cli(ctx: click.Context, self_test: bool, verify_apk: Path | None, expect: st
     raise ctx.exit(CLEAN)
 
 
-def main(argv: list[str] | None = None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

@@ -64,7 +64,7 @@ from pathlib import Path
 
 import click
 
-from sgate.commands.base import CLEAN, VALIDATION_FAILURE
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE, run
 
 ROOT = Path(__file__).resolve().parent.parent
 RULE_SOURCES = ROOT / "detekt-rules" / "src" / "main" / "kotlin"
@@ -298,13 +298,7 @@ def cli(ctx: click.Context, list: bool) -> None:
     click.echo("check-suppression-intent: OK — every file-level custom suppression is justified")
 
 
-def main() -> int:
-    try:
-        cli.main(standalone_mode=False)
-    except SystemExit as exc:
-        return exc.code
-    return CLEAN
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))
