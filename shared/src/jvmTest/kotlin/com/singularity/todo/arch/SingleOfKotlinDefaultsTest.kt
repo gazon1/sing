@@ -148,8 +148,11 @@ class SingleOfKotlinDefaultsTest {
                     primaryConstructor != null && hasDefaults(primaryConstructor)
                 }
             if (candidates.isNotEmpty()) {
-                "${className}: found in ${candidates.map { it.path }.joinToString()}"
-            } else null
+                val paths = candidates.map { it.path }.joinToString()
+                "$className: found in $paths"
+            } else {
+                null
+            }
         }
 
         if (offenders.isNotEmpty()) {
@@ -197,12 +200,15 @@ class SingleOfKotlinDefaultsTest {
 
                     if (matchingClass != null) {
                         offenders +=
-                            "${file.name}: `singleOf(::${targetClass})` / " +
-                                "`factoryOf(::${targetClass})` / `viewModelOf(::${targetClass})` " +
-                                "targets a class whose primary constructor has Kotlin default arguments. " +
-                                "Rewrite as an explicit lambda that constructs the instance directly " +
-                                "(e.g. `single { ${targetClass}(get()) }`), which applies Kotlin " +
-                                "defaults. See #662. Location: ${file.path}:${file.text.substring(0, call.range.first).count { it == '\n' } + 1}"
+                            "${file.name}: `singleOf(::$targetClass)` / " +
+                            "`factoryOf(::$targetClass)` / `viewModelOf(::$targetClass)` " +
+                            "targets a class whose primary constructor has Kotlin default arguments. " +
+                            "Rewrite as an explicit lambda that constructs the instance directly " +
+                            "(e.g. `single { $targetClass(get()) }`), which applies Kotlin " +
+                            "defaults. See #662. Location: ${file.path}:${file.text.substring(
+                                0,
+                                call.range.first,
+                            ).count { it == '\n' } + 1}"
                     }
                 }
             }

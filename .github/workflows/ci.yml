@@ -130,6 +130,20 @@ jobs:
         run: >
           npx --yes "@fission-ai/openspec@${SPECKIT_VERSION}" validate --all --json --strict
 
+            :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt \
+            :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
+            --auto-correct --console=plain || true
+          if git diff --quiet; then
+            echo "auto-correct changed nothing; the verdict below measures the pushed tree"
+          else
+            echo ""
+            echo "::error::detekt --auto-correct rewrote the pushed commit's sources."
+            echo "The commit that was pushed does not satisfy detekt on its own."
+            echo "Run 'just detekt-fix', review the result, and amend."
+            git diff --stat
+            exit 1
+          fi
+
   # One Gradle invocation => one JVM start, one configuration phase, and the
   # tests run ONCE. The previous shape ran jvmTest twice (this job and
   # slow-tests), once more inside koverReport, and mcp-server:test twice (here
@@ -179,6 +193,40 @@ jobs:
       # cannot belong to this run.
       - name: Stamp run start
         run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      # Correct first, measure second — and do not let the correction hide the debt.
+      #
+      # `--auto-correct` works; the claim that it was inert is superseded by
+      # docs/decisions/2026-10-17-detekt-auto-correct-works-use-it.md (the original
+      # probe reported "0 findings" as "0 corrections" and conflated the two). It
+      # runs here, before the Gradle step below, so that step measures a corrected
+      # tree — the same order `just detekt-fix` uses.
+      #
+      # It would be wrong to stop there. If this pass rewrites a file, the commit
+      # that was pushed needed corrections, and a green detekt step one step later
+      # would then be green on a tree nobody pushed — the shape this repo already
+      # has an ADR for ("a gate that passes a sabotaged input"). So the diff the
+      # correcting pass produced IS the finding: the step fails and lists the files,
+      # and the fix is `just detekt-fix` plus an amend.
+      #
+      # No `--rerun-tasks` here: this is the job's first Gradle invocation, so the
+      # detekt tasks have nothing to be up-to-date against. It is needed locally
+      # (a second pass over an unchanged tree), not here.
+      #
+      # The correcting pass is advisory on its own (`|| true`): detekt exits non-zero
+      # precisely when it corrected something, and the step's own diff check is the
+      # verdict for that. Without it the files would never be written and the diff
+      # would always be empty — the check would pass vacuously.
+      - name: Detekt auto-correct before the verdict
+        run: |
+          set -o pipefail
+          # A dirty tree would make `git diff` mean something else: the step could
+          # attribute a checkout-side change to the correcting pass.
+          if ! git diff --quiet; then
+            echo "::error::working tree is dirty before the auto-correct step"
+            git diff --name-only
+            exit 1
+          fi
 
       # koverReport already dependsOn :shared:jvmTest, :shared:testAndroidHostTest,
       # :desktopApp:test, :mcp-server:test and :androidApp:test (build.gradle.kts:67-79).
@@ -243,6 +291,7 @@ jobs:
       # The log is still written, because two steps below read it. The exit status is
       # now Gradle's again. `scripts/check-workflow-exit-status.py` fails if a `run:`
       # block in any workflow pipes without this, so the pipe cannot come back.
+
       - name: Gradle (tests + coverage + detekt)
         run: |
           set -o pipefail

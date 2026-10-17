@@ -197,21 +197,34 @@ gate-honesty *args="":
     python3 scripts/check-gate-honesty.py {{args}}
 
 [group('lint')]
-[doc('Run detekt and report all findings (--auto-correct is inert in this Gradle configuration; see ADR 2026-10-09-detekt-auto-correct-inert-multi-module)')]
+[doc('Correct what detekt can correct, then report what is left')]
 [working-directory(justfile_directory())]
 detekt-fix:
     #!/bin/bash
     set -euo pipefail
-    # --auto-correct is inert in this Gradle configuration (detekt 2.0.0-alpha.6).
-    # Running it in a loop across modules corrects 0 files — verified with a
-    # planted violation and byte-level diff. See:
-    #   ADR 2026-10-07-detekt-auto-correct-single-task
-    #   ADR 2026-10-09-detekt-auto-correct-inert-multi-module
+    # Two passes, in this order, and the order is the point.
     #
-    # The loop below was removed; the verification pass is all that remains.
-    # To actually fix violations today, run detekt with the CLI directly or
-    # bump to a stable detekt release that fixes the issue.
-    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt --console=plain
+    # The first corrects; the second reports. A single report-only pass leaves the
+    # author editing by hand what a formatter rule would have written, and a single
+    # correcting pass hides what it could not fix behind an exit code that looks
+    # like success.
+    #
+    # `--auto-correct` was believed inert here (ADR
+    # 2026-10-09-detekt-auto-correct-inert-multi-module, measured 2026-10-09) and
+    # the flag was dropped, which turned "inert" into "never asked" — two different
+    # claims that read the same from the outside. It is not inert: on 2026-10-17 a
+    # planted `"value is ${name} here"` in :shared was rewritten to `"value is $name
+    # here"` by `./gradlew :shared:detekt --auto-correct --rerun-tasks`, and that
+    # pass cleared the 36 findings that had made `main` red. See
+    # ADR 2026-10-17-detekt-auto-correct-works-use-it.
+    #
+    # `--rerun-tasks` on the correcting pass only: without it the task can be
+    # UP-TO-DATE from the verification pass that ran a moment ago, and a cached task
+    # rewrites nothing.
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
+        --auto-correct --rerun-tasks --console=plain || true
+    ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt \
+        --console=plain
 
 [group('lint')]
 [doc('Generate detekt baseline files (capture current violations)')]

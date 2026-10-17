@@ -45,6 +45,38 @@ fi
 echo "=== Structural gates OK ==="
 echo ""
 
+# ── detekt auto-correct ─────────────────────────────────────────────────
+#
+# Runs before the suite, and in worktrees too: the worktree shortcut below
+# exists to skip *tests*, not to skip the formatter. This is the place where
+# the correction has actual value — the files it rewrites get committed by
+# the push that follows, instead of being reported to a CI that cannot fix
+# anything.
+#
+# `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md
+# supersedes the earlier claim that it was inert; the original probe measured
+# "0 findings" and read it as "0 corrections"). `--rerun-tasks` is what forces
+# the analysis to run: without it Gradle serves detekt UP-TO-DATE over the
+# unchanged tree and corrects nothing.
+#
+# A non-zero exit here means detekt corrected something. That is not a build
+# failure to be worked around — the correction is the output, and pushing it
+# un-amended would carry the debt to CI, which has no way to fix it. So the
+# push stops here, with the diff shown.
+echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
+
+if ! ./gradlew :shared:detekt :desktopApp:detekt \
+    --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain; then
+    echo ""
+    echo "pre-push FAILED — detekt auto-correct rewrote files. Review the diff below,"
+    echo "amend the commit, and push again (or push with --no-verify)."
+    git --no-pager diff --stat
+    exit 1
+fi
+
+echo "=== detekt auto-correct OK ==="
+echo ""
+
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree, --git-dir (the actual .git dir for this worktree) differs
 # from --git-common-dir (the shared .git dir for the main checkout).  In the

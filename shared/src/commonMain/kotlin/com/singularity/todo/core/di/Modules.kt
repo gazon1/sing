@@ -9,7 +9,6 @@ import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
-import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
@@ -26,7 +25,6 @@ import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import kotlin.time.Clock
 
@@ -84,9 +82,25 @@ fun domainModule(): List<Module> = buildList {
             // has defaults for crashReporter and scope, and viewModelOf fails to resolve them
             // because reportingScope(get()) cannot be called reflectively. The explicit lambda
             // applies Kotlin defaults at the call site. See #662.
-            viewModel { AccountSettingsViewModel(get(), get(), reportingScope(get())) }
+            //
+            // Only `crashReporter` is passed, and it is passed by name. `scope` is left to
+            // its own default, `reportingScope(crashReporter)` — passing a scope resolved
+            // independently is what `NoDivergentScopeAndReporter` is about, and the two
+            // custom rules together ask for exactly this shape: a named reporter, no
+            // separately-chosen scope.
+            viewModel {
+                AccountSettingsViewModel(
+                    profileRepository = get(),
+                    crashReporter = get(),
+                )
+            }
             // Same issue as above: ChangePasswordViewModel has defaults for crashReporter and scope.
-            viewModel { ChangePasswordViewModel(get(), get(), reportingScope(get())) }
+            viewModel {
+                ChangePasswordViewModel(
+                    authRepository = get(),
+                    crashReporter = get(),
+                )
+            }
 
             // The sync scope is the one place that needs both the session and the
             // profile, which is why it is bound here and not in coreModule(): sync

@@ -52,7 +52,12 @@ import kotlin.test.fail
 class SharedHarnessConventionsTest {
 
     private val testSources: List<File> by lazy {
-        File("src/jvmTest/kotlin/com/singularity/todo")
+        // Through SourceScan, not a path relative to the working directory: jvmTest
+        // sets workingDir to build/allure-results, so the relative form walked a
+        // directory that does not exist and this gate reported green over zero
+        // files. A source-scanning gate that scans nothing is the quiet version of
+        // the same defect the GenUI corpus tests reported loudly.
+        SourceScan.jvmTestSourcesRoot().resolve("com/singularity/todo")
             .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             // Exclude helpers (they define the helpers this test validates against)
@@ -69,7 +74,7 @@ class SharedHarnessConventionsTest {
     fun `awaitState is used instead of raw advanceUntilIdle polling loops`() {
         // A bare `while (!predicate) { advanceUntilIdle() }` has no spin guard and can
         // hang the suite. `awaitState` wraps the same logic with a wall-clock backstop.
-        val VIOLATION_PATTERN = Regex(
+        val violationPattern = Regex(
             """while\s*\(\s*!\s*\w+\s*\)\s*\{[^}]*advanceUntilIdle\s*\(\s*\)""",
             RegexOption.DOT_MATCHES_ALL,
         )
@@ -77,9 +82,12 @@ class SharedHarnessConventionsTest {
         val violations = testSources
             .mapNotNull { file ->
                 val body = file.readText()
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} raw advanceUntilIdle loop(s)"
+                val matches = violationPattern.findAll(body).toList()
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} raw advanceUntilIdle loop(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -96,7 +104,7 @@ class SharedHarnessConventionsTest {
     fun `runVmTest is used for ViewModel tests`() {
         // `runVmTest` wires AutoCloseableCoroutineScope + clock advance + state assertions.
         // Hand-rolled `runTest { ... }` + manual scope creation misses one of these.
-        val VIOLATION_PATTERN = Regex(
+        val violationPattern = Regex(
             """runTest\s*\{[^}]*val\s+\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
             RegexOption.DOT_MATCHES_ALL,
         )
@@ -104,9 +112,12 @@ class SharedHarnessConventionsTest {
         val violations = testSources
             .mapNotNull { file ->
                 val body = file.readText()
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: hand-rolled TestScope + AutoCloseableCoroutineScope"
+                val matches = violationPattern.findAll(body).toList()
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: hand-rolled TestScope + AutoCloseableCoroutineScope"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -123,7 +134,7 @@ class SharedHarnessConventionsTest {
     fun `runBlocking is not used in test code`() {
         // `runBlocking` blocks the thread and can deadlock coroutine-heavy code.
         // Tests must use `runTest` (or `runVmTest`).
-        val VIOLATION_PATTERN = Regex("""runBlocking\s*<""")
+        val violationPattern = Regex("""runBlocking\s*<""")
 
         val violations = testSources
             .mapNotNull { file ->
@@ -132,9 +143,12 @@ class SharedHarnessConventionsTest {
                     val t = line.trimStart()
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} runBlocking call(s)"
+                val matches = violationPattern.findAll(body).toList()
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} runBlocking call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
