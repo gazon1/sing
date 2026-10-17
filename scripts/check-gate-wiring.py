@@ -58,6 +58,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -698,6 +699,69 @@ FIXTURE_GATES = [
 ]
 
 
+def control_from_edit(edit) -> Control:
+    """Build a sabotage callable from a registry `Edit`.
+
+    The registry's edit kinds and this file's builders were written to describe
+    the same mutations, so a control declared as data can be executed here
+    without a hand-copied twin. An unrecognised kind raises rather than falling
+    back to "no control": a gate whose control silently disappeared is the
+    failure this file exists to detect, and it would report it as green.
+    """
+    kind = str(getattr(edit, "kind", ""))
+    if kind == "replace":
+        return _replace(edit.old, edit.new, count=getattr(edit, "count", -1))
+    if kind == "append":
+        return _append(edit.new)
+    if kind == "drop_lines":
+        return _drop_lines(edit.old)
+    if kind == "regex":
+        flags = re.MULTILINE if "MULTILINE" in str(getattr(edit, "flags", "")) else 0
+        return _regex_sub(edit.pattern, edit.repl, count=1, flags=flags)
+    if kind == "age_dir":
+        return _age_directory(edit.days)
+    raise ValueError(
+        f"registry control edit kind {kind!r} has no builder in this file; the "
+        f"control for {getattr(edit, 'path', '?')} would be silently dropped"
+    )
+
+
+def _prefer_registry_controls(gates: list[ScriptGate]) -> list[ScriptGate]:
+    """Fill in any gate whose sabotage is declared in the registry, by name.
+
+    Only entries whose `sabotage` is `None` are filled from `GATE_CONTROLS`, so
+    this converts the ones that had been given up to a hand-written twin and
+    leaves every other entry exactly as it was.
+
+    The twin is what rotted. `build-output-readers` kept two copies of one
+    control: this file's inserted a second Gradle invocation above the readers and
+    worked, while the registry's appended a bare invocation to the end of `ci.yml`
+    — landing it in `nightly-alert`, a job with no reader and one test-capable
+    invocation, which the rule ignores by design. The data copy passed every
+    sabotage run and proved nothing, and nothing compared the two, so the copy
+    nobody executed was the one that read as the control.
+    """
+    reg = _load_registry()
+    resolved: list[ScriptGate] = []
+    for gate in gates:
+        control = reg.GATE_CONTROLS.get(gate.name)
+        if control is None or gate.sabotage is not None or control.kind != "sabotage":
+            resolved.append(gate)
+            continue
+        if control.edit is None:
+            raise ValueError(f"{gate.name}: registry control declares no edit")
+        resolved.append(
+            dataclasses.replace(
+                gate,
+                sabotage_path=control.path,
+                sabotage=control_from_edit(control.edit),
+                why=control.why,
+                needs_clean_run=bool(control.needs_clean_run),
+            )
+        )
+    return resolved
+
+
 def _load_registry():
     """Import the gate registry from **this** checkout, or fail loudly.
 
@@ -874,22 +938,19 @@ SABOTAGE_ONLY_GATES = [
     # "declared target produced zero testcases" for a target that had just been
     # measured, because the advisory kover table step re-ran the desktop tests
     # without the selector and the slow scenario classes were skipped.
-    # Insert one Gradle invocation between the test run and the steps that read its
-    # output. Every reader is already in place and still reads
-    # `build/test-results` — what changes is that a step above it can now re-run the
-    # test task. That is the shape both real instances had: readers written after
-    # Gradle steps that already existed.
+    # The mutation itself comes from the registry (see `_prefer_registry_controls`)
+    # — this entry names the command and the target, not a second copy of the
+    # sabotage. Two hand-written copies of one control is how the data copy rotted:
+    # the registry's `build-output-readers` edit appended a bare Gradle invocation
+    # to the end of `ci.yml`, landing it in `nightly-alert` — a job with no reader
+    # and one test-capable invocation, which the rule ignores by design. It passed
+    # every sabotage run and proved nothing, while this table's copy worked, so
+    # nothing reported the divergence.
     ScriptGate(
         name="build-output-readers",
         cmd=[sys.executable, "scripts/check-build-output-readers.py"],
         sabotage_path=".github/workflows/ci.yml",
-        sabotage=_replace(
-            "      # Emit GitHub annotations per failing/retry-passed test from JUnit XML.\n",
-            "      - name: late coverage pass\n"
-            "        run: ./gradlew :koverVerify -Ptest.tags=fast,slow\n\n"
-            "      # Emit GitHub annotations per failing/retry-passed test from JUnit XML.\n",
-            count=1,
-        ),
+        sabotage=None,  # replaced from _registry.GATE_CONTROLS below
         why="a step that reads build output can be ordered after an invocation that rewrites it, and the numbers it reports are then from a run nobody looked at",
     ),
     ScriptGate(
@@ -2451,6 +2512,12 @@ def main(
         raise SystemExit(1)
 
     print("\ncheck-gate-wiring: OK")
+
+
+# Applied here, not beside the table: `_load_registry` is defined further down,
+# so the call cannot run until every builder in this file exists.
+SCRIPT_GATES = _prefer_registry_controls(SCRIPT_GATES)
+SABOTAGE_ONLY_GATES = _prefer_registry_controls(SABOTAGE_ONLY_GATES)
 
 
 if __name__ == "__main__":
