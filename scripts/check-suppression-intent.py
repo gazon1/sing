@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """check-suppression-intent.py — a file-level suppression must say what it is hiding.
 
+## Migration note
+
+Migrated from argparse to Click (2026-10-17). CLI surface is preserved;
+the `--list` flag works exactly as before.
+
 Why this exists (2026-10-05): `check-rule-intent.py` asks whether a rule was
 *declared* in `config/detekt/detekt.yml`. This asks the other half. A rule can
 be perfectly declared, correctly configured, and provably able to fire — and
@@ -53,10 +58,13 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import re
 import sys
 from pathlib import Path
+
+import click
+
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE
 
 ROOT = Path(__file__).resolve().parent.parent
 RULE_SOURCES = ROOT / "detekt-rules" / "src" / "main" / "kotlin"
@@ -218,35 +226,32 @@ JUSTIFIED_FILE_SUPPRESSIONS: dict[str, str] = {
 }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--list", action="store_true", help="print every finding and exit"
-    )
-    args = parser.parse_args()
-
+@click.command()
+@click.option("--list", is_flag=True, help="print every finding and exit")
+@click.pass_context
+def cli(ctx: click.Context, list: bool) -> None:
     ids = custom_rule_ids()
     if not ids:
-        print(
+        click.echo(
             "ERROR: no custom rule ids derived from detekt-rules/. The check cannot "
             "run, and reporting success here would be a vacuous green — exactly the "
             "failure this file exists to catch.",
-            file=sys.stderr,
+            err=True,
         )
-        return 1
+        raise ctx.exit(VALIDATION_FAILURE)
 
     findings = scan_file_suppressions()
     errors: list[str] = []
 
-    print(f"custom rule ids derived from detekt-rules/: {len(ids)}")
-    print(f"rule set providers registered        : {len(provider_names())}")
-    print(f"file-level custom suppressions found : {len(findings)}")
+    click.echo(f"custom rule ids derived from detekt-rules/: {len(ids)}")
+    click.echo(f"rule set providers registered        : {len(provider_names())}")
+    click.echo(f"file-level custom suppressions found : {len(findings)}")
 
     for path, rule_id, block, line in findings:
         rel = path.relative_to(ROOT)
         entry = JUSTIFIED_FILE_SUPPRESSIONS.get(str(rel))
         state = "justified" if entry or has_adjacent_reason(block) else "UNJUSTIFIED"
-        print(f"  {state:11} {rel}:{line}  {rule_id}")
+        click.echo(f"  {state:11} {rel}:{line}  {rule_id}")
 
         if state == "justified":
             continue
@@ -276,23 +281,30 @@ def main() -> int:
                 f"hide a future suppression of any kind."
             )
 
-    if args.list:
+    if list:
         for err in errors:
-            print(f"ERROR: {err}")
-        return 1 if errors else 0
+            click.echo(f"ERROR: {err}")
+        raise ctx.exit(VALIDATION_FAILURE if errors else CLEAN)
 
     if errors:
-        print("")
+        click.echo("")
         for err in errors:
-            print(f"ERROR: {err}")
-        print("")
-        print("A rule that is switched off silently is not a rule. Silence and a clean")
-        print("result are the same observation, which is the only reason this exists.")
-        return 1
+            click.echo(f"ERROR: {err}")
+        click.echo("")
+        click.echo("A rule that is switched off silently is not a rule. Silence and a clean")
+        click.echo("result are the same observation, which is the only reason this exists.")
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print("check-suppression-intent: OK — every file-level custom suppression is justified")
-    return 0
+    click.echo("check-suppression-intent: OK — every file-level custom suppression is justified")
+
+
+def main() -> int:
+    try:
+        cli.main(standalone_mode=False)
+    except SystemExit as exc:
+        return exc.code
+    return CLEAN
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
