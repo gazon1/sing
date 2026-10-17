@@ -236,3 +236,5 @@ ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debuggi
 Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md`
 (`CONTEXT.md` в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина
 каждого — `docs/doc-maintenance.md`.
+
+probe
