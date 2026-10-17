@@ -153,7 +153,8 @@ jobs:
           avd_ini="$(find "$HOME" -maxdepth 6 -name "$AVD_NAME.ini" -print -quit 2>/dev/null || true)"
           [ -n "$avd_ini" ] \
             || { echo "::error::no $AVD_NAME.ini exists under \$HOME"; exit 1; }
-          export ANDROID_AVD_HOME="$(dirname "$avd_ini")"
+          ANDROID_AVD_HOME="$(dirname "$avd_ini")"
+          export ANDROID_AVD_HOME
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
 
           # Ask the tool that has to find it. `avdmanager list avd` proved nothing

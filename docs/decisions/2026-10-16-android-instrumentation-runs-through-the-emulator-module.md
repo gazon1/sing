@@ -65,6 +65,32 @@ The workflow now does what `e2e.yml` does — `local.properties`, then
 `GRADLE_ARGS=-PTEST_AUTH_BYPASS=true`, applied to both the APK under test and the
 test task through one place.
 
+## The runner image writes AVDs where the emulator does not look
+
+Two dispatches of the new workflow failed before a single test ran, and both
+failures had the shape of a device that is present and cannot be used:
+
+```
+ERROR | Unknown AVD name [singularity-api36]
+ERROR | HOME is defined but there is no file singularity-api36.ini in $HOME/.android/avd
+```
+
+`avdmanager` wrote the AVD under `/home/runner/.config/.android/avd`. The
+emulator's search order is `$ANDROID_AVD_HOME`, `$ANDROID_SDK_HOME/avd`,
+`$HOME/.android/avd` — and `.config` is on none of them. So the workflow locates
+the `.ini` that was actually written and exports its directory as
+`ANDROID_AVD_HOME`, then asks `emulator -list-avds` — the tool that has to find
+it — whether it can. The check it replaced, `avdmanager list avd | grep Name:`,
+had passed on exactly the run where the emulator could not see the AVD at all:
+two tools agreeing with each other is not evidence, one of them agreeing with the
+consumer is.
+
+The first dispatch failed even earlier and said only "ensure-emulator could not
+produce a ready device", because `ensure_device` captured the subprocess's stderr
+into a pipe and dropped it. The reason — a missing binary, a missing AVD, a crash
+— is what that module prints. A diagnostic that runs for two minutes and reports
+nothing is indistinguishable from a diagnostic that found nothing.
+
 ## Idea
 
 - **A.** Keep the action for booting, keep the script for running.
