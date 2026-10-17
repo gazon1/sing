@@ -1,10 +1,19 @@
 ---
 title: "detekt --auto-correct is inert in this Gradle configuration"
 date: 2026-10-09
-status: accepted
+status: superseded
+superseded_by: 2026-10-17-detekt-auto-correct-works-use-it
 ---
 
 # detekt --auto-correct is inert in this Gradle configuration
+
+> **Superseded** by [`2026-10-17-detekt-auto-correct-works-use-it`](2026-10-17-detekt-auto-correct-works-use-it.md).
+> The conclusion below is wrong: `--auto-correct` does work in this configuration. The probe
+> placed in the original experiment was itself the reason nothing changed (a file no rule covers
+> is not corrected — "0 findings" was reported as "0 corrections", and the two were conflated).
+> The recipe asks for the correcting pass again, and the pass is now automated before the
+> detekt verdict in CI and in the pre-push hook. Kept for the record because the mistaken
+> belief shaped two recipes and an automation decision.
 
 ## Context
 

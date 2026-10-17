@@ -455,6 +455,29 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "commonMain.root",
         layout.projectDirectory.dir("src/commonMain/kotlin").asFile.absolutePath,
     )
+    // Absolute paths to :shared's own test sources and resources, for the tests that
+    // read files rather than calling code.
+    //
+    // `workingDir` below is set to `build/allure-results` so the Allure listener
+    // writes where the upload step looks. That silently redefined what every
+    // relative path in a test means: they used to resolve against the module
+    // directory and now resolve against a build output directory. The symptom was
+    // loud for the tests that read a known file — `GenuiSurfaceCorpusTest` and
+    // `GenuiFirstAttemptReplayTest` failed with `FileNotFoundException` on
+    // run 39005284790 — and quiet for the ones that walk a directory:
+    // `SharedHarnessConventionsTest` found nothing and reported green over zero
+    // files, which is the failure mode that costs the most to notice.
+    //
+    // Same reason as `commonMain.root` above: a property that says where the tree is,
+    // rather than an assumption about where the JVM was started.
+    systemProperty(
+        "jvmTestSources.root",
+        layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
+    )
+    systemProperty(
+        "jvmTestResources.root",
+        layout.projectDirectory.dir("src/jvmTest/resources").asFile.absolutePath,
+    )
     // `PlatformSeamGuardTest` answers "is this seam injected anywhere?", and the seam
     // registry is a project-wide declaration — so the scan has to be project-wide too.
     // `HostEnvironmentPort`'s only production consumer is `AdrStorage`, which moved to

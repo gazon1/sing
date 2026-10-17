@@ -123,6 +123,7 @@ class TagsViewModel(
         windowMs = UNDO_WINDOW_MS,
         onExpired = { _pendingDelete.value = null },
     )
+
     /** Exposes countdown progress to the screen's snackbar progress bar. */
     val countdownProgress: StateFlow<Float?> = countdown.progress
 

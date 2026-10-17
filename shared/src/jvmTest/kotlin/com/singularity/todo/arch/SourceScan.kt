@@ -36,6 +36,27 @@ internal object SourceScan {
         return File(root, "com/singularity/todo")
     }
 
+    /**
+     * Root of this module's `jvmTest` sources, as set by the `jvmTest` task.
+     *
+     * A property rather than `File("src/jvmTest/kotlin")`, because the task sets
+     * `workingDir` to `build/allure-results` so the Allure listener writes where the
+     * upload step looks — which made every relative path in every test resolve
+     * against a build output directory. `SharedHarnessConventionsTest` walked a path
+     * that no longer existed and reported green over zero files; the GenUI corpus
+     * tests threw `FileNotFoundException`. Same reason as [commonMainRoot].
+     */
+    fun jvmTestSourcesRoot(): File = propertyRoot("jvmTestSources.root")
+
+    /** Root of this module's `jvmTest` resources, as set by the `jvmTest` task. */
+    fun jvmTestResourcesRoot(): File = propertyRoot("jvmTestResources.root")
+
+    private fun propertyRoot(name: String): File {
+        val root = System.getProperty(name)
+            ?: error("$name system property is not set — see the jvmTest task config")
+        return File(root)
+    }
+
     /** Every production `.kt` file: `commonMain`, excluding the shared test doubles. */
     fun productionFiles(): List<File> =
         commonMainRoot().walkTopDown()

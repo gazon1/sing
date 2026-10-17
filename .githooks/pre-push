@@ -45,6 +45,63 @@ fi
 echo "=== Structural gates OK ==="
 echo ""
 
+# ── detekt auto-correct ─────────────────────────────────────────────────
+#
+# Runs before the suite, and in worktrees too: the worktree shortcut below
+# exists to skip *tests*, not to skip the formatter. This is the place where
+# the correction has actual value — the files it rewrites get committed by
+# the push that follows, instead of being reported to a CI that cannot fix
+# anything.
+#
+# `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md
+# supersedes the earlier claim that it was inert; the original probe measured
+# "0 findings" and read it as "0 corrections").
+#
+# One Gradle invocation per module, never several tasks in one invocation.
+# Measured on 2026-10-17 with a planted StringTemplate violation:
+# `:shared:detekt :desktopApp:detekt --auto-correct` reported the finding and
+# rewrote nothing; the same two tasks one invocation each did rewrite it. The
+# flag reaches only the LAST detekt task of an invocation, so a task list
+# silently corrects one module and silently skips the rest — indistinguishable
+# from "inert" unless you read the file afterwards. This is why the hook does
+# not share the module list with the Gradle suite below: the loop is the fix,
+# and collapsing it back into one call is the defect.
+#
+# `--rerun-tasks` is what forces the analysis each time: without it Gradle
+# serves detekt UP-TO-DATE over the unchanged tree and corrects nothing. That
+# is the third way to observe "inert" and be right about nothing.
+#
+# The verdict is the DIFF, not the exit code. Measured: a correcting detekt run
+# that rewrote a planted violation ended `BUILD SUCCESSFUL` and exited 0 — it
+# corrected the file and then had nothing left to report. A hook that watched the
+# exit code passed on exactly the push it was added to catch, with the violation
+# already fixed on disk and its author never told.
+#
+# The comparison is against `git status --porcelain` from before the loop, not
+# against "is the tree dirty": uncommitted work in progress is normal here, and a
+# hook that refused to run on a dirty tree would push people to --no-verify.
+echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
+
+BEFORE="$(git status --porcelain)"
+
+for task in :shared:detekt :desktopApp:detekt; do
+    ./gradlew "$task" \
+        --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain || true
+done
+
+AFTER="$(git status --porcelain)"
+
+if [ "$BEFORE" != "$AFTER" ]; then
+    echo ""
+    echo "pre-push FAILED — detekt auto-correct rewrote files. Review the diff below,"
+    echo "amend the commit, and push again (or push with --no-verify)."
+    git --no-pager diff --stat
+    exit 1
+fi
+
+echo "detekt auto-correct changed nothing"
+echo ""
+
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree, --git-dir (the actual .git dir for this worktree) differs
 # from --git-common-dir (the shared .git dir for the main checkout).  In the
