@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Pre-push hook: runs the full test suite before pushing.
+# Pre-push hook: fast gates + detekt auto-correct.
+#
+# The full Gradle test suite runs in CI, not here. Pre-push must be fast enough
+# to run on every push without making people reach for --no-verify.
+#
+# What runs here vs. in CI:
+#   Here:    structural gates (seconds) + detekt auto-correct (~2 min)
+#   CI:      full suite — jvmTest, desktopApp:test, mcp-server:test,
+#            kover, static-gates, Maestro flows
 #
 # Runs on ALL branches (both main checkout and worktrees).
-# This is the last gate before code leaves the local machine.
-#
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
-#
-# To bypass temporarily:
-#   git push --no-verify
-#
-# To disable entirely (not recommended):
-#   git config --unset core.hooksPath
+# To disable entirely: git config --unset core.hooksPath
 
 set -euo pipefail
 
@@ -20,11 +21,6 @@ cd "$REPO_ROOT"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
-#
-# These run BEFORE the Gradle suite on purpose: they are pure file scans, so
-# a structural violation is reported in under a second instead of after a
-# multi-minute build. Same rationale as find-unwired-surfaces.py owning its
-# own exit code — see docs/decisions/2026-10-01-test-infra-followups.md.
 
 echo "=== Pre-push [$BRANCH] — structural gates ==="
 
@@ -47,39 +43,22 @@ echo ""
 
 # ── detekt auto-correct ─────────────────────────────────────────────────
 #
-# Runs before the suite, and in worktrees too: the worktree shortcut below
-# exists to skip *tests*, not to skip the formatter. This is the place where
-# the correction has actual value — the files it rewrites get committed by
-# the push that follows, instead of being reported to a CI that cannot fix
-# anything.
+# Runs in all worktrees and in the main checkout: the correction has value here —
+# the files it rewrites get committed by the push that follows, instead of being
+# reported to a CI that cannot fix anything.
 #
-# `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md
-# supersedes the earlier claim that it was inert; the original probe measured
-# "0 findings" and read it as "0 corrections").
+# `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md):
+# one invocation per module (not a combined task list — the flag only reaches the
+# last task of an invocation).
 #
-# One Gradle invocation per module, never several tasks in one invocation.
-# Measured on 2026-10-17 with a planted StringTemplate violation:
-# `:shared:detekt :desktopApp:detekt --auto-correct` reported the finding and
-# rewrote nothing; the same two tasks one invocation each did rewrite it. The
-# flag reaches only the LAST detekt task of an invocation, so a task list
-# silently corrects one module and silently skips the rest — indistinguishable
-# from "inert" unless you read the file afterwards. This is why the hook does
-# not share the module list with the Gradle suite below: the loop is the fix,
-# and collapsing it back into one call is the defect.
+# `--rerun-tasks` forces re-analysis: without it Gradle is UP-TO-DATE and
+# corrects nothing.
 #
-# `--rerun-tasks` is what forces the analysis each time: without it Gradle
-# serves detekt UP-TO-DATE over the unchanged tree and corrects nothing. That
-# is the third way to observe "inert" and be right about nothing.
-#
-# The verdict is the DIFF, not the exit code. Measured: a correcting detekt run
-# that rewrote a planted violation ended `BUILD SUCCESSFUL` and exited 0 — it
-# corrected the file and then had nothing left to report. A hook that watched the
-# exit code passed on exactly the push it was added to catch, with the violation
-# already fixed on disk and its author never told.
-#
-# The comparison is against `git status --porcelain` from before the loop, not
-# against "is the tree dirty": uncommitted work in progress is normal here, and a
-# hook that refused to run on a dirty tree would push people to --no-verify.
+# Verdict is the DIFF, not the exit code: a correcting run that rewrote a planted
+# violation ended BUILD SUCCESSFUL / exit 0 — it fixed the file and had nothing
+# left to report. A hook watching the exit code would pass with the violation
+# already gone and the author none the wiser.
+
 echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
 
 BEFORE="$(git status --porcelain)"
@@ -103,49 +82,15 @@ echo "detekt auto-correct changed nothing"
 echo ""
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
-# In a worktree, --git-dir (the actual .git dir for this worktree) differs
-# from --git-common-dir (the shared .git dir for the main checkout).  In the
-# main checkout they are the same.  Worktrees run their own cheap pre-push
-# already; the full Gradle suite belongs only in the main checkout.
+# In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own
+# cheap pre-push already; the full Gradle suite belongs only in CI.
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-push [$BRANCH] — worktree detected ==="
-    echo "Run the full suite from the main checkout before merging."
-    echo "Fast gates (build-version-catalog, Maestro tags) passed."
+    echo "Structural gates OK. Detekt OK. Full suite runs in CI."
     exit 0
 fi
 
-echo "=== Pre-push [$BRANCH] — full test suite ==="
-
-# Run all fast tests + detekt (slow tests are excluded — use CI for those).
-# No -Ptest.tags here on purpose: JUnit's includeTags() excludes untagged
-# tests, so `-Ptest.tags=fast` — which this hook used to pass — ran a single
-# test file while the banner claimed "full test suite". The default
-# (excludeTags("slow")) is what this comment always described.
-# :desktopApp:detekt belongs here, not just in check.sh: a NoDirectClockSystem
-# violation in TasksRobot reached main precisely because this hook only ran the
-# shared module's detekt, and check.sh is not something every push goes through.
-#
-# --no-parallel, not the gradle.properties default (org.gradle.parallel=true).
-# Parallel project execution runs :shared:jvmTest, :desktopApp:test and
-# :mcp-server:test as concurrent builds against one checkout, and their forked
-# test executors were observed dying mid-suite with EOFException — the client
-# loses the stream to a "Gradle Test Executor" while another test task is
-# compiling/replacing classes in the same build directory. Tests pass in
-# isolation; only the parallel batch hits it (#471,
-# docs/decisions/archive/2026-09-30-post-mr-2-findings.md). Serialising the
-# three test tasks costs minutes on a push and buys a verdict that is about
-# this code. The CLI flag is what makes it stick: --parallel is the default
-# here, so omitting a flag is not the same as disabling it.
-./gradlew :shared:detekt \
-    :desktopApp:detekt \
-    :shared:jvmTest \
-    :desktopApp:test \
-    :mcp-server:test \
-    --no-daemon \
-    --no-parallel || {
-    echo ""
-    echo "pre-push FAILED — push rejected. Fix failures or run with --no-verify"
-    exit 1
-}
-
+echo "=== Pre-push [$BRANCH] — full suite delegated to CI ==="
+echo "Structural gates OK. Detekt OK. Full suite (jvmTest, desktopApp:test,"
+echo "kover, static-gates) runs in CI — no need to duplicate it here."
 echo "=== Pre-push OK ==="
