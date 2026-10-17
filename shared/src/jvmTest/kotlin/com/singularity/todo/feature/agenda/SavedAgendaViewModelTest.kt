@@ -22,12 +22,11 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
+import com.singularity.todo.test.helpers.testVm
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
@@ -43,11 +42,8 @@ import kotlin.time.Instant
 /**
  * Unit tests for [SavedAgendaViewModel].
  *
- * Pattern (simple by design):
- * - VM scope wraps the TestScope context directly (AutoCloseableCoroutineScope(scope.coroutineContext)) —
- *   no child Job wrapper: the VM's init coroutine completes on its own, so nothing hangs.
- * - VM uses a plain [MutableStateFlow] for state — read `.state.value` directly.
- * - [SavedAgendaDraftState] is tested as a pure class.
+ * Pattern: all VM tests use [testVm] with [SavedAgendaViewModel].
+ * [SavedAgendaDraftState] is tested as a pure class.
  *
  * No `combine`, no `stateIn`, no Turbine, no `expectMostRecentItem`.
  */
@@ -58,11 +54,44 @@ class SavedAgendaViewModelTest {
     private val fakeRepo = FakeSavedAgendaViewsRepository()
     private val seedStore = SavedAgendaSeedStore()
 
-    private fun createVm(mode: SavedAgendaScreenMode, scope: CoroutineScope) = SavedAgendaViewModel(
-        deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
-        mode = mode,
-        seedStore = seedStore,
-        scope = AutoCloseableCoroutineScope(scope.coroutineContext),
+    // testVm { testScope, bgScope -> ... } pattern:
+    // - testScope: passed to VM's scope parameter
+    // - bgScope: used in afterInit for event-listening tests
+    // ctx.state.value: frozen snapshot at construction (post-init advanceUntilIdle)
+    // ctx.stateFlow.value: always current (backed by VM's MutableStateFlow)
+    // Named factory parameter used because the global testVm has optional `afterInit`
+    // after `factory`, which blocks trailing-lambda syntax without causing recursive
+    // type inference in the local extension function's return type.
+    private fun TestScope.testVm(mode: SavedAgendaScreenMode) = testVm(
+        stateAccessor = { vm: SavedAgendaViewModel -> vm.stateFlow },
+        factory = { testScope, _ ->
+            SavedAgendaViewModel(
+                deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
+                mode = mode,
+                seedStore = seedStore,
+                scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
+            )
+        },
+    )
+
+    // Named factory for tests that need event-listening via afterInit.
+    // Returns (TestVmContext, events list) so the test body can assert on events.
+    private fun TestScope.testVmWithEvents(
+        mode: SavedAgendaScreenMode,
+        events: MutableList<SavedAgendaEvent>,
+    ) = testVm(
+        stateAccessor = { vm: SavedAgendaViewModel -> vm.stateFlow },
+        afterInit = { vm, bgScope ->
+            bgScope.launch { vm.events.collect { events += it } }
+        },
+        factory = { testScope, _ ->
+            SavedAgendaViewModel(
+                deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
+                mode = mode,
+                seedStore = seedStore,
+                scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
+            )
+        },
     )
 
     @AfterTest
@@ -132,10 +161,10 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+        ctx.act { }
 
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertEquals("My View", state.draft.name)
         assertEquals("My View", state.draft.originalName)
@@ -148,10 +177,10 @@ class SavedAgendaViewModelTest {
     @Test
     fun editModeEmitsNotFoundWhenViewMissing() = runTest {
         val viewId = SavedAgendaViewId.generate()
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+        ctx.act { }
 
-        assertIs<SavedAgendaViewState.NotFound>(vm.stateFlow.value)
+        assertIs<SavedAgendaViewState.NotFound>(ctx.state.value)
     }
 
     @Test
@@ -168,12 +197,10 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
 
-        vm.onIntent(SavedAgendaIntent.NameChanged("Modified"))
-
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertEquals("Modified", state.draft.name)
         assertEquals("Original", state.draft.originalName)
@@ -194,15 +221,13 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
-
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
         val reordered = listOf(
             Section("today", "Today", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
         )
-        vm.onIntent(SavedAgendaIntent.SectionsReordered(reordered))
+        ctx.act { onIntent(SavedAgendaIntent.SectionsReordered(reordered)) }
 
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertTrue(state.draft.isDirty)
     }
@@ -221,12 +246,9 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
-        vm.onIntent(SavedAgendaIntent.NameChanged("Modified"))
-        advanceUntilIdle()
-        vm.onIntent(SavedAgendaIntent.Save)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
+        ctx.act { onIntent(SavedAgendaIntent.Save) }
 
         val saved = fakeRepo.getById(viewId.raw)
         assertNotNull(saved)
@@ -267,19 +289,17 @@ class SavedAgendaViewModelTest {
             releaseWrite.await()
         }
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
-        vm.onIntent(SavedAgendaIntent.NameChanged("Modified"))
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
 
-        vm.onIntent(SavedAgendaIntent.Save)
+        ctx.vm.onIntent(SavedAgendaIntent.Save)
         writeStarted.await()
 
         // The save is parked inside the repository. The user keeps typing —
         // every draft intent republishes state through emitEditingState.
-        vm.onIntent(SavedAgendaIntent.NameChanged("Modified again"))
+        ctx.vm.onIntent(SavedAgendaIntent.NameChanged("Modified again"))
 
-        val inFlight = vm.stateFlow.value
+        val inFlight = ctx.vm.stateFlow.value
         assertIs<SavedAgendaViewState.Editing>(inFlight)
         assertTrue(
             inFlight.isSaving,
@@ -289,9 +309,9 @@ class SavedAgendaViewModelTest {
 
         // And the second Save really is dropped by the VM, not merely by the
         // button being disabled.
-        vm.onIntent(SavedAgendaIntent.Save)
+        ctx.vm.onIntent(SavedAgendaIntent.Save)
         releaseWrite.complete(Unit)
-        advanceUntilIdle()
+        ctx.act { }
 
         assertEquals(1, fakeRepo.upsertCount, "Save wrote more than once for one user action")
     }
@@ -310,10 +330,8 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
-        vm.onIntent(SavedAgendaIntent.Delete)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+        ctx.act { onIntent(SavedAgendaIntent.Delete) }
 
         val saved = fakeRepo.getById(viewId.raw)
         assertNull(saved)
@@ -333,18 +351,10 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Edit(viewId), this)
-        advanceUntilIdle()
-
         val events = mutableListOf<SavedAgendaEvent>()
-        backgroundScope.launch { vm.events.collect { events += it } }
+        val ctx = testVmWithEvents(SavedAgendaScreenMode.Edit(viewId), events)
 
-        vm.onIntent(SavedAgendaIntent.Delete)
-        // catchTo launches its block via vmScope.launch (async). advanceUntilIdle() drives
-        // the test scheduler but does not block on vmScope. runCurrent() pumps the shared
-        // test scheduler so the launched coroutine completes before we assert.
-        advanceUntilIdle()
-        runCurrent()
+        ctx.act { onIntent(SavedAgendaIntent.Delete) }
 
         assertTrue(
             events.any { it is SavedAgendaEvent.DeleteSuccess },
@@ -363,10 +373,10 @@ class SavedAgendaViewModelTest {
             ),
         )
 
-        val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+        ctx.act { }
 
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertNull(state.view)
         assertEquals("Fresh View", state.draft.name)
@@ -379,12 +389,10 @@ class SavedAgendaViewModelTest {
     @Test
     fun createModeNameChangedSetsIsDirty() = runTest {
         val seed = AgendaDefinition(title = "Seed", sections = emptyList())
-        val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Custom Name")) }
 
-        vm.onIntent(SavedAgendaIntent.NameChanged("Custom Name"))
-
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaViewState.Editing>(state)
         assertEquals("Custom Name", state.draft.name)
         assertTrue(state.draft.isDirty)
@@ -393,13 +401,9 @@ class SavedAgendaViewModelTest {
     @Test
     fun createModeSaveCreatesNewView() = runTest {
         val seed = AgendaDefinition(title = "Brand New", sections = emptyList())
-        val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
-        advanceUntilIdle()
-
-        vm.onIntent(SavedAgendaIntent.NameChanged("Brand New Custom"))
-        advanceUntilIdle()
-        vm.onIntent(SavedAgendaIntent.Save)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Brand New Custom")) }
+        ctx.act { onIntent(SavedAgendaIntent.Save) }
 
         val allViews = fakeRepo.getAll()
         assertTrue(allViews.isNotEmpty(), "Expected at least one view, got ${allViews.size}")
@@ -409,10 +413,8 @@ class SavedAgendaViewModelTest {
     @Test
     fun createModeDeleteIsNoOp() = runTest {
         val seed = AgendaDefinition(title = "To Delete", sections = emptyList())
-        val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
-        advanceUntilIdle()
-
-        vm.onIntent(SavedAgendaIntent.Delete)
+        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+        ctx.act { onIntent(SavedAgendaIntent.Delete) }
 
         val allViews = fakeRepo.getAll()
         assertTrue(allViews.isEmpty())
@@ -423,10 +425,10 @@ class SavedAgendaViewModelTest {
     @Test
     fun canSaveIsFalseWhenNotDirty() = runTest {
         val seed = AgendaDefinition(title = "Test", sections = emptyList())
-        val vm = createVm(SavedAgendaScreenMode.Create(seed), this)
-        advanceUntilIdle()
+        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+        ctx.act { }
 
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaViewState.Editing>(state)
         // After seeding: initialized=true, name=Test, isDirty=false → canSave=false
         assertFalse(state.canSave, "canSave should be false when not dirty")

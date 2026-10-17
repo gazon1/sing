@@ -42,7 +42,7 @@ import kotlin.time.Duration.Companion.minutes
  * - the legacy flat values are adopted **once**, and a scope that has deliberately
  *   reset its cursor does not get the old value written back.
  */
-@Tag("fast")
+@Tag("slow")
 class SyncStateMigrationTest {
 
     private lateinit var tempDir: File

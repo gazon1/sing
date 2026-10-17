@@ -36,7 +36,7 @@ import java.nio.file.Files
  *   merged; a task matching `{t1}` via direct tag and `{t3}` via an inherited
  *   group satisfies `matchAll({t1, t3})`.
  */
-@Tag("fast")
+@Tag("slow")
 class TaskFilterInheritanceTest {
 
     private lateinit var db: AppDatabase

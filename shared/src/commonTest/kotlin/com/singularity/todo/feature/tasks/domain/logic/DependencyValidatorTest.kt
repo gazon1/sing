@@ -10,7 +10,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.InMemoryTaskDao
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -33,22 +32,18 @@ class DependencyValidatorTest {
     private fun currentUser(uid: UserId = userA): ProfileAwareCurrentUser =
         FakeProfileAwareCurrentUser(authRepository = FakeAuthRepository(Session.Anonymous(uid)))
 
-    private fun dao(vararg entries: Triple<String, String, String>): InMemoryTaskDao {
+    private suspend fun dao(vararg entries: Triple<String, String, String>): InMemoryTaskDao {
         val dao = InMemoryTaskDao()
-        runBlocking {
-            entries.forEach { (owner, dep, verb) ->
-                dao.upsertDependencyForUser(owner, dep, verb, userA.value)
-            }
+        entries.forEach { (owner, dep, verb) ->
+            dao.upsertDependencyForUser(owner, dep, verb, userA.value)
         }
         return dao
     }
 
-    private fun daoWithUserB(vararg entries: Triple<String, String, String>): InMemoryTaskDao {
+    private suspend fun daoWithUserB(vararg entries: Triple<String, String, String>): InMemoryTaskDao {
         val dao = InMemoryTaskDao()
-        runBlocking {
-            entries.forEach { (owner, dep, verb) ->
-                dao.upsertDependencyForUser(owner, dep, verb, userB.value)
-            }
+        entries.forEach { (owner, dep, verb) ->
+            dao.upsertDependencyForUser(owner, dep, verb, userB.value)
         }
         return dao
     }

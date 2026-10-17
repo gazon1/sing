@@ -38,7 +38,7 @@ import kotlin.test.assertTrue
  * The row itself surviving is asserted too, because the failure mode of the other kind
  * of migration is dropping data the user can see.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration38To39Test {
 
     private lateinit var tempDir: File
