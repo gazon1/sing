@@ -1,5 +1,6 @@
 package com.singularity.todo.core.sync
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -38,6 +39,7 @@ import kotlin.test.assertTrue
  * Existing per-behaviour tests (SyncEnginePushTest, SyncEnginePullTest,
  * SyncEngineLostRaceTest, etc.) remain the primary coverage for individual phases.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class SyncEngineIntegrationTest {
     private val clock = MutableClock()
