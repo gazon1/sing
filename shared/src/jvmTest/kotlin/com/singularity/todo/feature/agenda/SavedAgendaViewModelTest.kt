@@ -23,13 +23,10 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.helpers.testVm
-import com.singularity.todo.test.helpers.testVmContext
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest

@@ -564,6 +564,7 @@ abstract class EntityMapperCompletenessTest {
 //
 // Group A: completeness of entity ↔ mapper field coverage
 @Tag("slow")
+@Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestA : EntityMapperCompletenessTest() {
     override fun everySkippedEntityStillExists() {}
     override fun everyUnmappedDeclarationStatesAReason() {}
@@ -577,6 +578,7 @@ class EntityMapperCompletenessTestA : EntityMapperCompletenessTest() {
 
 // Group B: entity registration completeness (unmapped / skipped / allowlist)
 @Tag("slow")
+@Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestB : EntityMapperCompletenessTest() {
     override fun positiveControlDetectsMissingField() {}
     override fun everyEntityParamAppearsInMapper() {}
@@ -588,6 +590,7 @@ class EntityMapperCompletenessTestB : EntityMapperCompletenessTest() {
 
 // Group C: partial-mapper declarations and their reasons
 @Tag("slow")
+@Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestC : EntityMapperCompletenessTest() {
     override fun positiveControlDetectsMissingField() {}
     override fun everyEntityParamAppearsInMapper() {}
@@ -601,6 +604,7 @@ class EntityMapperCompletenessTestC : EntityMapperCompletenessTest() {
 
 // Group D: cross-category consistency + supplemental param contracts
 @Tag("slow")
+@Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestD : EntityMapperCompletenessTest() {
     override fun positiveControlDetectsMissingField() {}
     override fun everyEntityParamAppearsInMapper() {}

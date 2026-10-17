@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.genui.engine
 
+import com.singularity.todo.arch.SourceScan
 import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
@@ -14,7 +15,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -132,16 +132,17 @@ class GenuiFirstAttemptReplayTest {
         rejectionCounter = GenuiRejectionCounter(),
     )
 
-    /** The recorded model output, read from the corpus the offline test also uses. */
+    /**
+     * The recorded model output, read from the corpus the offline test also uses.
+     *
+     * Through [SourceScan.jvmTestResourcesRoot], not a path relative to the working
+     * directory — `jvmTest` sets `workingDir` to `build/allure-results`, so the
+     * relative form resolved inside a build directory and this test failed with
+     * `FileNotFoundException` (run 39005284790).
+     */
     private fun recording(name: String): List<String> =
-        File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$name").readLines().filter { it.isNotBlank() }
-
-    private companion object {
-        // Module root — `commonMain.root` is already passed as an absolute path to the forked JVM.
-        private val MODULE_ROOT: String by lazy {
-            val root = System.getProperty("commonMain.root")!!
-            val idx = root.lastIndexOf("/commonMain")
-            if (idx != -1) root.substring(0, idx).removeSuffix("/src") else root
-        }
-    }
+        SourceScan.jvmTestResourcesRoot()
+            .resolve("genui-corpus/$name")
+            .readLines()
+            .filter { it.isNotBlank() }
 }

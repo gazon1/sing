@@ -93,101 +93,132 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # Cold-booting an AVD is most of this job's runtime and it is the same AVD every
-      # time, so the snapshot is cached. Keyed on the image, not the run id — keying on
-      # run_id stores a fresh copy every run and evicts the previous one, which is the
-      # defect ADR 2026-10-04-configuration-cache-hardening records for the Gradle cache.
+      # Cold-booting an AVD is most of this job's runtime. The AVD is created here
+      # rather than by reactivecircus/android-emulator-runner, because that action
+      # owns the device's whole lifecycle: it boots the emulator inside its own
+      # `script:` step and kills it the moment the step returns, which is why this
+      # file could only ever ask it to *run* a command. scripts/src/emulator is the
+      # repository's single device primitive — `ensure-emulator` is what every
+      # local run goes through, and it carries the AVD lock, the stale-process
+      # cleanup and the boot-readiness probe that the workflow had no access to.
+      # The workflow's own failures were the visible symptom of that split:
+      # `Test idle failed … PERSISTENT`, `adb … exit code 1`, a `default_boot`
+      # snapshot that never appeared — a workflow waiting on a device whose
+      # lifecycle it could not observe.
       #
-      # Split into restore (always) + save (main + cache miss only). Using combined
-      # actions/cache@v4 with `if:` would skip restore on PRs, making every PR get a
-      # cold AVD. restore/save split ensures PRs still get the warm cache from main.
-      - name: Restore the AVD cache
-        id: avd-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64-v2
-          restore-keys: |
-            android-avd-api36-google_apis-x86_64-v2
-            android-avd-api36-google_apis-x86_64-v1
+      # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target).
+      # An emulator below the app's targetSdk is a test of something nobody ships.
+      - name: Install the emulator AVD
+        env:
+          AVD_NAME: singularity-api36
+          SYSTEM_IMAGE: system-images;android-36;google_apis;x86_64
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          cmdline="$(dirname "$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f | sort | tail -1)")"
+          echo "cmdline-tools: $cmdline"
+          yes | "$cmdline/sdkmanager" --licenses >/dev/null || true
+          "$cmdline/sdkmanager" "$SYSTEM_IMAGE"
+          # `device pixel_6` rather than the runner's default: a hardware profile
+          # with a real screen size, so an Espresso assertion about a view being
+          # on screen is not decided by a 240x320 profile.
+          echo no | "$cmdline/avdmanager" create avd \
+            --force --name "$AVD_NAME" --package "$SYSTEM_IMAGE" --device pixel_6
+          # `ensure-emulator` launches the `emulator` binary and talks to `adb`,
+          # both of which live in the SDK and neither of which is on PATH here.
+          # One grouped redirect, not three: shellcheck SC2129 reads three
+          # separate appends as three chances to lose a line silently.
+          {
+            echo "$sdk_root/emulator"
+            echo "$sdk_root/platform-tools"
+            echo "$sdk_root/build-tools/37.0.0"
+          } >> "$GITHUB_PATH"
 
-      # Skipped on a cache hit. On cache miss, create the AVD from scratch — runners
-      # are ephemeral so force-avd-creation: true is needed to actually create it.
-      - name: Create the AVD
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          target: google_apis
-          arch: x86_64
-          force-avd-creation: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -prop persist.sys.locale=ru-RU
-          disable-animations: false
-          script: echo "AVD created"
+          # Assert the two things the next step silently depends on. A missing
+          # `emulator` binary is reported by `ensure-emulator` as exit 1 with
+          # "'emulator' binary not found in PATH" and an AVD the emulator cannot
+          # find is reported as "exited with rc=1 during start-up" — both about a
+          # minute into a 15-minute job, and neither naming this step.
+          test -x "$sdk_root/emulator/emulator" \
+            || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
 
-      # Save only on main AND only if cache was a miss (AVD was just created).
-      # Never saves from PRs — they get warm restore from main but don't write back.
-      - name: Save the AVD cache
-        uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/main' && steps.avd-cache.outputs.cache-hit != 'true'
-        id: avd-cache-save
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: android-avd-api36-google_apis-x86_64-v2
+          # The runner image creates AVDs somewhere `avdmanager` calls home and
+          # `emulator` does not. Run 38970523791 died with "Unknown AVD name
+          # [singularity-api36]" and "no file singularity-api36.ini in
+          # $HOME/.android/avd": avdmanager wrote the .ini under a path the
+          # emulator's search order ($ANDROID_AVD_HOME, $ANDROID_SDK_HOME/avd,
+          # $HOME/.android/avd) never visits. Locate the file that was actually
+          # written and point the emulator at its directory — a home is a
+          # property of the image, so it is read, not assumed.
+          avd_ini="$(find "$HOME" -maxdepth 6 -name "$AVD_NAME.ini" -print -quit 2>/dev/null || true)"
+          [ -n "$avd_ini" ] \
+            || { echo "::error::no $AVD_NAME.ini exists under \$HOME"; exit 1; }
+          ANDROID_AVD_HOME="$(dirname "$avd_ini")"
+          export ANDROID_AVD_HOME
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
 
-      # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target). An
-      # emulator below the app's targetSdk is a test of something nobody ships.
+          # Ask the tool that has to find it. `avdmanager list avd` proved nothing
+          # here: it passed on the run where the emulator could not see the AVD.
+          "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
+            || { echo "::error::emulator -list-avds does not list $AVD_NAME (ANDROID_AVD_HOME=$ANDROID_AVD_HOME)"; exit 1; }
+          echo "emulator: $sdk_root/emulator/emulator, AVD $AVD_NAME in $ANDROID_AVD_HOME"
+
+      # loguru, pydantic and click — the emulator module's own dependencies. The
+      # same action the static job uses, with the two linters it installs turned
+      # off: they are this repository's gates, not the emulator's, and this job
+      # runs none of them.
+      - name: Set up the Python tooling
+        uses: ./.github/actions/setup-python-tools
+        with:
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+
+      # `buildTimeSupabaseConfig()` reads BuildConfig.SUPABASE_URL / ANON_KEY via
+      # reflection and returns non-null only when both are set; without them the app
+      # opens on an auth screen that cannot initialise an anonymous session, and no
+      # UI assertion below can reach the shell it is about. Same placeholder block
+      # e2e.yml writes — these values are not credentials, and anonymous sign-in
+      # works offline without a server.
+      - name: Create local.properties with Supabase credentials
+        run: |
+          cat > local.properties << 'EOF'
+          supabase.url=https://placeholder.supabase.co
+          supabase.anonKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub255bW91cyIsImlhdCI6MTY0MDEwMTAwMDAsImV4cCI6MTk1NTY3NTAwMDB9.placeholder
+          EOF
+
+      # The whole device lifecycle is inside one command: acquire (booting the AVD
+      # if nothing is ready), build, verify the APK is this checkout's, run
+      # `:androidApp:connectedDebugAndroidTest`, and refuse to call it a pass if
+      # zero tests executed.
       #
-      # `-gpu swiftshader_indirect`, not `-gpu off`: e2e.yml uses `-gpu off` and gets away
-      # with it because Maestro drives the UI through the accessibility layer and never
-      # composites. These assertions look for a real ComposeView in the view hierarchy, and
-      # software rendering is the configuration GitHub's runner images support.
+      # `GRADLE_ARGS=-PTEST_AUTH_BYPASS=true` is not an optimisation. Without it
+      # `SingularityApp` installs the real auth repository, MainActivity lands on
+      # the sign-in screen, and `NavigationSmokeTest.app_launches_and_all_tabs_are_reachable`
+      # fails with "Today tab should be visible after cold start" — a message about
+      # the shell, caused by a screen in front of it. Measured locally on
+      # 2026-10-16: 3 of the 3 UI classes fail that way.
       #
-      # The task name is the Gradle one, not `adb install` plus `am instrument`. That is
-      # deliberate: connectedDebugAndroidTest assembles the app APK and the androidTest APK
-      # together and installs the pair that matches each other. Hand-rolling the install
-      # names an APK path, and a path that silently stops matching is a green run against
-      # the wrong binary — which is the defect RUN_MAESTRO's SKIP_INSTALL comment in
-      # check.sh describes.
-      #
-      # DIAGNOSTIC (PR0): `adb logcat -v threadtime` runs in the background for the
-      # duration of the script. When the tests finish (or the runner kills them),
-      # the trap fires and logcat is stopped — then the file is collected as an
-      # artifact. An ANR produces a stack trace in logcat even when the test process
-      # itself hangs and cannot write it to the test report. Once the root cause is
-      # identified this block is replaced with the fix.
+      # `-gpu swiftshader_indirect`, not `-gpu off`: e2e.yml uses `-gpu off` and
+      # gets away with it because Maestro drives the UI through the accessibility
+      # layer and never composites. These assertions look for a real ComposeView in
+      # the view hierarchy, and software rendering is the configuration GitHub's
+      # runner images support. ADR 2026-09-28-emulator-gfxstream-colorbuffer-segv
+      # records the crash that pinning `-gpu` invites; software rendering is the
+      # supported answer, not a flag to tune.
       - name: Instrumented tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          target: google_apis
-          arch: x86_64
-          force-avd-creation: false
-          ram-size: 4096M
-          heap-size: 512M
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -prop persist.sys.locale=ru-RU
-          disable-animations: true
-          script: |
-            LOGFILE="android-app-$(date +%s).logcat"
-            adb logcat -c
-            adb logcat -v threadtime > "$LOGFILE" &
-            LOGPID=$!
-            # Kill logcat when the script exits, whether tests pass, fail, or the
-            # runner kills the script block. The artifact upload happens after the
-            # script returns and the emulator is already gone at that point, so the
-            # trap here is the only way to stop the background process.
-            trap "kill $LOGPID 2>/dev/null || true" EXIT
-            adb shell am wait-for-broadcast-idle
-            # MainActivity's cold start is what these tests assert, so the surface is
-            # unlocked before the runner launches it. Without this the first
-            # ActivityScenario lands on the lock screen and every assertion fails for a
-            # reason that has nothing to do with the app.
-            adb shell input keyevent 82
-            ./gw :androidApp:connectedDebugAndroidTest --stacktrace
+        env:
+          AVD: singularity-api36
+          GRADLE_ARGS: -PTEST_AUTH_BYPASS=true
+          EMULATOR_EXTRA_FLAGS: >-
+            -no-window -gpu swiftshader_indirect -no-audio
+            -prop persist.sys.locale=ru-RU
+          # The AVD was cold-created in the step above, so its boot budget is the
+          # image download's absence, not a warm snapshot's presence. 600s is the
+          # ceiling; `start_avd` returns EXIT_TIMEOUT the moment it is reached,
+          # rather than letting the job's own timeout kill the runner mid-boot and
+          # lose the emulator log.
+          EMULATOR_TIMEOUT: 600
+        run: python3 scripts/run-android-ui-tests.py
 
       # Uploaded unconditionally, not `if: failure()`. A report that exists only when
       # something broke cannot answer "did NavigationFlowInstrumentedTest pass on abc1234",
@@ -203,42 +234,25 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      # DIAGNOSTIC (PR0): logcat collected in the Instrumented tests step above.
-      # Contains ANR stack traces and all app log output for the run.
-      - name: Upload ANR diagnostic logcat
+      # Logcat from the instrumentation run, written by run-android-ui-tests.py when
+      # the tests fail or report zero executions. Contains the ANR and crash traces
+      # that a test process which hangs cannot write to its own report.
+      - name: Upload failure logcat
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: android-anr-logcat-${{ github.run_id }}
-          path: android-app-*.logcat
+          name: android-failure-logcat-${{ github.run_id }}
+          path: build/android-ui-results/logcat.txt
           if-no-files-found: warn
           retention-days: 14
 
       # A nightly that nobody reads is not a gate, it is a scrollback buffer. The nightly
       # Maestro failure opens an issue (e2e.yml); this one does the same.
-      # Guard against the app process crashing before any Espresso test could run.
-      # connectedDebugAndroidTest exits 0 even when the app under test崩溃ed — the
-      # test result XML then shows tests="0".  This step makes that condition fatal.
-      - name: Assert at least one test executed
-        run: |
-          results_dir="androidApp/build/outputs/androidTest-results/connected"
-          if [ ! -d "$results_dir" ]; then
-            echo "ERROR: No test results directory found at $results_dir — the app may have crashed on startup."
-            exit 1
-          fi
-          xml=$(find "$results_dir" -name "*.xml" -type f | head -1)
-          if [ -z "$xml" ]; then
-            echo "ERROR: No XML result file found in $results_dir — the app may have crashed on startup."
-            exit 1
-          fi
-          tests=$(grep -oP 'tests="\K[^"]+' "$xml" | head -1)
-          if [ -z "$tests" ] || [ "$tests" -eq 0 ]; then
-            echo "ERROR: Test run reports $tests tests — the app likely crashed on startup (StackOverflowError?)."
-            echo "See android-app-*.logcat artifact for the crash trace."
-            exit 1
-          fi
-          echo "PASS: $tests instrumented tests executed."
-
+      #
+      # The "zero tests executed" case needs no step here: connectedDebugAndroidTest
+      # exits 0 when the app under test died before the first assertion, so the check
+      # lived in run-android-ui-tests.py, where the report is parsed, rather than in a
+      # second shell implementation of the same rule that could drift from it.
       - name: Open an issue when a nightly fails
         if: failure() && github.event_name == 'schedule'
         env:

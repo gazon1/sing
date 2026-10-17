@@ -8,6 +8,7 @@ import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.parser.UiEvent
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
+import com.singularity.todo.arch.SourceScan
 import java.io.File
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -79,7 +80,7 @@ class GenuiSurfaceCorpusTest {
         // likely to be renamed in a refactor. Their absence from the corpus is how that would go
         // unnoticed.
         val corpus: String = CORPUS.joinToString("\n") {
-            File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$it.jsonl").readText()
+            corpusFile(it).readText()
         }
         for (kind in listOf("task_card", "due_date", "project_chip", "text_field", "list", "button")) {
             assertTrue("\"$kind\"" in corpus, "The corpus no longer exercises $kind")
@@ -90,7 +91,7 @@ class GenuiSurfaceCorpusTest {
     fun everyCorpusFileExists() {
         for (name in CORPUS) {
             assertTrue(
-                File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$name.jsonl").isFile,
+                corpusFile(name).isFile,
                 "$name is listed in the corpus but not on disk",
             )
         }
@@ -114,21 +115,19 @@ class GenuiSurfaceCorpusTest {
     }
 
     private fun corpusLines(name: String): List<String> =
-        File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$name.jsonl")
-            .readLines()
-            .filter { it.isNotBlank() }
+        corpusFile(name).readLines().filter { it.isNotBlank() }
+
+    /**
+     * One corpus file, located through [SourceScan.jvmTestResourcesRoot] rather than
+     * a path relative to the working directory: `jvmTest` sets `workingDir` to
+     * `build/allure-results`, so the relative form resolved inside a build directory
+     * and every test here failed with `FileNotFoundException` (run 39005284790).
+     */
+    private fun corpusFile(name: String): File =
+        SourceScan.jvmTestResourcesRoot().resolve("genui-corpus/$name.jsonl")
 
     private companion object {
         val CORPUS: List<String> = listOf("task-list", "add-task-form")
-        // Module root — `commonMain.root` is already passed as an absolute path to the forked JVM.
-        // `commonMain.root` ends with `/commonMain/kotlin`. Strip the `/src/commonMain/kotlin`
-        // suffix (use lastIndexOf to find the /commonMain that is part of the source-layout
-        // path, not the intermediate one inside `src/`).
-        private val MODULE_ROOT: String by lazy {
-            val root = System.getProperty("commonMain.root")!!
-            val idx = root.lastIndexOf("/commonMain")
-            if (idx != -1) root.substring(0, idx).removeSuffix("/src") else root
-        }
     }
 }
 

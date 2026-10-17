@@ -76,6 +76,7 @@ import kotlin.test.fail
  * this test fails — preventing a broken detector from giving a false-green signal.
  */
 @Tag("fast")
+@Suppress("VariableNaming", "PropertyName") // UPPER_CASE names are intentional for regex/pattern constants
 class SharedHarnessConventionsTest {
 
     /** Scans both jvmTest (production harness tests) and commonTest (shared helpers tests). */
@@ -154,8 +155,11 @@ class SharedHarnessConventionsTest {
             .mapNotNull { file ->
                 val body = file.readText()
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} raw advanceUntilIdle loop(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} raw advanceUntilIdle loop(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -176,9 +180,13 @@ class SharedHarnessConventionsTest {
             .mapNotNull { file ->
                 val body = file.readText()
                 val matches = VM_SCOPE_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else if (file.name in EXEMPT_VM_TEST) null
-                else "${file.name}: hand-rolled TestScope + AutoCloseableCoroutineScope"
+                if (matches.isEmpty()) {
+                    null
+                } else if (file.name in EXEMPT_VM_TEST) {
+                    null
+                } else {
+                    "${file.name}: hand-rolled TestScope + AutoCloseableCoroutineScope"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -206,7 +214,7 @@ class SharedHarnessConventionsTest {
         val STALE_CHECK_PATTERN = Regex("""AutoCloseableCoroutineScope\s*\(""")
         val stale = EXEMPT_VM_TEST.filter { (fileName, _) ->
             val file = allTestSources.find { it.name == fileName }
-            if (file == null) return@filter true  // file removed = stale
+            if (file == null) return@filter true // file removed = stale
             !STALE_CHECK_PATTERN.containsMatchIn(file.readText())
         }
         if (stale.isEmpty()) return
@@ -231,8 +239,11 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} stateIn() call(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} stateIn() call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -258,8 +269,11 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} koinInject() call(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} koinInject() call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -289,15 +303,19 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val found = VIOLATION_PATTERNS.flatMap { it.findAll(body).toList() }
-                if (found.isEmpty()) null
-                else "${file.name}: ${found.size} MockK call(s)"
+                if (found.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${found.size} MockK call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
         fail(
             "Test files using MockK (couples to implementation, makes tests brittle):\n" +
                 violations.joinToString("\n") { "  - $it" } +
-                "\n\nUse `Fake*` implementations from `shared/src/commonTest/kotlin/com/singularity/todo/test/fakes/`. " +
+                "\n\nUse `Fake*` implementations from " +
+                "`shared/src/commonTest/kotlin/com/singularity/todo/test/fakes/`. " +
                 "Fakes are explicit, readable, and do not require verification boilerplate.",
         )
     }
@@ -390,8 +408,11 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} Thread.sleep call(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} Thread.sleep call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -418,8 +439,11 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} runBlocking call(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} runBlocking call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -471,8 +495,11 @@ class SharedHarnessConventionsTest {
                     }
                     className !in taggedClasses
                 }
-                if (untagged.isEmpty()) null
-                else "${file.name}: untagged test class(es): ${untagged.joinToString()}"
+                if (untagged.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: untagged test class(es): ${untagged.joinToString()}"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -501,8 +528,11 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} real-time delay() call(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} real-time delay() call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -531,8 +561,11 @@ class SharedHarnessConventionsTest {
                     t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
                 }.joinToString("\n")
                 val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) null
-                else "${file.name}: ${matches.size} expectMostRecentItem() call(s)"
+                if (matches.isEmpty()) {
+                    null
+                } else {
+                    "${file.name}: ${matches.size} expectMostRecentItem() call(s)"
+                }
             }
 
         if (violations.isEmpty()) return
@@ -543,5 +576,4 @@ class SharedHarnessConventionsTest {
                 "or collect into a list and assert on it directly.",
         )
     }
-
 }

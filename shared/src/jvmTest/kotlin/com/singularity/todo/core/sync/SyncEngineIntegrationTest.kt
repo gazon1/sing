@@ -21,7 +21,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -496,7 +495,11 @@ class SyncEngineIntegrationTest {
             assertIs<SyncOutcome.Completed>(outcome, "syncOnce returned: $outcome")
             // Push should have used the scope captured at the start.
             val completed = assertIs<SyncOutcome.Completed>(outcome, "syncOnce returned: $outcome")
-            assertTrue(completed.push.isSuccess, "push should succeed with the captured scope, but was: ${completed.push}")
+            val pushResult = completed.push
+            assertTrue(
+                pushResult.isSuccess,
+                "push should succeed with the captured scope, but was: $pushResult",
+            )
         }
 
     // ─── Gap 6: syncOnce coalescing at engine level ──────────────────────────────

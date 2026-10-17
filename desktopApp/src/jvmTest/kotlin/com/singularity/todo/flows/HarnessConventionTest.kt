@@ -280,6 +280,8 @@ class HarnessConventionTest {
          * stay that way; an entry needs the reason inline, like `knownUnapplied`
          * in TestTagsWiringTest.
          */
+        val EXEMPT_A11Y: Set<String> = emptySet()
+
         /**
          * Files that contain test classes without @Tag, and the reason each exemption exists.
          * Reasons are mandatory — an exemption without a reason is a maintenance trap.
@@ -287,8 +289,6 @@ class HarnessConventionTest {
          * `exempted files for @Tag actually contain untagged test classes` test.
          */
         val EXEMPT_TAG: Map<String, String> = emptyMap()
-
-        val EXEMPT_A11Y: Set<String> = emptySet()
 
         /**
          * Files that contain raw `onNodeWithTag`, `onNodeWithText`,
@@ -419,7 +419,7 @@ class HarnessConventionTest {
         // All test classes must be tagged so that `-Ptest.tags=fast,slow` in CI can
         // include or exclude them deterministically — regardless of whether they are
         // flow tests, composable tests, or any other kind.
-        val CLASS_PATTERN = Regex(
+        val classPattern = Regex(
             """^class\s+(\w+)\s*:\s*\w+\s*\{""",
             RegexOption.MULTILINE,
         )
@@ -427,7 +427,7 @@ class HarnessConventionTest {
         val violations = testSources
             .mapNotNull { file ->
                 val body = file.readText()
-                val classes = CLASS_PATTERN.findAll(body).map { it.groupValues[1] }.toList()
+                val classes = classPattern.findAll(body).map { it.groupValues[1] }.toList()
                 // A test class is one whose name ends in "Test" or "Tests".
                 val testClasses = classes.filter { it.endsWith("Test") || it.endsWith("Tests") }
                 if (testClasses.isEmpty()) return@mapNotNull null
@@ -437,7 +437,7 @@ class HarnessConventionTest {
                 tagPattern.findAll(body).forEach { tagMatch ->
                     val tagValue = tagMatch.groupValues[1]
                     val after = body.substring(tagMatch.range.last + 1)
-                    val nextClass = CLASS_PATTERN.find(after)
+                    val nextClass = classPattern.find(after)
                     if (nextClass != null) {
                         val name = nextClass.groupValues[1]
                         if (name.endsWith("Test") || name.endsWith("Tests")) {
@@ -469,13 +469,13 @@ class HarnessConventionTest {
         // otherwise the exemption hides a regression.
         val stale = EXEMPT_TAG.filter { (fileName, _) ->
             val file = testSources.find { it.name == fileName }
-            if (file == null) return@filter true  // file removed = stale
+            if (file == null) return@filter true // file removed = stale
             val body = file.readText()
             val classes = Regex("""^class\s+(\w+)\s*:\s*\w+\s*\{""", RegexOption.MULTILINE)
                 .findAll(body).map { it.groupValues[1] }
                 .filter { it.endsWith("Test") || it.endsWith("Tests") }
                 .toList()
-            if (classes.isEmpty()) return@filter true  // no test classes = stale
+            if (classes.isEmpty()) return@filter true // no test classes = stale
             // Check if any class is untagged — exemption is stale if none are
             val tagPattern = Regex("""@Tag\s*\(\s*"(\w+)"\s*\)""")
             val taggedClasses = mutableSetOf<String>()

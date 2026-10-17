@@ -106,6 +106,11 @@ tasks.withType<Test>().configureEach {
     // instead of the allure.results.directory system property.
     val allureDir = layout.buildDirectory.dir("allure-results").get().asFile
     workingDir = allureDir.also { it.mkdirs() }
+    // Absolute path to the fat JAR, needed by McpServerEndToEndTest because
+    // workingDir above is build/allure-results/ and the test would otherwise look
+    // for the JAR at build/allure-results/build/libs/mcp-server.jar.
+    val jarPath = layout.buildDirectory.dir("libs/mcp-server.jar").get().asFile.absolutePath
+    systemProperty("mcp-server.jar.path", jarPath)
 }
 
 // Produce a fat JAR with all runtime deps merged
