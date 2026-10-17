@@ -38,12 +38,15 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
+import click
 import pathlib
 import re
 import shlex
 import subprocess
 import sys
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / 'scripts' / 'ci' / 'static-gates.sh'
@@ -119,7 +122,9 @@ PROBE_TIMEOUT = 300
 def registered_gates() -> list[tuple[str, str, str]]:
     """(level, name, command) for every gate in the registry."""
     if not REGISTRY.is_file():
-        sys.exit(f'check-gate-liveness.py: registry not found at {REGISTRY}')
+        raise SystemExit(
+            f'check-gate-liveness.py: registry not found at {REGISTRY}'
+        )
     text = REGISTRY.read_text(encoding='utf-8')
     out = []
     for level, name, cmd in GATE_RE.findall(text):
@@ -281,29 +286,30 @@ def probe(name: str, cmd: str, budget: int = PROBE_TIMEOUT) -> tuple[str, str]:
     return 'finding', ''
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('--list', action='store_true',
-                        help='print the gates this script would probe, then exit')
-    parser.add_argument('--include-slow', action='store_true',
-                        help='also probe gates that invoke gradle or the full test suite')
-    args = parser.parse_args()
-
+@click.command()
+@click.option('--list', 'list_gates', is_flag=True,
+              help='print the gates this script would probe, then exit')
+@click.option('--include-slow', is_flag=True,
+              help='also probe gates that invoke gradle or the full test suite')
+@click.pass_context
+def cli(ctx: click.Context, list_gates: bool, include_slow: bool) -> None:
     gates = registered_gates()
     if not gates:
-        sys.exit('check-gate-liveness.py: registry parsed to zero gates — the regex is wrong, '
-                 'or the registry was truncated')
+        raise ctx.exit(
+            'check-gate-liveness.py: registry parsed to zero gates — the regex is wrong, '
+            'or the registry was truncated'
+        )
 
     targets = [g for g in gates
                if SELF_PROBE_SKIP not in g[2]
-               and (args.include_slow or not is_slow(g[1], g[2]))]
+               and (include_slow or not is_slow(g[1], g[2]))]
     skipped = len(gates) - len(targets)
 
-    if args.list:
+    if list_gates:
         for level, name, cmd in targets:
-            print(f'{level:9} {name}')
-        print(f'\n{len(targets)} probeable, {skipped} skipped')
-        return 0
+            click.echo(f'{level:9} {name}')
+        click.echo(f'\n{len(targets)} probeable, {skipped} skipped')
+        raise ctx.exit(CLEAN)
 
     functions = registry_functions()
     dead: list[tuple[str, str]] = []
@@ -327,19 +333,25 @@ def main() -> int:
             findings.append(name)
 
     for name in via_function:
-        print(f'note: {name} — runs a shell function from the registry; '
-              f'not probeable out of context, see static-gates.sh')
+        click.echo(
+            f'note: {name} — runs a shell function from the registry; '
+            f'not probeable out of context, see static-gates.sh'
+        )
     for name in findings:
-        print(f'note: {name} — reported a finding (non-zero, no crash); that is the gate working')
+        click.echo(
+            f'note: {name} — reported a finding (non-zero, no crash); that is the gate working'
+        )
     for name, detail in unrunnable:
-        print(f'ERROR: gate "{name}" cannot run: {detail}')
+        click.echo(f'ERROR: gate "{name}" cannot run: {detail}')
     for name, detail in slow:
         # Reported, not fatal. A gate that is merely slow is a different problem from
         # one that cannot answer at all, and merging the two verdicts is what turned a
         # healthy Gradle-calling gate into a red CI job.
-        print(f'note: {name} — {detail}; slow is not dead, so this is not a failure')
+        click.echo(
+            f'note: {name} — {detail}; slow is not dead, so this is not a failure'
+        )
     for name, detail in dead:
-        print(f'ERROR: gate "{name}" died instead of reporting: {detail}')
+        click.echo(f'ERROR: gate "{name}" died instead of reporting: {detail}')
 
     # The skip set, named. FR-008 of spec 013: an unreported skip is
     # indistinguishable from a skip that never fired, which is exactly how the
@@ -358,27 +370,38 @@ def main() -> int:
             why = 'resolved script spawns the JVM toolchain'
         slow_skipped.append((n, why))
     if slow_skipped:
-        print('')
-        print(f'{len(slow_skipped)} gate(s) skipped as heavyweight, by rule:')
+        click.echo('')
+        click.echo(f'{len(slow_skipped)} gate(s) skipped as heavyweight, by rule:')
         for n, why in sorted(slow_skipped):
-            print(f'  skip  {n} — {why}')
+            click.echo(f'  skip  {n} — {why}')
     else:
-        print('note: 0 gates skipped as heavyweight')
+        click.echo('note: 0 gates skipped as heavyweight')
 
-    print('')
+    click.echo('')
     probed = len(targets) - len(via_function)
-    print(f'check-gate-liveness.py: {probed} gate(s) probed, '
-          f'{len(dead)} died, {len(unrunnable)} unrunnable, {len(slow)} slow, '
-          f'{len(findings)} reported findings, '
-          f'{len(via_function)} shell-function gates, '
-          + (f'{skipped} skipped' if skipped else '0 skipped'))
+    click.echo(
+        f'check-gate-liveness.py: {probed} gate(s) probed, '
+        f'{len(dead)} died, {len(unrunnable)} unrunnable, {len(slow)} slow, '
+        f'{len(findings)} reported findings, '
+        f'{len(via_function)} shell-function gates, '
+        + (f'{skipped} skipped' if skipped else '0 skipped')
+    )
 
     if dead or unrunnable:
-        print('A gate that dies is indistinguishable from a gate that passes, for every '
-              'consumer that only reads the exit code. This one is the difference.')
-        return 1
-    return 0
+        click.echo(
+            'A gate that dies is indistinguishable from a gate that passes, for every '
+            'consumer that only reads the exit code. This one is the difference.'
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(main())

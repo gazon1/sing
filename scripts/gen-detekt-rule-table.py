@@ -30,10 +30,11 @@ Run with `--check` to fail instead of writing, which is what the gate does.
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import sys
+
+import click
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RULE_SRC = ROOT / "detekt-rules/src/main/kotlin/com/singularity/todo/detekt"
@@ -63,6 +64,9 @@ RULE_CLASS = re.compile(
     re.MULTILINE,
 )
 KDOC_OPEN = re.compile(r"/\*\*\s*\n\s*\*\s*(.+?)(?:\n\s*\*)", re.DOTALL)
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 
 def first_kdoc_sentence(text: str, class_name: str) -> str:
@@ -155,7 +159,7 @@ def test_for(cls: str, rule_id: str) -> str:
     smoke = TEST_SRC / "RuleFiresSmokeTest.kt"
     if smoke.exists() and re.search(rf"\b{re.escape(rule_id)}\b", smoke.read_text(encoding="utf-8")):
         return "RuleFiresSmokeTest (shared)"
-    return "—"
+    return "—"  # noqa: RUF400
 
 
 def test_names() -> set[str]:
@@ -217,22 +221,21 @@ def render(rows) -> str:
     return "\n".join(out)
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--check", action="store_true", help="fail instead of writing")
-    args = ap.parse_args()
-
+@click.command()
+@click.option("--check", is_flag=True, help="fail instead of writing")
+@click.pass_context
+def cli(ctx: click.Context, check: bool) -> None:
     rows = collect()
     if not rows:
-        print("no rules found — the RULE_CLASS pattern no longer matches the source", file=sys.stderr)
-        return 2
+        click.echo("no rules found — the RULE_CLASS pattern no longer matches the source", err=True)
+        raise ctx.exit(2)
     block = render(rows)
 
     if not INVENTORY.exists():
         INVENTORY.write_text(f"{MARKER_START}\n{MARKER_END}\n", encoding="utf-8")
     if not MARKER_START in INVENTORY.read_text(encoding="utf-8"):
-        print(f"{INVENTORY.name} has no {MARKER_START} marker", file=sys.stderr)
-        return 2
+        click.echo(f"{INVENTORY.name} has no {MARKER_START} marker", err=True)
+        raise ctx.exit(2)
 
     text = INVENTORY.read_text(encoding="utf-8")
     # One marker pair, exactly. The splice below assumes `split(..., 1)`, so a second
@@ -244,22 +247,22 @@ def main() -> int:
     starts = text.count(MARKER_START)
     ends = text.count(MARKER_END)
     if starts != 1 or ends != 1:
-        print(
+        click.echo(
             f"{INVENTORY.name}: expected exactly one {MARKER_START!r} and one "
             f"{MARKER_END!r}, found {starts} and {ends}. The splice below would "
             f"silently drop or duplicate the table. Refusing to write.",
-            file=sys.stderr,
+            err=True,
         )
-        return 2
+        raise ctx.exit(2)
     head, rest = text.split(MARKER_START, 1)
     _, tail = rest.split(MARKER_END, 1)
     updated = head + block + tail
 
-    if args.check:
+    if check:
         if updated != text:
-            print(f"{INVENTORY.name} rule table is stale. Run:", file=sys.stderr)
-            print("  python3 scripts/gen-detekt-rule-table.py", file=sys.stderr)
-            return 1
+            click.echo(f"{INVENTORY.name} rule table is stale. Run:", err=True)
+            click.echo("  python3 scripts/gen-detekt-rule-table.py", err=True)
+            raise ctx.exit(VALIDATION_FAILURE)
         untested = sorted(rule for row in rows for rule, test in ((row[0], row[4]),) if test == "—")
         if untested:
             # This is the enforcement half of #135. The column has always reported an untested
@@ -271,27 +274,34 @@ def main() -> int:
             # so). Only a rule with neither is reported. A dedicated-filename-only match is the
             # mistake #135 opened with: it reported five untested rules and should have
             # reported zero, because the smoke test covered them.
-            print(
+            click.echo(
                 f"rule inventory: {len(untested)} rule(s) with no positive control, so `--check` "
                 "cannot fail for the reason it exists:",
-                file=sys.stderr,
+                err=True,
             )
             for rule in untested:
-                print(f"  {rule} — no dedicated *RuleTest and not named in RuleFiresSmokeTest", file=sys.stderr)
-            print(
+                click.echo(f"  {rule} — no dedicated *RuleTest and not named in RuleFiresSmokeTest", err=True)
+            click.echo(
                 "\nAdd a positive test (one that makes the rule report something), or name the rule "
                 "in RuleFiresSmokeTest if a dedicated class is not warranted. A rule nobody tests is "
                 "indistinguishable from a rule that cannot fire — which is how NoDirectDispatchers "
                 "shipped registered, ADR-referenced and green.",
-                file=sys.stderr,
+                err=True,
             )
-            return 1
-        print(f"rule inventory: OK — {len(rows)} rules, table matches source, all have a positive control")
-        return 0
+            raise ctx.exit(VALIDATION_FAILURE)
+        click.echo(f"rule inventory: OK — {len(rows)} rules, table matches source, all have a positive control")
+        raise ctx.exit(CLEAN)
 
     INVENTORY.write_text(updated, encoding="utf-8")
-    print(f"wrote {len(rows)} rules into {INVENTORY.relative_to(ROOT)}")
-    return 0
+    click.echo(f"wrote {len(rows)} rules into {INVENTORY.relative_to(ROOT)}")
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":

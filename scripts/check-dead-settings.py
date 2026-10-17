@@ -61,10 +61,12 @@ Exit code is 1 when anything is reported, so it can gate a check.
 
 from __future__ import annotations
 
-import argparse
+import click
 import pathlib
 import re
-import sys
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE_SETS = ("shared/src/commonMain", "shared/src/androidMain", "shared/src/jvmMain")
@@ -84,7 +86,7 @@ FIELD_DECL = re.compile(r"\bval (\w+)\s*:")
 # reason rather than convenience:
 #
 # - `core/settings/`   — declares the keys, builds the flows, and is the writer.
-# - `core/<domain>/`   — `XSettingsStore` and `XSettingsContributor` read a field to
+# - `core/<domain>/`  — `XSettingsStore` and `XSettingsContributor` read a field to
 #                       hand it to the next layer. That is the plumbing this bug
 #                       hides behind; counting it made the earlier version green on
 #                       every dead field in the codebase.
@@ -116,21 +118,26 @@ def sources() -> dict[pathlib.Path, str]:
     return out
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--quiet", action="store_true", help="findings only")
-    args = ap.parse_args()
-
+@click.command()
+@click.option("--quiet", is_flag=True, help="findings only, for CI")
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool) -> None:
     files = sources()
     if not files:
-        print("check-dead-settings: no Kotlin sources found — refusing to pass silently", file=sys.stderr)
-        return 1
+        click.echo(
+            "check-dead-settings: no Kotlin sources found — refusing to pass silently",
+            err=True,
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
     bundle = ROOT / f"shared/src/commonMain/kotlin/{COMMON}/core/settings/SettingsBundle.kt"
     if not bundle.is_file():
-        print(f"check-dead-settings: {bundle.relative_to(ROOT)} is missing — the section "
-              f"inventory cannot be read, refusing to pass silently", file=sys.stderr)
-        return 1
+        click.echo(
+            f"check-dead-settings: {bundle.relative_to(ROOT)} is missing — the section "
+            f"inventory cannot be read, refusing to pass silently",
+            err=True,
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
     text = bundle.read_text(encoding="utf-8", errors="replace")
 
@@ -141,9 +148,11 @@ def main() -> int:
     ephemeral = {m.group(1) for m in EPHEMERAL_DECL.finditer(text)}
 
     if not persisted:
-        print("check-dead-settings: found zero persisted sections — refusing to pass silently",
-              file=sys.stderr)
-        return 1
+        click.echo(
+            "check-dead-settings: found zero persisted sections — refusing to pass silently",
+            err=True,
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
     # Exempt entries: a bare section name covers all of its fields.
     sections_exempt: set[str] = set()
@@ -182,7 +191,7 @@ def main() -> int:
                     f"feature outside the settings plumbing"
                 )
 
-    if not args.quiet:
+    if not quiet:
         exempt_count = sum(
             1
             for section, fields in persisted.items()
@@ -191,10 +200,12 @@ def main() -> int:
             if (section, field) in fields_exempt
         )
         skipped = sum(len(v) for k, v in persisted.items() if k in sections_exempt)
-        print(f"check-dead-settings: {len(persisted)} persisted sections, "
-              f"{total + exempt_count + skipped} fields "
-              f"({total} scanned, {exempt_count} baselined individually, "
-              f"{skipped} exempted by section)")
+        click.echo(
+            f"check-dead-settings: {len(persisted)} persisted sections, "
+            f"{total + exempt_count + skipped} fields "
+            f"({total} scanned, {exempt_count} baselined individually, "
+            f"{skipped} exempted by section)"
+        )
     # The findings are printed in BOTH modes. `--quiet` means "no header, no
     # summary" — its own help text says "findings only, for CI", and
     # `sgate settings_read_by_a_feature` parses these `[dead-setting]` lines to
@@ -203,20 +214,27 @@ def main() -> int:
     # as a count of nothing, which is worse than silence because the number
     # reads like a measurement.
     for f in findings:
-        print(f"  [dead-setting] {f}")
-    if not args.quiet:
+        click.echo(f"  [dead-setting] {f}")
+    if not quiet:
         if ephemeral:
-            print(f"  (not scanned, not persisted: {', '.join(sorted(ephemeral))})")
+            click.echo(f"  (not scanned, not persisted: {', '.join(sorted(ephemeral))})")
 
     if findings:
-        if not args.quiet:
-            print()
-            print(f"{len(findings)} setting field(s) written but never read by a feature.")
-            print("Either wire the value into the feature that needs it, hide the control,")
-            print("or record why in scripts/check-dead-settings-baseline.txt.")
-        return 1
-    return 0
+        if not quiet:
+            click.echo()
+            click.echo(f"{len(findings)} setting field(s) written but never read by a feature.")
+            click.echo("Either wire the value into the feature that needs it, hide the control,")
+            click.echo("or record why in scripts/check-dead-settings-baseline.txt.")
+        raise ctx.exit(VALIDATION_FAILURE)
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

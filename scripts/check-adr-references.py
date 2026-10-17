@@ -24,10 +24,13 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
+import click
 import pathlib
 import re
-import sys
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DECISIONS_DIR = ROOT / 'docs' / 'decisions'
@@ -120,8 +123,10 @@ def find_dangling(slugs: set[str]) -> list[str]:
             # A scanned path outside ROOT would make relative_to raise. Report it
             # rather than swallowing it, which previously made the gate silently
             # return zero findings for any ROOT/source mismatch.
-            print(f'ERROR: {path} is outside ROOT ({ROOT}); fix SCAN_FILES/SCAN_GLOBS',
-                  file=sys.stderr)
+            click.echo(
+                f'ERROR: {path} is outside ROOT ({ROOT}); fix SCAN_FILES/SCAN_GLOBS',
+                err=True,
+            )
             continue
         seen: set[str] = set()
         for line in text.splitlines():
@@ -164,23 +169,25 @@ def cited_slugs(slugs: set[str]) -> set[str]:
     return cited
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--update-baseline', action='store_true',
-                        help='rewrite the baseline from current findings, then exit')
-    parser.add_argument('--baseline', default=str(BASELINE))
-    parser.add_argument('--list-cited', action='store_true',
-                        help='print every cited slug, one per line, then exit (for `adr prune`)')
-    args = parser.parse_args()
-
+@click.command()
+@click.option('--update-baseline', is_flag=True,
+              help='rewrite the baseline from current findings, then exit')
+@click.option('--baseline', default=str(BASELINE),
+              help='path to the baseline file')
+@click.option('--list-cited', is_flag=True,
+              help='print every cited slug, one per line, then exit (for `adr prune`)')
+@click.pass_context
+def cli(ctx: click.Context, update_baseline: bool, baseline: str, list_cited: bool) -> None:
     slugs = existing_slugs()
     if not slugs:
-        sys.exit(f'check_adr_references.py: no ADRs found under {DECISIONS_DIR}')
+        raise ctx.exit(
+            f'check_adr_references.py: no ADRs found under {DECISIONS_DIR}'
+        )
 
-    if args.list_cited:
+    if list_cited:
         for slug in sorted(cited_slugs(slugs)):
-            print(slug)
-        return
+            click.echo(slug)
+        raise ctx.exit(CLEAN)
 
     dangling = find_dangling(slugs)
     # Sorted before any write. `find_dangling` returns in scan order, which walks
@@ -189,7 +196,7 @@ def main() -> None:
     # ordering is unstable cannot be reviewed as a change.
     dangling = sorted(dangling)
 
-    if args.update_baseline:
+    if update_baseline:
         header = (
             '# Accepted dangling ADR references.\n'
             '#\n'
@@ -206,20 +213,20 @@ def main() -> None:
         )
         # Count the rationale that is about to be discarded, before writing rather
         # than after: once the file is rewritten the information is gone.
-        baseline_file = pathlib.Path(args.baseline)
+        baseline_file = pathlib.Path(baseline)
         rationale_before = (
             len([l for l in baseline_file.read_text().splitlines() if l.startswith('#')])
             if baseline_file.exists() else 0
         )
         baseline_file.write_text(header + '\n'.join(dangling) + ('\n' if dangling else ''))
-        print(f'check_adr_references: wrote {len(dangling)} entr(ies) to {args.baseline}')
+        click.echo(f'check_adr_references: wrote {len(dangling)} entr(ies) to {baseline}')
         # The file is rewritten wholesale, so rationale comments — the recorded reason
         # a piece of debt was accepted — do not survive. Reported rather than
         # mentioned in a comment, because the whole point is that it happens when
         # nobody is reading the source.
         dropped = rationale_before - len(header.splitlines())
         if dropped > 0:
-            print(
+            click.echo(
                 f'check_adr_references: warning — {dropped} rationale comment(s) above '
                 f'baseline entries were discarded by the rewrite. Re-add the reasons '
                 f'that still hold, or accept the entries without them knowingly.'
@@ -229,7 +236,7 @@ def main() -> None:
         # `--update-baseline` that then reports success is a gate switched off by its
         # own maintenance path. The verification below must pass on what was written.
 
-    baseline_path = pathlib.Path(args.baseline)
+    baseline_path = pathlib.Path(baseline)
     accepted: set[str] = set()
     if baseline_path.exists():
         accepted = {l.strip() for l in baseline_path.read_text().splitlines()
@@ -239,25 +246,41 @@ def main() -> None:
     stale = sorted(accepted - set(dangling))
 
     for entry in new:
-        print(f'ERROR: dangling ADR reference — {entry}')
+        click.echo(f'ERROR: dangling ADR reference — {entry}')
 
     if stale:
-        print('')
-        print(f'check_adr_references: {len(stale)} baseline entr(ies) no longer occur; '
-              'remove them with --update-baseline')
+        click.echo('')
+        click.echo(
+            f'check_adr_references: {len(stale)} baseline entr(ies) no longer occur; '
+            'remove them with --update-baseline'
+        )
 
     if new:
-        print('')
-        print(f'check_adr_references.py: {len(new)} dangling ADR reference(s) '
-              f'({len(dangling) - len(new)} baselined)')
-        print('Fix: repoint the reference at the current slug, or drop it. If it is a '
-              'legitimate exception, add the exact "<file>:<token>" line to '
-              f'{baseline_path.relative_to(ROOT)}.')
-        sys.exit(1)
+        click.echo('')
+        click.echo(
+            f'check_adr_references.py: {len(new)} dangling ADR reference(s) '
+            f'({len(dangling) - len(new)} baselined)'
+        )
+        click.echo(
+            'Fix: repoint the reference at the current slug, or drop it. If it is a '
+            'legitimate exception, add the exact "<file>:<token>" line to '
+            f'{baseline_path.relative_to(ROOT)}.'
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print(f'check_adr_references.py: OK — {len(slugs)} ADR slugs, '
-          f'{len(dangling) - len(stale)} baselined reference(s), 0 new')
+    click.echo(
+        f'check_adr_references.py: OK — {len(slugs)} ADR slugs, '
+        f'{len(dangling) - len(stale)} baselined reference(s), 0 new'
+    )
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

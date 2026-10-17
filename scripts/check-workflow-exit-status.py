@@ -60,10 +60,15 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import sys
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -220,35 +225,41 @@ def check_workflow(path: pathlib.Path) -> list[str]:
     return findings
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--quiet", action="store_true", help="print findings only")
-    args = parser.parse_args(argv)
-
+@click.command()
+@click.option("--quiet", is_flag=True, help="print findings only")
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool) -> None:
     workflows = sorted(WORKFLOWS.glob("*.yml")) + sorted(WORKFLOWS.glob("*.yaml"))
     if not workflows:
-        print(f"::error::no workflows found under {WORKFLOWS}")
-        return 2
+        click.echo(f"::error::no workflows found under {WORKFLOWS}", err=True)
+        raise ctx.exit(IO_ERROR)
 
     findings: list[str] = []
     for path in workflows:
         findings.extend(check_workflow(path))
 
     for finding in findings:
-        print(finding)
+        click.echo(finding)
 
     if findings:
-        print(
+        click.echo(
             f"\n{len(findings)} step(s) whose exit status is the pipeline's last command "
             f"rather than its producer's.",
-            file=sys.stderr,
+            err=True,
         )
-        return 1
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    if not args.quiet:
-        print(f"OK — {len(workflows)} workflow(s), every piped `run:` block keeps its status")
-    return 0
+    if not quiet:
+        click.echo(f"OK — {len(workflows)} workflow(s), every piped `run:` block keeps its status")
+    raise ctx.exit(CLEAN)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

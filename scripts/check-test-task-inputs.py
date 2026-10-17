@@ -52,10 +52,15 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import sys
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -186,31 +191,34 @@ def _is_ancestor(candidate: pathlib.Path, target: pathlib.Path) -> bool:
         return False
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose', action='store_true',
-                        help='print the roots that are correctly declared too')
-    args = parser.parse_args()
-
+@click.command()
+@click.option("--verbose", is_flag=True, help="print the roots that are correctly declared too")
+@click.pass_context
+def cli(ctx: click.Context, verbose: bool) -> None:
     if not module_build_files(ROOT):
-        print('check_test_task_inputs.py: no module build files found — '
-              'refusing to pass on an empty scan', file=sys.stderr)
-        sys.exit(1)
+        click.echo(
+            'check_test_task_inputs.py: no module build files found — '
+            'refusing to pass on an empty scan',
+            err=True,
+        )
+        raise ctx.exit(IO_ERROR)
 
     findings, notes, checked, path_properties = analyse(ROOT)
-    if args.verbose:
+    if verbose:
         for note in notes:
-            print(f'  {note}')
+            click.echo(f'  {note}')
 
     if findings:
-        print(f'check_test_task_inputs.py: {len(findings)} finding(s)')
+        click.echo(f'check_test_task_inputs.py: {len(findings)} finding(s)')
         for finding in findings:
-            print(f'ERROR: {finding}')
-        print('Fix: add inputs.dir(...) for the tree, on the task that reads it, with '
-              'PathSensitivity.RELATIVE and a withPropertyName. Then prove it with a '
-              'probe — edit the file, re-run the same command, and confirm the task is '
-              'no longer UP-TO-DATE. A fix that is not probed is a comment.')
-        sys.exit(1)
+            click.echo(f'ERROR: {finding}')
+        click.echo(
+            'Fix: add inputs.dir(...) for the tree, on the task that reads it, with '
+            'PathSensitivity.RELATIVE and a withPropertyName. Then prove it with a '
+            'probe — edit the file, re-run the same command, and confirm the task is '
+            'no longer UP-TO-DATE. A fix that is not probed is a comment.'
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
     if path_properties == 0:
         # The failure this gate exists to prevent, applied to itself. A parser that stops
@@ -222,16 +230,32 @@ def main() -> None:
         # must pass, while a parser that matches nothing is indistinguishable from a clean
         # tree unless it is called out. This is the same distinction as
         # `check-test-runs.py`'s "ran 0 tests" floor.
-        print('check_test_task_inputs.py: ERROR — found 0 path-valued system properties, so '
-              'this run proves nothing.', file=sys.stderr)
-        print('Either the parser stopped matching the declarations, or the repository has '
-              'no test task passing a path to its JVM. Both must be resolved by hand before '
-              'this gate is trusted; do not read the empty result as a pass.', file=sys.stderr)
-        sys.exit(1)
+        click.echo(
+            'check_test_task_inputs.py: ERROR — found 0 path-valued system properties, so '
+            'this run proves nothing.',
+            err=True,
+        )
+        click.echo(
+            'Either the parser stopped matching the declarations, or the repository has '
+            'no test task passing a path to its JVM. Both must be resolved by hand before '
+            'this gate is trusted; do not read the empty result as a pass.',
+            err=True,
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print(f'check_test_task_inputs.py: OK — {checked} external root(s) checked, '
-          f'all declared as task inputs')
+    click.echo(
+        f'check_test_task_inputs.py: OK — {checked} external root(s) checked, '
+        f'all declared as task inputs'
+    )
+    raise ctx.exit(CLEAN)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

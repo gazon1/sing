@@ -55,12 +55,13 @@ Exit code is 1 when anything is reported, so it can gate a check.
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import sys
 from dataclasses import dataclass, field
 from typing import Callable
+
+import click
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -1104,16 +1105,19 @@ def write_floor(count: int) -> None:
     )
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--quiet", action="store_true", help="print findings only")
-    parser.add_argument(
-        "--update-floor",
-        action="store_true",
-        help="rewrite the floor with the current blocking count and exit",
-    )
-    args = parser.parse_args()
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
+
+@click.command()
+@click.option("--quiet", is_flag=True, help="print findings only")
+@click.option(
+    "--update-floor",
+    is_flag=True,
+    help="rewrite the floor with the current blocking count and exit",
+)
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool, update_floor: bool) -> None:
     files = kotlin_files()
     code = {p: strip_comments(p.read_text()) for p in files}
     corpus = "\n".join(code.values())
@@ -1130,47 +1134,54 @@ def main() -> int:
     # remembers agreeing to.
     blocking = [f for f in findings if f[0] != "exempt"]
 
-    if args.update_floor:
+    if update_floor:
         write_floor(len(blocking))
-        print(f"wrote {FLOOR_FILE}: {len(blocking)} blocking finding(s)")
-        return 0
+        click.echo(f"wrote {FLOOR_FILE}: {len(blocking)} blocking finding(s)")
+        raise ctx.exit(CLEAN)
 
     for kind, message in sorted(findings):
-        print(f"[{kind}] {message}")
+        click.echo(f"[{kind}] {message}")
 
     if blocking:
-        print(f"\n{len(blocking)} finding(s).", file=sys.stderr)
+        click.echo(f"\n{len(blocking)} finding(s).", err=True)
     elif findings:
-        print(
+        click.echo(
             f"\n0 blocking finding(s); {len(findings)} exempted. Every exemption must name a "
             f"live entry in docs/deferred-backlog.md — see "
             f"scripts/check-unwired-backlog-refs.py.",
-            file=sys.stderr,
+            err=True,
         )
     else:
-        print("\nNo unwired surfaces found.", file=sys.stderr)
+        click.echo("\nNo unwired surfaces found.", err=True)
 
     floor = read_floor()
     if len(blocking) > floor:
-        print(
+        click.echo(
             f"::error::unwired surfaces rose from the recorded floor of {floor} to "
             f"{len(blocking)}. Either wire the new surface, or argue it in review and "
             f"then run: scripts/find-unwired-surfaces.py --update-floor",
-            file=sys.stderr,
+            err=True,
         )
-        return 1
+        raise ctx.exit(VALIDATION_FAILURE)
     if len(blocking) < floor:
         # Not a failure, but not silent either: an unnoticed drop is how a stale floor
         # becomes a ratchet that permits a rise back to the old number.
-        print(
+        click.echo(
             f"unwired surfaces fell from the recorded floor of {floor} to "
             f"{len(blocking)} — lower the floor in the same change "
             f"(scripts/find-unwired-surfaces.py --update-floor) so it cannot rise back "
             f"unnoticed."
         )
 
-    return 1 if blocking else 0
+    raise ctx.exit(VALIDATION_FAILURE if blocking else CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

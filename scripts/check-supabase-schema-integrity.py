@@ -40,10 +40,15 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import sys
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_DIR = ROOT / "supabase" / "migrations"
@@ -111,14 +116,6 @@ def check(text: str, name: str) -> list[str]:
     return errors
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--dir", default=str(DEFAULT_DIR), help="migration directory")
-    args = parser.parse_args(argv)
-
-    return main_for([args.dir])
-
-
 def main_for(directories: list[str]) -> int:
     """`main()`'s body, taking the directory list directly.
 
@@ -134,28 +131,43 @@ def main_for(directories: list[str]) -> int:
         directory = pathlib.Path(raw)
         files = sorted(directory.glob("*.sql")) if directory.is_dir() else []
         if not files:
-            print(
+            click.echo(
                 f"no .sql files under {directory} — the path this gate reads has moved, and a "
                 f"gate that scans nothing reports success",
-                file=sys.stderr,
+                err=True,
             )
-            return 1
+            return IO_ERROR
         scanned += len(files)
         for path in files:
             errors += check(path.read_text(encoding="utf-8"), path.name)
 
     if errors:
         for error in errors:
-            print(f"supabase schema integrity: {error}", file=sys.stderr)
-        print(f"{len(errors)} finding(s) in {scanned} migration file(s)", file=sys.stderr)
-        return 1
+            click.echo(f"supabase schema integrity: {error}", err=True)
+        click.echo(f"{len(errors)} finding(s) in {scanned} migration file(s)", err=True)
+        return VALIDATION_FAILURE
 
-    print(
+    click.echo(
         f"supabase schema integrity: {scanned} migration file(s) self-consistent "
         f"(fingerprints match the functions they describe)"
     )
-    return 0
+    return CLEAN
+
+
+@click.command()
+@click.option("--dir", default=str(DEFAULT_DIR), help="migration directory")
+@click.pass_context
+def cli(ctx: click.Context, dir: str) -> None:
+    exit_code = main_for([dir])
+    raise ctx.exit(exit_code)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

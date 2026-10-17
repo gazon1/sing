@@ -19,11 +19,12 @@ Usage: python3 scripts/gen-detekt-rules-config.py [--check]
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import subprocess
 import sys
+
+import click
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / 'config' / 'detekt' / 'detekt.yml'
@@ -75,6 +76,11 @@ OVERRIDES = [
   Filename:
     active: false"""),
 ]
+
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 
 def _drop_rule_block(lines: list[str], rule: str) -> list[str]:
@@ -214,23 +220,23 @@ def render(ids: set[str]) -> str:
     return HEADER + apply_overrides(''.join(out))
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--check', action='store_true')
-    args = parser.parse_args()
-
+@click.command()
+@click.option('--check', is_flag=True)
+@click.pass_context
+def cli(ctx: click.Context, check: bool) -> None:
     ids = custom_rule_set_ids()
     if not ids:
-        sys.exit('no custom ruleSetId found — is detekt-rules in the expected place?')
+        click.echo('no custom ruleSetId found — is detekt-rules in the expected place?', err=True)
+        raise ctx.exit(IO_ERROR)
     expected = render(ids)
 
-    if args.check:
+    if check:
         current = DST.read_text() if DST.exists() else ''
         if current != expected:
-            print(f'{DST.relative_to(ROOT)} is stale — run scripts/gen-detekt-rules-config.py')
-            return 1
-        print(f'detekt-rules-module.yml is up to date ({len(ids)} custom blocks excluded)')
-        return 0
+            click.echo(f'{DST.relative_to(ROOT)} is stale — run scripts/gen-detekt-rules-config.py')
+            raise ctx.exit(VALIDATION_FAILURE)
+        click.echo(f'detekt-rules-module.yml is up to date ({len(ids)} custom blocks excluded)')
+        raise ctx.exit(CLEAN)
 
     # The file this writes is parsed by SnakeYAML, which rejects a repeated key outright
     # — so a duplicate here does not degrade the config, it makes :detekt-rules:detekt
@@ -240,17 +246,24 @@ def main() -> int:
     duplicate = _first_duplicate_key(expected)
     if duplicate is not None:
         key, line_no = duplicate
-        print(
+        click.echo(
             f'refusing to write {DST.relative_to(ROOT)}: duplicate key {key!r} at line {line_no}. '
             f'SnakeYAML rejects the whole file, so the rule-set config would be unreachable.',
-            file=sys.stderr,
+            err=True,
         )
-        return 1
+        raise ctx.exit(VALIDATION_FAILURE)
 
     DST.write_text(expected)
-    print(f'wrote {DST.relative_to(ROOT)} ({len(ids)} custom rule-set blocks excluded)')
-    return 0
+    click.echo(f'wrote {DST.relative_to(ROOT)} ({len(ids)} custom rule-set blocks excluded)')
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(main())

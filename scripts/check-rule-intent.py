@@ -36,11 +36,14 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from collections import Counter
 from pathlib import Path
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "config" / "detekt" / "detekt.yml"
@@ -111,48 +114,54 @@ def partition_reporting(
     return declared, reporting, undeclared, declared_and_reporting
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--baseline",
-        default=str(DEFAULT_BASELINE),
-        help="detekt baseline to read findings from (default: config/detekt/baseline-shared.xml)",
-    )
-    args = ap.parse_args()
-
+@click.command()
+@click.option(
+    '--baseline',
+    default=str(DEFAULT_BASELINE),
+    help="detekt baseline to read findings from (default: config/detekt/baseline-shared.xml)",
+)
+@click.pass_context
+def cli(ctx: click.Context, baseline: str) -> None:
     if not CONFIG.is_file():
-        print(f"ERROR: {CONFIG} not found")
-        return 1
-    baseline_path = Path(args.baseline)
+        click.echo(f"ERROR: {CONFIG} not found")
+        raise ctx.exit(VALIDATION_FAILURE)
+    baseline_path = Path(baseline)
     if not baseline_path.is_file():
-        print(f"ERROR: {baseline_path} not found")
-        return 1
+        click.echo(f"ERROR: {baseline_path} not found")
+        raise ctx.exit(VALIDATION_FAILURE)
 
     declared, reporting, undeclared, declared_and_reporting = partition_reporting(
         CONFIG.read_text(encoding="utf-8"), baseline_path.read_text(encoding="utf-8")
     )
 
-    print(f"declared in detekt.yml : {len(declared)}")
-    print(f"reporting in baseline   : {len(reporting)} ({sum(reporting.values())} findings)")
-    print(f"  declared + reporting  : {len(declared_and_reporting)}")
-    print(f"  UNDECLARED            : {len(undeclared)}")
+    click.echo(f"declared in detekt.yml : {len(declared)}")
+    click.echo(f"reporting in baseline   : {len(reporting)} ({sum(reporting.values())} findings)")
+    click.echo(f"  declared + reporting  : {len(declared_and_reporting)}")
+    click.echo(f"  UNDECLARED            : {len(undeclared)}")
     for rule, n in sorted(undeclared.items(), key=lambda kv: -kv[1]):
-        print(f"    {rule:36} {n:3d} finding(s)")
+        click.echo(f"    {rule:36} {n:3d} finding(s)")
 
     if undeclared:
-        print("")
-        print("These rules are running on detekt's built-in defaults: they were never")
-        print("named in config/detekt/detekt.yml, so nobody decided they apply. Add each")
-        print("one with an explicit `active:` and a comment giving the reason — the")
-        print("reason is the valuable part. If a default contradicts a documented")
-        print("convention, `active: false` with a pointer to that convention is the")
-        print("correct answer, not a code change to match the default.")
-        return 1
+        click.echo("")
+        click.echo("These rules are running on detekt's built-in defaults: they were never")
+        click.echo("named in config/detekt/detekt.yml, so nobody decided they apply. Add each")
+        click.echo("one with an explicit `active:` and a comment giving the reason — the")
+        click.echo("reason is the valuable part. If a default contradicts a documented")
+        click.echo("convention, `active: false` with a pointer to that convention is the")
+        click.echo("correct answer, not a code change to match the default.")
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print("")
-    print("check-rule-intent: OK — every reporting rule is a declared decision")
-    return 0
+    click.echo("")
+    click.echo("check-rule-intent: OK — every reporting rule is a declared decision")
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

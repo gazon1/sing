@@ -29,6 +29,11 @@ import re
 import sys
 from pathlib import Path
 
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -86,7 +91,9 @@ def check_json_flag(scripts_dir: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
+@click.command()
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     scripts_dir = ROOT / "scripts"
     all_errors: list[str] = []
 
@@ -96,11 +103,18 @@ def main() -> int:
 
     if all_errors:
         for err in all_errors:
-            print(err, flush=True)
-        return 1
+            click.echo(err)
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print("All conventions checks passed.")
-    return 0
+    click.echo("All conventions checks passed.")
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":

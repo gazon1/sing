@@ -35,10 +35,14 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import pathlib
 import subprocess
 import sys
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 EXPECTED = '.githooks'
@@ -52,22 +56,21 @@ def config(key: str) -> str | None:
     return value or None
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('--quiet', action='store_true')
-    args = parser.parse_args()
-
+@click.command()
+@click.option('--quiet', is_flag=True)
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool) -> None:
     hooks_path = config('core.hooksPath')
     errors: list[str] = []
 
     if hooks_path is None:
         # Not an error: git defaults to .git/hooks, and the repository ships
         # .githooks/ deliberately (installed per-clone, documented in CONTRIBUTING).
-        if not args.quiet:
-            print('check-hooks-path: core.hooksPath is unset — git will use .git/hooks; '
-                  f'the tracked hooks in {EXPECTED}/ are inactive until you run')
-            print('  git config core.hooksPath ' + EXPECTED)
-        return 0
+        if not quiet:
+            click.echo('check-hooks-path: core.hooksPath is unset — git will use .git/hooks; '
+                       f'the tracked hooks in {EXPECTED}/ are inactive until you run')
+            click.echo('  git config core.hooksPath ' + EXPECTED)
+        raise ctx.exit(CLEAN)
 
     if pathlib.PurePath(hooks_path).is_absolute():
         errors.append(
@@ -102,17 +105,24 @@ def main() -> int:
             )
 
     for err in errors:
-        print(f'ERROR: {err}')
+        click.echo(f'ERROR: {err}')
     if errors:
-        print('')
-        print(f'check-hooks-path: fix with — git config core.hooksPath {EXPECTED}')
-        return 1
+        click.echo('')
+        click.echo(f'check-hooks-path: fix with — git config core.hooksPath {EXPECTED}')
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    if not args.quiet:
-        print(f'check-hooks-path: OK — core.hooksPath is {hooks_path!r} (relative), '
-              f'so every worktree resolves it against its own tree')
-    return 0
+    if not quiet:
+        click.echo(f'check-hooks-path: OK — core.hooksPath is {hooks_path!r} (relative), '
+                   f'so every worktree resolves it against its own tree')
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(main())
