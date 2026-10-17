@@ -20,12 +20,13 @@ Usage: python3 scripts/check-doc-dead-refs.py [--include-adr] [--max N]
 """
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import subprocess
 import sys
 from pathlib import PurePosixPath
+
+import click
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
@@ -77,6 +78,10 @@ TOP_LEVEL_FILES = [
 GLOB_BUILD = ["shared/build.gradle.kts", "androidApp/build.gradle.kts",
               "desktopApp/build.gradle.kts", "mcp-server/build.gradle.kts",
               "detekt-rules/build.gradle.kts"]
+
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 
 def _gitignore_patterns() -> list[re.Pattern[str]]:
@@ -250,11 +255,11 @@ def build_index() -> tuple[set[str], dict[str, list[pathlib.Path]]]:
         # No git index (a tarball, a CI cache mount). Falling back keeps the gate
         # working, and says so, because the walk cannot see a directory nobody
         # remembered to add to SRC_DIRS — which is how three false positives got here.
-        print(
+        click.echo(
             "check-doc-dead-refs: no git index available, falling back to the SRC_DIRS "
             "walk. A new top-level directory stays invisible to it until SRC_DIRS is "
             "edited — see _tracked_files().",
-            file=sys.stderr,
+            err=True,
         )
         for d in SRC_DIRS:
             base = ROOT / d
@@ -356,154 +361,6 @@ def scan_text(name: str, text: str, rel_paths, by_name) -> list[tuple[int, str, 
     return out
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--include-adr", action="store_true",
-                    help="also scan docs/decisions (reports historical refs separately)")
-    ap.add_argument("--max", type=int, default=40, help="max lines to print per file")
-    ap.add_argument("--strict", action="store_true",
-                    help="treat path drift as a failure too")
-    ap.add_argument("--baseline", metavar="PATH", default=str(ROOT / "config" / "docs" / "dead-refs-baseline.txt"),
-                    help="file of accepted dead refs, one 'path:ref' per line")
-    ap.add_argument("--update-baseline", action="store_true",
-                    help="rewrite the baseline from the current findings, then exit")
-    ap.add_argument("--force", action="store_true",
-                    help="with --update-baseline, allow dropping entries that are no "
-                         "longer detected (destructive — see the refusal message)")
-    ap.add_argument("--skill-symbols", action="store_true",
-                    help="check Kotlin symbol references in skill files (detector 8)")
-    ap.add_argument("--quiet-generated", action="store_true",
-                    help="suppress the informational list of gitignored (generated) references")
-    args = ap.parse_args()
-
-    if args.skill_symbols:
-        return _skill_symbols_main(args)
-
-    rel_paths, by_name = build_index()
-    targets: list[pathlib.Path] = [
-        ROOT / "AGENTS.md",
-        ROOT / "ARCHITECTURE.md",
-        ROOT / "README.md",
-        ROOT / "PROGRESS.md",
-    ]
-    targets += sorted(SKILLS_DIR.glob("*/SKILL.md"))
-    targets += sorted((ROOT / "shared/src").rglob("*.kt"))
-    # Build scripts cite ADRs too, and a dangling one there is the worst case:
-    # the comment outlives the rename, and nothing else in the tree would notice.
-    targets += [ROOT / name for name in GLOB_BUILD if (ROOT / name).is_file()]
-    if args.include_adr:
-        targets += [p for p in sorted(DECISIONS_DIR.glob("*.md")) if p.name != "DIGEST.md"]
-
-    baseline_path = pathlib.Path(args.baseline)
-    accepted: set[str] = set()
-    if baseline_path.exists():
-        accepted = {l.strip() for l in baseline_path.read_text().splitlines() if l.strip() and not l.startswith("#")}
-
-    dead_total = 0
-    drift_total = 0
-    hist_total = 0
-    new_dead: list[str] = []
-    for path in targets:
-        if not path.exists():
-            continue
-        findings = scan(path, rel_paths, by_name)
-        if not findings:
-            continue
-        rel = path.relative_to(ROOT).as_posix()
-        dead = [f for f in findings if f[2] == "dead"]
-        drift = [f for f in findings if f[2] == "drift"]
-        hist = [f for f in findings if f[2] == "historical"]
-        # A dead reference to a gitignored path is a *generated* file, not a
-        # broken link. Downgrade before baselining so it is neither reported
-        # as debt nor silently added to the baseline.
-        generated = [f for f in dead if is_generated(f[1])]
-        if generated:
-            dead = [f for f in dead if not is_generated(f[1])]
-            if not args.quiet_generated:
-                gen_list = ", ".join(sorted({f[1] for f in generated}))
-                print(f"{rel}: {len(generated)} generated reference(s) "
-                      f"(gitignored, built by a hook — not checked): {gen_list}")
-        # Split dead into baselined (accepted debt) and new (must be fixed).
-        baselined = [f for f in dead if f"{rel}:{f[1]}" in accepted]
-        new = [f for f in dead if f"{rel}:{f[1]}" not in accepted]
-        new_dead += [f"{rel}:{ref}" for _, ref, _ in new]
-        if not new and not drift and (baselined or hist):
-            print(f"\n{rel}: {len(baselined)} baselined dead, {len(hist)} historical — OK")
-        for label, group in (("DEAD (new)", new), ("DRIFT", drift)):
-            if not group:
-                continue
-            print(f"\n{rel}: {len(group)} {label} reference(s)")
-            for line, ref, _ in group[: args.max]:
-                print(f"  L{line}: {ref}")
-            if len(group) > args.max:
-                print(f"  ... and {len(group) - args.max} more")
-        dead_total += len(dead)
-        drift_total += len(drift)
-        hist_total += len(hist)
-
-    if args.update_baseline:
-        baseline_path.parent.mkdir(parents=True, exist_ok=True)
-        all_dead = sorted(
-            {f"{path.relative_to(ROOT).as_posix()}:{ref}"
-             for path in targets if path.exists()
-             for _, ref, kind in scan(path, rel_paths, by_name) if kind == "dead"}
-        )
-        # A rewrite is destructive: the scan only sees refs in `targets`, so entries
-        # baselined earlier (e.g. from --include-adr, or from a source tree that has since
-        # been reworded) are silently dropped. On 2026-10-05 an unguarded
-        # --update-baseline reduced this file from 328 entries to 39, erasing the record
-        # of accepted debt. Require --force when entries would be removed.
-        dropped = sorted(accepted - set(all_dead))
-        if dropped and not args.force:
-            print(f"REFUSING to rewrite {baseline_path}: it would drop "
-                  f"{len(dropped)} existing accepted entr(ies).", file=sys.stderr)
-            print("The scan only covers the current target set, so this is not a "
-                  "statement that the refs are fixed.", file=sys.stderr)
-            for entry in dropped[:20]:
-                print(f"  would drop: {entry}", file=sys.stderr)
-            if len(dropped) > 20:
-                print(f"  ... and {len(dropped) - 20} more", file=sys.stderr)
-            print("\nRe-run with --force to accept the loss, or add the still-valid "
-                  "entries back by hand.", file=sys.stderr)
-            return 1
-        if dropped:
-            print(f"WARNING: dropping {len(dropped)} accepted dead-ref entr(ies) "
-                  f"(--force)", file=sys.stderr)
-        header = (
-            "# Accepted dead file references in docs, skills and KDoc.\n"
-            "#\n"
-            "# Each line is `<file>:<referenced-path>`. A dead reference means the\n"
-            "# referenced file does not exist anywhere in the repo. These are accepted\n"
-            "# because the surrounding prose describes a design that was written down\n"
-            "# but never built; they are catalogued in\n"
-            "# docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md.\n"
-            "#\n"
-            "# New dead references are NOT baselined and fail `just docs-audit`.\n"
-            "# Regenerate with: python3 scripts/check-doc-dead-refs.py --update-baseline\n"
-            "#   (add --force only if you intend to drop entries that are no longer\n"
-            "#    detected; the scan does not see everything this file records).\n"
-            "# Remove a line once the file is written or the example is reworded.\n"
-        )
-        baseline_path.write_text(header + "\n".join(all_dead) + "\n", encoding="utf-8")
-        print(f"\nbaseline written: {len(all_dead)} accepted dead refs -> {baseline_path}")
-        return 0
-
-    print(f"\nDead refs: {dead_total} dead ({dead_total - len(new_dead)} baselined), "
-          f"{drift_total} path-drift, {hist_total} historical")
-    if new_dead:
-        print("\nNEW dead references (not baselined — fix or reword the example):")
-        for entry in new_dead[: args.max]:
-            print(f"  {entry}")
-        if len(new_dead) > args.max:
-            print(f"  ... and {len(new_dead) - args.max} more")
-    if dead_total - len(new_dead):
-        print("\nBaselined dead refs are accepted debt — see the baseline file header.")
-    if drift_total:
-        print("\nDRIFT: the file exists but moved. Update the path; basename matches are")
-        print("accepted, so drift is a warning unless --strict is passed.")
-    return 1 if (new_dead or (drift_total and args.strict)) else 0
-
-
 # ── Detector 8 — skill-dangling-symbol ───────────────────────────────────────
 
 
@@ -587,6 +444,7 @@ _DETEKT_RULE_KEY = re.compile(
     r"(?:true|false|null|\[\]|\{\}|$|[-\w'\"])",
     re.M,
 )
+
 
 def _kt_enum_entries(text: str) -> list[str]:
     """Names declared inside `enum class` bodies.
@@ -695,7 +553,7 @@ def _build_kt_symbol_index() -> dict[str, str]:
     # висячими, вынуждая либо базилизовать живой символ, либо убрать точное
     # имя из документации. Оба варианта хуже, чем научить гейт видеть Python.
     #
-    # infra/ проиндексирован потому же, что и detekt-rules выше: его скрипты —
+    # infra/ проиндексирован поэтому же, что и detekt-rules выше: его скрипты —
     # исполняемый код этого репозитория, а не вспомогательные файлы.
     for base in (
         ROOT / "scripts",
@@ -793,7 +651,7 @@ def _scan_skill_symbol_refs(
     return refs
 
 
-def _skill_symbols_main(_args) -> int:
+def _skill_symbols_main(ctx: click.Context, skill_symbols: bool, update_baseline: bool, force: bool, max: int) -> int:
     """Check that Kotlin symbols referenced in skill files exist in production code."""
     index = _build_kt_symbol_index()
     skill_dir = ROOT / ".agents" / "skills"
@@ -830,7 +688,7 @@ def _skill_symbols_main(_args) -> int:
     # `--update-baseline` was accepted by the argument parser but ignored here, so
     # the skill-symbol baseline could only ever grow. That is what left 840 entries
     # in place after `_build_kt_symbol_index` was taught to see `data class`.
-    if getattr(_args, "update_baseline", False):
+    if update_baseline:
         header = (
             "# Kotlin symbols referenced in skill files that do not exist in\n"
             "# production source. Regenerate with:\n"
@@ -840,24 +698,187 @@ def _skill_symbols_main(_args) -> int:
             "# Most of these were accepted because the skill described an architecture\n"
             "# that was never built. The 2026-10-04 index fix (data class / abstract\n"
             "# class / annotated declarations were invisible) removed several hundred\n"
-            # false positives in one pass.\n"
+            "# false positives in one pass.\n"
         )
         body = "\n".join(sorted(set(dangling)))
         baseline_path.parent.mkdir(parents=True, exist_ok=True)
         baseline_path.write_text(header + body + "\n", encoding="utf-8")
-        print(f"baseline rewritten: {len(set(dangling))} dangling symbol(s) -> {baseline_path}")
-        return 0
+        click.echo(f"baseline rewritten: {len(set(dangling))} dangling symbol(s) -> {baseline_path}")
+        return CLEAN
 
     if new_findings:
-        print("NEW skill symbol references (not baselined):")
+        click.echo("NEW skill symbol references (not baselined):")
         for f in new_findings:
-            print(f)
-        print(f"\n{len(new_findings)} new dangling symbol(s).")
-        return 1
+            click.echo(f)
+        click.echo(f"\n{len(new_findings)} new dangling symbol(s).")
+        return VALIDATION_FAILURE
 
-    print("No new dangling symbols found in skill files.")
-    return 0
+    click.echo("No new dangling symbols found in skill files.")
+    return CLEAN
+
+
+@click.command()
+@click.option("--include-adr", is_flag=True, help="also scan docs/decisions (reports historical refs separately)")
+@click.option("--max", type=int, default=40, help="max lines to print per file")
+@click.option("--strict", is_flag=True, help="treat path drift as a failure too")
+@click.option(
+    "--baseline",
+    metavar="PATH",
+    default=str(ROOT / "config" / "docs" / "dead-refs-baseline.txt"),
+    help="file of accepted dead refs, one 'path:ref' per line",
+)
+@click.option("--update-baseline", is_flag=True, help="rewrite the baseline from the current findings, then exit")
+@click.option("--force", is_flag=True, help="with --update-baseline, allow dropping entries that are no longer detected (destructive)")
+@click.option("--skill-symbols", is_flag=True, help="check Kotlin symbol references in skill files (detector 8)")
+@click.option("--quiet-generated", is_flag=True, help="suppress the informational list of gitignored (generated) references")
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    include_adr: bool,
+    max: int,
+    strict: bool,
+    baseline: str,
+    update_baseline: bool,
+    force: bool,
+    skill_symbols: bool,
+    quiet_generated: bool,
+) -> None:
+    if skill_symbols:
+        ret = _skill_symbols_main(ctx, skill_symbols, update_baseline, force, max)
+        raise ctx.exit(ret)
+
+    rel_paths, by_name = build_index()
+    targets: list[pathlib.Path] = [
+        ROOT / "AGENTS.md",
+        ROOT / "ARCHITECTURE.md",
+        ROOT / "README.md",
+        ROOT / "PROGRESS.md",
+    ]
+    targets += sorted(SKILLS_DIR.glob("*/SKILL.md"))
+    targets += sorted((ROOT / "shared/src").rglob("*.kt"))
+    # Build scripts cite ADRs too, and a dangling one there is the worst case:
+    # the comment outlives the rename, and nothing else in the tree would notice.
+    targets += [ROOT / name for name in GLOB_BUILD if (ROOT / name).is_file()]
+    if include_adr:
+        targets += [p for p in sorted(DECISIONS_DIR.glob("*.md")) if p.name != "DIGEST.md"]
+
+    baseline_path = pathlib.Path(baseline)
+    accepted: set[str] = set()
+    if baseline_path.exists():
+        accepted = {l.strip() for l in baseline_path.read_text().splitlines() if l.strip() and not l.startswith("#")}
+
+    dead_total = 0
+    drift_total = 0
+    hist_total = 0
+    new_dead: list[str] = []
+    for path in targets:
+        if not path.exists():
+            continue
+        findings = scan(path, rel_paths, by_name)
+        if not findings:
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        dead = [f for f in findings if f[2] == "dead"]
+        drift = [f for f in findings if f[2] == "drift"]
+        hist = [f for f in findings if f[2] == "historical"]
+        # A dead reference to a gitignored path is a *generated* file, not a
+        # broken link. Downgrade before baselining so it is neither reported
+        # as debt nor silently added to the baseline.
+        generated = [f for f in dead if is_generated(f[1])]
+        if generated:
+            dead = [f for f in dead if not is_generated(f[1])]
+            if not quiet_generated:
+                gen_list = ", ".join(sorted({f[1] for f in generated}))
+                click.echo(f"{rel}: {len(generated)} generated reference(s) "
+                      f"(gitignored, built by a hook — not checked): {gen_list}")
+        # Split dead into baselined (accepted debt) and new (must be fixed).
+        baselined = [f for f in dead if f"{rel}:{f[1]}" in accepted]
+        new = [f for f in dead if f"{rel}:{f[1]}" not in accepted]
+        new_dead += [f"{rel}:{ref}" for _, ref, _ in new]
+        if not new and not drift and (baselined or hist):
+            click.echo(f"\n{rel}: {len(baselined)} baselined dead, {len(hist)} historical — OK")
+        for label, group in (("DEAD (new)", new), ("DRIFT", drift)):
+            if not group:
+                continue
+            click.echo(f"\n{rel}: {len(group)} {label} reference(s)")
+            for line, ref, _ in group[:max]:
+                click.echo(f"  L{line}: {ref}")
+            if len(group) > max:
+                click.echo(f"  ... and {len(group) - max} more")
+        dead_total += len(dead)
+        drift_total += len(drift)
+        hist_total += len(hist)
+
+    if update_baseline:
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        all_dead = sorted(
+            {f"{path.relative_to(ROOT).as_posix()}:{ref}"
+             for path in targets if path.exists()
+             for _, ref, kind in scan(path, rel_paths, by_name) if kind == "dead"}
+        )
+        # A rewrite is destructive: the scan only sees refs in `targets`, so entries
+        # baselined earlier (e.g. from --include-adr, or from a source tree that has since
+        # been reworded) are silently dropped. On 2026-10-05 an unguarded
+        # --update-baseline reduced this file from 328 entries to 39, erasing the record
+        # of accepted debt. Require --force when entries would be removed.
+        dropped = sorted(accepted - set(all_dead))
+        if dropped and not force:
+            click.echo(f"REFUSING to rewrite {baseline_path}: it would drop "
+                  f"{len(dropped)} existing accepted entr(ies).", err=True)
+            click.echo("The scan only covers the current target set, so this is not a "
+                  "statement that the refs are fixed.", err=True)
+            for entry in dropped[:20]:
+                click.echo(f"  would drop: {entry}", err=True)
+            if len(dropped) > 20:
+                click.echo(f"  ... and {len(dropped) - 20} more", err=True)
+            click.echo("\nRe-run with --force to accept the loss, or add the still-valid "
+                  "entries back by hand.", err=True)
+            raise ctx.exit(VALIDATION_FAILURE)
+        if dropped:
+            click.echo(f"WARNING: dropping {len(dropped)} accepted dead-ref entr(ies) "
+                  f"(--force)", err=True)
+        header = (
+            "# Accepted dead file references in docs, skills and KDoc.\n"
+            "#\n"
+            "# Each line is `<file>:<referenced-path>`. A dead reference means the\n"
+            "# referenced file does not exist anywhere in the repo. These are accepted\n"
+            "# because the surrounding prose describes a design that was written down\n"
+            "# but never built; they are catalogued in\n"
+            "# docs/decisions/2026-09-27-doc-and-skills-sprint-findings.md.\n"
+            "#\n"
+            "# New dead references are NOT baselined and fail `just docs-audit`.\n"
+            "# Regenerate with: python3 scripts/check-doc-dead-refs.py --update-baseline\n"
+            "#   (add --force only if you intend to drop entries that are no longer\n"
+            "#    detected; the scan does not see everything this file records).\n"
+            "# Remove a line once the file is written or the example is reworded.\n"
+        )
+        baseline_path.write_text(header + "\n".join(all_dead) + "\n", encoding="utf-8")
+        click.echo(f"\nbaseline written: {len(all_dead)} accepted dead refs -> {baseline_path}")
+        raise ctx.exit(CLEAN)
+
+    click.echo(f"\nDead refs: {dead_total} dead ({dead_total - len(new_dead)} baselined), "
+          f"{drift_total} path-drift, {hist_total} historical")
+    if new_dead:
+        click.echo("\nNEW dead references (not baselined — fix or reword the example):")
+        for entry in new_dead[:max]:
+            click.echo(f"  {entry}")
+        if len(new_dead) > max:
+            click.echo(f"  ... and {len(new_dead) - max} more")
+    if dead_total - len(new_dead):
+        click.echo("\nBaselined dead refs are accepted debt — see the baseline file header.")
+    if drift_total:
+        click.echo("\nDRIFT: the file exists but moved. Update the path; basename matches are")
+        click.echo("accepted, so drift is a warning unless --strict is passed.")
+    ret = VALIDATION_FAILURE if (new_dead or (drift_total and strict)) else CLEAN
+    raise ctx.exit(ret)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(argv, standalone_mode=False)
+    except SystemExit:
+        raise  # let it propagate
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
