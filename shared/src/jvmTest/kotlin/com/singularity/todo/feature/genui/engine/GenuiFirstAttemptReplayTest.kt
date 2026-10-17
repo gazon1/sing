@@ -134,5 +134,14 @@ class GenuiFirstAttemptReplayTest {
 
     /** The recorded model output, read from the corpus the offline test also uses. */
     private fun recording(name: String): List<String> =
-        File("src/jvmTest/resources/genui-corpus/$name").readLines().filter { it.isNotBlank() }
+        File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$name").readLines().filter { it.isNotBlank() }
+
+    private companion object {
+        // Module root — `commonMain.root` is already passed as an absolute path to the forked JVM.
+        private val MODULE_ROOT: String by lazy {
+            val root = System.getProperty("commonMain.root")!!
+            val idx = root.lastIndexOf("/commonMain")
+            if (idx != -1) root.substring(0, idx).removeSuffix("/src") else root
+        }
+    }
 }

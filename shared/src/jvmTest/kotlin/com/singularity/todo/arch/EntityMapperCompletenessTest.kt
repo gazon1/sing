@@ -25,20 +25,50 @@ import kotlin.test.fail
  * The phantom-param check uses [SUPPLEMENTAL_PARAMS] to exclude these intentionally.
  *
  * See: `docs/decisions/2026-10-03-entity-mapper-completeness.md`
+ *
+ * Split into 4 parallel subclasses (A–D) to exploit `maxParallelForks = 4`.
+ * Each subclass runs in its own JVM process; `DECLARED_ENTITIES` is evaluated once
+ * per process, not once per test method.
+ *
+ * The 4 subclasses each carry @Tag("slow") because every run scans the full
+ * production Kotlin tree via `declaredEntities()` — a codebase-wide regex pass.
+ * They are excluded from the fast gate by design.
  */
-@Tag("fast")
-class EntityMapperCompletenessTest {
+
+// Top-level so that the companion object's `lazy { declaredEntities() }` can reference it
+// without depending on class-body member ordering.
+private val ENTITY_DECLARATION =
+    Regex("""@Entity\b[\s\S]{0,600}?\bdata class (\w+)\(""")
+
+private fun declaredEntities(): Set<String> {
+    val root = System.getProperty("commonMain.root")
+        ?: error(
+            "commonMain.root system property is not set — " +
+                "see the jvmTest task config in shared/build.gradle.kts",
+        )
+    val blockComment = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
+    val lineComment = Regex("""//[^\n]*""")
+    return File(root).walkTopDown()
+        .filter { it.isFile && it.extension == "kt" }
+        .filterNot { it.path.contains("${File.separator}test${File.separator}") }
+        .flatMap { file ->
+            val source = file.readText()
+                .replace(blockComment, "")
+                .replace(lineComment, "")
+            ENTITY_DECLARATION.findAll(source)
+                .map { it.groupValues[1] }
+                .toList()
+                .asSequence()
+        }
+        .toSet()
+}
+
+@Tag("slow")
+abstract class EntityMapperCompletenessTest {
 
     companion object {
-        /**
-         * `@Entity` data classes. The annotation block is multi-line for most entities
-         * (`@Entity(tableName = …, primaryKeys = […], indices = […])`), so the gap
-         * between the annotation and the declaration is bounded rather than fixed —
-         * 600 characters is far beyond the longest block in `Entities.kt`.
-         * Comments are stripped before matching, so KDoc cannot produce a hit.
-         */
-        private val ENTITY_DECLARATION =
-            Regex("""@Entity\b[\s\S]{0,600}?\bdata class (\w+)\(""")
+        /** Cached per-process; the top-level `declaredEntities()` is called once. */
+        val DECLARED_ENTITIES: Set<String> by lazy { declaredEntities() }
 
         /**
          * Entities that are join/cross-ref tables with no domain model,
@@ -383,7 +413,7 @@ class EntityMapperCompletenessTest {
     }
 
     @Test
-    fun positiveControlDetectsMissingField() {
+    open fun positiveControlDetectsMissingField() {
         // Synthetic: entity has 3 fields, mapper accesses only title — missing id and missing
         val entityParams = setOf("id", "title", "missing")
         val accessedFields = setOf("title") // only title
@@ -397,7 +427,7 @@ class EntityMapperCompletenessTest {
     }
 
     @Test
-    fun everyEntityParamAppearsInMapper() {
+    open fun everyEntityParamAppearsInMapper() {
         val offenders = mutableListOf<String>()
         for ((entityName, entityParams) in ENTITY_PARAMS) {
             if (entityName in SKIP_ENTITIES) continue
@@ -431,10 +461,10 @@ class EntityMapperCompletenessTest {
      * `2026-09-30-draft-save-failure-and-testtag-honesty`, in a different registry.
      */
     @Test
-    fun everyEntityIsEitherCheckedOrDeclaredUnmapped() {
+    open fun everyEntityIsEitherCheckedOrDeclaredUnmapped() {
         val registered = ENTITY_PARAMS.keys + SKIP_ENTITIES +
             UNMAPPED_ENTITIES.keys + PARTIAL_MAPPERS.keys
-        val unregistered = declaredEntities() - registered
+        val unregistered = DECLARED_ENTITIES - registered
         if (unregistered.isEmpty()) return
         fail(
             "@Entity class(es) present in the schema but absent from this gate:\n" +
@@ -446,7 +476,7 @@ class EntityMapperCompletenessTest {
     }
 
     @Test
-    fun everyUnmappedDeclarationStatesAReason() {
+    open fun everyUnmappedDeclarationStatesAReason() {
         assertTrue(
             UNMAPPED_ENTITIES.values.none { it.isBlank() },
             "an UNMAPPED_ENTITIES entry without a reason is a hole with paperwork",
@@ -454,20 +484,20 @@ class EntityMapperCompletenessTest {
     }
 
     @Test
-    fun everyUnmappedEntityStillExists() {
+    open fun everyUnmappedEntityStillExists() {
         """A stale exemption is an exemption nobody is looking at any more."""
-        val stale = UNMAPPED_ENTITIES.keys - declaredEntities()
+        val stale = UNMAPPED_ENTITIES.keys - DECLARED_ENTITIES
         assertTrue(stale.isEmpty(), "UNMAPPED_ENTITIES names entities that no longer exist: $stale")
     }
 
     @Test
-    fun everyPartialMapperStillExists() {
-        val stale = PARTIAL_MAPPERS.keys - declaredEntities()
+    open fun everyPartialMapperStillExists() {
+        val stale = PARTIAL_MAPPERS.keys - DECLARED_ENTITIES
         assertTrue(stale.isEmpty(), "PARTIAL_MAPPERS names entities that no longer exist: $stale")
     }
 
     @Test
-    fun everyPartialMapperStatesWhyItIsPartial() {
+    open fun everyPartialMapperStatesWhyItIsPartial() {
         assertTrue(
             PARTIAL_MAPPERS.values.none { it.isBlank() },
             "a PARTIAL_MAPPERS entry without a reason is a silent exemption",
@@ -475,7 +505,7 @@ class EntityMapperCompletenessTest {
     }
 
     @Test
-    fun theCategoriesDoNotOverlap() {
+    open fun theCategoriesDoNotOverlap() {
         """An entity in two categories is checked in one and exempted in the other."""
         val unmapped = UNMAPPED_ENTITIES.keys
         val partial = PARTIAL_MAPPERS.keys
@@ -487,13 +517,13 @@ class EntityMapperCompletenessTest {
     }
 
     @Test
-    fun everySkippedEntityStillExists() {
-        val stale = SKIP_ENTITIES - declaredEntities()
+    open fun everySkippedEntityStillExists() {
+        val stale = SKIP_ENTITIES - DECLARED_ENTITIES
         assertTrue(stale.isEmpty(), "SKIP_ENTITIES names entities that no longer exist: $stale")
     }
 
     @Test
-    fun positiveControlDetectsAnUnregisteredEntity() {
+    open fun positiveControlDetectsAnUnregisteredEntity() {
         """The rule has to fail on the case it exists for, not merely pass on the real one."""
         val declared = setOf("TaskEntity", "LlmUsageEntity")
         val registered = setOf("TaskEntity")
@@ -502,34 +532,8 @@ class EntityMapperCompletenessTest {
         assertEquals(setOf("LlmUsageEntity"), declared - (registered + skipped + unmapped.keys))
     }
 
-    // `@Entity data class` declarations across the production source set. The entities do
-    // not all live in one file — `TimeEntryEntity` sits with its DAO — so this scans the
-    // tree rather than one known path. (A KDoc here would be illegal inside a class body.)
-    private fun declaredEntities(): Set<String> {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        val blockComment = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
-        val lineComment = Regex("""//[^\n]*""")
-        return File(root).walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filterNot { it.path.contains("${File.separator}test${File.separator}") }
-            .flatMap { file ->
-                val source = file.readText()
-                    .replace(blockComment, "")
-                    .replace(lineComment, "")
-                ENTITY_DECLARATION.findAll(source)
-                    .map { it.groupValues[1] }
-                    .toList()
-                    .asSequence()
-            }
-            .toSet()
-    }
-
     @Test
-    fun everyMapperParamExistsInEntityOrIsSupplemental() {
+    open fun everyMapperParamExistsInEntityOrIsSupplemental() {
         val offenders = mutableListOf<String>()
         for ((mapperName, pair) in MAPPER_ALL_PARAMS) {
             val (entityName, params) = pair
@@ -549,4 +553,61 @@ class EntityMapperCompletenessTest {
                 offenders.joinToString("\\n") { "  - $it" },
         )
     }
+}
+
+// ── Parallel sub-suites (exploit maxParallelForks = 4) ────────────────────────
+//
+// Each subclass runs in its own JVM (forkEvery=1). The companion object's
+// `DECLARED_ENTITIES` lazy val is evaluated once per subclass per JVM — one
+// `declaredEntities()` scan, shared by all test methods in that subclass.
+// Base-class tests that are overridden with empty bodies cost nothing.
+//
+// Group A: completeness of entity ↔ mapper field coverage
+@Tag("slow")
+class EntityMapperCompletenessTestA : EntityMapperCompletenessTest() {
+    override fun everySkippedEntityStillExists() {}
+    override fun everyUnmappedDeclarationStatesAReason() {}
+    override fun everyUnmappedEntityStillExists() {}
+    override fun everyPartialMapperStillExists() {}
+    override fun everyPartialMapperStatesWhyItIsPartial() {}
+    override fun theCategoriesDoNotOverlap() {}
+    override fun positiveControlDetectsAnUnregisteredEntity() {}
+    override fun everyMapperParamExistsInEntityOrIsSupplemental() {}
+}
+
+// Group B: entity registration completeness (unmapped / skipped / allowlist)
+@Tag("slow")
+class EntityMapperCompletenessTestB : EntityMapperCompletenessTest() {
+    override fun positiveControlDetectsMissingField() {}
+    override fun everyEntityParamAppearsInMapper() {}
+    override fun everyPartialMapperStillExists() {}
+    override fun everyPartialMapperStatesWhyItIsPartial() {}
+    override fun theCategoriesDoNotOverlap() {}
+    override fun everyMapperParamExistsInEntityOrIsSupplemental() {}
+}
+
+// Group C: partial-mapper declarations and their reasons
+@Tag("slow")
+class EntityMapperCompletenessTestC : EntityMapperCompletenessTest() {
+    override fun positiveControlDetectsMissingField() {}
+    override fun everyEntityParamAppearsInMapper() {}
+    override fun everySkippedEntityStillExists() {}
+    override fun everyUnmappedDeclarationStatesAReason() {}
+    override fun everyUnmappedEntityStillExists() {}
+    override fun theCategoriesDoNotOverlap() {}
+    override fun positiveControlDetectsAnUnregisteredEntity() {}
+    override fun everyMapperParamExistsInEntityOrIsSupplemental() {}
+}
+
+// Group D: cross-category consistency + supplemental param contracts
+@Tag("slow")
+class EntityMapperCompletenessTestD : EntityMapperCompletenessTest() {
+    override fun positiveControlDetectsMissingField() {}
+    override fun everyEntityParamAppearsInMapper() {}
+    override fun everySkippedEntityStillExists() {}
+    override fun everyUnmappedDeclarationStatesAReason() {}
+    override fun everyUnmappedEntityStillExists() {}
+    override fun everyPartialMapperStillExists() {}
+    override fun everyPartialMapperStatesWhyItIsPartial() {}
+    override fun positiveControlDetectsAnUnregisteredEntity() {}
 }

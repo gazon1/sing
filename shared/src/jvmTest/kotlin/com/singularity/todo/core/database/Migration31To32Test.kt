@@ -36,7 +36,7 @@ import kotlin.test.assertTrue
  * Room itself validates the resulting schema against `32.json` on open, so this
  * test also proves the hand-copied rebuild SQL matches the v32 entity schema.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration31To32Test {
 
     private lateinit var tempDir: File

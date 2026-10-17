@@ -280,6 +280,14 @@ class HarnessConventionTest {
          * stay that way; an entry needs the reason inline, like `knownUnapplied`
          * in TestTagsWiringTest.
          */
+        /**
+         * Files that contain test classes without @Tag, and the reason each exemption exists.
+         * Reasons are mandatory — an exemption without a reason is a maintenance trap.
+         * Two-way check: validated against actual source in the
+         * `exempted files for @Tag actually contain untagged test classes` test.
+         */
+        val EXEMPT_TAG: Map<String, String> = emptyMap()
+
         val EXEMPT_A11Y: Set<String> = emptySet()
 
         /**
@@ -402,6 +410,95 @@ class HarnessConventionTest {
          */
         val BUTTON_TEXT_ASSERT_PATTERN = Regex(
             """assertText(Not)?Enabled\(""",
+        )
+    }
+
+    @Test
+    fun `every test class has a @Tag annotation`() {
+        // A test without @Tag is invisible to the `fast` / `slow` filter that gates CI.
+        // All test classes must be tagged so that `-Ptest.tags=fast,slow` in CI can
+        // include or exclude them deterministically — regardless of whether they are
+        // flow tests, composable tests, or any other kind.
+        val CLASS_PATTERN = Regex(
+            """^class\s+(\w+)\s*:\s*\w+\s*\{""",
+            RegexOption.MULTILINE,
+        )
+
+        val violations = testSources
+            .mapNotNull { file ->
+                val body = file.readText()
+                val classes = CLASS_PATTERN.findAll(body).map { it.groupValues[1] }.toList()
+                // A test class is one whose name ends in "Test" or "Tests".
+                val testClasses = classes.filter { it.endsWith("Test") || it.endsWith("Tests") }
+                if (testClasses.isEmpty()) return@mapNotNull null
+
+                val tagPattern = Regex("""@Tag\s*\(\s*"(\w+)"\s*\)""")
+                val taggedClasses = mutableSetOf<String>()
+                tagPattern.findAll(body).forEach { tagMatch ->
+                    val tagValue = tagMatch.groupValues[1]
+                    val after = body.substring(tagMatch.range.last + 1)
+                    val nextClass = CLASS_PATTERN.find(after)
+                    if (nextClass != null) {
+                        val name = nextClass.groupValues[1]
+                        if (name.endsWith("Test") || name.endsWith("Tests")) {
+                            taggedClasses.add(name)
+                        }
+                    }
+                }
+
+                val untagged = testClasses.filter { it !in taggedClasses }
+                    .filterNot { it in EXEMPT_TAG }
+                if (untagged.isEmpty()) null
+                else "${file.name}: untagged test class(es): ${untagged.joinToString()}"
+            }
+
+        if (violations.isEmpty()) return
+        fail(
+            "Test class(es) without @Tag annotation:\n" +
+                violations.joinToString("\n") { "  - $it" } +
+                "\n\nEvery test class must carry @Tag(\"fast\") or @Tag(\"slow\") so that " +
+                "`-Ptest.tags=fast,slow` in CI can include or exclude it deterministically. " +
+                "Exempt a file in EXEMPT_TAG with a reason.",
+        )
+    }
+
+    @Test
+    fun `exempted files for @Tag actually contain untagged test classes`() {
+        // Two-way check: validates that EXEMPT_TAG entries are still valid.
+        // An entry whose file no longer has untagged test classes must be removed,
+        // otherwise the exemption hides a regression.
+        val stale = EXEMPT_TAG.filter { (fileName, _) ->
+            val file = testSources.find { it.name == fileName }
+            if (file == null) return@filter true  // file removed = stale
+            val body = file.readText()
+            val classes = Regex("""^class\s+(\w+)\s*:\s*\w+\s*\{""", RegexOption.MULTILINE)
+                .findAll(body).map { it.groupValues[1] }
+                .filter { it.endsWith("Test") || it.endsWith("Tests") }
+                .toList()
+            if (classes.isEmpty()) return@filter true  // no test classes = stale
+            // Check if any class is untagged — exemption is stale if none are
+            val tagPattern = Regex("""@Tag\s*\(\s*"(\w+)"\s*\)""")
+            val taggedClasses = mutableSetOf<String>()
+            tagPattern.findAll(body).forEach { tagMatch ->
+                val after = body.substring(tagMatch.range.last + 1)
+                val nextClass = Regex("""^class\s+(\w+)\s*:\s*\w+\s*\{""", RegexOption.MULTILINE)
+                    .find(after)
+                if (nextClass != null) {
+                    val name = nextClass.groupValues[1]
+                    if (name.endsWith("Test") || name.endsWith("Tests")) {
+                        taggedClasses.add(name)
+                    }
+                }
+            }
+            val untagged = classes.filter { it !in taggedClasses }
+            // Keep (mark stale) only if there are no untagged classes — the exemption is no longer needed
+            untagged.isEmpty()
+        }
+        if (stale.isEmpty()) return
+        fail(
+            "EXEMPT_TAG entries with no untagged test classes (stale exemptions):\n" +
+                stale.entries.joinToString("\n") { "  - ${it.key}: ${it.value}" } +
+                "\n\nRemove the stale entry.",
         )
     }
 

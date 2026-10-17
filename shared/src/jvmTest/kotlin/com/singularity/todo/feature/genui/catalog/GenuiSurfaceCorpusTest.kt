@@ -79,7 +79,7 @@ class GenuiSurfaceCorpusTest {
         // likely to be renamed in a refactor. Their absence from the corpus is how that would go
         // unnoticed.
         val corpus: String = CORPUS.joinToString("\n") {
-            File("src/jvmTest/resources/genui-corpus/$it.jsonl").readText()
+            File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$it.jsonl").readText()
         }
         for (kind in listOf("task_card", "due_date", "project_chip", "text_field", "list", "button")) {
             assertTrue("\"$kind\"" in corpus, "The corpus no longer exercises $kind")
@@ -90,7 +90,7 @@ class GenuiSurfaceCorpusTest {
     fun everyCorpusFileExists() {
         for (name in CORPUS) {
             assertTrue(
-                File("src/jvmTest/resources/genui-corpus/$name.jsonl").isFile,
+                File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$name.jsonl").isFile,
                 "$name is listed in the corpus but not on disk",
             )
         }
@@ -114,12 +114,21 @@ class GenuiSurfaceCorpusTest {
     }
 
     private fun corpusLines(name: String): List<String> =
-        File("src/jvmTest/resources/genui-corpus/$name.jsonl")
+        File(MODULE_ROOT, "src/jvmTest/resources/genui-corpus/$name.jsonl")
             .readLines()
             .filter { it.isNotBlank() }
 
     private companion object {
         val CORPUS: List<String> = listOf("task-list", "add-task-form")
+        // Module root — `commonMain.root` is already passed as an absolute path to the forked JVM.
+        // `commonMain.root` ends with `/commonMain/kotlin`. Strip the `/src/commonMain/kotlin`
+        // suffix (use lastIndexOf to find the /commonMain that is part of the source-layout
+        // path, not the intermediate one inside `src/`).
+        private val MODULE_ROOT: String by lazy {
+            val root = System.getProperty("commonMain.root")!!
+            val idx = root.lastIndexOf("/commonMain")
+            if (idx != -1) root.substring(0, idx).removeSuffix("/src") else root
+        }
     }
 }
 
