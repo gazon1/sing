@@ -99,3 +99,10 @@ findings nobody has triaged or quietly skip the ones whose edit kind does not ma
   passing a sabotage), <https://github.com/gazon1/sing/actions/runs/38970523791>
 - [2026-10-15-gate-registry-carries-controls-as-data.md](2026-10-15-gate-registry-carries-controls-as-data.md)
 - [2026-10-16-readers-first-and-nothing-ran.md](2026-10-16-readers-first-and-nothing-ran.md) — the ADR that added the gate this control was supposed to prove
+## Why not B in one step
+
+The parser half of the original diagnosis was fixed upstream in #691 while this
+was in flight (`check-gradle-test-population.py` now joins backslash-continued
+commands, and `check-build-output-readers.py` walks parsed steps by position).
+Re-diagnosing a defect someone else had already fixed is how a fix lands twice and
+one copy rots in place of the other; the branch was rebuilt from `main` instead.
