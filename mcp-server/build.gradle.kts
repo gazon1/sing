@@ -102,8 +102,10 @@ tasks.withType<Test>().configureEach {
         "-XX:HeapDumpPath=build/test-heap-dumps",
     )
     // Allure test reporting — results written to build/allure-results/
-    val allureDir = layout.buildDirectory.dir("allure-results").map { it.asFile.absolutePath }
-    systemProperty("allure.results.directory", allureDir)
+    // See shared/build.gradle.kts for the full explanation of why workingDir is used
+    // instead of the allure.results.directory system property.
+    val allureDir = layout.buildDirectory.dir("allure-results").get().asFile
+    workingDir = allureDir.also { it.mkdirs() }
 }
 
 // Produce a fat JAR with all runtime deps merged

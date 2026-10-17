@@ -5,6 +5,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
@@ -27,7 +28,7 @@ class ProfileFlowTest {
     @Test
     fun create_profile_from_drawer() = runDesktopAppTest(checkA11y = true) {
         openDrawer()
-        clickContentDescription("Profiles")
+        clickContentDescriptionScrolled("Profiles")
 
         // Wait for drawer to close and ProfileSwitcher to render — use the
         // create button (unique to this screen) rather than "Profiles" text,
