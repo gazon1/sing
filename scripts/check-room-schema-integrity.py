@@ -78,7 +78,6 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import shutil
@@ -86,6 +85,8 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+import click
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -125,6 +126,10 @@ MANUAL_MIGRATIONS: dict[tuple[int, int], str] = {
 # someone later writes the 4 -> 5 migration the declaration must be revisited
 # rather than quietly outliving the fact that made it true.
 SUPPORTED_FROM_VERSION = 5
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 
 def get_floor() -> int:
@@ -686,37 +691,44 @@ def self_test() -> int:
         MANUAL_MIGRATIONS.update(saved)
 
     if failures:
-        print("check-room-schema-integrity self-test FAILED", file=sys.stderr)
+        click.echo("check-room-schema-integrity self-test FAILED", err=True)
         for f in failures:
-            print(f"  - {f}", file=sys.stderr)
+            click.echo(f"  - {f}", err=True)
         return 1
 
-    print("check-room-schema-integrity self-test: all rules fire, compliant tree clean")
+    click.echo("check-room-schema-integrity self-test: all rules fire, compliant tree clean")
     return 0
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true", help="plant each defect and assert it is caught")
-    args = parser.parse_args()
-
-    if args.self_test:
-        return self_test()
+@click.command()
+@click.option("--self-test", is_flag=True, help="plant each defect and assert it is caught")
+@click.pass_context
+def cli(ctx: click.Context, self_test: bool) -> None:
+    """Prove the declared schema, the exported schema, and the migration chain are the same schema."""
+    if self_test:
+        raise ctx.exit(self_test())
 
     violations = run_all(ROOT)
     if violations:
-        print(f"Room schema integrity: {len(violations)} violation(s)", file=sys.stderr)
+        click.echo(f"Room schema integrity: {len(violations)} violation(s)", err=True)
         for v in violations:
-            print(f"  {v}", file=sys.stderr)
-        return 1
+            click.echo(f"  {v}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
 
     version = parse_schema_version((ROOT / str(
         "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
     )).read_text())
     count = len(exported_versions(SCHEMA_DIR))
-    print(f"Room schema integrity: SCHEMA_VERSION {version}, {count} exported schemas, chain continuous")
-    return 0
+    click.echo(f"Room schema integrity: SCHEMA_VERSION {version}, {count} exported schemas, chain continuous")
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

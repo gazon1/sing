@@ -21,11 +21,13 @@ Exit codes:
     2  — git state error (not on a branch, not a git repo, etc.)
 """
 
-import argparse
+import fnmatch
 import os
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
+from pathlib import Path
+
+import click
 
 # Files whose changes warrant a targeted compile after a rebase.
 # Covers the DI surface that most often breaks after a large rebase:
@@ -47,10 +49,9 @@ GRADLE_TASKS = [
     ":desktopApp:compileKotlin",
 ]
 
-parser = argparse.ArgumentParser(description="Post-rebase DI compile gate")
-parser.add_argument("--quiet", action="store_true",
-                    help="Suppress output when exiting 0 (no DI changes)")
-args = parser.parse_args()
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 
 def run(cmd: list[str], capture: bool = True) -> tuple[int, str]:
@@ -65,7 +66,7 @@ def run(cmd: list[str], capture: bool = True) -> tuple[int, str]:
         return 2, str(e)
 
 
-def changed_files_since_upstream() -> list[str]:
+def changed_files_since_upstream(quiet: bool) -> list[str]:
     """
     Returns the list of files changed between HEAD and its upstream branch.
 
@@ -88,7 +89,6 @@ def changed_files_since_upstream() -> list[str]:
         # Not on a tracked branch — collect all DI-sensitive files as
         # a coarse but safe approximation: we cannot know what changed,
         # so we check everything.
-        import fnmatch
         di_files = []
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         for dirpath, _dirnames, filenames in os.walk(root):
@@ -119,7 +119,6 @@ def changed_files_since_upstream() -> list[str]:
 
 def di_sensitive(changed: list[str]) -> list[str]:
     """Return the subset of changed files that match DI-sensitive patterns."""
-    import fnmatch
     matched = []
     for f in changed:
         for pat in DI_SENSITIVE_PATTERNS:
@@ -142,34 +141,45 @@ def gradle_compile(tasks: list[str], quiet: bool) -> bool:
     return rc == 0
 
 
-def main() -> int:
-    changed = changed_files_since_upstream()
+@click.command()
+@click.option("--quiet", is_flag=True, help="Suppress output when exiting 0 (no DI changes)")
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool) -> None:
+    """Post-rebase DI compile gate."""
+    changed = changed_files_since_upstream(quiet)
 
     if not changed:
         # No upstream tracked, or git error — nothing to check
-        if not args.quiet:
-            print("check-rebase-compiles: no upstream tracked; skipping")
-        return 0
+        if not quiet:
+            click.echo("check-rebase-compiles: no upstream tracked; skipping")
+        raise ctx.exit(CLEAN)
 
     di_files = di_sensitive(changed)
     if not di_files:
-        if not args.quiet:
-            print("check-rebase-compiles: no DI-sensitive files changed; skipping compile check")
-        return 0
+        if not quiet:
+            click.echo("check-rebase-compiles: no DI-sensitive files changed; skipping compile check")
+        raise ctx.exit(CLEAN)
 
-    print(f"check-rebase-compiles: {len(di_files)} DI-sensitive file(s) changed:")
+    click.echo(f"check-rebase-compiles: {len(di_files)} DI-sensitive file(s) changed:")
     for f in di_files:
-        print(f"  {f}")
-    print(f"Running targeted compile: {' '.join(GRADLE_TASKS)}")
+        click.echo(f"  {f}")
+    click.echo(f"Running targeted compile: {' '.join(GRADLE_TASKS)}")
 
     ok = gradle_compile(GRADLE_TASKS, quiet=False)
     if ok:
-        print("check-rebase-compiles: compile succeeded")
-        return 0
+        click.echo("check-rebase-compiles: compile succeeded")
+        raise ctx.exit(CLEAN)
     else:
-        print("check-rebase-compiles: COMPILE FAILED — fix DI/import errors before pushing", file=sys.stderr)
-        return 1
+        click.echo("check-rebase-compiles: COMPILE FAILED — fix DI/import errors before pushing", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
