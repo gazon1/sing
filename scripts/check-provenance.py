@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """check-provenance.py — a derivation marker in production code must be registered.
 
+## Migration note
+
+Migrated from argparse to Click (2026-10-17). CLI surface is preserved;
+the `--self-test` flag works exactly as before.
+
 Why this exists (2026-10-05): the project is preparing to publish its core under
 Apache-2.0 and a `pro/` catalogue under FSL-1.1-Apache. GPL contamination does not
 wash off in proportion to how little code it touches, so before publication every
@@ -67,11 +72,14 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import csv
 import re
 import sys
 from pathlib import Path
+
+import click
+
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "config" / "legal" / "provenance-registry.tsv"
@@ -428,7 +436,7 @@ def self_test() -> int:
                     "broken even though the pattern matched"
                 )
             else:
-                print(f"  positive control: caught {violations[0].args[0].splitlines()[0]}")
+                click.echo(f"  positive control: caught {violations[0].args[0].splitlines()[0]}")
 
         # The positive fixture must be gone before the negative assertion, or the
         # check finds *it* and the negative control passes for the wrong reason.
@@ -442,7 +450,7 @@ def self_test() -> int:
                 f"the pattern is too broad and would make the gate noise"
             )
         else:
-            print("  negative control: ordinary file not reported")
+            click.echo("  negative control: ordinary file not reported")
 
         test_dir = root / "shared/src/commonTest/kotlin/com/example/MarkedInTest.kt"
         test_dir.parent.mkdir(parents=True)
@@ -450,7 +458,7 @@ def self_test() -> int:
         if test_dir in production_files(root):
             failures.append("a commonTest file was treated as production")
         else:
-            print("  scope control: commonTest excluded from the scan")
+            click.echo("  scope control: commonTest excluded from the scan")
 
         pro = root / "shared/src/commonMain/kotlin/com/example/pro/MarkedInPro.kt"
         pro.parent.mkdir(parents=True)
@@ -458,36 +466,35 @@ def self_test() -> int:
         if pro in production_files(root):
             failures.append("a pro/ file was treated as Apache-2.0 production")
         else:
-            print("  scope control: pro/ excluded (FSL, not Apache-2.0)")
+            click.echo("  scope control: pro/ excluded (FSL, not Apache-2.0)")
 
     if failures:
-        print("\ncheck-provenance.py self-test FAILED:\n", file=sys.stderr)
+        click.echo("\ncheck-provenance.py self-test FAILED:\n", err=True)
         for f in failures:
-            print(f"  - {f}", file=sys.stderr)
+            click.echo(f"  - {f}", err=True)
         return 1
-    print("\nself-test passed: the rule demonstrably fires, and is not vacuous.")
+    click.echo("\nself-test passed: the rule demonstrably fires, and is not vacuous.")
     return 0
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--self-test",
-        action="store_true",
-        help="prove the marker rule fires on a marked file and stays quiet otherwise",
-    )
-    args = parser.parse_args()
-
-    if args.self_test:
-        return self_test()
+@click.command()
+@click.option(
+    "--self-test",
+    is_flag=True,
+    help="prove the marker rule fires on a marked file and stays quiet otherwise",
+)
+@click.pass_context
+def cli(ctx: click.Context, self_test: bool) -> None:
+    if self_test:
+        raise ctx.exit(self_test())
 
     try:
         violations, stats = run_checks()
     except Violation as exc:
-        print(f"check-provenance: {exc}", file=sys.stderr)
-        return 1
+        click.echo(f"check-provenance: {exc}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print(
+    click.echo(
         f"provenance: {stats['registered']} registered "
         f"({stats['ported']} PORTED, {stats['adapted']} ADAPTED, "
         f"{stats['spec_compatible']} SPEC-COMPATIBLE); "
@@ -498,12 +505,19 @@ def main() -> int:
         violations.append(Violation(f"registry has no prose: {DOC.relative_to(ROOT)} is missing"))
 
     if violations:
-        print(f"\ncheck-provenance: {len(violations)} violation(s)\n", file=sys.stderr)
+        click.echo(f"\ncheck-provenance: {len(violations)} violation(s)\n", err=True)
         for v in violations:
-            print(f"  - {v}", file=sys.stderr)
-        return 1
-    return 0
+            click.echo(f"  - {v}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
+
+
+def main() -> int:
+    try:
+        cli.main(standalone_mode=False)
+    except SystemExit as exc:
+        return exc.code
+    return CLEAN
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
