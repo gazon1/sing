@@ -43,9 +43,10 @@ asks for the reason, so the answer is written down rather than remembered.
 Fails when a run contains a failure nobody has acknowledged. It never suppresses
 a failure: the build result still comes from Gradle, this only annotates it.
 """
-import argparse
 import pathlib
 import sys
+
+import click
 
 # `scripts/src` on sys.path so `traceability.junit_xml` resolves. When loaded by a
 # test harness (importlib.util.spec_from_file_location), sys.path[0] is
@@ -64,6 +65,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "config" / "docs" / "flaky-baseline.txt"
 
 PASSED, FAILED, SKIPPED = "passed", "failed", "skipped"
+CLEAN = 0
+VALIDATION_FAILURE = 1
+
+CUSTOM_ERROR = 2
 
 
 def test_id(case) -> str:
@@ -141,41 +146,42 @@ def compare(previous: dict, current: dict):
     }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--current", required=True, help="JUnit XML dir of this run")
-    parser.add_argument("--previous", default="", help="JUnit XML dir of the previous run")
-    parser.add_argument("--baseline", default=str(BASELINE))
-    parser.add_argument("--summary", default="", help="append a markdown section here")
-    parser.add_argument("--allow-missing-previous", action="store_true",
-                        help="exit 0 when there is nothing to compare against")
-    args = parser.parse_args()
+@click.command()
+@click.option("--current", required=True, help="JUnit XML dir of this run")
+@click.option("--previous", default="", help="JUnit XML dir of the previous run")
+@click.option("--baseline", default=str(BASELINE))
+@click.option("--summary", default="", help="append a markdown section here")
+@click.option("--allow-missing-previous", is_flag=True,
+              help="exit 0 when there is nothing to compare against")
+@click.pass_context
+def cli(ctx: click.Context, current: str, previous: str, baseline: str,
+        summary: str, allow_missing_previous: bool) -> None:
+    current_path = pathlib.Path(current)
+    rep = read_report(current_path)
+    if not rep:
+        click.echo(f"no JUnit XML in {current} — run the tests first", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    current = read_report(pathlib.Path(args.current))
-    if not current:
-        print(f"no JUnit XML in {args.current} — run the tests first", file=sys.stderr)
-        return 1
+    acknowledged = load_baseline(pathlib.Path(baseline))
 
-    acknowledged = load_baseline(pathlib.Path(args.baseline))
-
-    if not args.previous:
+    if not previous:
         message = "no previous run to compare against — flake analysis skipped"
-        if args.allow_missing_previous:
-            print(message)
-            return 0
-        print(message, file=sys.stderr)
-        return 1
+        if allow_missing_previous:
+            click.echo(message)
+            raise ctx.exit(CLEAN)
+        click.echo(message, err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    previous = read_report(pathlib.Path(args.previous))
-    if previous is None:
-        message = f"previous run has no JUnit XML in {args.previous}"
-        if args.allow_missing_previous:
-            print(message)
-            return 0
-        print(message, file=sys.stderr)
-        return 1
+    prev_rep = read_report(pathlib.Path(previous))
+    if prev_rep is None:
+        message = f"previous run has no JUnit XML in {previous}"
+        if allow_missing_previous:
+            click.echo(message)
+            raise ctx.exit(CLEAN)
+        click.echo(message, err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    buckets = compare(previous, current)
+    buckets = compare(prev_rep, rep)
     unacknowledged = [t for t in buckets["new_failures"] if not is_acknowledged(t, acknowledged)]
     known = [t for t in buckets["new_failures"] if is_acknowledged(t, acknowledged)]
 
@@ -194,34 +200,41 @@ def main() -> int:
         lines.append(f"- **no longer in the report**: {len(vanished)}")
         lines.extend(f"  - `{t}`" for t in vanished)
 
-    print(f"compared {len(current)} tests against {len(previous)} in the previous run")
+    click.echo(f"compared {len(rep)} tests against {len(prev_rep)} in the previous run")
     if known:
-        print(f"acknowledged flaky failures: {len(known)}")
+        click.echo(f"acknowledged flaky failures: {len(known)}")
     if buckets["recovered"]:
-        print(f"flake witnesses (failed in the previous run, passed now): "
-              f"{len(buckets['recovered'])}")
+        click.echo(f"flake witnesses (failed in the previous run, passed now): "
+                   f"{len(buckets['recovered'])}")
         for t in buckets["recovered"]:
-            print(f"  {t}")
+            click.echo(f"  {t}")
 
-    if args.summary:
-        with open(args.summary, "a", encoding="utf-8") as fh:
+    if summary:
+        with open(summary, "a", encoding="utf-8") as fh:
             fh.write("\n## Flake analysis (previous run vs this one)\n\n")
             fh.write("\n".join(lines) + "\n" if lines else "No status changes.\n")
 
     if unacknowledged:
-        print("\nUnacknowledged test failures — no entry in "
-              "config/docs/flaky-baseline.txt:", file=sys.stderr)
+        click.echo("\nUnacknowledged test failures — no entry in "
+                   "config/docs/flaky-baseline.txt:", err=True)
         for t in unacknowledged:
-            print(f"  {t}", file=sys.stderr)
-        print(
+            click.echo(f"  {t}", err=True)
+        click.echo(
             "\nIf the nondeterminism is understood, acknowledge it in\n"
             "config/docs/flaky-baseline.txt with the reason. If it is not, this is\n"
             "a real failure and the fix belongs in the code, not in the file.",
-            file=sys.stderr,
+            err=True,
         )
-        return 1
-    return 0
+        raise ctx.exit(VALIDATION_FAILURE)
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(argv, standalone_mode=False)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

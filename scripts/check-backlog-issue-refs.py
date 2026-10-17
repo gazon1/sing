@@ -21,39 +21,43 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
+import click
+
 ROOT = Path(__file__).resolve().parent.parent
 
 _BACKLOG_FIELD_RE = re.compile(r"(?i)^\s*Backlog:\s*([^\n]+)", re.M)
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 
 def _load_snapshot(path: Path) -> dict[int, dict]:
     """Load the snapshot as {issue_number: {number, state, title, body}}."""
     if not path.is_file():
-        print(f"ERROR: snapshot not found: {path}", file=sys.stderr)
-        print(
+        click.echo(f"ERROR: snapshot not found: {path}", err=True)
+        click.echo(
             "Run `just issues-refresh` to fetch the current issue state from GitHub.",
-            file=sys.stderr,
+            err=True,
         )
-        sys.exit(1)
+        raise SystemExit(VALIDATION_FAILURE)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"ERROR: snapshot is not valid JSON: {exc}", file=sys.stderr)
-        sys.exit(1)
+        click.echo(f"ERROR: snapshot is not valid JSON: {exc}", err=True)
+        raise SystemExit(VALIDATION_FAILURE)
     result: dict[int, dict] = {}
     for item in data:
         if "number" not in item or "state" not in item:
-            print(
+            click.echo(
                 f"ERROR: snapshot entry missing required field: {item!r}",
-                file=sys.stderr,
+                err=True,
             )
-            sys.exit(1)
+            raise SystemExit(VALIDATION_FAILURE)
         result[int(item["number"])] = item
     return result
 
@@ -82,39 +86,44 @@ def check_invariants(snapshot_path: Path) -> list[str]:
     return findings
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--snapshot",
-        type=Path,
-        default=ROOT / "config" / "docs" / "issues-snapshot.json",
-        help="issue snapshot file (default: issues-snapshot.json)",
-    )
-    args = ap.parse_args()
+@click.command()
+@click.option(
+    "--snapshot",
+    type=click.Path(exists=False, path_type=Path),
+    default=ROOT / "config" / "docs" / "issues-snapshot.json",
+    help="issue snapshot file (default: issues-snapshot.json)",
+)
+@click.pass_context
+def cli(ctx: click.Context, snapshot: Path) -> None:
+    if not snapshot.is_absolute():
+        snapshot = ROOT / snapshot
 
-    snapshot_path: Path = args.snapshot
-    if not snapshot_path.is_absolute():
-        snapshot_path = ROOT / snapshot_path
+    findings = check_invariants(snapshot)
 
-    findings = check_invariants(snapshot_path)
+    snap = _load_snapshot(snapshot)
+    open_issues = [i for i in snap.values() if i["state"] == "OPEN"]
 
-    snapshot = _load_snapshot(snapshot_path)
-    open_issues = [i for i in snapshot.values() if i["state"] == "OPEN"]
-
-    print(f"backlog-issue-refs: {len(open_issues)} open backlog issues")
+    click.echo(f"backlog-issue-refs: {len(open_issues)} open backlog issues")
 
     if findings:
-        print("")
+        click.echo("")
         for err in findings:
-            print(f"ERROR: {err}")
+            click.echo(f"ERROR: {err}")
 
-        print("")
-        print(f"check-backlog-issue-refs: FAIL — {len(findings)} open issue(s) missing Backlog: field")
-        return 1
+        click.echo("")
+        click.echo(f"check-backlog-issue-refs: FAIL — {len(findings)} open issue(s) missing Backlog: field")
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print("  ok  all open backlog issues have a Backlog: field")
-    return 0
+    click.echo("  ok  all open backlog issues have a Backlog: field")
+    raise ctx.exit(CLEAN)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(argv, standalone_mode=False)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
