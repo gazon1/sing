@@ -582,6 +582,18 @@ GATE_EXEMPTIONS: dict[str, Control] = {
             'assert `traceability validate` rejects it.'
         ),
     ),
+    'scripts/check-backlog-issue-refs.py': Control(
+        kind='exempt',
+        proves='scripts/check-backlog-issue-refs.py',
+        reason=(
+            'the snapshot (94 OPEN issues, none with a Backlog field) is already in the '
+            'failure state the gate detects. A control needs to distinguish "sabotaged run" '
+            'from "clean run" — both currently exit 1. The real fix is resolving the '
+            'backlog-issue-refs violations in the snapshot (close stale issues or add '
+            'Backlog fields). The control is `just issues-refresh` that keeps the '
+            'snapshot in sync with GitHub.'
+        ),
+    ),
 }
 
 # Populate `GateSpec.control` from the declarations above.

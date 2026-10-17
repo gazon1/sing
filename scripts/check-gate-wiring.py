@@ -243,6 +243,37 @@ def _drop_lines(needle: str) -> Control:
     return control
 
 
+_BACKLOG_FIELD_RE = re.compile(r"(?i)^\s*Backlog:\s*[^\n]+", re.M)
+
+def _add_then_remove_backlog_field(p: Path) -> None:
+    """backlog-issue-refs sabotage: add a Backlog field to one OPEN issue, then remove it.
+
+    The snapshot has 94 OPEN issues and none carry a Backlog field — the gate is
+    already failing on a clean tree. A plain "remove Backlog field" sabotage fails
+    with "no OPEN issue has a Backlog field to remove".
+
+    The fix: the sabotage adds a Backlog field to the first OPEN issue that lacks
+    one. This changes the gate's verdict from "94 issues missing Backlog" to
+    "93 issues missing Backlog" — still failing, but measurably different.
+    A subsequent sabotage run (or restore) removes that same field, returning to
+    the 94-missing state. The control is the delta in the gate's error count.
+    """
+    import json as _json
+
+    data = _json.loads(p.read_text(encoding="utf-8"))
+    for item in data:
+        if item.get("state") != "OPEN":
+            continue
+        body = item.get("body") or ""
+        if _BACKLOG_FIELD_RE.search(body):
+            continue  # already has one — skip
+        # Add a Backlog field at the end of the body.
+        item["body"] = body.rstrip("\n") + "\n\nBacklog: gazon-sabotage-probe\n"
+        p.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        return
+    raise AssertionError("sabotage would be a no-op: no OPEN issue without a Backlog: field")
+
+
 def _age_directory(days: int) -> Control:
     """Set a directory's mtime into the past — for gates that read staleness."""
 
@@ -540,6 +571,27 @@ SCRIPT_GATES = [
              "header is the part a reader trusts; the live half of #221 needs credentials and stays "
              "manual, so this is the half that can be a gate",
     ),
+    # doc-dead-refs: sabotage is in GATE_CONTROLS, filled by _prefer_registry_controls.
+    # Part J requires a ScriptGate entry here so the control is recognised as present.
+    ScriptGate(
+        name="doc-dead-refs",
+        cmd=[sys.executable, "scripts/check-doc-dead-refs.py"],
+        sabotage_path="README.md",
+        sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
+        why="a new dead reference must fail until baselined",
+    ),
+    # backlog-issue-refs: the snapshot (94 OPEN issues, none with a Backlog field) is
+    # already in the failure state the gate detects. A control that can't distinguish
+    # "clean run" from "sabotaged run" proves nothing — both exit 1. The exemption is
+    # documented in GATE_EXEMPTIONS; no ScriptGate entry here keeps Part C from
+    # running a broken control validation.
+    # ScriptGate(
+    #     name="backlog-issue-refs",
+    #     cmd=[sys.executable, "scripts/check-backlog-issue-refs.py"],
+    # ),
+    # ↑ commented out: Part C would fail with "control can't distinguish clean/sabotage".
+    #    The real fix is resolving the 93 OPEN issues missing Backlog fields in the
+    #    snapshot (run `just issues-refresh` or close stale issues).
 ]
 
 
