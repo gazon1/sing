@@ -448,6 +448,22 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = "3g"
+    // JFR profiling — enable with `-PJFR=true`. Records to build/reports/jfr/.
+    // `jfc` settings file is in project root so it's not buried in build/.
+    if (project.hasProperty("JFR")) {
+        // Azul JDK 21: all JFR options go into `-XX:StartFlightRecording=...`
+        // (no separate `-XX:FlightRecordingOptions=`). Path is absolute so it resolves
+        // regardless of the fork's working directory (Gradle workers run from
+        // shared/build/allure-results/, not project root).
+        jvmArgs(
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:+DebugNonSafepoints",
+            "-XX:StartFlightRecording=" +
+                "disk=false," +
+                "filename=/home/max/orca/workspaces/singularity_cllone_kmp/timingila/shared/build/reports/jfr/jvmTest-%p.jfr," +
+                "dumponexit=true",
+        )
+    }
     // Absolute path to commonMain sources for ArchitectureTest (Konsist scope).
     // Passed as a system property instead of relying on the test JVM working dir,
     // which is not guaranteed to be the project directory.

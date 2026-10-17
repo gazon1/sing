@@ -41,7 +41,7 @@ import kotlin.test.assertTrue
  *    write each other's answer; that is the whole reason the column lives here and not in
  *    the global `SyncPrefs`.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration40To41Test {
 
     private lateinit var tempDir: File

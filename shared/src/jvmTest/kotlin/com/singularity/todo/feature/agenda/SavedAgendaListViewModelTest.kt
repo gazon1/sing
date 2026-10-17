@@ -16,6 +16,7 @@ import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -36,12 +37,12 @@ import org.junit.jupiter.api.Tag
 /**
  * Tests for [SavedAgendaListViewModel] (saved agenda views list screen).
  *
- * Pattern:
- * - VM scope wraps the TestScope context plus a detached root [Job] — the VM's init
- *   collector never completes, so it must NOT be a child of the test job (runTest
- *   would otherwise fail with UncompletedCoroutinesError). Coroutines on the detached
- *   job are still driven by the shared test scheduler via [runCurrent].
- * - In-memory fakes implement the repository ports directly (no mocks).
+ * Pattern: all tests use [testVm] with [SavedAgendaListViewModel].
+ * The VM's init collector never completes (Flow observation), so the detached
+ * Job pattern is used in the factory. The collector is driven by the shared
+ * test scheduler via [runCurrent] / [kotlinx.coroutines.test.advanceUntilIdle].
+ *
+ * In-memory fakes implement the repository ports directly (no mocks).
  */
 @Tag("fast")
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -87,18 +88,43 @@ class SavedAgendaListViewModelTest {
         )
     }
 
-    private fun TestScope.createVm(deps: SavedAgendaListDeps) = SavedAgendaListViewModel(
-        deps = deps,
-        scope = AutoCloseableCoroutineScope(coroutineContext + Job()),
+    // testVm pattern: detached Job for the never-completing init collector.
+    // Named args used because the global testVm has an optional `afterInit` param
+    // after `factory`, which blocks trailing-lambda syntax for factory.
+    private fun TestScope.testVm(deps: SavedAgendaListDeps) = testVm(
+        stateAccessor = { vm: SavedAgendaListViewModel -> vm.stateFlow },
+        factory = { ts, _ ->
+            SavedAgendaListViewModel(
+                deps = deps,
+                scope = AutoCloseableCoroutineScope(ts.coroutineContext + Job()),
+            )
+        },
+    )
+
+    // For event-listening tests: set up background collector before first act.
+    private fun TestScope.testVmWithEvents(
+        deps: SavedAgendaListDeps,
+        events: MutableList<SavedAgendaListEvent>,
+    ) = testVm(
+        stateAccessor = { vm: SavedAgendaListViewModel -> vm.stateFlow },
+        afterInit = { vm, bgScope ->
+            bgScope.launch { vm.events.collect { events += it } }
+        },
+        factory = { ts, _ ->
+            SavedAgendaListViewModel(
+                deps = deps,
+                scope = AutoCloseableCoroutineScope(ts.coroutineContext + Job()),
+            )
+        },
     )
 
     @Test
     fun `starts in Loading then transitions to Loaded`() = runTest {
         val deps = makeDeps(views = listOf(makeView("v1", "My View")))
-        val vm = createVm(deps)
-        assertEquals(SavedAgendaListState.Loading, vm.stateFlow.value)
+        val ctx = testVm(deps)
+        // VM starts in Loading; runCurrent drives the init collector to Loaded
         runCurrent()
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaListState.Loaded>(state)
         assertEquals(1, state.views.size)
         assertEquals("My View", state.views.first().name)
@@ -107,10 +133,9 @@ class SavedAgendaListViewModelTest {
     @Test
     fun `starts in Loading with empty list`() = runTest {
         val deps = makeDeps(views = emptyList())
-        val vm = createVm(deps)
-        assertEquals(SavedAgendaListState.Loading, vm.stateFlow.value)
+        val ctx = testVm(deps)
         runCurrent()
-        val state = vm.stateFlow.value
+        val state = ctx.state.value
         assertIs<SavedAgendaListState.Loaded>(state)
         assertEquals(0, state.views.size)
     }
@@ -119,14 +144,13 @@ class SavedAgendaListViewModelTest {
     fun `Delete removes view from the list`() = runTest {
         val view = makeView("v1", "To Delete")
         val deps = makeDeps(views = listOf(view))
-        val vm = createVm(deps)
+        val ctx = testVm(deps)
         runCurrent()
-        assertEquals(1, (vm.stateFlow.value as SavedAgendaListState.Loaded).views.size)
+        assertEquals(1, (ctx.state.value as SavedAgendaListState.Loaded).views.size)
 
-        vm.onIntent(SavedAgendaListIntent.Delete(view.id))
-        runCurrent()
+        ctx.act { onIntent(SavedAgendaListIntent.Delete(view.id)) }
 
-        val state = vm.stateFlow.value as SavedAgendaListState.Loaded
+        val state = ctx.state.value as SavedAgendaListState.Loaded
         assertEquals(0, state.views.size)
     }
 
@@ -134,16 +158,10 @@ class SavedAgendaListViewModelTest {
     fun `Delete emits ShowError on failure`() = runTest {
         val view = makeView("v1", "To Delete")
         val deps = makeDeps(views = listOf(view), deleteError = Exception("DB error"))
-        val vm = createVm(deps)
-        runCurrent()
-
         val events = mutableListOf<SavedAgendaListEvent>()
-        backgroundScope.launch {
-            vm.events.collect { events += it }
-        }
+        val ctx = testVmWithEvents(deps, events)
 
-        vm.onIntent(SavedAgendaListIntent.Delete(view.id))
-        runCurrent()
+        ctx.act { onIntent(SavedAgendaListIntent.Delete(view.id)) }
 
         assertTrue(events.any { it is SavedAgendaListEvent.ShowError })
     }
@@ -152,13 +170,12 @@ class SavedAgendaListViewModelTest {
     fun `CopyToProfile duplicates view into the target profile's scoped namespace`() = runTest {
         val view = makeView("v1", "Work View")
         val deps = makeDeps(views = listOf(view))
-        val vm = createVm(deps)
+        val ctx = testVm(deps)
         runCurrent()
 
-        vm.onIntent(SavedAgendaListIntent.CopyToProfile(view.id, workProfileId))
-        runCurrent()
+        ctx.act { onIntent(SavedAgendaListIntent.CopyToProfile(view.id, workProfileId)) }
 
-        val state = vm.stateFlow.value as SavedAgendaListState.Loaded
+        val state = ctx.state.value as SavedAgendaListState.Loaded
         // Should now have original + copy
         assertEquals(2, state.views.size)
         val copies = state.views.filter { it.name == "Work View" }

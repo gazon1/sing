@@ -33,7 +33,7 @@ import kotlin.test.assertTrue
  * the exact data REQ-OS-013 is about — would never reach the server. The test
  * asserts the default is `false` and that existing rows survive the upgrade.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration35To36Test {
 
     private lateinit var tempDir: File

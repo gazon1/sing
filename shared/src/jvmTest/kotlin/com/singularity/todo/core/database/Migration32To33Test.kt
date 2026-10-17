@@ -36,7 +36,7 @@ import kotlin.test.assertTrue
  * The fixture is the exported Room schema `schemas/.../32.json` — the same source
  * `MigrationTestHelper` would use.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration32To33Test {
 
     private lateinit var tempDir: File

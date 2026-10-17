@@ -46,7 +46,7 @@ import kotlin.test.assertTrue
  *    cancelled"; a backfill would mark every live event cancelled and the push planner would
  *    silently stop writing *everything*.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration39To40Test {
 
     private lateinit var tempDir: File

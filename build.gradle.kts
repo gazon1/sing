@@ -13,7 +13,11 @@ plugins {
     alias(libs.plugins.koin.compiler) apply false
     // Kover is NOT listed here: it arrives on the classpath from the settings-level
     // `org.jetbrains.kotlinx.kover.aggregation` plugin (settings.gradle.kts) and is
-    // applied to every project from there. Its version is kept in libs.versions.toml
+    // applied to every project from there. Its version is kept in libs.versions.toml.
+    // The project-level `kover { reports { total { ... } } }` API (needed for verify rules)
+    // is available here because `kover.aggregation` auto-applies `org.jetbrains.kotlinx.kover`
+    // to every project INCLUDING the root via beforeProject — so the plugin is already
+    // on the classpath and the ID resolves; Gradle deduplicates it silently.
 }
 
 allprojects {
@@ -45,6 +49,22 @@ allprojects {
 // ---------------------------------------------------------------------------
 // Aggregated code coverage
 // ---------------------------------------------------------------------------
+// koverVerify is registered by the settings-level `kover.aggregation` plugin on every
+// project. The settings-level `kover { }` block (settings.gradle.kts) only handles
+// filters and the `enableCoverage()` flag — it does NOT expose `reports { total { } }`.
+//
+// The project-level `kover { reports { total { xml { } } verify { } } }` DSL is
+// also NOT available on the root project at root-build-script evaluation time:
+// `kover.aggregation` applies `org.jetbrains.kotlinx.kover` to the root via
+// `beforeProject` AFTER the root build script has already been evaluated.
+// Symptom of trying to use it: every reference inside the `kover { }` block
+// (`reports`, `total`, `xml`, `verify`, `rule`, `minBound`) is "Unresolved".
+//
+// The only way to configure kover verify rules on the root project is through
+// `plugins.withId("org.jetbrains.kotlinx.kover") { configure<KoverProjectExtension> { ... } }`
+// — see below. That block is evaluated DEFERRED (when the plugin is attached), which
+// is why it works while the DSL block above does not.
+//
 // `:koverXmlReport` alone is NOT enough, and this is not obvious. Kover's aggregation
 // plugin picks up whichever `Test` tasks happen to be in the task graph
 // (`gradle.taskGraph.hasTask(task.path)`) and only orders them against the report with
@@ -227,11 +247,31 @@ require(APP_LINE_COVERAGE_FLOOR >= 27) {
     "app line coverage floor must not drop below 27% — measured 27.4% on 2026-10-15"
 }
 
+// kover 0.9.x: the project-level `kover { reports { total { xml { onCheck = true } } } }`
+// DSL at lines 58-69 is silently ignored because `kover.aggregation` (settings) applies
+// `org.jetbrains.kotlinx.kover` to the root via `beforeProject` AFTER the root build
+// script has already been evaluated. The only way to configure verify rules on the root
+// project is through `plugins.withId` (deferred) — which is this block.
+//
+// `minBound(45)` = verification fails if less than 45% of the aggregated counter value
+// is covered across ALL JVM test tasks and ALL modules. The 45% floor is deliberately
+// above the per-module floors (27/20/27) because the aggregated denominator includes
+// shared/utility classes that no single feature suite exercises completely.
+// Measured 57.5% on 2026-10-15; floor set well below that measured value.
 plugins.withId("org.jetbrains.kotlinx.kover") {
     configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
         reports {
             total {
+                xml { onCheck = true }
                 verify {
+                    // Overall aggregated floor — must be declared BEFORE per-unit rules
+                    // so it is evaluated in the correct order (Kover evaluates top-to-bottom
+                    // and stops at the first failing rule in non-strict mode).
+                    rule("overall 45% total coverage") {
+                        bound {
+                            minValue = 45
+                        }
+                    }
                     rule("instruction coverage") {
                         bound {
                             minValue = APP_INSTRUCTION_COVERAGE_FLOOR

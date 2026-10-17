@@ -45,7 +45,7 @@ import kotlin.test.assertTrue
  * So the assertions below are about the value pre-existing rows read, not about
  * the column's presence: Room already proves the column exists.
  */
-@Tag("fast")
+@Tag("slow")
 class Migration36To37Test {
 
     private lateinit var tempDir: File
