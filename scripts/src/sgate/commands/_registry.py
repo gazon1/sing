@@ -392,10 +392,82 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/ci/validate-maestro-selectors.py"),
     ),
     # ── Docs / agent-facing text ───────────────────────────────────────────────────
+    GateSpec(
+        name="doc dead refs",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-doc-dead-refs.py"),
+    ),
+    GateSpec(
+        name="doc sizes are within budget",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-doc-sizes.py"),
+    ),
+    GateSpec(
+        name="pro licence boundary",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-pro-licence-boundary.py"),
+    ),
+    GateSpec(
+        name="provenance",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-provenance.py"),
+    ),
     # ── ADR governance ─────────────────────────────────────────────────────────────
+    GateSpec(
+        name="adr references are valid",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-adr-references.py"),
+    ),
     # ── spec-kit ──────────────────────────────────────────────────────────────────
-    # ── AppTracer ─────────────────────────────────────────────────────────────────
+    GateSpec(
+        name="flaky tests are acknowledged",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-flaky-tests.py"),
+    ),
     # ── Backlog ───────────────────────────────────────────────────────────────────
+    GateSpec(
+        name="backlog issue refs are resolved",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-backlog-issue-refs.py"),
+    ),
+    GateSpec(
+        name="req id uniqueness",
+        mode=GateMode.ADVISORY,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-req-id-uniqueness.py"),
+    ),
+    GateSpec(
+        name="gate honesty",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-gate-honesty.py"),
+    ),
+    GateSpec(
+        name="rebase compiles",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-rebase-compiles.py"),
+    ),
+    GateSpec(
+        name="test runs",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-test-runs.py"),
+        script_args=("--require", "shared:jvmTest,desktopApp:test"),
+    ),
+    GateSpec(
+        name="script conventions",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-script-conventions.py"),
+    ),
 )
 
 

@@ -126,6 +126,8 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 
+from sgate.commands.base import run  # noqa: PLC0415 — scripts are not a package
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "config" / "docs" / "test-runs-baseline.txt"
 
@@ -874,10 +876,7 @@ def cli(
 
 
 def main(argv=None) -> int:
-    try:
-        return cli.main(standalone_mode=False, args=argv)
-    except SystemExit:
-        raise
+    return run(cli.main, argv)
 
 
 if __name__ == "__main__":
