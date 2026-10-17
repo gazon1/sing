@@ -186,8 +186,9 @@ class TestFreshness(unittest.TestCase):
         saved = sys.argv
         sys.argv = ["check-test-runs.py", "--since", "1", "--max-age", "1"]
         try:
-            with self.assertRaises(SystemExit):
-                ctr.main()
+            # argparse: parser.error() -> sys.exit(2)
+            # Click (standalone_mode=False): main() returns the ctx.exit() argument
+            self.assertEqual(ctr.main(), 2)
         finally:
             sys.argv = saved
 

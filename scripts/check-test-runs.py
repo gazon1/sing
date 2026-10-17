@@ -515,7 +515,7 @@ def cli(
 ) -> None:
     if since is not None and max_age is not None:
         click.echo("--since and --max-age are mutually exclusive", err=True)
-        raise ctx.exit(1)
+        raise ctx.exit(2)
 
     required = {r.strip() for r in require.split(",") if r.strip()}
 
