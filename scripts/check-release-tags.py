@@ -37,12 +37,17 @@ Usage:
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -230,32 +235,45 @@ def refresh(path: Path) -> None:
     print(f"refreshed {path}: {len(releases)} release(s), {len(tags)} tag(s)")
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--snapshot", type=Path, default=ROOT / "config/docs/releases-snapshot.json")
-    ap.add_argument("--refresh", action="store_true", help="refetch from GitHub (needs auth)")
-    args = ap.parse_args(argv)
+# --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
 
-    if args.refresh:
-        refresh(args.snapshot)
-        return 0
+@click.command()
+@click.option("--snapshot", type=click.Path(exists=True, path_type=Path),
+              default=ROOT / "config/docs/releases-snapshot.json",
+              help="path to the releases snapshot (default: config/docs/releases-snapshot.json)")
+@click.option("--refresh", "do_refresh", is_flag=True,
+              help="refetch snapshot from GitHub (needs auth)")
+@click.pass_context
+def cli(ctx: click.Context, snapshot: Path, do_refresh: bool) -> None:
+    if do_refresh:
+        refresh(snapshot)
+        raise ctx.exit(CLEAN)
 
-    if not args.snapshot.is_file():
-        print(f"ERROR: snapshot not found: {args.snapshot}", file=sys.stderr)
-        print("Run `just releases-refresh` to fetch the current release state.", file=sys.stderr)
-        return 1
+    if not snapshot.is_file():
+        click.echo(f"ERROR: snapshot not found: {snapshot}", err=True)
+        click.echo("Run `just releases-refresh` to fetch the current release state.", err=True)
+        raise ctx.exit(IO_ERROR)
 
-    findings = check(json.loads(args.snapshot.read_text(encoding="utf-8")))
+    findings = check(json.loads(snapshot.read_text(encoding="utf-8")))
     if not findings:
-        count = len(json.loads(args.snapshot.read_text(encoding="utf-8")).get("releases", []))
-        print(f"check-release-tags.py: OK — {count} release(s), tags and assets consistent")
-        return 0
+        count = len(json.loads(snapshot.read_text(encoding="utf-8")).get("releases", []))
+        click.echo(f"check-release-tags.py: OK — {count} release(s), tags and assets consistent")
+        raise ctx.exit(CLEAN)
 
     for finding in findings:
-        print(f"::error::{finding}")
-    print(f"{len(findings)} release problem(s)", file=sys.stderr)
-    return 1
+        click.echo(f"::error::{finding}")
+    click.echo(f"{len(findings)} release problem(s)", err=True)
+    raise ctx.exit(VALIDATION_FAILURE)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -59,7 +59,6 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import re
 import shutil
@@ -67,6 +66,11 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -564,20 +568,20 @@ def self_test() -> int:
 
 
 # --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
 
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--self-test", action="store_true",
-                        help="prove each rule fires on a violating tree")
-    parser.add_argument("--verify-apk", metavar="APK", type=Path,
-                        help="also assert a built APK matches the source claim")
-    parser.add_argument("--expect", choices=("free", "pro"), default="free",
-                        help="what the APK should contain (default: free)")
-    args = parser.parse_args()
-
-    if args.self_test:
-        return self_test()
+@click.command()
+@click.option("--self-test", is_flag=True, help="prove each rule fires on a violating tree")
+@click.option("--verify-apk", type=click.Path(exists=False, path_type=Path), default=None,
+              help="also assert a built APK matches the source claim")
+@click.option("--expect", type=click.Choice(["free", "pro"]), default="free",
+              help="what the APK should contain (default: free)")
+@click.pass_context
+def cli(ctx: click.Context, self_test: bool, verify_apk: Path | None, expect: str) -> None:
+    if self_test:
+        code = self_test()
+        raise ctx.exit(code)
 
     violations: list[Violation] = []
     for check in (check_no_pro_imports, check_no_denied_dependencies,
@@ -586,20 +590,27 @@ def main() -> int:
         violations += check(ROOT)
 
     core_n, fsl_n = len(kt_files(ROOT)), len(fsl_files(ROOT))
-    print(f"pro-boundary: {core_n} Apache-2.0 source file(s), {fsl_n} FSL source file(s), "
-          f"{len(DENIED_GROUPS)} denied dependency group(s)")
+    click.echo(f"pro-boundary: {core_n} Apache-2.0 source file(s), {fsl_n} FSL source file(s), "
+               f"{len(DENIED_GROUPS)} denied dependency group(s)")
 
-    if args.verify_apk:
-        violations += verify_apk(args.verify_apk, args.expect)
-        print(f"pro-boundary: inspected {args.verify_apk.name}, expecting a {args.expect} build")
+    if verify_apk:
+        violations += verify_apk(verify_apk, expect)
+        click.echo(f"pro-boundary: inspected {verify_apk.name}, expecting a {expect} build")
 
     if violations:
-        print(f"\ncheck-pro-licence-boundary: {len(violations)} violation(s)\n", file=sys.stderr)
+        click.echo(f"\ncheck-pro-licence-boundary: {len(violations)} violation(s)\n", err=True)
         for v in violations:
-            print(f"  - {v}", file=sys.stderr)
-        return 1
-    return 0
+            click.echo(f"  - {v}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
+    raise ctx.exit(CLEAN)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

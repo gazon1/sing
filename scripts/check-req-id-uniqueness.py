@@ -30,7 +30,7 @@ conflict:
 
   - **`## ADDED Requirements`** — the change defines a new requirement. Its identifier must not
     exist anywhere else. This is the collision above.
-  - **`## MODIFIED Requirements` / `## REMOVED Requirements`** — the change edits or deletes a
+  - **`## MODIFIED Requirements` / **` REMOVED Requirements`** — the change edits or deletes a
     requirement that is already in the spec, and restating its identifier is the point. Naming
     one that does not exist is an error, because it is a typo that silently does nothing.
 
@@ -69,11 +69,15 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import collections
 import pathlib
 import re
 import sys
+
+import click
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -198,47 +202,52 @@ def _problems_for(identifier: str, group: list[Definition]) -> list[str]:
     return [f"{identifier}: defined {len(group)} times. {where}"]
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--quiet", action="store_true", help="print nothing when the check passes")
-    parser.add_argument(
-        "--root",
-        default=str(ROOT),
-        help="repository root to read (default: this script's parent). The controls need to run "
-             "against a corpus of their own, including the empty one.",
-    )
-    args = parser.parse_args(argv)
+# --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
 
-    root = pathlib.Path(args.root)
+@click.command()
+@click.option("--quiet", is_flag=True, help="print nothing when the check passes")
+@click.option("--root", type=click.Path(exists=True, path_type=pathlib.Path), default=str(ROOT),
+              help="repository root to read (default: this script's parent)")
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool, root: pathlib.Path) -> None:
     definitions = [d for path in spec_files(root) for d in definitions_in(path)]
     if not definitions:
-        print(
+        click.echo(
             "ERROR: no requirement headers were found under openspec/, so this gate can only "
             "pass vacuously. A checker that stopped matching looks exactly like a corpus that "
             "stopped having requirements.",
-            file=sys.stderr,
+            err=True,
         )
-        return 1
+        raise ctx.exit(VALIDATION_FAILURE)
 
     problems = conflicts(definitions)
     if problems:
         for line in problems:
-            print(f"check-req-id-uniqueness: {line}")
-        print(
+            click.echo(f"check-req-id-uniqueness: {line}")
+        click.echo(
             "\nEach identifier must name exactly one requirement. A change that edits an "
             "existing one may restate its identifier under MODIFIED or REMOVED; a change that "
             "defines a new one needs an identifier nothing else uses.",
-            file=sys.stderr,
+            err=True,
         )
-        return 1
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    if not args.quiet:
-        print(
+    if not quiet:
+        click.echo(
             f"check-req-id-uniqueness: OK — {len(definitions)} requirement headers, "
             f"{len({d.identifier for d in definitions})} distinct identifiers"
         )
-    return 0
+    raise ctx.exit(CLEAN)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
