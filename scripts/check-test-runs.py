@@ -117,7 +117,9 @@ Regenerate the baseline whenever tests are *added* (counts go up, which is
 fine). Investigate before regenerating whenever they go *down* — a drop means a
 class stopped being selected, which is the defect.
 """
-import argparse
+from __future__ import annotations
+
+import click
 import pathlib
 import re
 import sys
@@ -457,62 +459,71 @@ def load_baseline(path: pathlib.Path):
 EXIT_NO_RUN = 3
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--quiet", action="store_true", help="print failures only")
-    parser.add_argument(
-        "--since",
-        type=float,
-        default=None,
-        metavar="EPOCH",
-        help="strict freshness: fail a source set whose newest JUnit report predates "
-             "this epoch-seconds stamp",
-    )
-    parser.add_argument(
-        "--max-age",
-        type=float,
-        default=None,
-        metavar="SECONDS",
-        help="tolerant freshness: fail a source set whose newest report is older than "
-             "this many seconds. Use this rather than --since wherever a Gradle test "
-             "task may be UP-TO-DATE and therefore not rewrite its results",
-    )
-    parser.add_argument("--update-baseline", action="store_true", help="rewrite the baseline")
-    parser.add_argument(
-        "--allow-drop",
-        action="store_true",
-        help="permit --update-baseline to record a LOWER count than the current "
-             "floor. Off by default: a drop means tests stopped being selected, "
-             "which is a defect to investigate, not a floor to regenerate.",
-    )
-    parser.add_argument(
-        "--require",
-        default="",
-        help="comma-separated source sets that MUST have produced results in this job "
-             "(e.g. shared:jvmTest,desktopApp:test); others are skipped when absent",
-    )
-    parser.add_argument(
-        "--gradle-log",
-        type=pathlib.Path,
-        default=None,
-        metavar="PATH",
-        help="path to the Gradle build log. When a source set's test task appears here "
-             "with UP-TO-DATE or FROM-CACHE, its JUnit XML is not rewritten and the "
-             "--since freshness check is skipped for that set. This prevents a cached "
-             "task from being incorrectly flagged as stale.",
-    )
-    args = parser.parse_args()
+@click.command()
+@click.option("--quiet", is_flag=True, help="print failures only")
+@click.option(
+    "--since",
+    type=float,
+    default=None,
+    metavar="EPOCH",
+    help="strict freshness: fail a source set whose newest JUnit report predates "
+         "this epoch-seconds stamp",
+)
+@click.option(
+    "--max-age",
+    type=float,
+    default=None,
+    metavar="SECONDS",
+    help="tolerant freshness: fail a source set whose newest report is older than "
+         "this many seconds. Use this rather than --since wherever a Gradle test "
+         "task may be UP-TO-DATE and therefore not rewrite its results",
+)
+@click.option("--update-baseline", is_flag=True, help="rewrite the baseline")
+@click.option(
+    "--allow-drop",
+    is_flag=True,
+    help="permit --update-baseline to record a LOWER count than the current "
+         "floor. Off by default: a drop means tests stopped being selected, "
+         "which is a defect to investigate, not a floor to regenerate.",
+)
+@click.option(
+    "--require",
+    default="",
+    help="comma-separated source sets that MUST have produced results in this job "
+         "(e.g. shared:jvmTest,desktopApp:test); others are skipped when absent",
+)
+@click.option(
+    "--gradle-log",
+    type=click.Path(path_type=pathlib.Path),
+    default=None,
+    metavar="PATH",
+    help="path to the Gradle build log. When a source set's test task appears here "
+         "with UP-TO-DATE or FROM-CACHE, its JUnit XML is not rewritten and the "
+         "--since freshness check is skipped for that set. This prevents a cached "
+         "task from being incorrectly flagged as stale.",
+)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    quiet: bool,
+    since: float | None,
+    max_age: float | None,
+    update_baseline: bool,
+    allow_drop: bool,
+    require: str,
+    gradle_log: pathlib.Path | None,
+) -> None:
+    if since is not None and max_age is not None:
+        click.echo("--since and --max-age are mutually exclusive", err=True)
+        raise ctx.exit(1)
 
-    if args.since is not None and args.max_age is not None:
-        parser.error("--since and --max-age are mutually exclusive")
-
-    required = {r.strip() for r in args.require.split(",") if r.strip()}
+    required = {r.strip() for r in require.split(",") if r.strip()}
 
     # Which source sets went UP-TO-DATE or FROM-CACHE in this Gradle run. Their XML
     # on disk is from a previous run and is legitimately older — do not flag as stale.
     up_to_date: set[str] = set()
-    if args.gradle_log:
-        up_to_date = parse_gradle_log_up_to_date(args.gradle_log)
+    if gradle_log:
+        up_to_date = parse_gradle_log_up_to_date(gradle_log)
         if up_to_date:
             print(f"  note: UP-TO-DATE in log: {', '.join(sorted(up_to_date))} — freshness check skipped for these")
 
@@ -525,15 +536,15 @@ def main() -> int:
             # A set that went UP-TO-DATE/FROM-CACHE in the log has a legitimately older
             # XML file and must not be flagged as stale.
             if label not in up_to_date:
-                if args.since is not None and newest < args.since:
+                if since is not None and newest < since:
                     stale.append(label)
-                elif args.max_age is not None and newest < time.time() - args.max_age:
+                elif max_age is not None and newest < time.time() - max_age:
                     stale.append(label)
-        found = count(detail_dir, since=args.since, max_age=args.max_age)
+        found = count(detail_dir, since=since, max_age=max_age)
         if found:
             observed[label] = found
 
-    if args.update_baseline:
+    if update_baseline:
         # Only the block between the markers is generated. Everything outside it is
         # hand-written and is preserved verbatim.
         #
@@ -607,7 +618,7 @@ def main() -> int:
             for label in sorted(observed)
             if label in previous and observed[label][1] < previous[label][0]
         ]
-        if drops and not args.allow_drop:
+        if drops and not allow_drop:
             print(
                 "refusing to rewrite the floor: these counts DROPPED, and a drop "
                 "means tests stopped being selected rather than that the floor is "
@@ -627,7 +638,7 @@ def main() -> int:
                 "source set, or pass --allow-drop if you\nreally did delete tests.",
                 file=sys.stderr,
             )
-            return 1
+            raise ctx.exit(1)
 
         block = [GENERATED_BEGIN]
         for label in sorted(observed):
@@ -684,12 +695,12 @@ def main() -> int:
                     f"  {label}: {before[0]} -> {after[1]} tests",
                     file=sys.stderr,
                 )
-        return 0
+        raise ctx.exit(0)
 
     baseline = load_baseline(BASELINE)
     if not baseline:
         print(f"no baseline at {BASELINE.relative_to(ROOT)} — run --update-baseline", file=sys.stderr)
-        return 1
+        raise ctx.exit(1)
 
     regressions = []
     nothing_ran: list[str] = []
@@ -742,7 +753,7 @@ def main() -> int:
         if label not in required:
             continue
 
-    if not args.quiet:
+    if not quiet:
         for label in sorted(observed):
             classes, tests, skipped = observed[label]
             print(f"{label}: {classes} classes, {tests} tests, {skipped} skipped")
@@ -841,7 +852,7 @@ def main() -> int:
                 "shared/build.gradle.kts writes the manifest next to the XML.",
                 file=sys.stderr,
             )
-            return 1
+            raise ctx.exit(1)
 
         print(
             "\nUsually an untagged class, a JUnit 4 class on the Vintage engine, or a\n"
@@ -852,15 +863,22 @@ def main() -> int:
             "the baseline. Tag it (@Tag(\"fast\")) or find out why JUnit skipped it.",
             file=sys.stderr,
         )
-        return 1
+        raise ctx.exit(1)
 
     if nothing_ran:
-        return EXIT_NO_RUN
+        raise ctx.exit(EXIT_NO_RUN)
 
-    if not args.quiet:
+    if not quiet:
         print("Test run floors met.")
-    return 0
+    raise ctx.exit(0)
+
+
+def main(argv=None) -> int:
+    try:
+        return cli.main(standalone_mode=False, args=argv)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
