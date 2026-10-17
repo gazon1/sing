@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """check-baseline-ratchet.py — a detekt baseline may shrink, never grow.
 
+## Migration note
+
+Migrated from argparse to Click (2026-10-17). CLI surface is preserved;
+the `--baseline`, `--config`, and `--max-growth` flags are all functional
+equivalents of the argparse argument definitions.
+
 Why this exists (2026-10-04): `config/detekt/baseline-shared.xml` held 413
 suppressed findings and nothing anywhere compared it to its previous size. A
 baseline is a ratchet by nature — each entry is a debt someone accepted — but
@@ -68,11 +74,14 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+import click
+
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register
 
 # Detekt baseline entries look like:
 #   <ID>RuleName:File.kt:Fqcn$signature</ID>
@@ -94,6 +103,10 @@ ROOT = Path(__file__).resolve().parent.parent
 # reported 11 "rules" for the file's 5.
 _RULE_HEADER_RE = re.compile(r"^  ([A-Za-z][\w-]*):\s*$")
 _ACTIVE_FALSE_RE = re.compile(r"^\s+active:\s*false\s*$")
+
+
+class GitUnavailable(RuntimeError):
+    """Raised when git is not available or the git command fails."""
 
 
 def disabled_rules(config_text: str) -> dict[str, int]:
@@ -145,8 +158,7 @@ def git_show(path: Path, rev: str = "HEAD") -> str | None:
             cwd=ROOT,
         )
     except FileNotFoundError:
-        print("ERROR: git not found — cannot verify the baseline ratchet")
-        raise SystemExit(1) from None
+        raise GitUnavailable("git not found — cannot verify the baseline ratchet") from None
     if out.returncode != 0:
         return None
     return out.stdout
@@ -182,60 +194,74 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
     )
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--baseline",
-        action="append",
-        default=None,
-        help="baseline file to ratchet; repeatable. Default: both module baselines.",
-    )
-    parser.add_argument(
-        "--config",
-        default="config/detekt/detekt.yml",
-        help=(
-            "detekt config to read `active: false` from. Default: detekt.yml. "
-            "A module on a different config (mcp-server uses detekt-minimal.yml) "
-            "must be named explicitly or the disabled set will be wrong for it."
-        ),
-    )
-    parser.add_argument(
-        "--max-growth",
-        type=int,
-        default=0,
-        help="entries allowed to be added per file per run (default: 0)",
-    )
-    args = parser.parse_args()
-
+@click.command()
+@click.option(
+    "--baseline",
+    "baseline",
+    multiple=True,
+    default=None,
+    help="baseline file to ratchet; repeatable. Default: both module baselines.",
+)
+@click.option(
+    "--config",
+    "config",
+    default="config/detekt/detekt.yml",
+    help=(
+        "detekt config to read `active: false` from. Default: detekt.yml. "
+        "A module on a different config (mcp-server uses detekt-minimal.yml) "
+        "must be named explicitly or the disabled set will be wrong for it."
+    ),
+)
+@click.option(
+    "--max-growth",
+    "max_growth",
+    type=int,
+    default=0,
+    help="entries allowed to be added per file per run (default: 0)",
+)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    baseline: tuple[str, ...],
+    config: str,
+    max_growth: int,
+) -> None:
+    """Fail when a detekt baseline grows."""
     # Both module baselines are ratcheted. This originally watched only
     # `baseline-shared.xml`, which left `baseline-desktopApp.xml` free to grow
     # unchecked — and it had already drifted from 3 entries to 32 before anyone
     # noticed. A ratchet that watches one of the two files is a half-ratchet.
     baselines = (
-        [Path(p) for p in args.baseline]
-        if args.baseline
+        [Path(p) for p in baseline]
+        if baseline
         else [
             ROOT / "config" / "detekt" / "baseline-shared.xml",
             ROOT / "config" / "detekt" / "baseline-desktopApp.xml",
             ROOT / "mcp-server" / "detekt-baseline.xml",
         ]
     )
-    config_path = ROOT / args.config
+    config_path = ROOT / config
     if not config_path.is_file():
-        print(f"ERROR: detekt config not found: {config_path}")
-        return 1
+        click.echo(f"ERROR: detekt config not found: {config_path}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE)
     disabled = disabled_rules(config_path.read_text(encoding="utf-8"))
 
     failed = False
-    for baseline in baselines:
-        if not check_one(baseline, args.max_growth, disabled):
-            failed = True
-    return 1 if failed else 0
+    try:
+        for bp in baselines:
+            if not _check_one(bp, max_growth, disabled):
+                failed = True
+    except GitUnavailable as exc:
+        click.echo(f"ERROR: {exc}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE) from None
+    if failed:
+        raise ctx.exit(VALIDATION_FAILURE)
+    raise ctx.exit(CLEAN)
 
 
-def check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> bool:
+def _check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> bool:
     if not baseline.is_file():
-        print(f"ERROR: baseline not found: {baseline}")
+        click.echo(f"ERROR: baseline not found: {baseline}", err=True)
         return False
 
     current_text = baseline.read_text(encoding="utf-8")
@@ -256,30 +282,34 @@ def check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> bool
         for item in phantoms:
             rule = rule_of_entry(item)
             by_rule[rule] = by_rule.get(rule, 0) + 1
-        print("")
-        print(
+        click.echo("")
+        click.echo(
             f"check-baseline-ratchet: FAIL — {name} suppresses "
             f"{len(phantoms)} finding(s) for rules declared `active: false`"
         )
         for rule, n in sorted(by_rule.items(), key=lambda kv: -kv[1]):
-            print(f"  {n:4}  {rule}")
-        print("")
-        print("These entries suppress nothing: the rule is switched off, so it")
-        print("cannot report. They inflate the count the ratchet compares, which")
-        print("means the suppressed count also under-reports real growth by this")
-        print("much. Fix by regenerating the baseline — a disabled rule")
-        print("contributes no current findings, so the entries disappear on their")
-        print("own:")
-        print(f"  ./gradlew :{name.replace('baseline-', '').replace('.xml', '')}:detektBaseline")
-        print("")
-        print("If instead a rule was disabled by mistake and the findings are")
-        print("real, set it back to `active: true` in config/detekt/detekt.yml and")
-        print("say why in a comment. Do not silence this check.")
+            click.echo(f"  {n:4}  {rule}")
+        click.echo("")
+        click.echo("These entries suppress nothing: the rule is switched off, so it")
+        click.echo("cannot report. They inflate the count the ratchet compares, which")
+        click.echo("means the suppressed count also under-reports real growth by this")
+        click.echo("much. Fix by regenerating the baseline — a disabled rule")
+        click.echo("contributes no current findings, so the entries disappear on their")
+        click.echo("own:")
+        click.echo(f"  ./gradlew :{name.replace('baseline-', '').replace('.xml', '')}:detektBaseline")
+        click.echo("")
+        click.echo("If instead a rule was disabled by mistake and the findings are")
+        click.echo("real, set it back to `active: true` in config/detekt/detekt.yml and")
+        click.echo("say why in a comment. Do not silence this check.")
         return False
 
-    committed_text = git_show(baseline)
+    try:
+        committed_text = git_show(baseline)
+    except GitUnavailable:
+        raise
+
     if committed_text is None:
-        print(
+        click.echo(
             f"check-baseline-ratchet: {name} is new in this branch "
             f"({current} entries) — ratcheting from this commit"
         )
@@ -290,33 +320,50 @@ def check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> bool
 
     if growth > max_growth:
         added = sorted(entries(current_text) - entries(committed_text))
-        print("")
-        print(
+        click.echo("")
+        click.echo(
             f"check-baseline-ratchet: FAIL — {name} grew by {growth} "
             f"entry(ies) ({committed} -> {current})"
         )
-        print("")
-        print("Newly suppressed findings:")
+        click.echo("")
+        click.echo("Newly suppressed findings:")
         for item in added[:20]:
-            print(f"  + {item}")
+            click.echo(f"  + {item}")
         if len(added) > 20:
-            print(f"  ... and {len(added) - 20} more")
-        print("")
-        print("A baseline is a ratchet, not a place to park new debt. Either")
-        print("fix the finding, or -- if a rule was just enabled and the")
-        print("pre-existing volume is genuinely being baselined on purpose --")
-        print("pass --max-growth N in a commit whose message says why.")
+            click.echo(f"  ... and {len(added) - 20} more")
+        click.echo("")
+        click.echo("A baseline is a ratchet, not a place to park new debt. Either")
+        click.echo("fix the finding, or -- if a rule was just enabled and the")
+        click.echo("pre-existing volume is genuinely being baselined on purpose --")
+        click.echo("pass --max-growth N in a commit whose message says why.")
         return False
 
     if growth < 0:
-        print(
+        click.echo(
             f"check-baseline-ratchet: OK -- {name} shrank by {-growth} "
             f"entry(ies) ({committed} -> {current})"
         )
     else:
-        print(f"check-baseline-ratchet: OK -- {name} unchanged ({current} entries)")
+        click.echo(f"check-baseline-ratchet: OK -- {name} unchanged ({current} entries)")
     return True
 
 
+def main() -> int:
+    """Entry point used by tests; calls the Click command and returns the exit code.
+
+    Uses standalone_mode=False so that ctx.exit() raises SystemExit directly
+    rather than calling sys.exit() inside Click's main(). This allows tests to
+    verify the exit code via either the SystemExit exception or the return value.
+    """
+    try:
+        result = cli.main(standalone_mode=False)
+        return result if result is not None else 0
+    except SystemExit as exc:
+        return exc.code if exc.code is not None else 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    register(cli)
+    # Use standalone_mode=False so ctx.exit() raises SystemExit with the real code,
+    # not Click's internal sys.exit(0) that standalone_mode=True always calls.
+    raise SystemExit(main())
