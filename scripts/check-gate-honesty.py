@@ -7,7 +7,7 @@ Migrated 2026-10-17 from argparse to Click, following the established sgate patt
 - `@click.command()` + `@click.option()` + `@click.argument()` + `@click.pass_context`
 - `click.echo()` replaces `print()`; `click.echo(..., err=True)` replaces `print(..., file=sys.stderr)`
 - Exit via `ctx.exit(code)` / `raise ctx.exit(code)` using constants from sgate.commands.base
-- `main()` wrapper calls `cli.main(standalone_mode=False)` and returns `int`
+- `main()` wrapper calls `run(cli)` from sgate.commands.base
 
 ## Why this exists
 
