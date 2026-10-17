@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """check-traceability-ratchet.py — scenario coverage holes may shrink, never grow.
 
+## Migration note
+Migrated 2026-10-17 from argparse to Click (R2.1 of check-script-conventions.py).
+Uses sgate.commands.base.CLEAN and VALIDATION_FAILURE for exit codes.
+
 Why this exists (2026-10-05): the scenario layer reached 19 specs, 34 claimed
 cells and 3 carriers, and nothing anywhere compared the hole count to anything.
 A hole is not a mistake — it is the point of the matrix, the honest statement of
@@ -69,11 +73,14 @@ Exit codes:
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+import click
+
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -150,31 +157,31 @@ METRICS: tuple[Metric, ...] = (
 )
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default=DEFAULT_CONFIG, help=f"floor file (default: {DEFAULT_CONFIG})")
-    parser.add_argument(
-        "--accept-growth",
-        action="store_true",
-        help=(
-            "report growth as a warning instead of a failure. This exists for the "
-            "commit that knowingly adds holes; the gate wiring in "
-            "scripts/check-gate-wiring.py asserts the flag is absent from the "
-            "registered invocation, because a permanently-passed escape hatch is "
-            "not an escape hatch."
-        ),
-    )
-    args = parser.parse_args()
-
-    config_path = ROOT / args.config
+@click.command()
+@click.option("--config", default=DEFAULT_CONFIG, help=f"floor file (default: {DEFAULT_CONFIG})")
+@click.option(
+    "--accept-growth",
+    is_flag=True,
+    help=(
+        "report growth as a warning instead of a failure. This exists for the "
+        "commit that knowingly adds holes; the gate wiring in "
+        "scripts/check-gate-wiring.py asserts the flag is absent from the "
+        "registered invocation, because a permanently-passed escape hatch is "
+        "not an escape hatch."
+    ),
+)
+@click.pass_context
+def cli(ctx: click.Context, config: str, accept_growth: bool) -> None:
+    """Check that scenario traceability metrics never regress (holes only shrink)."""
+    config_path = ROOT / config
     if not config_path.is_file():
-        print(f"ERROR: ratchet file not found: {config_path}")
-        return 1
+        click.echo(f"ERROR: ratchet file not found: {config_path}")
+        raise ctx.exit(1)
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"ERROR: {config_path} is not valid JSON: {exc}")
-        return 1
+        click.echo(f"ERROR: {config_path} is not valid JSON: {exc}")
+        raise ctx.exit(1)
 
     # Imported here, after the config check, so a missing config reports itself
     # rather than surfacing as an ImportError from inside a try/except below.
@@ -193,14 +200,14 @@ def main() -> int:
     # tests worse rather than the gate.
     measured, _dark_ids = _metrics(coverage)
 
-    floors = {f["metric"]: f for f in config.get("floors", [])}
+    floors = {f["metric"]: f for f in cfg.get("floors", [])}
     missing = [m.key for m in METRICS if m.key not in floors]
     if missing:
-        print(
+        click.echo(
             f"ERROR: {config_path} has no floor for {', '.join(missing)}. A ratchet "
             f"metric without a recorded number cannot fail."
         )
-        return 1
+        raise ctx.exit(1)
 
     grew: list[tuple[Metric, int, int]] = []
     for metric in METRICS:
@@ -210,9 +217,9 @@ def main() -> int:
         if actual > allowed:
             grew.append((metric, allowed, actual))
         elif actual < allowed:
-            print(
+            click.echo(
                 f"check-traceability-ratchet: {metric.key} is {actual}, below its "
-                f"floor of {allowed} — lower the floor in {args.config} so a later "
+                f"floor of {allowed} — lower the floor in {config} so a later "
                 f"regression is caught at this level"
             )
 
@@ -223,23 +230,23 @@ def main() -> int:
         # print a number cannot be read, and the line that quietly stopped
         # counting is how a metric becomes decorative.
         measured_parts = ", ".join(f"{measured[metric.key]} {metric.key}" for metric in METRICS)
-        print(
+        click.echo(
             f"check-traceability-ratchet: OK — {measured_parts}, "
             f"{len(links)} carrier(s) across {len(specs)} spec(s)"
         )
-        return 0
+        raise ctx.exit(CLEAN)
 
-    print("")
+    click.echo("")
     for metric, allowed, actual in grew:
-        print(
+        click.echo(
             f"check-traceability-ratchet: FAIL — {metric.key} grew from {allowed} "
             f"to {actual} (+{actual - allowed})"
         )
-        print(f"  {metric.label}")
-    print("")
-    print("These are scenarios the suite claims to verify and does not. Holes are")
-    print("normal — a matrix with none of them is a matrix nobody believes — but a")
-    print("count that only ever goes up is a queue nobody drains:")
+        click.echo(f"  {metric.label}")
+    click.echo("")
+    click.echo("These are scenarios the suite claims to verify and does not. Holes are")
+    click.echo("normal — a matrix with none of them is a matrix nobody believes — but a")
+    click.echo("count that only ever goes up is a queue nobody drains:")
     # Iterated over the CELLS, not over `dark_ids`. Listing only fully-dark scenarios
     # was correct while every scenario was either fully covered or fully uncovered, and
     # stopped being correct the moment a scenario got one target and not the other:
@@ -251,15 +258,23 @@ def main() -> int:
     for scenario in sorted(coverage.cells):
         for target, cell in sorted(coverage.cells[scenario].items()):
             if cell.state.was_claimed and not cell.state.is_automated:
-                print(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
-    print("")
-    print("Either attach a carrier (the cheapest path is a reachability probe")
-    print("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
-    print("state the growth in the commit message and re-run with --accept-growth.")
-    print("Note that the spec's own comment header is the only place the plan is")
-    print("recorded, so a hole opened here can be opened without anyone noticing.")
-    return 0 if args.accept_growth else 1
+                click.echo(f"  {coverage.glyph(scenario, target)} {scenario} [{target}]")
+    click.echo("")
+    click.echo("Either attach a carrier (the cheapest path is a reachability probe")
+    click.echo("first — see .agents/skills/singularity-todo-scenario-traceability/SKILL.md), or")
+    click.echo("state the growth in the commit message and re-run with --accept-growth.")
+    click.echo("Note that the spec's own comment header is the only place the plan is")
+    click.echo("recorded, so a hole opened here can be opened without anyone noticing.")
+    raise ctx.exit(CLEAN if accept_growth else VALIDATION_FAILURE)
+
+
+def main() -> int:
+    try:
+        cli.main(standalone_mode=False)
+    except SystemExit:
+        raise
+    return CLEAN  # unreachable in Click standalone_mode=False
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
