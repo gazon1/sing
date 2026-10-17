@@ -46,25 +46,8 @@ AGENTS_MAX = 240
 SKILL_MAX = 500
 DESCRIPTION_MAX = 1024
 DIGEST_MAX = 120  # the always-loaded orientation layer; matches MAX_ORIENTATION_LINES
-# 1250 -> 3000 on 2026-10-15, when the digest split in two (2026-10-15-digest-orientation-layer).
-#
-# DIGEST.md was doing two jobs at once — the orientation layer every session reads, and the
-# complete index — so its budget was the wrong one to defend: every new ADR pushed an
-# always-read file towards a ceiling, and the generator was trimmed four times to keep up
-# (MAX_BULLETS_PER_ADR 6->2, MAX_ITEMS_PER_TAG 10->9, a ~385-line duplicate index dropped,
-# MAX_ACTIVE_ENTRIES capped). The trim history is why this number is generous: those caps
-# were priced against a file every task paid to load, and the reader who opens the full
-# index now opened it deliberately.
-#
-# 3000 is above the measured 1950 with headroom, and it is a real ceiling rather than a
-# guess — an on-demand index that grows without bound stops being an index.
 DIGEST_FULL_MAX = 3000  # matches MAX_DIGEST_FULL_LINES in refresh-decisions-digest.py
-# Added 2026-10-05. These two files had no budget at all, so they could grow without
-# limit while the files that do have budgets were trimmed to stay under them. A budget
-# that does not exist is worse than a high one: it hides the growth.
 ARCHITECTURE_MAX = 600
-# PROGRESS.md is a chronological journal, not a description of current state. Finished
-# epics are moved to docs/progress-archive/ so this file answers "where are we now".
 PROGRESS_MAX = 300
 
 CLEAN = 0
@@ -151,11 +134,8 @@ def cli(ctx: click.Context, warn_only: bool) -> None:
     raise ctx.exit(CLEAN)
 
 
-def main(argv: list[str] | None = None) -> int:
-    try:
-        return cli.main(argv, standalone_mode=False)
-    except SystemExit:
-        raise
+def main(args: list[str] | None = None) -> int:
+    return cli.main(standalone_mode=False, args=args)
 
 
 if __name__ == "__main__":
