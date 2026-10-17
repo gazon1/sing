@@ -11,7 +11,7 @@ Budgets follow the Agent Skills spec and the industry rules of thumb:
 AGENTS_MAX is 240, set on 2026-10-05 from a measurement rather than kept as a
 round number. `AGENTS.md` had reached 250/250 — zero headroom — and the reason it
 got there is worth recording: the cap was 250, the file grew to meet it, and
-nothing objected along the way. A budget that is *at* its limit is not a ratchet,
+nothing else objected along the way. A budget that is *at* its limit is not a ratchet,
 it is a wall, and the cheapest way through a wall is deleting something true.
 
 So: the two blocks that were pure lookup tables moved out (the expect/actual
@@ -28,10 +28,11 @@ Usage: python3 scripts/check-doc-sizes.py [--warn-only]
 """
 from __future__ import annotations
 
-import argparse
 import pathlib
 import re
 import sys
+
+import click
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
@@ -66,6 +67,9 @@ ARCHITECTURE_MAX = 600
 # epics are moved to docs/progress-archive/ so this file answers "where are we now".
 PROGRESS_MAX = 300
 
+CLEAN = 0
+VALIDATION_FAILURE = 1
+
 
 def count_lines(path: pathlib.Path) -> int:
     with path.open(encoding="utf-8", errors="replace") as fh:
@@ -92,15 +96,14 @@ def description_of(fm: str) -> str | None:
     return value
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--warn-only",
-        action="store_true",
-        help="report violations but always exit 0",
-    )
-    args = parser.parse_args()
-
+@click.command()
+@click.option(
+    "--warn-only",
+    is_flag=True,
+    help="report violations but always exit 0",
+)
+@click.pass_context
+def cli(ctx: click.Context, warn_only: bool) -> None:
     violations: list[tuple[str, str]] = []
 
     def check(path: pathlib.Path, limit: int, unit: str) -> None:
@@ -127,26 +130,33 @@ def main() -> int:
             violations.append((rel, f"description {len(desc)} chars (max {DESCRIPTION_MAX})"))
 
     if violations:
-        print("Doc size budgets exceeded:\n")
+        click.echo("Doc size budgets exceeded:\n")
         for name, detail in violations:
-            print(f"  {name}: {detail}")
-        print(
+            click.echo(f"  {name}: {detail}")
+        click.echo(
             "\nFix: trim the file, or split an oversized skill into a router SKILL.md "
             "plus sibling leaf files loaded only when needed."
         )
-        if args.warn_only:
-            print("\n(--warn-only: exiting 0)")
-            return 0
-        return 1
+        if warn_only:
+            click.echo("\n(--warn-only: exiting 0)")
+            raise ctx.exit(CLEAN)
+        raise ctx.exit(VALIDATION_FAILURE)
 
-    print(
+    click.echo(
         f"Doc sizes OK: AGENTS.md <= {AGENTS_MAX}, DIGEST.md <= {DIGEST_MAX}, "
         f"ARCHITECTURE.md <= {ARCHITECTURE_MAX}, PROGRESS.md <= {PROGRESS_MAX}, "
         f"SKILL.md <= {SKILL_MAX} lines, description <= {DESCRIPTION_MAX} chars, "
         f"DIGEST-full.md <= {DIGEST_FULL_MAX} lines"
     )
-    return 0
+    raise ctx.exit(CLEAN)
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        return cli.main(argv, standalone_mode=False)
+    except SystemExit:
+        raise
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
