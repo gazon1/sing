@@ -39,6 +39,7 @@ internal object SecureStoreRecovery {
      * original attached, and the caller decides what that means. Retrying indefinitely is how
      * a revoked lock screen or a full disk turns into a startup that never completes.
      */
+    @Suppress("TooGenericExceptionCaught") // Recovery must catch anything that prevents store initialization.
     inline fun <T> openOrErase(open: () -> T, erase: () -> Unit): T =
         try {
             open()

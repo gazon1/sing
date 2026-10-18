@@ -184,16 +184,16 @@ class AgendaViewModel(
 
     /** Computes the time-of-day greeting from [greetingSettings] and the current clock hour. */
     private suspend fun computeGreeting(): String = runCatchingCancellable {
-            val morningEnd = deps.greetingSettings.morningEndHour.first()
-            val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
-            // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
-            val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
-            when {
-                hour < morningEnd -> "Good morning"
-                hour < afternoonEnd -> "Good afternoon"
-                else -> "Good evening"
-            }
-        }.getOrElse { "" }
+        val morningEnd = deps.greetingSettings.morningEndHour.first()
+        val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
+        // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
+        val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
+        when {
+            hour < morningEnd -> "Good morning"
+            hour < afternoonEnd -> "Good afternoon"
+            else -> "Good evening"
+        }
+    }.getOrElse { "" }
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
         sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }

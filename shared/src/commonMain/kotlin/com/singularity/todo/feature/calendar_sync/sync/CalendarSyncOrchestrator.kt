@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.calendar_sync.sync
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
@@ -102,11 +103,11 @@ class CalendarSyncOrchestrator(
             channel.consumeAsFlow()
                 .debounce(1_000L)
                 .collect { strongest ->
-                    runCatching {
+                    runCatchingCancellable {
                         val currentHash = dirtyHashProvider.hash()
                         if (currentHash == lastHandedOffHash) {
                             _pendingSource.value = null
-                            return@runCatching
+                            return@runCatchingCancellable
                         }
                         scheduler.enqueueSync()
                         lastHandedOffHash = currentHash

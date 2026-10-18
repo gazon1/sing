@@ -365,7 +365,7 @@ class AuthViewModel(
                 emit(AuthUiEvent.Error("Both the project URL and the anon key are required"))
                 return@launch
             }
-            runCatching { clients.configure(SupabaseConfig(url = url, anonKey = key)) }
+            runCatchingCancellable { clients.configure(SupabaseConfig(url = url, anonKey = key)) }
                 .onSuccess { updateState { AuthUiState.Idle } }
                 .onFailure { emit(AuthUiEvent.Error(it.message ?: "Could not save the server settings")) }
         }

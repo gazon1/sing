@@ -129,8 +129,8 @@ class AndroidNotifier(
             setSound(
                 if (sound) {
                     android.media.RingtoneManager.getDefaultUri(
-                    android.media.RingtoneManager.TYPE_NOTIFICATION,
-                )
+                        android.media.RingtoneManager.TYPE_NOTIFICATION,
+                    )
                 } else {
                     null
                 },
