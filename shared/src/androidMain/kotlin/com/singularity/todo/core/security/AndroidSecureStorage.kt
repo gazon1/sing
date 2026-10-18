@@ -30,52 +30,32 @@ import java.io.File
  * recovery here is for what the exclusion cannot reach: an install that already
  * carries the broken file, or a device where backup ran before the rule shipped.
  *
- * Retrying the failure is not enough on its own — a `by lazy` that throws
- * rethrows the same error forever, which is how the caller ends up with a screen
- * that can never finish starting. Deleting the file is what makes the next
- * attempt succeed: a fresh key, an empty store, and a signed-out user who can
- * sign in again. The data in that file was already unreadable, so deleting it
- * destroys nothing that could have been recovered.
+ * The decision lives in [SecureStoreRecovery] rather than inline, because this
+ * class needs a `Context` and a `security-crypto` artifact and so is unreachable
+ * from a JVM test — which would leave "can the app recover from a broken
+ * install" as the one behaviour nothing covers.
  */
 class AndroidSecureStorage(context: Context) : SecureStoragePort {
 
     private val prefs: SharedPreferences by lazy {
-        createPrefs(context)
-    }
-
-    private fun createPrefs(context: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
 
-        return try {
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-        } catch (first: Exception) {
-            // Only a key mismatch is recoverable here, and that is the failure that
-            // arrives as a throw rather than as an empty store. Anything else — a
-            // revoked lock screen, a full disk — will fail again on a clean file,
-            // and the second failure is the one worth reporting to the caller.
-            eraseUnreadableFile(context)
-            try {
-                EncryptedSharedPreferences.create(
-                    context,
-                    PREFS_NAME,
-                    masterKey,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-                )
-            } catch (second: Exception) {
-                second.addSuppressed(first)
-                throw second
-            }
-        }
+        SecureStoreRecovery.openOrErase(
+            open = { createPrefs(context, masterKey) },
+            erase = { eraseUnreadableFile(context) },
+        )
     }
+
+    private fun createPrefs(context: Context, masterKey: MasterKey): SharedPreferences =
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+        )
 
     private fun eraseUnreadableFile(context: Context) {
         runCatching {

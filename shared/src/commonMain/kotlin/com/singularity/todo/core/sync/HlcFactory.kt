@@ -1,6 +1,8 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -22,9 +24,29 @@ open class HlcFactory(
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
 ) {
-    private val nodeIdDeferred: Deferred<String> = kotlinx.coroutines.CompletableDeferred<String>().also { deferred ->
+    /**
+     * Always reaches a terminal state — completed or completed-exceptionally.
+     *
+     * `deferred.complete(provider.getOrInitDeviceId())` looked equivalent and was not:
+     * when the provider threw, the launch body died before `complete` was reached and
+     * the deferred stayed *pending* for the life of the process. `getCompleted` on a
+     * pending deferred raises `IllegalStateException`, so one failed device-id read at
+     * construction broke every [tick] and [tock] from then on — with a message naming
+     * neither the provider nor the original cause.
+     *
+     * Failing is the right outcome when the node id is unavailable, because the
+     * alternative is worse than an exception. The node id is half of the HLC string,
+     * and two devices that both fell back to a placeholder would mint byte-identical
+     * HLCs for concurrent edits — exactly the collision the [tick] doc describes, except
+     * silent, and it would decide real data at the server. Completing exceptionally
+     * keeps that loud, makes the cause diagnosable, and leaves the next call failing the
+     * same deterministic way rather than flapping between outcomes.
+     */
+    private val nodeIdDeferred: Deferred<String> = CompletableDeferred<String>().also { deferred ->
         scope.launch {
-            deferred.complete(deviceIdProvider.getOrInitDeviceId())
+            runCatchingCancellable { deviceIdProvider.getOrInitDeviceId() }
+                .onSuccess(deferred::complete)
+                .onFailure(deferred::completeExceptionally)
         }
     }
 

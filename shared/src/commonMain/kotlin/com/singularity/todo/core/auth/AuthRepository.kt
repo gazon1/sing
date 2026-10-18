@@ -6,8 +6,13 @@ import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.log.Redaction
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -28,6 +33,32 @@ import kotlinx.coroutines.withTimeoutOrNull
 interface AuthRepository {
     val currentSession: StateFlow<Session>
     val isLoading: StateFlow<Boolean>
+
+    /**
+     * Emits once each time a restore could not be completed, and the session fell back to
+     * signed out because of it.
+     *
+     * ## Why this is an event and not a [Session]
+     *
+     * The user needs to be able to tell "you are signed out" from "you were signed in and
+     * this device could not read it any more". The second is a fact about an *attempt* — it
+     * happened once, on this launch, and it is over. Adding it to [Session] would put a
+     * third signed-out-shaped variant into every exhaustive `when (session)` in the app, all
+     * of which treat it identically, and the compiler would oblige by making each of them
+     * restate that identity. It is also wrong as state: after the user taps "Continue
+     * Offline" the session is `Anonymous` and nothing about the failure is still true.
+     *
+     * An event that fires once, at the moment it is true, is the shape the situation has.
+     * See REQ-UA-015.
+     *
+     * ## Why it has a default
+     *
+     * Only [SupabaseAuthRepository] restores anything; every other implementation — the dev
+     * one, the instrumented stub, the fakes — is handed its session and never fails to
+     * produce one. A default keeps that truth in one place instead of making a dozen
+     * doubles each carry an event they can never fire.
+     */
+    val restoreFailures: Flow<Unit> get() = NoRestoreFailures
     suspend fun signUp(email: String, password: String): Result<Unit>
     suspend fun signIn(email: String, password: String): Result<Unit>
 
@@ -120,6 +151,24 @@ class SupabaseAuthRepository(
     private val _isLoading = MutableStateFlow(false)
     override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    /**
+     * `replay = 1`, and it is load-bearing rather than generous.
+     *
+     * The repository is a Koin single resolved during startup, so the restore runs before
+     * anything is on screen. `AuthViewModel` is constructed later, when the login screen
+     * composes — and it is the only thing that can show the message. With `replay = 0` the
+     * emission finds no subscriber and is dropped, so the message the whole mechanism
+     * exists to deliver would never arrive, on any device that failed to restore. The unit
+     * test that covers this found the ordering by failing.
+     *
+     * Replaying is correct rather than a leak: "a restore failed on this launch" stays true
+     * for the whole launch, and the session it explains is still the one the user is looking
+     * at. `tryEmit` does not suspend either — a bounded buffer keeps the recovery path from
+     * blocking on a subscriber, which is the second way a broken store could stall startup.
+     */
+    private val _restoreFailures = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 1)
+    override val restoreFailures: SharedFlow<Unit> = _restoreFailures.asSharedFlow()
+
     init {
         scope.launch { restoreSession() }
     }
@@ -179,6 +228,7 @@ class SupabaseAuthRepository(
         // the login screen is the honest answer and "Continue Offline" is one tap away.
         if (restored == null) {
             _currentSession.value = Session.SignedOut
+            _restoreFailures.tryEmit(Unit)
         }
     }
 
@@ -466,3 +516,15 @@ class SupabaseAuthRepository(
         const val RESTORE_SESSION_TIMEOUT = 10_000L
     }
 }
+
+/**
+ * The default for [AuthRepository.restoreFailures]: an empty flow, which completes at once.
+ *
+ * "There is no restore, so there is no restore failure" is a *finished* answer, not a
+ * pending one. A `MutableSharedFlow` that never emits would leave every collector of it
+ * suspended for the life of the process — harmless behind a background scope in production,
+ * and `UncompletedCoroutinesError` in every test that hands the view model a test scope,
+ * because `runTest` waits for foreground coroutines and reports the wait regardless of
+ * what the assertions underneath said.
+ */
+private val NoRestoreFailures: Flow<Unit> = emptyFlow()
