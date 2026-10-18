@@ -47,7 +47,7 @@ class DeviceDeps:
     device_alive: Callable[[str], bool]
     device_model: Callable[[str], str]
     maestro_saw_device_failure: Callable[[str], bool]
-    apk_sha_from_device: Callable[[str, "DeviceDeps"], str | None]
+    apk_sha_from_device: Callable[[str], str | None]
     gradle_install_debug: Callable[[str], "subprocess.CompletedProcess"]
     acquire_device: Callable[[str], Acquisition]
     adb: Callable[..., str | None]

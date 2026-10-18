@@ -10,17 +10,17 @@
   "floors": [
     {
       "metric": "holes",
-      "max": 92,
-      "measured": 92,
+      "max": 93,
+      "measured": 93,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "Raised 91 -> 92 on 2026-10-18 for the (AUTH-FIRSTRUN-04, android) cell, the same scenario as the dark_scenarios entry: the scenario declares an android target and its Maestro flow has not yet produced a recorded result. One cell, one scenario, and the two floors moved together for one reason. The previous note's history is retained here because the lesson still holds — the old 38 floor was stale rather than earned, and a floor that does not match what the corpus measures detects nothing."
+      "note": "Raised 92 -> 93 on 2026-10-18 for the (AUTH-FIRSTRUN-05, android) cell: the store-recovery path. A new scenario was added because the auth restore fix (Channel over SharedFlow) enables a recovery path that was previously blocked by a spinner bug. The Maestro flow (12-unreadable-store-recovers.yaml) and instrumented test (AndroidSecureStorageRecoveryTest) are written but the Maestro flow could not be end-to-end verified in this session due to the gfxstream emulator crash. The scenario is confirmed P1; the flow will be verified in CI."
     },
     {
       "metric": "dark_scenarios",
-      "max": 69,
-      "measured": 69,
+      "max": 70,
+      "measured": 70,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Raised 68 -> 69 on 2026-10-18 for AUTH-FIRSTRUN-04 (the login screen appears on a cold, empty install), whose Maestro flow Maestro/flows/auth/11-cold-install-login.yaml exists but has not yet run on an emulator, so the scenario counts as dark. This is a transient reading, not a new debt: CI runs the flow, records a result, and the number returns to 68. The floor is raised rather than the gate bypassed with --accept-growth so that the file states the measured truth and a later drop is still noticed."
+      "note": "Raised 69 -> 70 on 2026-10-18 for AUTH-FIRSTRUN-05 (the app starts when the session store cannot be read). Same situation as AUTH-FIRSTRUN-04: the Maestro flow exists and is tagged, but a recorded result has not yet been produced. The instrumented test AndroidSecureStorageRecoveryTest covers the recovery path on android. Raising the floor rather than bypassing with --accept-growth so the file states the measured truth."
     },
     {
       "metric": "unreachable_cells",

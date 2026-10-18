@@ -6,11 +6,10 @@ import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.log.Redaction
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asStateFlow
@@ -158,16 +157,31 @@ class SupabaseAuthRepository(
      * anything is on screen. `AuthViewModel` is constructed later, when the login screen
      * composes — and it is the only thing that can show the message. With `replay = 0` the
      * emission finds no subscriber and is dropped, so the message the whole mechanism
-     * exists to deliver would never arrive, on any device that failed to restore. The unit
-     * test that covers this found the ordering by failing.
+     * exists to deliver would never arrive, on any device that failed to restore.
      *
-     * Replaying is correct rather than a leak: "a restore failed on this launch" stays true
-     * for the whole launch, and the session it explains is still the one the user is looking
-     * at. `tryEmit` does not suspend either — a bounded buffer keeps the recovery path from
-     * blocking on a subscriber, which is the second way a broken store could stall startup.
+     * ## Why a channel and not a replaying flow
+     *
+     * Both obvious choices are wrong, in opposite directions, and each was wrong in a way
+     * that only showed up in a test:
+     *
+     * - `MutableSharedFlow(replay = 0)` drops the emission, because the repository is a
+     *   startup singleton and restores long before any view model exists. The message
+     *   never arrives.
+     * - `MutableSharedFlow(replay = 1)` delivers it — and then delivers it *again*, to
+     *   every view model built later in the same launch. Sign out after "Continue Offline"
+     *   and the login screen greets you with "could not read your saved session" about a
+     *   session it read perfectly a minute ago.
+     *
+     * A buffered channel is the one structure with the right ownership: an element sent
+     * before anyone is listening stays buffered until something takes it, and `receive`
+     * takes it **once**. Exactly one screen learns about one failure.
+     *
+     * `Channel.BUFFERED` also keeps `trySend` from suspending, so the recovery path in
+     * [restoreSession] cannot block on a subscriber — which would be a second way for a
+     * broken store to stall the launch it is already recovering from.
      */
-    private val _restoreFailures = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 1)
-    override val restoreFailures: SharedFlow<Unit> = _restoreFailures.asSharedFlow()
+    private val _restoreFailures = Channel<Unit>(Channel.BUFFERED)
+    override val restoreFailures: Flow<Unit> = _restoreFailures.receiveAsFlow()
 
     init {
         scope.launch { restoreSession() }
@@ -228,7 +242,7 @@ class SupabaseAuthRepository(
         // the login screen is the honest answer and "Continue Offline" is one tap away.
         if (restored == null) {
             _currentSession.value = Session.SignedOut
-            _restoreFailures.tryEmit(Unit)
+            _restoreFailures.trySend(Unit)
         }
     }
 
@@ -521,7 +535,7 @@ class SupabaseAuthRepository(
  * The default for [AuthRepository.restoreFailures]: an empty flow, which completes at once.
  *
  * "There is no restore, so there is no restore failure" is a *finished* answer, not a
- * pending one. A `MutableSharedFlow` that never emits would leave every collector of it
+ * pending one. A flow that never emits would leave every collector of it
  * suspended for the life of the process — harmless behind a background scope in production,
  * and `UncompletedCoroutinesError` in every test that hands the view model a test scope,
  * because `runTest` waits for foreground coroutines and reports the wait regardless of

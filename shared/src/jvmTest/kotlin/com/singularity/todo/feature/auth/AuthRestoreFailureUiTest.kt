@@ -10,10 +10,10 @@ import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
@@ -44,16 +44,21 @@ class AuthRestoreFailureUiTest {
 
     private val sessions = MutableStateFlow<Session>(Session.SignedOut)
 
-    // Named `failures` rather than `restoreFailures`: an `override` whose name matches
-    // the property it delegates to sends the compiler into the recursive-inference path
-    // it reports as "recursive problem", which costs a line here and a lot of confusion
-    // the first time someone hits it.
-    private val failures = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 1)
+    // Mirrors the production shape — a channel, not a replaying flow. A fake built from
+    // `MutableSharedFlow` here would pass the delivery test while hiding the exact defect
+    // the channel was chosen for, which is that a second view model must not hear about
+    // the same failure.
+    //
+    // Named `failures` rather than `restoreFailures`: an `override` whose name matches the
+    // property it delegates to sends the compiler into the recursive-inference path it
+    // reports as "recursive problem", which costs a line here and a lot of confusion the
+    // first time someone hits it.
+    private val failures = Channel<Unit>(Channel.BUFFERED)
 
     private val repository = object : AuthRepository {
         override val currentSession = sessions.asStateFlow()
         override val isLoading = MutableStateFlow(false)
-        override val restoreFailures: SharedFlow<Unit> = failures.asSharedFlow()
+        override val restoreFailures: Flow<Unit> = failures.receiveAsFlow()
 
         override suspend fun signIn(email: String, password: String): Result<Unit> = unused()
         override suspend fun signUp(email: String, password: String): Result<Unit> = unused()
@@ -105,7 +110,7 @@ class AuthRestoreFailureUiTest {
         // production order. The repository is a startup singleton and restores long before
         // the login screen composes, so a view model that only listened from its own
         // construction would never hear about the failure it is meant to explain.
-        failures.tryEmit(Unit)
+        failures.trySend(Unit)
 
         val viewModel = viewModel()
         val events = mutableListOf<AuthUiEvent>()
@@ -143,7 +148,7 @@ class AuthRestoreFailureUiTest {
     fun `the message points at the way back in`() = runTest {
         // "Continue Offline" is the button that recovers a local session, so a message that
         // names the problem without naming the way out leaves a diagnosis and no action.
-        failures.tryEmit(Unit)
+        failures.trySend(Unit)
 
         val viewModel = viewModel()
         val events = mutableListOf<AuthUiEvent>()
@@ -167,5 +172,42 @@ class AuthRestoreFailureUiTest {
         advanceUntilIdle()
 
         assertEquals(emptyList(), events.toList())
+    }
+
+    /**
+     * The defect this file's shape exists to prevent.
+     *
+     * A `replay = 1` flow delivers the failure to every view model built for the rest of
+     * the launch. The sequence that makes that visible is ordinary: the restore fails, the
+     * user taps "Continue Offline", the login screen leaves composition and its view model
+     * is cleared, and later they sign out — which brings the screen back with a new view
+     * model that greets them with a failure that happened before they signed in.
+     */
+    @Test
+    fun `only the first screen hears about the failure`() = runTest {
+        failures.trySend(Unit)
+
+        val first = viewModel()
+        val firstEvents = mutableListOf<AuthUiEvent>()
+        backgroundScope.launch { first.events.collect { firstEvents += it } }
+        runCurrent()
+        advanceUntilIdle()
+
+        val second = viewModel()
+        val secondEvents = mutableListOf<AuthUiEvent>()
+        backgroundScope.launch { second.events.collect { secondEvents += it } }
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(
+            1,
+            firstEvents.filterIsInstance<AuthUiEvent.Message>().size,
+            "the screen that explains the failure must say it",
+        )
+        assertEquals(
+            emptyList(),
+            secondEvents.filterIsInstance<AuthUiEvent.Message>(),
+            "a screen built later is not owed a failure that has already been explained",
+        )
     }
 }

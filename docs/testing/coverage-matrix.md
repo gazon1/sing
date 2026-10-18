@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**95 scenarios · 26/118 claimed cells automated · 92 holes**
+**96 scenarios · 26/119 claimed cells automated · 93 holes**
 
 ## feature.agenda
 
@@ -56,6 +56,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `AUTH-ATTACH-01` | Turn an account-less session into a real account | ○ | ○ | The existing data stays visible throughout and ends up belonging to the new account. A failure part way through is… |
 | `AUTH-FIRSTRUN-01` | Use the app on a first launch, with no account | ○ | ● | Tasks can be created without signing in, they are stored locally, and restarting offline shows the data with no error… |
 | `AUTH-FIRSTRUN-04` | The login screen appears on a cold, empty install | ○ | — | The login screen appears within the restore budget, with "Continue Offline" present, and the loading indicator gone. A… |
+| `AUTH-FIRSTRUN-05` | The app starts when the session store cannot be read | ○ | — | The login screen appears within the restore budget, with the loading indicator gone, and the store is left in a state… |
 | `AUTH-SEED-01` | Sign in on a device that already holds local data | ● | ○ | The local data is uploaded, the application stays usable while it happens, and the upload survives being interrupted… |
 | `AUTH-SESSION-01` | Carry on working after the session stops being valid | ● | ○ | The app keeps working locally. An unobtrusive message says signing in again is needed, without blocking an editor.… |
 | `AUTH-SIGNIN-01` | Sign in to an existing account | ○ | ○ | A wrong password gives one message that does not reveal whether the address exists, and the address stays in the form.… |
@@ -212,6 +213,7 @@ Claimed but not automated:
 - `AUTH-ATTACH-01` / desktop
 - `AUTH-FIRSTRUN-01` / android
 - `AUTH-FIRSTRUN-04` / android
+- `AUTH-FIRSTRUN-05` / android
 - `AUTH-SEED-01` / desktop
 - `AUTH-SESSION-01` / desktop
 - `AUTH-SIGNIN-01` / android
