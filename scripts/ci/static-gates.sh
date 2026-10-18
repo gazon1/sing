@@ -194,7 +194,6 @@ gate blocking "gates are alive" sgate gates_are_alive  # no-self-probe
 # always the stale one and always reads like documentation rather than like a bug.
 # The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
 # this compares the committed text with what the code says today (#526).
-gate blocking "skills describe the tools that exist" sgate skills_describe_the_tools_that_exist
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).
 gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree

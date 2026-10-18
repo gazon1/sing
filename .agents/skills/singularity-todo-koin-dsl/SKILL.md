@@ -71,7 +71,7 @@ fun platformModule(): List<Module> = listOf(
 ```
 
 An earlier version of this skill showed `expect fun tasksModule()`. It does not exist, and
-writing one would break `PlatformModuleMirrorTest`, which asserts that every type bound on
+writing one would break `PlatformSeamGuardTest`, which asserts that every type bound on
 Desktop is also bound on Android.
 
 **What binds where.** `core/di/Modules.kt` is a *facade aggregator*, not the source of truth:
