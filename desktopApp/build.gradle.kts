@@ -127,26 +127,78 @@ compose.desktop {
 
             modules("jdk.unsupported")
             includeAllModules = false
+        }
+    }
+}
 
-            // #686: jpackage generates a postinst that calls `xdg-desktop-menu install`.
-            // That script exits 3 on a headless Debian system because neither
-            // /usr/share/desktop-directories nor /usr/share/applications is writable —
-            // and XDG_DATA_DIRS="" on early boot prevents the fallback. The menu
-            // entries the package installs are unused on a headless install anyway.
-            // Override with a no-op postinst that just succeeds.
-            @Suppress("RemoveRedundantCallsOfConvertToString")
-            linuxConfig {
-                postinstScript =
-                    "#!/bin/bash\n" +
-                    "case \"\$1\" in\n" +
-                    "    configure|abort-upgrade|abort-remove|abort-deconfigure)\n" +
-                    "        exit 0\n" +
-                    "        ;;\n" +
-                    "esac\n"
+// ---------------------------------------------------------------------------
+// D1 (#686): Patch jpackage's postinst to be a no-op.
+//
+// jpackage generates a postinst that calls `xdg-desktop-menu install`, which exits 3
+// on a headless Debian system because neither /usr/share/desktop-directories nor
+// /usr/share/applications is writable and XDG_DATA_DIRS="" prevents the fallback.
+// The menu entries the package installs are unused on a headless install.
+//
+// `linuxConfig { postinstScript = … }` does not exist in compose-desktop 1.12.0,
+// so we patch the .deb after packageDeb creates it using standard Debian tools.
+// ---------------------------------------------------------------------------
+
+val patchDebPostinst = tasks.register<DefaultTask>("patchDebPostinst") {
+    // Run after packageDeb. Not all formats produce a .deb, so the glob inside
+    // is the only part that can tolerate being a no-op when no .deb exists.
+    // packageDeb is created lazily by the compose-desktop plugin, so we access it
+    // by name string rather than a typed reference.
+    dependsOn("packageDeb")
+
+    doLast {
+        val buildDir = layout.buildDirectory.asFile.get()
+        val debDir = buildDir.resolve("compose/binaries/main/deb")
+        val debFiles = debDir.listFiles { _, name -> name.endsWith(".deb") }
+            ?: error("No .deb files found in $debDir — packageDeb must run first")
+
+        for (debFile in debFiles) {
+            val tmpDir = buildDir.resolve("tmp-deb-patch/${debFile.nameWithoutExtension}")
+            try {
+                // Use ProcessBuilder directly — avoids any Gradle DSL scope issues inside doLast.
+                val run = { cmd: List<String> ->
+                    val pb = ProcessBuilder(cmd)
+                    pb.redirectErrorStream(true)
+                    val result = pb.start().waitFor()
+                    if (result != 0) error("Command failed: $cmd  (exit $result)")
+                }
+
+                // Extract the package data and control files.
+                run(listOf("dpkg-deb", "-x", debFile.absolutePath, tmpDir.absolutePath))
+                run(listOf("dpkg-deb", "-e", debFile.absolutePath, "$tmpDir/DEBIAN"))
+
+                val postinst = tmpDir.resolve("DEBIAN/postinst")
+                if (postinst.exists()) {
+                    // Replace with a no-op that handles all standard dpkg trigger arguments.
+                    // jpackage's original postinst called xdg-desktop-menu, which aborts on
+                    // headless Debian (no desktop-directories). This one just exits 0 (#686).
+                    postinst.writeText(
+                        """#!/bin/bash
+case "$1" in
+    configure|abort-upgrade|abort-remove|abort-deconfigure)
+        exit 0
+        ;;
+esac
+"""
+                    )
+                    postinst.setExecutable(true)
+                }
+
+                // Repack the .deb in-place, replacing the original.
+                run(listOf("dpkg-deb", "-b", tmpDir.absolutePath, debFile.absolutePath))
+            } finally {
+                tmpDir.deleteRecursively()
             }
         }
     }
 }
+
+// patchDebPostinst dependsOn "packageDeb" directly, so running
+// `packageDeb` automatically runs the patch too.
 
 
 
