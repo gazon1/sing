@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The repository interface for authentication.
@@ -137,8 +138,35 @@ class SupabaseAuthRepository(
      * asking again on every launch would be the auth screen reappearing over an
      * app they had already been let into — the symptom this whole path exists to
      * remove.
+     *
+     * ## Timeout
+     *
+     * Before PR #720 the "no token" path was synchronous and instant. Now it
+     * reads from [localOwnerStore] via DataStore, which can hang on a corrupted
+     * preferences file or a locked store. A timeout prevents an unreachable
+     * storage from leaving the app behind a permanent [Session.Loading] spinner.
+     * The timeout falls back to [Session.SignedOut], which shows the login
+     * screen where the user can still choose "Continue Offline".
      */
     private suspend fun restoreSession() {
+        // 10 seconds is long enough for any legitimate storage operation (first
+        // EncryptedSharedPreferences init, DataStore read, keychain access) and
+        // short enough to not feel like a freeze when storage is truly unreachable.
+        withTimeoutOrNull(RESTORE_SESSION_TIMEOUT) {
+            doRestoreSession()
+        } ?: run {
+            // Timed out: storage is unreachable. Show the login screen — the user
+            // can still tap "Continue Offline" to restore their local session.
+            log.e("Session restore timed out after $RESTORE_SESSION_TIMEOUT; signing out")
+            _currentSession.value = Session.SignedOut
+        }
+    }
+
+    /**
+     * The actual session restore logic, extracted so [withTimeoutOrNull] wraps
+     * the whole operation without conflating the timeout concern with the logic.
+     */
+    private suspend fun doRestoreSession() {
         val refreshToken = sessionStore.currentRefreshToken()
         val userId = sessionStore.currentUserId()
         val email = sessionStore.currentEmail()
@@ -407,5 +435,14 @@ class SupabaseAuthRepository(
         } finally {
             _isLoading.value = false
         }
+    }
+
+    private companion object {
+        /**
+         * Timeout for [restoreSession]. Chosen to be long enough for any legitimate
+         * storage operation (first EncryptedSharedPreferences init, DataStore read) yet
+         * short enough to avoid a visible freeze when storage is unreachable.
+         */
+        const val RESTORE_SESSION_TIMEOUT = 10_000L
     }
 }
