@@ -222,7 +222,7 @@ gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # `command -v` turns that invisibility into a message. One line, because the
 # registry parser is a single-line regex: a gate command split across lines is
 # read as a command ending in an unterminated quote.
-gate blocking "GitHub workflows are valid" bash -c 'command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2; exit 1; }; actionlint -shellcheck="$(command -v shellcheck)"'
+gate blocking "GitHub workflows are valid" bash -c 'command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2; exit 1; }; actionlint -shellcheck="$(command -v shellcheck)" .github/workflows/*.yml'
 gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml"
 
 # NOT HERE: scripts/check-gate-wiring.py

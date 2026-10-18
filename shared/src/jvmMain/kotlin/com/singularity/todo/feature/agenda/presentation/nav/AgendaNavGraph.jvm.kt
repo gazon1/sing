@@ -157,17 +157,4 @@ private fun desktopContextMenuHost(): @Composable (
 }
 
 @Composable
-actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute> = entryProvider {
-    entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Today> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Project> { r -> AgendaNavContent(route = r) }
-    entry<AgendaStartRoute.Tag> { r -> AgendaNavContent(route = r) }
-    entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.SavedAgendaResults> { r -> AgendaNavContent(route = r) }
-    entry<AgendaStartRoute.SavedAgendaEdit> { r -> AgendaNavContent(route = r) }
-    entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Blocked> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Stagnant> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Overdue> { AgendaNavContent(route = it) }
-}
+actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute> = agendaScreenEntryProvider()

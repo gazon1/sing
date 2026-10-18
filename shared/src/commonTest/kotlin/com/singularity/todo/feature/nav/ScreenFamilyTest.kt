@@ -1,7 +1,9 @@
 package com.singularity.todo.feature.nav
 
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -50,7 +52,7 @@ class ScreenFamilyTest {
             AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))),
         )
         assertFamily(ScreenFamily.Projects, AppDestination.ProjectsGraph())
-        assertFamily(ScreenFamily.Projects, AppDestination.ProjectDetail("p1"))
+        assertFamily(ScreenFamily.Projects, AppDestination.ProjectDetail(ProjectId("p1")))
         assertFamily(ScreenFamily.Projects, AppDestination.ProjectEditor(null))
         assertFamily(ScreenFamily.Notes, AppDestination.NotesGraph())
         assertFamily(ScreenFamily.Calendar, AppDestination.CalendarGraph())
@@ -78,11 +80,11 @@ class ScreenFamilyTest {
             AgendaStartRoute.Inbox,
             AgendaStartRoute.Today,
             AgendaStartRoute.Upcoming,
-            AgendaStartRoute.Project("p1"),
-            AgendaStartRoute.Tag("g1"),
+            AgendaStartRoute.Project(ProjectId("p1")),
+            AgendaStartRoute.Tag(TagId("g1")),
             AgendaStartRoute.SavedAgendaList,
-            AgendaStartRoute.SavedAgendaResults("v1"),
-            AgendaStartRoute.SavedAgendaEdit("v1"),
+            AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId("v1")),
+            AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("v1")),
             AgendaStartRoute.SavedAgendaCreate,
         ).forEach { assertFamily(ScreenFamily.Agenda, it) }
     }

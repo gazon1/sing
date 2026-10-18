@@ -107,8 +107,8 @@ class NavSavedStateConfigTest {
             AppDestination.ProjectsGraph(),
             AppDestination.NotesGraph(),
             AppDestination.CalendarGraph(),
-            AppDestination.ProjectEditor("pr1"),
-            AppDestination.ProjectDetail("pr1"),
+            AppDestination.ProjectEditor(ProjectId("pr1")),
+            AppDestination.ProjectDetail(ProjectId("pr1")),
         )
 
         samples.forEach { destination ->

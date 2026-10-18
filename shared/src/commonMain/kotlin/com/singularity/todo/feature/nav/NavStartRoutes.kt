@@ -22,7 +22,7 @@ import kotlinx.datetime.LocalDate
 
 /** Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute]. */
 internal fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
-    is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate)
+    is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate, sectionPrefillKey)
     is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(taskId)
 }
 
@@ -48,3 +48,6 @@ internal fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (t
 internal fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute = when (this) {
     is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
 }
+
+/** Identity conversion — [AgendaStartRoute] is used as-is inside [AppDestination.AgendaGraph]. */
+internal fun AgendaStartRoute.toAgendaStartRoute(): AgendaStartRoute = this

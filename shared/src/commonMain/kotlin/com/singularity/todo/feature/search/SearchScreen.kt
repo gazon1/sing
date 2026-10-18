@@ -322,7 +322,6 @@ private fun SearchEventsHandler(
                 is SearchUiEvent.Error -> event.message
                 is SearchUiEvent.QueryParseError -> "Parse error: ${event.message}"
                 is SearchUiEvent.SavedSuccessfully -> "Search saved"
-                else -> return@collect
             }
             snackbarHostState.showSnackbar(message)
         }

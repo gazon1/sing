@@ -6,13 +6,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
-import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
 
 /**
  * JVM Desktop implementation of [TasksNavGraph].
@@ -54,16 +51,10 @@ actual fun TasksNavGraph(
             backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
-            entryProvider = entryProvider {
-                entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
-                entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
-            },
+            entryProvider = tasksScreenEntryProvider(),
         )
     }
 }
 
 @Composable
-actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = entryProvider {
-    entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
-    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate) }
-}
+actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = tasksScreenEntryProvider()

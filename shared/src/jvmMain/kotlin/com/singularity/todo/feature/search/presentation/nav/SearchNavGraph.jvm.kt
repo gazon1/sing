@@ -5,13 +5,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-import com.singularity.todo.feature.search.SearchScreen
 
 /**
  * JVM Desktop implementation of [SearchNavGraph].
@@ -49,9 +47,7 @@ actual fun SearchNavGraph(navCallbacks: NavCallbacks, modifier: Modifier, backSt
             backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
-            entryProvider = entryProvider {
-                entry<Search> { SearchScreen() }
-            },
+            entryProvider = searchScreenEntryProvider(),
         )
     }
 }

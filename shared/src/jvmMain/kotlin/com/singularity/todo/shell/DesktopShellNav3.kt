@@ -27,6 +27,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -156,6 +157,18 @@ fun DesktopShellNav3Root(
         }
     }
 
+    // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
+    // Wraps NavDisplay so the composable call-chain includes toDecoratedEntries (a @Composable).
+    // The LaunchedEffect inside fires on topLevelRoute changes and warns if the active route
+    // has no entries — which would render a silently blank NavDisplay with no error.
+    val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
+    LaunchedEffect(state.topLevelRoute) {
+        if (navDisplayEntries.isEmpty()) {
+            println("WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
+                "Check that the entryProvider covers this route.")
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -269,7 +282,7 @@ fun DesktopShellNav3Root(
             ) { padding ->
                 CompositionLocalProvider(LocalNav3State provides state) {
                     NavDisplay(
-                        entries = state.toDecoratedEntries(appEntryProvider),
+                        entries = navDisplayEntries,
                         onBack = { navigator.goBack() },
                         modifier = Modifier.padding(padding),
                     )

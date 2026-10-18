@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.nav
 
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -62,7 +63,7 @@ class DestinationKindTest {
     fun isSubRouteOnlyMatchesSubRoutes() {
         assertTrue(DestinationKind.isSubRoute(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create())))
         assertTrue(DestinationKind.isSubRoute(AppDestination.ProjectEditor()))
-        assertTrue(DestinationKind.isSubRoute(AppDestination.ProjectDetail("1")))
+        assertTrue(DestinationKind.isSubRoute(AppDestination.ProjectDetail(ProjectId("1"))))
     }
 
     @Test

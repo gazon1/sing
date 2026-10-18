@@ -109,17 +109,4 @@ actual fun AgendaNavGraph(
 }
 
 @Composable
-actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute> = entryProvider {
-    entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Today> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Project> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.Tag> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.SavedAgendaResults> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Blocked> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Stagnant> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.Overdue> { AgendaNavContent(route = it) }
-}
+actual fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute> = agendaScreenEntryProvider()

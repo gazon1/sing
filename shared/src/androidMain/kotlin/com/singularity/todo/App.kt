@@ -20,6 +20,7 @@ import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
@@ -102,7 +103,7 @@ actual fun App(
 }
 
 @Composable
-private fun AppContent(
+actual fun AppContent(
     deeplinkViewId: String?,
     deeplinkTaskId: String?,
     deeplinkMagicEmail: String?,
@@ -145,7 +146,7 @@ private fun AppContent(
             }
 
             deeplinkViewId != null -> {
-                navigator.open(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(deeplinkViewId)))
+                navigator.open(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId.fromString(deeplinkViewId))))
             }
         }
     }

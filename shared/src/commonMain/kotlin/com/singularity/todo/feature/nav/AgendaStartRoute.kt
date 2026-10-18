@@ -26,21 +26,15 @@ sealed interface AgendaStartRoute : AppNavKey {
 
     /** All tasks for a specific project. */
     @Serializable
-    data class Project(val projectId: String) : AgendaStartRoute {
-        val id: ProjectId get() = ProjectId.fromString(projectId)
-    }
+    data class Project(val projectId: ProjectId) : AgendaStartRoute
 
     /** All tasks with a specific tag. */
     @Serializable
-    data class Tag(val tagId: String) : AgendaStartRoute {
-        val id: TagId get() = TagId.fromString(tagId)
-    }
+    data class Tag(val tagId: TagId) : AgendaStartRoute
 
     /** All tasks matching all of the given tags (matchAll). */
     @Serializable
-    data class Tags(val tagIds: Set<String>) : AgendaStartRoute {
-        val ids: Set<TagId> get() = tagIds.map { TagId.fromString(it) }.toSet()
-    }
+    data class Tags(val tagIds: Set<TagId>) : AgendaStartRoute
 
     /** Saved views list. */
     @Serializable
@@ -48,15 +42,11 @@ sealed interface AgendaStartRoute : AppNavKey {
 
     /** Display the tasks matching a saved view's definition. */
     @Serializable
-    data class SavedAgendaResults(val viewId: String) : AgendaStartRoute {
-        val id: SavedAgendaViewId get() = SavedAgendaViewId.fromString(viewId)
-    }
+    data class SavedAgendaResults(val viewId: SavedAgendaViewId) : AgendaStartRoute
 
     /** Edit a specific saved view. */
     @Serializable
-    data class SavedAgendaEdit(val viewId: String) : AgendaStartRoute {
-        val id: SavedAgendaViewId get() = SavedAgendaViewId.fromString(viewId)
-    }
+    data class SavedAgendaEdit(val viewId: SavedAgendaViewId) : AgendaStartRoute
 
     /** Create a new saved view, optionally seeded from an existing [AgendaDefinition]. */
     @Serializable

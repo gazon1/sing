@@ -133,7 +133,8 @@ fun SettingsScreen(
     var tagsCountdownProgress by remember { mutableStateOf<Float?>(null) }
 
     // Show snackbar on error, then dismiss it
-    LaunchedEffect((uiState as? SettingsUiState.Content)?.errorMessage) {
+    @Suppress("USELESS_CAST") // uiState is always Content (sealed interface has one subtype); cast needed for smart-cast in LaunchedEffect key
+    LaunchedEffect((uiState as SettingsUiState.Content).errorMessage) {
         val msg =
             uiState.errorMessage
                 ?: return@LaunchedEffect
@@ -231,7 +232,7 @@ private fun SettingsContent(
                             viewModel = tagsVm,
                             onOpenTag = { tagId ->
                                 navCallbacks?.navigate(
-                                    AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId.value)),
+                                    AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId)),
                                 )
                             },
                         )

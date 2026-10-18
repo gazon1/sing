@@ -5,15 +5,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
-import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
-import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
 
 /**
  * JVM Desktop implementation of [NotesNavGraph].
@@ -53,11 +49,7 @@ actual fun NotesNavGraph(
             backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
-            entryProvider = entryProvider {
-                entry<NotesRoute.List> { NotesListScreen(it) }
-                entry<NotesRoute.Preview> { route -> NotePreviewScreen(route) }
-                entry<NotesRoute.Editor> { route -> NoteEditorScreen(route) }
-            },
+            entryProvider = notesScreenEntryProvider(),
         )
     }
 }

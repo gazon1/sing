@@ -19,6 +19,7 @@ import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -125,9 +126,20 @@ fun androidShellNav3Root(
         // The same `today` the FAB uses, so the calendar anchor and the task
         // prefill agree (#91).
         val appEntryProvider = createAppEntryProvider(navCallbacks, today)
+
+        // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
+        // toDecoratedEntries is composable so compute it once above, then check in LaunchedEffect.
+        val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
+        LaunchedEffect(state.topLevelRoute) {
+            if (navDisplayEntries.isEmpty()) {
+                println("WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
+                    "Check that the entryProvider covers this route.")
+            }
+        }
+
         CompositionLocalProvider(LocalNav3State provides state) {
             NavDisplay(
-                entries = state.toDecoratedEntries(appEntryProvider),
+                entries = navDisplayEntries,
                 onBack = { navigator.goBack() },
                 modifier = Modifier.padding(padding),
             )

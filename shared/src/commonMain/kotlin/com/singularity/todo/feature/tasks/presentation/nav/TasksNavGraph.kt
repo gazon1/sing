@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
+import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
+import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
 
 /**
  * Creates a nested navigation graph for the tasks feature.
@@ -39,6 +42,21 @@ expect fun TasksNavGraph(
     modifier: Modifier = Modifier,
     backStack: NavBackStack<TasksRoute>? = null,
 )
+
+/**
+ * Builds the [entryProvider][androidx.navigation3.runtime.entryProvider] for the Tasks
+ * nested graph — the map from each [TasksRoute] variant to the screen that renders it.
+ *
+ * Extracted to commonMain to eliminate the duplication between the inner `entryProvider {}`
+ * inside [NavDisplay][androidx.navigation3.ui.NavDisplay] and the outer
+ * [tasksEntryProvider()][tasksEntryProvider]. Both call this function; the two
+ * call sites are identical for Tasks.
+ */
+@Composable
+internal fun tasksScreenEntryProvider() = entryProvider {
+    entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
+    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
+}
 
 /**
  * Returns a lambda that provides a [NavEntry] for each [TasksRoute] route type.
