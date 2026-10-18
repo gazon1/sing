@@ -25,6 +25,8 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
+import com.singularity.todo.feature.tasks.presentation.state.DraftAttachment
+import com.singularity.todo.feature.tasks.presentation.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
@@ -84,39 +86,17 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
         }
     }
 
-    if (showDiscard) {
-        DiscardChangesDialog(
-            onDiscard = {
-                showDiscard = false
-                navigator.back()
-            },
-            onKeepEditing = { showDiscard = false },
-        )
-    }
+    DiscardChangesDialogHost(
+        visible = showDiscard,
+        onDiscard = {
+            showDiscard = false
+            navigator.back()
+        },
+        onKeepEditing = { showDiscard = false },
+    )
 
-    // Map draft checklist items to the ChecklistItem domain model for the editor model.
-    val checklistItems = state.draft.checklist.map { draft ->
-        com.singularity.todo.feature.checklist.ChecklistItem(
-            id = ChecklistItemId.fromString(draft.id),
-            taskId = "",
-            title = draft.text,
-            isCompleted = draft.isChecked,
-        )
-    }
-
-    // Map draft attachments to the domain Attachment model for the editor model.
-    val attachmentItems = state.draft.attachments.map { draft ->
-        com.singularity.todo.core.attachments.Attachment(
-            id = com.singularity.todo.core.attachments.AttachmentId(draft.url),
-            taskId = com.singularity.todo.feature.tasks.domain.model.TaskId(""),
-            userId = com.singularity.todo.core.ids.UserId.anonymous,
-            type = com.singularity.todo.core.attachments.AttachmentType.Url,
-            url = draft.url,
-            title = draft.title ?: "",
-            createdAt = now,
-            updatedAt = now,
-        )
-    }
+    val checklistItems = state.draft.checklist.toChecklistItems()
+    val attachmentItems = state.draft.attachments.toAttachments(now)
 
     TaskEditorContent(
         model = TaskEditorModel(
@@ -211,3 +191,43 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
         now = now,
     )
 }
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun DiscardChangesDialogHost(
+    visible: Boolean,
+    onDiscard: () -> Unit,
+    onKeepEditing: () -> Unit,
+) {
+    if (visible) {
+        DiscardChangesDialog(
+            onDiscard = onDiscard,
+            onKeepEditing = onKeepEditing,
+        )
+    }
+}
+
+private fun List<DraftChecklistItem>.toChecklistItems(): List<com.singularity.todo.feature.checklist.ChecklistItem> =
+    map { draft ->
+        com.singularity.todo.feature.checklist.ChecklistItem(
+            id = ChecklistItemId.fromString(draft.id),
+            taskId = "",
+            title = draft.text,
+            isCompleted = draft.isChecked,
+        )
+    }
+
+private fun List<DraftAttachment>.toAttachments(now: Instant): List<com.singularity.todo.core.attachments.Attachment> =
+    map { draft ->
+        com.singularity.todo.core.attachments.Attachment(
+            id = com.singularity.todo.core.attachments.AttachmentId(draft.url),
+            taskId = com.singularity.todo.feature.tasks.domain.model.TaskId(""),
+            userId = com.singularity.todo.core.ids.UserId.anonymous,
+            type = com.singularity.todo.core.attachments.AttachmentType.Url,
+            url = draft.url,
+            title = draft.title ?: "",
+            createdAt = now,
+            updatedAt = now,
+        )
+    }

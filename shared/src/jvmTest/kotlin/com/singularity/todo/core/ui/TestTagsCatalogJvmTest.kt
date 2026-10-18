@@ -44,6 +44,38 @@ class TestTagsCatalogJvmTest {
     }
 
     @Test
+    fun `static tags count matches raw const val scan — guards against line-wrap dropping tags`() {
+        // Regression: a line-wrap in TestTags.kt must not cause the parser to skip a tag.
+        // Independently count 'const val' declarations by scanning for the pattern at line-start
+        // (MULTILINE mode). This is robust against:
+        //   - multi-line declarations with '+' string continuation (continuation lines don't
+        //     start with 'const val', so they are not counted — only the opening line is)
+        //   - 'const val' appearing as literal text inside a multi-line string (same reason)
+        val source = readTestTagsSourceForCount()
+        val constValPattern = Regex("""^\s*const\s+val\b""", RegexOption.MULTILINE)
+        val rawConstValCount = constValPattern.findAll(source).count()
+
+        val catalogCount = TestTagsCatalog.staticTags().size
+
+        assertTrue(
+            catalogCount == rawConstValCount,
+            "TestTagsCatalog returned $catalogCount tags but raw scan found $rawConstValCount " +
+                "const val declarations — a line-wrap may have caused the parser to skip a tag",
+        )
+    }
+
+    /** Mirrors [TestTagsCatalog]'s path resolution; kept separate so the catalog stays parse-only. */
+    private fun readTestTagsSourceForCount(): String {
+        val commonMainRoot = System.getProperty("commonMain.root")
+            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+        val moduleRoot = java.nio.file.Paths.get(commonMainRoot).parent.parent.parent
+        // Mirrors TestTagsCatalog.TEST_TAGS_SOURCE but is private there
+        return java.nio.file.Files.readString(
+            moduleRoot.resolve("src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"),
+        )
+    }
+
+    @Test
     fun `static tags values are non-empty`() {
         for ((name, value) in TestTagsCatalog.staticTags()) {
             assertTrue(value.isNotBlank(), "$name must have a non-blank value")
@@ -66,6 +98,36 @@ class TestTagsCatalogJvmTest {
         assertTrue(functions.any { it.first == "taskItem" })
         assertTrue(functions.any { it.first == "agendaSection" })
         assertTrue(functions.any { it.first == "navTab" })
+    }
+
+    @Test
+    fun `dynamic functions count matches raw fun scan — guards against line-wrap dropping functions`() {
+        // Regression: a line-wrap in TestTags.kt must not cause the parser to skip a function.
+        // Independently count 'fun' declarations by scanning for the pattern at line-start
+        // (MULTILINE mode).  This is robust against:
+        //   - multi-line function signatures (continuation lines don't start with 'fun')
+        //   - 'fun' appearing as literal text inside a multi-line string (same reason)
+        val source = readTestTagsSourceForFunCount()
+        val funPattern = Regex("""^\s*fun\s+\w+""", RegexOption.MULTILINE)
+        val rawFunCount = funPattern.findAll(source).count()
+
+        val catalogCount = TestTagsCatalog.dynamicFunctions().size
+
+        assertTrue(
+            catalogCount == rawFunCount,
+            "TestTagsCatalog returned $catalogCount dynamic functions but raw scan found $rawFunCount " +
+                "fun declarations — a line-wrap may have caused the parser to skip a function",
+        )
+    }
+
+    /** Mirrors [TestTagsCatalog]'s path resolution; kept separate so the catalog stays parse-only. */
+    private fun readTestTagsSourceForFunCount(): String {
+        val commonMainRoot = System.getProperty("commonMain.root")
+            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+        val moduleRoot = java.nio.file.Paths.get(commonMainRoot).parent.parent.parent
+        return java.nio.file.Files.readString(
+            moduleRoot.resolve("src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"),
+        )
     }
 
     @Test

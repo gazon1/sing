@@ -116,9 +116,30 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
     }
 
     // ─── Sheets ────────────────────────────────────────────────────────────
+    ProjectDetailSheets(
+        sheets = sheets,
+        content = contentState as? ProjectDetailUiState.Content,
+        actions = actions,
+    )
+}
+
+// ─── Sheets ─────────────────────────────────────────────────────────────────
+
+/**
+ * Renders the bottom-sheet overlay for project detail editing.
+ *
+ * Extracted from [ProjectDetailContent] to keep the main composable under the
+ * [LongMethod] complexity threshold (80 lines).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProjectDetailSheets(
+    sheets: OverlayState<ActiveSheet>,
+    content: ProjectDetailUiState.Content?,
+    actions: ProjectDetailActions,
+) {
     if (sheets.sheet != null) {
         BottomSheetHost(onDismiss = { sheets.dismissSheet() }) {
-            val content = (contentState as? ProjectDetailUiState.Content)
             ProjectDetailSheetsHost(
                 activeSheet = sheets.sheet,
                 currentContent = content?.let { c ->
@@ -130,10 +151,10 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                         dueDate = c.ui.project.dueDate,
                         isArchived = c.ui.project.isDeleted,
                         childProjects = c.ui.childProjects,
-                        reminderOffset = content.ui.reminderOffsetMinutes?.let { m ->
+                        reminderOffset = c.ui.reminderOffsetMinutes?.let { m ->
                             ReminderOffset.entries.firstOrNull { it.minutes == m }
                         },
-                        defaultReminderOffset = content.ui.defaultReminderOffset,
+                        defaultReminderOffset = c.ui.defaultReminderOffset,
                         actions = actions,
                         tagGroups = c.tagGroups,
                         inheritedTagGroupIds = c.ui.project.inheritedTagGroupIds,

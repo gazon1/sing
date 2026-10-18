@@ -107,80 +107,105 @@ internal class PullPhase(
         }
 
         phases.setStatus(SyncEngineStatus.Pulling)
+        return pullWithSession(scope, sinceLsn)
+    }
 
-        return try {
-            var received = 0
-            var applied = 0
-            var dropped = 0
-            var maxLsn = sinceLsn
-            var stalled: String? = null
-            var readFrom = sinceLsn
-            var lastPageFull = false
-
-            var keepGoing = true
-            while (keepGoing) {
-                val page = api.getEventsSince(readFrom, limit = PULL_PAGE_SIZE)
-                if (page.isEmpty()) {
-                    keepGoing = false
-                } else {
-                    received += page.size
-                    lastPageFull = page.size >= PULL_PAGE_SIZE
-
-                    val outcome = applyPage(page, scope)
-                    applied += outcome.applied
-                    dropped += outcome.dropped
-                    maxLsn = maxOf(maxLsn, outcome.maxLsn)
-                    stalled = outcome.stalled
-
-                    val next = page.maxOf { it.serverLsn }
-                    if (next <= readFrom) {
-                        log.w {
-                            "The feed returned no position past lsn=$readFrom; " +
-                                "stopping rather than asking again for the same page"
-                        }
-                        keepGoing = false
-                    } else {
-                        readFrom = next
-                        keepGoing = stalled == null && lastPageFull
-                    }
+    /**
+     * Runs the paginated pull loop for a signed-in session.
+     * Returns [PhaseResult.Failed] on any error (stalled event, network exception).
+     */
+    private suspend fun pullWithSession(scope: SyncScope, sinceLsn: Long): PhaseResult<PullSummary> =
+        try {
+            when (val result = pullPages(scope, sinceLsn)) {
+                is PageResult.Ok -> {
+                    phases.setStatus(SyncEngineStatus.Idle)
+                    PhaseResult.Ok(result.summary)
                 }
+
+                is PageResult.Stalled -> PhaseResult.Failed(result.error)
             }
-
-            if (lastPageFull && stalled == null) {
-                log.d {
-                    "A page of exactly $PULL_PAGE_SIZE events arrived; the feed may hold " +
-                        "more, and a client-only loop cannot tell. The next cycle asks again."
-                }
-            }
-
-            // Persist the server LSN so the next pull resumes from this point.
-            stateRepository.setLastLsn(scope, maxLsn)
-            stateRepository.recordSuccessfulSync(scope, clock.now().toEpochMilliseconds())
-
-            val summary = PullSummary(received, applied, dropped)
-
-            if (stalled != null) {
-                val error =
-                    AppError.Persistence(
-                        "Sync stopped: $stalled. The events after it will keep arriving, " +
-                            "and this device will not apply them until that one can be.",
-                        code = "sync.pull_stalled",
-                    )
-                phases.recordPullResult(Result.failure(error))
-                phases.setStatus(SyncEngineStatus.Failure(error))
-                return PhaseResult.Failed(error)
-            }
-
-            phases.recordPullResult(Result.success(summary))
-            phases.setStatus(SyncEngineStatus.Idle)
-            return PhaseResult.Ok(summary)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             val error = e.toAppError()
             phases.pullFailed(error, sinceLsn)
-            return PhaseResult.Failed(error)
+            PhaseResult.Failed(error)
         }
+
+    /**
+     * Executes the pagination loop and returns the pull outcome.
+     * On a [PageResult.Stalled], records the failure and returns [PhaseResult.Failed].
+     */
+    private suspend fun pullPages(scope: SyncScope, sinceLsn: Long): PageResult {
+        var maxLsn = sinceLsn
+        var readFrom = sinceLsn
+        var lastPageFull = false
+        var stalled: String? = null
+        var received = 0
+        var applied = 0
+        var dropped = 0
+
+        var keepGoing = true
+        while (keepGoing) {
+            val page = api.getEventsSince(readFrom, limit = PULL_PAGE_SIZE)
+            if (page.isEmpty()) {
+                keepGoing = false
+            } else {
+                received += page.size
+                lastPageFull = page.size >= PULL_PAGE_SIZE
+
+                val outcome = applyPage(page, scope)
+                applied += outcome.applied
+                dropped += outcome.dropped
+                maxLsn = maxOf(maxLsn, outcome.maxLsn)
+                stalled = outcome.stalled
+
+                val next = page.maxOf { it.serverLsn }
+                if (next <= readFrom) {
+                    log.w {
+                        "The feed returned no position past lsn=$readFrom; " +
+                            "stopping rather than asking again for the same page"
+                    }
+                    keepGoing = false
+                } else {
+                    readFrom = next
+                    keepGoing = stalled == null && lastPageFull
+                }
+            }
+        }
+
+        if (lastPageFull && stalled == null) {
+            log.d {
+                "A page of exactly $PULL_PAGE_SIZE events arrived; the feed may hold " +
+                    "more, and a client-only loop cannot tell. The next cycle asks again."
+            }
+        }
+
+        // Persist the server LSN so the next pull resumes from this point.
+        stateRepository.setLastLsn(scope, maxLsn)
+        stateRepository.recordSuccessfulSync(scope, clock.now().toEpochMilliseconds())
+
+        if (stalled != null) {
+            val error =
+                AppError.Persistence(
+                    "Sync stopped: $stalled. The events after it will keep arriving, " +
+                        "and this device will not apply them until that one can be.",
+                    code = "sync.pull_stalled",
+                )
+            phases.recordPullResult(Result.failure(error))
+            phases.setStatus(SyncEngineStatus.Failure(error))
+            return PageResult.Stalled(error, received, applied, dropped)
+        }
+
+        val summary = PullSummary(received, applied, dropped)
+        phases.recordPullResult(Result.success(summary))
+        return PageResult.Ok(summary, maxLsn)
+    }
+
+    /** Result of [pullPages]. */
+    private sealed class PageResult {
+        data class Ok(val summary: PullSummary, val maxLsn: Long) : PageResult()
+        data class Stalled(val error: AppError, val received: Int, val applied: Int, val dropped: Int) : PageResult()
     }
 
     /**

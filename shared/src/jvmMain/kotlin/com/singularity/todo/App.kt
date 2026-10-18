@@ -33,6 +33,21 @@ import java.net.URI
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
 /**
+ * Opens the releases page in the system browser, or silently ignores any error
+ * (e.g. [java.awt.HeadlessException] in headless CI environments).
+ *
+ * Exposed as a public function so the headless-CI path can be exercised by
+ * [com.singularity.todo.feature.gate.AppVersionGateScreenTest][AppVersionGateScreenTest].
+ */
+public fun openStoreOnDesktop() {
+    try {
+        Desktop.getDesktop().browse(URI(RELEASES_URL))
+    } catch (_: Throwable) {
+        // Desktop browsing not available in headless CI environments
+    }
+}
+
+/**
  * JVM Desktop actual implementation of [App].
  *
  * Renders [AppVersionGateScreen] first — the gate checks [RemoteConfigPort]
@@ -59,9 +74,7 @@ actual fun App(
 
     AppVersionGateScreen(
         playStoreUrl = RELEASES_URL,
-        onOpenStore = {
-            Desktop.getDesktop().browse(URI(RELEASES_URL))
-        },
+        onOpenStore = { openStoreOnDesktop() },
         modifier = Modifier,
         content = {
             AppContent(

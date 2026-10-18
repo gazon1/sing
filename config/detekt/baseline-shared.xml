@@ -10,7 +10,6 @@
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
     <ID>CyclomaticComplexMethod:ProposalDispatch.kt:ProposalDispatch$suspend fun dispatch</ID>
-    <ID>CyclomaticComplexMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>CyclomaticComplexMethod:SelectorMatcher.kt:fun Selector.matches: Boolean</ID>
     <ID>CyclomaticComplexMethod:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$suspend fun run: Boolean</ID>
     <ID>CyclomaticComplexMethod:SimpleFilterMapper.kt:SimpleFilterMapper$fun toQuery: Result&lt;Query&gt;</ID>
@@ -18,7 +17,6 @@
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
     <ID>EmptyFunctionBlock:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;${}</ID>
-    <ID>EmptyFunctionBlock:FakeHlcFactory.kt:FakeHlcFactory.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:NoopCalendarSyncRepositoryImpl.kt:NoopCalendarSyncRepositoryImpl${}</ID>
     <ID>EndOfSentenceFormat:BackupCodec.kt:BackupCodec$* Creates a zip archive at `destPath` containing: * - `MANIFEST.json` — [manifestBytes] * - `payload.json` — [payloadBytes] * - `attachments/$name` — one entry per [attachments] pair (name → bytes)</ID>
     <ID>EndOfSentenceFormat:Daos.kt:DailyUsageRow$ Row type returned by observeByDay </ID>
@@ -83,14 +81,8 @@
     <ID>LongMethod:NotesListScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NotesScreenContent</ID>
     <ID>LongMethod:PlatformModule.android.kt:actual fun platformModule: Module</ID>
     <ID>LongMethod:PlatformModule.jvm.kt:actual fun platformModule: Module</ID>
-    <ID>LongMethod:PomodoroScreen.kt:@Composable fun PomodoroScreen</ID>
-    <ID>LongMethod:PomodoroScreen.kt:@Composable private fun PomodoroContentPreview</ID>
-    <ID>LongMethod:ProjectDetailContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun ProjectDetailContent</ID>
-    <ID>LongMethod:ProjectEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ProjectEditorContent</ID>
-    <ID>LongMethod:PushPhase.kt:PushPhase$internal suspend fun push: PhaseResult&lt;PushSummary&gt;</ID>
     <ID>LongMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
     <ID>LongMethod:ReorderableSectionList.kt:@Composable fun ReorderableSectionList</ID>
-    <ID>LongMethod:SearchScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SearchScreen</ID>
     <ID>LongMethod:SettingsImporter.kt:SettingsImporter$open suspend fun importFromJson: ImportResult</ID>
     <ID>LongMethod:SimpleFilterSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimpleFilterSheet</ID>
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
@@ -99,7 +91,6 @@
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
     <ID>LoopWithTooManyJumpStatements:CountdownStateMachine.kt:CountdownStateMachine$while</ID>
     <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
-    <ID>MaximumLineLength:AccountSettingsScreen.kt:,</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
     <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
     <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
@@ -113,8 +104,6 @@
     <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
     <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
-    <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userA.value) } }</ID>
-    <ID>NoRunBlocking:DependencyValidatorTest.kt:DependencyValidatorTest$runBlocking { entries.forEach { (owner, dep, verb) -&gt; dao.upsertDependencyForUser(owner, dep, verb, userB.value) } }</ID>
     <ID>PackageName:AndroidCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:AndroidCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -302,10 +291,6 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
-    <ID>ReturnCount:PullPhase.kt:PullPhase$internal suspend fun pull: PhaseResult&lt;PullSummary&gt;</ID>
-    <ID>ReturnCount:PushPhase.kt:PushPhase$internal suspend fun push: PhaseResult&lt;PushSummary&gt;</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:AgendaViewModel.kt:AgendaViewModel$/** Exposes countdown progress to the screen's snackbar progress bar. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:TagsViewModel.kt:TagsViewModel$/** Exposes countdown progress to the screen's snackbar progress bar. */</ID>
     <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:AiToolFilters.kt:e: Throwable</ID>
@@ -329,7 +314,6 @@
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:SyncBootstrapper.kt:SyncBootstrapper$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:SyncOutboxWorker.kt:SyncOutboxWorker$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SyncViewModel.kt:SyncViewModel$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:ToolFactories.kt:&lt;no name provided&gt;$e: Exception</ID>
