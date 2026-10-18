@@ -59,6 +59,15 @@ fun AuthFormFields(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    /**
+     * Extra condition for the submit button, beyond both fields being filled.
+     *
+     * `true` by default so every existing caller is unchanged. The attach screen
+     * passes `disposition != null`, because submitting without having answered what
+     * happens to the user's offline data would leave the only sensible outcome as a
+     * silent default — and REQ-UA-005 forbids exactly that one.
+     */
+    submitEnabled: Boolean = true,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
@@ -120,7 +129,7 @@ fun AuthFormFields(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(submitTag),
-                enabled = email.isNotBlank() && password.isNotBlank(),
+                enabled = email.isNotBlank() && password.isNotBlank() && submitEnabled,
             ) {
                 Text(submitLabel)
             }

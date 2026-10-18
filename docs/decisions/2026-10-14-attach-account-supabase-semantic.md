@@ -1,8 +1,18 @@
 ---
 title: Attach account — Supabase identity-linking semantic
 adr: 2026-10-14-attach-account-supabase-semantic
-status: accepted
+status: superseded
+superseded_by: 2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice
 ---
+
+> **Superseded.** The local session is local: there is no provider-side anonymous
+> identity, so there is nothing for `attachEmail` / `updateUser` to attach credentials
+> to, and `migrateAnonymousTo` no longer exists. Attaching an account is now an
+> ordinary sign-in followed by a **local ownership transfer** (`LocalAccountClaimer`,
+> `OwnerScopedReassigner`), which also gives the user the choice REQ-UA-005 requires.
+> See `openspec/changes/offline-local-session/`. The reasoning below is kept as the
+> record of what was true when it was accepted, and in particular as the reason the
+> ownership transfer had to check what it was moving.
 
 ## Context
 

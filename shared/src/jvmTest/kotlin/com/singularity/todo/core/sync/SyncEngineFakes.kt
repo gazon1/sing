@@ -97,6 +97,9 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         return doomed.size
     }
 
+    override suspend fun countForOwner(ownerId: String): Int =
+        rows.count { it.ownerId == ownerId }
+
     override suspend fun clearAll() {
         rows.clear()
     }
@@ -128,14 +131,9 @@ class FakeSyncAuthRepository(session: Session) : AuthRepository {
         password: String,
     ): Result<Unit> = notImplemented()
 
-    override suspend fun signInAnonymously(): Result<Unit> = notImplemented()
+    override suspend fun startLocalSession(): Result<Unit> = notImplemented()
 
     override suspend fun signOut(): Result<Unit> = notImplemented()
-
-    override suspend fun migrateAnonymousTo(
-        email: String,
-        password: String,
-    ): Result<Unit> = notImplemented()
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> = notImplemented()
     override suspend fun sendMagicLink(email: String): Result<Unit> = notImplemented()
@@ -210,6 +208,9 @@ class FakeSyncDeadLetterDao : SyncDeadLetterDao {
         rows.removeAll { it.ownerId == ownerId }
         return doomed.size
     }
+
+    override suspend fun countForOwner(ownerId: String): Int =
+        rows.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
         rows.clear()
@@ -387,6 +388,9 @@ class FakeSyncShadowDao : SyncShadowDao {
         keys.forEach(rows::remove)
         return keys.size
     }
+
+    override suspend fun countForOwner(ownerId: String): Int =
+        rows.count { it.key.ownerId == ownerId }
 
     override suspend fun clearScope(
         ownerId: String,

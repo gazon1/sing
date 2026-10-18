@@ -16,6 +16,7 @@ import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.OwnerEraseDao
+import com.singularity.todo.core.database.OwnerReassignDao
 import com.singularity.todo.core.database.OwnerScopeDao
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProfileEntity
@@ -168,6 +169,34 @@ class FakeAppDatabase : AppDatabase() {
     override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals)
     override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
+    /**
+     * Makes every ownership transfer fail, the way a disk that goes away mid-write does.
+     *
+     * The mirror of [MapSecureStorage]'s `failWrites`, and for the same reason: the
+     * recovery path — a transfer that fails *after* the account is signed in, which has
+     * to put the device back on its local session — cannot be reached with a database
+     * that always succeeds. The flag is checked at the first statement, so nothing has
+     * moved when it throws, which is exactly the state recovery must survive.
+     */
+    var failReassign: Boolean = false
+
+    override fun ownerReassignDao(): OwnerReassignDao = FakeOwnerReassignDao(
+        failWith = { if (failReassign) error("the disk went away mid-transfer") },
+        tasks = _tasks,
+        projects = _projects,
+        notes = _notes,
+        tags = _tags,
+        tagGroups = _tagGroups,
+        taskReminders = _reminders,
+        projectReminders = _projectReminders,
+        timeEntries = _timeEntries,
+        agendaViews = _agendaViews,
+        profiles = _profiles,
+        outbox = _outbox,
+        deadLetter = _deadLetter,
+        shadow = _syncShadow,
+    )
+
     override fun ownerEraseDao(): OwnerEraseDao = FakeOwnerEraseDao(
         tasks = _tasks,
         taskTags = _taskTags,
@@ -180,11 +209,15 @@ class FakeAppDatabase : AppDatabase() {
         tagGroups = _tagGroups,
         taskReminders = _reminders,
         projectReminders = _projectReminders,
+        timeEntries = _timeEntries,
+        agendaViews = _agendaViews,
+        profiles = _profiles,
     )
 
     override fun ownerScopeDao(): OwnerScopeDao = FakeOwnerScopeDao(
         tasks = _tasks,
         projects = _projects,
+        notes = _notes,
     )
 
     override suspend fun clearAllTables() {
@@ -220,6 +253,12 @@ class FakeAppDatabase : AppDatabase() {
     fun seedTasks(items: List<TaskEntity>) {
         _tasks.value = items.associateBy { it.id }
     }
+
+    /** The owner a task row is filed under, or null when there is no such task. */
+    fun taskOwner(id: String): String? = _tasks.value[id]?.userId
+
+    /** How many task rows the owner holds. Lets a test say "moved" from "did not exist". */
+    fun tasksOwnedBy(owner: String): Int = _tasks.value.values.count { it.userId == owner }
 
     /**
      * Tag cross-references, as a list rather than keyed by anything — the table's key is
@@ -269,6 +308,9 @@ class FakeAppDatabase : AppDatabase() {
     }
     fun seedProjectTagGroups(items: List<ProjectInheritedTagGroupCrossRef>) {
         _projectTagGroups.value = items
+    }
+    fun seedTimeEntries(items: List<TimeEntryEntity>) {
+        _timeEntries.value = items.associateBy { it.id }
     }
 
     /**
@@ -1026,6 +1068,9 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         return doomed.size
     }
 
+    override suspend fun countForOwner(ownerId: String): Int =
+        store.value.values.count { it.ownerId == ownerId }
+
     override suspend fun clearAll() {
         store.value = emptyMap()
     }
@@ -1058,6 +1103,9 @@ private class FakeSyncDeadLetterDao(private val store: MutableStateFlow<Map<Stri
         store.update { current -> current.filterValues { it.ownerId != ownerId } }
         return doomed.size
     }
+
+    override suspend fun countForOwner(ownerId: String): Int =
+        store.value.values.count { it.ownerId == ownerId }
 
     override suspend fun clearAll() {
         store.value = emptyMap()
@@ -1227,6 +1275,9 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         store.update { current -> current.filterKeys { it.ownerId != ownerId } }
         return doomed
     }
+
+    override suspend fun countForOwner(ownerId: String): Int =
+        store.value.count { it.key.ownerId == ownerId }
 
     override suspend fun clearAll() {
         store.value = emptyMap()
@@ -2223,6 +2274,7 @@ private class FakeProposalItemDao(
 private class FakeOwnerScopeDao(
     private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
     private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
+    private val notes: MutableStateFlow<Map<String, NoteEntity>>,
 ) : OwnerScopeDao {
 
     override suspend fun listTaskIdsForOwner(scopedUserIds: List<String>): List<String> =
@@ -2230,9 +2282,208 @@ private class FakeOwnerScopeDao(
 
     override suspend fun listProjectIdsForOwner(scopedUserIds: List<String>): List<String> =
         projects.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+
+    override suspend fun countTasks(scopedUserIds: List<String>): Int =
+        tasks.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countNotes(scopedUserIds: List<String>): Int =
+        notes.value.values.count { it.userId in scopedUserIds }
 }
 
 // ─── OwnerEraseDao ─────────────────────────────────────────────────────────────
+
+/**
+ * The in-memory twin of `OwnerReassignDao`.
+ *
+ * Every statement is an exact `(from, to)` equality match, exactly like the SQL. A fake
+ * that matched by prefix or suffix would hide the very defect the DAO is shaped to
+ * prevent — handing one account's rows to another — so there is deliberately no pattern
+ * logic here either. Each method is spelled out rather than sharing a generic helper,
+ * for the same reason the SQL has one statement per table: the shape of the statement is
+ * the thing under test.
+ */
+private class FakeOwnerReassignDao(
+    /** Thrown before the first statement runs; see `FakeAppDatabase.failReassign`. */
+    private val failWith: () -> Unit,
+    private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
+    private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
+    private val notes: MutableStateFlow<Map<String, NoteEntity>>,
+    private val tags: MutableStateFlow<Map<String, TagEntity>>,
+    private val tagGroups: MutableStateFlow<Map<String, TagGroupEntity>>,
+    private val taskReminders: MutableStateFlow<Map<Pair<String, String>, TaskReminderEntity>>,
+    private val projectReminders: MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>,
+    private val timeEntries: MutableStateFlow<Map<String, TimeEntryEntity>>,
+    private val agendaViews: MutableStateFlow<Map<String, AgendaViewEntity>>,
+    private val profiles: MutableStateFlow<Map<String, ProfileEntity>>,
+    private val outbox: MutableStateFlow<Map<String, SyncOutboxEntity>>,
+    private val deadLetter: MutableStateFlow<Map<String, SyncDeadLetterEntity>>,
+    private val shadow: MutableStateFlow<Map<SyncShadowKey, SyncShadowEntity>>,
+) : OwnerReassignDao {
+
+    // ── Data rows: exact equality on the composed scope ───────────────────────
+
+    override suspend fun reassignTasks(from: String, to: String): Int {
+        failWith()
+        val doomed = tasks.value.values.count { it.userId == from }
+        tasks.update { current -> current.mapValues { (_, t) -> if (t.userId == from) t.copy(userId = to) else t } }
+        return doomed
+    }
+
+    override suspend fun reassignNotes(from: String, to: String): Int {
+        val doomed = notes.value.values.count { it.userId == from }
+        notes.update { current -> current.mapValues { (_, n) -> if (n.userId == from) n.copy(userId = to) else n } }
+        return doomed
+    }
+
+    override suspend fun reassignProjects(from: String, to: String): Int {
+        val doomed = projects.value.values.count { it.userId == from }
+        projects.update { current -> current.mapValues { (_, p) -> if (p.userId == from) p.copy(userId = to) else p } }
+        return doomed
+    }
+
+    override suspend fun reassignTags(from: String, to: String): Int {
+        val doomed = tags.value.values.count { it.userId == from }
+        tags.update { current -> current.mapValues { (_, t) -> if (t.userId == from) t.copy(userId = to) else t } }
+        return doomed
+    }
+
+    override suspend fun reassignTagGroups(from: String, to: String): Int {
+        val doomed = tagGroups.value.values.count { it.userId == from }
+        tagGroups.update { current -> current.mapValues { (_, g) -> if (g.userId == from) g.copy(userId = to) else g } }
+        return doomed
+    }
+
+    override suspend fun reassignTaskReminders(from: String, to: String): Int {
+        val doomed = taskReminders.value.values.count { it.userId == from }
+        taskReminders.update { current ->
+            current.mapValues { (_, r) ->
+                if (r.userId == from) {
+                    r.copy(userId = to)
+                } else {
+                    r
+                }
+            }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignProjectReminders(from: String, to: String): Int {
+        val doomed = projectReminders.value.values.count { it.userId == from }
+        projectReminders.update { current ->
+            current.mapValues { (_, r) ->
+                if (r.userId == from) {
+                    r.copy(userId = to)
+                } else {
+                    r
+                }
+            }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignTimeEntries(from: String, to: String): Int {
+        val doomed = timeEntries.value.values.count { it.userId == from }
+        timeEntries.update { current ->
+            current.mapValues { (_, e) ->
+                if (e.userId == from) e.copy(userId = to) else e
+            }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignAgendaViews(from: String, to: String): Int {
+        val doomed = agendaViews.value.values.count { it.userId == from }
+        agendaViews.update { current ->
+            current.mapValues { (_, v) ->
+                if (v.userId == from) v.copy(userId = to) else v
+            }
+        }
+        return doomed
+    }
+
+    // ── Ownership and sync state: exact equality on the bare owner ───────────
+
+    override suspend fun reassignProfiles(fromOwnerId: String, toOwnerId: String): Int {
+        val doomed = profiles.value.values.count { it.userId == fromOwnerId }
+        profiles.update { current ->
+            current.mapValues { (_, profile) ->
+                if (profile.userId == fromOwnerId) profile.copy(userId = toOwnerId) else profile
+            }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignOutbox(fromOwnerId: String, toOwnerId: String): Int {
+        val doomed = outbox.value.values.count { it.ownerId == fromOwnerId }
+        outbox.update { current ->
+            current.mapValues { (_, patch) ->
+                if (patch.ownerId == fromOwnerId) patch.copy(ownerId = toOwnerId) else patch
+            }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignDeadLetter(fromOwnerId: String, toOwnerId: String): Int {
+        val doomed = deadLetter.value.values.count { it.ownerId == fromOwnerId }
+        deadLetter.update { current ->
+            current.mapValues { (_, patch) ->
+                if (patch.ownerId == fromOwnerId) patch.copy(ownerId = toOwnerId) else patch
+            }
+        }
+        return doomed
+    }
+
+    override suspend fun reassignShadows(fromOwnerId: String, toOwnerId: String): Int {
+        val doomed = shadow.value.values.count { it.ownerId == fromOwnerId }
+        shadow.update { current ->
+            current.mapValues { (_, row) ->
+                if (row.ownerId == fromOwnerId) row.copy(ownerId = toOwnerId) else row
+            }
+        }
+        return doomed
+    }
+
+    // ── Preview (count without reassign) ───────────────────────────────────────
+
+    override suspend fun countTasks(scopedUserIds: List<String>): Int =
+        tasks.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countNotes(scopedUserIds: List<String>): Int =
+        notes.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countProjects(scopedUserIds: List<String>): Int =
+        projects.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTags(scopedUserIds: List<String>): Int =
+        tags.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTagGroups(scopedUserIds: List<String>): Int =
+        tagGroups.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTaskReminders(scopedUserIds: List<String>): Int =
+        taskReminders.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countProjectReminders(scopedUserIds: List<String>): Int =
+        projectReminders.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTimeEntries(scopedUserIds: List<String>): Int =
+        timeEntries.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countAgendaViews(scopedUserIds: List<String>): Int =
+        agendaViews.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countProfiles(ownerId: String): Int =
+        profiles.value.values.count { it.userId == ownerId }
+
+    override suspend fun countOutbox(ownerId: String): Int =
+        outbox.value.values.count { it.ownerId == ownerId }
+
+    override suspend fun countDeadLetter(ownerId: String): Int =
+        deadLetter.value.values.count { it.ownerId == ownerId }
+
+    override suspend fun countShadows(ownerId: String): Int =
+        shadow.value.values.count { it.ownerId == ownerId }
+}
 
 /**
  * In-memory [OwnerEraseDao] — every owner-scoped delete REQ-UA-017 performs.
@@ -2259,6 +2510,9 @@ private class FakeOwnerEraseDao(
     private val tagGroups: MutableStateFlow<Map<String, TagGroupEntity>>,
     private val taskReminders: MutableStateFlow<Map<Pair<String, String>, TaskReminderEntity>>,
     private val projectReminders: MutableStateFlow<Map<Pair<String, String>, ProjectReminderEntity>>,
+    private val timeEntries: MutableStateFlow<Map<String, TimeEntryEntity>>,
+    private val agendaViews: MutableStateFlow<Map<String, AgendaViewEntity>>,
+    private val profiles: MutableStateFlow<Map<String, ProfileEntity>>,
 ) : OwnerEraseDao {
 
     // ── Children: scoped through their parent, at call time ───────────────────
@@ -2349,4 +2603,70 @@ private class FakeOwnerEraseDao(
         projectReminders.update { current -> current.filterValues { it.userId !in scopedUserIds } }
         return doomed.size
     }
+
+    override suspend fun deleteTimeEntries(scopedUserIds: List<String>): Int {
+        val doomed = timeEntries.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        timeEntries.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    override suspend fun deleteAgendaViews(scopedUserIds: List<String>): Int {
+        val doomed = agendaViews.value.values.filter { it.userId in scopedUserIds }.map { it.id }
+        agendaViews.update { current -> current - doomed.toSet() }
+        return doomed.size
+    }
+
+    // ── Preview (count without delete) ────────────────────────────────────────
+
+    override suspend fun countTagRefs(taskIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = parentTaskIds(taskIds, scopedUserIds)
+        return taskTags.value.count { it.taskId in parents }
+    }
+
+    override suspend fun countDependencies(taskIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = parentTaskIds(taskIds, scopedUserIds)
+        return taskDependencies.value.count { it.taskId in parents || it.dependsOnTaskId in parents }
+    }
+
+    override suspend fun countChecklistItems(taskIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = parentTaskIds(taskIds, scopedUserIds)
+        return checklist.value.values.count { it.taskId in parents }
+    }
+
+    override suspend fun countInheritedTagGroups(projectIds: List<String>, scopedUserIds: List<String>): Int {
+        val parents = projects.value.values
+            .filter { it.id in projectIds && it.userId in scopedUserIds }
+            .mapTo(mutableSetOf()) { it.id }
+        return projectTagGroups.value.count { it.projectId in parents }
+    }
+
+    override suspend fun countTasks(scopedUserIds: List<String>): Int =
+        tasks.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countNotes(scopedUserIds: List<String>): Int =
+        notes.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countProjects(scopedUserIds: List<String>): Int =
+        projects.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTags(scopedUserIds: List<String>): Int =
+        tags.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTagGroups(scopedUserIds: List<String>): Int =
+        tagGroups.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTaskReminders(scopedUserIds: List<String>): Int =
+        taskReminders.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countProjectReminders(scopedUserIds: List<String>): Int =
+        projectReminders.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countTimeEntries(scopedUserIds: List<String>): Int =
+        timeEntries.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countAgendaViews(scopedUserIds: List<String>): Int =
+        agendaViews.value.values.count { it.userId in scopedUserIds }
+
+    override suspend fun countProfiles(ownerId: String): Int =
+        profiles.value.values.count { it.userId == ownerId }
 }

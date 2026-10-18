@@ -63,8 +63,8 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
     var signOutCalled = false
         private set
 
-    /** True if [signInAnonymously] was called at least once since construction or [clearCallHistory]. */
-    var signInAnonymouslyCalled = false
+    /** True if [startLocalSession] was called at least once since construction or [clearCallHistory]. */
+    var startLocalSessionCalled = false
         private set
 
     // ─── Lifecycle ────────────────────────────────────────────────────────
@@ -98,8 +98,8 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
         return Result.success(Unit)
     }
 
-    override suspend fun signInAnonymously(): Result<Unit> {
-        signInAnonymouslyCalled = true
+    override suspend fun startLocalSession(): Result<Unit> {
+        startLocalSessionCalled = true
         _currentSession.value = Session.Anonymous(UserId.anonymous)
         return Result.success(Unit)
     }
@@ -108,25 +108,10 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
         signOutCalled = true
         // BY DESIGN: signOut() transitions to Anonymous rather than SignedOut.
         // This keeps the device usable without Supabase — a new sign-in (real or
-        // anonymous) is always available, and the session can be inspected in tests
+        // offline) is always available, and the session can be inspected in tests
         // without reaching for a "no session" state that cannot send requests.
         // See ADR docs/decisions/2026-10-14-session-state-and-missing-attach-ui.md.
         _currentSession.value = Session.Anonymous(UserId.anonymous)
-        return Result.success(Unit)
-    }
-
-    override suspend fun migrateAnonymousTo(
-        email: String,
-        password: String,
-    ): Result<Unit> {
-        signInCalls += email to password
-        _currentSession.value =
-            Session.SignedIn(
-                userId = UserId.anonymous,
-                email = email,
-                accessToken = "dev-access-token",
-                refreshToken = "dev-refresh-token",
-            )
         return Result.success(Unit)
     }
 
@@ -164,7 +149,7 @@ class DevAuthRepository private constructor(initialSession: Session) : AuthRepos
         signInCalls.clear()
         signUpCalls.clear()
         signOutCalled = false
-        signInAnonymouslyCalled = false
+        startLocalSessionCalled = false
     }
 
     // ─── Factory methods ──────────────────────────────────────────────────

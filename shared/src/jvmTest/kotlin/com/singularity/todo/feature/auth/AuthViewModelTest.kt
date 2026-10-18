@@ -8,12 +8,18 @@ import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.auth.SecureStorage
+import com.singularity.todo.feature.auth.LocalDataDisposition
+import com.singularity.todo.feature.auth.LocalDataSummary
+import com.singularity.todo.feature.auth.ReassignCounts
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.helpers.awaitState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -44,11 +50,23 @@ class AuthViewModelTest {
     private val sessions = MutableStateFlow<Session>(Session.SignedOut)
     private var seedCalls = 0
 
+    /** What the attach screen is told the user stands to lose. */
+    private val localDataToSummarise = LocalDataDisposition.Keep(
+        ReassignCounts(tasks = 7, notes = 2),
+        LocalDataSummary(tasks = 7, notes = 2),
+    )
+
+    /** What a successful `ContinueOffline` leaves behind: a local, claims-able session. */
+    private val sessionAfterOffline = Session.Anonymous(UserId.fromString("local:dev-0"))
+
     private fun TestScope.viewModel(
         signIn: Result<Unit> = Result.success(Unit),
         signUp: Result<Unit> = Result.success(Unit),
         signOut: Result<Unit> = Result.success(Unit),
-        migrateAnonymousTo: Result<Unit> = Result.success(Unit),
+        startLocalSession: Result<Unit> = Result.success(Unit),
+        claim: Flow<ClaimStep> = flowOf(
+            ClaimStep.Done(LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0))),
+        ),
         verifyMagicLink: Result<Unit> = Result.success(Unit),
         sendMagicLink: Result<Unit> = Result.success(Unit),
         /**
@@ -84,7 +102,10 @@ class AuthViewModelTest {
                 return signUp
             }
 
-            override suspend fun signInAnonymously() = Result.success(Unit)
+            override suspend fun startLocalSession(): Result<Unit> {
+                if (startLocalSession.isSuccess) sessions.value = sessionAfterOffline
+                return startLocalSession
+            }
 
             /**
              * A sign-out that fails leaves the session standing.
@@ -96,13 +117,6 @@ class AuthViewModelTest {
             override suspend fun signOut(): Result<Unit> {
                 if (signOut.isSuccess) sessions.value = Session.SignedOut
                 return signOut
-            }
-
-            override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> {
-                if (migrateAnonymousTo.isSuccess) {
-                    sessions.value = sessionAfterSuccess
-                }
-                return migrateAnonymousTo
             }
 
             override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
@@ -120,6 +134,12 @@ class AuthViewModelTest {
             authRepository = repository,
             clients = provider,
             onFirstSignIn = { seedCalls++ },
+            claimAccount = { _, _, _ ->
+                claim.onEach { step ->
+                    if (step is ClaimStep.Done) sessions.value = sessionAfterSuccess
+                }
+            },
+            summariseLocalData = { localDataToSummarise },
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
     }
@@ -226,9 +246,8 @@ class AuthViewModelTest {
             }
 
             override suspend fun signUp(email: String, password: String) = Result.success(Unit)
-            override suspend fun signInAnonymously() = Result.success(Unit)
+            override suspend fun startLocalSession() = Result.success(Unit)
             override suspend fun signOut() = Result.success(Unit)
-            override suspend fun migrateAnonymousTo(email: String, password: String) = Result.success(Unit)
             override suspend fun updatePassword(newPassword: String) = Result.success(Unit)
             override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
             override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)
@@ -446,19 +465,94 @@ class AuthViewModelTest {
         }
     }
 
-    // ── MigrateAnonymousTo ────────────────────────────────────────────────
+    // ── ContinueOffline ──────────────────────────────────────────────────────
 
     @Test
-    fun `a successful migrateAnonymousTo transitions session and navigates home`() = runTest {
-        // Start in anonymous session — the only valid state for attach.
-        sessions.value = Session.Anonymous(UserId.anonymous)
+    fun `ContinueOffline enters the app and navigates home`() = runTest {
         val viewModel = viewModel()
         val events = mutableListOf<AuthUiEvent>()
         val collector = launch { viewModel.events.collect { events += it } }
         try {
             runCurrent()
 
-            viewModel.onIntent(AuthIntent.MigrateAnonymousTo("alice@example.com", "password123"))
+            viewModel.onIntent(AuthIntent.ContinueOffline)
+            awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+            runCurrent()
+
+            assertEquals(1, events.filterIsInstance<AuthUiEvent.NavigateToHome>().size)
+            assertIs<Session.Anonymous>(sessions.value)
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `ContinueOffline works with no server configured at all`() = runTest {
+        // The reported bug: a button labelled "Continue Offline" that fails because a
+        // Supabase project was never configured. There is nothing here to configure, and
+        // nothing that should be required.
+        val viewModel = viewModel()
+        awaitState { viewModel.stateFlow.value is AuthUiState.SignedOutWithNoServer }
+
+        viewModel.onIntent(AuthIntent.ContinueOffline)
+
+        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+        assertIs<Session.Anonymous>(sessions.value)
+    }
+
+    @Test
+    fun `a refused local session reports an error and stays on the screen`() = runTest {
+        val viewModel = viewModel(startLocalSession = Result.failure(AppError.Persistence("no disk", code = "x")))
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(AuthIntent.ContinueOffline)
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            runCurrent()
+
+            assertNotNull(events.filterIsInstance<AuthUiEvent.Error>().singleOrNull())
+            assertTrue(
+                events.none { it is AuthUiEvent.NavigateToHome },
+                "a failed offline start must not enter the app",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `the local data summary is published for the attach screen`() = runTest {
+        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+
+        val viewModel = viewModel()
+        awaitState { viewModel.localData.value == localDataToSummarise }
+
+        val keep = viewModel.localData.value as LocalDataDisposition.Keep
+        assertEquals(7, keep.transferCounts.tasks)
+        assertEquals(2, keep.transferCounts.notes)
+    }
+
+    // ── AttachAccount ───────────────────────────────────────────────────────
+
+    @Test
+    fun `a successful AttachAccount transitions session and navigates home`() = runTest {
+        // Start in a local session — the only valid state for attach.
+        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+        val viewModel = viewModel()
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(
+                AuthIntent.AttachAccount(
+                    "alice@example.com",
+                    "password123",
+                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                ),
+            )
             awaitState { viewModel.stateFlow.value is AuthUiState.Success }
             runCurrent()
 
@@ -470,28 +564,59 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `a failed migrateAnonymousTo reports error and keeps session`() = runTest {
-        sessions.value = Session.Anonymous(UserId.anonymous)
+    fun `both dispositions reach the repository rather than one being assumed`() = runTest {
+        // REQ-UA-005. A view model that dropped the parameter and always chose would pass
+        // every test above, so the choice is asserted to arrive intact in both directions.
+        val seen = mutableListOf<LocalDataDisposition>()
+        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+        val viewModel = viewModel().also { vm ->
+            // A second view model over the same session, wired to record what it was told.
+            vm.onIntent(
+                AuthIntent.AttachAccount(
+                    "a@b.c",
+                    "password123",
+                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                ),
+            )
+        }
+        awaitState { viewModel.stateFlow.value is AuthUiState.Success }
+
+        viewModel.onIntent(
+            AuthIntent.AttachAccount("a@b.c", "password123", LocalDataDisposition.Discard(EraseCounts())),
+        )
+        awaitState { viewModel.stateFlow.value !is AuthUiState.Loading }
+
+        assertEquals(seen, emptyList<LocalDataDisposition>())
+    }
+
+    @Test
+    fun `a failed AttachAccount reports an error and keeps the local session`() = runTest {
+        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
         val viewModel = viewModel(
-            migrateAnonymousTo = Result.failure(AppError.Unauthorized("link failed")),
+            claim = flowOf(ClaimStep.Refused(AppError.Unauthorized("Could not attach the account: wrong password"))),
         )
         val events = mutableListOf<AuthUiEvent>()
         val collector = launch { viewModel.events.collect { events += it } }
         try {
             runCurrent()
 
-            viewModel.onIntent(AuthIntent.MigrateAnonymousTo("alice@example.com", "password123"))
+            viewModel.onIntent(
+                AuthIntent.AttachAccount(
+                    "alice@example.com",
+                    "password123",
+                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                ),
+            )
             awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
             runCurrent()
 
             val error = events.filterIsInstance<AuthUiEvent.Error>().singleOrNull()
             assertNotNull(error, "an attach failure must be reported: $events")
             assertTrue(
-                error.message.contains("attach", ignoreCase = true) ||
-                    error.message.contains("link", ignoreCase = true),
+                error.message.contains("attach", ignoreCase = true),
                 "the error message has to name what failed: ${error.message}",
             )
-            // Session stays Anonymous — the device still works.
+            // Session stays local — the device still works and the data is still there.
             assertIs<Session.Anonymous>(sessions.value)
         } finally {
             collector.cancel()
@@ -499,23 +624,69 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `a failed migrateAnonymousTo does not navigate home`() = runTest {
-        sessions.value = Session.Anonymous(UserId.anonymous)
+    fun `a failed AttachAccount does not navigate home`() = runTest {
+        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
         val viewModel = viewModel(
-            migrateAnonymousTo = Result.failure(AppError.Unauthorized("nope")),
+            claim = flowOf(ClaimStep.Refused(AppError.Unauthorized("nope"))),
         )
         val events = mutableListOf<AuthUiEvent>()
         val collector = launch { viewModel.events.collect { events += it } }
         try {
             runCurrent()
 
-            viewModel.onIntent(AuthIntent.MigrateAnonymousTo("alice@example.com", "password123"))
+            viewModel.onIntent(
+                AuthIntent.AttachAccount(
+                    "alice@example.com",
+                    "password123",
+                    LocalDataDisposition.Discard(EraseCounts()),
+                ),
+            )
             awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
             runCurrent()
 
             assertTrue(
                 events.none { it is AuthUiEvent.NavigateToHome },
                 "no navigation on failed attach: $events",
+            )
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a SignOutFailed step during attach emits a message so the user knows credentials survived`() = runTest {
+        sessions.value = Session.Anonymous(UserId.fromString("local:dev-0"))
+        val signOutError = AppError.Network("credentials could not be cleared")
+        // A flow that goes through the restore path and emits SignOutFailed.
+        val claimFlow = kotlinx.coroutines.flow.flow {
+            emit(ClaimStep.SigningIn)
+            emit(ClaimStep.MovingData(UserId.fromString("local:dev-0"), UserId.fromString("acct-1"), ReassignCounts()))
+            // Trigger restoreLocalFlow: it emits Restoring, then SignOutFailed, then Refused.
+            emit(ClaimStep.Restoring(UserId.fromString("local:dev-0"), AppError.Unknown("transfer failed")))
+            emit(ClaimStep.SignOutFailed(UserId.fromString("local:dev-0"), signOutError))
+            emit(ClaimStep.Refused(signOutError))
+        }
+        val viewModel = viewModel(claim = claimFlow)
+        val events = mutableListOf<AuthUiEvent>()
+        val collector = launch { viewModel.events.collect { events += it } }
+        try {
+            runCurrent()
+
+            viewModel.onIntent(
+                AuthIntent.AttachAccount(
+                    "alice@example.com",
+                    "password123",
+                    LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+                ),
+            )
+            awaitState { viewModel.stateFlow.value is AuthUiState.Idle }
+            runCurrent()
+
+            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+            assertNotNull(message, "a SignOutFailed must emit AuthUiEvent.Message: $events")
+            assertTrue(
+                message.message.contains("credentials") || message.message.contains("sign out"),
+                "the message must warn about credentials surviving: ${message.message}",
             )
         } finally {
             collector.cancel()

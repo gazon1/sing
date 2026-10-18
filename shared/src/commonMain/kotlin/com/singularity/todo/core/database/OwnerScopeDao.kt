@@ -33,4 +33,19 @@ interface OwnerScopeDao {
     /** Project ids the owner holds — the parent set for `project_tag_groups`. */
     @Query("SELECT id FROM projects WHERE user_id IN (:scopedUserIds)")
     suspend fun listProjectIdsForOwner(scopedUserIds: List<String>): List<String>
+
+    /**
+     * How many task rows the owner holds.
+     *
+     * A read, and so it lives here rather than on `OwnerReassignDao`, which is the
+     * "move rows" half and is already at the threshold detekt allows. The caller is the
+     * attach screen, which has to name a number to the user *before* it asks them to
+     * risk it.
+     */
+    @Query("SELECT COUNT(*) FROM tasks WHERE user_id IN (:scopedUserIds)")
+    suspend fun countTasks(scopedUserIds: List<String>): Int
+
+    /** Note rows the owner holds. See [countTasks]. */
+    @Query("SELECT COUNT(*) FROM notes WHERE user_id IN (:scopedUserIds)")
+    suspend fun countNotes(scopedUserIds: List<String>): Int
 }

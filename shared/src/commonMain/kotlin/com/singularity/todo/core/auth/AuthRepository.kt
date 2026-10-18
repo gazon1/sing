@@ -1,7 +1,6 @@
 package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.UserId
@@ -29,19 +28,20 @@ interface AuthRepository {
     val isLoading: StateFlow<Boolean>
     suspend fun signUp(email: String, password: String): Result<Unit>
     suspend fun signIn(email: String, password: String): Result<Unit>
-    suspend fun signInAnonymously(): Result<Unit>
-    suspend fun signOut(): Result<Unit>
 
     /**
-     * Attaches an account to the current anonymous session, keeping its data.
+     * Starts a local, offline session — no account and no network.
      *
-     * Takes the credentials rather than an expected id. An earlier shape took the
-     * id the caller believed the session would end up with, which left the
-     * repository with nothing to attach and a standing temptation to pass a
-     * placeholder address — which the provider would have accepted, creating a
-     * real account at a domain nobody owns.
+     * Named for what it does rather than for a provider's "sign in anonymously": there
+     * is no provider call behind it and there never will be. The name that describes a
+     * sign-in to something is the wrong name for an operation whose entire point is
+     * that it reaches nothing.
+     *
+     * See ADR `2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice`.
      */
-    suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit>
+    suspend fun startLocalSession(): Result<Unit>
+
+    suspend fun signOut(): Result<Unit>
 
     /** Changes the password of the currently signed-in user. */
     suspend fun updatePassword(newPassword: String): Result<Unit>
@@ -89,11 +89,26 @@ interface AuthRepository {
  * next launch can try again. Only a refresh the server *rejects* — the gateway
  * answering null — signs the user out, because that is the one answer that says
  * the token is dead rather than the request being.
+ *
+ * **The local session contacts nothing.** [startLocalSession] is the whole
+ * "Continue Offline" path, and there is no provider call in it — deliberately, and
+ * not as a simplification. It used to sign in anonymously against the provider,
+ * which made the button a network operation wearing an offline label: on a plane,
+ * or on a device that has never heard of a Supabase project, it failed and the
+ * user stayed on the auth screen. See ADR
+ * `2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice`.
  */
 class SupabaseAuthRepository(
     private val log: Logger,
     private val gateway: AuthGateway,
     private val sessionStore: SecureSessionStore,
+    /**
+     * Where the local owner's id and the offline-mode marker live.
+     *
+     * Plain DataStore, not [sessionStore]: neither value is a secret, and on the
+     * desktop every read through the keychain is a `secret-tool` subprocess.
+     */
+    private val localOwnerStore: DataStoreSessionStore,
     private val scope: com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope,
 ) : AuthRepository {
 
@@ -115,13 +130,20 @@ class SupabaseAuthRepository(
      * but on this path the token may be expired and unverifiable, and the sync
      * scope provider downstream treats whatever it is given as the owner of every
      * row it writes.
+     *
+     * With no token there are two possible answers, and the marker decides which.
+     * No marker is a fresh install or a signed-out account, and both want the login
+     * screen. A marker means the user asked to work without an account, and
+     * asking again on every launch would be the auth screen reappearing over an
+     * app they had already been let into — the symptom this whole path exists to
+     * remove.
      */
     private suspend fun restoreSession() {
         val refreshToken = sessionStore.currentRefreshToken()
         val userId = sessionStore.currentUserId()
         val email = sessionStore.currentEmail()
         if (refreshToken == null || userId == null) {
-            _currentSession.value = Session.SignedOut
+            restoreLocalSessionOrSignOut()
             return
         }
         val accessToken = sessionStore.currentAccessToken().orEmpty()
@@ -149,6 +171,31 @@ class SupabaseAuthRepository(
             }
     }
 
+    /**
+     * Resumes the local session if this install is in offline mode, else signs out.
+     *
+     * Split from [restoreSession] so the "no token" branch reads as one decision
+     * rather than a second thing to get wrong when the restore path changes.
+     */
+    private suspend fun restoreLocalSessionOrSignOut() {
+        if (!localOwnerStore.isLocalSessionActive()) {
+            _currentSession.value = Session.SignedOut
+            return
+        }
+        runCatchingResult {
+            UserId.fromString(localOwnerStore.getOrInitLocalOwnerId())
+        }.fold(
+            // A read that fails leaves the user signed out rather than half-signed-in:
+            // the sign-in screen can always start the local session again, and the id
+            // it generates is the same one the rows are already filed under.
+            onSuccess = { _currentSession.value = Session.Anonymous(it) },
+            onFailure = {
+                log.w(it) { "Could not read the local owner id; falling back to the login screen" }
+                _currentSession.value = Session.SignedOut
+            },
+        )
+    }
+
     override suspend fun signUp(email: String, password: String): Result<Unit> = attempt("sign up", email) {
         val address = AuthDomain.normalizeEmail(email)
         AuthDomain.validateEmail(address)
@@ -163,8 +210,41 @@ class SupabaseAuthRepository(
         gateway.signIn(address, password)
     }
 
-    override suspend fun signInAnonymously(): Result<Unit> = attempt("anonymous sign in", null) {
-        gateway.signInAnonymously()
+    /**
+     * Publishes a local, offline session and remembers that this install chose it.
+     *
+     * ## Why there is no gateway call
+     *
+     * This used to be `attempt("anonymous sign in") { gateway.signInAnonymously() }`,
+     * which created a real provider-side anonymous user. That is a different operation
+     * from the one the button promises. It needed a configured Supabase project, a
+     * working network and anonymous sign-ins enabled in the project's settings, so
+     * pressing a button labelled "Continue Offline" on a plane produced an error and
+     * left the user on the auth screen — the exact failure the offline path exists to
+     * prevent. ADR `2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice`
+     * had already ruled the provider call dead; this is the code catching up.
+     *
+     * ## Why a storage failure is a failure and not a success
+     *
+     * A session that is published but not remembered is worse than no session at all:
+     * the user is inside the app, believes their work is safe, and finds at the next
+     * launch that they were signed out — with rows under an id the next local session
+     * will not generate. So the marker is written before the session is published, and
+     * a store that refuses turns the whole attempt into the reported failure it is.
+     */
+    override suspend fun startLocalSession(): Result<Unit> {
+        _isLoading.value = true
+        return try {
+            runCatchingResult {
+                val owner = UserId.fromString(localOwnerStore.getOrInitLocalOwnerId())
+                localOwnerStore.markLocalSessionActive()
+                _currentSession.value = Session.Anonymous(owner)
+            }.map { }.onFailure { e ->
+                log.e(e) { "Auth could not start a local session" }
+            }
+        } finally {
+            _isLoading.value = false
+        }
     }
 
     /**
@@ -258,11 +338,21 @@ class SupabaseAuthRepository(
         }
     }
 
+    /**
+     * Ends the session and forgets that this install was running offline.
+     *
+     * The local owner's **id** survives. Signing out is about a session, not about
+     * data, and REQ-UA-006 keeps local rows on a sign-out; erasing the id would leave
+     * every task created offline unreachable without any error to explain it. Clearing
+     * the marker is what makes the next launch show the login screen, where a
+     * different account can be chosen or the same offline session resumed.
+     */
     override suspend fun signOut(): Result<Unit> {
         _isLoading.value = true
         return try {
             val result = runCatchingResult {
                 sessionStore.clear()
+                localOwnerStore.clearLocalSession()
                 _currentSession.value = Session.SignedOut
             }
             // After the local state, not before: a server that is unreachable is
@@ -274,67 +364,6 @@ class SupabaseAuthRepository(
         } finally {
             _isLoading.value = false
         }
-    }
-
-    /**
-     * Attaches an account to an anonymous session, keeping its data.
-     *
-     * ## Why nothing is transferred
-     *
-     * REQ-UA-005 asks that an anonymous user's existing tasks end up belonging to
-     * the account they then sign up with, and that the move be all-or-nothing.
-     * Neither is achieved by moving rows, and attempting it would be the fragile
-     * option: the provider attaches the credentials to the identity that already
-     * exists, so the user id — the owner every synchronised row is scoped to —
-     * does not change, and the rows are already the new account's. A transfer would
-     * be a second, redundant operation with its own failure mode, and the only
-     * outcome in which it is right is the one in which there is nothing to do.
-     *
-     * ## Why the id is checked anyway
-     *
-     * The argument above is a property of the provider, not of this code. A
-     * provider that issued a *different* id would orphan every row the anonymous
-     * user owns: local data under the old owner, server data under the new one,
-     * and no error from either side. So the id is compared, and a change is
-     * reported as the failure it is rather than adopted as a successful sign-up.
-     *
-     * On that path the session is left as the provider left it and the user is
-     * told the data is not reachable. Restoring the anonymous session and reporting
-     * failure is the honest pairing: the alternative is success, and a success that
-     * hides orphaned data until the user goes looking for it.
-     */
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> {
-        val before = (_currentSession.value as? Session.Anonymous)?.userId
-            ?: return Result.failure(
-                AppError.Validation(
-                    "Only an anonymous session can be attached to an account",
-                    code = "auth.not_anonymous",
-                ),
-            )
-        val address = AuthDomain.normalizeEmail(email)
-        return runCatchingResult {
-            AuthDomain.validateEmail(address)
-            AuthDomain.validatePassword(password)
-        }.mapCatching {
-            attempt("attach identity", address) { gateway.attachEmail(address, password) }
-        }.getOrElse { Result.failure(it) }
-            .mapCatching {
-                // A successful attach is no longer anonymous — it is a signed-in
-                // session. What has to be compared is the owner, not the shape.
-                val after = _currentSession.value.ownerOrNull()
-                    ?: throw AppError.Unauthorized(
-                        "Attaching an account left no session behind",
-                        code = "auth.ownership_changed",
-                    )
-                if (after != before) {
-                    throw AppError.Unauthorized(
-                        "Attaching an account changed the owner from $before to $after, so data " +
-                            "owned by $before would no longer be reachable. The change is reported " +
-                            "rather than adopted.",
-                        code = "auth.ownership_changed",
-                    )
-                }
-            }
     }
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> {
@@ -379,11 +408,4 @@ class SupabaseAuthRepository(
             _isLoading.value = false
         }
     }
-}
-
-/** The owner this session acts as, whether it is claimed or not. */
-private fun Session.ownerOrNull(): UserId? = when (this) {
-    is Session.Anonymous -> userId
-    is Session.SignedIn -> userId
-    Session.Loading, Session.SignedOut -> null
 }

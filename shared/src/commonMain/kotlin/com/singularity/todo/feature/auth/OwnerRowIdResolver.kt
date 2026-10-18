@@ -34,6 +34,28 @@ data class OwnerRowIds(
 }
 
 /**
+ * The pairwise mapping that moves one owner's scopes onto another's.
+ *
+ * A transfer needs more than the two lists: `prof/a` must land on `prof/b`, and the
+ * bare default-profile scope on the bare one. Anything that only carried "these are the
+ * old ids" would have to rebuild the pairing from the two owner ids, which means a
+ * second implementation of [scopedUserIdFor] — the same mistake [OwnerRowIdResolver]
+ * exists to avoid, in the one place where getting it wrong moves a user's tasks to
+ * another account instead of losing them.
+ *
+ * @property fromOwnerId the owner being left.
+ * @property byScoped every scope of [fromOwnerId] and the scope it becomes. The keys
+ * are exactly the owner's scopes; there is no scope without a destination.
+ */
+data class OwnerIdMapping(val fromOwnerId: String, val toOwnerId: String, val byScoped: Map<String, String>) {
+    /** The `(from, to)` pairs, in a stable order so a run is reproducible. */
+    val pairs: List<Pair<String, String>> get() = byScoped.entries.sortedBy { it.key }.map { it.key to it.value }
+
+    /** Whether there is anything to move at all. */
+    val isEmpty: Boolean get() = byScoped.isEmpty()
+}
+
+/**
  * Resolves an account to the exact ids an owner-scoped erase would remove.
  *
  * ## Why this exists rather than a `WHERE user_id = :owner` delete
@@ -87,6 +109,34 @@ class OwnerRowIdResolver(private val database: AppDatabase) {
             ownerId = owner.value,
             profileIds = profileIds,
             scopedUserIds = scoped.toList(),
+        )
+    }
+
+    /**
+     * The same scopes as [resolve], each paired with the scope it becomes under [to].
+     *
+     * Both halves are composed by [scopedUserIdFor] — the same function that wrote the
+     * ids in the first place — so the mapping cannot disagree with the ids it is moving
+     * even if a fourth profile type is added later.
+     *
+     * @param to the owner that will hold the rows afterwards.
+     */
+    suspend fun resolveMapping(from: UserId, to: UserId): OwnerIdMapping {
+        val profiles = database.profileDao().listOwnedBy(from.value)
+        val byScoped = profiles
+            .map { it.id }
+            .associate { profileId ->
+                val id = ProfileId.fromString(profileId)
+                scopedUserIdFor(id, from).value to scopedUserIdFor(id, to).value
+            }
+            // The default profile's scope is the bare owner, and it is included whether
+            // or not a default profile row exists — for the same reason as in `resolve`:
+            // the row can be absent while the data is still there.
+            .plus(from.value to to.value)
+        return OwnerIdMapping(
+            fromOwnerId = from.value,
+            toOwnerId = to.value,
+            byScoped = byScoped,
         )
     }
 }

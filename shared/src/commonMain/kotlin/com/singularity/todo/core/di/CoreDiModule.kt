@@ -58,8 +58,11 @@ import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationViewModel
 import com.singularity.todo.feature.auth.AccountSwitcher
 import com.singularity.todo.feature.auth.AuthViewModel
+import com.singularity.todo.feature.auth.LocalAccountClaimer
 import com.singularity.todo.feature.auth.OwnerRowIdResolver
+import com.singularity.todo.feature.auth.OwnerCountsCalculator
 import com.singularity.todo.feature.auth.OwnerScopedEraser
+import com.singularity.todo.feature.auth.OwnerScopedReassigner
 import com.singularity.todo.feature.backup.BackupViewModel
 import com.singularity.todo.feature.reminders.AlarmHandler
 import com.singularity.todo.feature.reminders.ReminderDelivery
@@ -189,6 +192,7 @@ fun coreModule(): org.koin.core.module.Module =
                 log = Logger.withTag("AuthRepository"),
                 gateway = get(),
                 sessionStore = get(),
+                localOwnerStore = get(),
                 scope = get(),
             )
         }
@@ -204,6 +208,23 @@ fun coreModule(): org.koin.core.module.Module =
                 syncRepository = get(),
                 resolver = get(),
                 eraser = get(),
+                calculator = get(),
+            )
+        }
+
+        // The other half of the erase: re-filing rows from one owner onto another. The
+        // offline → account path, where the alternative to moving the rows is throwing
+        // away work the user did on this device and nobody else has ever seen.
+        single { OwnerScopedReassigner(database = get(), log = { Logger.withTag("LocalAccountClaimer").i(it) }) }
+        // Single-pass counter for both reassign and erase options, used by the attach screen.
+        single { OwnerCountsCalculator(database = get()) }
+        single {
+            LocalAccountClaimer(
+                authRepository = get(),
+                resolver = get(),
+                reassigner = get(),
+                eraser = get(),
+                calculator = get(),
             )
         }
 
@@ -369,6 +390,16 @@ fun coreModule(): org.koin.core.module.Module =
                     val activeScope: SyncScope? = get<SyncScopeProvider>().current.first()
                     if (activeScope != null) get<SeedPlanner>().plan(activeScope)
                 },
+                // The offline → account path, passed as behaviour rather than as the
+                // claimer itself for the reason `onFirstSignIn` is a lambda: the ViewModel
+                // should not be able to reach the database collaborators by accident.
+                // Returns a Flow<ClaimStep> so intermediate states (SignOutFailed etc.)
+                // are available to the UI directly.
+                claimAccount = { email, password, disposition ->
+                    get<LocalAccountClaimer>().claim(email, password, disposition)
+                },
+                // What the user stands to lose, counted where the rows live.
+                summariseLocalData = { owner -> get<LocalAccountClaimer>().summarise(owner) },
                 crashReporter = get(),
             )
         }

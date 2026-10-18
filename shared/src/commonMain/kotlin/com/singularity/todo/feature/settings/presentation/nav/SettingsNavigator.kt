@@ -23,7 +23,7 @@ open class SettingsNavigator(protected val onExitGraph: (AppDestination?) -> Uni
      *
      * Shown only when the current session is [com.singularity.todo.core.auth.Session.Anonymous].
      * The target screen accepts email/password and calls
-     * [com.singularity.todo.feature.auth.AuthIntent.MigrateAnonymousTo] to attach
+     * [com.singularity.todo.feature.auth.AuthIntent.AttachAccount] to attach
      * an account to the anonymous session.
      */
     open fun openAttachAccount() {

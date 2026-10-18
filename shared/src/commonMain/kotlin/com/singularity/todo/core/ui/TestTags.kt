@@ -57,12 +57,21 @@ object TestTags {
     const val AUTH_SERVER_KEY_INPUT = "auth_server_key_input"
     const val AUTH_SAVE_SERVER_BUTTON = "auth_save_server_button"
 
-    // ─── Attach Account (anonymous session → signed-in) ────────────────────
+    // ─── Attach Account (local session → signed-in) ─────────────────────────
     const val AUTH_ATTACH_ACCOUNT_BUTTON = "auth_attach_account_button"
     const val AUTH_ATTACH_EMAIL_INPUT = "auth_attach_email_input"
     const val AUTH_ATTACH_PASSWORD_INPUT = "auth_attach_password_input"
     const val AUTH_ATTACH_SUBMIT_BUTTON = "auth_attach_submit_button"
     const val AUTH_ATTACH_BACK_BUTTON = "auth_attach_back_button"
+
+    /** "Move to account" — claims the offline rows rather than erasing them. */
+    const val AUTH_ATTACH_KEEP_BUTTON = "auth_attach_keep_button"
+
+    /** "Delete" — erases the offline rows, leaving the account empty. */
+    const val AUTH_ATTACH_DISCARD_BUTTON = "auth_attach_discard_button"
+
+    /** The sentence explaining what the currently selected disposition will do. */
+    const val AUTH_ATTACH_DISPOSITION_HINT = "auth_attach_disposition_hint"
 
     // ─── Magic Link Confirm ────────────────────────────────────────────────
     const val AUTH_MAGIC_RESEND_BUTTON = "auth_magic_resend_button"

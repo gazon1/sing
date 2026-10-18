@@ -18,8 +18,8 @@ import kotlinx.coroutines.CancellationException
  *
  * ## Why every call reads the session back instead of trusting the return value
  *
- * `signInAnonymously`, `attachEmail` and `refresh` all return `Unit` or a user
- * object; none of them returns the token pair the repository has to persist. The
+ * `signUp`, `signIn`, `verifyMagicLink` and `refresh` all return a user object or
+ * `Unit`; none of them returns the token pair the repository has to persist. The
  * session is therefore read from the plugin afterwards, and a call that returned
  * without leaving a session behind is a failure rather than a silent no-op — a
  * sign-in that reports success and stores nothing would sign the user in to
@@ -59,25 +59,6 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
     override suspend fun signIn(email: String, password: String): Result<RemoteSession> = call("sign in") {
         val auth = auth()
         auth.signInWith(Email) {
-            this.email = email
-            this.password = password
-        }
-        auth.currentSessionOrNull()?.toRemote()
-    }
-
-    override suspend fun signInAnonymously(): Result<RemoteSession> = call("anonymous sign in") {
-        val auth = auth()
-        auth.signInAnonymously()
-        auth.currentSessionOrNull()?.toRemote()
-    }
-
-    override suspend fun attachEmail(email: String, password: String): Result<RemoteSession> = call("attach identity") {
-        val auth = auth()
-        // `updateUser` on an anonymous session attaches the credentials to the
-        // identity that already exists. The user id does not change, which is what
-        // makes the rows already written under it the new account's without
-        // anything moving.
-        auth.updateUser {
             this.email = email
             this.password = password
         }

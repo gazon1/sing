@@ -106,7 +106,7 @@ sealed interface AppDestination : AppNavKey {
      * Screen for attaching an email/password account to the current anonymous session.
      *
      * Only reachable when [com.singularity.todo.core.auth.Session.Anonymous]; the UI
-     * is driven by [com.singularity.todo.feature.auth.AuthIntent.MigrateAnonymousTo].
+     * is driven by [com.singularity.todo.feature.auth.AuthIntent.AttachAccount].
      *
      * Navigated to from [AccountSettingsScreen][com.singularity.todo.feature.profile.presentation.AccountSettingsScreen]
      * via [SettingsNavigator.openAttachAccount][com.singularity.todo.feature.settings.presentation.nav.SettingsNavigator.openAttachAccount].

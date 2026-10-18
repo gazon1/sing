@@ -150,6 +150,10 @@ interface SyncShadowDao {
     @Query("DELETE FROM sync_shadow WHERE owner_id = :ownerId")
     suspend fun deleteForOwner(ownerId: String): Int
 
+    /** Count rows owned by [ownerId], without deleting. For preview before erase. */
+    @Query("SELECT COUNT(*) FROM sync_shadow WHERE owner_id = :ownerId")
+    suspend fun countForOwner(ownerId: String): Int
+
     @Query("DELETE FROM sync_shadow")
     suspend fun clearAll()
 }

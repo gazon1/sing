@@ -1402,11 +1402,8 @@ class FakeAuthRepository(initialSession: Session = Session.Anonymous(TestUsers.D
         return runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
     }
 
-    override suspend fun signInAnonymously(): Result<Unit> =
+    override suspend fun startLocalSession(): Result<Unit> =
         runCatchingCancellable { _currentSession.value = Session.Anonymous(currentUserId) }
-
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> =
-        runCatchingCancellable { _currentSession.value = signedInAs(currentUserId, email) }
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> =
         runCatchingCancellable { /* Fake: always succeeds */ }

@@ -84,4 +84,8 @@ interface SyncDeadLetterDao {
      */
     @Query("DELETE FROM sync_dead_letter WHERE owner_id = :ownerId")
     suspend fun deleteForOwner(ownerId: String): Int
+
+    /** Count rows owned by [ownerId], without deleting. For preview before erase. */
+    @Query("SELECT COUNT(*) FROM sync_dead_letter WHERE owner_id = :ownerId")
+    suspend fun countForOwner(ownerId: String): Int
 }
