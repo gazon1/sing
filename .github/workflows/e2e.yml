@@ -43,6 +43,10 @@ env:
   # needed because a Renovate PR that removes the variable would otherwise break
   # every CI run until the next PR adds it back.
   MAESTRO_VERSION: ${{ vars.MAESTRO_VERSION || '2.10.0' }}
+  # Unified GPU mode for both e2e.yml and android-device-tests.yml.
+  # Set via repo variable EMULATOR_GPU_MODE (swiftshader_indirect or off).
+  # Defaults to off (current stable config for Maestro flows).
+  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}
 
 jobs:
   # Validates every id: selector in every Maestro flow against TestTags.kt.
@@ -125,9 +129,28 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Sets up the AVD once and shares it across all matrix shards.
+  # AVD image caching via actions/cache speeds up warm runs.
+  setup-avd:
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      avd_name: ${{ steps.setup.outputs.AVD_NAME }}
+      android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
+      sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up AVD
+        uses: ./.github/workflows/_setup-avd.yml
+        with:
+          avd_name: singularity-api36
+          system_image: system-images;android-36;google_apis;x86_64
+          device: pixel_6
+
   e2e:
     name: e2e (${{ needs.plan.outputs.suite }}, shard ${{ matrix.shard }})
-    needs: [plan, build-apk]
+    needs: [plan, build-apk, setup-avd]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -153,15 +176,6 @@ jobs:
           name: e2e-apk
           path: apk
 
-      # Without KVM the emulator falls back to software rendering and times out
-      # long before the first test assertion.
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
       # The version is passed to the installer as MAESTRO_VERSION. Checking the
       # variable and then running an unpinned `curl | bash` would assert a pin and
       # install whatever is newest — the same shape as a gate that is configured and
@@ -180,46 +194,24 @@ jobs:
           with-action-lint: 'false'
 
       # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target).
-      # -gpu off sidesteps the gfxstream crash; Maestro drives through the
-      # accessibility layer and never composites, so software rendering is fine.
-      # SwiftShader performance impact is tracked in ADR 2026-10-18.
-      #
-      # The whole lifecycle (AVD install + boot + APK install + Maestro run) lives
-      # in run_maestro_e2e.py so the emulator stays up for the full duration of
-      # the step — not just the first few seconds of it.
+      # EMULATOR_GPU_MODE defaults to off (sidesteps gfxstream crash); Maestro
+      # drives through the accessibility layer and never composites. SwiftShader
+      # performance impact tracked in ADR 2026-10-18; unify via #723.
+      - name: Set AVD environment
+        run: |
+          echo "ANDROID_AVD_HOME=${{ needs.setup-avd.outputs.android_avd_home }}" >> "$GITHUB_ENV"
+          sdk_root="${{ needs.setup-avd.outputs.sdk_root }}"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          echo "$sdk_root/build-tools/37.0.0" >> "$GITHUB_PATH"
+
+      # The whole lifecycle (boot + APK install + Maestro run) lives in
+      # run_maestro_e2e.py so the emulator stays up for the full duration.
       - name: Run Maestro E2E
         env:
-          AVD: singularity-api36
-          SYSTEM_IMAGE: system-images;android-36;google_apis;x86_64
-          EMULATOR_EXTRA_FLAGS: -no-window -gpu off -no-audio -prop persist.sys.locale=ru-RU
+          EMULATOR_EXTRA_FLAGS: -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio -prop persist.sys.locale=ru-RU
           EMULATOR_TIMEOUT: 600
         run: |
-          set -euo pipefail
-          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          cmdline="$(dirname "$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f | sort | tail -1)")"
-          echo "cmdline-tools: $cmdline"
-          yes | "$cmdline/sdkmanager" --licenses >/dev/null || true
-          "$cmdline/sdkmanager" "$SYSTEM_IMAGE"
-          echo no | "$cmdline/avdmanager" create avd \
-            --force --name "$AVD" --package "$SYSTEM_IMAGE" --device pixel_6
-          # Put emulator and platform-tools on PATH for the Python script.
-          {
-            echo "$sdk_root/emulator"
-            echo "$sdk_root/platform-tools"
-            echo "$sdk_root/build-tools/37.0.0"
-          } >> "$GITHUB_PATH"
-          # Locate the AVD ini that avdmanager wrote — its directory is
-          # ANDROID_AVD_HOME, required for the emulator to find the AVD.
-          avd_ini="$(find "$HOME" -maxdepth 6 -name "$AVD.ini" -print -quit 2>/dev/null || true)"
-          [ -n "$avd_ini" ] \
-            || { echo "::error::no $AVD.ini under \$HOME"; exit 1; }
-          ANDROID_AVD_HOME="$(dirname "$avd_ini")"
-          export ANDROID_AVD_HOME
-          # Verify the AVD is visible to the emulator binary.
-          "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD" \
-            || { echo "::error::emulator -list-avds does not list $AVD"; exit 1; }
-          # run_maestro_e2e.py calls ensure_device() which starts the AVD and
-          # keeps it running for the entire step duration.
           python3 scripts/run-maestro-e2e.py \
             --apk apk \
             --suite "$SUITE" \
