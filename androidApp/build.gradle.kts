@@ -230,7 +230,7 @@ android {
             versionNameSuffix = "+g${gitShaProvider.get()}"
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             // Signing is driven by GitHub Actions secrets (ANDROID_KEYSTORE_BASE64 etc.)
             // set as env vars by release.yml.  The workflow fails-closed if any secret
             // is absent, so a missing key never silently produces an unsigned APK.

@@ -121,12 +121,29 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Rpm)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "singularity-todo"
             packageVersion = (project.findProperty("packageVersion") as String?) ?: "0.1.0"
 
             modules("jdk.unsupported")
             includeAllModules = false
+
+            // #686: jpackage generates a postinst that calls `xdg-desktop-menu install`.
+            // That script exits 3 on a headless Debian system because neither
+            // /usr/share/desktop-directories nor /usr/share/applications is writable —
+            // and XDG_DATA_DIRS="" on early boot prevents the fallback. The menu
+            // entries the package installs are unused on a headless install anyway.
+            // Override with a no-op postinst that just succeeds.
+            @Suppress("RemoveRedundantCallsOfConvertToString")
+            linuxConfig {
+                postinstScript =
+                    "#!/bin/bash\n" +
+                    "case \"\$1\" in\n" +
+                    "    configure|abort-upgrade|abort-remove|abort-deconfigure)\n" +
+                    "        exit 0\n" +
+                    "        ;;\n" +
+                    "esac\n"
+            }
         }
     }
 }
