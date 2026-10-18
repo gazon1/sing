@@ -280,6 +280,12 @@ gate blocking "releases describe themselves" sgate releases_describe_themselves
 
 # AppTracer
 
+# Rebase divergence prevention: fail if origin/main has commits not yet in current branch.
+# This gate runs after a git fetch (which check-unmerged.sh does internally).  It is
+# blocking because rebasing onto a stale main creates divergent history that requires
+# force-push to fix — a state the author may not notice until a colleague cannot pull.
+gate blocking "local branch is not behind origin/main" bash scripts/ci/check-unmerged.sh
+
 # Gate-script conventions. Advisory because the corpus is knowingly red: every
 # legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a
 # separate sweep. Registered rather than deleted so the debt is visible and

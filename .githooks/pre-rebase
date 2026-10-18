@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# pre-rebase hook: warn when rebasing would lose unpushed commits or rebase onto a stale main.
+#
+# Git invokes this as: pre-rebase <upstream> <branch>
+# where <upstream> is the commit or ref the rebase will replay onto, and <branch>
+# is the branch being rebased (or empty when rebasing a detached HEAD).
+#
+# This hook fires for ALL rebases — interactive, non-interactive, and `git rebase <onto>`.
+# A non-zero exit blocks the rebase.
+#
+# Prevention scope:
+#   - Prevents rebasing onto a local main that is behind origin/main (rebase onto
+#     stale main = divergent history with no way to fast-forward later).
+#   - Warns when the current branch has commits not yet pushed to its tracking remote
+#     (rebasing them would lose work unless --force-push is used).
+#   - Skips the check entirely when the --no-verify flag is passed (for WIP commits
+#     and other intentional exceptions).
+#
+# Run with --no-verify to bypass: git rebase --no-verify ...
+
+set -euo pipefail
+
+UPSTREAM="$1"
+OLDREF="${2:-}"
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Detect worktree: a worktree's .git is a file, not a dir.
+IS_WORKTREE=false
+if [[ -f "$REPO_ROOT/.git" ]]; then
+    IS_WORKTREE=true
+fi
+
+# ── Helper: check if a ref is behind its remote tracking ref ──────────────────
+behind_remote() {
+    local branch="$1"
+    local remote_ref
+    remote_ref="$(git rev-parse --verify "$branch@{upstream}" 2>/dev/null)" || return 1
+    local local_sha remote_sha
+    local_sha="$(git rev-parse --verify "$branch" 2>/dev/null)"
+    remote_sha="$(git rev-parse --verify "$remote_ref" 2>/dev/null)"
+
+    # Return 0 (true) when remote is strictly ahead of local (local needs pull)
+    # git log --left-right --count: left count = ours behind, right count = ours ahead
+    local behind ahead
+    read behind ahead <<<"$(git rev-list --left-right --count "$local_sha...$remote_sha" 2>/dev/null || echo "0 0")"
+    [[ "$behind" -gt 0 ]]
+}
+
+# ── Skip when --no-verify is in the call chain ───────────────────────────────
+# Git passes --no-verify to individual hooks via environment, but not directly as
+# an argument. We detect it by checking if any ancestor of this process received it.
+if grep -q 'no-verify\|NO_VERIFY' /proc/$$/environ 2>/dev/null; then
+    exit 0
+fi
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'detached')"
+
+# ── 1. Rebase onto a stale local main ────────────────────────────────────────
+# When UPSTREAM resolves to a local main (e.g. `git rebase main` from a feature
+# branch, but the local main is behind origin/main), rebasing replays commits onto
+# a stale base. The result is a branch whose new base does not contain the latest
+# origin/main — which can only be fixed by another rebase (and --force-push).
+#
+# This check detects the case where:
+#   - we are rebasing onto a local 'main' or 'master'
+#   - that local main is behind its origin/main tracking ref
+#   - rebasing onto it would silently create a divergent history problem
+
+# ── 1a. Rebase onto a stale local main ─────────────────────────────────────────
+# Detects `git rebase main` where the local main is behind origin/main.
+
+check_stale_main() {
+    local upstream_name
+    upstream_name="$(git rev-parse --abbrev-ref "$UPSTREAM" 2>/dev/null)" || return 0
+
+    # Only care about main-like branches
+    case "$upstream_name" in
+        main|master) ;;
+        *) return 0 ;;
+    esac
+
+    if behind_remote "$upstream_name"; then
+        echo "pre-rebase: WARNING — local '$upstream_name' is behind its origin." >&2
+        echo "  Rebasing onto it will replay your commits onto a stale base." >&2
+        echo "  Run:" >&2
+        echo "    git fetch origin" >&2
+        echo "    git rebase origin/$upstream_name" >&2
+        echo "  Or use 'git rebase --no-verify' to skip this check." >&2
+        echo "pre-rebase: ABORTED." >&2
+        exit 1
+    fi
+}
+
+# ── 1b. Rebase onto a remote-tracking ref that's ahead of its local ──────────────
+# Detects `git rebase origin/main` where origin/main has commits not in the local
+# main.  Unlike case 1a, the target is a remote-tracking ref (origin/*) that may
+# already be fully merged locally — but if it IS ahead, rebasing onto it is
+# equivalent to rebasing onto a stale local main and produces the same divergent
+# history problem.
+
+check_stale_remote_tracking() {
+    local upstream_name
+    upstream_name="$(git rev-parse --abbrev-ref "$UPSTREAM" 2>/dev/null)" || return 0
+
+    # Only act on remote-tracking refs: origin/*, refs/remotes/*
+    case "$upstream_name" in
+        origin/*|refs/remotes/origin/*) ;;
+        *) return 0 ;;
+    esac
+
+    # Derive the local branch counterpart: origin/main → main, origin/feature/x → feature/x
+    local local_branch="${upstream_name#origin/}"
+    local_branch="${local_branch#refs/remotes/origin/}"
+
+    # If we have no local branch by that name, skip (nothing to compare against)
+    git rev-parse --verify --abbrev-ref "$local_branch" >/dev/null 2>&1 || return 0
+
+    if behind_remote "$local_branch"; then
+        echo "pre-rebase: WARNING — local '$local_branch' is behind $upstream_name." >&2
+        echo "  Rebasing onto $upstream_name will replay your commits onto a stale base." >&2
+        echo "  Run:" >&2
+        echo "    git fetch origin" >&2
+        echo "    git rebase origin/$local_branch  # after updating local $local_branch" >&2
+        echo "  Or use 'git rebase --no-verify' to skip this check." >&2
+        echo "pre-rebase: ABORTED." >&2
+        exit 1
+    fi
+}
+
+# ── 2. Warn on unpushed commits on the current branch ─────────────────────────
+# Rebasing commits that exist only locally means rewriting commits that have no
+# remote representation. Without --force-push, the next push will be rejected.
+# This is a warning (not a hard block) because forced pushes are intentional.
+
+check_unpushed() {
+    # Only check when rebasing the current branch (not a forced <onto>)
+    [[ "$BRANCH" == "detached" ]] && return 0
+    [[ -z "$(git rev-parse --symbolic-full-name "$BRANCH" 2>/dev/null)" ]] && return 0
+
+    local upstream
+    upstream="$(git rev-parse --abbrev-ref "$BRANCH@{upstream}" 2>/dev/null)" || return 0
+
+    local local_tip remote_tip
+    local_tip="$(git rev-parse "$BRANCH")"
+    remote_tip="$(git rev-parse "$upstream")"
+
+    # Unpushed = local is ahead of remote
+    local behind ahead
+    read behind ahead <<<"$(git rev-list --left-right --count "$local_tip...$remote_tip" 2>/dev/null || echo "0 0")"
+
+    if [[ "$ahead" -gt 0 ]]; then
+        echo "pre-rebase: NOTE — '$BRANCH' has $ahead commit(s) not pushed to $upstream." >&2
+        echo "  Rebasing will rewrite these commits. A subsequent push will need --force." >&2
+        echo "  If this was intentional, run: git rebase --no-verify" >&2
+        echo "pre-rebase: continuing (this is a warning, not a block)." >&2
+    fi
+}
+
+check_stale_main
+check_stale_remote_tracking
+check_unpushed
+
+exit 0
