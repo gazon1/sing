@@ -33,12 +33,12 @@ Triage each finding by where it bites:
 `docs/decisions/DIGEST.md` is what every agent reads before a non-trivial task. When it is
 wrong, it is wrong everywhere at once.
 
-- **Oversized?** (>1250 lines) — the generator's selection needs tightening, not manual
+- **Oversized?** (>120 lines) — the generator's selection needs tightening, not manual
   pruning. Read `scripts/refresh-decisions-digest.py` and see what it is pulling in.
-  The budget is `MAX_DIGEST_LINES` in that script and is enforced by
-  `scripts/check-doc-sizes.py`; both say 1250. (This skill used to say 1500, which is
-  how the digest sat 249 lines over budget without anyone noticing — one number, one
-  place. Do not introduce a second threshold.) The main lever is superseding the ADRs
+  The budget is `MAX_ORIENTATION_LINES` in that script (120 lines) and is enforced by
+  `scripts/check-doc-sizes.py` via `DIGEST_MAX` (also 120 lines). (This skill used to say
+  1250, which was wrong and how the digest sat 249 lines over budget without anyone noticing
+  — one number, one place. Do not introduce a second threshold.) The main lever is superseding the ADRs
   it displaces: the generator already drops ADRs targeted by a `supersedes:` chain.
 - **A rule that the code no longer follows?** The digest is generated from ADRs'
   `## Consequences`, so this means the consequence is stale. Fix the ADR or supersede it —
