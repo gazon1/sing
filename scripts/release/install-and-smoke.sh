@@ -40,25 +40,10 @@ set -euo pipefail
 : "${PACKAGE:?PACKAGE is the path to the built package inside the container}"
 : "${EXPECT_VERSION:?EXPECT_VERSION is the version the tag named}"
 
-# jpackage's postinst calls `xdg-desktop-menu install`, and that script aborts with
-# "No writable system menu directory found" (exit 3), which fails the whole install.
-#
-# "Menu directory" is not `applications` — traced through `sh -x` on 2026-10-16, it is
-# a writable `desktop-directories` directory under one of the XDG data dirs, i.e. the
-# `.directory` files that say which menu an entry belongs to. A minimal image ships
-# neither that nor `applications`; every desktop distro ships both. Guessing
-# `applications` is the obvious wrong fix and fails identically.
-#
-# `XDG_DATA_DIRS` is set too: xdg-desktop-menu falls back to its compiled-in
-# `/usr/local/share:/usr/share` only when the variable is *unset*, and CI runners export
-# it as an empty string, which is the harder version of the same failure to diagnose.
-#
-# All of it is so the step measures packaging rather than the base image. The underlying
-# limitation is real for headless Debian — exactly the machine that would install this
-# package to run its `systemd --user` reminder unit, and which has no desktop-menu
-# directories at all. Tracked as #686.
-mkdir -p /usr/share/applications /usr/share/desktop-directories
-export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+# The .deb ships a no-op postinst (patched by patchDebPostinst in build.gradle.kts,
+# #686): the original called `xdg-desktop-menu install` which exits 3 on headless
+# Debian because no desktop-directories directory exists. The workaround directories
+# are no longer needed and are not asserted.
 
 # The mount is the only thing carrying the artifact into the container, and a `cp`
 # that produced nothing leaves an empty directory that `apt-get install ./app.deb`

@@ -1,23 +1,8 @@
 name: Release
 
 # Tag `v1.2.3` (or `v1.2.3-rc.1`) on a commit that already passed CI on main
-#   -> signed Android APK + Linux .deb + Linux .rpm -> DRAFT GitHub Release.
+#   -> signed Android APK + Linux .deb/.rpm + Windows .msi + macOS .dmg -> DRAFT GitHub Release.
 # workflow_dispatch = dry run: everything is built, only workflow artifacts are kept.
-#
-# WHAT THIS DOES NOT DO, deliberately. The build cannot yet do these, so the release
-# does not pretend to:
-#
-#   * MINIFY. `isMinifyEnabled = false` (androidApp/build.gradle.kts). R8 breaks
-#     Koin, Room and kotlinx.serialization on their reflection, and nothing in CI
-#     exercises a minified build. That is the highest-risk gap here and it is tracked,
-#     not hidden: turning minification on and fixing the rules belongs BEFORE
-#     signing, because the question "does the shipped binary work" outranks the
-#     question "who gets the file".
-#   * PACKAGE msi/dmg. `nativeDistributions.targetFormats` declares only Deb and Rpm,
-#     so `packageMsi`/`packageDmg` do not exist. jpackage does not cross-compile,
-#     so each format needs its own runner.
-#
-# Follow-ups are in docs/decisions/deferred-backlog.md.
 
 on:
   push:
@@ -364,8 +349,199 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # ─── D3: Windows MSI — built on windows-2025, signed with Authenticode ──────────
+  desktop-windows:
+    needs: meta
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      VERSION_CODE: ${{ needs.meta.outputs.version_code }}
+      PKG_VERSION: ${{ needs.meta.outputs.package_version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-jvm-gradle
+
+      - name: Build MSI
+        run: |
+          .\gradlew.bat :desktopApp:packageMsi `
+            -PpackageVersion="$env:PKG_VERSION" `
+            -PdesktopAppVersion="$env:VERSION" `
+            -PdesktopAppVersionCode="$env:VERSION_CODE"
+
+      - name: Locate MSI
+        shell: bash
+        id: locate
+        run: |
+          shopt -s nullglob
+          matches=(desktopApp/build/compose/binaries/main/msi/*.msi)
+          if (( ! ${#matches[@]} )); then
+            echo "::error::No MSI was built" >&2
+            exit 1
+          fi
+          msi="${matches[0]}"
+          echo "msi=$msi" >> "$GITHUB_OUTPUT"
+
+      - name: Validate signing secrets
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          # Fail-closed: missing secrets must not silently produce an unsigned installer.
+          # GitHub Actions expands a missing secret to an empty string, so the check
+          # below is sufficient to detect both "secret not set" and "empty secret".
+          if [[ -z "${WINDOWS_CERT_BASE64:-}" || -z "${WINDOWS_CERT_PASSWORD:-}" ]]; then
+            echo "::error::WINDOWS_CERT_BASE64 or WINDOWS_CERT_PASSWORD is not set; signing will be skipped" >&2
+            exit 1
+          fi
+
+      - name: Sign MSI (Authenticode)
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          cert_path=/c/cert.pfx
+          echo "$WINDOWS_CERT_BASE64" | base64 -d > "$cert_path"
+          # signtool is on the PATH in windows-2025 runner when the SDK is present.
+          # Fall back to osslsigncode if signtool is not available.
+          if command -v signtool &>/dev/null; then
+            signtool sign /f "$cert_path" /p "$WINDOWS_CERT_PASSWORD" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "${{ steps.locate.outputs.msi }}"
+          elif command -v osslsigncode &>/dev/null; then
+            osslsigncode sign -certs "$cert_path" -key "$cert_path" -pass "$WINDOWS_CERT_PASSWORD" -n "Singularity Todo" -i "https://singularity.todo" -t http://timestamp.digicert.com -h sha256 -in "${{ steps.locate.outputs.msi }}" -out "${{ steps.locate.outputs.msi }}.signed"
+            mv "${{ steps.locate.outputs.msi }}.signed" "${{ steps.locate.outputs.msi }}"
+          else
+            echo "::error::Neither signtool nor osslsigncode is available on this runner" >&2
+            exit 1
+          fi
+
+      - name: Stage signed MSI
+        run: |
+          mkdir -p dist
+          cp "${{ steps.locate.outputs.msi }}" "dist/singularity-$env:VERSION-windows-x64.msi"
+
+      - name: Install and smoke the packaged launcher
+        run: |
+          # Smoke runs directly on the runner (a transient VM, not persistent).
+          # PowerShell is available on windows-2025 without any setup.
+          powershell -ExecutionPolicy Bypass -File "$GITHUB_WORKSPACE/scripts/release/install-and-smoke-msi.ps1" \
+            -MsiPath "${{ steps.locate.outputs.msi }}" \
+            -ExpectVersion "$env:VERSION"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-desktop-windows-x64-msi
+          path: dist/*.msi
+          if-no-files-found: error
+
+  # ─── D3: macOS DMG — built and notarized on macos-15 ─────────────────────────
+  desktop-macos:
+    needs: meta
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      VERSION_CODE: ${{ needs.meta.outputs.version_code }}
+      PKG_VERSION: ${{ needs.meta.outputs.package_version }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_NOTARY_API_KEY: ${{ secrets.APPLE_NOTARY_API_KEY }}
+      APPLE_NOTARY_API_ISSUE: ${{ secrets.APPLE_NOTARY_API_ISSUE }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-jvm-gradle
+
+      - name: Build DMG
+        run: |
+          ./gradlew :desktopApp:packageDmg \
+            -PpackageVersion="$PKG_VERSION" \
+            -PdesktopAppVersion="$VERSION" \
+            -PdesktopAppVersionCode="$VERSION_CODE"
+
+      - name: Locate DMG
+        id: locate
+        shell: bash
+        run: |
+          shopt -s nullglob
+          matches=(desktopApp/build/compose/binaries/main/dmg/*.dmg)
+          if (( ! ${#matches[@]} )); then
+            echo "::error::No DMG was built" >&2
+            exit 1
+          fi
+          dmg="${matches[0]}"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+
+      - name: Validate signing secrets
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_SIGNING_CERT_BASE64: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
+        run: |
+          # Fail-closed: both are required for code signing. GitHub Actions expands a
+          # missing secret to an empty string.
+          if [[ -z "${APPLE_SIGNING_IDENTITY:-}" || -z "${APPLE_SIGNING_CERT_BASE64:-}" ]]; then
+            echo "::error::APPLE_SIGNING_IDENTITY or APPLE_SIGNING_CERT_BASE64 is not set; signing will be skipped" >&2
+            exit 1
+          fi
+
+      - name: Provision signing certificate
+        env:
+          APPLE_SIGNING_CERT_BASE64: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
+        run: |
+          # Import the certificate into the login keychain so codesign can find it.
+          echo "$APPLE_SIGNING_CERT_BASE64" | base64 -d > /tmp/signing-cert.p12
+          security create-keychain -p "" ~/Library/Keychains/login.keychain-db 2>/dev/null || true
+          security unlock ~/Library/Keychains/login.keychain-db -p ""
+          security import /tmp/signing-cert.p12 -P "" -A -t cert -f pkcs12 -k ~/Library/Keychains/login.keychain-db
+          security set-key-partition-list -S apple-tool,apple,signing-key -s -k "" ~/Library/Keychains/login.keychain-db
+          security list-keychain -d user -s ~/Library/Keychains/login.keychain-db
+
+      - name: Sign DMG (Apple Developer ID)
+        run: |
+          # codesign is on PATH in macOS runners with Xcode.
+          codesign --force --deep --sign "$APPLE_SIGNING_IDENTITY" \
+            "${{ steps.locate.outputs.dmg }}"
+
+      - name: Validate notarization secrets
+        env:
+          APPLE_NOTARY_API_KEY: ${{ secrets.APPLE_NOTARY_API_KEY }}
+          APPLE_NOTARY_API_ISSUE: ${{ secrets.APPLE_NOTARY_API_ISSUE }}
+        run: |
+          # Fail-closed: both are required for notarization.
+          if [[ -z "${APPLE_NOTARY_API_KEY:-}" || -z "${APPLE_NOTARY_API_ISSUE:-}" ]]; then
+            echo "::error::APPLE_NOTARY_API_KEY or APPLE_NOTARY_API_ISSUE is not set; notarization will be skipped" >&2
+            exit 1
+          fi
+
+      - name: Notarize DMG (Apple Notarization)
+        run: |
+          xcrun notarytool submit "${{ steps.locate.outputs.dmg }}" \
+            --api-key "$APPLE_NOTARY_API_KEY" \
+            --api-issuer "$APPLE_NOTARY_API_ISSUE" \
+            --wait
+          # Staple the notarization ticket to the DMG so it works offline.
+          xcrun stapler staple "${{ steps.locate.outputs.dmg }}"
+
+      - name: Stage DMG
+        run: |
+          mkdir -p dist
+          cp "${{ steps.locate.outputs.dmg }}" "dist/singularity-$VERSION-macos-x64.dmg"
+
+      - name: Install and smoke the packaged launcher
+        env:
+          DMG_PATH: ${{ steps.locate.outputs.dmg }}
+        run: |
+          mkdir -p /tmp/smoke
+          cp "$DMG_PATH" /tmp/smoke/
+          bash "$GITHUB_WORKSPACE/scripts/release/install-and-smoke-dmg.sh"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-desktop-macos-x64-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
+
   publish:
-    needs: [meta, android, desktop]
+    needs: [meta, android, desktop, desktop-windows, desktop-macos]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -389,7 +565,7 @@ jobs:
           PRERELEASE: ${{ needs.meta.outputs.prerelease }}
         run: |
           shopt -s nullglob
-          artifacts=(dist/*.apk dist/*.deb dist/*.rpm)
+          artifacts=(dist/*.apk dist/*.deb dist/*.rpm dist/*.msi dist/*.dmg)
           if (( ! ${#artifacts[@]} )); then
             echo "::error::no artifacts to describe — the release would ship a manifest naming nothing"
             exit 1
