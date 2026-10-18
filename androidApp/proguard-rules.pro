@@ -19,3 +19,13 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ─── Koog (AI agent framework by JetBrains) ────────────────────────────────
+# koog-http-client-okhttp only has JVM variants. When included in an Android
+# build, R8 full-mode (AGP 9.x default) detects the JVM-only
+# ai.koog.utils.io.Coroutines_jvmKt as a missing class and fails.
+# Suppress these warnings since the referencing code is JVM-specific and is
+# stripped away by R8 during Android optimization.
+-dontwarn ai.koog.utils.io.Coroutines_jvmKt
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean
