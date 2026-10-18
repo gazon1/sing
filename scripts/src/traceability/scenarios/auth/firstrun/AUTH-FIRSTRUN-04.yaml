@@ -1,0 +1,38 @@
+# Scenario specification for AUTH-FIRSTRUN-04.
+#
+# A user scenario from the auth/sync test plan, split out from AUTH-FIRSTRUN-01
+# because the two fail independently and share nothing but the word "first".
+#
+# AUTH-FIRSTRUN-01 asks whether a first launch with no account is *usable*: can a
+# task be created and does it survive an offline restart. It is answered by flows
+# that launch with `clearState: false`, from an emulator snapshot that already
+# carries a session — which is what makes a seeded task findable.
+#
+# That shortcut is why this scenario needed its own id. A launch that never leaves
+# `Session.Loading` produces a *usable-looking* run of the other flows, because
+# they only ever assert on things that appear after the session resolves, and a
+# flow that times out on a later step is reported as "that feature is broken"
+# rather than "the app cannot start". Answering "does the first screen arrive at
+# all" had to be a different question, asked before anything else is asserted.
+#
+# The linkage to automation is not here: it lives in code (a
+# `scenario:AUTH-FIRSTRUN-04` Maestro tag).
+
+id: AUTH-FIRSTRUN-04
+title: The login screen appears on a cold, empty install
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A clean install — no account, no previous app data, and an empty session store —
+  with the network on.
+steps:
+  - Install the app over a clean state, discarding whatever the previous run left.
+  - Launch it and touch nothing.
+  - Wait for the restore to settle.
+expected: >-
+  The login screen appears within the restore budget, with "Continue Offline"
+  present, and the loading indicator gone. A session store that hangs or cannot be
+  read ends at this screen rather than at a spinner the user cannot dismiss. This
+  is REQ-UA-015's user-visible half: whatever the store is doing, the first screen
+  arrives and offers a way in.

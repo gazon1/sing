@@ -243,6 +243,34 @@ Steps:
 
 **Expected:** Tasks can be created without signing in, they are stored locally, and restarting offline shows the data with no error and no dialog. The sync indicator shows a neutral state — having no account is not an error.
 
+#### `AUTH-FIRSTRUN-04` — The login screen appears on a cold, empty install
+
+**confirmed** · P1 · `#AUTH-FIRSTRUN`
+
+**Given:** A clean install — no account, no previous app data, and an empty session store — with the network on.
+
+Steps:
+
+1. Install the app over a clean state, discarding whatever the previous run left.
+2. Launch it and touch nothing.
+3. Wait for the restore to settle.
+
+**Expected:** The login screen appears within the restore budget, with "Continue Offline" present, and the loading indicator gone. A session store that hangs or cannot be read ends at this screen rather than at a spinner the user cannot dismiss. This is REQ-UA-015's user-visible half: whatever the store is doing, the first screen arrives and offers a way in.
+
+#### `AUTH-FIRSTRUN-05` — The app starts when the session store cannot be read
+
+**confirmed** · P1 · `#AUTH-FIRSTRUN`
+
+**Given:** An installed app whose session store has been written at least once, so there is a real encrypted file to damage.
+
+Steps:
+
+1. Launch the app once so the store is created, then stop it.
+2. Damage the store file so it can no longer be decrypted.
+3. Launch the app again and wait for the restore to settle.
+
+**Expected:** The login screen appears within the restore budget, with the loading indicator gone, and the store is left in a state a later launch can read. The app is usable afterwards, not merely open: a recovery that ends in a spinner has not recovered anything. This is REQ-UA-015's half for a store that cannot be read.
+
 #### `AUTH-SEED-01` — Sign in on a device that already holds local data
 
 **confirmed** · P1 · `#AUTH-SEED`

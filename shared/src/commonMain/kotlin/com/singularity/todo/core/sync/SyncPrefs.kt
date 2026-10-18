@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -66,7 +67,7 @@ class DataStoreSyncPrefs(
 
     init {
         scope.launch {
-            runCatching {
+            runCatchingCancellable {
                 val prefs = dataStore.data.first()
                 _autoSyncEnabled.value = prefs[Keys.AUTO_SYNC_ENABLED] ?: false
                 // No "?: \"\"" here: an absent key already means "all triggers" (parseCsv
@@ -79,6 +80,11 @@ class DataStoreSyncPrefs(
             }.onFailure { e ->
                 // #262: a corrupted DataStore file on first read silently leaves sync running
                 // with defaults. Log the error so operators can see it happened.
+                //
+                // `runCatchingCancellable`, not `runCatching`: this block sits in an `init`
+                // launch, and a plain `runCatching` would also capture CancellationException,
+                // turning a cancelled scope into "using defaults" plus a log line. The
+                // NoRunCatchingInSuspend rule covers suspend lambdas for this reason.
                 log.w(e) { "SyncPrefs init read failed; using defaults. ${e.message}" }
             }
         }

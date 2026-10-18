@@ -156,7 +156,7 @@ def main(
     # ── APK provenance ─────────────────────────────────────────────────────────
     if not allow_stale_apk:
         expected_sha = deps.git_sha()
-        installed_sha = deps.apk_sha_from_device(serial, deps)
+        installed_sha = deps.apk_sha_from_device(serial)
         if not installed_sha:
             logger.error("Cannot read build id from installed APK.")
             logger.error("The installed binary is unidentifiable; results prove nothing about this checkout.")

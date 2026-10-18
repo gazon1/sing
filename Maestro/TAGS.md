@@ -321,6 +321,7 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
+| `LOADING_INDICATOR` | `loading_indicator` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |

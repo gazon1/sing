@@ -1,0 +1,37 @@
+# Scenario specification for AUTH-FIRSTRUN-05.
+#
+# A user scenario from the auth/sync test plan, split out from AUTH-FIRSTRUN-01
+# because the two fail independently and share nothing but the word "first".
+#
+# AUTH-FIRSTRUN-01 asks whether a first launch with no account is *usable*: can a
+# task be created and does it survive an offline restart. It is answered by flows
+# that launch with `clearState: false`, from an emulator snapshot that already
+# carries a session — which is what makes a seeded task findable.
+#
+# That shortcut is why this scenario needed its own id. A launch that never leaves
+# `Session.Loading` produces a *usable-looking* run of the other flows, because
+# they only ever assert on things that appear after the session resolves, and a
+# flow that times out on a later step is reported as "that feature is broken"
+# rather than "the app cannot start". Answering "does the first screen arrive at
+# all" had to be a different question, asked before anything else is asserted.
+#
+# The linkage to automation is not here: it lives in code (a
+# `scenario:AUTH-FIRSTRUN-05` Maestro tag).
+
+id: AUTH-FIRSTRUN-05
+title: The app starts when the session store cannot be read
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  An installed app whose session store has been written at least once, so there is a
+  real encrypted file to damage.
+steps:
+  - Launch the app once so the store is created, then stop it.
+  - Damage the store file so it can no longer be decrypted.
+  - Launch the app again and wait for the restore to settle.
+expected: >-
+  The login screen appears within the restore budget, with the loading indicator
+  gone, and the store is left in a state a later launch can read. The app is usable
+  afterwards, not merely open: a recovery that ends in a spinner has not recovered
+  anything. This is REQ-UA-015's half for a store that cannot be read.

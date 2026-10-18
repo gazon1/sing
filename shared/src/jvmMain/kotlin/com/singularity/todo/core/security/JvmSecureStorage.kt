@@ -25,9 +25,10 @@ import javax.crypto.spec.SecretKeySpec
  *
  * The AES-GCM fallback derives a key from `user.home` via PBKDF2 — no external deps.
  */
-class JvmSecureStorage : SecureStoragePort {
+open class JvmSecureStorage : SecureStoragePort {
 
-    private val fallbackFile: Path by lazy {
+    /** Open so test subclasses can direct the fallback file to a test-specific path. */
+    protected open val fallbackFile: Path by lazy {
         val home = System.getProperty("user.home")
         val dir = Paths.get(home, ".config", "singularity")
         Files.createDirectories(dir)
@@ -37,11 +38,11 @@ class JvmSecureStorage : SecureStoragePort {
     // ─── SecureStoragePort ────────────────────────────────────────────────────
 
     override suspend fun read(key: String): String? = withContext(Dispatchers.IO) {
-        secretToolRead(key) ?: fallbackRead(key)
+        secretToolRead(key) ?: fallbackReadWithRecovery(key)
     }
 
     override suspend fun write(key: String, value: String) = withContext(Dispatchers.IO) {
-        if (!secretToolWrite(key, value)) fallbackWrite(key, value)
+        if (!secretToolWrite(key, value)) fallbackWriteWithRecovery(key, value)
     }
 
     override suspend fun delete(key: String) = withContext(Dispatchers.IO) {
@@ -59,11 +60,12 @@ class JvmSecureStorage : SecureStoragePort {
     // only appear on a machine where `secret-tool` was unusually chatty, and so would be
     // very hard to reproduce.
 
-    private fun secretToolAvailable(): Boolean =
-        Subprocess.runQuietly(listOf("which", "secret-tool")) == 0
+    /** Open so test subclasses can force the fallback path. */
+    protected open fun secretToolAvailable(): Boolean =
+        IS_LINUX && Subprocess.runQuietly(listOf("which", "secret-tool")) == 0
 
     private fun secretToolRead(key: String): String? {
-        if (!IS_LINUX || !secretToolAvailable()) return null
+        if (!secretToolAvailable()) return null
         return Subprocess.runCapturing(listOf("secret-tool", "lookup", "key=$key"))
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
@@ -106,6 +108,27 @@ class JvmSecureStorage : SecureStoragePort {
         return SecretKeySpec(key.encoded, "AES")
     }
 
+    /**
+     * Reads [key] from [fallbackFile], recovering from a corrupted file by erasing it once.
+     *
+     * The `secure.bin` file stores all keys. If the file is corrupted — wrong MAC, truncated
+     * header, unrecognised format — the whole file is unreadable and the correct response
+     * is to treat every key as absent and let the next write start fresh. This is the same
+     * policy as Android's [SecureStoreRecovery]: one erase-and-retry, then propagate.
+     *
+     * The erase destroys all keys in the file, not just the one that failed to read. This
+     * is the right trade-off for the fallback: it is used when libsecret is unavailable, and
+     * a JVM desktop install that cannot use the system keyring has no other durable credential
+     * store worth recovering.
+     *
+     * A second failure is not a stale-ciphertext problem and is not retried.
+     */
+    private fun fallbackReadWithRecovery(key: String): String? =
+        SecureStoreRecovery.openOrErase(
+            open = { fallbackRead(key) },
+            erase = { Files.deleteIfExists(fallbackFile) },
+        )
+
     private fun fallbackRead(key: String): String? {
         if (!Files.exists(fallbackFile)) return null
         return runCatching {
@@ -129,6 +152,23 @@ class JvmSecureStorage : SecureStoragePort {
             }
         }.getOrNull()
     }
+
+    /**
+     * Writes [key]=[value] to [fallbackFile], recovering from a corrupted file by erasing it once.
+     *
+     * A write that cannot complete leaves the file in an indeterminate state — partially written
+     * entries, wrong count, corrupted MAC — so a write failure is treated the same as a read
+     * failure: erase and retry once. The retry appends the new key to an empty store, which
+     * means any other keys that were in the file are lost. This is unavoidable for a file that
+     * cannot be read: recovery requires starting over.
+     *
+     * A second failure propagates with the first attached as suppressed.
+     */
+    private fun fallbackWriteWithRecovery(key: String, value: String) =
+        SecureStoreRecovery.openOrErase(
+            open = { fallbackWrite(key, value) },
+            erase = { Files.deleteIfExists(fallbackFile) },
+        )
 
     private fun fallbackWrite(key: String, value: String) {
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>() // iv to ct

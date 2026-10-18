@@ -37,6 +37,19 @@ import com.singularity.todo.core.reminders.ReminderOffset
 // function-count rule would break every existing call site and flow for no gain.
 @Suppress("TooManyFunctions")
 object TestTags {
+    // ─── Global ──────────────────────────────────────────────────────────────
+
+    /**
+     * The spinner a screen shows while it has nothing to display yet.
+     *
+     * Untagged until a real bug needed it: `AuthGuard` renders [LoadingIndicator]
+     * for the whole of session restore, and with no tag on it a launch stuck on
+     * that branch could not be asserted on — a UI test could only check that
+     * something eventually appeared, never that the spinner had gone. A test that
+     * cannot name the failure cannot catch its return.
+     */
+    const val LOADING_INDICATOR = "loading_indicator"
+
     // ─── Auth ────────────────────────────────────────────────────────────────
     const val AUTH_EMAIL_INPUT = "auth_email_input"
     const val AUTH_PASSWORD_INPUT = "auth_password_input"

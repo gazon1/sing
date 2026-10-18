@@ -12,13 +12,14 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
-import kotlinx.coroutines.launch
 
 /**
  * Intents for the auth screen.
@@ -165,6 +166,29 @@ class AuthViewModel(
             }
         }
         vmScope.launch { refreshLocalDataSummary() }
+
+        // A restore that could not be completed is not the same as having no session, and
+        // the login screen is the only place that can say so. Without this the user who was
+        // signed in yesterday and cannot be today sees a login screen identical to a fresh
+        // install's, and has no way to tell that something was lost rather than never there.
+        //
+        // A [AuthUiEvent.Message] rather than an [AuthUiEvent.Error]: nothing failed that the
+        // user did or can act on — their data is intact and "Continue Offline" still works.
+        // Painting it in the error colour would report a problem that has no remedy, which
+        // is the same mistake REQ-UA-014 calls out for the confirmation notice.
+        //
+        // `firstOrNull()` rather than `collect`: there is one restore per launch, so one
+        // failure per launch, and taking the single event lets the coroutine finish. A
+        // `collect` here would be a collector that never completes — harmless in production,
+        // where it lives on a background scope, and a test failure everywhere else, because
+        // `runTest` waits for foreground coroutines and reports the wait as
+        // `UncompletedCoroutinesError` whatever the assertions underneath said. It also
+        // returns immediately on the empty flow the interface defaults to.
+        vmScope.launch {
+            if (authRepository.restoreFailures.firstOrNull() != null) {
+                emit(AuthUiEvent.Message(RESTORE_FAILED_MESSAGE))
+            }
+        }
     }
 
     override fun onIntent(intent: AuthIntent) {
@@ -341,7 +365,7 @@ class AuthViewModel(
                 emit(AuthUiEvent.Error("Both the project URL and the anon key are required"))
                 return@launch
             }
-            runCatching { clients.configure(SupabaseConfig(url = url, anonKey = key)) }
+            runCatchingCancellable { clients.configure(SupabaseConfig(url = url, anonKey = key)) }
                 .onSuccess { updateState { AuthUiState.Idle } }
                 .onFailure { emit(AuthUiEvent.Error(it.message ?: "Could not save the server settings")) }
         }
@@ -400,3 +424,15 @@ class AuthViewModel(
         }
     }
 }
+
+/**
+ * What the login screen says when the previous session could not be read back.
+ *
+ * Names what happened rather than what the user should feel, and stops short of promising
+ * the data is safe — that is a claim about the store, and this message is emitted before
+ * anything has verified it. "Your data is still on this device" is the part that is true
+ * and the part the user needs in order to press "Continue Offline" without hesitation.
+ */
+internal const val RESTORE_FAILED_MESSAGE =
+    "Could not read your saved session. Your data is still on this device — " +
+        "continue offline or sign in again."

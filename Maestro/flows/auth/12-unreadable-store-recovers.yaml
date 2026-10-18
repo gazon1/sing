@@ -1,0 +1,71 @@
+# AUTH-FIRSTRUN-05: the app starts when the session store cannot be read.
+#
+# preconditions: installed app, a session store file on disk.
+# steps:
+#   1. Launch the app once so the encrypted store is created, then force-stop it.
+#   2. Corrupt the encrypted store file, leaving the keystore key intact.
+#   3. Launch the app again — a fresh process, which is the only state that can show this.
+# expected: the login screen appears within the restore budget, not a spinner.
+#
+# ## Why a Maestro flow and not an instrumented test
+#
+# An instrumented version of this was written first and could not work. Both ways of making
+# the store unreadable are defeated by caches that a fresh process throws away:
+#
+# - Delete the keystore entry, keep the file: `EncryptedSharedPreferences.create` raises
+#   `AEADBadTagException` — correctly — but Tink caches the keyset per process, so the
+#   retry inside the recovery reads the same dead cached key and fails again.
+# - Corrupt the file, keep the key: Android caches the parsed `SharedPreferences` in memory,
+#   so the storage keeps serving the value it read before the file was touched.
+#
+# In production the reinstall — or any restart — is what supplies the fresh process, and that
+# is precisely why the recovery works there. A test can only reproduce it if it restarts the
+# app, which is what this does.
+#
+# ## Why the corruption is by content and not by key
+#
+# Deleting the keystore entry needs a helper inside the app's UID; overwriting the file does
+# not, and it reaches the same recovery. The difference is honest and does not change what is
+# being asserted: a store that cannot be decrypted must end at the login screen.
+appId: com.singularity.todo
+name: auth-unreadable-store-recovers
+tags:
+  - regression
+  - auth
+  - AUTH-FIRSTRUN-05
+---
+# First launch, so the encrypted store exists and holds something. `clearState: false`:
+# clearing would remove the very file this flow goes on to damage.
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+- extendedWaitUntil:
+    visible:
+      id: auth_continue_offline_button
+    timeout: 30000
+
+# The process has to be gone before the file is damaged, or Android serves the store from
+# the in-memory cache it parsed before the damage and nothing observes it.
+- stopApp: com.singularity.todo
+
+- runScript: ../../helpers/scripts/damage-store.js
+
+# A fresh process, reading a file it cannot parse.
+- launchApp:
+    appId: com.singularity.todo
+    clearState: false
+
+# REQ-UA-015's budget plus slack for a cold start. This is the assertion the release that
+# shipped the spinner could not have made: the store is unreadable and the first screen
+# still arrives.
+- extendedWaitUntil:
+    visible:
+      id: auth_continue_offline_button
+    timeout: 40000
+
+- assertNotVisible:
+    id: loading_indicator
+
+# And the app is usable afterwards, not merely open — the recovery must leave a store that
+# the current key can read.
+- runScript: ../../helpers/scripts/verify-store.js

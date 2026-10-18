@@ -311,6 +311,7 @@
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RewriteNoteTool.kt:RewriteNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RunCatching.kt:e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RunCatching.kt:e: Exception</ID>
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
