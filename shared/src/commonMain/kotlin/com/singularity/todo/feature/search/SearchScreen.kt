@@ -48,6 +48,7 @@ import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
+import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
@@ -65,49 +66,32 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     var showSaveDialog by remember { mutableStateOf(false) }
     var searchToRename by remember { mutableStateOf<Pair<SavedSearchId, String>?>(null) }
 
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            val message = when (event) {
-                is SearchUiEvent.Error -> event.message
-                is SearchUiEvent.QueryParseError -> "Parse error: ${event.message}"
-                is SearchUiEvent.SavedSuccessfully -> "Search saved"
-            }
-            snackbarHostState.showSnackbar(message)
-        }
-    }
+    SearchEventsHandler(viewModel = viewModel, snackbarHostState = snackbarHostState)
 
-    if (showFilterSheet) {
-        SimpleFilterSheet(
-            initialFilter = state.activeFilter,
-            onApply = { filter ->
-                viewModel.onIntent(SearchIntent.OnApplyFilter(filter))
-                showFilterSheet = false
-            },
-            onDismiss = { showFilterSheet = false },
-        )
-    }
-
-    if (showSaveDialog) {
-        SaveSearchDialog(
-            initialName = state.query.take(30),
-            onDismiss = { showSaveDialog = false },
-            onSave = { name ->
-                viewModel.onIntent(SearchIntent.OnSaveCurrentSearch(name))
-                showSaveDialog = false
-            },
-        )
-    }
-
-    searchToRename?.let { (id, currentName) ->
-        RenameSearchDialog(
-            currentName = currentName,
-            onDismiss = { searchToRename = null },
-            onRename = { newName ->
-                viewModel.onIntent(SearchIntent.OnRenameSavedSearch(id, newName))
-                searchToRename = null
-            },
-        )
-    }
+    SearchSheetHosts(
+        showFilterSheet = showFilterSheet,
+        showSaveDialog = showSaveDialog,
+        searchToRename = searchToRename,
+        activeFilter = state.activeFilter,
+        query = state.query,
+        onDismissFilterSheet = { showFilterSheet = false },
+        onApplyFilter = { filter ->
+            viewModel.onIntent(SearchIntent.OnApplyFilter(filter))
+            showFilterSheet = false
+        },
+        onDismissSaveDialog = { showSaveDialog = false },
+        onSaveSearch = { name ->
+            viewModel.onIntent(SearchIntent.OnSaveCurrentSearch(name))
+            showSaveDialog = false
+        },
+        onDismissRename = { searchToRename = null },
+        onRename = { id, newName ->
+            viewModel.onIntent(
+                SearchIntent.OnRenameSavedSearch(id, newName),
+            )
+            searchToRename = null
+        },
+    )
 
     Scaffold(
         topBar = {
@@ -123,16 +107,9 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag(TestTags.SEARCH_INPUT),
-                placeholder = { Text("Search tasks, notes, projects...") },
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
-                singleLine = true,
+            SearchInputBar(
+                query = state.query,
+                onQueryChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
             )
 
             if (state.savedSearches.isNotEmpty()) {
@@ -159,6 +136,65 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchInputBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag(TestTags.SEARCH_INPUT),
+        placeholder = { Text("Search tasks, notes, projects...") },
+        leadingIcon = { Icon(Icons.Filled.Search, null) },
+        singleLine = true,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchSheetHosts(
+    showFilterSheet: Boolean,
+    showSaveDialog: Boolean,
+    searchToRename: Pair<SavedSearchId, String>?,
+    activeFilter: SimpleFilter?,
+    query: String,
+    onDismissFilterSheet: () -> Unit,
+    onApplyFilter: (SimpleFilter?) -> Unit,
+    onDismissSaveDialog: () -> Unit,
+    onSaveSearch: (String) -> Unit,
+    onDismissRename: () -> Unit,
+    onRename: (SavedSearchId, String) -> Unit,
+) {
+    if (showFilterSheet) {
+        SimpleFilterSheet(
+            initialFilter = activeFilter,
+            onApply = onApplyFilter,
+            onDismiss = onDismissFilterSheet,
+        )
+    }
+
+    if (showSaveDialog) {
+        SaveSearchDialog(
+            initialName = query.take(30),
+            onDismiss = onDismissSaveDialog,
+            onSave = onSaveSearch,
+        )
+    }
+
+    searchToRename?.let { (id, currentName) ->
+        RenameSearchDialog(
+            currentName = currentName,
+            onDismiss = onDismissRename,
+            onRename = { newName -> onRename(id, newName) },
+        )
     }
 }
 
@@ -271,4 +307,24 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
         onRename = { _, _ -> },
         onDelete = {},
     )
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SearchEventsHandler(
+    viewModel: SearchViewModel,
+    snackbarHostState: SnackbarHostState,
+) {
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            val message = when (event) {
+                is SearchUiEvent.Error -> event.message
+                is SearchUiEvent.QueryParseError -> "Parse error: ${event.message}"
+                is SearchUiEvent.SavedSuccessfully -> "Search saved"
+                else -> return@collect
+            }
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 }

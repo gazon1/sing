@@ -305,7 +305,8 @@ private fun openGitHub() {
     try {
         java.awt.Desktop.getDesktop()
             .browse(URI("https://github.com/singularity-todo"))
-    } catch (_: Exception) {
-        // Desktop browsing not supported on this platform
+    } catch (_: Throwable) {
+        // Desktop browsing not supported on this platform (including HeadlessException
+        // which is an Error in headless CI environments with no display)
     }
 }

@@ -56,6 +56,15 @@ class TaskDetailCoordinatorGraphTest {
     @Test
     fun coordinator_built_from_di_graph_leaves_loading() = runTest {
         val app = koinApplication {
+            // KOIN-W003 here is an accepted, documented tradeoff.  The ~40-binding
+            // `testPlatformModule()` DSL produces the same compile-time warning as
+            // the production `platformModule()` would — but the production graph is
+            // already verified at the three real entry points
+            // (desktopApp/main.kt, SingularityApp.kt, mcp-server/Main.kt).
+            // The test's job is runtime validation via checkModules(), not
+            // compile-time DI graph verification.
+            // See: docs/decisions/2026-10-05-koin-w003-in-a-test-graph.md
+            @Suppress("KoinCompilationForInternal")
             modules(
                 listOf(coreLoggingModule()) +
                     domainModule() +

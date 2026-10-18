@@ -135,33 +135,8 @@ fun RecurrencePickerSheet(
                 ?: anchorDate.day,
         )
     }
-
-    /**
-     * Last date this series may recur on, or null for "never ends".
-     *
-     * Seeded from the rule being edited so opening the sheet on a bounded series
-     * shows the bound rather than silently clearing it.
-     */
     var endDate by remember { mutableStateOf(currentSpec?.termination?.endDate) }
-
-    /** Whether the date picker is open over this sheet. */
     var pickingEndDate by remember { mutableStateOf(false) }
-
-    fun buildSpec(): RecurrenceSpec {
-        // A series with no end date stores `termination = null` rather than an
-        // empty wrapper, so an unbounded rule keeps exactly the JSON it had
-        // before this field existed.
-        val termination = endDate?.let { RecurrenceTermination(it) }
-        return when (selectedType) {
-            SpecType.INTERVAL_DAY -> Interval(selectedBase, intervalAmount, DateTimeUnit.DAY, termination)
-            SpecType.INTERVAL_WEEK -> Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK, termination)
-            SpecType.INTERVAL_MONTH -> Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH, termination)
-            SpecType.INTERVAL_YEAR -> Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR, termination)
-            SpecType.WEEKLY -> Weekly(selectedBase, selectedWeekdays, termination)
-            SpecType.MONTHLY -> Monthly(selectedBase, monthlyDay, termination)
-            SpecType.YEARLY -> Yearly(selectedBase, yearlyMonth, yearlyDay, termination)
-        }
-    }
 
     val spec = remember(
         selectedBase,
@@ -173,7 +148,19 @@ fun RecurrencePickerSheet(
         yearlyMonth,
         yearlyDay,
         endDate,
-    ) { buildSpec() }
+    ) {
+        buildSpec(
+            endDate,
+            selectedType,
+            selectedBase,
+            intervalAmount,
+            selectedUnit,
+            selectedWeekdays,
+            monthlyDay,
+            yearlyMonth,
+            yearlyDay,
+        )
+    }
 
     TaskEditorSheetHost(
         title = "Repeat",
@@ -207,55 +194,18 @@ fun RecurrencePickerSheet(
 
             Spacer(Modifier.height(8.dp))
 
-            // ── Base mode ───────────────────────────────────────────────────
-            Text(
-                text = "Mode",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            ModeSelector(
+                selectedBase = selectedBase,
+                onBaseChange = { selectedBase = it },
             )
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                RecurrenceBase.entries.forEachIndexed { index, base ->
-                    SegmentedButton(
-                        selected = selectedBase == base,
-                        onClick = { selectedBase = base },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = RecurrenceBase.entries.size),
-                        label = { Text(baseLabel(base), style = MaterialTheme.typography.labelSmall) },
-                    )
-                }
-            }
 
             Spacer(Modifier.height(16.dp))
 
             // ── Type selector ───────────────────────────────────────────────
-            Text(
-                text = "Frequency",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            FrequencySelector(
+                selectedType = selectedType,
+                onSelectedTypeChange = { selectedType = it },
             )
-            Column(modifier = Modifier.selectableGroup()) {
-                SpecType.entries.forEach { type ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag(type.testTag())
-                            .selectable(
-                                selected = selectedType == type,
-                                onClick = { selectedType = type },
-                                role = Role.RadioButton,
-                            )
-                            .padding(vertical = 6.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = selectedType == type, onClick = null)
-                        Text(
-                            text = type.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 12.dp),
-                        )
-                    }
-                }
-            }
 
             Spacer(Modifier.height(12.dp))
 
@@ -299,99 +249,16 @@ fun RecurrencePickerSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Ends ───────────────────────────────────────────────────────
-            // Off by default: an unbounded series keeps the behaviour it had
-            // before this control existed.
-            Text(
-                text = "Ends",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            TerminationSection(
+                endDate = endDate,
+                anchorDate = anchorDate,
+                onEndDateChange = { endDate = it },
+                onPickEndDate = { pickingEndDate = true },
             )
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .testTag(TestTags.RECURRENCE_ENDS_NEVER)
-                    .selectable(
-                        selected = endDate == null,
-                        onClick = { endDate = null },
-                        role = Role.RadioButton,
-                    )
-                    .padding(vertical = 6.dp, horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(selected = endDate == null, onClick = null)
-                Text(
-                    text = "Never",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 12.dp),
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .testTag(TestTags.RECURRENCE_ENDS_ON_DATE)
-                    .selectable(
-                        selected = endDate != null,
-                        // Default to a year out rather than today: an end date of
-                        // today would stop the series on its very next occurrence.
-                        onClick = { endDate = endDate ?: anchorDate.plus(1, DateTimeUnit.YEAR) },
-                        role = Role.RadioButton,
-                    )
-                    .padding(vertical = 6.dp, horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(selected = endDate != null, onClick = null)
-                Text(
-                    text = "On date",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 12.dp),
-                )
-            }
-            if (endDate != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .testTag(TestTags.RECURRENCE_END_DATE_VALUE)
-                        .clickable { pickingEndDate = true },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = endDate.toString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = "Change",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Preview ────────────────────────────────────────────────────
-            Text(
-                text = "Preview",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    text = label(spec),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            Text(
-                text = RecurrenceFormatters.nextOccurrencePreview(anchorDate, spec),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
+            PreviewSection(spec = spec, anchorDate = anchorDate)
 
             Spacer(Modifier.height(16.dp))
         }
@@ -408,6 +275,210 @@ fun RecurrencePickerSheet(
             },
             onDismiss = { pickingEndDate = false },
         )
+    }
+}
+
+// ─── buildSpec ──────────────────────────────────────────────────────────────────
+
+/**
+ * Builds a [RecurrenceSpec] from the current picker state.
+ *
+ * A series with no end date stores `termination = null` rather than an empty
+ * wrapper, so an unbounded rule keeps exactly the JSON it had before this field existed.
+ */
+private fun buildSpec(
+    endDate: LocalDate?,
+    selectedType: SpecType,
+    selectedBase: RecurrenceBase,
+    intervalAmount: Int,
+    @Suppress("UNUSED_PARAMETER") selectedUnit: DateTimeUnit, // intentionally present for API symmetry
+    selectedWeekdays: Set<Int>,
+    monthlyDay: Int,
+    yearlyMonth: Int,
+    yearlyDay: Int,
+): RecurrenceSpec {
+    val termination = endDate?.let { RecurrenceTermination(it) }
+    return when (selectedType) {
+        SpecType.INTERVAL_DAY -> Interval(selectedBase, intervalAmount, DateTimeUnit.DAY, termination)
+        SpecType.INTERVAL_WEEK -> Interval(selectedBase, intervalAmount, DateTimeUnit.WEEK, termination)
+        SpecType.INTERVAL_MONTH -> Interval(selectedBase, intervalAmount, DateTimeUnit.MONTH, termination)
+        SpecType.INTERVAL_YEAR -> Interval(selectedBase, intervalAmount, DateTimeUnit.YEAR, termination)
+        SpecType.WEEKLY -> Weekly(selectedBase, selectedWeekdays, termination)
+        SpecType.MONTHLY -> Monthly(selectedBase, monthlyDay, termination)
+        SpecType.YEARLY -> Yearly(selectedBase, yearlyMonth, yearlyDay, termination)
+    }
+}
+
+/**
+ * The mode (base) selector — "From completion" vs "From due date".
+ */
+@Composable
+private fun ModeSelector(
+    selectedBase: RecurrenceBase,
+    onBaseChange: (RecurrenceBase) -> Unit,
+) {
+    Text(
+        text = "Mode",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        RecurrenceBase.entries.forEachIndexed { index, base ->
+            SegmentedButton(
+                selected = selectedBase == base,
+                onClick = { onBaseChange(base) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = RecurrenceBase.entries.size),
+                label = { Text(baseLabel(base), style = MaterialTheme.typography.labelSmall) },
+            )
+        }
+    }
+}
+
+/**
+ * The frequency (type) selector — Daily / Weekly / Monthly / etc.
+ */
+@Composable
+private fun FrequencySelector(
+    selectedType: SpecType,
+    onSelectedTypeChange: (SpecType) -> Unit,
+) {
+    Text(
+        text = "Frequency",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+    Column(modifier = Modifier.selectableGroup()) {
+        SpecType.entries.forEach { type ->
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag(type.testTag())
+                    .selectable(
+                        selected = selectedType == type,
+                        onClick = { onSelectedTypeChange(type) },
+                        role = Role.RadioButton,
+                    )
+                    .padding(vertical = 6.dp, horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = selectedType == type, onClick = null)
+                Text(
+                    text = type.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The recurrence preview — displays the human-readable rule label and the
+ * next occurrence based on the anchor date.
+ */
+@Composable
+private fun PreviewSection(spec: RecurrenceSpec, anchorDate: LocalDate) {
+    Text(
+        text = "Preview",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = label(spec),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    Text(
+        text = RecurrenceFormatters.nextOccurrencePreview(anchorDate, spec),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp),
+    )
+}
+
+/**
+ * The "Ends" section of the recurrence picker.
+ *
+ * Off by default: an unbounded series keeps the behaviour it had before this
+ * control existed — setting the end date to null means "never stops".
+ */
+@Composable
+private fun TerminationSection(
+    endDate: LocalDate?,
+    anchorDate: LocalDate,
+    onEndDateChange: (LocalDate?) -> Unit,
+    onPickEndDate: () -> Unit,
+) {
+    Text(
+        text = "Ends",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .testTag(TestTags.RECURRENCE_ENDS_NEVER)
+            .selectable(
+                selected = endDate == null,
+                onClick = { onEndDateChange(null) },
+                role = Role.RadioButton,
+            )
+            .padding(vertical = 6.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = endDate == null, onClick = null)
+        Text(
+            text = "Never",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .testTag(TestTags.RECURRENCE_ENDS_ON_DATE)
+            .selectable(
+                selected = endDate != null,
+                // Default to a year out rather than today: an end date of
+                // today would stop the series on its very next occurrence.
+                onClick = { onEndDateChange(endDate ?: anchorDate.plus(1, DateTimeUnit.YEAR)) },
+                role = Role.RadioButton,
+            )
+            .padding(vertical = 6.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = endDate != null, onClick = null)
+        Text(
+            text = "On date",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+    if (endDate != null) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .testTag(TestTags.RECURRENCE_END_DATE_VALUE)
+                .clickable { onPickEndDate() },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = endDate.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = "Change",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 

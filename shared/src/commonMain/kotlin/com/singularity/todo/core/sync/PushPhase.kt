@@ -88,102 +88,133 @@ internal class PushPhase(
                 }
             }
 
+        return pushWithPlan(ready, session)
+    }
+
+    /**
+     * Processes the push plan produced by [planPush].
+     *
+     * The plan's [PushPlan.Ready.scope] is used as the authoritative owner of all
+     * patches in this plan — it is captured at plan-building time and used throughout
+     * response processing rather than re-reading the current scope.
+     */
+    private suspend fun pushWithPlan(ready: PushPlan.Ready, session: Session): PhaseResult<PushSummary> {
         val pending = ready.pending
-        // D2 fix: use the scope captured at plan-building time, not a re-read.
-        // This scope is the authoritative owner of all patches in this plan.
         val activeScope = ready.scope
 
         return try {
-            // A mutable copy for the response-processing loop. The plan is immutable;
-            // mutations here (via onBeforeResponseLoop) affect only this local copy.
-            val mPending = pending.toMutableList()
             val response = api.batchPush(ready.request)
-            // onBeforeResponseLoop: the seam for in-flight mutations. A local edit
-            // that coalesced a pending row fires here — after the server confirmed the
-            // patch but before this device processes the response. The D1 race.
-            api.onBeforeResponseLoop(mPending, response)
-            val patches = mPending.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
-
-            // REQ-UA-018: is the account that authorised this request still the one
-            // signed in? Compared by account, not by session.
-            val requestedBy = session.accountIdOrNull
-            val nowSignedInAs = authRepository.currentSession.value.accountIdOrNull
-
-            if (requestedBy != nowSignedInAs) {
-                log.e {
-                    "Push response discarded: requested under [$requestedBy], " +
-                        "now [$nowSignedInAs]. ${pending.size} row(s) stay queued."
-                }
-                val discarded = PushSummary(0, 0, 0, discarded = response.results.size)
-                phases.recordPushResult(Result.success(discarded))
-                phases.setPushStatus(isPushing = false)
-                return PhaseResult.Ok(discarded)
-            }
-
-            var succeeded = 0
-            var failed = 0
-            var lost = 0
-            var superseded = 0
-
-            response.results.forEach { result ->
-                val patch = patches.firstOrNull { p -> p.patchId == result.patchId }
-
-                // D1 fix — superseded:
-                // `patch == null` means the outbox row was removed between plan-time and
-                // now (a local edit coalesced it away). The server confirmed `ok: true`
-                // but this device no longer has the patch. Count it as superseded, skip
-                // the outbox delete (already gone), skip settleShadow (already settled).
-                if (patch == null) {
-                    superseded++
-                    return@forEach
-                }
-
-                // `lost` is checked before `ok` because the server reports a lost race
-                // as `ok: true`. Branching on `ok` first is the original defect #203.
-                if (result.ok && result.lost) {
-                    lost++
-                    outboxDao.delete(result.patchId)
-                    resolveLostRace(patch, scope = activeScope)
-                } else if (result.ok) {
-                    outboxDao.delete(result.patchId)
-                    // The version the server just reported, recorded on the same guarded
-                    // statement that promotes the state.
-                    settleShadow(patch, applied = true, scope = activeScope, serverVersion = result.newVersion)
-                    succeeded++
-                } else {
-                    failed++
-                    if (result.isRetriable) {
-                        // D2 fix: pass `activeScope` (the plan's scope), not a re-read scope.
-                        deferOrDeadLetter(
-                            pending.firstOrNull { row -> row.patchId == result.patchId },
-                            result,
-                            activeScope,
-                        )
-                    } else {
-                        outboxDao.delete(result.patchId)
-                        settleShadow(patch, applied = false, scope = activeScope)
-                    }
-                }
-            }
-
-            val summary =
-                PushSummary(
-                    processed = response.results.size,
-                    succeeded = succeeded,
-                    failed = failed,
-                    lost = lost,
-                    superseded = superseded,
-                )
-            phases.recordPushResult(Result.success(summary))
+            val counts = processResponses(response, pending, activeScope, session)
+            phases.recordPushResult(Result.success(counts.toSummary(response.results.size)))
             phases.setPushStatus(isPushing = false)
-            PhaseResult.Ok(summary)
+            PhaseResult.Ok(counts.toSummary(response.results.size))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             val error = e.toAppError()
             phases.pushFailed(error, pending.size)
-            return PhaseResult.Failed(error)
+            PhaseResult.Failed(error)
         }
+    }
+
+    /**
+     * Handles the server's push response, updating the outbox and shadow store.
+     * Returns the counts needed to build a [PushSummary].
+     *
+     * D1 (superseded): a `patch == null` lookup means the outbox row was removed
+     * between plan-time and now — a local edit coalesced it. The server confirmed
+     * `ok: true` but this device no longer has the patch.
+     *
+     * D2 (dead-letter scope): [activeScope] is the plan's scope, captured at
+     * plan-building time. A re-read here would file dead-letters under the wrong owner.
+     */
+    private suspend fun processResponses(
+        response: BatchPushResponse,
+        pending: List<SyncOutboxEntity>,
+        activeScope: SyncScope,
+        session: Session,
+    ): PushCounts {
+        // REQ-UA-018: is the account that authorised this request still the one
+        // signed in? Compared by account, not by session.
+        val requestedBy = session.accountIdOrNull
+        val nowSignedInAs = authRepository.currentSession.value.accountIdOrNull
+
+        if (requestedBy != nowSignedInAs) {
+            log.e {
+                "Push response discarded: requested under [$requestedBy], " +
+                    "now [$nowSignedInAs]. ${pending.size} row(s) stay queued."
+            }
+            phases.recordPushResult(Result.success(PushSummary(0, 0, 0, discarded = response.results.size)))
+            return PushCounts(succeeded = 0, failed = 0, lost = 0, superseded = 0, discarded = response.results.size)
+        }
+
+        // onBeforeResponseLoop: the seam for in-flight mutations. A local edit that
+        // coalesced a pending row fires here — after the server confirmed the patch but
+        // before this device processes the response. The D1 race.
+        val mPending = pending.toMutableList()
+        api.onBeforeResponseLoop(mPending, response)
+
+        val patchesById = mPending
+            .associate { it.patchId to StableJson.decodeFromString<DeltaPatch>(it.payload) }
+
+        var succeeded = 0
+        var failed = 0
+        var lost = 0
+        var superseded = 0
+
+        response.results.forEach { result ->
+            val patch = patchesById[result.patchId]
+
+            when {
+                // D1 — superseded: server confirmed the patch but the outbox row is gone.
+                patch == null -> superseded++
+
+                // `lost` is checked before `ok` because the server reports a lost race
+                // as `ok: true`. Branching on `ok` first is the original defect #203.
+                result.ok && result.lost -> {
+                    outboxDao.delete(result.patchId)
+                    resolveLostRace(patch, scope = activeScope)
+                    lost++
+                }
+
+                result.ok -> {
+                    outboxDao.delete(result.patchId)
+                    settleShadow(patch, applied = true, scope = activeScope, serverVersion = result.newVersion)
+                    succeeded++
+                }
+
+                result.isRetriable -> {
+                    outboxDao.delete(result.patchId)
+                    deferOrDeadLetter(pending.firstOrNull { row -> row.patchId == result.patchId }, result, activeScope)
+                    failed++
+                }
+
+                else -> {
+                    outboxDao.delete(result.patchId)
+                    settleShadow(patch, applied = false, scope = activeScope)
+                    failed++
+                }
+            }
+        }
+
+        return PushCounts(succeeded, failed, lost, superseded, discarded = 0)
+    }
+
+    private data class PushCounts(
+        val succeeded: Int,
+        val failed: Int,
+        val lost: Int,
+        val superseded: Int,
+        val discarded: Int,
+    ) {
+        fun toSummary(totalResults: Int) = PushSummary(
+            processed = totalResults,
+            succeeded = succeeded,
+            failed = failed,
+            lost = lost,
+            superseded = superseded,
+            discarded = discarded,
+        )
     }
 
     /**

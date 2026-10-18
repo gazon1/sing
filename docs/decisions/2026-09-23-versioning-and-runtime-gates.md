@@ -123,6 +123,26 @@ Silent drop + warn log (not crash, not silent accept) for old protocol versions 
 - Kill switches (`modelFlags`, `mcpToolFlags`) are **compile-time safe**: `KnownModels` and `McpToolRegistry` accept `RemoteConfigSnapshot` as a parameter, never `RemoteConfigPort` directly. This enables testing with `FakeRemoteConfigSnapshot`.
 - Schema versions (`protocolVersion`, `schemaVersion`) are **int**, not string. `"v0.9"` in GenUI prompts is descriptive only; it is never parsed or compared.
 
+## Errata
+
+### `catch (e: Throwable)` not `catch (e: Exception)` in Desktop `onOpenStore` (#201)
+
+The Min-version gate section describes "Open the Play Store (Android) or releases page (desktop)."
+On Desktop this calls `java.awt.Desktop.getDesktop().browse(URI(...))`. In a **headless CI
+environment** — no display, no X11/Wayland session — `Desktop.getDesktop()` throws
+`java.awt.HeadlessException`.
+
+`HeadlessException` is an `Error`, **not** an `Exception`. The original implementation
+used `catch (e: Exception)` which does not catch `Error` subclasses, so the exception
+propagated and crashed the process in headless CI.
+
+The fix is `catch (e: Throwable)` in `openStoreOnDesktop()` (`App.kt:openStoreOnDesktop`).
+The same pattern was applied to `DesktopShellNav3.openGitHub()`.
+
+When writing similar platform-browse code in future: catch `Throwable`, not `Exception`.
+This is the only host-independent approach — `HeadlessException` is an `Error` on the JVM
+and the same class appears in Android's `Desktop`模拟 on some devices.
+
 ## Links
 
 - Existing pattern: `core/backup/BackupManifest.kt`, `BackupDomain.validateManifest()`
