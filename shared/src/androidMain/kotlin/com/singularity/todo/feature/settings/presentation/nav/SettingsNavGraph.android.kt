@@ -7,14 +7,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.nav.rememberNavBackStackTyped
-import com.singularity.todo.feature.settings.SettingsScreen
 
 /**
  * Android implementation of [SettingsNavGraph].
@@ -53,9 +51,7 @@ actual fun SettingsNavGraph(
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
-            entryProvider = entryProvider {
-                entry<Settings> { SettingsScreen() }
-            },
+            entryProvider = settingsScreenEntryProvider(),
         )
     }
 }

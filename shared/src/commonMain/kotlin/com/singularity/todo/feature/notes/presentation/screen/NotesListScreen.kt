@@ -543,23 +543,21 @@ fun SwipeableNoteCard(
     onUnarchive: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    if (!isArchived) onTogglePin()
-                    false
-                }
+    val dismissState = rememberSwipeToDismissBoxState()
 
-                SwipeToDismissBoxValue.EndToStart -> {
-                    if (isArchived) onUnarchive() else onDelete()
-                    false
-                }
-
-                SwipeToDismissBoxValue.Settled -> false
+    LaunchedEffect(dismissState.currentValue) {
+        when (dismissState.currentValue) {
+            SwipeToDismissBoxValue.StartToEnd -> {
+                if (!isArchived) onTogglePin()
             }
-        },
-    )
+
+            SwipeToDismissBoxValue.EndToStart -> {
+                if (isArchived) onUnarchive() else onDelete()
+            }
+
+            SwipeToDismissBoxValue.Settled -> {}
+        }
+    }
 
     SwipeToDismissBox(
         state = dismissState,

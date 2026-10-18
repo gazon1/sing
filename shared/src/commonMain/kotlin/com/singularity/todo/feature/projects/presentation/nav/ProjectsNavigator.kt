@@ -35,7 +35,7 @@ open class ProjectsNavigator(
      * in the outer graph.
      */
     open fun openTasks(projectId: ProjectId) {
-        onExitGraph(AppDestination.AgendaGraph(AgendaStartRoute.Project(projectId.value)))
+        onExitGraph(AppDestination.AgendaGraph(AgendaStartRoute.Project(projectId)))
     }
 
     /**

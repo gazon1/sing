@@ -143,7 +143,7 @@ fun summarizeTaskHealthFromSelectors(
 
             blockedSelector.matches(task, context) -> TaskHealth(TaskHealthBucket.BLOCKED)
 
-            stagnantSelector?.matches(task, context) == true -> {
+            stagnantSelector.matches(task, context) -> {
                 val stalled = now - lastActivityOf(task)
                 TaskHealth(TaskHealthBucket.STAGNANT, stalledFor = stalled)
             }

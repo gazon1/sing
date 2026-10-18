@@ -8,9 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.CalendarRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
@@ -53,16 +51,10 @@ actual fun CalendarNavGraph(
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
-            entryProvider = entryProvider {
-                entry<CalendarRoute.Month> { route -> CalendarScreen(route.date) }
-                entry<CalendarRoute.Day> { route -> CalendarScreen(route.date) }
-            },
+            entryProvider = calendarScreenEntryProvider(),
         )
     }
 }
 
 @Composable
-actual fun calendarEntryProvider(): (CalendarRoute) -> NavEntry<CalendarRoute> = entryProvider {
-    entry<CalendarRoute.Month> { route -> CalendarScreen(route.date) }
-    entry<CalendarRoute.Day> { route -> CalendarScreen(route.date) }
-}
+actual fun calendarEntryProvider(): (CalendarRoute) -> NavEntry<CalendarRoute> = calendarScreenEntryProvider()

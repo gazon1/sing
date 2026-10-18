@@ -6,14 +6,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.ProjectsRoute
 import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-import com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen
-import com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen
-import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
 
 /**
  * JVM Desktop implementation of [ProjectsNavGraph].
@@ -51,18 +47,10 @@ actual fun ProjectsNavGraph(
             backStack = stack,
             modifier = modifier,
             onBack = { navigator.back() },
-            entryProvider = entryProvider {
-                entry<ProjectsRoute.List> { ProjectsScreen() }
-                entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
-                entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
-            },
+            entryProvider = projectsScreenEntryProvider(),
         )
     }
 }
 
 @Composable
-actual fun projectsEntryProvider(): (ProjectsRoute) -> NavEntry<ProjectsRoute> = entryProvider {
-    entry<ProjectsRoute.List> { ProjectsScreen() }
-    entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
-    entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
-}
+actual fun projectsEntryProvider(): (ProjectsRoute) -> NavEntry<ProjectsRoute> = projectsScreenEntryProvider()

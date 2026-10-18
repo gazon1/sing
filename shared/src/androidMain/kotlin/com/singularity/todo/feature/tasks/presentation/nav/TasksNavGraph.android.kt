@@ -8,14 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.nav.rememberNavBackStackTyped
-import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
-import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
 
 /**
  * Android implementation of [TasksNavGraph].
@@ -55,16 +52,10 @@ actual fun TasksNavGraph(
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
-            entryProvider = entryProvider {
-                entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
-                entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
-            },
+            entryProvider = tasksScreenEntryProvider(),
         )
     }
 }
 
 @Composable
-actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = entryProvider {
-    entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
-    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
-}
+actual fun tasksEntryProvider(): (TasksRoute) -> NavEntry<TasksRoute> = tasksScreenEntryProvider()

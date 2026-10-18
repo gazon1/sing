@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.entryProvider
+import com.singularity.todo.feature.calendar.presentation.screen.CalendarScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.CalendarRoute
 
@@ -38,6 +40,22 @@ expect fun CalendarNavGraph(
     modifier: Modifier = Modifier,
     backStack: NavBackStack<CalendarRoute>? = null,
 )
+
+/**
+ * Builds the [entryProvider][androidx.navigation3.runtime.entryProvider] for the Calendar
+ * nested graph — the map from each [CalendarRoute] variant to the screen that renders it.
+ *
+ * Extracted to commonMain to eliminate the duplication between the inner `entryProvider {}`
+ * inside [NavDisplay][androidx.navigation3.ui.NavDisplay] and the outer
+ * [calendarEntryProvider()][calendarEntryProvider]. Both call this function; the two
+ * call sites are identical for Calendar (unlike Agenda, where the inner one passes
+ * `contextMenuHost` on Android — a deliberate platform difference).
+ */
+@Composable
+internal fun calendarScreenEntryProvider() = entryProvider {
+    entry<CalendarRoute.Month> { route -> CalendarScreen(route.date) }
+    entry<CalendarRoute.Day> { route -> CalendarScreen(route.date) }
+}
 
 /**
  * Returns a lambda that provides a [NavEntry] for each [CalendarRoute] route type.

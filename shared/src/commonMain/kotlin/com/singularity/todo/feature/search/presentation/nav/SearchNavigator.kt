@@ -34,7 +34,7 @@ open class SearchNavigator(protected val onExitGraph: (AppDestination?) -> Unit)
      * Open a project detail in the outer graph.
      */
     open fun openProject(projectId: ProjectId) {
-        onExitGraph(AppDestination.ProjectDetail(projectId.value))
+        onExitGraph(AppDestination.ProjectDetail(projectId))
     }
 
     /**
@@ -45,7 +45,7 @@ open class SearchNavigator(protected val onExitGraph: (AppDestination?) -> Unit)
      * destination that would have nothing to render.
      */
     open fun openTag(tagId: TagId) {
-        onExitGraph(AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId.value)))
+        onExitGraph(AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId)))
     }
 
     /**

@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.nav
 
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -61,11 +64,11 @@ class NavigationPolicyTest {
     fun `same-family app-level targets resolve to Push`() {
         assertEquals(
             OpenAction.Push,
-            resolve(AppDestination.ProjectDetail("p1"), AppDestination.ProjectEditor("p1")),
+            resolve(AppDestination.ProjectDetail(ProjectId("p1")), AppDestination.ProjectEditor(ProjectId("p1"))),
         )
         assertEquals(
             OpenAction.Push,
-            resolve(AppDestination.ProjectEditor(null), AppDestination.ProjectDetail("p2")),
+            resolve(AppDestination.ProjectEditor(null), AppDestination.ProjectDetail(ProjectId("p2"))),
         )
     }
 
@@ -76,7 +79,7 @@ class NavigationPolicyTest {
             OpenAction.Push,
             resolve(
                 AppDestination.AgendaGraph(AgendaStartRoute.Today),
-                AppDestination.AgendaGraph(AgendaStartRoute.Project("p1")),
+                AppDestination.AgendaGraph(AgendaStartRoute.Project(ProjectId("p1"))),
             ),
         )
     }
@@ -104,7 +107,7 @@ class NavigationPolicyTest {
         // Calendar → project detail.
         assertEquals(
             OpenAction.ExitAndOpen,
-            resolve(AppDestination.Calendar, AppDestination.ProjectDetail("p1")),
+            resolve(AppDestination.Calendar, AppDestination.ProjectDetail(ProjectId("p1"))),
         )
     }
 
@@ -117,7 +120,7 @@ class NavigationPolicyTest {
         )
         assertEquals(
             OpenAction.Push,
-            resolve(AppDestination.ProjectDetail("p1"), AppDestination.ProjectDetail("p1")),
+            resolve(AppDestination.ProjectDetail(ProjectId("p1")), AppDestination.ProjectDetail(ProjectId("p1"))),
         )
     }
 
@@ -159,12 +162,13 @@ class NavigationPolicyTest {
 
     private val t1 = TaskId("t1")
     private val n1 = NoteId("n1")
+    private val p1 = ProjectId("p1")
 
     private val productionEmissions = listOf(
         // TasksNavigator: openProject / openNote / openCreateNote (onExitGraph).
         Emission(
             AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(t1)),
-            AppDestination.ProjectDetail("p1"),
+            AppDestination.ProjectDetail(p1),
             OpenAction.ExitAndOpen,
         ),
         Emission(
@@ -186,7 +190,7 @@ class NavigationPolicyTest {
         // ProjectsNavigator: openTasks (project → agenda) / openTask.
         Emission(
             AppDestination.ProjectsGraph(),
-            AppDestination.AgendaGraph(AgendaStartRoute.Project("p1")),
+            AppDestination.AgendaGraph(AgendaStartRoute.Project(p1)),
             OpenAction.ExitAndOpen,
         ),
         Emission(
@@ -227,10 +231,10 @@ class NavigationPolicyTest {
             AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(n1)),
             OpenAction.ExitAndOpen,
         ),
-        Emission(AppDestination.Search, AppDestination.ProjectDetail("p1"), OpenAction.ExitAndOpen),
+        Emission(AppDestination.Search, AppDestination.ProjectDetail(p1), OpenAction.ExitAndOpen),
         Emission(
             AppDestination.Search,
-            AppDestination.AgendaGraph(AgendaStartRoute.Tag("g1")),
+            AppDestination.AgendaGraph(AgendaStartRoute.Tag(TagId("g1"))),
             OpenAction.ExitAndOpen,
         ),
         // SettingsNavigator: openProfileSwitcher — the target is a menu entry,
@@ -276,7 +280,7 @@ class NavigationPolicyTest {
         // Same family (Agenda), not a tab instance → Push, not ExitAndOpen.
         Emission(
             AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit("v1")),
+            AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId("v1"))),
             OpenAction.Push,
         ),
         // Android deep link: singularity://task/{id} crosses into the tasks graph.

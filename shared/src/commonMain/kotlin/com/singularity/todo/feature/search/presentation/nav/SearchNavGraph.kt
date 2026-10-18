@@ -3,8 +3,10 @@ package com.singularity.todo.feature.search.presentation.nav
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Search
+import com.singularity.todo.feature.search.SearchScreen
 
 /**
  * Creates a nested navigation graph for the search feature.
@@ -32,3 +34,15 @@ expect fun SearchNavGraph(
     modifier: Modifier = Modifier,
     backStack: NavBackStack<Search>? = null,
 )
+
+/**
+ * Builds the [entryProvider][androidx.navigation3.runtime.entryProvider] for the Search
+ * nested graph — the map from [Search] to [SearchScreen].
+ *
+ * Extracted to commonMain because both platform implementations (Android, JVM) have
+ * identical `entryProvider {}` bodies.
+ */
+@Composable
+internal fun searchScreenEntryProvider() = entryProvider {
+    entry<Search> { SearchScreen() }
+}

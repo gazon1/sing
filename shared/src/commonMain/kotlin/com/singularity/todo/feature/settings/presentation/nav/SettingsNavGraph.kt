@@ -3,8 +3,10 @@ package com.singularity.todo.feature.settings.presentation.nav
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Settings
+import com.singularity.todo.feature.settings.SettingsScreen
 
 /**
  * Creates a nested navigation graph for the settings feature.
@@ -33,3 +35,15 @@ expect fun SettingsNavGraph(
     modifier: Modifier = Modifier,
     backStack: NavBackStack<Settings>? = null,
 )
+
+/**
+ * Builds the [entryProvider][androidx.navigation3.runtime.entryProvider] for the Settings
+ * nested graph — the map from [Settings] to [SettingsScreen].
+ *
+ * Extracted to commonMain because both platform implementations (Android, JVM) have
+ * identical `entryProvider {}` bodies.
+ */
+@Composable
+internal fun settingsScreenEntryProvider() = entryProvider {
+    entry<Settings> { SettingsScreen() }
+}

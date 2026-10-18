@@ -25,7 +25,6 @@ import com.singularity.todo.feature.auth.presentation.AttachAccountScreen
 import com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreen
 import com.singularity.todo.feature.profile.presentation.ChangePasswordScreen
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
 import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
 import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
@@ -142,14 +141,14 @@ fun createAppEntryProvider(
 
     entry<AppDestination.ProjectEditor> { route ->
         ProjectsNavGraph(
-            start = ProjectsRoute.Editor(route.projectId?.let { ProjectId.fromString(it) }),
+            start = ProjectsRoute.Editor(route.projectId),
             onExitGraph = nav.graphExit,
         )
     }
 
     entry<AppDestination.ProjectDetail> { route ->
         ProjectsNavGraph(
-            start = ProjectsRoute.Detail(ProjectId.fromString(route.projectId)),
+            start = ProjectsRoute.Detail(route.projectId),
             onExitGraph = nav.graphExit,
         )
     }
@@ -200,6 +199,3 @@ fun createAppEntryProvider(
         )
     }
 }
-
-/** Converts [AgendaStartRoute] to itself (no conversion needed — same type). */
-private fun AgendaStartRoute.toAgendaStartRoute(): AgendaStartRoute = this

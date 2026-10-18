@@ -5,6 +5,7 @@ package com.singularity.todo.feature.nav
 import androidx.compose.runtime.mutableStateOf
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
@@ -144,7 +145,7 @@ class Nav3StateReselectTest {
     fun `open of a sub-route pushes onto the current stack without switching tabs`() {
         val s = state(AppDestination.Plans)
         val navigator = Navigator(s)
-        val target = AppDestination.ProjectDetail("p1")
+        val target = AppDestination.ProjectDetail(ProjectId("p1"))
 
         navigator.open(target)
 

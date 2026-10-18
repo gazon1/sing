@@ -7,16 +7,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.nav.navSavedStateConfig
 import com.singularity.todo.feature.nav.rememberNavBackStackTyped
-import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
-import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
-import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
 
 /**
  * Android implementation of [NotesNavGraph].
@@ -58,11 +54,7 @@ actual fun NotesNavGraph(
             modifier = modifier,
             onBack = { navigator.back() },
             entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
-            entryProvider = entryProvider {
-                entry<NotesRoute.List> { NotesListScreen(it) }
-                entry<NotesRoute.Preview> { route -> NotePreviewScreen(route) }
-                entry<NotesRoute.Editor> { route -> NoteEditorScreen(route) }
-            },
+            entryProvider = notesScreenEntryProvider(),
         )
     }
 }

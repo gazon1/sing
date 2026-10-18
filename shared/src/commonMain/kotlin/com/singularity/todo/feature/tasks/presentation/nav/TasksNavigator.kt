@@ -36,7 +36,7 @@ open class TasksNavigator(
      * Exit the nested graph and navigate to a project in the outer graph.
      */
     open fun openProject(projectId: ProjectId) {
-        onExitGraph(AppDestination.ProjectDetail(projectId.value))
+        onExitGraph(AppDestination.ProjectDetail(projectId))
     }
 
     /**

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 
@@ -47,3 +48,30 @@ expect fun AgendaNavGraph(
  */
 @Composable
 expect fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute>
+
+/**
+ * Builds the [entryProvider][androidx.navigation3.runtime.entryProvider] for the Agenda
+ * nested graph — the map from each [AgendaStartRoute] variant to the screen that renders it.
+ *
+ * Extracted to commonMain to eliminate verbatim duplication between the Android and JVM
+ * [agendaEntryProvider] implementations. Both delegate here. The live `entryProvider {}`
+ * bodies inside [NavDisplay][androidx.navigation3.ui.NavDisplay] are NOT extracted because
+ * they include [contextMenuHost][com.singularity.todo.feature.agenda.presentation.nav.AgendaNavContent],
+ * which is genuinely platform-specific (long-press bottom sheet on Android vs desktop
+ * right-click popup).
+ */
+@Composable
+internal fun agendaScreenEntryProvider() = entryProvider {
+    entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Today> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Project> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.Tag> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.SavedAgendaResults> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
+    entry<AgendaStartRoute.SavedAgendaCreate> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Blocked> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Stagnant> { AgendaNavContent(route = it) }
+    entry<AgendaStartRoute.Overdue> { AgendaNavContent(route = it) }
+}

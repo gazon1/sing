@@ -176,12 +176,12 @@ sealed interface AppDestination : AppNavKey {
     }
 
     @Serializable
-    data class ProjectEditor(val projectId: String? = null) : AppDestination {
+    data class ProjectEditor(val projectId: ProjectId? = null) : AppDestination {
         override val title = "New Project"
     }
 
     @Serializable
-    data class ProjectDetail(val projectId: String) : AppDestination {
+    data class ProjectDetail(val projectId: ProjectId) : AppDestination {
         override val title = "Project"
     }
 

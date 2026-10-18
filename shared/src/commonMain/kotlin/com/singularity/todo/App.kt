@@ -39,3 +39,23 @@ expect fun App(
  */
 @Composable
 expect fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks)
+
+/**
+ * Shared app content composable — state setup, navigation, and theme wrapper.
+ * [App] on each platform wraps this in [AppVersionGateScreen] and [WhatsNewScreen].
+ *
+ * @param deeplinkViewId  Android-only deep-link: direct saved-agenda edit. Null on JVM.
+ * @param deeplinkTaskId  Android-only deep-link: direct task detail. Null on JVM.
+ * @param deeplinkMagicEmail  Magic-link email — supported on both platforms.
+ * @param deeplinkMagicToken  Magic-link token — supported on both platforms.
+ */
+@Composable
+expect fun AppContent(
+    deeplinkViewId: String?,
+    deeplinkTaskId: String?,
+    deeplinkMagicEmail: String?,
+    deeplinkMagicToken: String?,
+    themeMode: com.singularity.todo.core.settings.ThemeMode,
+    accent: com.singularity.todo.core.ui.theme.SingularityAccents,
+    fontSizeScale: Float,
+)

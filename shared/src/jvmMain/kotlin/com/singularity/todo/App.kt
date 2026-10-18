@@ -78,6 +78,8 @@ actual fun App(
         modifier = Modifier,
         content = {
             AppContent(
+                deeplinkViewId = null,
+                deeplinkTaskId = null,
                 deeplinkMagicEmail = deeplinkMagicEmail,
                 deeplinkMagicToken = deeplinkMagicToken,
                 themeMode = themeMode,
@@ -96,13 +98,16 @@ actual fun App(
 }
 
 @Composable
-private fun AppContent(
+actual fun AppContent(
+    deeplinkViewId: String?,
+    deeplinkTaskId: String?,
     deeplinkMagicEmail: String?,
     deeplinkMagicToken: String?,
     themeMode: ThemeMode,
     accent: SingularityAccents,
     fontSizeScale: Float,
 ) {
+    // deeplinkViewId and deeplinkTaskId are Android-only — null on JVM, ignored here.
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
     val navCallbacks = remember(navigator) {
