@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup and device-transfer rules for Android 12+ (`android:dataExtractionRules`).
+
+  Excludes the EncryptedSharedPreferences file for the same reason as
+  `backup_rules.xml`: the ciphertext survives the uninstall, the Android Keystore
+  key that decrypts it does not, and the restored app can never read its own
+  session store again.
+
+  `device-transfer` is listed separately from `cloud-backup` because device-to-
+  device transfer is a different transport with its own restore step — and it is
+  the path that most reliably reproduces the mismatch, because it moves the
+  encrypted file without the key.
+
+  See `backup_rules.xml` for the full reasoning.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude
+            domain="sharedpref"
+            path="singularity_secure_prefs.xml" />
+        <include
+            domain="file"
+            path="attachments/" />
+        <include
+            domain="file"
+            path="datastore/" />
+    </cloud-backup>
+
+    <device-transfer>
+        <exclude
+            domain="sharedpref"
+            path="singularity_secure_prefs.xml" />
+        <include
+            domain="file"
+            path="attachments/" />
+        <include
+            domain="file"
+            path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

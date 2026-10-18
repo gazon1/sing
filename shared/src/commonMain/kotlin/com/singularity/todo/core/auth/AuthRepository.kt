@@ -1,6 +1,7 @@
 package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.UserId
@@ -145,19 +146,38 @@ class SupabaseAuthRepository(
      * reads from [localOwnerStore] via DataStore, which can hang on a corrupted
      * preferences file or a locked store. A timeout prevents an unreachable
      * storage from leaving the app behind a permanent [Session.Loading] spinner.
-     * The timeout falls back to [Session.SignedOut], which shows the login
-     * screen where the user can still choose "Continue Offline".
+     *
+     * ## Why a timeout alone is not enough
+     *
+     * A hung store and a *throwing* store produce the same symptom from outside,
+     * and only one of them is a timeout. `EncryptedSharedPreferences` throws
+     * rather than blocks when its ciphertext does not match its key — the state
+     * an uninstall/reinstall leaves behind, because Android's Auto Backup
+     * restores `shared_prefs/` but cannot restore the Android Keystore key that
+     * decrypts it. AndroidX documents the exclusion as mandatory, and the
+     * exception surfaces as `GeneralSecurityException` / `KeyStoreException`.
+     *
+     * `withTimeoutOrNull` returns null only for `TimeoutCancellationException`;
+     * any other throw passes straight through it. Without the catch below that
+     * throw escapes `restoreSession()`, the scope's `CoroutineExceptionHandler`
+     * reports it, the coroutine dies, and nothing ever assigns `_currentSession`
+     * — the spinner outlives the app's ability to start. This is the bug.
      */
     private suspend fun restoreSession() {
         // 10 seconds is long enough for any legitimate storage operation (first
         // EncryptedSharedPreferences init, DataStore read, keychain access) and
         // short enough to not feel like a freeze when storage is truly unreachable.
-        withTimeoutOrNull(RESTORE_SESSION_TIMEOUT) {
-            doRestoreSession()
-        } ?: run {
-            // Timed out: storage is unreachable. Show the login screen — the user
-            // can still tap "Continue Offline" to restore their local session.
-            log.e("Session restore timed out after $RESTORE_SESSION_TIMEOUT; signing out")
+        val restored = runCatchingCancellable {
+            withTimeoutOrNull(RESTORE_SESSION_TIMEOUT) { doRestoreSession() }
+        }.getOrElse { failure ->
+            log.e(failure) { "Session restore failed outright; falling back to the login screen" }
+            null
+        }
+
+        // Both "timed out" and "threw" arrive here as a null outcome, and both mean
+        // the same thing to the user: this install has no session it can prove, so
+        // the login screen is the honest answer and "Continue Offline" is one tap away.
+        if (restored == null) {
             _currentSession.value = Session.SignedOut
         }
     }

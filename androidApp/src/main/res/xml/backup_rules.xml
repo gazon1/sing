@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules for Android 11 and below (`android:fullBackupContent`).
+
+  `EncryptedSharedPreferences` must be excluded. Android backs up
+  `shared_prefs/` verbatim, but the Android Keystore key that decrypts the file
+  is deleted on uninstall and is never backed up. Restoring the ciphertext
+  without its key produces a file that throws `GeneralSecurityException` /
+  `KeyStoreException` on every read, for the whole life of the reinstalled app.
+
+  AndroidX documents the exclusion as mandatory in the
+  `EncryptedSharedPreferences.create` javadoc.
+
+  `data_extraction_rules.xml` is the Android 12+ equivalent and must exclude the
+  same file, or the rule is only half-applied on exactly the devices most likely
+  to hit the bug.
+
+  Failures to decrypt a session store are survivable — they read as a signed-out
+  user — but only once `AuthRepository.restoreSession` catches the throw.
+-->
+<full-backup-content>
+    <!-- Keys must never cross an uninstall: they cannot be restored. -->
+    <exclude
+        domain="sharedpref"
+        path="singularity_secure_prefs.xml" />
+
+    <!--
+      Attachments are user content and restore fine as-is: they are plain files,
+      not ciphertext, so nothing depends on a key that is gone. Back them up.
+    -->
+    <include
+        domain="file"
+        path="attachments/" />
+
+    <!-- Settings hold no secrets and are cheap to restore. -->
+    <include
+        domain="file"
+        path="datastore/" />
+</full-backup-content>
