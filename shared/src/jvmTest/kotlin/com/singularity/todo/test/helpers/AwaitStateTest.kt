@@ -2,7 +2,7 @@ package com.singularity.todo.test.helpers
 
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
 

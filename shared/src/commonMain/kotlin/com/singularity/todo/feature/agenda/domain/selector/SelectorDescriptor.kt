@@ -80,6 +80,14 @@ val Selector.typeDescription: String
         is Selector.Not -> "Not: ${child.typeDescription}"
 
         is Selector.Anything -> "All tasks"
+
+        is Selector.TimeOfDay -> {
+            val startHour = minStartMinutes / 60
+            val startMin = minStartMinutes % 60
+            val endHour = maxEndMinutes / 60
+            val endMin = maxEndMinutes % 60
+            "Work block: %02d:%02d–%02d:%02d".format(startHour, startMin, endHour, endMin)
+        }
     }
 
 /** Name for [TaskStatus] display. */

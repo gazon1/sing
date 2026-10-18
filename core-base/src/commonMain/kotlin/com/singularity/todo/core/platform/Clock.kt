@@ -37,15 +37,45 @@ import kotlin.time.Instant
  *
  * @param zone The time zone used to compute midnight.
  */
-fun todayFlow(clock: Clock, zone: TimeZone): Flow<LocalDate> = flow {
-    while (true) {
+/**
+ * Emits the current [LocalDate] in [zone] immediately, then re-emits exactly once
+ * at each local midnight.
+ *
+ * The flow is cold — no work happens until a collector is active. Back-pressure
+ * is handled naturally by [delay].
+ *
+ * @param maxEmissions Maximum number of emissions before the flow completes.
+ *        Pass `null` (default) for infinite — the loop runs forever, suitable for
+ *        production. Pass `1` in tests to emit once and complete, preventing
+ *        `advanceUntilIdle()` from hanging on the infinite delay.
+ *
+ * ## Time zone is captured at collection time
+ * [zone] is resolved once when collection starts. If the device time zone changes
+ * while the flow is active (user travels, changes OS settings), the flow continues
+ * using the original zone. Re-collect after a time zone change if up-to-date
+ * behavior is required.
+ *
+ * ## Why [maxEmissions] is needed
+ * The loop `while (true) { emit; delay(untilMidnight) }` never completes in
+ * production — which is correct. In tests, `advanceUntilIdle()` structurally hangs
+ * because the infinite delay never resolves. Passing `maxEmissions = 1` makes the
+ * flow emit once and complete, letting `advanceUntilIdle()` return cleanly.
+ *
+ * @param zone The time zone used to compute midnight.
+ */
+fun todayFlow(clock: Clock, zone: TimeZone, maxEmissions: Int? = null): Flow<LocalDate> = flow {
+    var emitted = 0
+    while (maxEmissions == null || emitted < maxEmissions) {
         val current = todayAt(clock, zone)
         emit(current)
-        val delayMs = delayUntilNextMidnight(clock, current, zone)
-        // Guards against zero/negative delay from a clock adjustment; the loop
-        // will recompute the date and re-emit only if it actually changed.
-        if (delayMs > 0) {
-            delay(delayMs.milliseconds)
+        emitted++
+        if (maxEmissions == null || emitted < maxEmissions) {
+            val delayMs = delayUntilNextMidnight(clock, current, zone)
+            // Guards against zero/negative delay from a clock adjustment; the loop
+            // will recompute the date and re-emit only if it actually changed.
+            if (delayMs > 0) {
+                delay(delayMs.milliseconds)
+            }
         }
     }
 }.distinctUntilChanged()
@@ -72,9 +102,22 @@ fun todayAt(clock: Clock, zone: TimeZone): LocalDate =
 // If you move this function, update isAllowedPath() in NoDirectClockSystemRule.kt.
 internal fun todayAt(zone: TimeZone): LocalDate = todayAt(Clock.System, zone)
 
-/** The local wall-clock time at [instant] in [zone]. */
-fun localTimeAt(instant: Instant, zone: TimeZone = TimeZone.currentSystemDefault()): LocalDateTime =
+/** The local wall-clock time at a kotlinx-datetime [Instant] in [zone]. */
+fun localTimeAt(instant: kotlinx.datetime.Instant, zone: TimeZone = TimeZone.currentSystemDefault()): LocalDateTime =
     instant.toLocalDateTime(zone)
+
+/**
+ * The local wall-clock [LocalDateTime] for the current instant from [clock] in [zone].
+ *
+ * hides the [kotlin.time.Instant] → [kotlinx.datetime.Instant] bridge that callers
+ * would otherwise need to perform explicitly when working across the two Instant
+ * types. Callers that already hold a `kotlin.time.Instant` should use this overload;
+ * callers that already hold a `kotlinx.datetime.Instant` should use the [localTimeAt]
+ * overload that accepts it directly.
+ */
+fun localTimeAt(clock: Clock, zone: TimeZone = TimeZone.currentSystemDefault()): LocalDateTime =
+    kotlinx.datetime.Instant.fromEpochMilliseconds(clock.now().toEpochMilliseconds())
+        .toLocalDateTime(zone)
 
 /**
  * The current local wall-clock time, to the second.

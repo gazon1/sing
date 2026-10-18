@@ -1,7 +1,14 @@
 package com.singularity.todo.feature.agenda.presentation.nav
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -12,6 +19,8 @@ import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import kotlinx.coroutines.flow.first
+import org.koin.compose.koinInject
 
 /**
  * Builds the screen content for a given [AgendaStartRoute].
@@ -45,10 +54,37 @@ fun AgendaNavContent(
             contextMenuHost = contextMenuHost,
         )
 
-        is AgendaStartRoute.Today -> AgendaScreen(
-            definition = AgendaPresets.Today,
-            contextMenuHost = contextMenuHost,
-        )
+        is AgendaStartRoute.Today -> {
+            val workScheduleSettings: WorkScheduleSettingsRepository = koinInject()
+            // Collect work-schedule values as Compose state so recomposition triggers
+            // when DataStore emits the persisted values.
+            val dayStart by workScheduleSettings.dayStartMinutes.collectAsStateWithLifecycle(-1)
+            val dayEnd by workScheduleSettings.dayEndMinutes.collectAsStateWithLifecycle(-1)
+            val lunchStart by workScheduleSettings.lunchStartMinutes.collectAsStateWithLifecycle(-1)
+            val lunchEnd by workScheduleSettings.lunchEndMinutes.collectAsStateWithLifecycle(-1)
+
+            var workDefinition by remember { mutableStateOf<AgendaDefinition?>(null) }
+
+            // Compute the work-day agenda once all four values have been loaded.
+            // Uses LaunchedEffect (key = all four values) so recomposition does not
+            // re-run the block; it fires exactly once when the keys change.
+            LaunchedEffect(dayStart, dayEnd, lunchStart, lunchEnd) {
+                workDefinition = if (dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0) {
+                    AgendaPresets.workDayPreset(dayStart, dayEnd, lunchStart, lunchEnd)
+                } else {
+                    AgendaPresets.Today
+                }
+            }
+
+            // Show nothing until the preset is computed; DataStore is fast and this
+            // window is typically a single frame.
+            if (workDefinition != null) {
+                AgendaScreen(
+                    definition = workDefinition!!,
+                    contextMenuHost = contextMenuHost,
+                )
+            }
+        }
 
         is AgendaStartRoute.Upcoming -> AgendaScreen(
             definition = AgendaPresets.Upcoming,

@@ -22,6 +22,7 @@ import com.singularity.todo.core.ui.onboarding.rememberSpotlightTour
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
+import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.PendingDelete
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
@@ -121,6 +122,7 @@ fun AgendaScreen(
             AgendaContent(
                 state = state,
                 title = vm.title,
+                greeting = (state as? AgendaUiState.Loaded)?.greeting ?: "",
                 onIntent = vm::onIntent,
                 onSavedViewsClick = { navigator.openSavedAgendaList() },
                 onSaveCurrentClick = {
