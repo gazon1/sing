@@ -17,6 +17,7 @@ sealed interface AgendaUiState {
     data class Loaded(
         val sections: List<RenderedSection>,
         val today: LocalDate,
+        val greeting: String = "",
         val isSelectionMode: Boolean = false,
         val selectedTaskIds: Set<TaskId> = emptySet(),
     ) : AgendaUiState

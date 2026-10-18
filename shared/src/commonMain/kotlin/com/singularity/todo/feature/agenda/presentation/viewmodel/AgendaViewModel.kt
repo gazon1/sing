@@ -5,6 +5,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.platform.localTimeAt
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.components.CountdownStateMachine
@@ -23,6 +24,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -122,7 +124,34 @@ class AgendaViewModel(
      */
     private val deleteSequence = AtomicInt(0)
 
+    /**
+     * Drives the greeting computation.
+     *
+     * Uses [MutableStateFlow] so the value is observable from tests without a Compose
+     * runtime. Initialized in [init] rather than inside the `collect` block so tests
+     * can drain it with a bounded number of [runCurrent] calls — no `advanceUntilIdle`
+     * (which hangs on the infinite [todayFlow] loop) and no `runBlocking` (forbidden
+     * by [NoRunBlockingRule]).
+     *
+     * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
+     */
+    // Non-null default breaks the tie before computeGreeting() finishes.
+    // "Good evening" is the most common outcome; the computed value replaces it within
+    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
+    private val _greeting = MutableStateFlow("Good evening")
+    val greeting: StateFlow<String> = _greeting.asStateFlow()
+
     init {
+        // Greeting is computed once at load from greetingSettings and the current clock hour.
+        // It does not change during the lifetime of this ViewModel instance.
+        // Launched here (not inside the collector) so tests can drain it with runCurrent:
+        // the collect chain and the greeting computation are independent coroutines on the
+        // same scope, and runCurrent advances one pending task per call, so the greeting
+        // computation completes in 3-4 calls before the collect callback reads _greeting.value.
+        scope.launch {
+            _greeting.value = computeGreeting()
+        }
+
         scope.launch {
             todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
@@ -131,6 +160,7 @@ class AgendaViewModel(
                         AgendaUiState.Loaded(
                             sections = AgendaEvaluator.evaluate(tasks, definition, today, deps.clock.now()),
                             today = today,
+                            greeting = _greeting.value,
                         )
                     }
             }
@@ -150,6 +180,21 @@ class AgendaViewModel(
                     }
                 }
         }
+    }
+
+    /** Computes the time-of-day greeting from [greetingSettings] and the current clock hour. */
+    private suspend fun computeGreeting(): String {
+        return runCatchingCancellable {
+            val morningEnd = deps.greetingSettings.morningEndHour.first()
+            val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
+            // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
+            val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
+            when {
+                hour < morningEnd -> "Good morning"
+                hour < afternoonEnd -> "Good afternoon"
+                else -> "Good evening"
+            }
+        }.getOrElse { "" }
     }
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =

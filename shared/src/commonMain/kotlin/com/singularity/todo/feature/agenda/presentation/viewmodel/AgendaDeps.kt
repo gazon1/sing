@@ -2,6 +2,8 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.schedule.GreetingSettingsRepository
+import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -17,6 +19,8 @@ import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
  * @param reminderScheduler For cancelling reminders when a task is deleted (undo delete).
  * @param currentUser For obtaining the scoped user id (for reminder cancellation).
  * @param taskMutations Bulk operations (delete, complete) for multi-selection.
+ * @param workScheduleSettings For reading work-day hours to build work-block sections.
+ * @param greetingSettings For reading greeting hour thresholds.
  */
 data class AgendaDeps(
     val taskRepo: TaskRepository,
@@ -31,4 +35,6 @@ data class AgendaDeps(
     val reminderScheduler: ReminderScheduler,
     val currentUser: ProfileAwareCurrentUser,
     val taskMutations: TaskMutationsUseCase,
+    val workScheduleSettings: WorkScheduleSettingsRepository,
+    val greetingSettings: GreetingSettingsRepository,
 )

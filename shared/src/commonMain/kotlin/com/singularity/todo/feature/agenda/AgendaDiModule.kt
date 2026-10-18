@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.agenda
 
-import com.singularity.todo.core.platform.TimeZoneProvider
-import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.schedule.GreetingSettingsRepository
+import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
@@ -59,6 +61,8 @@ fun agendaModule(): Module = module {
                 reminderScheduler = get<ReminderScheduler>(),
                 currentUser = get<ProfileAwareCurrentUser>(),
                 taskMutations = get<TaskMutationsUseCase>(),
+                workScheduleSettings = get<WorkScheduleSettingsRepository>(),
+                greetingSettings = get<GreetingSettingsRepository>(),
             ),
             definition = definition,
             crashReporter = get(),

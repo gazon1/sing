@@ -53,6 +53,7 @@ val Selector.typeTag: String
         is Selector.AnyOf -> "AnyOf"
         is Selector.Not -> "Not"
         is Selector.Anything -> "Anything"
+        is Selector.TimeOfDay -> "TimeOfDay"
     }
 
 /**

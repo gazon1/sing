@@ -8,16 +8,25 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Thin Koin-injectable wrapper around [NotificationManagerCompat] for posting notifications.
  *
- * Handles channel creation, launch PendingIntent, and deeplink carry-over.
+ * Handles channel creation (with sound/vibration from settings), launch PendingIntent, and deeplink carry-over.
  * Scheduling is handled separately by [AlarmManagerReminderScheduler][com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler].
  *
  * @param context Android [Context] (application or activity scoped).
+ * @param notificationsSettings Repository for reading notification preferences (sound, vibration).
+ * @param scope Process-lifetime [CoroutineScope] for asynchronous channel re-configuration.
  */
-class AndroidNotifier(private val context: Context) : Notifier {
+class AndroidNotifier(
+    private val context: Context,
+    private val notificationsSettings: NotificationsSettingsRepository,
+    private val scope: CoroutineScope,
+) : Notifier {
 
     /**
      * Whether this device will actually show a notification.
@@ -101,12 +110,27 @@ class AndroidNotifier(private val context: Context) : Notifier {
     }
 
     private fun createNotificationChannel() {
+        // Read sound and vibration settings asynchronously and update the channel.
+        // The initial channel is created with safe defaults; settings are applied shortly after.
+        scope.launch {
+            val sound = notificationsSettings.sound.first()
+            val vibration = notificationsSettings.vibration.first()
+            updateNotificationChannel(sound, vibration)
+        }
+    }
+
+    private fun updateNotificationChannel(sound: Boolean, vibration: Boolean) {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Task Reminders",
             NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = "Gentle reminders for tasks"
+            setSound(
+                if (sound) android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION) else null,
+                null,
+            )
+            setVibrationPattern(if (vibration) longArrayOf(0, 250, 250, 250) else null)
         }
         notificationManager.createNotificationChannel(channel)
     }

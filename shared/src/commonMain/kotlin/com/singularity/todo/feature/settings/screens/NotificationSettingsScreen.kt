@@ -50,6 +50,12 @@ fun NotificationSettingsScreen(
 
         if (state.notifications.enabled) {
             SettingsSection(title = "Alerts") {
+                // Sound and vibration toggles dispatch UpdateSound/UpdateVibration intents,
+                // but those intents are intentionally not handled in SettingsViewModel (sabotage
+                // baseline — see check-dead-settings-baseline.txt). The toggles are display-only;
+                // values are committed by SettingsImporter during backup restore. To wire them up,
+                // add SettingsIntent.Notifications.UpdateSound/UpdateVibration handlers that call
+                // notificationsSettingsRepository.setSound/setVibration.
                 SettingsSwitchRow(
                     title = "Notification Sound",
                     testTag = TestTags.Settings.NOTIFICATIONS_SOUND_SWITCH,

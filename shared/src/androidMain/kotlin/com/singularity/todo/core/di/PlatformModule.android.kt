@@ -27,6 +27,7 @@ import com.singularity.todo.core.observability.FileCrashReportingPort
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.notifications.AndroidNotifier
 import com.singularity.todo.core.notifications.Notifier
+import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.AndroidHostEnvironment
 import com.singularity.todo.core.platform.HostEnvironmentPort
@@ -238,7 +239,7 @@ actual fun platformModule(): Module = module {
 
     // AndroidNotifier handles notification posting (channel, launch intent).
     // AlarmReceiver receives alarm broadcasts and calls notifier.post().
-    single { AndroidNotifier(get()) }
+    single { AndroidNotifier(get(), get<NotificationsSettingsRepository>(), get<CoroutineScope>()) }
     // Bound as the port, not only as the class: `AlarmReceiver` injects `Notifier`, and a
     // platform that binds the implementation without the interface leaves the port
     // unresolvable on that platform for anything that asks for it by type.

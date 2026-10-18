@@ -279,4 +279,46 @@ object AgendaPresets {
             order = 0,
         )
     }
+
+    /**
+     * Work-day agenda split into morning work, lunch, and afternoon work blocks.
+     *
+     * Each block is a [Selector.TimeOfDay] that matches tasks with `dueTime` within
+     * the corresponding window. Tasks with no `dueTime` are excluded from all three
+     * blocks and must be handled by a separate section in the definition.
+     *
+     * Weekend handling ([weekendSat], [weekendSun]) is the caller's responsibility:
+     * pass a definition that includes or excludes the work-day preset based on the
+     * current day of week, or switch to a different preset on weekends.
+     *
+     * @param dayStartMinutes Minutes from midnight for the work-day start (e.g. 540 = 09:00).
+     * @param dayEndMinutes Minutes from midnight for the work-day end (e.g. 1020 = 17:00).
+     * @param lunchStartMinutes Minutes from midnight for the lunch window start.
+     * @param lunchEndMinutes Minutes from midnight for the lunch window end.
+     */
+    fun workDayPreset(
+        dayStartMinutes: Int,
+        dayEndMinutes: Int,
+        lunchStartMinutes: Int,
+        lunchEndMinutes: Int,
+    ): AgendaDefinition = agenda("Work Day") {
+        section(
+            "work_morning",
+            "Work",
+            Selector.TimeOfDay(dayStartMinutes, lunchStartMinutes - 1),
+            order = 0,
+        )
+        section(
+            "lunch",
+            "Lunch",
+            Selector.TimeOfDay(lunchStartMinutes, lunchEndMinutes),
+            order = 1,
+        )
+        section(
+            "work_afternoon",
+            "Work",
+            Selector.TimeOfDay(lunchEndMinutes + 1, dayEndMinutes),
+            order = 2,
+        )
+    }
 }
