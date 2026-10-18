@@ -68,7 +68,8 @@ fun AgendaNavContent(
             // Uses LaunchedEffect (key = all four values) so recomposition does not
             // re-run the block; it fires exactly once when the keys change.
             LaunchedEffect(dayStart, dayEnd, lunchStart, lunchEnd) {
-                workDefinition = if (dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0) {
+                val allBoundsPositive = dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0
+                workDefinition = if (allBoundsPositive) {
                     AgendaPresets.workDayPreset(dayStart, dayEnd, lunchStart, lunchEnd)
                 } else {
                     AgendaPresets.Today

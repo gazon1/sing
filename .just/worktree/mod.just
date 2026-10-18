@@ -90,6 +90,13 @@ create_worktree() {
   mkdir -p "$(dirname "$wt_dir")"
   git worktree add -b "$full_branch" "$wt_dir" "$base"
 
+  # Configure hooks in the new worktree. The worktree's .git is a FILE containing
+  # "gitdir: <main-gitdir>/worktrees/<name>", so we use --git-dir to reach it.
+  # setup-hooks writes an ABSOLUTE core.hooksPath to the worktree's config, so it
+  # works correctly even if the worktree root differs from main checkout root.
+  echo "=== Configuring hooks in new worktree ==="
+  (cd "$wt_dir" && just setup-hooks) || true
+
   echo
   echo "=== Worktree ready: $wt_dir (branch $full_branch, base $base) ==="
   echo "  cd $wt_dir"
