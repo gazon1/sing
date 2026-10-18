@@ -1,0 +1,108 @@
+name: Reusable AVD Setup
+
+# Shared workflow for AVD installation used by e2e.yml and android-device-tests.yml.
+# Sets up KVM, installs system image, creates AVD, and configures PATH.
+
+on:
+  workflow_call:
+    inputs:
+      avd_name:
+        required: true
+        type: string
+        description: "AVD name (e.g. singularity-api36)"
+      system_image:
+        required: true
+        type: string
+        description: "System image package (e.g. system-images;android-36;google_apis;x86_64)"
+      device:
+        required: false
+        type: string
+        default: pixel_6
+        description: "Hardware profile for AVD (default: pixel_6)"
+      cache_key:
+        required: false
+        type: string
+        default: ""
+        description: "Custom cache key suffix; defaults to avd_name for cache invalidation"
+
+jobs:
+  setup-avd:
+    runs-on: ubuntu-24.04
+    outputs:
+      avd_name: ${{ steps.setup.outputs.AVD_NAME }}
+      android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
+      sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
+    steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Restore AVD cache
+        id: cache-avd
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd
+            ${{ env.ANDROID_HOME }}/system-images
+          key: avd-${{ inputs.avd_name }}-${{ inputs.system_image }}-${{ inputs.cache_key }}
+          restore-keys: |
+            avd-${{ inputs.avd_name }}-${{ inputs.system_image }}-
+            avd-${{ inputs.avd_name }}-
+
+      - name: Install AVD
+        id: setup
+        env:
+          AVD_NAME: ${{ inputs.avd_name }}
+          SYSTEM_IMAGE: ${{ inputs.system_image }}
+          DEVICE: ${{ inputs.device }}
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          echo "SDK_ROOT=$sdk_root" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_OUTPUT"
+
+          cmdline="$(dirname "$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f | sort | tail -1)")"
+          echo "cmdline-tools: $cmdline"
+
+          yes | "$cmdline/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$cmdline/sdkmanager" "$SYSTEM_IMAGE"
+
+          # Create AVD only if cache miss (restore-existing=true skips recreation)
+          avd_dir="$HOME/.android/avd/${AVD_NAME}.avd"
+          if [ ! -d "$avd_dir" ] || [ ! -f "$avd_dir/userdata.img" ]; then
+            echo "Creating AVD $AVD_NAME (cache miss)"
+            echo no | "$cmdline/avdmanager" create avd \
+              --force --name "$AVD_NAME" --package "$SYSTEM_IMAGE" --device "$DEVICE"
+          else
+            echo "AVD $AVD_NAME already exists (cache hit)"
+          fi
+
+          # Put emulator and platform-tools on PATH for subsequent steps.
+          {
+            echo "$sdk_root/emulator"
+            echo "$sdk_root/platform-tools"
+            echo "$sdk_root/build-tools/37.0.0"
+          } >> "$GITHUB_PATH"
+
+          # Verify emulator binary exists.
+          test -x "$sdk_root/emulator/emulator" \
+            || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
+
+          # Locate the AVD ini that avdmanager wrote — its directory is ANDROID_AVD_HOME,
+          # required for the emulator to find the AVD. The runner image creates AVDs
+          # somewhere avdmanager calls home and emulator does not; locate by file.
+          avd_ini="$(find "$HOME" -maxdepth 6 -name "${AVD_NAME}.ini" -print -quit 2>/dev/null || true)"
+          [ -n "$avd_ini" ] \
+            || { echo "::error::no ${AVD_NAME}.ini under \$HOME"; exit 1; }
+          ANDROID_AVD_HOME="$(dirname "$avd_ini")"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          # Verify the AVD is visible to the emulator binary.
+          "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
+            || { echo "::error::emulator -list-avds does not list $AVD_NAME"; exit 1; }
+          echo "AVD_NAME=$AVD_NAME" >> "$GITHUB_OUTPUT"
+          echo "emulator: $sdk_root/emulator/emulator, AVD $AVD_NAME in $ANDROID_AVD_HOME"

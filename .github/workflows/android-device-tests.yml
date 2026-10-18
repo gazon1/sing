@@ -42,6 +42,12 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Unified GPU mode for both e2e.yml and android-device-tests.yml.
+  # Set via repo variable EMULATOR_GPU_MODE (swiftshader_indirect or off).
+  # Defaults to swiftshader_indirect (instrumentation tests use compositor).
+  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'swiftshader_indirect' }}
+
 jobs:
   # Emits the build matrix in one place. Currently a single "free" APK, but when
   # Free/Pro product flavors exist this is where the matrix is expanded — a PR
@@ -69,22 +75,30 @@ jobs:
           esac
           echo "flavors=$flavors" >> "$GITHUB_OUTPUT"
 
-  instrumented:
+  setup-avd:
     needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      avd_name: ${{ steps.setup.outputs.AVD_NAME }}
+      android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
+      sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up AVD
+        uses: ./.github/workflows/_setup-avd.yml
+        with:
+          avd_name: singularity-api36
+          system_image: system-images;android-36;google_apis;x86_64
+          device: pixel_6
+
+  instrumented:
+    needs: [plan, setup-avd]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v7
-
-      # Without this the emulator falls back to software emulation and takes long enough
-      # to time out the job before the first test runs.
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
 
       # Matches every other workflow in this repository, so the JDK the DI graph is
       # validated against is the same one here. `cache-read-only` outside main: a PR must
@@ -93,75 +107,14 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # Cold-booting an AVD is most of this job's runtime. The AVD is created here
-      # rather than by reactivecircus/android-emulator-runner, because that action
-      # owns the device's whole lifecycle: it boots the emulator inside its own
-      # `script:` step and kills it the moment the step returns, which is why this
-      # file could only ever ask it to *run* a command. scripts/src/emulator is the
-      # repository's single device primitive — `ensure-emulator` is what every
-      # local run goes through, and it carries the AVD lock, the stale-process
-      # cleanup and the boot-readiness probe that the workflow had no access to.
-      # The workflow's own failures were the visible symptom of that split:
-      # `Test idle failed … PERSISTENT`, `adb … exit code 1`, a `default_boot`
-      # snapshot that never appeared — a workflow waiting on a device whose
-      # lifecycle it could not observe.
-      #
-      # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target).
-      # An emulator below the app's targetSdk is a test of something nobody ships.
-      - name: Install the emulator AVD
-        env:
-          AVD_NAME: singularity-api36
-          SYSTEM_IMAGE: system-images;android-36;google_apis;x86_64
+      # ANDROID_AVD_HOME and SDK paths from setup-avd job output.
+      - name: Set AVD environment
         run: |
-          set -euo pipefail
-          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          cmdline="$(dirname "$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f | sort | tail -1)")"
-          echo "cmdline-tools: $cmdline"
-          yes | "$cmdline/sdkmanager" --licenses >/dev/null || true
-          "$cmdline/sdkmanager" "$SYSTEM_IMAGE"
-          # `device pixel_6` rather than the runner's default: a hardware profile
-          # with a real screen size, so an Espresso assertion about a view being
-          # on screen is not decided by a 240x320 profile.
-          echo no | "$cmdline/avdmanager" create avd \
-            --force --name "$AVD_NAME" --package "$SYSTEM_IMAGE" --device pixel_6
-          # `ensure-emulator` launches the `emulator` binary and talks to `adb`,
-          # both of which live in the SDK and neither of which is on PATH here.
-          # One grouped redirect, not three: shellcheck SC2129 reads three
-          # separate appends as three chances to lose a line silently.
-          {
-            echo "$sdk_root/emulator"
-            echo "$sdk_root/platform-tools"
-            echo "$sdk_root/build-tools/37.0.0"
-          } >> "$GITHUB_PATH"
-
-          # Assert the two things the next step silently depends on. A missing
-          # `emulator` binary is reported by `ensure-emulator` as exit 1 with
-          # "'emulator' binary not found in PATH" and an AVD the emulator cannot
-          # find is reported as "exited with rc=1 during start-up" — both about a
-          # minute into a 15-minute job, and neither naming this step.
-          test -x "$sdk_root/emulator/emulator" \
-            || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
-
-          # The runner image creates AVDs somewhere `avdmanager` calls home and
-          # `emulator` does not. Run 38970523791 died with "Unknown AVD name
-          # [singularity-api36]" and "no file singularity-api36.ini in
-          # $HOME/.android/avd": avdmanager wrote the .ini under a path the
-          # emulator's search order ($ANDROID_AVD_HOME, $ANDROID_SDK_HOME/avd,
-          # $HOME/.android/avd) never visits. Locate the file that was actually
-          # written and point the emulator at its directory — a home is a
-          # property of the image, so it is read, not assumed.
-          avd_ini="$(find "$HOME" -maxdepth 6 -name "$AVD_NAME.ini" -print -quit 2>/dev/null || true)"
-          [ -n "$avd_ini" ] \
-            || { echo "::error::no $AVD_NAME.ini exists under \$HOME"; exit 1; }
-          ANDROID_AVD_HOME="$(dirname "$avd_ini")"
-          export ANDROID_AVD_HOME
-          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
-
-          # Ask the tool that has to find it. `avdmanager list avd` proved nothing
-          # here: it passed on the run where the emulator could not see the AVD.
-          "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
-            || { echo "::error::emulator -list-avds does not list $AVD_NAME (ANDROID_AVD_HOME=$ANDROID_AVD_HOME)"; exit 1; }
-          echo "emulator: $sdk_root/emulator/emulator, AVD $AVD_NAME in $ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=${{ needs.setup-avd.outputs.android_avd_home }}" >> "$GITHUB_ENV"
+          sdk_root="${{ needs.setup-avd.outputs.sdk_root }}"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          echo "$sdk_root/build-tools/37.0.0" >> "$GITHUB_PATH"
 
       # loguru, pydantic and click — the emulator module's own dependencies. The
       # same action the static job uses, with the two linters it installs turned
@@ -198,19 +151,16 @@ jobs:
       # the shell, caused by a screen in front of it. Measured locally on
       # 2026-10-16: 3 of the 3 UI classes fail that way.
       #
-      # `-gpu swiftshader_indirect`, not `-gpu off`: e2e.yml uses `-gpu off` and
-      # gets away with it because Maestro drives the UI through the accessibility
-      # layer and never composites. These assertions look for a real ComposeView in
-      # the view hierarchy, and software rendering is the configuration GitHub's
-      # runner images support. ADR 2026-09-28-emulator-gfxstream-colorbuffer-segv
-      # records the crash that pinning `-gpu` invites; software rendering is the
-      # supported answer, not a flag to tune.
+      # Both workflows share EMULATOR_GPU_MODE via repo variable
+      # (default: swiftshader_indirect for instrumentation tests).
+      # ADR 2026-09-28-emulator-gfxstream-colorbuffer-segv records the crash
+      # that pinning `-gpu` invites; software rendering is the supported answer.
       - name: Instrumented tests
         env:
           AVD: singularity-api36
           GRADLE_ARGS: -PTEST_AUTH_BYPASS=true
           EMULATOR_EXTRA_FLAGS: >-
-            -no-window -gpu swiftshader_indirect -no-audio
+            -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio
             -prop persist.sys.locale=ru-RU
           # The AVD was cold-created in the step above, so its boot budget is the
           # image download's absence, not a warm snapshot's presence. 600s is the

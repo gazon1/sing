@@ -59,6 +59,13 @@ alias tcheck := tests::check
 alias tclean := tests::clean
 alias tm     := tests::ui-maestro
 alias gm     := tests::gate-maestro
+
+# `gma` = gate-maestro with agenda (the common case).
+# Just does not support named-arg style `gm tags=agenda`; this recipe
+# exists so the two-argument form (`gma`) works instead of `gm agenda`.
+[doc('Run gate-maestro with agenda tag (alias for `just gm agenda`)')]
+gma:
+    just tests::gate-maestro agenda
 alias gate   := tests::gate
 
 # ----- Lint shortcuts -----
@@ -153,6 +160,13 @@ setup-hooks:
         exit 1
     fi
 
+    # Resolve to absolute path: a relative core.hooksPath is resolved from the
+    # *repository root* at hook-execution time, not from CWD.  In a worktree,
+    # repository root != MAIN_ROOT, so ".githooks" would silently resolve to
+    # <worktree-root>/.githooks (which does not exist) instead of the shared
+    # <main-root>/.githooks.  Storing an absolute path avoids this entirely.
+    HOOKS_SOURCE="$(realpath "$HOOKS_SOURCE")"
+
     echo "=== Installing hooks from $HOOKS_SOURCE ==="
 
     # Set for current repo (works for both main checkout and worktrees)
@@ -162,7 +176,9 @@ setup-hooks:
     # This handles the case where `just setup-hooks` is run from the main checkout —
     # all worktrees get the same shared hooks.
     for WT in $(git worktree list --porcelain 2>/dev/null | awk '{if ($1=="gitdir") print $2}'); do
-        WT_GITDIR="$(dirname "$WT/.git")"
+        # For a worktree, .git is a FILE (not a directory) containing
+        # "gitdir: <gitdir-path>", so --git-dir returns the actual gitdir.
+        WT_GITDIR="$(git -C "$WT" rev-parse --git-dir)"
         git -C "$WT_GITDIR" config core.hooksPath "$HOOKS_SOURCE" 2>/dev/null || true
     done
 

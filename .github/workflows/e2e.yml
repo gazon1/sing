@@ -43,6 +43,10 @@ env:
   # needed because a Renovate PR that removes the variable would otherwise break
   # every CI run until the next PR adds it back.
   MAESTRO_VERSION: ${{ vars.MAESTRO_VERSION || '2.10.0' }}
+  # Unified GPU mode for both e2e.yml and android-device-tests.yml.
+  # Set via repo variable EMULATOR_GPU_MODE (swiftshader_indirect or off).
+  # Defaults to off (current stable config for Maestro flows).
+  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}
 
 jobs:
   # Validates every id: selector in every Maestro flow against TestTags.kt.
@@ -125,9 +129,28 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Sets up the AVD once and shares it across all matrix shards.
+  # AVD image caching via actions/cache speeds up warm runs.
+  setup-avd:
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      avd_name: ${{ steps.setup.outputs.AVD_NAME }}
+      android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
+      sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up AVD
+        uses: ./.github/workflows/_setup-avd.yml
+        with:
+          avd_name: singularity-api36
+          system_image: system-images;android-36;google_apis;x86_64
+          device: pixel_6
+
   e2e:
     name: e2e (${{ needs.plan.outputs.suite }}, shard ${{ matrix.shard }})
-    needs: [plan, build-apk]
+    needs: [plan, build-apk, setup-avd]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -153,13 +176,6 @@ jobs:
           name: e2e-apk
           path: apk
 
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
       # The version is passed to the installer as MAESTRO_VERSION. Checking the
       # variable and then running an unpinned `curl | bash` would assert a pin and
       # install whatever is newest — the same shape as a gate that is configured and
@@ -170,24 +186,37 @@ jobs:
           MAESTRO_VERSION="$MAESTRO_VERSION" bash -c "$(curl -fsSL https://get.maestro.mobile.dev)"
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
-      # -gpu off sidesteps the gfxstream crash the host emulator hits, so the
-      # device-recovery loop of run-maestro is not needed here.
-      #
-      # Locale (ru-RU) matches the production app UI language. Maestro flows assert
-      # on accessibility IDs, not translated text, but Cyrillic content checks are
-      # possible when needed. Set via -prop so it survives emulator restart.
-      #
-      # Everything device-related is inside the script — see scripts/ci/e2e-shard.sh
-      # for why that is not negotiable.
-      - name: Run flows
-        uses: reactivecircus/android-emulator-runner@v2
+      # loguru, pydantic and click — the emulator module's own dependencies.
+      # Needed by run_maestro_e2e.py which calls `python3 -m emulator`.
+      - uses: ./.github/actions/setup-python-tools
         with:
-          api-level: 34
-          target: default
-          arch: x86_64
-          disable-animations: true
-          emulator-options: -no-snapshot -no-window -gpu off -no-audio -prop persist.sys.locale=ru-RU
-          script: bash scripts/ci/e2e-shard.sh
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+
+      # api-level 36 matches targetSdk in gradle/libs.versions.toml (sdk-target).
+      # EMULATOR_GPU_MODE defaults to off (sidesteps gfxstream crash); Maestro
+      # drives through the accessibility layer and never composites. SwiftShader
+      # performance impact tracked in ADR 2026-10-18; unify via #723.
+      - name: Set AVD environment
+        run: |
+          echo "ANDROID_AVD_HOME=${{ needs.setup-avd.outputs.android_avd_home }}" >> "$GITHUB_ENV"
+          sdk_root="${{ needs.setup-avd.outputs.sdk_root }}"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          echo "$sdk_root/build-tools/37.0.0" >> "$GITHUB_PATH"
+
+      # The whole lifecycle (boot + APK install + Maestro run) lives in
+      # run_maestro_e2e.py so the emulator stays up for the full duration.
+      - name: Run Maestro E2E
+        env:
+          EMULATOR_EXTRA_FLAGS: -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio -prop persist.sys.locale=ru-RU
+          EMULATOR_TIMEOUT: 600
+        run: |
+          python3 scripts/run-maestro-e2e.py \
+            --apk apk \
+            --suite "$SUITE" \
+            --shard "$SHARD" \
+            --shards "$SHARDS"
 
       # Uploaded unconditionally, and from build/maestro-results/ rather than only
       # ~/.maestro/tests/. A result set that exists solely when something broke
@@ -235,12 +264,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Advisory: E2E smoke instability is tracked in https://github.com/gazon1/sing/issues/TBD
-      # Owner: gazon1. Review after emulator/gfxstream environment is stabilised.
+      # E2E smoke instability tracked in #721.
+      # Owner: gazon1. Migration to scripts/src/emulator unblocks full recovery loop.
       - name: Post advisory warning on failure
         if: failure()
         run: |
-          echo "::warning::E2E smoke failed. This is an advisory gate — it does not block release." && echo "::warning::See https://github.com/gazon1/sing/issues/TBD (owner: gazon1, review: TBD)"
+          echo "::warning::E2E smoke failed. This is an advisory gate — it does not block release." && echo "::warning::See https://github.com/gazon1/sing/issues/721 (owner: gazon1)"
 
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.

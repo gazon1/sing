@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
@@ -67,8 +68,8 @@ fun AgendaNavContent(
             // Uses LaunchedEffect (key = all four values) so recomposition does not
             // re-run the block; it fires exactly once when the keys change.
             LaunchedEffect(dayStart, dayEnd, lunchStart, lunchEnd) {
-                @Suppress("ComplexCondition") // four independent non-negative integer checks
-                workDefinition = if (dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0) {
+                val allBoundsPositive = dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0
+                workDefinition = if (allBoundsPositive) {
                     AgendaPresets.workDayPreset(dayStart, dayEnd, lunchStart, lunchEnd)
                 } else {
                     AgendaPresets.Today
@@ -91,29 +92,29 @@ fun AgendaNavContent(
         )
 
         is AgendaStartRoute.Project -> AgendaScreen(
-            definition = AgendaPresets.byProject(route.projectId),
+            definition = AgendaPresets.byProject(route.id),
             contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.Tag -> AgendaScreen(
-            definition = AgendaPresets.byTag(route.tagId),
+            definition = AgendaPresets.byTag(route.id),
             contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.Tags -> AgendaScreen(
-            definition = AgendaPresets.byTags(route.tagIds),
+            definition = AgendaPresets.byTags(route.ids),
             contextMenuHost = contextMenuHost,
         )
 
         is AgendaStartRoute.SavedAgendaList -> SavedAgendaListScreen()
 
         is AgendaStartRoute.SavedAgendaResults -> SavedAgendaScreen(
-            mode = SavedAgendaScreenMode.View(route.viewId),
+            mode = SavedAgendaScreenMode.View(SavedAgendaViewId.fromString(route.viewId)),
             modeHint = "Saved view",
         )
 
         is AgendaStartRoute.SavedAgendaEdit -> SavedAgendaScreen(
-            mode = SavedAgendaScreenMode.Edit(route.viewId),
+            mode = SavedAgendaScreenMode.Edit(SavedAgendaViewId.fromString(route.viewId)),
             modeHint = "Edit View",
         )
 
@@ -151,11 +152,11 @@ fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
 
     is AgendaStartRoute.Upcoming -> AgendaPresets.Upcoming
 
-    is AgendaStartRoute.Project -> AgendaPresets.byProject(projectId)
+    is AgendaStartRoute.Project -> AgendaPresets.byProject(id)
 
-    is AgendaStartRoute.Tag -> AgendaPresets.byTag(tagId)
+    is AgendaStartRoute.Tag -> AgendaPresets.byTag(id)
 
-    is AgendaStartRoute.Tags -> AgendaPresets.byTags(tagIds)
+    is AgendaStartRoute.Tags -> AgendaPresets.byTags(ids)
 
     is AgendaStartRoute.SavedAgendaList -> AgendaPresets.Inbox
 
