@@ -18,6 +18,12 @@
 чужие изменения принимай как данность и перепроверяй, а не откатывай.
 `git fetch origin && git log --oneline HEAD..origin/main | head`.
 
+**Механическая защита от divergence (#268):**
+- `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
+  который отстаёт от `origin/main`; предупреждает о неpushнутых коммитах.
+- `check-unmerged.sh` (`scripts/ci/check-unmerged.sh`) — blocking gate в static-gates;
+  фейлится если origin/main ушёл вперёд. Используй вручную перед rebase.
+
 ## Структура
 
 `androidApp/` — Android shell. `desktopApp/` — Desktop Compose entry.
@@ -136,7 +142,7 @@ just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
 ```
 
-> `just <recipe> name=value` **не** присваивает — только позиционная форма: `just gm agenda`, не `just gm tags=agenda`.
+> `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
 
 ## CI/CD
 

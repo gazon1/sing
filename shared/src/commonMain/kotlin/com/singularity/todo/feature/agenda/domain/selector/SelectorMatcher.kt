@@ -122,6 +122,11 @@ fun Selector.matches(task: Task, context: SelectorContext): Boolean = when (this
     is Selector.Not -> !child.matches(task, context)
 
     is Selector.Anything -> true
+
+    is Selector.TimeOfDay -> {
+        val taskMinutes = task.dueTime?.let { it.hour * 60 + it.minute } ?: return false
+        taskMinutes in minStartMinutes..maxEndMinutes
+    }
 }
 
 /**

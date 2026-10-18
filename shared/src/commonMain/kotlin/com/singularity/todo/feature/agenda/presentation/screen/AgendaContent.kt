@@ -84,6 +84,7 @@ import kotlinx.datetime.plus
 fun AgendaContent(
     state: AgendaUiState,
     title: String,
+    greeting: String = "",
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
     onSaveCurrentClick: (() -> Unit)? = null,
@@ -152,7 +153,18 @@ fun AgendaContent(
                     )
                 } else {
                     TopAppBar(
-                        title = { Text(title) },
+                        title = {
+                            Column {
+                                Text(title)
+                                if (greeting.isNotEmpty()) {
+                                    Text(
+                                        text = greeting,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
                         actions = {
                             if (onSavedViewsClick != null) {
                                 IconButton(

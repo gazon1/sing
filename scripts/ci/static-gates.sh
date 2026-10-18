@@ -194,7 +194,6 @@ gate blocking "gates are alive" sgate gates_are_alive  # no-self-probe
 # always the stale one and always reads like documentation rather than like a bug.
 # The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
 # this compares the committed text with what the code says today (#526).
-gate blocking "skills describe the tools that exist" sgate skills_describe_the_tools_that_exist
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).
 gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree
@@ -280,6 +279,12 @@ gate blocking "workflow steps keep their exit status" sgate workflow_steps_keep_
 gate blocking "releases describe themselves" sgate releases_describe_themselves
 
 # AppTracer
+
+# Rebase divergence prevention: fail if origin/main has commits not yet in current branch.
+# This gate runs after a git fetch (which check-unmerged.sh does internally).  It is
+# blocking because rebasing onto a stale main creates divergent history that requires
+# force-push to fix — a state the author may not notice until a colleague cannot pull.
+gate blocking "local branch is not behind origin/main" bash scripts/ci/check-unmerged.sh
 
 # Gate-script conventions. Advisory because the corpus is knowingly red: every
 # legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a

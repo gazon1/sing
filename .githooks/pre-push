@@ -31,10 +31,10 @@ if ! python3 scripts/build-version-catalog-gate.py --quiet .; then
     exit 1
 fi
 
-if ! bash Maestro/scripts/check-tags.sh; then
+if ! python3 scripts/ci/validate-maestro-selectors.py; then
     echo ""
     echo "pre-push FAILED — unknown id: selector in a Maestro flow."
-    echo "Add it to TestTags.kt or the legacy allow-list, or push with --no-verify."
+    echo "Add it to TestTags.kt or DYNAMIC_EXPANSIONS / ALLOWLIST, or push with --no-verify."
     exit 1
 fi
 

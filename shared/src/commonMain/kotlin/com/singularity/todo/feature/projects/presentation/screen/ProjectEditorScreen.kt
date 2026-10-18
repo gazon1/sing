@@ -103,25 +103,11 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(if (state.isEditMode) "Edit Project" else "New Project") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_BACK),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.onIntent(ProjectEditorIntent.Save) },
-                        enabled = state.name.isNotBlank() && !state.saving,
-                        modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_SAVE),
-                    ) {
-                        Icon(Icons.Filled.Check, contentDescription = "Save")
-                    }
-                },
+            EditorTopBar(
+                isEditMode = state.isEditMode,
+                canSave = state.name.isNotBlank() && !state.saving,
+                onBack = onBack,
+                onSave = { viewModel.onIntent(ProjectEditorIntent.Save) },
             )
         },
     ) { padding ->
@@ -134,131 +120,250 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             // ── Identity: name + description ──────────────────────────────
-            OutlinedTextField(
-                value = state.name,
-                onValueChange = { viewModel.onIntent(ProjectEditorIntent.NameChanged(it)) },
-                label = { Text("Project name") },
-                isError = state.errorMessage != null,
-                supportingText = state.errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
+            IdentitySection(
+                name = state.name,
+                description = state.description,
+                errorMessage = state.errorMessage,
+                onNameChanged = { viewModel.onIntent(ProjectEditorIntent.NameChanged(it)) },
+                onDescriptionChanged = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
             )
 
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
-                label = { Text("Description (optional)") },
-                minLines = 3,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),
+            // ── Appearance: icon + color ─────────────────────────────────
+            AppearanceSection(
+                selectedColor = state.color,
+                selectedIcon = state.icon,
+                onColorSelected = { viewModel.onIntent(ProjectEditorIntent.ColorChanged(it)) },
+                onIconPickerRequested = { showIconPicker = true },
             )
 
-            // ── Appearance: icon + color (consolidated) ──────────────────
-            Text("Appearance", style = MaterialTheme.typography.titleSmall)
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // Color selector
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ProjectColorPalette.all.forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(color))
-                                .then(
-                                    if (state.color == color) {
-                                        Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                                    } else {
-                                        Modifier
-                                    },
-                                )
-                                .clickable { viewModel.onIntent(ProjectEditorIntent.ColorChanged(color)) },
-                        ) {
-                            if (state.color == color) {
-                                Icon(
-                                    Icons.Filled.Check,
-                                    contentDescription = "Selected",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(32.dp).padding(6.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                // Icon selector
-                FilterChip(
-                    selected = state.icon != null,
-                    onClick = { showIconPicker = true },
-                    label = {
-                        Text(state.icon?.let { ProjectIconRegistry.iconByKey(it)?.name } ?: "Icon")
-                    },
-                    leadingIcon = {
-                        state.icon?.let { key ->
-                            val icon = ProjectIconRegistry.iconByKey(key)
-                            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        } ?: Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
-                    },
-                )
-            }
-
-            // ── Organization: parent project ─────────────────────────
-            Text("Organization", style = MaterialTheme.typography.titleSmall)
-
-            FilterChip(
-                selected = state.parentId != null,
-                onClick = { showParentPicker = true },
-                label = { Text("Parent project") },
-                leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            // ── Organization: parent project ────────────────────────────
+            OrganizationSection(
+                hasParent = state.parentId != null,
+                onParentPickerRequested = { showParentPicker = true },
             )
         }
     }
 
     if (state.errorMessage != null && !state.saving) {
-        ResultDialog(
-            title = "Error",
-            text = state.errorMessage ?: "",
+        EditorErrorDialog(
+            message = state.errorMessage ?: "",
             onDismiss = { viewModel.onIntent(ProjectEditorIntent.ErrorShown) },
         )
     }
 
-    // ── Icon Picker Sheet ─────────────────────────────────────────────────
-    if (showIconPicker) {
-        BottomSheetHost(onDismiss = { showIconPicker = false }) {
-            IconPickerSheet(
-                currentIcon = state.icon,
-                onPick = { icon ->
-                    viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
-                    showIconPicker = false
-                },
-                onDismiss = { showIconPicker = false },
-            )
-        }
-    }
+    IconPickerSheetHost(
+        visible = showIconPicker,
+        currentIcon = state.icon,
+        onPick = { icon ->
+            icon?.let {
+                viewModel.onIntent(
+                    ProjectEditorIntent.IconChanged(it),
+                )
+            }
+            showIconPicker = false
+        },
+        onDismiss = { showIconPicker = false },
+    )
 
-    // ── Parent Picker Sheet ───────────────────────────────────────────────
-    if (showParentPicker) {
-        BottomSheetHost(onDismiss = { showParentPicker = false }) {
-            EditorParentPickerSheet(
-                onPick = { parentId ->
-                    viewModel.onIntent(ProjectEditorIntent.ParentChanged(parentId))
-                    showParentPicker = false
-                },
-                onDismiss = { showParentPicker = false },
+    ParentPickerSheetHost(
+        visible = showParentPicker,
+        onPick = {
+            viewModel.onIntent(ProjectEditorIntent.ParentChanged(it))
+            showParentPicker = false
+        },
+        onDismiss = { showParentPicker = false },
+    )
+}
+
+// ─── Sheet hosts ─────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IconPickerSheetHost(
+    visible: Boolean,
+    currentIcon: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (visible) {
+        BottomSheetHost(onDismiss = onDismiss) {
+            IconPickerSheet(
+                currentIcon = currentIcon,
+                onPick = onPick,
+                onDismiss = onDismiss,
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ParentPickerSheetHost(
+    visible: Boolean,
+    onPick: (ProjectId?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (visible) {
+        BottomSheetHost(onDismiss = onDismiss) {
+            EditorParentPickerSheet(
+                onPick = onPick,
+                onDismiss = onDismiss,
+            )
+        }
+    }
+}
+
+// ─── Content sections ─────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditorTopBar(
+    isEditMode: Boolean,
+    canSave: Boolean,
+    onBack: () -> Unit,
+    onSave: () -> Unit,
+) {
+    TopAppBar(
+        title = { Text(if (isEditMode) "Edit Project" else "New Project") },
+        navigationIcon = {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_BACK),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        },
+        actions = {
+            IconButton(
+                onClick = onSave,
+                enabled = canSave,
+                modifier = Modifier.testTag(TestTags.PROJECT_EDITOR_SAVE),
+            ) {
+                Icon(Icons.Filled.Check, contentDescription = "Save")
+            }
+        },
+    )
+}
+
+@Composable
+private fun EditorErrorDialog(message: String, onDismiss: () -> Unit) {
+    ResultDialog(
+        title = "Error",
+        text = message,
+        onDismiss = onDismiss,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IdentitySection(
+    name: String,
+    description: String,
+    errorMessage: String?,
+    onNameChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = name,
+        onValueChange = onNameChanged,
+        label = { Text("Project name") },
+        isError = errorMessage != null,
+        supportingText = errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
+    )
+
+    OutlinedTextField(
+        value = description,
+        onValueChange = onDescriptionChanged,
+        label = { Text("Description (optional)") },
+        minLines = 3,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppearanceSection(
+    selectedColor: Int,
+    selectedIcon: String?,
+    onColorSelected: (Int) -> Unit,
+    onIconPickerRequested: () -> Unit,
+) {
+    Text("Appearance", style = MaterialTheme.typography.titleSmall)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Color selector
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ProjectColorPalette.all.forEach { color ->
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(color))
+                        .then(
+                            if (selectedColor == color) {
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .clickable { onColorSelected(color) },
+                ) {
+                    if (selectedColor == color) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp).padding(6.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        FilterChip(
+            selected = selectedIcon != null,
+            onClick = onIconPickerRequested,
+            label = {
+                Text(selectedIcon?.let { ProjectIconRegistry.iconByKey(it)?.name } ?: "Icon")
+            },
+            leadingIcon = {
+                selectedIcon?.let { key ->
+                    val icon = ProjectIconRegistry.iconByKey(key)
+                    icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                } ?: Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OrganizationSection(
+    hasParent: Boolean,
+    onParentPickerRequested: () -> Unit,
+) {
+    Text("Organization", style = MaterialTheme.typography.titleSmall)
+
+    FilterChip(
+        selected = hasParent,
+        onClick = onParentPickerRequested,
+        label = { Text("Parent project") },
+        leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp)) },
+    )
 }
 
 // ─── Notification mapper ────────────────────────────────────────────────────────

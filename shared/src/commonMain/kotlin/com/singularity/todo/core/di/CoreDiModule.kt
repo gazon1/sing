@@ -34,11 +34,15 @@ import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.notifications.DataStoreNotificationsSettingsRepository
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.notifications.NotificationsContributor
+import com.singularity.todo.core.schedule.DataStoreGreetingSettingsRepository
+import com.singularity.todo.core.schedule.DataStoreWorkScheduleSettingsRepository
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.schedule.GreetingContributor
+import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleContributor
+import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.security.SecureStorageAdapter
 import com.singularity.todo.core.settings.DataStoreSettingsRepository
 import com.singularity.todo.core.settings.SettingsContributor
@@ -138,6 +142,8 @@ fun coreModule(): org.koin.core.module.Module =
         // copy inside `SettingsRepository`. Binding it as a `factory` says exactly
         // that, and would break loudly if that ever stops being true.
         factory<NotificationsSettingsRepository> { DataStoreNotificationsSettingsRepository(get()) }
+        factory<WorkScheduleSettingsRepository> { DataStoreWorkScheduleSettingsRepository(get()) }
+        factory<GreetingSettingsRepository> { DataStoreGreetingSettingsRepository(get()) }
 
         // ─── Drafts ──────────────────────────────────────────────────────────
         // DraftStore uses the same per-platform DataStore<Preferences> binding.

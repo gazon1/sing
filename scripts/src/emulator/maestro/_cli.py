@@ -60,6 +60,10 @@ YELLOW = lambda s: _col("0;33", s)
               help="Directory for JUnit XML results (default: <repo>/build/maestro-results)")
 @click.option("--dry-run", is_flag=True,
               help="Show which flows would run and exit; no device or APK needed")
+@click.option("--shard", type=int, default=None,
+              help="Run only flows for this shard (1-based, use with --shards)")
+@click.option("--shards", type=int, default=None,
+              help="Total number of shards (use with --shard)")
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -72,6 +76,8 @@ def main(
     maestro_cleanup: str,
     junit_dir: str | None,
     dry_run: bool,
+    shard: int | None,
+    shards: int | None,
     deps: DeviceDeps | None = None,
 ) -> int:
     deps = deps or _default_device_deps()
@@ -82,12 +88,21 @@ def main(
         flow_target = (ROOT / flow).resolve()
         all_flows = collect_flows(flow_target)
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        flows = filter_flows_by_tag(all_flows, tag_list) if tag_list else all_flows
+        if shards is not None and shard is not None and 1 <= shard <= shards:
+            flows = [f for i, f in enumerate(all_flows) if (i % shards) == (shard - 1)]
+            logger.info(f"Dry run — shard {shard}/{shards}")
+        else:
+            flows = all_flows
+        if tag_list:
+            flows = filter_flows_by_tag(flows, tag_list) if flows else []
+        tag_desc = f"tag filter ({tag_list or 'none'})" if tag_list else "no tag filter"
 
         logger.info("Dry run — no device or APK required")
         logger.info(f"Flow target  : {flow_target.relative_to(ROOT)}")
         logger.info(f"Total discovered: {len(all_flows)}")
-        logger.info(f"After tag filter ({tag_list or 'none'}): {len(flows)}")
+        if shards is not None and shard is not None:
+            logger.info(f"Shard {shard}/{shards}: {len(flows)} flows")
+        logger.info(f"After {tag_desc}: {len(flows)}")
         logger.info("\nFlows that would run:")
         for f in flows:
             logger.info(f"  {f.relative_to(ROOT)}")
@@ -160,10 +175,25 @@ def main(
 
     # ── Collect flows ─────────────────────────────────────────────────────────
     flow_target = (ROOT / flow).resolve()
-    flows = collect_flows(flow_target)
-    if not flows:
+    all_flows = collect_flows(flow_target)
+    if not all_flows:
         logger.error(f"No flow files matched '{flow_target}'")
         return ctx.exit(EXIT_FAIL)
+
+    # Sharding: apply before tag filtering, matching e2e-shard.sh behaviour
+    # (shard of full list, not of filtered list).
+    if shards is not None and shard is not None:
+        if not (1 <= shard <= shards):
+            logger.error(f"--shard must be between 1 and --shards (got {shard}, {shards})")
+            return ctx.exit(EXIT_FAIL)
+        sharded: list[Path] = [
+            f for i, f in enumerate(all_flows)
+            if (i % shards) == (shard - 1)
+        ]
+        logger.info(f"Shard {shard}/{shards}: {len(sharded)} of {len(all_flows)} flows")
+        flows = sharded
+    else:
+        flows = all_flows
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     if tag_list:
@@ -172,7 +202,11 @@ def main(
             logger.error(f"No flow files carry tag(s): {tags}")
             return ctx.exit(EXIT_FAIL)
 
-    logger.info(f"Discovered {len(flows)} flow file(s):")
+    if not flows:
+        logger.error("No flows remain after sharding and tag filtering")
+        return ctx.exit(EXIT_FAIL)
+
+    logger.info(f"Running {len(flows)} flow(s):")
     for f in flows:
         logger.info(f"  {f.relative_to(ROOT)}")
 

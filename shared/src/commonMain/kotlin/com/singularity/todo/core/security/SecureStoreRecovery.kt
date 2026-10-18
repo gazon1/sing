@@ -42,11 +42,11 @@ internal object SecureStoreRecovery {
     inline fun <T> openOrErase(open: () -> T, erase: () -> Unit): T =
         try {
             open()
-        } catch (first: Exception) {
+        } catch (first: Throwable) {
             erase()
             try {
                 open()
-            } catch (second: Exception) {
+            } catch (second: Throwable) {
                 second.addSuppressed(first)
                 throw second
             }

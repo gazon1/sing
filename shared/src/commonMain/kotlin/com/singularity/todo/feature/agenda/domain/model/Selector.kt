@@ -175,4 +175,18 @@ sealed interface Selector {
     @Serializable
     @SerialName("Anything")
     data object Anything : Selector
+
+    /**
+     * Tasks whose [Task.dueTime] falls within the inclusive range [minStartMinutes]..[maxEndMinutes].
+     *
+     * Used by the work-day preset to split tasks into morning / lunch / afternoon work blocks.
+     * Minutes are measured from midnight (0 = 00:00, 540 = 09:00, 1020 = 17:00, etc.).
+     * A task with no `dueTime` does not match.
+     *
+     * @param minStartMinutes Lower bound of the time window (inclusive).
+     * @param maxEndMinutes Upper bound of the time window (inclusive).
+     */
+    @Serializable
+    @SerialName("TimeOfDay")
+    data class TimeOfDay(val minStartMinutes: Int, val maxEndMinutes: Int) : Selector
 }
