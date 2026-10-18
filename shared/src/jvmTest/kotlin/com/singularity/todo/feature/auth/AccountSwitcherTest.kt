@@ -76,6 +76,7 @@ class AccountSwitcherTest {
         syncRepository = sync,
         resolver = OwnerRowIdResolver(db),
         eraser = OwnerScopedEraser(db),
+        calculator = OwnerCountsCalculator(db),
     )
 
     private fun deliveredCycle(push: Result<PushSummary> = Result.success(PushSummary(2, 2, 0))) =
@@ -252,10 +253,8 @@ class AccountSwitcherTest {
             return Result.success(Unit)
         }
 
-        override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
+        override suspend fun startLocalSession(): Result<Unit> = Result.success(Unit)
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
-        override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> =
-            Result.success(Unit)
 
         override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
         override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)

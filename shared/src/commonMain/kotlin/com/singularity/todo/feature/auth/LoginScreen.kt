@@ -46,10 +46,15 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     // credential form's failure would arrive as a network error pointing at the
     // password. The configuration comes first so the user is never asked to retype
     // a correct password because the server was never named.
+    //
+    // Offline mode is the exception that proves it needs no server at all, so the
+    // way out is on this screen too — not only on the credential form, where it
+    // would be invisible to exactly the people who have nothing to configure.
     if (state is AuthUiState.SignedOutWithNoServer) {
         ServerConfigForm(
             errorMessage = errorMessage,
             onSave = { url, key -> viewModel.onIntent(AuthIntent.SaveServerConfig(url, key)) },
+            onContinueOffline = { viewModel.onIntent(AuthIntent.ContinueOffline) },
         )
         return
     }
@@ -148,7 +153,7 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(
-                onClick = { viewModel.onIntent(AuthIntent.SignInAnonymously) },
+                onClick = { viewModel.onIntent(AuthIntent.ContinueOffline) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
@@ -166,9 +171,19 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
  * app and is meant to be readable. The label says so, because a field named "key"
  * next to a password field invites the user to paste the service-role key, and
  * that key does not belong on a device.
+ *
+ * @param onContinueOffline the way out for a user who has no project and does not
+ * want one. It carries the same test tag as the button on the credential form:
+ * only one of the two screens is ever composed, so there is no duplicate to
+ * disambiguate, and a test that looks for the tag finds the way out wherever
+ * the user is.
  */
 @Composable
-private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> Unit) {
+private fun ServerConfigForm(
+    errorMessage: String?,
+    onSave: (String, String) -> Unit,
+    onContinueOffline: () -> Unit,
+) {
     val form = rememberServerConfigFormState()
 
     Column(
@@ -229,6 +244,17 @@ private fun ServerConfigForm(errorMessage: String?, onSave: (String, String) -> 
                 .testTag(TestTags.AUTH_SAVE_SERVER_BUTTON),
         ) {
             Text("Save")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        TextButton(
+            onClick = onContinueOffline,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
+        ) {
+            Text("Continue without an account")
         }
     }
 }

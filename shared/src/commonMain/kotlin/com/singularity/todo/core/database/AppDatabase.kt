@@ -167,5 +167,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun proposalDao(): ProposalDao
     abstract fun proposalItemDao(): ProposalItemDao
     abstract fun ownerEraseDao(): OwnerEraseDao
+    abstract fun ownerReassignDao(): OwnerReassignDao
     abstract fun ownerScopeDao(): OwnerScopeDao
 }

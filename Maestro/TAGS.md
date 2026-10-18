@@ -30,7 +30,10 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `AUTH_ATTACH_ACCOUNT_BUTTON` | `auth_attach_account_button` | |
 | `AUTH_ATTACH_BACK_BUTTON` | `auth_attach_back_button` | |
+| `AUTH_ATTACH_DISCARD_BUTTON` | `auth_attach_discard_button` | |
+| `AUTH_ATTACH_DISPOSITION_HINT` | `auth_attach_disposition_hint` | |
 | `AUTH_ATTACH_EMAIL_INPUT` | `auth_attach_email_input` | |
+| `AUTH_ATTACH_KEEP_BUTTON` | `auth_attach_keep_button` | |
 | `AUTH_ATTACH_PASSWORD_INPUT` | `auth_attach_password_input` | |
 | `AUTH_ATTACH_SUBMIT_BUTTON` | `auth_attach_submit_button` | |
 | `AUTH_BACK_BUTTON` | `auth_back_button` | |

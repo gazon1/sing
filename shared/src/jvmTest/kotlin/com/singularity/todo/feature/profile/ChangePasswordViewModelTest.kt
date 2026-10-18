@@ -40,12 +40,8 @@ class ChangePasswordViewModelTest {
             override val isLoading: StateFlow<Boolean> = MutableStateFlow(false)
             override suspend fun signUp(email: String, password: String): Result<Unit> = Result.success(Unit)
             override suspend fun signIn(email: String, password: String): Result<Unit> = Result.success(Unit)
-            override suspend fun signInAnonymously(): Result<Unit> = Result.success(Unit)
+            override suspend fun startLocalSession(): Result<Unit> = Result.success(Unit)
             override suspend fun signOut(): Result<Unit> = Result.success(Unit)
-            override suspend fun migrateAnonymousTo(
-                email: String,
-                password: String,
-            ): Result<Unit> = Result.success(Unit)
             override suspend fun updatePassword(newPassword: String): Result<Unit> = updatePassword(newPassword)
             override suspend fun sendMagicLink(email: String): Result<Unit> = Result.success(Unit)
             override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = Result.success(Unit)

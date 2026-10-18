@@ -3,6 +3,18 @@ package com.singularity.todo.core.auth
 /**
  * The identity operations the repository needs, in the project's own vocabulary.
  *
+ * ## Why there is no anonymous sign-in, and no attach
+ *
+ * Both were removed together, and for the same reason: the offline session is local
+ * (ADR `2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice`), so the
+ * provider never issues an anonymous identity, and there is consequently no
+ * provider-side session for `updateUser` to attach credentials to. Keeping either
+ * method would leave a plausible-looking path to a server-side anonymous account that
+ * nothing can reach — and a plausible-looking path is what the next person who reads
+ * only a signature will use. The local → account move is [AuthRepository.signIn]
+ * followed by a local ownership transfer, in the feature layer: see
+ * `LocalAccountClaimer`.
+ *
  * ## Why the SDK is behind a port
  *
  * REQ-UA-008 asks for a replaceable identity provider, and "replaceable" is not a
@@ -25,27 +37,6 @@ interface AuthGateway {
 
     /** Signs in to an existing account. */
     suspend fun signIn(email: String, password: String): Result<RemoteSession>
-
-    /**
-     * Creates a real provider-side anonymous identity.
-     *
-     * REQ-UA-004: this has to be an identity the backend recognises, not a locally
-     * generated placeholder, or the user's data would belong to something the
-     * server has never heard of and could never be claimed later.
-     */
-    suspend fun signInAnonymously(): Result<RemoteSession>
-
-    /**
-     * Attaches an email and password to the *current* session, keeping its
-     * identity.
-     *
-     * This is what makes an anonymous user's data belong to their new account
-     * without anything moving: the identity does not change, so the rows already
-     * written under it are already the new account's. See
-     * [SupabaseAuthRepository.migrateAnonymousTo] for why the id is checked
-     * afterwards anyway.
-     */
-    suspend fun attachEmail(email: String, password: String): Result<RemoteSession>
 
     /** Ends the session provider-side. */
     suspend fun signOut(): Result<Unit>
@@ -87,9 +78,10 @@ interface AuthGateway {
 /**
  * A session, in the provider's own terms but the project's own types.
  *
- * [userId] is the owner every synchronised row is scoped to. [isAnonymous] is not
- * a presentation detail: an anonymous identity is one the user has not yet claimed
- * and may still sign up from, and the two need different behaviour on sign-out.
+ * [userId] is the owner every synchronised row is scoped to. [isAnonymous] is kept
+ * because a provider *can* still report one — but nothing in this app creates one any
+ * more, so it is now a defensive branch rather than a path. See
+ * [AuthGateway] on why both provider-side operations were removed.
  */
 data class RemoteSession(
     val userId: String,

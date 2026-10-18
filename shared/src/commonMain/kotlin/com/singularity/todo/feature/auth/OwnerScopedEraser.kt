@@ -86,6 +86,12 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         val taskReminders = erase.deleteTaskReminders(scopes)
         val projectReminders = erase.deleteProjectReminders(scopes)
         val tagGroups = erase.deleteTagGroups(scopes)
+        // Hard delete: time entries are append-only accounting facts — a correction is
+        // a new entry, not a restoration of the old one. Using soft-delete here would
+        // leave the row in the database under the old owner after the erase, which is
+        // the opposite of what the operation promises.
+        val timeEntries = erase.deleteTimeEntries(scopes)
+        val agendaViews = erase.deleteAgendaViews(scopes)
         val tasks = erase.deleteTasks(scopes)
 
         // ── Sync state ──────────────────────────────────────────────────────────
@@ -108,6 +114,8 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
             taskReminders = taskReminders,
             projectReminders = projectReminders,
             tagGroups = tagGroups,
+            timeEntries = timeEntries,
+            agendaViews = agendaViews,
             outbox = outbox,
             deadLetter = deadLetter,
             shadows = shadow,
@@ -119,6 +127,68 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
         )
         return counts
     }
+
+    /**
+     * Counts the rows that [resolved] says belong to [OwnerRowIds.ownerId], without deleting any.
+     *
+     * Identical structure to [erase] — same reads, same ordering — so the counts are accurate
+     * even for tables where the count depends on a parent id that must be read first.
+     *
+     * @return what [erase] would remove, with all delete- calls replaced by count- calls.
+     */
+    suspend fun preview(resolved: OwnerRowIds): EraseCounts {
+        val scopes = resolved.scopedUserIds
+        require(scopes.isNotEmpty()) {
+            "refusing to preview an owner with no resolved scope; resolve first"
+        }
+
+        val scope = database.ownerScopeDao()
+        val taskIds = scope.listTaskIdsForOwner(scopes)
+        val projectIds = scope.listProjectIdsForOwner(scopes)
+
+        val preview = database.ownerEraseDao()
+        val tagRefs = if (taskIds.isEmpty()) 0 else preview.countTagRefs(taskIds, scopes)
+        val dependencies = if (taskIds.isEmpty()) 0 else preview.countDependencies(taskIds, scopes)
+        val checklists = if (taskIds.isEmpty()) 0 else preview.countChecklistItems(taskIds, scopes)
+        val inherited = if (projectIds.isEmpty()) {
+            0
+        } else {
+            preview.countInheritedTagGroups(projectIds, scopes)
+        }
+
+        val notes = preview.countNotes(scopes)
+        val projects = preview.countProjects(scopes)
+        val tags = preview.countTags(scopes)
+        val taskReminders = preview.countTaskReminders(scopes)
+        val projectReminders = preview.countProjectReminders(scopes)
+        val tagGroups = preview.countTagGroups(scopes)
+        val timeEntries = preview.countTimeEntries(scopes)
+        val agendaViews = preview.countAgendaViews(scopes)
+        val tasks = preview.countTasks(scopes)
+
+        val outbox = database.syncOutboxDao().countForOwner(resolved.ownerId)
+        val deadLetter = database.syncDeadLetterDao().countForOwner(resolved.ownerId)
+        val shadow = database.syncShadowDao().countForOwner(resolved.ownerId)
+
+        return EraseCounts(
+            tasks = tasks,
+            notes = notes,
+            projects = projects,
+            tags = tags,
+            tagRefs = tagRefs,
+            dependencies = dependencies,
+            checklists = checklists,
+            inheritedTagGroups = inherited,
+            taskReminders = taskReminders,
+            projectReminders = projectReminders,
+            tagGroups = tagGroups,
+            timeEntries = timeEntries,
+            agendaViews = agendaViews,
+            outbox = outbox,
+            deadLetter = deadLetter,
+            shadows = shadow,
+        )
+    }
 }
 
 /**
@@ -127,30 +197,38 @@ class OwnerScopedEraser(private val database: AppDatabase, private val log: (Str
  * Carried rather than returned as `Unit` so a caller — or a test — can tell "there was
  * nothing to remove" from "the delete matched a different set than expected". Both look
  * identical from the outside otherwise, and only one of them is correct.
+ *
+ * Implements [OwnerOperationCounts] so that the 12 shared counters are declared in
+ * one place; the 5 child-row counters and 2 computed properties are erase-specific.
  */
 data class EraseCounts(
-    val tasks: Int = 0,
-    val notes: Int = 0,
-    val projects: Int = 0,
-    val tags: Int = 0,
+    // ── 12 shared counters (OwnerOperationCounts) ────────────────────────────
+    override val tasks: Int = 0,
+    override val notes: Int = 0,
+    override val projects: Int = 0,
+    override val tags: Int = 0,
+    override val tagGroups: Int = 0,
+    override val taskReminders: Int = 0,
+    override val projectReminders: Int = 0,
+    override val timeEntries: Int = 0,
+    override val agendaViews: Int = 0,
+    override val outbox: Int = 0,
+    override val deadLetter: Int = 0,
+    override val shadows: Int = 0,
+    // ── Erase-specific ─────────────────────────────────────────────────────
     val tagRefs: Int = 0,
     val dependencies: Int = 0,
     val checklists: Int = 0,
     val inheritedTagGroups: Int = 0,
-    val taskReminders: Int = 0,
-    val projectReminders: Int = 0,
-    val tagGroups: Int = 0,
-    val outbox: Int = 0,
-    val deadLetter: Int = 0,
-    val shadows: Int = 0,
-) {
+) : OwnerOperationCounts {
     /** Every row removed that hangs off a parent by id rather than carrying its own owner. */
     val childRows: Int get() = tagRefs + dependencies + checklists + inheritedTagGroups
 
     /** Whether anything at all was removed. */
-    val isEmpty: Boolean
+    override val isEmpty: Boolean
         get() = tasks + notes + projects + tags + childRows +
-            taskReminders + projectReminders + tagGroups + outbox + deadLetter + shadows == 0
+            taskReminders + projectReminders + tagGroups + timeEntries + agendaViews +
+            outbox + deadLetter + shadows == 0
 
     override fun toString(): String = buildString {
         append("{")
@@ -159,7 +237,7 @@ data class EraseCounts(
         append(", projects=").append(projects)
         append(", tags=").append(tags)
         append(", childRows=").append(childRows)
-        append(", sync=").append(outbox + deadLetter + shadows)
+        append(", sync=").append(syncTotal)
         append("}")
     }
 }

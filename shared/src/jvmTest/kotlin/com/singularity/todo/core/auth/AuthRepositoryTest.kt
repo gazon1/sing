@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -47,6 +48,7 @@ class AuthRepositoryTest {
         log = testLogger(),
         gateway = gateway,
         sessionStore = store,
+        localOwnerStore = legacy,
         scope = AutoCloseableCoroutineScope(coroutineContext),
     )
 
@@ -89,19 +91,111 @@ class AuthRepositoryTest {
         assertEquals("new@b.c", assertIs<Session.SignedIn>(repository.currentSession.value).email)
     }
 
+    // ── REQ-UA-004 — the local session ────────────────────────────────────────
+
     @Test
-    fun `an anonymous session is a real identity and leaves no tokens behind`() = runTest {
-        // REQ-UA-004. A session with no credentials must not leave tokens: the next
-        // launch would find an access token with no refresh token and try to refresh
-        // it, which is a signed-out user reported as an error.
+    fun `the local session contacts no provider at all`() = runTest {
+        // The whole point. This method used to be `gateway.signInAnonymously()`, so a
+        // device with no project — or no network, which is the entire reason the button
+        // exists — got an error and stayed on the auth screen.
         val repository = repository()
         awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.anonymousResult = Result.success(anonymous())
 
-        assertTrue(repository.signInAnonymously().isSuccess)
+        assertTrue(repository.startLocalSession().isSuccess)
 
-        assertEquals(UserId.fromString("anon-1"), assertIs<Session.Anonymous>(repository.currentSession.value).userId)
+        assertEquals(0, gateway.signInCalls)
+        assertEquals(0, gateway.signUpResultCalls)
+    }
+
+    @Test
+    fun `the local session is a local identity and leaves no tokens behind`() = runTest {
+        // A session with no credentials must not leave tokens: the next launch would
+        // find an access token with no refresh token and try to refresh it, which is a
+        // signed-out user reported as an error.
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+
+        assertTrue(repository.startLocalSession().isSuccess)
+
+        val session = assertIs<Session.Anonymous>(repository.currentSession.value)
+        assertTrue(
+            session.userId.value.startsWith(DataStoreSessionStore.LOCAL_OWNER_PREFIX),
+            "a local owner is namespaced so it can never collide with a provider id, was ${session.userId.value}",
+        )
         assertNull(secure.values[SecureSessionStore.KEY_ACCESS])
+    }
+
+    @Test
+    fun `the local session survives the next launch`() = runTest {
+        // The bug this whole path exists to remove: the auth screen reappearing over an
+        // app the user had already been let into, on every cold start.
+        val first = repository()
+        awaitState { first.currentSession.value !is Session.Loading }
+        assertTrue(first.startLocalSession().isSuccess)
+        val owner = assertIs<Session.Anonymous>(first.currentSession.value).userId
+
+        val second = repository()
+        awaitState { second.currentSession.value !is Session.Loading }
+
+        assertEquals(owner, assertIs<Session.Anonymous>(second.currentSession.value).userId)
+    }
+
+    @Test
+    fun `a stored token outranks the local marker`() = runTest {
+        // Both can be on disk at once: an account signed in, then a sign-out that
+        // cleared the marker but whose token write failed. The token is the real
+        // session, and resuming local instead would show the user their empty local
+        // data while holding valid credentials for an account.
+        // Seeded before the second repository exists: its `init` launches the restore,
+        // so a value written afterwards would race the very branch under test.
+        store.save(Session.SignedIn(UserId.fromString("owner-1"), "a@b.c", "access-1", "refresh-1"))
+        legacy.markLocalSessionActive()
+        gateway.refreshResult = Result.success(signedIn())
+
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+
+        assertIs<Session.SignedIn>(repository.currentSession.value)
+    }
+
+    @Test
+    fun `signing out forgets the offline mode but keeps the local owner id`() = runTest {
+        // The id is the only thing that can still find rows created offline. Clearing
+        // it would orphan every task the user made without an account, with no error,
+        // and the next local session would generate a different one.
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+        assertTrue(repository.startLocalSession().isSuccess)
+        val owner = assertIs<Session.Anonymous>(repository.currentSession.value).userId
+
+        assertTrue(repository.signOut().isSuccess)
+
+        assertFalse(legacy.isLocalSessionActive())
+        assertEquals(owner, UserId.fromString(legacy.getOrInitLocalOwnerId()))
+        assertIs<Session.SignedOut>(repository.currentSession.value)
+    }
+
+    @Test
+    fun `continuing offline again after a sign-out lands on the same owner`() = runTest {
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+        assertTrue(repository.startLocalSession().isSuccess)
+        val owner = assertIs<Session.Anonymous>(repository.currentSession.value).userId
+        repository.signOut()
+
+        assertTrue(repository.startLocalSession().isSuccess)
+
+        assertEquals(owner, assertIs<Session.Anonymous>(repository.currentSession.value).userId)
+    }
+
+    @Test
+    fun `a fresh install with no marker shows the login screen`() = runTest {
+        // The other half of "sign out keeps the id": without a marker there is nothing
+        // to resume, and a user who has never chosen offline must still be asked.
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+
+        assertIs<Session.SignedOut>(repository.currentSession.value)
     }
 
     @Test
@@ -282,64 +376,56 @@ class AuthRepositoryTest {
         assertEquals(Session.SignedOut, repository.currentSession.value)
     }
 
-    // ── REQ-UA-005 — attaching an account to an anonymous session ────────────
+    // ── REQ-UA-005 — attaching an account ────────────────────────────────────
+    //
+    // The repository's half of attaching is an ordinary sign-in: the credentials are
+    // validated and the provider is asked, and the owner that comes back is whatever
+    // identity the account has always had. What happens to the local rows afterwards is
+    // `LocalAccountClaimer`'s job — it needs the database collaborators this repository
+    // deliberately does not hold. What is tested here is that the two halves join up
+    // without a gap.
 
     @Test
-    fun `attaching an account keeps the owner, so existing data stays reachable`() = runTest {
+    fun `attaching an account is a sign-in, and the local session is no longer live`() = runTest {
         val repository = repository()
         awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.anonymousResult = Result.success(anonymous())
-        repository.signInAnonymously()
-        gateway.attachResult = Result.success(RemoteSession("anon-1", "new@b.c", "a2", "r2", isAnonymous = false))
+        assertTrue(repository.startLocalSession().isSuccess)
+        val local = assertIs<Session.Anonymous>(repository.currentSession.value).userId
+        gateway.signInResult = Result.success(signedIn())
 
-        assertTrue(repository.migrateAnonymousTo("new@b.c", "password123").isSuccess)
+        assertTrue(repository.signIn("new@b.c", "password123").isSuccess)
 
         val session = assertIs<Session.SignedIn>(repository.currentSession.value)
-        assertEquals(
-            UserId.fromString("anon-1"),
+        assertEquals(UserId.fromString("owner-1"), session.userId)
+        assertNotEquals(
+            local,
             session.userId,
-            "the owner is unchanged, so every row already written under it is this account's",
+            "the account's own id differs from the local one — which is exactly why the rows " +
+                "have to be moved rather than left where they are",
         )
     }
 
     @Test
-    fun `an attach that changes the owner is reported, not adopted`() = runTest {
-        // The one case the "nothing moves" argument does not cover. A provider that
-        // issued a different id would orphan every row: local data under the old
-        // owner, server data under the new one, and no error from either side.
+    fun `a wrong password on attach leaves the local session exactly as it was`() = runTest {
         val repository = repository()
         awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.anonymousResult = Result.success(anonymous())
-        repository.signInAnonymously()
-        gateway.attachResult = Result.success(RemoteSession("anon-2", "new@b.c", "a2", "r2", isAnonymous = false))
+        assertTrue(repository.startLocalSession().isSuccess)
+        val local = assertIs<Session.Anonymous>(repository.currentSession.value).userId
+        gateway.signInResult = Result.failure(AppError.Unauthorized("invalid credentials"))
 
-        val result = repository.migrateAnonymousTo("new@b.c", "password123")
+        assertTrue(repository.signIn("new@b.c", "wrong-password").isFailure)
 
-        assertEquals("auth.ownership_changed", assertIs<AppError>(result.exceptionOrNull()).code)
-    }
-
-    @Test
-    fun `attaching to a signed-in session is refused before the provider is asked`() = runTest {
-        val repository = repository()
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signInResult = Result.success(signedIn())
-        repository.signIn("a@b.c", "password123")
-
-        val result = repository.migrateAnonymousTo("new@b.c", "password123")
-
-        assertEquals("auth.not_anonymous", assertIs<AppError>(result.exceptionOrNull()).code)
-        assertEquals(0, gateway.attachCalls)
+        assertEquals(local, assertIs<Session.Anonymous>(repository.currentSession.value).userId)
     }
 
     @Test
     fun `attaching with an invalid address never reaches the provider`() = runTest {
         val repository = repository()
         awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.anonymousResult = Result.success(anonymous())
-        repository.signInAnonymously()
+        assertTrue(repository.startLocalSession().isSuccess)
 
-        assertTrue(repository.migrateAnonymousTo("nope", "short").isFailure)
-        assertEquals(0, gateway.attachCalls)
+        assertTrue(repository.signIn("nope", "short").isFailure)
+        assertEquals(0, gateway.signInCalls)
     }
 
     // ── REQ-UA-009, REQ-UA-010 — the address the provider is asked about ────
@@ -357,10 +443,10 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun `the same address arrives at sign-up and at attach, folded the same way`() = runTest {
-        // Three entry points, one normalisation: a fold applied to only some of them
-        // is how a user gets "already registered" from one screen and a fresh account
-        // from another.
+    fun `the same address arrives at sign-up and at sign-in, folded the same way`() = runTest {
+        // Two entry points, one normalisation: a fold applied to only one of them is
+        // how a user gets "already registered" from one screen and a fresh account from
+        // another.
         val repository = repository()
         awaitState { repository.currentSession.value !is Session.Loading }
 
@@ -368,11 +454,9 @@ class AuthRepositoryTest {
         repository.signUp(" Signup@Mail.COM ", "password123")
         assertEquals("signup@mail.com", gateway.lastSignUpEmail)
 
-        gateway.anonymousResult = Result.success(anonymous())
-        repository.signInAnonymously()
-        gateway.attachResult = Result.success(RemoteSession("anon-1", "a@b.c", "a1", "r1", isAnonymous = false))
-        repository.migrateAnonymousTo(" Attach@Mail.COM ", "password123")
-        assertEquals("attach@mail.com", gateway.lastAttachEmail)
+        gateway.signInResult = Result.success(signedIn())
+        repository.signIn(" Signin@Mail.COM ", "password123")
+        assertEquals("signin@mail.com", gateway.lastSignInEmail)
     }
 
     @Test
@@ -416,6 +500,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -438,6 +523,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -463,6 +549,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -497,6 +584,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -525,6 +613,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -550,6 +639,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -571,6 +661,7 @@ class AuthRepositoryTest {
                 secure = secure,
                 legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             ),
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
         awaitState { repository.currentSession.value !is Session.Loading }
@@ -638,16 +729,12 @@ class AuthRepositoryTest {
 
     private fun signedIn(email: String = "a@b.c") =
         RemoteSession("owner-1", email, "access-1", "refresh-1", isAnonymous = false)
-
-    private fun anonymous() = RemoteSession("anon-1", null, "access-a", "refresh-a", isAnonymous = true)
 }
 
 /** A gateway whose every answer is set by the test. */
 private class ScriptedGateway : AuthGateway {
     var signInResult: Result<RemoteSession> = Result.failure(AppError.Unauthorized("not scripted"))
     var signUpResult: Result<RemoteSession> = signInResult
-    var anonymousResult: Result<RemoteSession> = signInResult
-    var attachResult: Result<RemoteSession> = signInResult
     var signOutResult: Result<Unit> = Result.success(Unit)
     var refreshResult: Result<RemoteSession?> = Result.success(null)
     var sendMagicLinkResult: Result<Unit> = Result.success(Unit)
@@ -656,7 +743,7 @@ private class ScriptedGateway : AuthGateway {
     )
 
     var signInCalls = 0
-    var attachCalls = 0
+    var signUpResultCalls = 0
     var signOutCalls = 0
     var sendMagicLinkCalls = 0
     var verifyMagicLinkCalls = 0
@@ -664,10 +751,10 @@ private class ScriptedGateway : AuthGateway {
     /** The address the repository actually sent, which is not the one it was given. */
     var lastSignUpEmail: String? = null
     var lastSignInEmail: String? = null
-    var lastAttachEmail: String? = null
     var lastMagicLinkEmail: String? = null
 
     override suspend fun signUp(email: String, password: String): Result<RemoteSession> {
+        signUpResultCalls++
         lastSignUpEmail = email
         return signUpResult
     }
@@ -676,14 +763,6 @@ private class ScriptedGateway : AuthGateway {
         signInCalls++
         lastSignInEmail = email
         return signInResult
-    }
-
-    override suspend fun signInAnonymously(): Result<RemoteSession> = anonymousResult
-
-    override suspend fun attachEmail(email: String, password: String): Result<RemoteSession> {
-        attachCalls++
-        lastAttachEmail = email
-        return attachResult
     }
 
     override suspend fun signOut(): Result<Unit> {

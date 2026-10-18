@@ -7,6 +7,7 @@ import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -106,10 +107,26 @@ class OwnerScopedEraserTest {
         updatedAt = 1_000L,
     )
 
+    private fun timeEntry(id: String, userId: String, taskId: String) = TimeEntryEntity(
+        id = id,
+        userId = userId,
+        taskId = taskId,
+        startedAt = 1_000L,
+        endedAt = 2_000L,
+        kind = "Work",
+        source = "Manual",
+        note = null,
+        createdAt = 1_000L,
+        updatedAt = 1_000L,
+    )
+
     private fun db() = FakeAppDatabase()
 
     private suspend fun OwnerScopedEraser.eraseOwner(db: FakeAppDatabase, owner: UserId): EraseCounts =
         erase(OwnerRowIdResolver(db).resolve(owner))
+
+    private suspend fun OwnerScopedEraser.previewOwner(db: FakeAppDatabase, owner: UserId): EraseCounts =
+        preview(OwnerRowIdResolver(db).resolve(owner))
 
     @Test
     fun `the owner's tasks are gone`() = runTest {
@@ -235,5 +252,89 @@ class OwnerScopedEraserTest {
 
         assertTrue(failure is IllegalArgumentException, "an unscoped erase was allowed through")
         assertEquals(1, db.taskDao().watchActive(owner.value).first().size)
+    }
+
+    /**
+     * time_entries are hard-deleted, not soft-deleted. There is no `deleted_at` set on
+     * them — an erase means the row is gone, because time entries are append-only
+     * accounting facts and a correction is a new entry, not a restoration of the old one.
+     */
+    @Test
+    fun `time entries are hard-deleted and leave no trace`() = runTest {
+        val db = db()
+        db.seedTasks(listOf(task("t1", owner.value), task("t2", other.value)))
+        db.seedTimeEntries(
+            listOf(
+                timeEntry("te1", owner.value, "t1"),
+                timeEntry("te2", owner.value, "t1"),
+                timeEntry("te3", other.value, "t2"),
+            ),
+        )
+
+        val counts = OwnerScopedEraser(db).eraseOwner(db, owner)
+
+        assertEquals(2, counts.timeEntries, "both of the owner's time entries were counted")
+        assertTrue(
+            db.timeEntryDao().watchForTask("t1").first().isEmpty(),
+            "the owner's time entries are gone",
+        )
+        assertEquals(
+            1,
+            db.timeEntryDao().watchForTask("t2").first().size,
+            "the other account's time entry survived",
+        )
+    }
+
+    // ── preview() ─────────────────────────────────────────────────────────────
+
+    /**
+     * `preview()` must not delete anything. The key invariant: after preview,
+     * `erase()` returns the same counts and then the rows are gone.
+     */
+    @Test
+    fun `preview() counts without deleting`() = runTest {
+        val db = db()
+        db.seedProfiles(listOf(profile("prof", owner.value)))
+        db.seedTasks(listOf(task("t1", owner.value), task("t2", other.value)))
+        db.seedNotes(listOf(note("n1", owner.value)))
+
+        val previewCounts = OwnerScopedEraser(db).previewOwner(db, owner)
+
+        assertEquals(1, previewCounts.tasks)
+        assertEquals(1, previewCounts.notes)
+        // The other account's rows survive.
+        assertEquals(1, db.taskDao().watchActive(other.value).first().size)
+        // The owner's rows also survive — preview did not touch them.
+        assertEquals(1, db.taskDao().watchActive(owner.value).first().size)
+    }
+
+    @Test
+    fun `preview() counts match what erase() will remove`() = runTest {
+        val db = db()
+        db.seedProfiles(listOf(profile("prof", owner.value)))
+        db.seedTasks(listOf(task("t1", owner.value)))
+        db.seedNotes(listOf(note("n1", owner.value)))
+
+        val preview = OwnerScopedEraser(db).previewOwner(db, owner)
+        val erased = OwnerScopedEraser(db).eraseOwner(db, owner)
+
+        assertEquals(preview.tasks, erased.tasks)
+        assertEquals(preview.notes, erased.notes)
+        assertEquals(preview.projects, erased.projects)
+        assertEquals(preview.tags, erased.tags)
+        assertEquals(preview.tagRefs, erased.tagRefs)
+        assertEquals(preview.dependencies, erased.dependencies)
+        assertEquals(preview.checklists, erased.checklists)
+    }
+
+    @Test
+    fun `preview() on empty owner returns zero counts`() = runTest {
+        val db = db()
+        db.seedTasks(listOf(task("t1", other.value)))
+
+        val counts = OwnerScopedEraser(db).previewOwner(db, owner)
+
+        assertTrue(counts.isEmpty, "preview of an empty owner reported rows")
+        assertEquals(1, db.taskDao().watchActive(other.value).first().size, "another account's rows vanished")
     }
 }

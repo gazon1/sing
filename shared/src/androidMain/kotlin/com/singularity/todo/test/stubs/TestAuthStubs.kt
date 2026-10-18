@@ -70,8 +70,8 @@ class StubAuthRepository : AuthRepository {
     var signUpFailure = false
 
     /**
-     * When `true`, [migrateAnonymousTo] returns a failure result, simulating
-     * a network error or ownership-conflict server response.
+     * When `true`, [signIn] returns a failure result, simulating the network error or
+     * a rejected password on the attach screen.
      *
      * Driven by `debug.stub_auth.attach_failure` system property (lazy read).
      */
@@ -111,13 +111,13 @@ class StubAuthRepository : AuthRepository {
     }
 
     override suspend fun signIn(email: String, password: String): Result<Unit> {
-        if (signInFailure || isFailurePropSet("debug.stub_auth.signin_failure")) {
+        if (signInFailure || attachFailure || isFailurePropSet("debug.stub_auth.signin_failure")) {
             signInFailure = false
             return networkFailure()
         }
         return Result.success(Unit)
     }
-    override suspend fun signInAnonymously(): Result<Unit> {
+    override suspend fun startLocalSession(): Result<Unit> {
         _currentSession.value = Session.Anonymous(
             userId = UserId.fromString("00000000-0000-0000-0000-000000000001"),
         )
@@ -126,23 +126,6 @@ class StubAuthRepository : AuthRepository {
 
     override suspend fun signOut(): Result<Unit> {
         _currentSession.value = Session.SignedOut
-        return Result.success(Unit)
-    }
-
-    override suspend fun migrateAnonymousTo(email: String, password: String): Result<Unit> {
-        if (attachFailure || isFailurePropSet("debug.stub_auth.attach_failure")) {
-            attachFailure = false
-            return networkFailure()
-        }
-        // StubAuthRepository keeps the same userId across anonymous→signed-in,
-        // mirroring how the real Supabase provider attaches credentials to the
-        // existing identity without changing the owner.
-        _currentSession.value = Session.SignedIn(
-            userId = UserId.fromString("00000000-0000-0000-0000-000000000001"),
-            email = email,
-            accessToken = "test-access-token",
-            refreshToken = "test-refresh-token",
-        )
         return Result.success(Unit)
     }
 
@@ -162,12 +145,6 @@ class NoOpAuthGateway : AuthGateway {
         Result.success(dummySignedInSession())
 
     override suspend fun signIn(email: String, password: String): Result<RemoteSession> =
-        Result.success(dummySignedInSession())
-
-    override suspend fun signInAnonymously(): Result<RemoteSession> =
-        Result.success(dummyAnonymousSession())
-
-    override suspend fun attachEmail(email: String, password: String): Result<RemoteSession> =
         Result.success(dummySignedInSession())
 
     override suspend fun signOut(): Result<Unit> = Result.success(Unit)

@@ -50,6 +50,7 @@ class AccountSwitcher(
     private val syncRepository: SyncRepository,
     private val resolver: OwnerRowIdResolver,
     private val eraser: OwnerScopedEraser,
+    private val calculator: OwnerCountsCalculator,
 ) {
 
     private val _progress = MutableStateFlow<SwitchStep>(SwitchStep.Idle)
@@ -121,12 +122,14 @@ class AccountSwitcher(
     }
 
     private suspend fun erase(departing: UserId): Result<Unit> {
-        _progress.value = SwitchStep.Erasing(departing)
+        val resolved = resolver.resolve(departing)
+        val (_, eraseCounts) = calculator.compute(resolved)
+        _progress.value = SwitchStep.Erasing(departing, eraseCounts)
         // `erase` returns counts and throws; the trailing `Unit` is what keeps this a
         // `Result<Unit>` step rather than a `Result<EraseCounts>` one, so the chain
         // below does not have to know what was removed.
         return runCatchingResult {
-            eraser.erase(resolver.resolve(departing))
+            eraser.erase(resolved)
             Unit
         }
     }
@@ -207,7 +210,7 @@ sealed interface SwitchStep {
     data class Delivering(val owner: UserId) : SwitchStep
 
     /** Removing the departing account's local rows. */
-    data class Erasing(val owner: UserId) : SwitchStep
+    data class Erasing(val owner: UserId, val counts: EraseCounts) : SwitchStep
 
     data object SigningIn : SwitchStep
 

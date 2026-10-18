@@ -62,6 +62,7 @@ class SignOutKeepsLocalDataTest {
             secure = MapSecureStorage(),
             legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
         ),
+        localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
         scope = AutoCloseableCoroutineScope(coroutineContext),
     )
 
@@ -100,12 +101,6 @@ class SignOutKeepsLocalDataTest {
             Result.failure(AppError.Network("offline"))
 
         override suspend fun signIn(email: String, password: String): Result<RemoteSession> =
-            Result.failure(AppError.Network("offline"))
-
-        override suspend fun signInAnonymously(): Result<RemoteSession> =
-            Result.failure(AppError.Network("offline"))
-
-        override suspend fun attachEmail(email: String, password: String): Result<RemoteSession> =
             Result.failure(AppError.Network("offline"))
 
         override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
