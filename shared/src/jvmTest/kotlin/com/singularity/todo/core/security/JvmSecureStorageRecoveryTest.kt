@@ -3,7 +3,6 @@ package com.singularity.todo.core.security
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
