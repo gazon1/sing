@@ -19,7 +19,6 @@ import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
-import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 
 /**
