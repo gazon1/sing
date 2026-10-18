@@ -9,7 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
@@ -19,7 +18,6 @@ import com.singularity.todo.feature.agenda.presentation.screen.SavedAgendaScreen
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
-import kotlinx.coroutines.flow.first
 import org.koin.compose.koinInject
 
 /**
@@ -69,6 +67,7 @@ fun AgendaNavContent(
             // Uses LaunchedEffect (key = all four values) so recomposition does not
             // re-run the block; it fires exactly once when the keys change.
             LaunchedEffect(dayStart, dayEnd, lunchStart, lunchEnd) {
+                @Suppress("ComplexCondition") // four independent non-negative integer checks
                 workDefinition = if (dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0) {
                     AgendaPresets.workDayPreset(dayStart, dayEnd, lunchStart, lunchEnd)
                 } else {

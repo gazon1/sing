@@ -161,7 +161,13 @@ fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions, modi
                 selected = false,
                 onClick = actions::onOpenInheritedTagGroupsSheet,
                 label = { Text("${ui.project.inheritedTagGroupIds.size} tag groups") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                leadingIcon = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Label,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                },
             )
         }
     }

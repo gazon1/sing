@@ -550,9 +550,11 @@ fun SwipeableNoteCard(
             SwipeToDismissBoxValue.StartToEnd -> {
                 if (!isArchived) onTogglePin()
             }
+
             SwipeToDismissBoxValue.EndToStart -> {
                 if (isArchived) onUnarchive() else onDelete()
             }
+
             SwipeToDismissBoxValue.Settled -> {}
         }
     }

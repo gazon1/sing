@@ -146,7 +146,11 @@ actual fun AppContent(
             }
 
             deeplinkViewId != null -> {
-                navigator.open(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId.fromString(deeplinkViewId))))
+                navigator.open(
+                    AppDestination.AgendaGraph(
+                        AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId.fromString(deeplinkViewId)),
+                    ),
+                )
             }
         }
     }

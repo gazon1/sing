@@ -127,7 +127,13 @@ class AndroidNotifier(
         ).apply {
             description = "Gentle reminders for tasks"
             setSound(
-                if (sound) android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION) else null,
+                if (sound) {
+                    android.media.RingtoneManager.getDefaultUri(
+                        android.media.RingtoneManager.TYPE_NOTIFICATION,
+                    )
+                } else {
+                    null
+                },
                 null,
             )
             setVibrationPattern(if (vibration) longArrayOf(0, 250, 250, 250) else null)

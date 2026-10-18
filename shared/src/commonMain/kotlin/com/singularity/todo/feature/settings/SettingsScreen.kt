@@ -133,7 +133,7 @@ fun SettingsScreen(
     var tagsCountdownProgress by remember { mutableStateOf<Float?>(null) }
 
     // Show snackbar on error, then dismiss it
-    @Suppress("USELESS_CAST") // uiState is always Content (sealed interface has one subtype); cast needed for smart-cast in LaunchedEffect key
+    @Suppress("USELESS_CAST") // sealed interface, one subtype; cast enables smart-cast
     LaunchedEffect((uiState as SettingsUiState.Content).errorMessage) {
         val msg =
             uiState.errorMessage

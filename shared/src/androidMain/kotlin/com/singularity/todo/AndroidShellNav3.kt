@@ -132,8 +132,10 @@ fun androidShellNav3Root(
         val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
         LaunchedEffect(state.topLevelRoute) {
             if (navDisplayEntries.isEmpty()) {
-                println("WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
-                    "Check that the entryProvider covers this route.")
+                println(
+                    "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
+                        "Check that the entryProvider covers this route.",
+                )
             }
         }
 

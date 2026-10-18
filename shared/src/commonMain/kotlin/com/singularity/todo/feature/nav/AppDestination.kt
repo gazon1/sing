@@ -20,8 +20,6 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
-import com.singularity.todo.feature.tags.TagId
 
 /**
  * Top-level destinations shown in the Android bottom navigation bar.
