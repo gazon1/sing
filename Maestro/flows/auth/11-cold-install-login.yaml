@@ -1,0 +1,59 @@
+# AUTH-FIRSTRUN-04: the login screen appears on a cold, empty install.
+#
+# preconditions: clean install, no account, no previous app data at all.
+# steps:
+#   1. Install the app over a clean state (clearState: true).
+#   2. Launch it and do not touch anything.
+# expected: the login screen with "Continue Offline" appears within the restore budget.
+#
+# ## Why this flow exists at all
+#
+# `launch-clean.yaml` keeps `clearState: false` on purpose: the emulator snapshot
+# carries a pre-authenticated session, and clearing it would drop every other flow
+# onto the auth screen. That decision is right for the flows that are about
+# features, and it has one cost — the `Session.Loading → Session.SignedOut`
+# transition was exercised by nothing at all.
+#
+# Then `restoreSession` lost both its bounds and its handler: PR #720 turned the
+# no-token path into two DataStore reads, and a session store that hangs or throws
+# left `AuthGuard` on `Session.Loading` for the whole life of the install. A device
+# on an unfinishable launch screen is not a degraded experience, it is a bricked
+# app, and the suite could not have seen it.
+#
+# The bug needs an empty secure store and a live local-owner store to reach, and a
+# snapshot install has neither. This flow is the only one that starts from nothing,
+# which makes it the only one that can.
+#
+# The timeout is REQ-UA-015's budget (10 s) plus margin for a cold start on a
+# loaded host. Asserting the *absence* of a spinner would pass just as well and
+# prove nothing: the spinner is what a broken launch shows, so only its replacement
+# is evidence.
+appId: com.singularity.todo
+name: auth-first-run-login-visible
+tags:
+  - regression
+  - auth
+  - AUTH-FIRSTRUN-04
+---
+- launchApp:
+    appId: com.singularity.todo
+    clearState: true
+
+# The restore has to finish. 30 s is the 10 s budget plus enough slack that a slow
+# emulator is not reported as a stuck launch.
+- extendedWaitUntil:
+    visible:
+      id: auth_continue_offline_button
+    timeout: 30000
+
+# Present and usable, not merely rendered: a control that is on screen but
+# disabled still leaves the user with no way in.
+- assertVisible:
+    id: auth_email_input
+- assertVisible:
+    id: auth_continue_offline_button
+
+# The spinner is what a failed restore looks like, so it must be gone by now.
+# Asserting its absence is the assertion that names the regression.
+- assertNotVisible:
+    id: loading_indicator

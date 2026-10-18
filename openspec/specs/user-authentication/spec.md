@@ -247,3 +247,35 @@ user, and SHALL NOT enter the application as though a session existed.
 - One attempt fails outright and another succeeds with no session
 - The two are reported differently, so the user is not sent to check their mail for an
   attempt that never created an account
+
+---
+
+### Requirement: REQ-UA-015
+
+Restoring a session on launch SHALL complete within a bounded time and SHALL NOT leave the
+application in a loading state, whatever state the session store is in. A store that does
+not answer, and a store that cannot be read, SHALL both end at a signed-out session the user
+can recover from with a single action.
+
+#### Scenario: A store that never answers does not hold the launch open
+- The stored session cannot be read because the store does not respond
+- The application stops waiting and shows the login screen
+
+#### Scenario: A store that cannot be read does not hold the launch open
+- The stored session cannot be read because the store raises a failure — for instance an
+  encrypted store whose decryption key no longer exists on this device
+- The application stops waiting and shows the login screen
+
+#### Scenario: A failure to restore is not reported as a session
+- The restore could not be completed
+- The session state visible to the rest of the application is signed out, and no part of
+  the application treats the user as signed in
+
+#### Scenario: The user can get back in after a failed restore
+- The login screen is shown following a restore that could not be completed
+- Signing in, or choosing to work offline, succeeds on a store that has recovered
+
+#### Scenario: An encrypted store is not restored without its key
+- A reinstall restores application data
+- The session store is excluded from that restore, because the key that decrypts it cannot
+  be restored and a store whose ciphertext and key disagree is unreadable by construction

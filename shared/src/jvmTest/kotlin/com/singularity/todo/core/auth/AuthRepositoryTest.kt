@@ -376,6 +376,144 @@ class AuthRepositoryTest {
         assertEquals(Session.SignedOut, repository.currentSession.value)
     }
 
+    // ── REQ-UA-015 — a store that cannot answer, and one that cannot be read ─
+    //
+    // Every case above is a store that works and a server that misbehaves. These four
+    // are the ones that were missing, and missing them is why a real device spent a
+    // release on an unfinishable launch: the fakes built for this suite all answer in
+    // microseconds, so "the store never answers" had no way to be written down, let
+    // alone asserted on.
+    //
+    // Hanging and throwing look the same from the outside and are not the same bug.
+    // A hang is a timeout; a throw is not — `withTimeoutOrNull` returns null only for
+    // `TimeoutCancellationException` and passes everything else straight through. So
+    // each pair here needs its own test: fixing one path leaves the other broken, and
+    // the UI cannot tell the difference.
+
+    /** The restore budget is 10 s of virtual time; `awaitState` needs more than that. */
+    private fun TestScope.awaitRestoreSettled(repository: SupabaseAuthRepository) = awaitState(
+        timeoutMs = RESTORE_BUDGET_PLUS_MARGIN_MS,
+    ) { repository.currentSession.value !is Session.Loading }
+
+    @Test
+    fun `a secure store that never answers still leaves the loading session`() = runTest {
+        val hanging = HangingSecureStorage()
+        val frozen = DataStoreSessionStore(hangingPreferencesStore(), FixedIdGenerator("dev"))
+        val repository = SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
+            sessionStore = SecureSessionStore(log = testLogger(), secure = hanging, legacy = frozen),
+            localOwnerStore = frozen,
+            scope = AutoCloseableCoroutineScope(coroutineContext),
+        )
+
+        awaitRestoreSettled(repository)
+
+        assertEquals(
+            Session.SignedOut,
+            repository.currentSession.value,
+            "an unresponsive store leaves nothing to restore, so the login screen is the honest answer",
+        )
+    }
+
+    @Test
+    fun `a secure store that cannot be read still leaves the loading session`() = runTest {
+        // The uninstall/reinstall case: Auto Backup brings the ciphertext back, the
+        // Android Keystore key that decrypts it does not exist, and the first read
+        // raises a security failure for the rest of the install's life.
+        val repository = SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
+            sessionStore = SecureSessionStore(
+                log = testLogger(),
+                secure = ThrowingSecureStorage { SecurityException("no such key") },
+                legacy = legacy,
+            ),
+            localOwnerStore = legacy,
+            scope = AutoCloseableCoroutineScope(coroutineContext),
+        )
+
+        awaitRestoreSettled(repository)
+
+        assertEquals(Session.SignedOut, repository.currentSession.value)
+    }
+
+    @Test
+    fun `a local owner store that never answers still leaves the loading session`() = runTest {
+        // The other store on the first-launch path. With nothing stored, deciding
+        // between "offline" and "signed out" is a read of exactly this store, so a
+        // store that hangs here is the one a fresh install actually meets.
+        val frozen = DataStoreSessionStore(hangingPreferencesStore(), FixedIdGenerator("dev"))
+        val repository = SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
+            sessionStore = store,
+            localOwnerStore = frozen,
+            scope = AutoCloseableCoroutineScope(coroutineContext),
+        )
+
+        awaitRestoreSettled(repository)
+
+        assertEquals(Session.SignedOut, repository.currentSession.value)
+    }
+
+    @Test
+    fun `a local owner store that cannot be read still leaves the loading session`() = runTest {
+        // SecurityException, not IOException: `catchDataStoreIoError` catches
+        // IOException and substitutes empty preferences, so an IOException fake would
+        // exercise the branch that already works and pass for the wrong reason.
+        val broken = DataStoreSessionStore(
+            throwingPreferencesStore { SecurityException("corrupt") },
+            FixedIdGenerator("dev"),
+        )
+        val repository = SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
+            sessionStore = store,
+            localOwnerStore = broken,
+            scope = AutoCloseableCoroutineScope(coroutineContext),
+        )
+
+        awaitRestoreSettled(repository)
+
+        assertEquals(Session.SignedOut, repository.currentSession.value)
+    }
+
+    @Test
+    fun `a store that keeps throwing makes a sign-in a failure, not a crash`() = runTest {
+        // The same store, still broken, reached through a different door: a write
+        // rather than a read. `attempt` captures the store write, so an unwritable
+        // store ends the attempt as a failure the screen can report.
+        //
+        // What this does NOT cover is the recovery itself — `AndroidSecureStorage`
+        // erasing a file it cannot decrypt lives in androidMain behind a `Context`,
+        // so proving that the next launch starts clean needs an instrumented test,
+        // not a JVM one. What is provable here is the half that is: the failure
+        // stops at the result boundary instead of leaving the repository.
+        val store = SecureSessionStore(
+            log = testLogger(),
+            secure = ThrowingSecureStorage { SecurityException("no such key") },
+            legacy = legacy,
+        )
+        gateway.signInResult = Result.success(signedIn())
+        val repository = SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
+            sessionStore = store,
+            localOwnerStore = legacy,
+            scope = AutoCloseableCoroutineScope(coroutineContext),
+        )
+
+        awaitRestoreSettled(repository)
+        val outcome = repository.signIn("a@b.c", "password123")
+
+        assertTrue(outcome.isFailure, "an unwritable store cannot complete a sign-in")
+        assertTrue(
+            repository.currentSession.value is Session.SignedOut,
+            "a failed attempt must not leave the session looking signed in",
+        )
+    }
+
     // ── REQ-UA-005 — attaching an account ────────────────────────────────────
     //
     // The repository's half of attaching is an ordinary sign-in: the credentials are
@@ -785,3 +923,14 @@ private class ScriptedGateway : AuthGateway {
         return verifyMagicLinkResult
     }
 }
+
+/**
+ * How long a REQ-UA-015 test waits for the session to settle.
+ *
+ * `SupabaseAuthRepository` gives session restore a 10-second budget. A test that
+ * waits less would time out on its own deadline and report the symptom — "the
+ * session never left Loading" — for a session that was about to leave it, which is
+ * the most misleading failure this file can produce. The margin is what separates
+ * "still restoring" from "restoring gave up".
+ */
+private const val RESTORE_BUDGET_PLUS_MARGIN_MS = 15_000L
