@@ -1,12 +1,30 @@
 package com.singularity.todo
 
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
+import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
+import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
+import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationViewModel
+import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
+import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
+import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.test.helpers.testPlatformModule
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.error.NoParameterFoundException
+import org.koin.core.parameter.parametersOf
 import org.koin.dsl.koinApplication
 import org.junit.jupiter.api.Tag
+import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -32,6 +50,20 @@ import kotlin.test.assertTrue
  * The graph is built from the same pieces the desktop harness uses
  * (`domainModule()` + `testPlatformModule()`), so nothing here touches the
  * developer's home directory, a real database or a real port.
+ *
+ * ## The definitions that need a runtime parameter
+ *
+ * Eight definitions take a parameter the caller supplies — a ViewModel that edits one
+ * entity needs that entity's id. They used to be *skipped* here: the test counted them
+ * as "needs a parameter" and moved on, which left their own dependencies unverified. A
+ * definition whose dependency is missing is exactly the defect this test exists to
+ * catch, and the eight were the definitions most likely to have one — they are the
+ * ones that reach into a repository, a use case and a crash reporter at once.
+ *
+ * They are resolved now, with the parameters listed in [runtimeParameters]. The list is
+ * a registry, not a convenience: a definition that starts needing a parameter and is
+ * not in the registry fails the test, and an entry that no longer matches a definition
+ * fails it too. A new parameterised ViewModel cannot slip in unverified.
  */
 @Tag("fast")
 class DomainGraphResolutionTest {
@@ -53,22 +85,29 @@ class DomainGraphResolutionTest {
         try {
             val koin = app.koin
             val failures = mutableListOf<String>()
+            val uncovered = mutableListOf<String>()
+            val used = mutableSetOf<KClass<*>>()
             var resolved = 0
-            var needsParameter = 0
             for (definition in koin.definitions()) {
                 val type = definition.primaryType
                 val qualifier = definition.qualifier
+                val parameters = runtimeParameters[type]
                 try {
-                    koin.get<Any>(type, qualifier)
+                    if (parameters == null) {
+                        koin.get<Any>(type, qualifier)
+                    } else {
+                        used += type
+                        koin.get<Any>(type, qualifier) { parametersOf(*parameters.toTypedArray()) }
+                    }
                     resolved++
                 } catch (t: Throwable) {
-                    // A definition that takes a runtime parameter — a ViewModel that
-                    // needs the id of the entity it edits — cannot be created without
-                    // one. That is not a broken graph: the caller supplies it. The
-                    // *dependencies* of such a definition are still checked when the
-                    // definition is created with a parameter, which the screens do.
+                    // A definition that takes a runtime parameter which the registry
+                    // does not cover cannot be created. That is not a broken graph:
+                    // the caller supplies the parameter. It *is* an unverified
+                    // definition, and the registry is what makes it verified.
                     if (t.causes().any { it is NoParameterFoundException }) {
-                        needsParameter++
+                        uncovered += "${type.qualifiedName} [${definition.kind}, " +
+                            "qualifier=${qualifier?.value}]"
                         continue
                     }
                     failures += "${type.qualifiedName} [${definition.kind}, " +
@@ -83,9 +122,25 @@ class DomainGraphResolutionTest {
                     "first time a user reaches the screen that uses it.",
             )
             assertTrue(
+                uncovered.isEmpty(),
+                "These definitions take a runtime parameter and the test does not supply " +
+                    "one, so their own dependencies are never checked:\n" +
+                    uncovered.joinToString("\n") { "  - $it" } +
+                    "\n\nAdd them to `runtimeParameters` in this file. A definition that " +
+                    "reaches into a repository and a use case at once is exactly where a " +
+                    "missing dependency hides.",
+            )
+            assertTrue(
+                used.size == runtimeParameters.size,
+                "These `runtimeParameters` entries match no definition in the graph:\n" +
+                    runtimeParameters.keys.filterNot { it in used }
+                        .joinToString("\n") { "  - ${it.qualifiedName}" } +
+                    "\n\nA stale entry hides the fact that the definition it was written " +
+                    "for is gone — or has stopped needing a parameter.",
+            )
+            assertTrue(
                 resolved > 0,
-                "the graph resolved no definitions at all ($needsParameter needed a runtime " +
-                    "parameter) — the test is vacuous",
+                "the graph resolved no definitions at all — the test is vacuous",
             )
         } finally {
             app.close()
@@ -128,3 +183,37 @@ private fun List<Throwable>.describe(): String {
 @OptIn(KoinInternalApi::class)
 private fun org.koin.core.Koin.definitions() =
     instanceRegistry.instances.values.map { it.beanDefinition }
+
+/**
+ * The runtime parameters of the definitions that take one.
+ *
+ * The values are irrelevant — what matters is that each one has the type the
+ * definition destructures, and that the definition can therefore be *created*, so its
+ * own dependencies are resolved. The order matters: Koin hands the parameters to the
+ * definition's destructuring lambda by position.
+ *
+ * A definition that is not in this table and still takes a parameter fails the test
+ * (see `runtimeParameters` in the test body), and an entry that no longer matches a
+ * definition fails it too.
+ */
+private val runtimeParameters: Map<KClass<*>, List<Any>> = mapOf(
+    // CalendarViewModel(year, month, mode)
+    CalendarViewModel::class to listOf(2026, Month.SEPTEMBER, CalendarViewMode.MONTH),
+    // AttachmentAnnotationViewModel(attachmentId) — one panel per open attachment
+    AttachmentAnnotationViewModel::class to listOf(AttachmentId("attachment-1")),
+    // ProjectDetailViewModel(projectId)
+    ProjectDetailViewModel::class to listOf(ProjectId("project-1")),
+    // ProjectEditorViewModel(id)
+    ProjectEditorViewModel::class to listOf(ProjectId("project-1")),
+    // TaskDetailCoordinator(taskId)
+    TaskDetailCoordinator::class to listOf(TaskId("task-1")),
+    // TaskCreateViewModel(initialDueDate, sectionPrefillKey)
+    TaskCreateViewModel::class to listOf(LocalDate(2026, 9, 16), "section-1"),
+    // AgendaViewModel(definition)
+    AgendaViewModel::class to listOf(sampleAgendaDefinition()),
+    // SavedAgendaViewModel(mode)
+    SavedAgendaViewModel::class to listOf(SavedAgendaScreenMode.Create(sampleAgendaDefinition())),
+)
+
+/** An [AgendaDefinition] with no sections — enough to construct a ViewModel with it. */
+private fun sampleAgendaDefinition() = AgendaDefinition(title = "Sample", sections = emptyList())
