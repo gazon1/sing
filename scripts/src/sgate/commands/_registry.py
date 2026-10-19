@@ -448,12 +448,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-doc-links.sh"),
     ),
     GateSpec(
-        name="doc sizes are within budget",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-doc-sizes.py"),
-    ),
-    GateSpec(
         name="pro licence boundary",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -480,18 +474,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-flaky-tests.py"),
     ),
     # ── Backlog ───────────────────────────────────────────────────────────────────
-    GateSpec(
-        name="backlog issue refs are resolved",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-backlog-issue-refs.py"),
-    ),
-    GateSpec(
-        name="req id uniqueness",
-        mode=GateMode.ADVISORY,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-req-id-uniqueness.py"),
-    ),
     GateSpec(
         name="gate honesty",
         mode=GateMode.BLOCKING,
@@ -532,11 +514,9 @@ GATE_CONTROLS: dict[str, Control] = {
     'release-tags': Control(kind='sabotage', proves='scripts/check-release-tags.py', argv=('{python}', 'scripts/check-release-tags.py'), path='config/docs/releases-snapshot.json', edit=Edit(kind='replace', old='    "v0.2.1-rc.1"\n  ],', new='    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],', count=1), why='a tag that produced no release is the failure this gate exists for: `meta` proved the tag was on main with a green CI run, `publish` still did not run, and nothing said so. The probe appends exactly such a tag — recorded as neither released nor excused.'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
-    'gate-liveness': Control(kind='sabotage', proves='scripts/check-gate-liveness.py', argv=('{python}', 'scripts/check-gate-liveness.py'), path='scripts/check-backlog-issue-refs.py', edit=Edit(kind='replace', old='import sys', new='import sys\nraise AttributeError("\'NoneType\' object has no attribute \'loader\'")', count=1), why='a gate that raises instead of reporting has no opinion at all, and an advisory gate whose output nobody reads will stay that way indefinitely'),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
     'skill-drift': Control(kind='sabotage', proves='scripts/check-skill-drift.py', argv=('{python}', 'scripts/check-skill-drift.py'), path='.agents/skills/singularity-todo-decisions-workflow/SKILL.md', edit=Edit(kind='replace', old='`singularity-adr validate`', new='`singularity-adr verifai`', count=1), why='a skill that lists commands the tool does not have sends an agent to run something that does not exist'),
     'dead-settings': Control(kind='sabotage', proves='scripts/check-dead-settings.py', argv=('{python}', 'scripts/check-dead-settings.py', '--quiet'), path='scripts/check-dead-settings-baseline.txt', edit=Edit(kind='replace', old='Notifications.reminderDefault', new='Notifications.no_such_field', count=-1), why='a persisted setting rendered in Settings and read by no feature is a control that looks like it works; every baseline line is a claim that needs its own justification'),
-    'doc-sizes': Control(kind='sabotage', proves='scripts/check-doc-sizes.py', argv=('{python}', 'scripts/check-doc-sizes.py'), path='AGENTS.md', edit=Edit(kind='append', new='\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'), why='the budget must be able to fail; `--warn-only || status=1` could not'),
     'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
     # doc-links: the lychee gate. The sabotage appends a *Markdown link* to a
@@ -568,7 +548,6 @@ GATE_CONTROLS: dict[str, Control] = {
     'log-interpolation': Control(kind='sabotage', proves='scripts/check-log-interpolation-allowlist.py', argv=('{python}', 'scripts/check-log-interpolation-allowlist.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/config/RemoteConfigCacheRepositoryImpl.kt', edit=Edit(kind='append', new='\n\n// TEMPORARY probe planted by the log-interpolation control.\nprivate fun logInterpolationControlProbe() {\n    log.i { "planted=$Task" }\n}\n'), why="a log call that interpolates a type nobody allowlisted must be reported, or the allowlist is a list nobody reads"),
     'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
-    'req-id-uniqueness': Control(kind='fixture', proves='scripts/check-req-id-uniqueness.py', argv=('{python}', 'scripts/check-req-id-uniqueness.py', '--root', '{tmp}/repo'), fixture='setup_req_id_uniqueness', why='the collision this gate exists for, in the exact shape the tree had: a change that ADDs an identifier the spec already defines. The clean corpus would pass, so needs_clean_run is False — on this repository the corpus is still red (log-export-surface vs add-log-export), which is why the gate is registered advisory.', needs_clean_run=False),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost'),
@@ -608,7 +587,6 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-gate-wiring.py': Control(kind='exempt', proves='scripts/check-gate-wiring.py', reason='this file. Its controls are its own Parts, and its self-tests (scripts/tests/test_check_gate_wiring.py) pin each part; a registry that had to sabotage itself to prove itself would be circular.'),
     'scripts/check-gate-honesty.py': Control(kind='exempt', proves='scripts/check-gate-honesty.py', reason="this file's own premise, one level down: it plants a real detekt violation and asserts the report names it, so it is a positive control rather than a gate needing one. Its control is scripts/tests/test_check_gate_honesty.py, including `test_a_probe_that_does_not_fire_is_a_failure_not_a_pass`."),
     'scripts/check-script-conventions.py': Control(kind='exempt', proves='scripts/check-script-conventions.py', reason='advisory by registration (gate "script conventions" in the shared registry) and already red on a clean tree: every legacy check-*.py still uses argparse (R2.1), so a sabotage control could not distinguish \'caught the mutation\' from \'still failing the 35 known violations\'. The debt is tracked by the advisory gate itself; when the Click migration sweep lands and the gate goes green, add a sabotage control (strip a docstring from any gate script) and drop this exemption.'),
-    'scripts/check-doc-sizes.py': Control(kind='exempt', proves='scripts/check-doc-sizes.py', reason='local doc-size budgets (AGENTS.md <= 240 lines, SKILL.md <= 500 lines) are a house-keeping invariant; not run in CI, must not block a PR'),
     'scripts/check-provenance.py': Control(kind='exempt', proves='scripts/check-provenance.py', reason='provenance audit for Apache-2.0 / FSL-1.1 publication; runs locally before publication commits, not as a CI gate; the sabotage control is the provenance-registry.tsv itself'),
     'scripts/check-pro-licence-boundary.py': Control(kind='exempt', proves='scripts/check-pro-licence-boundary.py', reason='Apache-2.0 / pro licence boundary check; runs locally before publication commits, not as a CI gate; the sabotage control is the direction check itself'),
     'scripts/check-rebase-compiles.py': Control(kind='exempt', proves='scripts/check-rebase-compiles.py', reason='GATE_PARITY: needs a Gradle compile run with rebased DI files, so lives in the CI tests job after the rebase step and is not in the static-gates.sh registry; sabotage control is the rebase step'),
@@ -625,7 +603,13 @@ GATE_EXEMPTIONS: dict[str, Control] = {
             'check-backlog-issue-refs.py went with the removed backlog-issue-refs gate; '
             'check-skill-drift.py is not the script `sgate skills_describe_the_tools_that_exist` '
             'executes, so the injected raise never ran. All three passed a deliberately sabotaged '
-            'input, i.e. they certified nothing. The proving is '
+            'input, i.e. they certified nothing. Measured 2026-10-19: corrupting '
+            'check-backlog-issue-refs.py left the liveness gate green '
+            '("30 gate(s) probed, 0 died"), so the control was a no-op that the harness '
+            'reported as a passing one. The registry control was therefore removed rather '
+            'than re-pointed: a control that corrupts a file nothing probes cannot be made '
+            'to fail by choosing a different file, because the property that made it '
+            'inert was the property of the harness, not of the target. The proving is '
             'scripts/tests/test_check_gate_liveness.py (registry parsing, the heavyweight filter, '
             'the self-match skip) plus `check.sh`, which runs this gate for real on every '
             'invocation. A working control is still available if wanted: synthesise a two-gate '
@@ -651,18 +635,6 @@ GATE_EXEMPTIONS: dict[str, Control] = {
             'gate-wiring check, to re-prove what those unit tests already pin. If a control is '
             'wanted later, the cheap honest form is a FIXTURE: synthesise a two-spec corpus and '
             'assert `traceability validate` rejects it.'
-        ),
-    ),
-    'scripts/check-backlog-issue-refs.py': Control(
-        kind='exempt',
-        proves='scripts/check-backlog-issue-refs.py',
-        reason=(
-            'the snapshot (94 OPEN issues, none with a Backlog field) is already in the '
-            'failure state the gate detects. A control needs to distinguish "sabotaged run" '
-            'from "clean run" — both currently exit 1. The real fix is resolving the '
-            'backlog-issue-refs violations in the snapshot (close stale issues or add '
-            'Backlog fields). The control is `just issues-refresh` that keeps the '
-            'snapshot in sync with GitHub.'
         ),
     ),
 }

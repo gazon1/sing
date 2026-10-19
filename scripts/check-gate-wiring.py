@@ -9,7 +9,7 @@ instances found in one session:
   `ignoreFailures = false`, but no gate ever invoked the task.
 - `no-direct-dispatchers` and `user-scoped-repository` — registered as rule-set
   providers, with no `detekt.yml` block, so detekt never loaded them.
-- `check-doc-sizes.py --warn-only || status=1` — `--warn-only` returns 0, so
+- the doc-sizes gate with `--warn-only || status=1` — `--warn-only` returns 0, so
   `status=1` was unreachable.
 - `docs-audit.yml` — not valid YAML, so the workflow could not run at all.
 
@@ -441,13 +441,6 @@ SCRIPT_GATES = [
             "needs its own justification",
     ),
     ScriptGate(
-        name="doc-sizes",
-        cmd=[sys.executable, "scripts/check-doc-sizes.py"],
-        sabotage_path="AGENTS.md",
-        sabotage=_append('\n' * 400),
-        why="the budget must be able to fail; `--warn-only || status=1` could not",
-    ),
-    ScriptGate(
         name="sync-allowlist-regenerated",
         cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
         sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt",
@@ -629,18 +622,11 @@ SCRIPT_GATES = [
         sabotage=_append('\nSee [DefinitelyNotAFile](docs/decisions/DefinitelyNotAFile.md) for details.\n'),
         why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
     ),
-    # backlog-issue-refs: the snapshot (94 OPEN issues, none with a Backlog field) is
-    # already in the failure state the gate detects. A control that can't distinguish
-    # "clean run" from "sabotaged run" proves nothing — both exit 1. The exemption is
-    # documented in GATE_EXEMPTIONS; no ScriptGate entry here keeps Part C from
-    # running a broken control validation.
-    # ScriptGate(
-    #     name="backlog-issue-refs",
-    #     cmd=[sys.executable, "scripts/check-backlog-issue-refs.py"],
-    # ),
-    # ↑ commented out: Part C would fail with "control can't distinguish clean/sabotage".
-    #    The real fix is resolving the 93 OPEN issues missing Backlog fields in the
-    #    snapshot (run `just issues-refresh` or close stale issues).
+    # backlog-issue-refs: removed — the gate and its script are gone, and the
+    # snapshot it policed (94 OPEN issues, none with a Backlog field) was the
+    # failure state it detected, so no control could tell "clean run" from
+    # "sabotaged run": both exited 1. See the 2026-10-19 ADR on the three
+    # removed gates.
 ]
 
 
@@ -701,23 +687,6 @@ class FixtureGate:
 # `'...\\n'` concatenation with every embedded quote doubled; as functions they
 # are the files they write.
 
-def _setup_req_id_uniqueness(root: Path) -> None:
-    """A change that ADDs an identifier its spec already defines — the collision."""
-    spec = root / "repo" / "openspec" / "specs" / "offline-sync"
-    spec.mkdir(parents=True, exist_ok=True)
-    (spec / "spec.md").write_text(
-        "# offline-sync\n\n### Requirement: REQ-OS-015\n\nIt SHALL hold.\n",
-        encoding="utf-8",
-    )
-    change = root / "repo" / "openspec" / "changes" / "later" / "specs" / "offline-sync"
-    change.mkdir(parents=True, exist_ok=True)
-    (change / "spec.md").write_text(
-        "# offline-sync\n\n## ADDED Requirements\n\n"
-        "### Requirement: REQ-OS-015\n\nIt SHALL hold, again.\n",
-        encoding="utf-8",
-    )
-
-
 def _setup_flaky_tests(root: Path) -> None:
     """One test failing now that passed in the previous run."""
     suite = ('<testsuite name="{n}" tests="1" failures="{f}">'
@@ -752,19 +721,6 @@ def _setup_measure_flake_rate(root: Path) -> None:
 
 
 FIXTURE_GATES = [
-    FixtureGate(
-        name="req-id-uniqueness",
-        cmd=[sys.executable, "scripts/check-req-id-uniqueness.py", "--root", "{tmp}/repo"],
-        setup=_setup_req_id_uniqueness,
-        why=(
-            "the collision this gate exists for, in the exact shape the tree had: a "
-            "change that ADDs an identifier the spec already defines. The clean corpus "
-            "would pass, so needs_clean_run is False — on this repository the corpus is "
-            "still red (log-export-surface vs add-log-export), which is why the gate is "
-            "registered advisory."
-        ),
-        needs_clean_run=False,
-    ),
     FixtureGate(
         name="flaky-tests",
         cmd=[sys.executable, "scripts/check-flaky-tests.py", "--current", "{tmp}/cur", "--previous", "{tmp}/prev"],
@@ -2754,12 +2710,6 @@ _WIRED_BY_NOBODY = (
 )
 
 REACHABILITY_EXCLUSIONS: dict[str, str] = {
-    "scripts/check-backlog-issue-refs.py": (
-        "Retired with the backlog-issue-refs gate in #657 — the registration went, the "
-        "script stayed, and the exemption text for `check-gate-liveness.py` already "
-        "describes it as gone. Deleting it also means re-pointing that gate-liveness "
-        "control, whose sabotage target names this path. " + _WIRED_BY_NOBODY
-    ),
     "scripts/check-adr-references.py": (
         "Its own unit tests pin the behaviour (GATE_EXEMPTIONS says so), and the "
         "control exists, but nothing in check.sh, the registry or any recipe runs it. "
@@ -2770,11 +2720,6 @@ REACHABILITY_EXCLUSIONS: dict[str, str] = {
         "explaining what the dead-reference check is for. A prose mention is not an "
         "invocation, which is why the gate-to-gate scan requires command position. "
         + _WIRED_BY_NOBODY
-    ),
-    "scripts/check-req-id-uniqueness.py": (
-        "Its control's own text says the gate 'is registered advisory' — it is not; "
-        "the advisory entry was never added to GATES. The control documents an intent "
-        "the registry does not carry. " + _WIRED_BY_NOBODY
     ),
 }
 

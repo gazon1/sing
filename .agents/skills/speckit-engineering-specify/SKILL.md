@@ -95,9 +95,9 @@ Rules:
   it. Binding to a **named** test is what makes the binding checkable later instead of aspirational.
 - Prefer assertions on **observable** results — returned value, persisted row, emitted event, logged
   line, test-visible trace. "The system must be correct" is not observable.
-- Number sequentially from `AC-01`. Never reuse a number; `scripts/check-req-id-uniqueness.py` exists
-  because reused identifiers produced a traceability matrix that confidently reported the wrong
-  requirement.
+- Number sequentially from `AC-01`. Never reuse a number. The gate that used to check this
+  was removed on 2026-10-19, so the rule is now only as good as the reviewer: reused
+  identifiers produced a traceability matrix that confidently reported the wrong requirement.
 
 ## Forbidden
 

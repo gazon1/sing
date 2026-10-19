@@ -5,7 +5,6 @@ import re
 import sys
 
 import click
-from pydantic import BaseModel
 
 import sgate
 from sgate.commands._runner import run_capture
@@ -28,25 +27,10 @@ class DigestBudgetPayload(GatePayload):
     digest_full_budget: int = 0
 
 
-class DocSizeViolation(BaseModel):
-    """One budget-exceeded document."""
-
-    document: str
-    detail: str
-
-
-class DocSizesPayload(GatePayload):
-    """Typed payload for the doc-sizes step."""
-
-    violations: list[DocSizeViolation] = []
-    violation_count: int = 0
-
-
 class DecisionsDigestPayload(GatePayload):
-    """Combined payload: both steps of the gate."""
+    """Combined payload: the gate's one remaining step."""
 
     digest: DigestBudgetPayload | None = None
-    doc_sizes: DocSizesPayload | None = None
 
 
 # From refresh-decisions-digest.py, which prints one line naming both digests:
@@ -61,17 +45,6 @@ class DecisionsDigestPayload(GatePayload):
 _DIGEST_BUDGET_PATTERN = re.compile(
     r"DIGEST(?P<full>-full)?\.md is (?P<lines>\d+) lines \(budget: (?P<budget>\d+)\)"
 )
-
-# From check-doc-sizes.py:
-# "Doc sizes OK: AGENTS.md <= {N}, DIGEST.md <= {M}, ..."
-_OK_PATTERN = re.compile(
-    r"Doc sizes OK: AGENTS\.md <= \d+, DIGEST\.md <= \d+, "
-    r"ARCHITECTURE\.md <= \d+, PROGRESS\.md <= \d+, "
-    r"SKILL\.md <= \d+ lines, description <= \d+ chars"
-)
-# "Doc size budgets exceeded:\n  {name}: {detail}"
-_VIOLATION_PATTERN = re.compile(r"^\s+([^:]+):\s+(.+)$", re.MULTILINE)
-
 
 def _parse_refresh_digest(stdout: str | bytes, exit_code: int) -> DigestBudgetPayload:
     if isinstance(stdout, bytes):
@@ -111,39 +84,23 @@ def _parse_refresh_digest(stdout: str | bytes, exit_code: int) -> DigestBudgetPa
     )
 
 
-def _parse_doc_sizes_from_combined(combined: str, exit_code: int) -> DocSizesPayload:
-    violations = [
-        DocSizeViolation(document=m.group(1).strip(), detail=m.group(2).strip())
-        for m in _VIOLATION_PATTERN.finditer(combined)
-    ]
-    passed = exit_code == 0 and bool(_OK_PATTERN.search(combined)) and not violations
-    errors: list[str] = [f"{v.document}: {v.detail}" for v in violations]
-
-    return DocSizesPayload(
-        gate=GATE_NAME,
-        passed=passed,
-        violations=violations,
-        violation_count=len(violations),
-        blocking_errors=errors,
-    )
-
-
 @click.command("decisions_digest_within_budget")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 def decisions_digest_within_budget(check: bool, emit_json: bool) -> None:
     """Run the "decisions digest within budget" gate.
 
-    Runs two scripts sequentially:
+    Runs one script:
       1. python3 scripts/refresh-decisions-digest.py   (checks DIGEST.md line budget)
-      2. python3 scripts/check-doc-sizes.py            (checks all doc sizes)
 
-    Either script failing causes this gate to fail.
+    It used to run a second step over every agent-facing document, in a
+    doc-sizes script. That script was removed on 2026-10-19 together with the
+    `doc sizes are within budget` gate; the digest budget stayed, because the
+    generator that prints it is the thing that holds the budget.
     """
     repo_root = sgate.repo.ROOT
 
     digest_script = repo_root / "scripts/refresh-decisions-digest.py"
-    sizes_script = repo_root / "scripts/check-doc-sizes.py"
 
     # Step 1: refresh-decisions-digest.py
     result1 = run_capture([sys.executable, str(digest_script)], GATE_NAME + " [refresh-decisions-digest]")
@@ -163,39 +120,24 @@ def decisions_digest_within_budget(check: bool, emit_json: bool) -> None:
             raise SystemExit(1)
         return
 
-    # Step 2: check-doc-sizes.py
-    result2 = run_capture([sys.executable, str(sizes_script)], GATE_NAME + " [check-doc-sizes]")
-    combined = result2.stdout + b"\n" + result2.stderr if isinstance(result2.stdout, bytes) else result2.stdout + "\n" + result2.stderr
-    sizes = _parse_doc_sizes_from_combined(
-        combined if isinstance(combined, str) else combined.decode("utf-8", errors="replace"),
-        result2.returncode,
-    )
-
     if emit_json:
         DecisionsDigestPayload(
             gate=GATE_NAME,
-            passed=digest.passed and sizes.passed,
+            passed=digest.passed,
             digest=digest,
-            doc_sizes=sizes,
-            blocking_errors=sizes.blocking_errors,
-        ).emit_and_exit(result2.returncode, emit_json=True)
+            blocking_errors=digest.blocking_errors,
+        ).emit_and_exit(result1.returncode, emit_json=True)
     elif check:
-        if sizes.honest_pass(result2.returncode):
-            gate_warn(GATE_NAME, None, None, None, None, f"decisions digest within budget, doc sizes OK")
-        else:
-            gate_warn(GATE_NAME, None, None, None, None, f"doc sizes: {sizes.violation_count} violation(s)")
-            for v in sizes.violations:
-                print(f"  {v.document}: {v.detail}")
-    else:
-        if not sizes.honest_pass(result2.returncode):
-            gate_fail(GATE_NAME, None, None, None, None, f"{sizes.violation_count} doc size budget violation(s)")
-            raise SystemExit(1)
+        gate_warn(GATE_NAME, None, None, None, None, "decisions digest within budget")
+    elif not digest.honest_pass(result1.returncode):
+        gate_fail(GATE_NAME, None, None, None, None, "digest budget exceeded")
+        raise SystemExit(1)
 
-    if digest.honest_pass(result1.returncode) and sizes.honest_pass(result2.returncode) and not emit_json:
+    if digest.honest_pass(result1.returncode) and not emit_json:
         click.echo(
             f"decisions_digest_within_budget: DIGEST.md {digest.digest_lines}/"
             f"{digest.digest_budget}, DIGEST-full.md {digest.digest_full_lines}/"
-            f"{digest.digest_full_budget}, doc sizes OK — PASS"
+            f"{digest.digest_full_budget} — PASS"
         )
 
 

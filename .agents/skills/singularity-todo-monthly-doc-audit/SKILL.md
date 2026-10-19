@@ -35,8 +35,9 @@ wrong, it is wrong everywhere at once.
 
 - **Oversized?** (>120 lines) — the generator's selection needs tightening, not manual
   pruning. Read `scripts/refresh-decisions-digest.py` and see what it is pulling in.
-  The budget is `MAX_ORIENTATION_LINES` in that script (120 lines) and is enforced by
-  `scripts/check-doc-sizes.py` via `DIGEST_MAX` (also 120 lines). (This skill used to say
+  The budget is `MAX_ORIENTATION_LINES` in that script (120 lines) and nothing else: the
+  doc-sizes gate that mirrored it was removed on 2026-10-19, so this constant is the only
+  copy left. (This skill used to say
   1250, which was wrong and how the digest sat 249 lines over budget without anyone noticing
   — one number, one place. Do not introduce a second threshold.) The main lever is superseding the ADRs
   it displaces: the generator already drops ADRs targeted by a `supersedes:` chain.
