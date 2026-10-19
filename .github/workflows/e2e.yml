@@ -31,7 +31,17 @@ on:
     # Smoke on every push to main, full suite only on schedule or tags
 
 concurrency:
-  group: emulator-${{ github.event.pull_request.number || github.ref }}
+  # `github.workflow` is load-bearing, not decoration. Maestro flows and
+  # instrumented tests are two separate emulator fleets, but both used to land in
+  # one group: `emulator-<pr number>` on a pull_request and `emulator-<ref>` on
+  # everything else. With `cancel-in-progress: true` for pull_request they did not
+  # merely queue — they cancelled each other. On PR 740 (labelled `run-maestro`
+  # only) the `Android device tests` run started, skipped its `plan` job for
+  # lacking the `run-device-tests` label, and cancelled the in-progress Maestro run
+  # on its way out: both emulator workflows ended up doing nothing, silently.
+  # On main the same collision just serialises them, delaying instrumented tests
+  # behind a Maestro run by up to an hour.
+  group: emulator-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

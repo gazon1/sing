@@ -36,7 +36,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: emulator-${{ github.event.pull_request.number || github.ref }}
+  # `github.workflow` is load-bearing, not decoration. This workflow and e2e.yml are
+  # two separate emulator fleets, but both used to land in one group —
+  # `emulator-<pr number>` on a pull_request, `emulator-<ref>` otherwise — and with
+  # `cancel-in-progress: true` for pull_request they cancelled each other rather
+  # than queueing. On PR 740 this workflow started, skipped its `plan` job for
+  # lacking the `run-device-tests` label, and cancelled the in-progress Maestro run:
+  # neither emulator workflow ran. Naming the workflow keeps each fleet its own
+  # group while still replacing a superseded run of itself on the same PR.
+  group: emulator-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
