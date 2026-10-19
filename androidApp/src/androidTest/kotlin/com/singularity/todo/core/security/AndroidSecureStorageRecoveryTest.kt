@@ -51,6 +51,7 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 @MediumTest
+@Suppress("NoRunBlocking") // Instrumented tests use runBlocking to test suspend functions synchronously on the Android test thread.
 class AndroidSecureStorageRecoveryTest {
 
     private lateinit var context: Context

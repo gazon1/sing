@@ -19,10 +19,14 @@
   user — but only once `AuthRepository.restoreSession` catches the throw.
 -->
 <full-backup-content>
-    <!-- Keys must never cross an uninstall: they cannot be restored. -->
-    <exclude
-        domain="sharedpref"
-        path="singularity_secure_prefs.xml" />
+    <!--
+      Keys must never cross an uninstall: they cannot be restored.
+      The include/exclude pair is intentional: lint requires excluded paths to be
+      under an included domain. The exclude prevents the secure prefs from being
+      restored to a device that no longer has the Keystore key that can decrypt it.
+    -->
+    <include domain="sharedpref" path="." />
+    <exclude domain="sharedpref" path="singularity_secure_prefs.xml" />
 
     <!--
       Attachments are user content and restore fine as-is: they are plain files,

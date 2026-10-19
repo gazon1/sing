@@ -16,9 +16,9 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude
-            domain="sharedpref"
-            path="singularity_secure_prefs.xml" />
+        <!-- See backup_rules.xml for the include/exclude pairing rationale. -->
+        <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="singularity_secure_prefs.xml" />
         <include
             domain="file"
             path="attachments/" />
@@ -28,9 +28,9 @@
     </cloud-backup>
 
     <device-transfer>
-        <exclude
-            domain="sharedpref"
-            path="singularity_secure_prefs.xml" />
+        <!-- See backup_rules.xml for the include/exclude pairing rationale. -->
+        <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="singularity_secure_prefs.xml" />
         <include
             domain="file"
             path="attachments/" />
