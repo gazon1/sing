@@ -59,7 +59,10 @@ class ProjectsViewModel(
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
-        initialState = ProjectsUiState.Loading,
+        initialState = ProjectsUiState.Loading(
+            searchQuery = "",
+            sortOrder = ProjectSortOrder.Name,
+        ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
@@ -102,7 +105,16 @@ class ProjectsViewModel(
                     }
             }
                 .catch { cause ->
-                    setState(ProjectsUiState.Error(cause.toMessage()))
+                    // The failure carries the query and the sort order: the screen still
+                    // shows the search field and the sort control, and a state that
+                    // reset them would clear what the user had typed.
+                    setState(
+                        ProjectsUiState.Error(
+                            message = cause.toMessage(),
+                            searchQuery = _searchQuery.value,
+                            sortOrder = _sortOrder.value,
+                        ),
+                    )
                 }
                 .collect { setState(it) }
         }

@@ -4,9 +4,11 @@
 package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
@@ -15,6 +17,9 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsView
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -119,6 +124,35 @@ class ProjectsViewModelTest {
         assertEquals(ProjectSortOrder.Name, (vm.stateFlow.value as? ProjectsUiState.Content)?.sortOrder)
     }
 
+    @Test
+    fun `an error keeps the query and the sort order`() = runTest {
+        // The screen binds the search field and the sort control to the state, so a
+        // failure that reset them would clear what the user had typed: the field is
+        // bound to the query, so the reset would reach the ViewModel as if the user
+        // had cleared it, and the list could never come back.
+        //
+        // The repository fails on the *second* subscription, not the first: the list
+        // has to load first, or there is nothing for the user to have chosen and the
+        // error would arrive before the query is ever set.
+        val vm = ProjectsViewModel(
+            projectRepo = FailingProjectsRepository(fakeProjectRepo),
+            taskRepository = fakeTaskRepo,
+            deleteProject = DeleteProjectUseCase(fakeProjectRepo, fakeTaskRepo),
+            scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+        )
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
+        vm.onIntent(ProjectsIntent.SetSortOrder(ProjectSortOrder.Color))
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val error = assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
+        assertEquals("Work", error.searchQuery)
+        assertEquals(ProjectSortOrder.Color, error.sortOrder)
+    }
+
     // ─── delete (via use-case, not state) ──────────────────────────────────
 
     @Test
@@ -139,5 +173,29 @@ class ProjectsViewModelTest {
         // Verify store reflects soft-delete
         val after = fakeProjectRepo.store.values().filter { !it.isDeleted }
         assertEquals(0, after.size, "After soft-delete, no non-deleted projects should remain in store")
+    }
+}
+
+/**
+ * A projects repository that works until the ViewModel asks a second time.
+ *
+ * The fake has failure overrides for the *writes*; a failing observation is the other
+ * half of the failure surface, and it is the one the list screens show an error for.
+ *
+ * The first subscription delivers the rows; every later one throws. The ViewModel
+ * re-subscribes on each query or sort change, so the failure lands *after* the list
+ * has loaded and the user has chosen something — which is the only moment where
+ * "the error kept the query" means anything.
+ */
+private class FailingProjectsRepository(private val delegate: ProjectsRepository) : ProjectsRepository by delegate {
+    private var subscriptions = 0
+
+    override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> = flow {
+        subscriptions++
+        if (subscriptions == 1) {
+            emitAll(delegate.observeProjectsWithCounts())
+        } else {
+            throw IllegalStateException("the project repository is down")
+        }
     }
 }

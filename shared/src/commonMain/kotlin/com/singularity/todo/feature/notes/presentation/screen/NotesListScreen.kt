@@ -143,8 +143,6 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
     ) { paddingValues ->
         NotesScreenContent(
             state = state,
-            currentFilter = (state as? NotesUiState.Content)?.list?.filter ?: NoteFilter.All,
-            currentSortOrder = (state as? NotesUiState.Content)?.list?.sortOrder ?: NoteSortOrder.UpdatedDesc,
             navigator = navigator,
             onCreateNote = { title -> actions.onCreateNote(title) },
             actions = actions,
@@ -161,8 +159,6 @@ private fun NotesUiState.toContentState() = ContentStateMapper.notes(this)
 @Composable
 fun NotesScreenContent(
     state: NotesUiState,
-    currentFilter: NoteFilter,
-    currentSortOrder: NoteSortOrder,
     navigator: NotesNavigator,
     onCreateNote: (title: String) -> Unit,
     modifier: Modifier = Modifier,
@@ -209,7 +205,7 @@ fun NotesScreenContent(
                                 }
                                 SortDropdownMenu(
                                     expanded = sortMenuExpanded,
-                                    currentOrder = currentSortOrder,
+                                    currentOrder = state.sortOrder,
                                     onSelect = {
                                         actions.onSetSortOrder(it)
                                         sortMenuExpanded = false
@@ -223,11 +219,11 @@ fun NotesScreenContent(
                         ),
                     )
                     FilterChipRow(
-                        currentFilter = currentFilter,
+                        currentFilter = state.filter,
                         onFilterChange = { actions.onSetFilter(it) },
                     )
                     NoteSearchField(
-                        query = listState?.searchQuery ?: "",
+                        query = state.searchQuery,
                         onQueryChange = { actions.onSearchQueryChange(it) },
                     )
                     QuickAddRow(onSubmit = onCreateNote)
@@ -267,7 +263,7 @@ fun NotesScreenContent(
                     selectedIds = listState?.selectedIds ?: emptySet(),
                     navigator = navigator,
                     actions = actions,
-                    currentFilter = currentFilter,
+                    currentFilter = state.filter,
                     modifier = contentModifier,
                 )
             }
@@ -662,9 +658,10 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
                         PreviewSamples.note("n3", "Shopping list"),
                     ),
                 ),
+                filter = NoteFilter.All,
+                sortOrder = NoteSortOrder.UpdatedDesc,
+                searchQuery = "",
             ),
-            currentFilter = NoteFilter.All,
-            currentSortOrder = NoteSortOrder.UpdatedDesc,
             navigator = LocalNotesNavigator.current,
             onCreateNote = { NoteId.fromString("preview-note-id") },
             actions = NotesActions.Empty,
@@ -677,9 +674,12 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
 private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     NotesPreviewWrapper {
         NotesScreenContent(
-            state = NotesUiState.Content(NotesListState()),
-            currentFilter = NoteFilter.All,
-            currentSortOrder = NoteSortOrder.UpdatedDesc,
+            state = NotesUiState.Content(
+                list = NotesListState(),
+                filter = NoteFilter.All,
+                sortOrder = NoteSortOrder.UpdatedDesc,
+                searchQuery = "",
+            ),
             navigator = LocalNotesNavigator.current,
             onCreateNote = { NoteId.fromString("preview-note-id") },
             actions = NotesActions.Empty,

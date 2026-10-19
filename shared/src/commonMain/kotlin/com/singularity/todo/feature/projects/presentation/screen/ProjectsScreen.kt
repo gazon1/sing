@@ -236,6 +236,8 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
                     ProjectWithCounts(PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()), 12, 8),
                     ProjectWithCounts(PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt()), 0, 0),
                 ),
+                searchQuery = "",
+                sortOrder = ProjectSortOrder.Name,
             ),
             onNavigateToProject = {},
             onCreateProject = {},
@@ -250,7 +252,10 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
 private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
         ProjectsContent(
-            state = ProjectsUiState.Empty(),
+            state = ProjectsUiState.Empty(
+                searchQuery = "",
+                sortOrder = ProjectSortOrder.Name,
+            ),
             onNavigateToProject = {},
             onCreateProject = {},
             onDelete = {},
@@ -268,6 +273,8 @@ private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
                 projects = listOf(
                     ProjectWithCounts(PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()), 3, 1),
                 ),
+                searchQuery = "",
+                sortOrder = ProjectSortOrder.Name,
             ),
             onNavigateToProject = {},
             onCreateProject = {},

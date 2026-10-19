@@ -17,6 +17,12 @@ enum class ProjectSortOrder { Name, Color }
  * query would make the screen pass an empty string to the field, the field would hand
  * that empty string back to the ViewModel as if the user had cleared it, and the list
  * would never come back.
+ *
+ * Every variant therefore *carries* the query and the sort order, and carries them as
+ * required constructor parameters — no defaults. A default is a value the ViewModel did
+ * not have to think about, and the value it quietly supplies is the one the state had
+ * before the user typed anything: the transient variants ([Loading], [Error]) would
+ * reset the search field of a screen that is merely reporting a failure.
  */
 @Immutable
 sealed interface ProjectsUiState {
@@ -27,10 +33,8 @@ sealed interface ProjectsUiState {
     /** The order the list is sorted in. */
     val sortOrder: ProjectSortOrder
 
-    data object Loading : ProjectsUiState {
-        override val searchQuery: String = ""
-        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name
-    }
+    /** The list is being loaded for the first time. */
+    data class Loading(override val searchQuery: String, override val sortOrder: ProjectSortOrder) : ProjectsUiState
 
     /**
      * The list holds no projects.
@@ -39,19 +43,23 @@ sealed interface ProjectsUiState {
      * match …" rather than "no projects yet") and so the filter the user typed survives
      * the state that reports the filter found nothing.
      */
-    data class Empty(
-        override val searchQuery: String = "",
-        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name,
-    ) : ProjectsUiState
+    data class Empty(override val searchQuery: String, override val sortOrder: ProjectSortOrder) : ProjectsUiState
 
+    /** The list holds projects. */
     data class Content(
         val projects: List<ProjectWithCounts>,
-        override val searchQuery: String = "",
-        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name,
+        override val searchQuery: String,
+        override val sortOrder: ProjectSortOrder,
     ) : ProjectsUiState
 
-    data class Error(val message: String) : ProjectsUiState {
-        override val searchQuery: String = ""
-        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name
-    }
+    /**
+     * The list could not be loaded.
+     *
+     * The query and the sort order travel with the failure: the screen still shows the
+     * search field and the sort control, and a state that reset them would clear what
+     * the user had typed — the field is bound to the query, so the reset would reach
+     * the ViewModel as if the user had cleared it.
+     */
+    data class Error(val message: String, override val searchQuery: String, override val sortOrder: ProjectSortOrder) :
+        ProjectsUiState
 }

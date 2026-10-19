@@ -9,7 +9,9 @@ import com.singularity.todo.feature.notes.presentation.NotesIntent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -24,6 +26,25 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+/**
+ * A repository whose template flow fails on demand.
+ *
+ * The failure has to arrive *after* the list has loaded: a repository that failed
+ * from the very first emission would never have had a query, a filter or a sort
+ * order to lose. [failOnNextEmission] arms the failure, and the next change to the
+ * store makes the flow throw.
+ */
+private class FailingTemplatesRepository : FakeNotesRepository() {
+    /** Arms the failure: the next emission of the template flow throws. */
+    var failOnNextEmission = false
+
+    override fun watchTemplates(): Flow<List<Note>> =
+        super.watchTemplates().map { templates ->
+            if (failOnNextEmission) throw IllegalStateException("templates unavailable")
+            templates
+        }
+}
 
 /**
  * Smoke tests for [NotesListViewModel] — verify state initialization and filter changes.
@@ -47,6 +68,14 @@ class NotesListViewModelTest {
         (stateFlow.value as? NotesUiState.Content)?.list ?: error("expected Content, got ${stateFlow.value}")
 
     /**
+     * Reads the continuity the screen binds to.
+     *
+     * The filter, the sort order and the query live on the state itself — not on
+     * its list — so that they survive a state that holds no notes at all.
+     */
+    private fun NotesListViewModel.uiState() = stateFlow.value
+
+    /**
      * Creates a plain note through the repository, so it carries the same user id
      * the repository's flows filter on.
      */
@@ -58,7 +87,7 @@ class NotesListViewModelTest {
         val vm = createVm()
         advanceUntilIdle()
         testScheduler.runCurrent()
-        assertEquals(NoteFilter.All, vm.listState().filter)
+        assertEquals(NoteFilter.All, vm.uiState().filter)
     }
 
     @Test
@@ -66,7 +95,7 @@ class NotesListViewModelTest {
         val vm = createVm()
         advanceUntilIdle()
         testScheduler.runCurrent()
-        assertEquals(NoteSortOrder.UpdatedDesc, vm.listState().sortOrder)
+        assertEquals(NoteSortOrder.UpdatedDesc, vm.uiState().sortOrder)
     }
 
     /**
@@ -102,7 +131,7 @@ class NotesListViewModelTest {
         vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
         advanceUntilIdle()
         testScheduler.runCurrent()
-        assertEquals(NoteFilter.Pinned, vm.listState().filter)
+        assertEquals(NoteFilter.Pinned, vm.uiState().filter)
     }
 
     @Test
@@ -177,7 +206,7 @@ class NotesListViewModelTest {
             vm.listState().unpinned,
             "a query that matches nothing must empty the list",
         )
-        assertEquals("zzz-no-such-note", vm.listState().searchQuery)
+        assertEquals("zzz-no-such-note", vm.uiState().searchQuery)
     }
 
     @Test
@@ -225,6 +254,48 @@ class NotesListViewModelTest {
             vm.listState().unpinned.size,
             "clearing the query must bring the whole list back",
         )
+    }
+
+    // ── Continuity across a failure ──────────────────────────────────────────
+
+    /**
+     * A repository failure must not take the user's choices with it.
+     *
+     * The query, the filter and the sort order describe what the list is filtered
+     * by, and the screen binds all three to the state. An error state that reset
+     * them would clear the search field — and the field, bound to the query, would
+     * hand that empty string back to the ViewModel as if the user had cleared it,
+     * so the list could never come back.
+     */
+    @Test
+    fun `a repository failure keeps the query, the filter and the sort order`() = runTest {
+        val repo = FailingTemplatesRepository()
+        val vm = NotesListViewModel(repo = repo, scope = testScope(backgroundScope))
+        advanceUntilIdle()
+        runCurrent()
+
+        vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
+        vm.onIntent(NotesIntent.SetSortOrder(NoteSortOrder.TitleAsc))
+        vm.onIntent(NotesIntent.SearchQueryChanged("groceries"))
+        advanceTimeBy(searchDebounceMs + 1)
+        advanceUntilIdle()
+        runCurrent()
+
+        val loaded = assertIs<NotesUiState.Content>(vm.stateFlow.value)
+        assertEquals("groceries", loaded.searchQuery)
+        assertEquals(NoteFilter.Pinned, loaded.filter)
+        assertEquals(NoteSortOrder.TitleAsc, loaded.sortOrder)
+
+        // The repository fails on the next emission.
+        repo.failOnNextEmission = true
+        repo.createWithContent(NoteId("n-fail"), "Trigger", "", "").getOrThrow()
+        advanceUntilIdle()
+        runCurrent()
+
+        val failed = assertIs<NotesUiState.Error>(vm.stateFlow.value)
+        assertEquals("groceries", failed.searchQuery, "a failure must not clear the query")
+        assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
+        assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
     }
 
     // ── Delete / Undo ──────────────────────────────────────────────────

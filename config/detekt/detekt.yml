@@ -604,6 +604,15 @@ no-text-field-state-in-viewmodel:
   NoTextFieldStateInViewModel:
     active: true
 
+# Added 2026-10-19 with the state continuity work: a variant of a sealed
+# *UiState has to carry the properties the interface declares. A variant that
+# replaces one with a constant resets it, and the screen binds those
+# properties to its controls — the projects list's search field was cleared by
+# an unrelated failure because the failure state carried an empty query.
+no-dropped-ui-state-property:
+  NoDroppedUiStateProperty:
+    active: true
+
 # Added 2026-10-05: these two rules were implemented and registered in
 # META-INF/services, but had no detekt.yml block, so detekt never loaded them and
 # they had never run. check-detekt-registrations.sh now enforces the invariant that
