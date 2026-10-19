@@ -89,8 +89,35 @@ new_temp_root() {
         # which would regenerate DIGEST.md inside the throwaway tree. The tree
         # under validation must be the tree that is being pushed, unchanged.
         mkdir -p "$TMP_ROOT/hooks"
+        # The owning pid, so a later run can tell a dead run's leftovers from
+        # a live run's worktree.
+        echo "$$" > "$TMP_ROOT/pid"
     fi
 }
+
+# A hook that was SIGKILLed cannot run its trap, and a killed hook leaves its
+# throwaway worktree registered in this repository's metadata. Left alone, those
+# entries accumulate in `git worktree list` and in `.git/worktrees/`.
+#
+# So each run reaps the leftovers of DEAD runs before it starts. A temp worktree
+# whose owning pid is still alive belongs to a concurrent push — it is left
+# alone: removing it would pull the ground from under that push.
+reap_stale_temp_worktrees() {
+    local tree_path root pid
+    while read -r tree_path; do
+        root="$(dirname "$tree_path")"
+        pid="$(cat "$root/pid" 2>/dev/null || true)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            continue
+        fi
+        echo "pre-push: removing a stale temporary worktree from a killed run ($tree_path)"
+        git worktree remove --force "$tree_path" >/dev/null 2>&1 || rm -rf "$tree_path"
+        rm -rf "$root"
+    done < <(git worktree list --porcelain | sed -n 's/^worktree //p' | grep -E '/pre-push-gate-' || true)
+    git worktree prune >/dev/null 2>&1 || true
+}
+
+reap_stale_temp_worktrees
 
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
