@@ -224,6 +224,30 @@ gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 gate blocking "GitHub workflows are valid" bash -c 'command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2; exit 1; }; actionlint -shellcheck="$(command -v shellcheck)" .github/workflows/*.yml'
 gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml"
 
+# Markdown links resolve. The gate is scripts/check-doc-links.sh, which wraps
+# lychee; the reasoning for the flags it passes lives in that script's header.
+#
+# It is not a replacement for scripts/check-doc-dead-refs.py, which checks the
+# *other* shape of reference — a path inside backticks, and a dated ADR slug
+# cited without its `.md`. That script's PATH_RE matches backticks only, so
+# Markdown links were never in its scope. This gate is coverage the repository
+# did not have.
+#
+# It is not a replacement because of how the two resolve. lychee resolves a
+# relative link against the file that contains it, which is what a Markdown
+# reader's editor does. The script resolves against the repository root and
+# falls back to matching on basename alone, so a link written one directory too
+# high ("../AGENTS.md" from docs/decisions/) still lands on a file of that name
+# and is reported as "drift" — a warning, never a failure. Fifteen such links
+# sat in ADRs and skills on 2026-10-19, invisible to every gate. They were
+# fixed, not accepted.
+#
+# The binary must be on PATH, for the same reason actionlint needs shellcheck:
+# a gate that cannot run looks exactly like a gate that has nothing to report.
+# CI installs it pinned (lychee-bin 0.24.2, the PyPI wheel of the upstream Rust
+# binary) through .github/actions/setup-python-tools.
+gate blocking "documentation links resolve" sgate doc_links
+
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
 #

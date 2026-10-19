@@ -1,0 +1,59 @@
+# CodeQL analysis for the Kotlin/Java sources.
+#
+# Adapted from the official template:
+#   https://github.com/actions/starter-workflows/blob/main/code-scanning/codeql.yml
+# The template is the maintained one; this file is that file with the
+# placeholders (`$default-branch`, `$protected-branches`, `$cron-weekly`,
+# `$codeql-languages-matrix`) resolved and the two decisions below written down.
+#
+# What is ready-made here: the analysis itself, the SARIF upload, and the
+# permission set. What is this repository's: the language, the schedule slot,
+# and the trigger set.
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    # Daily crons 01:00–04:00 UTC are taken by ci.yml, e2e.yml,
+    # android-device-tests.yml and flake.yml. This one runs after them, on
+    # Mondays, so a security scan never competes with the nightly chain.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  # required for the SARIF upload
+  security-events: write
+  # required to fetch internal or private CodeQL packs
+  packages: read
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (java-kotlin)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ java-kotlin ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          # `none`, not `autobuild`. The analysis does not need a build to read
+          # this repository's Kotlin sources, and `autobuild` would run the
+          # Gradle build inside the analysis job — which needs the Android SDK
+          # and the whole dependency graph, and turns a security scan into a
+          # second copy of the test pipeline. `none` analyses the sources as
+          # they are; the trade-off is less precise data flow, which is the
+          # right trade for a scan that runs on its own schedule.
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

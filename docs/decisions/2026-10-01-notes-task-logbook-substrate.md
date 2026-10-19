@@ -105,6 +105,6 @@ suspend fun createForTask(
 
 ## Related
 
-- [ADR 0042: Typed task relationship links](./0042-typed-task-relationship-links.md) — the typed-link model that extends `task_dependencies`; this ADR covers note→task only.
+- [ADR 0042: Typed task relationship links](./2026-10-01-typed-task-dependency-links.md) — the typed-link model that extends `task_dependencies`; this ADR covers note→task only.
 - `docs/decisions/2026-10-01-notes-task-logbook-substrate.md` — this document
 - Preflight audit: `NoteEntity`, `NoteDao`, `NotesRepository`, `TaskDetailCoordinator`, `TaskLogbookCollector`

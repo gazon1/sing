@@ -403,6 +403,29 @@ _REGISTERED: tuple[GateSpec, ...] = (
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-doc-dead-refs.py"),
+        # `--strict` makes path drift a failure, not a warning.
+        #
+        # Drift is what this gate reports when a referenced path does not resolve
+        # from the repository root but a file of the same basename exists
+        # somewhere else — the leniency that let fifteen broken Markdown links
+        # (and the drift behind them) survive to 2026-10-19. A warning does not
+        # stop anything: the references it names keep pointing at the wrong
+        # place until a reader follows one and finds nothing.
+        script_args=("--strict",),
+    ),
+    # doc links: the lychee gate. A shell gate, like `detekt registrations`
+    # above — lychee is a Rust binary, not a Python script, and the wrapper
+    # carries the flags and the "is it on PATH" check.
+    #
+    # It does not overlap `doc dead refs`. That gate's PATH_RE matches a path
+    # inside backticks and its ADR_SLUG_RE a dated slug; a Markdown link was
+    # never in either scope. See the script's header for why the two resolve
+    # differently and why that difference mattered.
+    GateSpec(
+        name="doc links",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.SHELL,
+        script=Path("scripts/check-doc-links.sh"),
     ),
     GateSpec(
         name="doc sizes are within budget",
@@ -495,13 +518,34 @@ GATE_CONTROLS: dict[str, Control] = {
     'dead-settings': Control(kind='sabotage', proves='scripts/check-dead-settings.py', argv=('{python}', 'scripts/check-dead-settings.py', '--quiet'), path='scripts/check-dead-settings-baseline.txt', edit=Edit(kind='replace', old='Notifications.reminderDefault', new='Notifications.no_such_field', count=-1), why='a persisted setting rendered in Settings and read by no feature is a control that looks like it works; every baseline line is a claim that needs its own justification'),
     'doc-sizes': Control(kind='sabotage', proves='scripts/check-doc-sizes.py', argv=('{python}', 'scripts/check-doc-sizes.py'), path='AGENTS.md', edit=Edit(kind='append', new='\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'), why='the budget must be able to fail; `--warn-only || status=1` could not'),
     'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
-    'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
+    'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
+    # doc-links: the lychee gate. The sabotage appends a *Markdown link* to a
+    # file that does not exist — the shape this gate checks and the other one
+    # does not. `check-doc-dead-refs.py` matches a path inside backticks, so the
+    # same text would pass it, and a control that only one of the two can fail
+    # proves nothing about the other.
+    #
+    # A different file from the doc-dead-refs control on purpose: two controls
+    # that sabotage the same path can mask each other if one of them fails to
+    # restore.
+    'doc-links': Control(kind='sabotage', proves='scripts/check-doc-links.sh', argv=('./scripts/check-doc-links.sh',), path='docs/agents/domain.md', edit=Edit(kind='append', new='\nSee [DefinitelyNotAFile](docs/decisions/DefinitelyNotAFile.md) for details.\n'), why='a documentation link that points at a file which is not there is a dead reference a reader follows and finds nothing'),
     'provenance': Control(kind='sabotage', proves='scripts/check-provenance.py', argv=('{python}', 'scripts/check-provenance.py'), path='config/legal/provenance-registry.tsv', edit=Edit(kind='drop_lines', old='QueryTokenizer'), why='a GPL upstream named in production code with no registry row is a licence claim nobody is tracking'),
     'pro-licence-boundary': Control(kind='sabotage', proves='scripts/check-pro-licence-boundary.py', argv=('{python}', 'scripts/check-pro-licence-boundary.py'), path='shared/build.gradle.kts', edit=Edit(kind='append', new='\ndependencies { implementation("ru.ok.tracer:tracer-crash-report:1.4.0") }\n'), why='proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour'),
     'traceability-ratchet': Control(kind='sabotage', proves='scripts/check-traceability-ratchet.py', argv=('{python}', 'scripts/check-traceability-ratchet.py'), path='scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml', edit=Edit(kind='regex', pattern='^targets: \\[android\\]$', repl='targets: [android, desktop]', flags='MULTILINE'), why='a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff'),
     'room-schema-integrity': Control(kind='sabotage', proves='scripts/check-room-schema-integrity.py', argv=('{python}', 'scripts/check-room-schema-integrity.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt', edit=Edit(kind='regex', pattern='const val SCHEMA_VERSION = \\d+', repl='const val SCHEMA_VERSION = 1'), why='an entity change without a version bump passes every test and crashes every existing install on upgrade'),
     'dependency-usage': Control(kind='sabotage', proves='scripts/check-dependency-usage.py', argv=('{python}', 'scripts/check-dependency-usage.py', '--quiet'), path='scripts/dependency-usage-allowlist.txt', edit=Edit(kind='drop_lines', old='kermit-koin'), why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one"),
-    'log-interpolation': Control(kind='sabotage', proves='scripts/check-log-interpolation-allowlist.py', argv=('{python}', 'scripts/check-log-interpolation-allowlist.py'), path='scripts/check-log-interpolation-allowlist.py', edit=Edit(kind='regex', pattern=r'    "com\.singularity\.todo\.feature\.tasks\.domain\.model\.TaskId",', repl='', flags='MULTILINE'), why="a type removed from the allowlist must be reported as unexpected until explicitly re-added — otherwise the list grows without bound and loses its purpose"),
+    # log-interpolation: the plant is a log call that interpolates a type the
+    # map knows and the allowlist does not. The previous control removed the
+    # TaskId entry from the allowlist, and it could not fail the gate: no log
+    # call in this tree interpolates a name that resolves to that type, so
+    # removing the entry changed nothing and the control reported a pass for a
+    # gate that had never been shown to fail. A control that cannot fail is
+    # worse than no control, because it is reported as a passing one.
+    #
+    # The planted line does not compile — `Task` is a type name, not a value,
+    # and a template cannot reference one. The tree is restored immediately
+    # after the control runs, and nothing compiles during it.
+    'log-interpolation': Control(kind='sabotage', proves='scripts/check-log-interpolation-allowlist.py', argv=('{python}', 'scripts/check-log-interpolation-allowlist.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/config/RemoteConfigCacheRepositoryImpl.kt', edit=Edit(kind='append', new='\n\n// TEMPORARY probe planted by the log-interpolation control.\nprivate fun logInterpolationControlProbe() {\n    log.i { "planted=$Task" }\n}\n'), why="a log call that interpolates a type nobody allowlisted must be reported, or the allowlist is a list nobody reads"),
     'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
     'req-id-uniqueness': Control(kind='fixture', proves='scripts/check-req-id-uniqueness.py', argv=('{python}', 'scripts/check-req-id-uniqueness.py', '--root', '{tmp}/repo'), fixture='setup_req_id_uniqueness', why='the collision this gate exists for, in the exact shape the tree had: a change that ADDs an identifier the spec already defines. The clean corpus would pass, so needs_clean_run is False — on this repository the corpus is still red (log-export-surface vs add-log-export), which is why the gate is registered advisory.', needs_clean_run=False),

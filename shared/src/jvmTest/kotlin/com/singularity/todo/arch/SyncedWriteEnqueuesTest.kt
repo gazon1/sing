@@ -213,7 +213,7 @@ class SyncedWriteEnqueuesTest {
         val root = SourceScan.commonMainRoot()
         val file = root.resolve("core/sync/SyncDocumentWriter.kt")
         assertTrue(file.isFile, "SyncDocumentWriter.kt is not where this test expects it: ${file.path}")
-        return applyHandlerNamesIn(SourceScan.stripComments(file.readText()))
+        return applyHandlerNamesIn(KotlinText.stripComments(file.readText()))
     }
 
     /** Method names invoked as `<repo>.upsert(` inside the writer's dispatch. */

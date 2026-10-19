@@ -162,27 +162,20 @@ class UiAutomationSelectorTest {
     }
 
     private companion object {
-        val BLOCK_COMMENT = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
-        val LINE_COMMENT = Regex("""//[^\n]*""")
         val TEST_TAG_ARG = Regex("""testTag\([^)\n]*\)""")
         val LABEL_ARG = Regex("""\.\s*(label|actionLabel)\b""")
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    /** Replaces block and line comments with blank space, preserving offsets. */
-    private fun stripComments(code: String): String {
-        var out = code
-        // Reversed, so each replacement cannot shift the offsets of the ones
-        // still to be done.
-        BLOCK_COMMENT.findAll(code).toList().reversed().forEach { m ->
-            out = out.replaceRange(m.range, " ".repeat(m.value.length))
-        }
-        LINE_COMMENT.findAll(out).toList().reversed().forEach { m ->
-            out = out.replaceRange(m.range, " ".repeat(m.value.length))
-        }
-        return out
-    }
+    /**
+     * Replaces comments with blank space, preserving offsets.
+     *
+     * [KotlinText] does the work: it tracks string literals, so a `//` inside a URL
+     * is not mistaken for a comment and a brace inside a string is not mistaken for
+     * code. The regex stripper this replaced could do neither.
+     */
+    private fun stripComments(code: String): String = KotlinText.stripComments(code)
 
     private fun findOccurrences(code: String, needle: String): List<Int> {
         val out = mutableListOf<Int>()

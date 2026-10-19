@@ -192,6 +192,15 @@ jobs:
       # `python3 scripts/check-gate-wiring.py` ("Gates are wired and can fail"),
       # whose `import click` sits at module scope. The job that exists to prove
       # gates can fail could not run the gate.
+      #
+      # The YAML and actionlint linters are off here because the two gates that
+      # use them are `bash -c` lines in the registry, not script gates: Part B
+      # never runs them, and this job does not run the registry. The link
+      # checker stays ON: `scripts/check-doc-links.sh` IS a script gate, so
+      # Part B runs it — first on the clean tree, then on a sabotaged one.
+      # With lychee missing, the clean-tree run failed ("already fails on a
+      # clean tree") and the control could not prove anything. A control that
+      # cannot run is not a control.
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
         with:

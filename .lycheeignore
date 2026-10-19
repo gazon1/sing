@@ -1,0 +1,17 @@
+# lychee exclude file — one regular expression per line.
+#
+# Every entry here is an *illustrative* link: documentation that shows the shape
+# of a path a reader should write, not a reference to a file in this repository.
+#
+# These were invisible before lychee. `scripts/check-doc-dead-refs.py` checks
+# backticked paths and dated ADR slugs — it does not look at markdown links at
+# all — so a link to a file that does not exist sat in a skill document with
+# nothing to notice it.
+#
+# The rule for an entry landing here: the link is an example, and the file it
+# points at is not supposed to exist. A link to a file that *should* exist is a
+# bug, and the fix is to correct the path, not to add it to this file.
+
+# singularity-todo-feature-scaffold: the "### 6. <Feature>ViewModel.kt" section
+# links to the MviViewModel base class to show the naming convention.
+.*/singularity-todo-feature-scaffold/core/ui/MviViewModel\.kt

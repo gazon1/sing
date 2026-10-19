@@ -52,15 +52,42 @@ internal object RunnableTestMember {
     )
 
     /**
-     * Lines of [source] that belong to the body of the class declared at
+     * The file with its comments and its string and character literal
+     * *contents* blanked out, one line per source line.
+     *
+     * A brace counter over raw source counts braces that are not braces. A
+     * string holding `"{"`, a KDoc mentioning a `{`, a raw string holding a
+     * JSON fixture — each of them shifts the depth, and the class body ends in
+     * the wrong place. The class then reads as having no test member, so it
+     * reads as untagged, so `-Ptest.tags` never selects it, so it never runs.
+     *
+     * Five real test classes were invisible to the inventory for exactly this
+     * reason, and the tripwire meant to catch it could not: its oracle shared
+     * the implementation's blind spots. The exotic shapes are now pinned by
+     * `config/test-fixtures/runnable-test-members.txt` — the contract both
+     * languages read — and this function is the Kotlin half of it.
+     *
+     * The result has the same number of lines as the input, and every removed
+     * character is replaced by a space, so a line number from the result still
+     * points at the same line of the source.
+     */
+    fun codeLines(source: List<String>): List<String> =
+        stripCode(source.joinToString("\n")).split("\n")
+
+    /**
+     * Lines of [codeLines] that belong to the body of the class declared at
      * [classIndex], or an empty list for a declaration with no `{` on it.
+     *
+     * [codeLines] must come from [codeLines] — the file with comments and
+     * literal contents blanked. Passing raw source lines here reproduces the
+     * defect this function exists to avoid.
      *
      * Brace-counted, so the length of the class is irrelevant:
      * `EntityMapperCompletenessTest` declares its first test 340 lines below its
      * header, and a fixed window in N lines read that real test as absent.
      */
-    fun classBody(source: List<String>, classIndex: Int): List<String> {
-        val declaration = source[classIndex]
+    fun classBody(codeLines: List<String>, classIndex: Int): List<String> {
+        val declaration = codeLines[classIndex]
         // A bodyless declaration — `data object Alpha`, a sealed-interface
         // member — has no '{' here. Without this guard the counter would run to
         // the end of the file and blame the *next* class for this one's tests.
@@ -68,8 +95,8 @@ internal object RunnableTestMember {
         val body = mutableListOf<String>()
         var depth = 0
         var opened = false
-        for (i in classIndex until source.size) {
-            val line = source[i]
+        for (i in classIndex until codeLines.size) {
+            val line = codeLines[i]
             body.add(line)
             line.forEach { ch ->
                 when (ch) {
@@ -87,8 +114,8 @@ internal object RunnableTestMember {
     }
 
     /** True when the class at [classIndex] declares a member JUnit will execute. */
-    fun classHasTestMember(source: List<String>, classIndex: Int): Boolean =
-        classBody(source, classIndex).any { TEST_MEMBER.containsMatchIn(it) }
+    fun classHasTestMember(codeLines: List<String>, classIndex: Int): Boolean =
+        classBody(codeLines, classIndex).any { TEST_MEMBER.containsMatchIn(it) }
 
     /**
      * True when [source] declares a runnable test class.
@@ -100,12 +127,12 @@ internal object RunnableTestMember {
      * named anything else with tests still needs one.
      */
     fun hasRunnableTest(source: String): Boolean {
-        val lines = source.split("\n")
-        return lines.indices.any { index ->
-            val header = classHeaderAt(lines, index) ?: return@any false
+        val code = codeLines(source.split("\n"))
+        return code.indices.any { index ->
+            val header = classHeaderAt(code, index) ?: return@any false
             header.endsWith("Test") &&
-                !abstractOrOpen(lines[index]) &&
-                classHasTestMember(lines, index)
+                !abstractOrOpen(code[index]) &&
+                classHasTestMember(code, index)
         }
     }
 
@@ -133,4 +160,20 @@ internal object RunnableTestMember {
 
     private val MODIFIER_BEFORE_CLASS =
         Regex("^(?:public |internal |private |protected )?(?:abstract|open)\\s")
+
+    // ── The source reader ──────────────────────────────────────────────────────
+    //
+    // The walk that knows where the code ends lives in [KotlinText] — the one
+    // lexer in this module. It is the Kotlin half of a two-language contract:
+    // the Python half is `scripts/src/scanners/source_text.py`, and the shapes
+    // both must handle are written down in
+    // `config/test-fixtures/runnable-test-members.txt`.
+    //
+    // This object used to carry its own copy of the walk, which is the fourth
+    // copy the repository had. [KotlinText] is now the single implementation,
+    // and the oracle in `ClassBodyScannerAgreementTest` is the only other one —
+    // deliberately, because a guard that compares an implementation with itself
+    // cannot fail.
+
+    private fun stripCode(text: String): String = KotlinText.stripCode(text)
 }

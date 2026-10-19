@@ -16,7 +16,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
  *
  * ## Why it is a function and not a call inside `main`
  *
- * It was originally a private `suspend fun` in `desktopApp/main.kt`, which meant nothing
+ * It was originally a private `suspend fun` in `desktopApp/src/main/kotlin/com/singularity/todo/main.kt`, which meant nothing
  * executed it in any test — and the property that actually matters is the one most likely
  * to be broken by an innocent-looking edit.
  *

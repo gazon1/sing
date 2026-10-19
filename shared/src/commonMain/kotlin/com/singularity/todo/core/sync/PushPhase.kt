@@ -105,9 +105,9 @@ internal class PushPhase(
         return try {
             val response = api.batchPush(ready.request)
             val counts = processResponses(response, pending, activeScope, session)
-            phases.recordPushResult(Result.success(counts.toSummary(response.results.size)))
+            phases.recordPushResult(Result.success(counts.toSummary()))
             phases.setPushStatus(isPushing = false)
-            PhaseResult.Ok(counts.toSummary(response.results.size))
+            PhaseResult.Ok(counts.toSummary())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -184,7 +184,15 @@ internal class PushPhase(
                 }
 
                 result.isRetriable -> {
-                    outboxDao.delete(result.patchId)
+                    // The row is NOT deleted here. A retriable failure defers the
+                    // patch: `deferOrDeadLetter` updates it in place (attempts + 1,
+                    // nextAttemptAt) or, once the attempts are exhausted, moves it to
+                    // the dead-letter store and deletes it *there*.
+                    //
+                    // Deleting it here first made that update a no-op — `markFailed` is
+                    // an UPDATE, not an upsert — so the patch vanished from the outbox
+                    // with no retry and no dead letter. A user's edit was destroyed by
+                    // a server that merely said "busy".
                     deferOrDeadLetter(pending.firstOrNull { row -> row.patchId == result.patchId }, result, activeScope)
                     failed++
                 }
@@ -207,8 +215,16 @@ internal class PushPhase(
         val superseded: Int,
         val discarded: Int,
     ) {
-        fun toSummary(totalResults: Int) = PushSummary(
-            processed = totalResults,
+        /**
+         * The summary of these counts.
+         *
+         * [PushSummary.processed] is the number of results this client acted upon,
+         * so it is the sum of the four acted-upon buckets — **not** the number of
+         * results the server sent. A discarded result is in neither: the server
+         * answered, and the device declined to act on the answer.
+         */
+        fun toSummary() = PushSummary(
+            processed = succeeded + failed + lost + superseded,
             succeeded = succeeded,
             failed = failed,
             lost = lost,

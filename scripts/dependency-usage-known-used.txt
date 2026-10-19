@@ -1,0 +1,31 @@
+# Dependencies this project declares and uses in a source set the gate scans.
+#
+# This file is a claim the gate checks, not a list of findings. If one of these
+# coordinates ever shows up as "unused", the scan is blind — it cannot see a
+# dependency this project demonstrably uses — and that is a measurement
+# failure, not a finding about the dependency.
+#
+# It exists because a scan that reports nothing looks exactly like a scan that
+# is right. The `com.autonomousapps.dependency-analysis` plugin reported
+# compose.material3, compose.runtime, koin-core and kotlinx-serialization-json
+# as unused — all four of them used in hundreds of files. A tool that cannot
+# see a KMP module's `commonMain` sees nothing at all, and the failure is
+# silent: the tool reports success.
+#
+# So this is the bar a future candidate for this gate has to clear before it is
+# wired in. A tool that cannot see these is not more precise than this scan; it
+# is less informed. (ADR
+# `2026-10-19-dependency-analysis-plugin-rejected.md`.)
+#
+# Format: <coordinate> | <source set> | <evidence>
+#
+# The evidence column is the number of distinct import statements in the
+# scanned source sets that resolve to a package root the coordinate
+# contributes. It is a count of *evidence*, not a claim of exhaustive use.
+org.jetbrains.compose.material3:material3 | commonMain | 216 matching imports
+androidx.room3:room3-runtime | commonMain | 69 matching imports
+org.jetbrains.kotlinx:kotlinx-serialization-json | commonMain | 54 matching imports
+io.insert-koin:koin-core | commonMain | 41 matching imports
+io.ktor:ktor-client-core | commonMain | 41 matching imports
+com.squareup.okio:okio | commonMain | 24 matching imports
+co.touchlab:kermit | commonMain | 13 matching imports

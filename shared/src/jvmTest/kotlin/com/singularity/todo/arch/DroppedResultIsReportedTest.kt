@@ -104,7 +104,7 @@ class DroppedResultIsReportedTest {
         )
 
         val offenders = SourceScan.productionFiles().flatMap { file ->
-            droppedCallsIn(SourceScan.stripComments(file.readText()), declarations, selfReporting)
+            droppedCallsIn(KotlinText.stripComments(file.readText()), declarations, selfReporting)
                 .map {
                     "${file.name}:${it.line} ${it.receiver}.${it.method}() " +
                         "returns a Result and nothing looks at it"
@@ -174,7 +174,7 @@ class DroppedResultIsReportedTest {
             emitError("Move failed") { repo.update(item) }
             fun wrapper(): Result<Int> = repo.count(item)
         """.trimIndent()
-        val stripped = SourceScan.stripComments(source)
+        val stripped = KotlinText.stripComments(source)
         val dropped = droppedCallsIn(stripped, declaredMethodsIn(stripped), emptySet())
 
         assertEqual(
@@ -215,7 +215,7 @@ class DroppedResultIsReportedTest {
             }
         """.trimIndent()
 
-        val stripped = SourceScan.stripComments(source)
+        val stripped = KotlinText.stripComments(source)
         val dropped = droppedCallsIn(stripped, declaredMethodsIn(stripped), emptySet())
 
         assertEqual(listOf(14), dropped.map { it.line }, "only the real call on line 14 remains")
@@ -257,7 +257,7 @@ class DroppedResultIsReportedTest {
 
         assertEqual(
             setOf(MethodKey("SyncEngine", "enqueue")),
-            capturesAndReports(SourceScan.stripComments(source)),
+            capturesAndReports(KotlinText.stripComments(source)),
             "the seed set only. A method that reports the Result it captured is exempt; a " +
                 "method that constructs Result.failure is not, because for its callers that " +
                 "Result is how the failure travels; a method that neither reports nor is " +
@@ -312,7 +312,7 @@ class DroppedResultIsReportedTest {
             }
         """.trimIndent()
 
-        val stripped = SourceScan.stripComments(source)
+        val stripped = KotlinText.stripComments(source)
         val derived = closeOver(capturesAndReports(stripped), declaredMethodsIn(stripped), listOf(stripped))
 
         assertEqual(
@@ -398,7 +398,7 @@ class DroppedResultIsReportedTest {
      * question of the one place that must answer it.
      */
     private fun selfReportingMethods(): Set<MethodKey> {
-        val sources = SourceScan.productionFiles().map { SourceScan.stripComments(it.readText()) }
+        val sources = SourceScan.productionFiles().map { KotlinText.stripComments(it.readText()) }
         val direct = sources.flatMapTo(mutableSetOf()) { capturesAndReports(it) }
         return closeOver(direct, declaredMethods(), sources)
     }
@@ -667,7 +667,7 @@ class DroppedResultIsReportedTest {
     /** declaring type -> (method -> does it return Result?). */
     private fun declaredMethods(): Map<String, Map<String, Boolean>> =
         SourceScan.productionFiles().fold(mutableMapOf<String, Map<String, Boolean>>()) { acc, file ->
-            acc += declaredMethodsIn(SourceScan.stripComments(file.readText()))
+            acc += declaredMethodsIn(KotlinText.stripComments(file.readText()))
             acc
         }
 

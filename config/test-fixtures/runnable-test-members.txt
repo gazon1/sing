@@ -228,3 +228,65 @@ class RoomContractTest : ContractTest() {
     @Test
     fun real() = Unit
 }
+
+
+=== plain_string_brace_above_the_test | runnable
+class PlainStringBraceTest {
+    private val marker = "}"
+
+    @Test
+    fun works() = Unit
+}
+
+
+=== raw_string_brace_above_the_test | runnable
+class RawStringBraceTest {
+    private val pattern = """\{"""
+
+    @Test
+    fun works() = Unit
+}
+
+
+=== kdoc_brace_above_the_test | runnable
+class KdocBraceTest {
+    /**
+     * A `{` in prose is not a brace — it is a brace in a comment, and a
+     * comment is not code.
+     */
+    private val value = 1
+
+    @Test
+    fun works() = Unit
+}
+
+
+=== nested_block_comment_above_the_test | runnable
+class NestedCommentBraceTest {
+    /**
+     * `onFailure { /* the inner comment */ }` — Kotlin block comments nest, so
+     * the whole KDoc is one comment and the brace inside it is not a brace.
+     */
+    private val value = 1
+
+    @Test
+    fun works() = Unit
+}
+
+
+=== template_brace_above_the_test | runnable
+class TemplateBraceTest {
+    private val value = "${if (true) 1 else 2}"
+
+    @Test
+    fun works() = Unit
+}
+
+
+=== template_with_a_block_above_the_test | runnable
+class TemplateBlockBraceTest {
+    private val value = "${run { 1 }}"
+
+    @Test
+    fun works() = Unit
+}

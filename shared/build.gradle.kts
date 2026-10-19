@@ -65,6 +65,43 @@ kotlin {
         withHostTest {}
     }
 
+    // The device-test source set cannot resolve its own classpath.
+    //
+    // `commonTest` declares `kotlin-test-junit5` explicitly (the common tests are
+    // JUnit 5), and the umbrella `kotlin-test` is added by the Kotlin Gradle Plugin
+    // for variant inference. `androidDeviceTest` inherits `commonTestImplementation`,
+    // so its compile classpath carries both — and the umbrella resolves to the
+    // **JUnit 4** variant there, because the device tests run on the
+    // AndroidJUnitRunner. Both `kotlin-test-junit` and `kotlin-test-junit5` provide
+    // the `kotlin-test-framework-impl` capability, so two providers of one capability
+    // land in one configuration and the resolution fails outright:
+    //
+    //     Cannot select module with conflict on capability
+    //     'org.jetbrains.kotlin:kotlin-test-framework-impl'
+    //
+    // (the version is the one the catalog pins; it is not spelled out here because
+    //  a coordinate with a version in it is a hardcoded literal to the
+    //  version-catalog gate, and this comment would trip it)
+    //
+    // The failure is latent: it needs a task that actually resolves the classpath,
+    // and the device-test source set is empty (`shared/src/androidDeviceTest` holds
+    // no Kotlin), so nothing in the normal build touched it. `:shared:kspAndroidDeviceTest`
+    // does — and it fails, with or without any other plugin in the build.
+    //
+    // Excluding the JUnit 5 artifact from the device-test configurations leaves a
+    // single provider, and it is the one the device tests actually run under.
+    // The source set is empty today; the fix is here so that the first device test
+    // added to it does not arrive with an unresolvable classpath.
+    //
+    // Scoped by configuration *name*, deliberately: `configurations.configureEach`
+    // inside a source-set block resolves to the project's configurations, not the
+    // source set's, and excluding junit5 from all of them takes `kotlin.test.Test`
+    // out of commonTest as well — which fails every test file with
+    // "Unresolved reference 'Test'".
+    configurations.matching { it.name.startsWith("androidDeviceTest") }.configureEach {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-test-junit5")
+    }
+
     sourceSets {
         commonMain.dependencies {
             // ADR rules live in `:adr-core` so that `:adr-cli` can use them without

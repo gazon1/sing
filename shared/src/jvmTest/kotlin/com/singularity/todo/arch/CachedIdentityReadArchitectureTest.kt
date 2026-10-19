@@ -269,24 +269,12 @@ class CachedIdentityReadArchitectureTest {
          * matcher miss `map(f(x)) { … }` — a remaining, deliberate gap, in the same
          * direction as the other one below.
          */
-        // DOT_MATCHES_ALL lives on the Regex, not at the call site: String.replace has
-        // no overload taking both options and a transform.
-        val BLOCK_COMMENT = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
-        val LINE_COMMENT = Regex("""//[^\n]*""")
-
         val REACTIVE_WITH_LAMBDA = Regex(
             """\b(${REACTIVE_CALLS.joinToString("|")})\s*(<[^<>]*>)?\s*(\([^()]*\))?\s*\{""",
         )
 
-        fun stripComments(source: String): String = source
-            .replace(BLOCK_COMMENT) { m ->
-                // Keep the line count so reported line numbers still point at the source.
-                "\n".repeat(m.value.count { it == '\n' })
-            }
-            .replace(LINE_COMMENT, "")
-
         fun findCachedIdentityReadsInReactiveBlocks(source: String): List<Finding> {
-            val lines = stripComments(source).split("\n")
+            val lines = KotlinText.stripComments(source).split("\n")
             // Stack of currently open reactive lambda bodies, keyed by the brace depth
             // they opened at. A block counts as open while depth is strictly greater.
             val openBlocks = ArrayDeque<Int>()

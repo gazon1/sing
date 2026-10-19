@@ -1,0 +1,121 @@
+# The one definition of "where does this block end", as fixtures.
+#
+# Format, one record per block:
+#
+#   === <id> | <expected body, or `unclosed`>
+#   <Kotlin source, verbatim, until the next === line or EOF>
+#
+# `expected` is the answer BOTH implementations must give:
+#   - source_text.py   (scripts/src/scanners/source_text.py — block_body)
+#   - KotlinText.kt    (shared/src/jvmTest — KotlinText.blockBody)
+#
+# The body is the text between the first `{` that is CODE and the `}` that
+# closes it. A newline is written `\n`, a tab `\t`, a backslash `\\`; every
+# other character is itself.
+#
+# They are two implementations of one concept, and they are two languages, so
+# nothing but this file can hold them together. The Kotlin side is a test
+# double rather than a production dependency: the real Kotlin lexer is
+# `KotlinText`, and this table is what says the two agree.
+#
+# Why a table and not a Kotlin test: a test that asserts Kotlin == Python
+# cannot be written in one language. The fixtures are the contract, and both
+# suites read the same bytes.
+#
+# `unclosed` records are the positive controls. A matcher that returned the end
+# of the file for everything would pass every other record and is caught only
+# here.
+#
+# Keep the id stable: the two suites report the id, not a line number, so
+# renaming a fixture does not silently repoint a failure.
+#
+# Every record below is a shape this repository actually contains, or a shape
+# that broke a scanner here. The measured damage of getting them wrong: a
+# comment-only stripper disagrees with a full lexer about the brace depth in
+# 444 of 1650 Kotlin files, and extracts 103 function bodies in 27 files of
+# `:shared` to the wrong end.
+
+
+=== plain_block | \n    val a = 1\n
+class A {
+    val a = 1
+}
+
+
+=== string_with_a_closing_brace | \n    val s = "}"\n    val b = 2\n
+class A {
+    val s = "}"
+    val b = 2
+}
+
+
+=== raw_string_with_a_brace | \n    val s = """{"""\n    val b = 2\n
+class A {
+    val s = """{"""
+    val b = 2
+}
+
+
+=== raw_string_with_four_quotes | \n    val s = """"q""""\n    val b = 2\n
+class A {
+    val s = """"q""""
+    val b = 2
+}
+
+
+=== kdoc_with_a_brace | \n    /**\n     * A `{` in prose is not a brace.\n     */\n    val b = 2\n
+class A {
+    /**
+     * A `{` in prose is not a brace.
+     */
+    val b = 2
+}
+
+
+=== nested_block_comment | \n    /**\n     * `onFailure { /* the inner comment */ }`\n     */\n    val b = 2\n
+class A {
+    /**
+     * `onFailure { /* the inner comment */ }`
+     */
+    val b = 2
+}
+
+
+=== char_literal_brace | \n    val c = '}'\n    val b = 2\n
+class A {
+    val c = '}'
+    val b = 2
+}
+
+
+=== escaped_quote_in_a_string | \n    val s = "a\\"}"\n    val b = 2\n
+class A {
+    val s = "a\"}"
+    val b = 2
+}
+
+
+=== url_in_a_string | \n    val url = "https://example.com"\n    val b = 2\n
+class A {
+    val url = "https://example.com"
+    val b = 2
+}
+
+
+=== template_with_a_block | \n    val s = "${run { 1 }}"\n    val b = 2\n
+class A {
+    val s = "${run { 1 }}"
+    val b = 2
+}
+
+
+=== template_with_a_string_brace | \n    val s = "${f("}")}"\n    val b = 2\n
+class A {
+    val s = "${f("}")}"
+    val b = 2
+}
+
+
+=== unclosed_block | unclosed
+class A {
+    val a = 1

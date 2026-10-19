@@ -103,21 +103,62 @@ class TestTagsCatalogJvmTest {
     @Test
     fun `dynamic functions count matches raw fun scan — guards against line-wrap dropping functions`() {
         // Regression: a line-wrap in TestTags.kt must not cause the parser to skip a function.
-        // Independently count 'fun' declarations by scanning for the pattern at line-start
-        // (MULTILINE mode).  This is robust against:
-        //   - multi-line function signatures (continuation lines don't start with 'fun')
-        //   - 'fun' appearing as literal text inside a multi-line string (same reason)
+        //
+        // The oracle counts the *category* the catalog declares — a tag function is
+        // one whose value routes through `slug(...)` — and not every `fun` in the
+        // file. Three functions here are tag functions that deliberately do not
+        // route through a slug (`menuItem`, `calendarDay`, `calendarWeekdayHeader`:
+        // each builds its value directly), so comparing the catalog against every
+        // `fun` compared two different categories and reported a difference that
+        // was never a defect. The old message blamed a line-wrap for a mismatch
+        // that had another cause entirely — the shape of a guard whose oracle does
+        // not model the predicate it guards.
+        //
+        // Two independent measurements, because one number fails in one way only:
+        // how many `slug` templates the file declares, and which functions carry
+        // them. The first catches a declaration that was dropped or invented; the
+        // second catches one that was attributed to the wrong owner.
         val source = readTestTagsSourceForFunCount()
-        val funPattern = Regex("""^\s*fun\s+\w+""", RegexOption.MULTILINE)
-        val rawFunCount = funPattern.findAll(source).count()
-
-        val catalogCount = TestTagsCatalog.dynamicFunctions().size
+        val templateCount = SLUG_TEMPLATE.findAll(source).count()
+        val oracleNames = slugRoutingFunctionNames(source)
+        val catalog = TestTagsCatalog.dynamicFunctions()
+        val catalogNames = catalog.map { it.first.substringAfterLast('.') }.toSet()
 
         assertTrue(
-            catalogCount == rawFunCount,
-            "TestTagsCatalog returned $catalogCount dynamic functions but raw scan found $rawFunCount " +
-                "fun declarations — a line-wrap may have caused the parser to skip a function",
+            templateCount > 20,
+            "only $templateCount slug templates found in TestTags.kt — the oracle is not " +
+                "reading the file, so agreeing with the catalog would mean nothing",
         )
+        assertEquals(
+            templateCount,
+            catalog.size,
+            "TestTagsCatalog returned ${catalog.size} dynamic functions but TestTags.kt " +
+                "declares $templateCount slug templates — a declaration was dropped or invented",
+        )
+        assertEquals(
+            oracleNames,
+            catalogNames,
+            "TestTagsCatalog and the raw source disagree about which functions are tag functions",
+        )
+    }
+
+    /**
+     * The names of the functions whose declaration routes through `slug(...)`.
+     *
+     * A declaration is the text from a `fun` line up to the next `fun` line, so a
+     * declaration wrapped over several lines is read whole — which is the shape
+     * this test exists to catch, and the reason the slice is not a single line.
+     */
+    private fun slugRoutingFunctionNames(source: String): Set<String> {
+        val declarations = FUN_DECLARATION.findAll(source).toList()
+        return declarations.indices
+            .mapNotNull { index ->
+                val match = declarations[index]
+                val end = declarations.getOrNull(index + 1)?.range?.first ?: source.length
+                val declaration = source.substring(match.range.first, end)
+                match.groupValues[1].takeIf { SLUG_TEMPLATE.containsMatchIn(declaration) }
+            }
+            .toSet()
     }
 
     /** Mirrors [TestTagsCatalog]'s path resolution; kept separate so the catalog stays parse-only. */
@@ -322,5 +363,21 @@ class TestTagsCatalogJvmTest {
             "reverse-wiring scan found only $scannedFiles .kt files — " +
                 "the check is not reading production sources and would pass vacuously",
         )
+    }
+
+    private companion object {
+        /**
+         * A function declaration, with the modifiers a declaration may carry.
+         *
+         * The modifiers are listed rather than skipped so that a declaration such
+         * as `internal fun slug(...)` ends its own slice — an unnamed declaration
+         * would otherwise hand the next function's text to the previous one.
+         */
+        private val FUN_DECLARATION = Regex(
+            """(?m)^[ \t]*(?:(?:public|private|internal|protected|override|suspend|open|abstract|inline|operator|tailrec|expect|actual)\s+)*fun\s+(\w+)""",
+        )
+
+        /** The value template of a slug-expanding tag function. */
+        private val SLUG_TEMPLATE = Regex("""\$\{slug\(""")
     }
 }

@@ -53,13 +53,7 @@ class CrashReportingWiringTest {
         private val files: List<KoFileDeclaration> =
             Konsist.scopeFromExternalDirectory(commonMainRoot).files
 
-        private fun stripComments(text: String): String =
-            text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
-                .replace(Regex("""//[^\n]*"""), "")
-
-        private fun KoFileDeclaration.codeOnly(): String =
-            text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
-                .replace(Regex("""//[^\n]*"""), "")
+        private fun KoFileDeclaration.codeOnly(): String = KotlinText.stripComments(text)
 
         private fun KoFileDeclaration.isViewModel(): Boolean {
             val file = name
@@ -86,7 +80,7 @@ class CrashReportingWiringTest {
         // invisible in a test run, so the invariant is asserted on the source: the factory
         // takes a handler as a required argument, so a caller cannot get a scope without
         // naming a policy.
-        val factory = stripComments(files.single { it.name == "BackgroundScope" }.text)
+        val factory = KotlinText.stripComments(files.single { it.name == "BackgroundScope" }.text)
         // The parameter must be a CoroutineExceptionHandler AND must carry no default value.
         //
         // The first half alone was the bug in the first version of this check: it passed
