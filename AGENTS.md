@@ -21,8 +21,10 @@
 **Механическая защита от divergence (#268):**
 - `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
   который отстаёт от `origin/main`; предупреждает о неpushнутых коммитах.
-- `check-unmerged.sh` (`scripts/ci/check-unmerged.sh`) — blocking gate в static-gates;
-  фейлится если origin/main ушёл вперёд. Используй вручную перед rebase.
+- Гейта `check-unmerged.sh` в CI больше нет: runner checkout'ит detached-коммит без
+  трекинговой ветки и без рефа `origin/main`, поэтому гейт падал на каждом прогоне
+  настройкой раннера, а не расхождением. Локально ту же проверку делает `pre-rebase`
+  — и делает её на тот ref, на который собираешься переносить коммиты.
 
 ## Структура
 

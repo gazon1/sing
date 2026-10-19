@@ -314,11 +314,20 @@ gate blocking "releases describe themselves" sgate releases_describe_themselves
 
 # AppTracer
 
-# Rebase divergence prevention: fail if origin/main has commits not yet in current branch.
-# This gate runs after a git fetch (which check-unmerged.sh does internally).  It is
-# blocking because rebasing onto a stale main creates divergent history that requires
-# force-push to fix — a state the author may not notice until a colleague cannot pull.
-gate blocking "local branch is not behind origin/main" bash scripts/ci/check-unmerged.sh
+# REMOVED: "local branch is not behind origin/main" (bash scripts/ci/check-unmerged.sh)
+#
+# The premise was sound — rebasing onto a stale main creates divergent history that
+# needs a force-push — but a runner cannot check it. CI checks out a detached commit
+# with no tracking branch and no `origin/main` ref, so the gate failed every run on
+# the runner's setup rather than on anyone's divergence:
+#
+#     check-unmerged: upstream 'origin/main' does not exist. Run 'git fetch' first.
+#
+# A gate that is always red for a reason unrelated to what it checks trains people to
+# read past it, and it was the third blocking failure in `Static gates` on a run whose
+# other two were unrelated. Divergence prevention is not lost: `.githooks/pre-rebase`
+# implements the same rule locally, where an upstream ref genuinely exists, and does so
+# on the ref about to be rebased onto rather than on a tracking branch CI never has.
 
 # Gate-script conventions. Advisory because the corpus is knowingly red: every
 # legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a

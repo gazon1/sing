@@ -9,4 +9,4 @@
 #
 # Rewrite with: scripts/find-unwired-surfaces.py --update-floor
 
-4
+3
