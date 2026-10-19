@@ -414,15 +414,28 @@ SCRIPT_GATES = [
         # work-schedule fields, which are wired and still dead. The check descends
         # to the field, so the control has to descend with it.
         #
-        # The target must be a field the baseline still carries. It used to be
-        # `Notifications.reminderDefault`, which stopped being a valid target when
-        # that setting got wired (#657): with the field wired, the baseline no longer
-        # needs it, the `_replace` match went stale, and the control raised
-        # "sabotage would be a no-op" — the assertion did its job and named the
-        # drift. `Notifications.sound` is baselined today, so exempting it away is
-        # exactly what makes the gate report.
+        # The target must be a field the baseline still carries. It has now failed
+        # that rule twice, in the same way.
+        #
+        # It used to be `Notifications.reminderDefault`, which stopped being a valid
+        # target when that setting got wired (#657): with the field wired the baseline
+        # no longer needs it, the `_replace` match went stale, and the control raised
+        # "sabotage would be a no-op".
+        #
+        # Then `Notifications.sound`, for the same reason and by a different route.
+        # Nothing was ever wrong with it — the `PLUMBING` list excluded
+        # `core/notifications/` as a directory, so `AndroidNotifier`, three files from
+        # the store in that directory and the only consumer of the field, was not
+        # counted as a reader and the field was baselined as dead. Narrowing `PLUMBING`
+        # to the plumbing *file kinds* made the field live, the baseline no longer
+        # carried it, and the control went stale the same way.
+        #
+        # So the baseline entry is the thing that has to be re-read after any wiring
+        # or unwiring change, not just the gate. `WorkSchedule.weekendSat` is baselined
+        # today and is read by nothing, so exempting it away is what makes the gate
+        # report.
         sabotage_path="scripts/check-dead-settings-baseline.txt",
-        sabotage=_replace('Notifications.sound', 'Notifications.no_such_field'),
+        sabotage=_replace('WorkSchedule.weekendSat', 'WorkSchedule.no_such_field'),
         why="a persisted setting rendered in Settings and read by no feature is a " +
             "control that looks like it works; every baseline line is a claim that " +
             "needs its own justification",
