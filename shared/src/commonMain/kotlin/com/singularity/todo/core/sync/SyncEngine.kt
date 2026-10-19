@@ -17,6 +17,12 @@ import kotlin.time.Clock
 /**
  * Summary of a push operation.
  *
+ * [processed] counts the results this client acted upon: [succeeded], [failed],
+ * [lost] and [superseded] together. A **discarded** result is not one of them —
+ * the server answered, and this device declined to act on the answer, so nothing
+ * was processed. It used to be counted as processed, which made "the server
+ * answered and we ignored it" look like "the server answered and we handled it".
+ *
  * [discarded] counts results the server answered that this client refused to apply,
  * because the account the request was made under is no longer signed in (REQ-UA-018).
  * It is a fourth number rather than a [failed] one because nothing failed: the server
