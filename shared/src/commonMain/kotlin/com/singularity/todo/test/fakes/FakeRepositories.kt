@@ -56,6 +56,7 @@ import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.settings.SettingsRepository
@@ -117,6 +118,7 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotation
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationRepository
 import com.singularity.todo.core.attachments.annotation.TextRange
+import kotlinx.datetime.DayOfWeek
 
 // ─── SettingsRepository ────────────────────────────────────────────────────────
 
@@ -154,14 +156,12 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
         private val _dayEnd = MutableStateFlow(1080)
         private val _lunchStart = MutableStateFlow(720)
         private val _lunchEnd = MutableStateFlow(780)
-        private val _sat = MutableStateFlow(false)
-        private val _sun = MutableStateFlow(false)
+        private val _workingDays = MutableStateFlow(WorkingDays.DEFAULT)
         override val dayStartMinutes: Flow<Int> = _dayStart
         override val dayEndMinutes: Flow<Int> = _dayEnd
         override val lunchStartMinutes: Flow<Int> = _lunchStart
         override val lunchEndMinutes: Flow<Int> = _lunchEnd
-        override val weekendSat: Flow<Boolean> = _sat
-        override val weekendSun: Flow<Boolean> = _sun
+        override val workingDays: Flow<Set<DayOfWeek>> = _workingDays
         override suspend fun setDayStartMinutes(value: Int) {
             _dayStart.value = value
         }
@@ -178,12 +178,8 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
             _lunchEnd.value = value
         }
 
-        override suspend fun setWeekendSat(value: Boolean) {
-            _sat.value = value
-        }
-
-        override suspend fun setWeekendSun(value: Boolean) {
-            _sun.value = value
+        override suspend fun setWorkingDays(value: Set<DayOfWeek>) {
+            _workingDays.value = value
         }
     }
 

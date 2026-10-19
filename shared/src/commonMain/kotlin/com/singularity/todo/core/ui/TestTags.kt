@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui
 
 import com.singularity.todo.core.reminders.ReminderOffset
+import kotlinx.datetime.DayOfWeek
 
 /**
  * Test tag constants for UI test identification.
@@ -518,9 +519,15 @@ object TestTags {
         /** Dynamic tag for a reminder-offset radio row. Uses the locale-aware label as input. */
         fun reminderOffsetRadioRow(offset: ReminderOffset): String = "reminder_offset_radio_${slug(offset.label)}"
 
-        /** Weekend-day toggles on the work schedule screen. */
-        const val WORK_SCHEDULE_SATURDAY_SWITCH = "settings_work_schedule_saturday_switch"
-        const val WORK_SCHEDULE_SUNDAY_SWITCH = "settings_work_schedule_sunday_switch"
+        /**
+         * Toggle for one day of the working week, on the work schedule screen.
+         *
+         * One tag per day, built from the day's slug: `settings_working_day_monday`,
+         * `settings_working_day_sunday`. The section renders the whole week, so
+         * a test that wants "Saturday is off" says which Saturday it means
+         * instead of asserting on a switch that used to be the only one.
+         */
+        fun workingDaySwitch(day: DayOfWeek): String = "settings_working_day_${slug(day.name.lowercase())}"
 
         /** Default tag for a [com.singularity.todo.core.ui.components.SettingsValueRow]. */
         const val VALUE_ROW = "settings_value_row"

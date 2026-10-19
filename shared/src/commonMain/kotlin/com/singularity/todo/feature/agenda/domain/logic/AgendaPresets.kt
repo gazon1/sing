@@ -284,15 +284,15 @@ object AgendaPresets {
     /**
      * The agenda the Today tab shows on [dayOfWeek].
      *
-     * The working-day switches in Settings live under the heading "Working Days":
-     * [saturdayIsWorkingDay] and [sundayIsWorkingDay] say whether that weekend day
-     * is a working day, not whether it is a weekend. (The persisted fields are named
-     * `weekendSat` / `weekendSun`, which reads the other way round — the setting
-     * screen is the authority on what the switch means.)
+     * [workingDays] is the set of days the user works on, as the "Working Days"
+     * section in Settings defines it. On a working day the [workDay] preset
+     * applies; on a day off the [offDay] preset does, so a Saturday that is not
+     * a working day shows the plain date-based sections instead of
+     * morning/lunch/afternoon work blocks.
      *
-     * On a working day the [workDay] preset applies; on a day off the [offDay]
-     * preset does, so a Saturday that is not a working day shows the plain
-     * date-based sections instead of morning/lunch/afternoon work blocks.
+     * The set is the whole question: a user whose working week is not
+     * "Monday to Friday, plus maybe the weekend" can say so, and the agenda
+     * asks the same question the screen asks.
      *
      * This is the "caller's responsibility" that [workDayPreset] documents:
      * deciding whether today is a working day belongs to whoever knows the user's
@@ -300,18 +300,11 @@ object AgendaPresets {
      */
     fun forToday(
         dayOfWeek: DayOfWeek,
-        saturdayIsWorkingDay: Boolean,
-        sundayIsWorkingDay: Boolean,
+        workingDays: Set<DayOfWeek>,
         workDay: AgendaDefinition,
         offDay: AgendaDefinition = Today,
-    ): AgendaDefinition {
-        val isWorkingDay = when (dayOfWeek) {
-            DayOfWeek.SATURDAY -> saturdayIsWorkingDay
-            DayOfWeek.SUNDAY -> sundayIsWorkingDay
-            else -> true
-        }
-        return if (isWorkingDay) workDay else offDay
-    }
+    ): AgendaDefinition =
+        if (dayOfWeek in workingDays) workDay else offDay
 
     /**
      * Work-day agenda split into morning work, lunch, and afternoon work blocks.

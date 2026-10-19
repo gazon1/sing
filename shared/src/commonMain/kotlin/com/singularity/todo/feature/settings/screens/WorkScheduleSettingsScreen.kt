@@ -25,12 +25,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.schedule.WorkingDays
+import com.singularity.todo.core.schedule.displayName
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.SettingsUiState
+import kotlinx.datetime.DayOfWeek
 
 @Composable
 fun WorkScheduleSettingsScreen(
@@ -75,18 +78,22 @@ fun WorkScheduleSettingsScreen(
         }
 
         SettingsSection(title = "Working Days") {
-            SettingsSwitchRow(
-                title = "Saturday",
-                testTag = TestTags.Settings.WORK_SCHEDULE_SATURDAY_SWITCH,
-                checked = state.workSchedule.weekendSat,
-                onCheckedChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWeekendSat(it)) },
-            )
-            SettingsSwitchRow(
-                title = "Sunday",
-                testTag = TestTags.Settings.WORK_SCHEDULE_SUNDAY_SWITCH,
-                checked = state.workSchedule.weekendSun,
-                onCheckedChange = { onIntent(SettingsIntent.WorkSchedule.UpdateWeekendSun(it)) },
-            )
+            // The whole week, not the weekend: the section says "Working Days",
+            // and two switches named after Saturday and Sunday could only ever
+            // say something about the weekend. The order is the ISO order, so
+            // Monday is first and Sunday is last — the week as people read it.
+            DayOfWeek.entries.forEach { day ->
+                SettingsSwitchRow(
+                    title = day.displayName(),
+                    testTag = TestTags.Settings.workingDaySwitch(day),
+                    checked = day in state.workSchedule.workingDays,
+                    onCheckedChange = { onChecked ->
+                        val current = state.workSchedule.workingDays
+                        val updated = if (onChecked) current + day else current - day
+                        onIntent(SettingsIntent.WorkSchedule.UpdateWorkingDays(updated))
+                    },
+                )
+            }
         }
 
         SettingsSection(title = "Greeting Hours") {
@@ -201,8 +208,7 @@ private fun WorkScheduleSettingsScreenLightPreview() = PreviewThemed(darkTheme =
                 dayEndMinutes = 1080, // 18:00
                 lunchStartMinutes = 720, // 12:00
                 lunchEndMinutes = 780, // 13:00
-                weekendSat = false,
-                weekendSun = false,
+                workingDays = WorkingDays.DEFAULT,
             ),
             greeting = SettingsSection.Greeting(
                 morningEndHour = 12,
@@ -221,8 +227,10 @@ private fun WorkScheduleSettingsScreenDarkPreview() = PreviewThemed(darkTheme = 
             workSchedule = SettingsSection.WorkSchedule(
                 dayStartMinutes = 480, // 08:00
                 dayEndMinutes = 1200, // 20:00
-                weekendSat = true,
-                weekendSun = true,
+                workingDays = WorkingDays.DEFAULT + setOf(
+                    DayOfWeek.SATURDAY,
+                    DayOfWeek.SUNDAY,
+                ),
             ),
         ),
         onIntent = {},

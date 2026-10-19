@@ -9,21 +9,15 @@
 # which is what emptied this file. Those four — dayStartMinutes, dayEndMinutes,
 # lunchStartMinutes, lunchEndMinutes — are read in AgendaRouteMapping.kt today.
 
+
 # ─── Read by nothing. Not a gate false positive. ───────────────────────────────
 #
-# Agenda consumes four of the six WorkSchedule fields (dayStartMinutes,
-# dayEndMinutes, lunchStartMinutes, lunchEndMinutes) and the two weekend flags are
-# not among them: no file outside the settings plumbing names them. That was
-# verified by hand as well as by the gate, so these entries waive a true finding.
+# The two weekend flags used to be waived here. `WorkSchedule.weekendSat` and
+# `WorkSchedule.weekendSun` were persisted, rendered under the heading "Working
+# Days", and read by nobody — and the waiver was a decision to leave them
+# inert rather than a claim that they were fine.
 #
-# They are waived rather than removed because removing them would delete persisted
-# user preferences and drop two Settings controls, which is a product decision and
-# not a gate repair. The open question is what a weekend flag should *do* in the
-# agenda — dim the day, exclude it from the work schedule, change the greeting
-# window — and nobody has decided that yet. Until then the controls are honest
-# about being inert: they are rendered, they persist, and they change nothing.
-#
-# What clears these: a consumer of `workScheduleSettings.weekendSat/weekendSun` in
-# a feature, or their removal from SettingsBundle together with a schema migration.
-WorkSchedule.weekendSat  # genuinely unread — see the block comment above; no consumer exists yet
-WorkSchedule.weekendSun  # genuinely unread — see the block comment above; no consumer exists yet
+# They are gone. The section now holds the set of working days
+# (`WorkSchedule.workingDays`), the agenda reads it, and the waiver has
+# nothing to waive. The old preferences still exist in the store, but only so
+# a user who never touched the section keeps what they had.

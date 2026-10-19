@@ -2,9 +2,12 @@ package com.singularity.todo.core.settings
 
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.serialization.json.Json
 import com.singularity.todo.core.error.runCatchingCancellable
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.isoDayNumber
 
 /**
  * Imports a settings snapshot from JSON, validates it, and applies each
@@ -115,8 +118,20 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
                 SettingsIntent.WorkSchedule.UpdateWorkLunchStart(snapshot.workSchedule.lunchStartMinutes),
             )
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkLunchEnd(snapshot.workSchedule.lunchEndMinutes))
-            contributor?.process(SettingsIntent.WorkSchedule.UpdateWeekendSat(snapshot.workSchedule.weekendSat))
-            contributor?.process(SettingsIntent.WorkSchedule.UpdateWeekendSun(snapshot.workSchedule.weekendSun))
+            // A file that carries the working days restores them as a set. A
+            // file written before the set existed carries the two flags
+            // instead, and they are what it meant: the same days, spelled the
+            // old way.
+            val workingDays = snapshot.workSchedule.workingDays
+                ?.let { stored ->
+                    val byNumber = DayOfWeek.entries.associateBy { it.isoDayNumber }
+                    stored.mapNotNull { byNumber[it] }.toSet()
+                }
+                ?: WorkingDays.fromLegacyFlags(
+                    saturdayIsWorkingDay = snapshot.workSchedule.weekendSat,
+                    sundayIsWorkingDay = snapshot.workSchedule.weekendSun,
+                )
+            contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkingDays(workingDays))
         }.onFailure { e ->
             failures.add("Work Schedule: ${e.message ?: e}")
         }

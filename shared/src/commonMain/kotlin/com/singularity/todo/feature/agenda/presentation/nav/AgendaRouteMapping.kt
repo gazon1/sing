@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
+import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
@@ -136,13 +137,10 @@ private fun TodayAgendaContent(
     val dayEnd by workScheduleSettings.dayEndMinutes.collectAsStateWithLifecycle(-1)
     val lunchStart by workScheduleSettings.lunchStartMinutes.collectAsStateWithLifecycle(-1)
     val lunchEnd by workScheduleSettings.lunchEndMinutes.collectAsStateWithLifecycle(-1)
-    // The two working-day switches. They say whether Saturday/Sunday is a
-    // working day (the Settings section is headed "Working Days"), and they
-    // decide whether the work-day preset applies today.
-    val saturdayIsWorkingDay by workScheduleSettings.weekendSat
-        .collectAsStateWithLifecycle(false)
-    val sundayIsWorkingDay by workScheduleSettings.weekendSun
-        .collectAsStateWithLifecycle(false)
+    // The days the user works on (the Settings section is headed "Working
+    // Days"), and they decide whether the work-day preset applies today.
+    val workingDays by workScheduleSettings.workingDays
+        .collectAsStateWithLifecycle(WorkingDays.DEFAULT)
 
     var workDefinition by remember { mutableStateOf<AgendaDefinition?>(null) }
 
@@ -159,8 +157,7 @@ private fun TodayAgendaContent(
         dayEnd,
         lunchStart,
         lunchEnd,
-        saturdayIsWorkingDay,
-        sundayIsWorkingDay,
+        workingDays,
     ) {
         val allBoundsPositive = dayStart >= 0 && dayEnd >= 0 && lunchStart >= 0 && lunchEnd >= 0
         val workDay = if (allBoundsPositive) {
@@ -171,13 +168,12 @@ private fun TodayAgendaContent(
         // The work-day preset is a work-day preset: on a day the user marked
         // as not a working day it must not apply, whatever the time-of-day
         // bounds say. `AgendaPresets.forToday` owns that decision; this block
-        // only supplies the day of week and the user's two switches.
+        // only supplies the day of week and the user's working days.
         workDefinition = AgendaPresets.forToday(
             dayOfWeek = Clock.System.now()
                 .toLocalDateTime(TimeZone.currentSystemDefault())
                 .dayOfWeek,
-            saturdayIsWorkingDay = saturdayIsWorkingDay,
-            sundayIsWorkingDay = sundayIsWorkingDay,
+            workingDays = workingDays,
             workDay = workDay,
         )
     }

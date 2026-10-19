@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.domain
 
+import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import kotlinx.datetime.DayOfWeek
 import kotlin.test.Test
@@ -11,14 +12,12 @@ import org.junit.jupiter.api.Tag
  * Tests for [AgendaPresets.forToday] — the decision of whether the work-day
  * preset applies today.
  *
- * The two switches in Settings live under the heading "Working Days", so
- * `saturdayIsWorkingDay = true` means Saturday *is* a working day. The
- * persisted fields are named `weekendSat` / `weekendSun`, which reads the
- * other way round; the setting screen is the authority on the meaning, and
- * this test pins the behaviour the screen promises.
+ * The setting is the set of days the user works on: the "Working Days"
+ * section in Settings renders the whole week, and the agenda asks the same
+ * question the section asks — "is today one of the days you work on?".
  *
  * The bug this prevents is the one the dead-settings gate was built to find:
- * both switches were persisted, rendered, and read by nobody — the work-day
+ * the switches were persisted, rendered, and read by nobody — the work-day
  * agenda showed on a Saturday whether or not the user had marked Saturday as
  * a working day.
  */
@@ -34,17 +33,15 @@ class AgendaWorkingDayTest {
 
     private fun forToday(
         dayOfWeek: DayOfWeek,
-        saturdayIsWorkingDay: Boolean = false,
-        sundayIsWorkingDay: Boolean = false,
+        workingDays: Set<DayOfWeek> = WorkingDays.DEFAULT,
     ) = AgendaPresets.forToday(
         dayOfWeek = dayOfWeek,
-        saturdayIsWorkingDay = saturdayIsWorkingDay,
-        sundayIsWorkingDay = sundayIsWorkingDay,
+        workingDays = workingDays,
         workDay = workDay,
     )
 
     @Test
-    fun `a weekday uses the work-day preset whatever the switches say`() {
+    fun `a weekday uses the work-day preset when the week says so`() {
         for (day in listOf(
             DayOfWeek.MONDAY,
             DayOfWeek.TUESDAY,
@@ -61,52 +58,73 @@ class AgendaWorkingDayTest {
     }
 
     @Test
-    fun `saturday that is not a working day uses the plain today preset`() {
+    fun `a day the week does not contain uses the plain today preset`() {
         assertSame(
             AgendaPresets.Today,
-            forToday(DayOfWeek.SATURDAY, saturdayIsWorkingDay = false),
+            forToday(DayOfWeek.SATURDAY, workingDays = WorkingDays.DEFAULT),
+        )
+        assertSame(
+            AgendaPresets.Today,
+            forToday(DayOfWeek.MONDAY, workingDays = setOf(DayOfWeek.SUNDAY)),
         )
     }
 
     @Test
-    fun `saturday marked as a working day uses the work-day preset`() {
+    fun `saturday that is a working day uses the work-day preset`() {
         assertSame(
             workDay,
-            forToday(DayOfWeek.SATURDAY, saturdayIsWorkingDay = true),
+            forToday(
+                DayOfWeek.SATURDAY,
+                workingDays = WorkingDays.DEFAULT + DayOfWeek.SATURDAY,
+            ),
         )
     }
 
     @Test
-    fun `sunday that is not a working day uses the plain today preset`() {
-        assertSame(
-            AgendaPresets.Today,
-            forToday(DayOfWeek.SUNDAY, sundayIsWorkingDay = false),
-        )
-    }
-
-    @Test
-    fun `sunday marked as a working day uses the work-day preset`() {
+    fun `sunday that is a working day uses the work-day preset`() {
         assertSame(
             workDay,
-            forToday(DayOfWeek.SUNDAY, sundayIsWorkingDay = true),
+            forToday(
+                DayOfWeek.SUNDAY,
+                workingDays = WorkingDays.DEFAULT + DayOfWeek.SUNDAY,
+            ),
         )
     }
 
     @Test
-    fun `the saturday switch does not decide sunday`() {
+    fun `one day in the set does not decide another`() {
         assertSame(
             AgendaPresets.Today,
-            forToday(DayOfWeek.SUNDAY, saturdayIsWorkingDay = true),
+            forToday(
+                DayOfWeek.SUNDAY,
+                workingDays = WorkingDays.DEFAULT + DayOfWeek.SATURDAY,
+            ),
             "Saturday being a working day says nothing about Sunday",
         )
+        assertSame(
+            AgendaPresets.Today,
+            forToday(
+                DayOfWeek.SATURDAY,
+                workingDays = WorkingDays.DEFAULT + DayOfWeek.SUNDAY,
+            ),
+            "Sunday being a working day says nothing about Saturday",
+        )
     }
 
     @Test
-    fun `the sunday switch does not decide saturday`() {
+    fun `a week without weekdays is honoured`() {
+        // A user whose working week is only the weekend: the weekdays are days
+        // off, and the agenda must say so.
+        val weekendOnly = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+        assertSame(AgendaPresets.Today, forToday(DayOfWeek.MONDAY, weekendOnly))
+        assertSame(workDay, forToday(DayOfWeek.SATURDAY, weekendOnly))
+    }
+
+    @Test
+    fun `a week with no days at all is honoured`() {
         assertSame(
             AgendaPresets.Today,
-            forToday(DayOfWeek.SATURDAY, sundayIsWorkingDay = true),
-            "Sunday being a working day says nothing about Saturday",
+            forToday(DayOfWeek.MONDAY, workingDays = emptySet()),
         )
     }
 

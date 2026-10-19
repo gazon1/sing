@@ -2,6 +2,8 @@ package com.singularity.todo.core.settings
 
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.isoDayNumber
 
 /**
  * Exports the current settings as a JSON string.
@@ -87,8 +89,15 @@ open class SettingsExporter(private val contributors: Set<SettingsContributor<*,
                 dayEndMinutes = workSchedule.dayEndMinutes,
                 lunchStartMinutes = workSchedule.lunchStartMinutes,
                 lunchEndMinutes = workSchedule.lunchEndMinutes,
-                weekendSat = workSchedule.weekendSat,
-                weekendSun = workSchedule.weekendSun,
+                // The working days travel as the set they are. The two flags
+                // travel next to them, derived from the set, so an older app
+                // can still read the file and a newer one can still read an
+                // older file.
+                workingDays = workSchedule.workingDays
+                    .sortedBy { it.isoDayNumber }
+                    .map { it.isoDayNumber },
+                weekendSat = DayOfWeek.SATURDAY in workSchedule.workingDays,
+                weekendSun = DayOfWeek.SUNDAY in workSchedule.workingDays,
             ),
             greeting = GreetingSnapshot(
                 morningEndHour = greeting.morningEndHour,
