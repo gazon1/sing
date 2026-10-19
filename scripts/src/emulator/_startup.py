@@ -12,6 +12,7 @@ from typing import NamedTuple
 from loguru import logger
 
 import emulator as _emu
+import emulator._device as _device
 from emulator._device import (
     adb,
     device_is_ready,
@@ -182,6 +183,27 @@ def start_avd(pin: str) -> int:
         logger.debug("emulator process alive but never became ready; treating as wedged")
 
     clear_stale_emulator()
+
+    # The AVD name is a claim; `emulator -list-avds` is the fact. Checking it
+    # here is the difference between "the emulator did not come up" and "this
+    # machine has no AVD called X, and here is the one it has".
+    #
+    # It is not a nicety. A shard that boots the right binary against the
+    # wrong AVD name spends the whole boot budget discovering a typo, and the
+    # log says only that the emulator was not ready. That is how a renamed
+    # AVD read as a flaky emulator for a whole release cycle.
+    known = _device.list_avds()
+    if known is None:
+        logger.error(
+            "the 'emulator' binary is not on PATH; the AVD cannot be listed or started"
+        )
+        return EXIT_NOT_READY
+    if _emu.cfg.AVD not in known:
+        available = ", ".join(known) if known else "none"
+        logger.error(
+            f"AVD '{_emu.cfg.AVD}' does not exist on this machine. Available: {available}"
+        )
+        return EXIT_NOT_READY
 
     # Keep log of the previous run (potential crash diagnostic).
     prev = _emu.cfg.log_file.with_name(_emu.cfg.log_file.name + ".prev")

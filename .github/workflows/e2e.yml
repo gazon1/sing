@@ -177,23 +177,31 @@ jobs:
       # created died with that job: the Maestro shard started on a runner where
       # /usr/local/lib/android/sdk/emulator did not exist, and the AVD the setup job
       # had just created was not there either. These four paths and this key are the
-      # transport. They must stay identical to the `actions/cache` block in
-      # _setup-avd.yml, and the key is assembled from that job's own outputs rather
-      # than re-spelled here. `actions/cache/restore`, not `actions/cache`, because a
-      # shard must never write an entry: keys are immutable, and four shards racing
-      # to save the same key each log a misleading "another job is creating it".
+      # transport.
+      #
+      # The key and the SDK root are the producer's own outputs, read verbatim.
+      # They used to be re-assembled here out of `${{ env.ANDROID_HOME }}` and a
+      # hand-written key — and the `env` context does not carry the runner's own
+      # environment variables, so the paths expanded to `/system-images`,
+      # `/emulator` and `/platform-tools` at the filesystem root. The cache
+      # therefore restored nothing, the shard had no emulator binary, and all
+      # four shards of run 39253664636 died with "'emulator' binary not found in
+      # PATH" within a second of each other.
+      #
+      # `actions/cache/restore`, not `actions/cache`, because a shard must never
+      # write an entry: keys are immutable, and four shards racing to save the
+      # same key each log a misleading "another job is creating it".
       - name: Restore AVD and SDK cache
         uses: actions/cache/restore@v4
         with:
           path: |
             ~/.android/avd
-            ${{ env.ANDROID_HOME }}/system-images
-            ${{ env.ANDROID_HOME }}/emulator
-            ${{ env.ANDROID_HOME }}/platform-tools
-          key: avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-${{ needs.setup-avd.outputs.cache_key }}
+            ${{ needs.setup-avd.outputs.sdk_root }}/system-images
+            ${{ needs.setup-avd.outputs.sdk_root }}/emulator
+            ${{ needs.setup-avd.outputs.sdk_root }}/platform-tools
+          key: ${{ needs.setup-avd.outputs.cache_key }}
           restore-keys: |
-            avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-
-            avd-${{ needs.setup-avd.outputs.avd_name }}-
+            ${{ needs.setup-avd.outputs.cache_key_prefix }}
 
       # Maestro needs a JDK; the runner image has none the CLI can rely on.
       - uses: actions/setup-java@v6
@@ -242,12 +250,34 @@ jobs:
             echo "$sdk_root/build-tools/37.0.0"
           } >> "$GITHUB_PATH"
 
+      # The cache above is an optimisation, not a guarantee: an entry can be
+      # evicted, and the entry written before the paths were fixed holds nothing.
+      # This step is the guarantee. It is a no-op when the cache did its job
+      # (the emulator, the system image and the AVD are all there) and provisions
+      # them when it did not, so "the cache was evicted" costs a few minutes
+      # instead of four red shards. The producer runs the same script, so both
+      # sides agree on what "provisioned" means.
+      - name: Ensure the emulator and the AVD are present
+        env:
+          AVD_NAME: ${{ needs.setup-avd.outputs.avd_name }}
+          SYSTEM_IMAGE: ${{ needs.setup-avd.outputs.system_image }}
+          DEVICE: ${{ needs.setup-avd.outputs.device }}
+          SDK_ROOT: ${{ needs.setup-avd.outputs.sdk_root }}
+          ANDROID_AVD_HOME: ${{ needs.setup-avd.outputs.android_avd_home }}
+        run: bash scripts/ci/provision-avd.sh
+
       # The whole lifecycle (boot + APK install + Maestro run) lives in
       # run_maestro_e2e.py so the emulator stays up for the full duration.
       - name: Run Maestro E2E
         env:
           EMULATOR_EXTRA_FLAGS: -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio -prop persist.sys.locale=ru-RU
           EMULATOR_TIMEOUT: 600
+          # The AVD the emulator module boots. It defaults to "Medium_Phone",
+          # an AVD this workflow never creates — so without this the module
+          # would have booted the right binary against the wrong AVD, and the
+          # failure would have looked like a boot problem rather than a
+          # misnamed one.
+          AVD: ${{ needs.setup-avd.outputs.avd_name }}
         run: |
           python3 scripts/run-maestro-e2e.py \
             --apk apk \
