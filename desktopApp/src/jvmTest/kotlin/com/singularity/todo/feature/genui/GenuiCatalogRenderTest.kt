@@ -81,6 +81,9 @@ class GenuiCatalogRenderTest {
     fun typingInAFieldWritesTheDataModelAndAnnouncesIt() = runGenuiRenderTest(ADD_TASK_FORM) {
         node("textfield_What_needs_doing?").performTextClearance()
         node("textfield_What_needs_doing?").performTextInput("Ship it")
+        // The field writes to the model through a coroutine, so the write lands a beat
+        // after the keystroke. Let it land before asking what the model holds.
+        settle()
 
         assertEquals(JsonPrimitive("Ship it"), valueAt("/draft/title"), "The model holds what was typed")
         // Clearing and typing are two edits, so two announcements — what matters is that each one
@@ -126,6 +129,7 @@ class GenuiCatalogRenderTest {
         node("textfield_Title").performTextInput("Ship it")
         node("textfield_When").performTextClearance()
         node("textfield_When").performTextInput("tomorrow")
+        settle()
         node("btn_Add").performClick()
 
         assertEquals(1, presses.size, "One press: $presses")

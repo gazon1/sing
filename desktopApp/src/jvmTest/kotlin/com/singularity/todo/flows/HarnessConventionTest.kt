@@ -365,6 +365,10 @@ class HarnessConventionTest {
             "SheetReachabilityTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
             // Same: FAB is always visible, not subject to scroll-off-screen in the drawer.
             "TaskRecurrenceScenarioTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
+            // The Send button belongs to the chat input bar, which is pinned to the bottom of
+            // the screen. It is not a drawer item, and it has no scrollable parent at all —
+            // the scroll-aware helper would fail on it.
+            "ChatInputFieldTest.kt" to "the chat Send button is not a drawer item and has no scrollable parent",
         )
 
         /**

@@ -3,7 +3,7 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.printToString
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.test.fakes.FakeAppDatabase
@@ -19,11 +19,30 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * Uses the unmerged tree: the whole point of debugging a selector is to see the
  * raw nodes before Compose folds them, and a merged tree hides exactly the
  * duplicate `Text` that makes `onNodeWithText` fail on ambiguity.
+ *
+ * **Every root is dumped, not just the first.** The app can end up with more than one
+ * Compose root — a `Dialog` or an overlay gets its own — and `onRoot` insists on
+ * exactly one: with two roots it throws "Expected exactly '1' node but found '2'",
+ * and the diagnostic that was supposed to explain the failure explains nothing
+ * instead. The failure path is the one moment a test cannot afford a silent gap.
  */
 @OptIn(ExperimentalTestApi::class)
 internal fun DesktopComposeUiTest.dumpSemantics(): String =
-    runCatching { onRoot(useUnmergedTree = true).printToString(maxDepth = 25) }
-        .getOrElse { "<semantics tree unavailable: ${it.message}>" }
+    runCatching {
+        val roots = onAllNodes(isRoot(), useUnmergedTree = true)
+        val count = roots.fetchSemanticsNodes().size
+        if (count == 1) {
+            roots[0].printToString(maxDepth = 25)
+        } else {
+            buildString {
+                appendLine("The scene has $count roots; each is dumped below.")
+                for (index in 0 until count) {
+                    appendLine("=== Root $index ===")
+                    appendLine(roots[index].printToString(maxDepth = 25))
+                }
+            }
+        }
+    }.getOrElse { "<semantics tree unavailable: ${it.message}>" }
 
 /**
  * The directory under `build/diagnostics/` where this test's artifacts live.
@@ -103,6 +122,17 @@ data class FailureBundle(
 
     companion object {
 
+        /**
+         * How long the semantics dump may take before it is abandoned.
+         *
+         * A dump that never returns is worse than no dump: it turns a reported failure
+         * into a hung test, and the hang says nothing about what failed.
+         */
+        internal const val SEMANTICS_DUMP_TIMEOUT_MS = 10_000L
+
+        /** How long a screenshot capture may take before it is abandoned. */
+        internal const val SCREENSHOT_TIMEOUT_MS = 10_000L
+
         private val diagnosticsRoot: File by lazy {
             val root = File("build/diagnostics")
             root.mkdirs()
@@ -165,10 +195,20 @@ data class FailureBundle(
             runCatchingCancellable { bundle.outputDir.deleteRecursively() }
             bundle.outputDir.mkdirs()
 
-            // Order: hang-proof artifacts first, screenshot last.
-            // captureToImage blocks on EventQueue.invokeAndWait — if the failure left an
+            // Freeze the frame clock FIRST. Order: hang-proof artifacts first, screenshot
+            // last — and the freeze has to precede every one of them, not just the
+            // screenshot.
+            //
+            // captureToImage blocks on EventQueue.invokeAndWait: if the failure left an
             // endless redraw loop running, the EDT never releases and the screenshot hangs.
-            // The other artifacts (db, kermit, coroutines) are all non-blocking.
+            // The same is true of the semantics dump, which waits for the scene to go
+            // idle. Freezing the frame clock first breaks BOTH known hang modes:
+            // recomposition and animation invalidations are delivered as frame-clock
+            // callbacks, and a frozen clock stops scheduling them, so the composition
+            // reaches "idle" immediately and the capture proceeds. The screenshot shows
+            // the last composed frame — exactly what diagnosis needs.
+            // -Dsingularity.test.screenshot=false still skips the capture entirely.
+            runCatchingCancellable { testInstance.mainClock.autoAdvance = false }
 
             // Database state — testPlatformModule() binds the database under the
             // `AppDatabase` interface, NOT under its implementation type, so this must
@@ -204,9 +244,15 @@ data class FailureBundle(
             // Semantics tree — written as a file so it is available in the bundle
             // directory without needing to parse the JUnit XML report. The unmerged tree
             // is used because it shows the raw nodes before Compose folds them.
+            //
+            // Bounded: the dump waits for the scene to go idle and for the draw to
+            // complete, and a scene that never settles must not turn a failing test
+            // into a hanging one. The bundle is a diagnostic — it may be missing.
             runCatchingCancellable {
                 writeFile(bundle.treeFile) {
-                    testInstance.dumpSemantics()
+                    withFailurePathTimeout(SEMANTICS_DUMP_TIMEOUT_MS, "<semantics tree unavailable: dump timed out>") {
+                        testInstance.dumpSemantics()
+                    }
                 }
             }
 
@@ -215,16 +261,13 @@ data class FailureBundle(
             // captureToImage blocks on EventQueue.invokeAndWait, so a failure that left
             // an endless redraw loop running never releases it, and a coroutine timeout
             // cannot cancel a blocking EDT wait — the diagnostic path itself hung and
-            // masked the real failure. Freezing the frame clock first breaks BOTH known
-            // hang modes: recomposition and animation invalidations are delivered as
-            // frame-clock callbacks, and a frozen clock stops scheduling them, so the
-            // composition reaches "idle" immediately and the capture proceeds. The
-            // screenshot shows the last composed frame — exactly what diagnosis needs.
-            // -Dsingularity.test.screenshot=false still skips the capture entirely.
-            runCatchingCancellable { testInstance.mainClock.autoAdvance = false }
+            // masked the real failure. The frozen frame clock above breaks that mode;
+            // the timeout below is the backstop for the one it does not.
             if (System.getProperty("singularity.test.screenshot") != "false") {
                 runCatchingCancellable {
-                    val bitmap = testInstance.captureToImage()
+                    val bitmap = withFailurePathTimeout(SCREENSHOT_TIMEOUT_MS, null) {
+                        testInstance.captureToImage()
+                    } ?: return@runCatchingCancellable
                     val bufferedImage: BufferedImage = bitmap.toAwtImage()
                     ImageIO.write(bufferedImage, "png", bundle.screenshotFile)
                 }
@@ -233,20 +276,24 @@ data class FailureBundle(
                 // when screenshot is enabled. Both are independent runCatching blocks so one
                 // failure does not affect the other.
                 runCatchingCancellable {
-                    testInstance.captureAnnotated(
-                        highlightTag = highlightTag,
-                        file = bundle.screenshotAnnotatedFile,
-                        nodesFile = bundle.nodesFile,
-                    )
+                    withFailurePathTimeout(SCREENSHOT_TIMEOUT_MS, Unit) {
+                        testInstance.captureAnnotated(
+                            highlightTag = highlightTag,
+                            file = bundle.screenshotAnnotatedFile,
+                            nodesFile = bundle.nodesFile,
+                        )
+                    }
                 }
             } else {
                 // Still write nodes.txt even when screenshot is disabled.
                 runCatchingCancellable {
-                    testInstance.captureAnnotated(
-                        highlightTag = highlightTag,
-                        file = bundle.screenshotAnnotatedFile,
-                        nodesFile = bundle.nodesFile,
-                    )
+                    withFailurePathTimeout(SCREENSHOT_TIMEOUT_MS, Unit) {
+                        testInstance.captureAnnotated(
+                            highlightTag = highlightTag,
+                            file = bundle.screenshotAnnotatedFile,
+                            nodesFile = bundle.nodesFile,
+                        )
+                    }
                 }
             }
 

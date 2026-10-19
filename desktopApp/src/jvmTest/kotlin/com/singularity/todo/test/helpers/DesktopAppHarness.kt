@@ -6,7 +6,9 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.singularity.todo.App
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
+import com.singularity.todo.core.llm.TextGenPort
 import com.singularity.todo.feature.gate.gateModule
+import com.singularity.todo.test.fakes.FakeTextGen
 import org.koin.compose.KoinIsolatedContext
 import org.koin.core.Koin
 import org.koin.core.KoinApplication
@@ -16,6 +18,34 @@ import org.koin.dsl.module
 import kotlin.time.Clock
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
+
+/**
+ * The AI layer's model, replaced by a fake.
+ *
+ * The real binding needs a configured provider and leaves a call in flight, so a desktop
+ * test would wait for a network round trip that never comes — and the Compose clock would
+ * never go idle, so the test would hang rather than fail. The fake answers locally and
+ * instantly.
+ *
+ * Loaded after `domainModule()` so it wins Koin's last-definition-wins rule over the
+ * platform module's real binding.
+ */
+private fun fakeModelModule(): Module = module { single<TextGenPort> { FakeTextGen() } }
+
+/**
+ * The semantics tree at the moment of failure, as an exception to suppress.
+ *
+ * Bounded, like the bundle: the dump waits for the scene to go idle, and a scene that
+ * never settles must not swallow the failure it is explaining.
+ */
+@OptIn(ExperimentalTestApi::class)
+private fun DesktopComposeUiTest.semanticsTreeAtFailure(): AssertionError =
+    AssertionError(
+        "Semantics tree at failure:\n" + withFailurePathTimeout(
+            FailureBundle.SEMANTICS_DUMP_TIMEOUT_MS,
+            "<semantics tree unavailable: dump timed out>",
+        ) { dumpSemantics() },
+    )
 
 /**
  * Captures the test-class simple name of the currently executing test.
@@ -100,6 +130,7 @@ fun runDesktopAppTest(
                 // orphans anything written in that window and makes the row invisible
                 // to every subsequent read.
                 listOf(testPlatformModule(), testKermitModule(), gateModule(RELEASES_URL)) +
+                fakeModelModule() +
                 // Last, so a test's clock beats coreModule()'s `Clock.System`.
                 listOfNotNull(clock?.let { fixed -> module { single<Clock> { fixed } } }) +
                 listOf(overrides),
@@ -186,7 +217,7 @@ fun runDesktopAppTest(
                 // read; a suppressed exception rides along with the stack trace in every
                 // runner, which is the difference between re-running with a flag and
                 // reading the report the run already produced.
-                t.addSuppressed(AssertionError("Semantics tree at failure:\n${dumpSemantics()}"))
+                t.addSuppressed(semanticsTreeAtFailure())
 
                 // If more attempts remain, re-run without propagating the failure yet.
                 if (attemptIndex < maxAttempts - 1) {

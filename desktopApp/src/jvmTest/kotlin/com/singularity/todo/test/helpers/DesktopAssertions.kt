@@ -23,11 +23,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
+import kotlin.test.assertEquals
 
 /** Generous upper bound; real transitions settle in well under a second. */
 internal const val TIMEOUT_MS = 5_000L
-
-private val TAG_PATTERN = Regex("""testTag=[^\s,\]]+""")
 
 /**
  * The same question `assertIsDisplayed` answers, as a predicate over a fetched
@@ -100,13 +99,20 @@ fun DesktopComposeUiTest.awaitTag(tag: String): SemanticsNodeInteraction = step(
             pollCount++
             val found = onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
             if (!found) {
-                // Collect all nodes on every poll cycle so the list is fresh when
+                // Collect all tags on every poll cycle so the list is fresh when
                 // the timeout fires.
-                onAllNodesWithTag("*").fetchSemanticsNodes().forEach { node ->
-                    TAG_PATTERN.findAll(node.toString()).forEach { match ->
-                        allTags.add(match.value.removePrefix("testTag="))
+                //
+                // Every node that *has* a test tag, not a node whose tag is the
+                // literal "*": `onAllNodesWithTag` matches the tag value exactly, so
+                // "*" matched nothing and the explanation always listed zero tags —
+                // the one diagnostic that was supposed to name the nearest
+                // alternative named none.
+                allTags.clear()
+                onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
+                    .fetchSemanticsNodes()
+                    .forEach { node ->
+                        node.config.getOrNull(SemanticsProperties.TestTag)?.let { allTags.add(it) }
                     }
-                }
             }
             found
         }
@@ -452,10 +458,63 @@ fun DesktopComposeUiTest.assertButtonEnabled(text: String) {
 
 /**
  * Waits for the node with [tag] and asserts its text equals [expected].
+ *
+ * An **editable** node — a text field — is compared through its `EditableText`, not
+ * through the node's plain text. A state-based text field keeps its value in
+ * `EditableText` and carries no `Text` of its own, but its decoration does: the label
+ * is a `Text` composable that is composed whether or not the field holds anything, and
+ * the placeholder is one too. Those land in the same merged node, so the plain text of
+ * a labelled field is the label, and Compose's `assertTextEquals` — which requires the
+ * node's *whole* text list to match — fails on a field whose value is exactly right.
+ *
+ * Reading `EditableText` directly is what makes the assertion mean "the field holds
+ * this text" instead of "the field and its decoration, taken together, hold exactly
+ * this text".
+ *
+ * A node that is not editable has no `EditableText`, and for those the plain text is
+ * the only text there is: the assertion falls back to Compose's own.
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.assertTagTextEquals(tag: String, expected: String) {
-    awaitTag(tag).assertTextEquals(expected)
+    val node = awaitTag(tag).fetchSemanticsNode()
+    val editable = node.config.getOrNull(SemanticsProperties.EditableText)
+    if (editable == null) {
+        awaitTag(tag).assertTextEquals(expected)
+        return
+    }
+    assertEquals(
+        expected,
+        editable.text,
+        "the text held by the editable node with testTag '$tag'",
+    )
+}
+
+/**
+ * Waits until the node with [tag] holds exactly [expected], then returns.
+ *
+ * The wait counterpart of [assertTagTextEquals], and the one a test wants when the
+ * text is changed by something *other* than the test's own input: a ViewModel that
+ * empties its copy of a field, a screen that rewrites a title. The field holds the
+ * new text a frame or two later, so a one-shot assertion races the very transition
+ * it is about.
+ *
+ * @param tag the node to watch.
+ * @param expected the text the node must end up holding.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.awaitTagTextEquals(tag: String, expected: String) = step("awaitTagTextEquals", tag) {
+    waitUntil(
+        conditionDescription = "node with testTag '$tag' holds the text '$expected'",
+        timeoutMillis = TIMEOUT_MS,
+    ) {
+        val node = runCatching { awaitTag(tag).fetchSemanticsNode() }.getOrNull()
+        val editable = node?.config?.getOrNull(SemanticsProperties.EditableText)
+        if (editable != null) {
+            editable.text == expected
+        } else {
+            node?.config?.getOrNull(SemanticsProperties.Text)?.any { it.text == expected } == true
+        }
+    }
 }
 
 /**

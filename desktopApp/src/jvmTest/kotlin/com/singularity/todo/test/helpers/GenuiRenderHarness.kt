@@ -10,9 +10,6 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.genui.catalog.A2uiCatalog
@@ -147,6 +144,18 @@ class GenuiRenderScope(
         controller.snapshot(GenuiSurfaceId)?.dataModel?.get(UiPath.parse(path))
 
     /**
+     * Lets the composition settle.
+     *
+     * A text field writes to the data model through a coroutine — the field's text is
+     * observed, not reported — so an edit reaches the model a beat after the keystroke
+     * that caused it. A test that types and then asks what the model holds has to let
+     * that beat pass first.
+     */
+    fun settle() {
+        ui.waitForIdle()
+    }
+
+    /**
      * The node a renderer tagged `genui_<name>`.
      *
      * The tag is the hook renderers publish through
@@ -170,25 +179,5 @@ class GenuiRenderScope(
     /** Asserts the node a renderer tagged `genui_<name>` is on screen. */
     fun assertHasNode(name: String) {
         node(name).assertExists()
-    }
-}
-
-/**
- * A lifecycle that is already resumed.
- *
- * `collectAsStateWithLifecycle` is what every renderer in the layer observes through, and it starts
- * collecting only once the lifecycle reaches STARTED. Without one supplied, a surface renders
- * nothing at all — and the test fails on a missing node rather than on anything it is about, which
- * is the most expensive way to be told that the harness, not the code, is wrong.
- */
-private class TestLifecycleOwner : LifecycleOwner {
-
-    private val registry: LifecycleRegistry = LifecycleRegistry(this)
-
-    override val lifecycle: Lifecycle get() = registry
-
-    /** Moved after setContent, so there is a composition to collect against when it starts. */
-    fun resume() {
-        registry.currentState = Lifecycle.State.RESUMED
     }
 }
