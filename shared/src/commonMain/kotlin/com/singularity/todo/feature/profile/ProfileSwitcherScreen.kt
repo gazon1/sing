@@ -46,6 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -312,6 +314,13 @@ private fun CreateProfileDialog(
                                 .size(28.dp)
                                 .clip(CircleShape)
                                 .background(color)
+                                // A circle of colour is a button a screen reader has to be
+                                // able to name — it carries no text, and the check inside
+                                // is decorative.
+                                .semantics {
+                                    contentDescription = "Colour ${ProfileIdentityColors.nameOf(color)}" +
+                                        if (idx == colorIdx) ", selected" else ""
+                                }
                                 .clickable { colorIdx = idx },
                             contentAlignment = Alignment.Center,
                         ) {

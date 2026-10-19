@@ -66,6 +66,24 @@ object ProfileIdentityColors {
     val ordered: List<Color> = listOf(Blue, Green, Red, Orange, Purple, Cyan, Pink, Grey)
 
     fun at(index: Int): Color = ordered[index.mod(ordered.size)]
+
+    /**
+     * The human-readable name of a colour.
+     *
+     * A colour swatch is a button that carries no text, so its name has to come from
+     * somewhere else — a screen reader announces "Blue", not "a blue circle".
+     */
+    fun nameOf(color: Color): String = when (color) {
+        Blue -> "Blue"
+        Green -> "Green"
+        Red -> "Red"
+        Orange -> "Orange"
+        Purple -> "Purple"
+        Cyan -> "Cyan"
+        Pink -> "Pink"
+        Grey -> "Grey"
+        else -> "custom"
+    }
 }
 
 /**

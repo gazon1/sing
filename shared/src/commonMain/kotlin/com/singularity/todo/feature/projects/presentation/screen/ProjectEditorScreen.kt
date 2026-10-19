@@ -42,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
@@ -320,6 +322,14 @@ private fun AppearanceSection(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(Color(color))
+                        // The swatch is a button that a screen reader has to be able to
+                        // name: it carries no text, and its only visual is a circle of
+                        // colour. "Blue" is the name of the thing, and "selected" says
+                        // which one is in use.
+                        .semantics {
+                            contentDescription = "Colour ${ProjectColorPalette.nameOf(color)}" +
+                                if (selectedColor == color) ", selected" else ""
+                        }
                         .then(
                             if (selectedColor == color) {
                                 Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
@@ -332,7 +342,7 @@ private fun AppearanceSection(
                     if (selectedColor == color) {
                         Icon(
                             Icons.Filled.Check,
-                            contentDescription = "Selected",
+                            contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(32.dp).padding(6.dp),
                         )
