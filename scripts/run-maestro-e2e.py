@@ -140,25 +140,49 @@ def adb_install(serial: str, apk_path: Path) -> bool:
     return True
 
 
+def _top_resumed_activity(out: str | None) -> str:
+    """The line the system reports as the resumed activity, or "".
+
+    `dumpsys activity activities` prints, on a modern Android:
+
+        topResumedActivity=ActivityRecord{8f3 u0 com.singularity.todo/.MainActivity t42}
+
+    The activity id is *inside* the record, not right after the `=`. A matcher
+    that expects `topResumedActivity=.com.…` never matches anything — which is
+    how this check came to be a 90-second sleep that always ended in "ready".
+    """
+    if not out:
+        return ""
+    for line in out.splitlines():
+        if "topResumedActivity" in line:
+            return line.strip()
+    return ""
+
+
 def wait_for_app_ready(serial: str, timeout: int = 90) -> bool:
-    """Poll dumpsys activity until MainActivity is top-resumed."""
+    """Poll dumpsys until MainActivity is top-resumed.
+
+    Returns what it found. The previous version returned True on timeout and
+    the caller printed "App ready." either way, so a run in which the app never
+    came up said the very same thing as a run in which it did.
+    """
     deadline = time.monotonic() + timeout
     app_id = "com.singularity.todo/.MainActivity"
+    last_line = ""
     while time.monotonic() < deadline:
         out = try_run(
             ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
             timeout=5,
         )
-        if out and f"topResumedActivity=.{app_id}" in (out.stdout or ""):
+        last_line = _top_resumed_activity(out.stdout if out else None)
+        if last_line and app_id in last_line:
             return True
-        # Check if process is alive
-        if int(time.monotonic()) % 10 == 5:
-            ps = try_run(["adb", "-s", serial, "shell", "ps", "-A"], timeout=5)
-            if ps and "com.singularity.todo" not in (ps.stdout or ""):
-                sys.stderr.write("WARNING: app process not found in ps\n")
         time.sleep(1)
-    sys.stderr.write(f"WARNING: app readiness timed out after {timeout}s\n")
-    return True  # Let Maestro's extendedWaitUntil be the secondary guard
+    sys.stderr.write(
+        f"WARNING: app readiness timed out after {timeout}s; "
+        f"last resumed activity: {last_line or '(unknown)'}\n"
+    )
+    return False
 
 
 # ── Maestro run ───────────────────────────────────────────────────────────────
@@ -284,8 +308,16 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Wait for app ready ──────────────────────────────────────────────────
     print(f"{YELLOW}Waiting for app to be ready...{_col('0', '')}", flush=True)
-    wait_for_app_ready(device)
-    print(f"{GREEN}App ready.{_col('0', '')}", flush=True)
+    if wait_for_app_ready(device):
+        print(f"{GREEN}App ready.{_col('0', '')}", flush=True)
+    else:
+        # Not fatal: the flows' own `extendedWaitUntil` on the agenda shell is
+        # the guard, and it fails the flow rather than the whole run. But the
+        # run must not claim the app was ready when it was not.
+        print(
+            f"{YELLOW}App not confirmed ready; the flows' own waits are the guard.{_col('0', '')}",
+            flush=True,
+        )
 
     # ── Run Maestro ──────────────────────────────────────────────────────────
     junit_dir = Path(args.artifact_dir) if args.artifact_dir else ROOT / "build" / "maestro-results"
