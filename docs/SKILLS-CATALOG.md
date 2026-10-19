@@ -7,7 +7,7 @@
 > The SKILL.md <= 500 lines and `description` <= 1024 chars budgets were enforced by a
 > doc-sizes gate that was removed on 2026-10-19; nothing enforces them now.
 
-118 skills: 81 project-specific, 37 generic/meta.
+119 skills: 82 project-specific, 37 generic/meta.
 The `description` field is the index — skill loaders discover skills by it, so it should
 state *which tasks need the skill*, not summarise its contents.
 
@@ -27,7 +27,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-backup` | 175 | Backup/restore pattern for the Singularity Todo KMP app. |
 | `singularity-todo-clean-architecture-audit` | 213 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 325 | Write-tool surface contract for Singularity Todo KMP MCP server. |
-| `singularity-todo-compose-overview` | 48 | Router skill — index to all Compose UI skills. |
+| `singularity-todo-compose-overview` | 52 | Router skill — index to all Compose UI skills. |
 | `singularity-todo-coroutine-scopes` | 211 | Canonical patterns for CoroutineScope ownership in this KMP project — where scopes live, anti-patterns to avoid, and how to fix hanging tests caused by repository-owned scopes. |
 | `singularity-todo-cross-feature-navigation` | 234 | How to navigate from one feature's detail screen to another feature's screen (e.g., TaskDetailScreen → ProjectDetailScreen, TaskDetailScreen → NoteEditorScreen). |
 | `singularity-todo-cycle-detector-pattern` | 248 | Universal BFS cycle detector for graph-like domain relations in Singularity Todo. |
@@ -87,6 +87,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-test-helpers` | 349 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 234 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
 | `singularity-todo-testable-vm` | 469 | Testable ViewModel pattern for Singularity Todo KMP app. |
+| `singularity-todo-text-field-states` | 181 | How to add or change a text field in Singularity Todo. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
 | `singularity-todo-unwired-surface-audit` | 113 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
