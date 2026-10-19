@@ -109,6 +109,13 @@ internal fun UiDevice.awaitShell(timeoutMs: Long = SHELL_TIMEOUT_MS): UiObject2 
 /**
  * Waits until an object with [by] is on screen and returns it.
  *
+ * The deadline is compared **after** every attempt, on purpose. An attempt can
+ * block for seconds — `findObject` waits for the app to be idle first — and a
+ * budget that was spent inside the first attempt is a budget with no attempts
+ * left in it. Checking the deadline afterwards means a slow attempt costs one
+ * attempt and not the whole wait, which is the difference between "the app was
+ * busy" and "the app was never there".
+ *
  * @param by how to find the object.
  * @param what what the object is, in words — it goes into the failure message.
  * @param timeoutMs how long the object is given to appear.
