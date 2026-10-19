@@ -73,7 +73,12 @@ jobs:
           build-mode: manual
 
       - name: Build the Kotlin sources
-        run: ./gradlew :shared:compileKotlinJvm :core-base:compileKotlinJvm
+        # `--no-build-cache` is load-bearing. Gradle restored the compile tasks
+        # from its build cache ("FROM-CACHE") and never ran the compiler, so the
+        # extractor traced a build in which nothing was compiled and reported
+        # "this run didn't build any of it". The scanner needs to watch the
+        # compilation happen, not the class files appear.
+        run: ./gradlew --no-build-cache :shared:compileKotlinJvm :core-base:compileKotlinJvm
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
