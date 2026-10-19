@@ -210,8 +210,8 @@ add `init { addCloseable(scope) }` and remove the field (or change type to
 
 ## ADR Reference
 
-- [2026-09-21-auto-closeable-coroutine-scope](../decisions/2026-09-21-auto-closeable-coroutine-scope.md) — full decision record
-- [2026-09-18-vm-scope-cancellation-oncleared](../decisions/2026-09-18-vm-scope-cancellation-oncleared.md) — superseded original ADR
+- [2026-09-21-auto-closeable-coroutine-scope](../../../docs/decisions/2026-09-21-auto-closeable-coroutine-scope.md) — full decision record
+- [2026-09-18-vm-scope-cancellation-oncleared](../../../docs/decisions/2026-09-18-vm-scope-cancellation-oncleared.md) — superseded original ADR
 
 ## See Also
 

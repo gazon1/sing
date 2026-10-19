@@ -25,7 +25,7 @@ the two blockers that have to be cleared first, and the one that is already clea
 ### 1. Four classes, not a yes/no
 
 Every non-original file is classified as `ORIGINAL`, `SPEC-COMPATIBLE`, `ADAPTED` or
-`PORTED`, in [`docs/legal/PROVENANCE.md`](../../legal/PROVENANCE.md) with a
+`PORTED`, in [`docs/legal/PROVENANCE.md`](../legal/PROVENANCE.md) with a
 machine-readable form in `config/legal/provenance-registry.tsv`.
 
 `ADAPTED` is separated from `ORIGINAL` for a reason that is not legal necessity:
@@ -310,7 +310,7 @@ way that is easy to mistake for noise.
 
 ## Links
 
-- [`docs/legal/PROVENANCE.md`](../../legal/PROVENANCE.md) — the registry and the argument
+- [`docs/legal/PROVENANCE.md`](../legal/PROVENANCE.md) — the registry and the argument
 - [`docs/specs/search-query-grammar.md`](../specs/search-query-grammar.md) — the normative grammar the rewrite was written from
 - [`config/legal/provenance-registry.tsv`](../../config/legal/provenance-registry.tsv)
 - [`scripts/check-provenance.py`](../../scripts/check-provenance.py)

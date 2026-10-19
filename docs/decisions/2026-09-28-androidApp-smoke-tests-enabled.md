@@ -68,7 +68,7 @@ The ANR is a production bug that blocks UI testing on device/emulator. It needs 
 
 ## Links
 
-- [AGENTS.md — testing ban list](../AGENTS.md#ban-list)
-- [singularity-todo-test-flaky-prevention skill](../.agents/skills/singularity-todo-test-flaky-prevention/SKILL.md)
-- [NoRealDelayInTestRule.kt](../detekt-rules/src/main/kotlin/com/singularity/todo/detekt/NoRealDelayInTestRule.kt)
+- [AGENTS.md — testing ban list](../../AGENTS.md#ban-list)
+- [singularity-todo-test-flaky-prevention skill](../../.agents/skills/singularity-todo-test-flaky-prevention/SKILL.md)
+- [NoRealDelayInTestRule.kt](../../detekt-rules/src/main/kotlin/com/singularity/todo/detekt/NoRealDelayInTestRule.kt)
 - ADR `2026-09-26-ui-testing-deferred.md` (superseded)

@@ -176,7 +176,7 @@ For `CompleteRecurringTaskUseCase`, fake only the repository — use a real `Rec
 ## Three Test Shapes
 
 Every VM test falls into one of three canonical shapes. See the
-[singularity-todo-test-shapes](../singularity-todo-test-shapes/SKILL-shapes.md) leaf skill
+[singularity-todo-test-shapes](./SKILL-shapes.md) leaf skill
 for the full description, annotated examples, and guidance on choosing the right shape.
 
 | Shape | Purpose |

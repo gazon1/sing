@@ -74,6 +74,14 @@ idiomatic shell expression instead of declaring the mode. `set +e` is rejected
 the same way. A `|| true` *inside a helper function* is fine and is not flagged
 — `n=$(grep -c … || true)` captures a count, it does not suppress a verdict.
 
+**Gates that need a binary.** Three gates shell out to a tool that is not part
+of the Python venv: `actionlint` and `yamllint` (inline in the registry) and
+`lychee` (behind `scripts/check-doc-links.sh`). CI installs them pinned through
+`.github/actions/setup-python-tools`; locally they must be on `PATH`, and a
+missing one is a **loud failure, not a skip** — a gate that cannot run looks
+exactly like a gate that has nothing to report. To get lychee:
+`uv pip install 'lychee-bin==0.24.2'`.
+
 **Three workflows, one required check.**
 
 | Workflow | Jobs | Notes |

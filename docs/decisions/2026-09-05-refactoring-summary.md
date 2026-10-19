@@ -107,4 +107,4 @@ pass-through use cases.
 ## Links
 
 - Parent: [ADR 2026-09-05-ui-decomposition](./2026-09-05-ui-decomposition.md)
-- Skill: [singularity-todo-di-graph-testing](../.agents/skills/singularity-todo-di-graph-testing/SKILL.md)
+- Skill: [singularity-todo-di-graph-testing](../../.agents/skills/singularity-todo-di-graph-testing/SKILL.md)

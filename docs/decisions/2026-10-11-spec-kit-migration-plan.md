@@ -673,5 +673,5 @@ OpenSpec — это источник truth для `adr-workflow` schema и 575 e
 - [spec-kit Workflows Reference](https://github.github.com/spec-kit/reference/overview.html#workflows)
 - [spec-kit Presets](https://github.github.com/spec-kit/guides/customization.html#presets)
 - [OpenSpec CLI](https://github.com/openspec-project/openspec)
-- [Singularity Todo ADR CLI](./adr-cli/)
-- [ADR corpus config](../config/docs/adr-corpus.json)
+- [Singularity Todo ADR CLI](../../adr-cli/)
+- [ADR corpus config](../../config/docs/adr-corpus.json)

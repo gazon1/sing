@@ -1,8 +1,8 @@
 name: 'Setup gate tooling'
 description: >-
   Install everything the gate suite shells out to: the sgate CLI (editable from
-  scripts/src/), junitparser, yamllint, actionlint and shellcheck — into one
-  venv, once, for whichever job calls it.
+  scripts/src/), junitparser, yamllint, actionlint, shellcheck and lychee — into
+  one venv, once, for whichever job calls it.
 
 # Why this exists
 # --------------
@@ -42,6 +42,11 @@ inputs:
       silently disables its shellcheck integration when the binary is missing,
       so a lint that passes locally on a machine without shellcheck and fails on
       a runner with it is the same gate reporting two different verdicts.
+    required: false
+    default: 'true'
+  with-link-lint:
+    description: >-
+      Install the pinned lychee (the "documentation links resolve" gate needs it).
     required: false
     default: 'true'
 
@@ -98,6 +103,20 @@ runs:
             | tar -xz -C "$VENV/bin" actionlint
           "$VENV/bin/actionlint" --version
           "$VENV/bin/shellcheck" --version | head -1
+
+    - name: Install the documentation link checker (pinned)
+      if: ${{ inputs.with-link-lint == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        VENV="$HOME/ci-venv"
+        # lychee-bin is the PyPI wheel of the upstream Rust binary — the same
+        # shape as shellcheck-py above, and the reason the gate does not depend
+        # on cargo or on a GitHub Action that only exists in CI. Pinned, for the
+        # same reason the others are: a lint that passes on one version and
+        # fails on the next is a gate whose floor moved without anyone deciding.
+        VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==0.24.2"
+        "$VENV/bin/lychee" --version
         fi
 
     - name: Verify both gate registries load

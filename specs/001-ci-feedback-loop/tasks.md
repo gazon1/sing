@@ -21,7 +21,7 @@ These tasks implement FR-002, FR-003, FR-004 and User Story 2 + 3.
 **Type**: new-file  
 **Owner**: CI infrastructure
 
-**File to create**: [`.github/actions/setup-repo-tools/action.yml`](.github/actions/setup-repo-tools/action.yml)
+**File to create**: [`.github/actions/setup-repo-tools/action.yml`](../../.github/actions/setup-repo-tools/action.yml)
 
 **What**: A composite GitHub Action that validates the build environment before gates run. Checks for `singularity-adr`, `openspec`, and Python version compatibility. Fails within 5 seconds with a descriptive error if any required tool is missing. Called by `ci.yml` only when the PR touches `scripts/**`, `.github/**`, or `docs/**`.
 
@@ -57,7 +57,7 @@ PATH=/usr/bin:/bin bash -c 'unset PATH; command -v singularity-adr || { echo "::
 **Type**: new-file  
 **Owner**: CI infrastructure
 
-**File to create**: [`scripts/junit-annotations.py`](scripts/junit-annotations.py)
+**File to create**: [`scripts/junit-annotations.py`](../../scripts/junit-annotations.py)
 
 **What**: Python script that reads JUnit XML from `desktopApp/build/test-results/test/*.xml`, parses it with `junitparser`, and emits GitHub Actions `::error` workflow commands for each failing test case. Also emits `::warning` for retry-passed tests (tests that had a `flakyFailure` child).
 
@@ -362,7 +362,7 @@ grep -c "flakyFailure" desktopApp/build/test-results/test/*.xml
 **Type**: new-file  
 **Owner**: Desktop test infrastructure
 
-**File to create**: [`desktopApp/src/jvmTest/kotlin/com/singularity/todo/test/RetryExtension.kt`](desktopApp/src/jvmTest/kotlin/com/singularity/todo/test/RetryExtension.kt)
+**File to create**: [`desktopApp/src/jvmTest/kotlin/com/singularity/todo/test/RetryExtension.kt`](../../desktopApp/src/jvmTest/kotlin/com/singularity/todo/test/RetryExtension.kt)
 
 **What**: A JUnit 5 `InvocationInterceptor` that consumes `retry.maxAttempts` (already forwarded by Gradle) and retries failed tests up to that limit. On retry success, logs a visible `::notice` annotation. On persistent failure after all retries, rethrows the last exception.
 

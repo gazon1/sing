@@ -22,7 +22,7 @@ The domain models (`Task`, `Note`, `Project`, `Tag`, `TagGroup`) expose only
 `serverVersion` and `hlc`. The other four fields are populated **by the server**
 and are **never written back by any `@Query` in the codebase**.
 
-[sync-columns]: ../shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt
+[sync-columns]: ../../shared/src/commonMain/kotlin/com/singularity/todo/core/database/Entities.kt
 
 This creates a paradox: every `toEntity()` call passes
 `SyncColumns(serverVersion, hlc)` with the other four fields at their Kotlin defaults

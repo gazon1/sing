@@ -197,6 +197,7 @@ jobs:
         with:
           with-yaml-lint: 'false'
           with-action-lint: 'false'
+          with-link-lint: 'false'
 
       # A fresh checkout runs every test task, so results older than this stamp
       # cannot belong to this run.
