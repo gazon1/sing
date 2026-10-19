@@ -50,8 +50,14 @@ alongside it.**
   executes the control and proves the gate can fail.
 - `.github/actions/setup-python-tools/action.yml` — a new `with-link-lint` input
   (default `true`) that installs `lychee-bin==0.24.2` through `uv` and verifies
-  the version, the same way `shellcheck-py` is installed. `ci.yml`'s `tests` job
-  sets it to `false`, because that job does not run this gate.
+  the version, the same way `shellcheck-py` is installed. The `tests` job keeps
+  it **on**: that job runs `check-gate-wiring.py`, whose Part B runs every
+  script gate — `scripts/check-doc-links.sh` included — once on the clean tree
+  and once on a sabotaged one. With lychee missing, the clean-tree run failed
+  and the control reported "already fails on a clean tree". The first version
+  of this ADR turned the input off there, on the reasoning that the job does
+  not run the gate; the job does not run the *registry*, but it does run the
+  gate.
 - `.lycheeignore` — one entry: an illustrative link in the feature-scaffold skill
   that points at a file the skill describes rather than one that exists. Five
   other unresolved links are inside code fences, which lychee correctly skips.
