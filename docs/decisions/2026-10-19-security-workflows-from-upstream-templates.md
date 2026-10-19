@@ -47,8 +47,9 @@ own schedule — rather than hand-rolling an equivalent.
 **Add `codeql.yml` and `scorecard.yml`, both adapted from the upstream
 templates, both outside the pull-request trigger set.**
 
-- `.github/workflows/codeql.yml` — CodeQL for `java-kotlin`, `build-mode: none`,
-  on `push` to `main`, on `schedule` (`0 5 * * 1`), and on `workflow_dispatch`.
+- `.github/workflows/codeql.yml` — CodeQL for `java-kotlin`, `build-mode: manual`
+  over `:shared:compileKotlinJvm :core-base:compileKotlinJvm`, on `push` to
+  `main`, on `schedule` (`0 5 * * 1`), and on `workflow_dispatch`.
 - `.github/workflows/scorecard.yml` — OpenSSF Scorecard, on `push` to `main`, on
   `schedule` (`0 6 * * 1`), and on `workflow_dispatch`.
 
@@ -61,11 +62,17 @@ the branch protection, the pinned dependencies — so a per-pull-request trigger
 would re-answer the same question on every push. The scans answer it on a
 schedule, and a finding is opened against `main`, which is where it belongs.
 
-**`build-mode: none`, not `autobuild`.** `autobuild` runs the Gradle build
-inside the analysis job, which needs the Android SDK and the whole dependency
-graph, and turns a security scan into a second copy of the test pipeline. `none`
-reads the sources as they are. The trade-off is less precise data flow, and it
-is the right trade for a scan that runs on its own schedule.
+**`build-mode: manual`, with a build command the repository already proves.**
+`none` was tried first and failed on this repository: the Java/Kotlin extractor
+found the code and processed none of it — *"CodeQL detected code written in
+Java/Kotlin but could not process any of it using the 'none' build mode"*. The
+sources live in `src/commonMain/kotlin` and `src/jvmMain/kotlin`, not in the
+`src/main/java` layout the no-build mode looks for. `autobuild` would run
+`./gradlew build` — the whole project, tests and detekt included — which turns
+a security scan into a second copy of the test pipeline. `manual` builds
+`:shared:compileKotlinJvm :core-base:compileKotlinJvm`: the two modules that
+hold the app's Kotlin code, with a task name `ci.yml` already runs. The
+extractor sees the compiled classes and maps them back to sources.
 
 **The cron slots are after the nightly chain** — 05:00 for CodeQL, 06:00 for
 Scorecard — so a scan never competes with a build for a runner.

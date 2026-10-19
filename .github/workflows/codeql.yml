@@ -4,11 +4,11 @@
 #   https://github.com/actions/starter-workflows/blob/main/code-scanning/codeql.yml
 # The template is the maintained one; this file is that file with the
 # placeholders (`$default-branch`, `$protected-branches`, `$cron-weekly`,
-# `$codeql-languages-matrix`) resolved and the two decisions below written down.
+# `$codeql-languages-matrix`) resolved and the decisions below written down.
 #
 # What is ready-made here: the analysis itself, the SARIF upload, and the
-# permission set. What is this repository's: the language, the schedule slot,
-# and the trigger set.
+# permission set. What is this repository's: the language, the build command,
+# the schedule slot, and the trigger set.
 name: "CodeQL"
 
 on:
@@ -32,6 +32,7 @@ jobs:
   analyze:
     name: Analyze (java-kotlin)
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -40,18 +41,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # The same setup every other job uses: JDK 21 (the toolchain
+      # `shared/build.gradle.kts` pins with `jvmToolchain(21)`) and the
+      # Gradle cache. Reusing the repository's own action keeps the JDK and
+      # the cache policy in one place.
+      - name: Set up JVM + Gradle
+        uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          # `none`, not `autobuild`. The analysis does not need a build to read
-          # this repository's Kotlin sources, and `autobuild` would run the
-          # Gradle build inside the analysis job — which needs the Android SDK
-          # and the whole dependency graph, and turns a security scan into a
-          # second copy of the test pipeline. `none` analyses the sources as
-          # they are; the trade-off is less precise data flow, which is the
-          # right trade for a scan that runs on its own schedule.
-          build-mode: none
+          # `manual`, not `none` and not `autobuild`.
+          #
+          # `none` was tried first and failed on this repository: the Java/Kotlin
+          # extractor found the code and processed none of it — "CodeQL detected
+          # code written in Java/Kotlin but could not process any of it using the
+          # 'none' build mode". The sources live in `src/commonMain/kotlin` and
+          # `src/jvmMain/kotlin`, not in the `src/main/java` layout the no-build
+          # mode looks for, so it had nothing to extract.
+          #
+          # `autobuild` would run `./gradlew build` — the whole project, tests
+          # and detekt included, which is a second copy of the test pipeline in
+          # a job that exists to read the code.
+          #
+          # `manual` builds exactly the two modules that hold the app's Kotlin
+          # code, with the task name the repository already proves in CI. The
+          # extractor sees the compiled classes and maps them back to sources.
+          build-mode: manual
+
+      - name: Build the Kotlin sources
+        run: ./gradlew :shared:compileKotlinJvm :core-base:compileKotlinJvm
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
