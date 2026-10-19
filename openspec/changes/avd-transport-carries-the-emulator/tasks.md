@@ -49,16 +49,23 @@
       root-owned, and restoring over it made tar fail with "Cannot utime:
       Operation not permitted". The key moves to `v4`, because the cached
       layout changed.
-- [ ] Confirm on a real run that the Maestro flows pass. Two runs have got as
-      far as a booted emulator; the one after the APK fix is the one that
-      proves the flows. No local run can stand in for this — there is no
-      Android SDK on the development host.
+- [x] Confirm on a real run that the Maestro flows pass. Run `39291739531`
+      (branch `fix/avd-transport`) is green: six of six smoke flows pass —
+      `01-launch-today`, `02-menu-settings`, `03-account-tab`,
+      `03-health-blocked-drilldown`, `04-health-stagnant-drilldown`,
+      `05-health-overdue-drilldown`. No local run can stand in for this — there
+      is no Android SDK on the development host.
 - [ ] Decide what to do with the four dead settings the static gate reports
       (`Notifications.sound`, `Notifications.vibration`,
       `WorkSchedule.weekendSat`, `WorkSchedule.weekendSun`). That gate is
       blocking and red on `main`, and it is a product decision — wire the
       values, hide the controls, or record why in the baseline. It is not this
       change's debt and it is not a CI question.
+      Half of it is settled: `weekendSat`/`weekendSun` now reach the agenda
+      through `AgendaPresets.forToday` (change
+      `working-day-switches-reach-the-agenda`). `Notifications.sound` and
+      `Notifications.vibration` are false readings — `AndroidNotifier` reads
+      them — and the gate's exception is narrowed to that file in PR #741.
 - [ ] Give `main` a branch protection with `CI gate` as the required check.
       The transport bug was visible in PR #740 before the merge and nothing
       blocked it.

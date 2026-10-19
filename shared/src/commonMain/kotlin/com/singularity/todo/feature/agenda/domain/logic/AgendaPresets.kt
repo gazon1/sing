@@ -7,6 +7,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 
 /**
@@ -279,6 +280,31 @@ object AgendaPresets {
             order = 0,
         )
     }
+
+    /**
+     * The agenda the Today tab shows on [dayOfWeek].
+     *
+     * [workingDays] is the set of days the user works on, as the "Working Days"
+     * section in Settings defines it. On a working day the [workDay] preset
+     * applies; on a day off the [offDay] preset does, so a Saturday that is not
+     * a working day shows the plain date-based sections instead of
+     * morning/lunch/afternoon work blocks.
+     *
+     * The set is the whole question: a user whose working week is not
+     * "Monday to Friday, plus maybe the weekend" can say so, and the agenda
+     * asks the same question the screen asks.
+     *
+     * This is the "caller's responsibility" that [workDayPreset] documents:
+     * deciding whether today is a working day belongs to whoever knows the user's
+     * working-day choices — here, the Today route, which reads them from settings.
+     */
+    fun forToday(
+        dayOfWeek: DayOfWeek,
+        workingDays: Set<DayOfWeek>,
+        workDay: AgendaDefinition,
+        offDay: AgendaDefinition = Today,
+    ): AgendaDefinition =
+        if (dayOfWeek in workingDays) workDay else offDay
 
     /**
      * Work-day agenda split into morning work, lunch, and afternoon work blocks.

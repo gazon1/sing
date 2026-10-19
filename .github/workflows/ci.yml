@@ -573,11 +573,36 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The free leg compiles and stops there. It used to assemble the debug
+          # APK as well, and that was the duplication: e2e.yml's `build-apk`
+          # assembles the same debug APK for the same commit, and that is the
+          # copy the Maestro shards install. One APK, two workflows, two
+          # runners, two build caches — setup-gradle keys the Gradle home per
+          # job, so the second build could not reuse the first one's entries
+          # (docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md).
+          #
+          # What the free leg still proves: `androidMain` compiles, which is the
+          # only thing that sees a typo in an Android source file
+          # (docs/decisions/2026-10-07-android-maintenance-needs-a-ci-gate.md),
+          # and the free configuration is the one a fresh clone builds
+          # (settings.gradle.kts — `pro/` compiles only under the flag, so CI
+          # has to run both configurations).
+          #
+          # What it no longer proves: that the APK packages. That is proved
+          # where the APK is used — e2e.yml's `build-apk`, on every run of the
+          # E2E workflow (every push to main, every tag, every nightly, every
+          # labelled PR) and android-device-tests.yml — and locally by
+          # `check.sh`, which still assembles it.
           - variant: free
             flags: ""
-            tasks: ":androidApp:compileDebugKotlin :androidApp:assembleDebug"
+            tasks: ":androidApp:compileDebugKotlin"
           # No Tracer token: proves FSL code compiles and the DI rebinding holds,
           # not that the vendor SDK works.
+          #
+          # The pro leg keeps `assembleDebug`: the pro variant is packaged
+          # nowhere else. The free variant is packaged in e2e.yml; the pro one
+          # is not shipped by release.yml either, so this leg is the only proof
+          # that it packages at all.
           - variant: pro
             flags: "-PwithPro=true"
             tasks: ":pro:detekt :androidApp:compileDebugKotlin :androidApp:assembleDebug :pro:testDebugUnitTest"
@@ -588,21 +613,24 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Assemble / lint / test
+      - name: Compile / lint / test
         run: ./gradlew --continue ${{ matrix.flags }} ${{ matrix.tasks }}
         env:
           # AppTracer tokens — only meaningful for pro, ignored (plugin disabled) for free.
           TRACER_APP_TOKEN: ${{ secrets.TRACER_APP_TOKEN }}
           TRACER_PLUGIN_TOKEN: ${{ secrets.TRACER_PLUGIN_TOKEN }}
 
-      - name: Upload debug APK (sideloadable PR build)
-        if: matrix.variant == 'free'
-        uses: actions/upload-artifact@v7
-        with:
-          name: apk-debug-${{ github.run_id }}
-          path: androidApp/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 3
+      # There is no debug APK to upload any more. The free leg does not assemble
+      # one (see the matrix above), and the pro leg assembles the *pro* variant,
+      # which is not the "free debug build" this artifact claimed to be.
+      #
+      # Nothing in this repository read `apk-debug-<run_id>` — the release
+      # workflow builds its own APK, and the Maestro shards take `e2e-apk`. The
+      # APK it carried was also assembled without `local.properties`, so the app
+      # it installed opened on the "SUPABASE_URL" error screen rather than on a
+      # usable one. The APK that actually runs is e2e.yml's `e2e-apk`: the same
+      # free graph, with the placeholder Supabase credentials and the auth
+      # bypass, on the runs where the E2E workflow runs.
 
   # The only job branch protection should require. `if: always()` is load-bearing:
   # without it this job is skipped when a leaf fails, and a skipped job reads as

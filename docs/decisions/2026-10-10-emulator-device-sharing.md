@@ -30,8 +30,13 @@ Introduce a shared concurrency group `emulator-${{ github.event.pull_request.num
 that spans both `e2e.yml` and `android-device-tests.yml`. Both workflows use the same group key,
 so GitHub Actions guarantees at most one of them runs at a time for a given branch/PR.
 
-The `android` job in `ci.yml` only compiles (`:androidApp:assembleDebug`), it does not use an
-emulator, so it is not included in this group.
+The `android` job in `ci.yml` only compiles, it does not use an emulator, so it is not included
+in this group.
+
+*(2026-10-19: the free leg of that job no longer assembles the debug APK either — it compiles
+with `:androidApp:compileDebugKotlin`. `e2e.yml`'s `build-apk` is now the one place the debug
+APK is built, and the shard that installs it is the one that runs it. The pro leg still
+assembles, because nothing else packages the pro variant.)*
 
 ## Consequences
 

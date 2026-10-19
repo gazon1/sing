@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.combine
  */
 class WorkScheduleSettingsStore(private val workSchedule: WorkScheduleSettingsRepository) {
     /**
-     * Work schedule section — all 6 fields from [WorkScheduleSettingsRepository].
-     * Chained combine() calls avoid type-inference issues with 6-flow overloads.
+     * Work schedule section — the time bounds and the working days.
+     * Chained combine() calls avoid type-inference issues with 5-flow overloads.
      */
     fun observe(): Flow<SettingsSection.WorkSchedule> = combine(
         combine(workSchedule.dayStartMinutes, workSchedule.dayEndMinutes) { dayStart, dayEnd -> dayStart to dayEnd },
@@ -22,15 +22,14 @@ class WorkScheduleSettingsStore(private val workSchedule: WorkScheduleSettingsRe
             workSchedule.lunchStartMinutes,
             workSchedule.lunchEndMinutes,
         ) { lunchStart, lunchEnd -> lunchStart to lunchEnd },
-        combine(workSchedule.weekendSat, workSchedule.weekendSun) { sat, sun -> sat to sun },
-    ) { (dayStart, dayEnd), (lunchStart, lunchEnd), (weekendSat, weekendSun) ->
+        workSchedule.workingDays,
+    ) { (dayStart, dayEnd), (lunchStart, lunchEnd), workingDays ->
         SettingsSection.WorkSchedule(
             dayStartMinutes = dayStart,
             dayEndMinutes = dayEnd,
             lunchStartMinutes = lunchStart,
             lunchEndMinutes = lunchEnd,
-            weekendSat = weekendSat,
-            weekendSun = weekendSun,
+            workingDays = workingDays,
         )
     }
 
@@ -40,8 +39,7 @@ class WorkScheduleSettingsStore(private val workSchedule: WorkScheduleSettingsRe
             is SettingsIntent.WorkSchedule.UpdateWorkDayEnd -> workSchedule.setDayEndMinutes(intent.minutes)
             is SettingsIntent.WorkSchedule.UpdateWorkLunchStart -> workSchedule.setLunchStartMinutes(intent.minutes)
             is SettingsIntent.WorkSchedule.UpdateWorkLunchEnd -> workSchedule.setLunchEndMinutes(intent.minutes)
-            is SettingsIntent.WorkSchedule.UpdateWeekendSat -> workSchedule.setWeekendSat(intent.value)
-            is SettingsIntent.WorkSchedule.UpdateWeekendSun -> workSchedule.setWeekendSun(intent.value)
+            is SettingsIntent.WorkSchedule.UpdateWorkingDays -> workSchedule.setWorkingDays(intent.value)
         }
     }
 }

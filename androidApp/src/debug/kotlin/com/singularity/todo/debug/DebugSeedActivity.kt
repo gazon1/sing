@@ -3,6 +3,7 @@ package com.singularity.todo.debug
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.error.fold
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.Profile
@@ -56,6 +57,14 @@ import kotlinx.datetime.toLocalDateTime
  *   project in the active profile, keeping the profile and session. For fixtures
  *   a flow *typed* rather than seeded, which carry no run id for `cleanup=` to
  *   match. NOT concurrency-safe — it wipes other runs' in-flight fixtures too.
+ * - `session=anonymous|signedout` — changes the *session*, not the content: the
+ *   app is put into a local (anonymous) session or into a signed-out one. A
+ *   flow can therefore reach the states the app really has, instead of the one
+ *   the E2E build happens to start in. The E2E build replaces the auth
+ *   repository with a stub that starts `Session.SignedIn`, which is why the
+ *   attach-account affordance — rendered only for `Session.Anonymous` — used
+ *   to be unreachable in every UI test: a flow waited for an element that
+ *   could not be on the screen.
  *
  * Examples:
  * ```
@@ -238,8 +247,48 @@ class DebugSeedActivity :
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
 
+        // Cleanup wins over seeding: a cleanup link carries no entity params, and
+        // honouring both would mean a link that deletes the fixture it just made.
+        //
+        // This dispatch is not an optimisation. The runner sweeps a successful
+        // run's fixtures through the `cleanup=` link, so that one run's data
+        // cannot satisfy the next run's assertions; without it, every run's
+        // entities stayed on the device, and a detekt refactor removed it
+        // silently — the methods survived, the branch that called them did not,
+        // and nothing failed. A flow that asserts an empty list then failed
+        // because of the previous run, and the suite's independence was a
+        // claim rather than a fact.
+        if (params.containsKey("reset")) {
+            resetContent(
+                taskRepo = taskRepo,
+                notesRepo = notesRepo,
+                projectsRepo = projectsRepo,
+            )
+            return
+        }
+
+        params["cleanup"]?.let { prefixes ->
+            cleanup(
+                prefixes = prefixes.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                taskRepo = taskRepo,
+                notesRepo = notesRepo,
+                projectsRepo = projectsRepo,
+            )
+            return
+        }
+
         // Ensure default profile exists so repositories are functional.
         profileRepo.ensureDefaults()
+
+        // A session link changes who the app thinks it is, and nothing else. It
+        // is the same shape as the others: a side effect the flow asks for
+        // explicitly, so that the states the app really has — a local session
+        // with no account, a signed-out session with the sign-in screen — are
+        // reachable from a test, and not only the state the build starts in.
+        if (params.containsKey("session")) {
+            switchSession(params["session"]!!)
+            return
+        }
 
         // Switch to the target profile BEFORE seeding any entity.
         // This updates activeProfileId, which in turn updates
@@ -257,6 +306,45 @@ class DebugSeedActivity :
             notesRepo = notesRepo,
             projectsRepo = projectsRepo,
         )
+    }
+
+    /**
+     * Puts the app into the session a flow asked for.
+     *
+     * - `anonymous` — a local session with no account: the app is fully usable
+     *   and the account section offers "Attach account". The E2E build starts
+     *   `SignedIn`, so this is the only way an attach-account flow can reach
+     *   the button it is about to click.
+     * - `signedout` — no session at all: the sign-in screen is what the app
+     *   shows.
+     *
+     * The change goes through [AuthRepository], not through the stub's own
+     * fields: `startLocalSession()` is the operation the app itself calls when
+     * the user chooses to continue offline, so a flow that drives it exercises
+     * the real path rather than a back door into the test double.
+     */
+    private suspend fun switchSession(state: String) {
+        val authRepository: AuthRepository by inject()
+        when (state.lowercase()) {
+            "anonymous", "local" -> {
+                val result = authRepository.startLocalSession()
+                result.onFailure {
+                    android.util.Log.e("DebugSeedActivity", "startLocalSession failed", it)
+                }
+            }
+
+            "signedout", "signed_out", "none" -> {
+                val result = authRepository.signOut()
+                result.onFailure {
+                    android.util.Log.e("DebugSeedActivity", "signOut failed", it)
+                }
+            }
+
+            else -> android.util.Log.w(
+                "DebugSeedActivity",
+                "Unknown session state '$state'; expected 'anonymous' or 'signedout'",
+            )
+        }
     }
 
     /**

@@ -334,6 +334,15 @@ class RunMaestroIntegrationTest(unittest.TestCase):
 
         def fake_try_run(cmd, **kw):
             if cmd and cmd[0] == "maestro":
+                # Maestro writes the JUnit report it was asked for; the fake
+                # has to as well, or the flow looks like one that never ran.
+                if "--output" in cmd:
+                    report = pathlib.Path(cmd[cmd.index("--output") + 1])
+                    report.parent.mkdir(parents=True, exist_ok=True)
+                    report.write_text(
+                        '<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<testsuite name="smoke" tests="1" failures="0"/>\n'
+                    )
                 return fake_maestro.test(pathlib.Path(cmd[2]))
             cp = unittest.mock.Mock()
             cp.returncode = 0
@@ -413,11 +422,21 @@ class AcquireDeviceRegressionTest(unittest.TestCase):
             _cli._default_device_deps = orig
 
     @staticmethod
-    def _deps(acquire, *, ok=True):
+    def _deps(acquire, *, ok=True, write_report=True):
         cp = unittest.mock.Mock(returncode=0, stdout="", stderr="")
 
         def fake_try_run(cmd, **kw):
             if cmd and cmd[0] == "maestro":
+                # A real Maestro run writes the JUnit report it was asked for.
+                # The fake has to do the same, or every flow looks like one that
+                # never reported — which is a failure the CLI now reports.
+                if write_report and "--output" in cmd:
+                    report = pathlib.Path(cmd[cmd.index("--output") + 1])
+                    report.parent.mkdir(parents=True, exist_ok=True)
+                    report.write_text(
+                        '<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<testsuite name="smoke" tests="1" failures="0"/>\n'
+                    )
                 m = unittest.mock.Mock(returncode=0, stdout="flow passed", stderr="")
                 return m
             return cp
@@ -492,6 +511,96 @@ class AcquireDeviceRegressionTest(unittest.TestCase):
             ["--flow", str(self.FLOW), "--skip-install", "--allow-stale-apk"],
         )
         self.assertEqual(result.exit_code, EXIT_PASS)
+
+
+class UnreportedFlowTest(unittest.TestCase):
+    """A flow that reports nothing must not be counted as a flow that passed.
+
+    A suite is a directory, and a run reports the flows it ran. A flow that
+    Maestro never executed leaves no JUnit file: it is in neither the passed
+    list nor the failed list, the run ends with "flows passed", and the green
+    says nothing about the flow that was supposed to run. The report has to
+    exist, and it has to be this run's report — a file left over from an
+    earlier run is not evidence.
+    """
+
+    FLOW = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+    def _invoke(self, deps, junit_dir):
+        from click.testing import CliRunner
+
+        orig = _cli._default_device_deps
+        try:
+            _cli._default_device_deps = lambda: deps
+            return CliRunner().invoke(
+                _cli.main,
+                [
+                    "--flow", str(self.FLOW),
+                    "--skip-install", "--allow-stale-apk",
+                    "--junit-dir", str(junit_dir),
+                ],
+            )
+        finally:
+            _cli._default_device_deps = orig
+
+    @staticmethod
+    def _deps(*, write_report):
+        cp = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+        def fake_try_run(cmd, **kw):
+            if cmd and cmd[0] == "maestro":
+                if write_report and "--output" in cmd:
+                    report = pathlib.Path(cmd[cmd.index("--output") + 1])
+                    report.parent.mkdir(parents=True, exist_ok=True)
+                    report.write_text(
+                        '<?xml version="1.0" encoding="UTF-8"?>\n'
+                        '<testsuite name="smoke" tests="1" failures="0"/>\n'
+                    )
+                return unittest.mock.Mock(returncode=0, stdout="flow passed", stderr="")
+            return cp
+
+        return DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: cp,
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+    def test_a_flow_that_writes_no_report_fails_the_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._invoke(self._deps(write_report=False), pathlib.Path(tmp))
+        self.assertEqual(result.exit_code, EXIT_FAIL)
+
+    def test_a_flow_that_reports_passes_the_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._invoke(self._deps(write_report=True), pathlib.Path(tmp))
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+
+    def test_a_report_from_an_earlier_run_does_not_count(self):
+        """A stale file in the report directory is not this run's evidence."""
+        with tempfile.TemporaryDirectory() as tmp:
+            junit_dir = pathlib.Path(tmp)
+            stale = junit_dir / f"{self.FLOW.stem}.xml"
+            stale.parent.mkdir(parents=True, exist_ok=True)
+            stale.write_text(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<testsuite name="smoke" tests="1" failures="0"/>\n'
+            )
+            old = stale.stat().st_mtime
+            import os
+            os.utime(stale, (old - 3600, old - 3600))
+            result = self._invoke(self._deps(write_report=False), junit_dir)
+        self.assertEqual(result.exit_code, EXIT_FAIL)
 
 
 if __name__ == "__main__":

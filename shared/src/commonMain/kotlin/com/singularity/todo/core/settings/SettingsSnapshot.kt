@@ -70,6 +70,20 @@ data class WorkScheduleSnapshot(
     val dayEndMinutes: Int = 1080,
     val lunchStartMinutes: Int = 720,
     val lunchEndMinutes: Int = 780,
+    /**
+     * The working days, as ISO day numbers (Monday = 1 … Sunday = 7).
+     *
+     * `null` means the file was written before the working week was a set. The
+     * two flags below answer for such a file, so an old export still restores
+     * what it meant.
+     */
+    val workingDays: List<Int>? = null,
+    /**
+     * The two flags the section used to have. They are still written — derived
+     * from the working days — so a file exported today can still be read by an
+     * older version of the app, and so an old file can still be read by this
+     * one.
+     */
     val weekendSat: Boolean = false,
     val weekendSun: Boolean = false,
 )

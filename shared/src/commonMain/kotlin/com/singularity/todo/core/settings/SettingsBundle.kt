@@ -7,8 +7,10 @@ package com.singularity.todo.core.settings
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import kotlinx.datetime.DayOfWeek
 
 /**
  * Sealed hierarchy of all settings sections.
@@ -61,8 +63,15 @@ sealed interface SettingsSection {
         val dayEndMinutes: Int = SettingsDefaults.WorkSchedule.WORK_DAY_END_MINUTES,
         val lunchStartMinutes: Int = SettingsDefaults.WorkSchedule.WORK_LUNCH_START_MINUTES,
         val lunchEndMinutes: Int = SettingsDefaults.WorkSchedule.WORK_LUNCH_END_MINUTES,
-        val weekendSat: Boolean = SettingsDefaults.WorkSchedule.WEEKEND_SAT,
-        val weekendSun: Boolean = SettingsDefaults.WorkSchedule.WEEKEND_SUN,
+        /**
+         * The days the user works on.
+         *
+         * The section is called "Working Days", so this is the whole working
+         * week: the days the user works on, not the days they do not. It
+         * replaces a pair of booleans about Saturday and Sunday, which could
+         * not say what a working week is — and which nothing read.
+         */
+        val workingDays: Set<DayOfWeek> = WorkingDays.DEFAULT,
     ) : SettingsSection
 
     // ── Greeting ─────────────────────────────────────────────────────────────
@@ -177,8 +186,16 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
         data class UpdateWorkDayEnd(val minutes: Int) : WorkSchedule
         data class UpdateWorkLunchStart(val minutes: Int) : WorkSchedule
         data class UpdateWorkLunchEnd(val minutes: Int) : WorkSchedule
-        data class UpdateWeekendSat(val value: Boolean) : WorkSchedule
-        data class UpdateWeekendSun(val value: Boolean) : WorkSchedule
+
+        /**
+         * Replaces the whole set of working days.
+         *
+         * A set rather than a toggle: the section owns the week, and a day is
+         * either in it or not. The intent carries the set so that a write is
+         * one atomic value — a toggle would have to read the set, change it
+         * and write it back, and two toggles fired together would lose one.
+         */
+        data class UpdateWorkingDays(val value: Set<DayOfWeek>) : WorkSchedule
     }
 
     // ── Greeting ─────────────────────────────────────────────────────────────

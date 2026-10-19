@@ -99,4 +99,68 @@ if [ -n "${GITHUB_PATH:-}" ]; then
     } >> "$GITHUB_PATH"
 fi
 
+# ── What the cache carries ───────────────────────────────────────────────────
+# The cache entry for this AVD carries the SDK payload and nothing else: the
+# emulator and the system image, under the SDK root. The AVD is not part of it —
+# it is created where it is used, on every runner, by this script.
+#
+# The entry that also carried the AVD measured ~2.15 GB, and nothing said so.
+# The next person to put the AVD back would have found out from a slow run and
+# not from the log. This report is the log: the payload paths, the size of
+# each, the total, and the size of the AVD that is deliberately not in it. A
+# diff between two runs shows a cache that grew.
+#
+# Both the producer and the consumers run this script, so both logs carry the
+# same report and the two sides cannot disagree about what the cache holds.
+dir_size_bytes() {
+    # `du -sb` counts apparent bytes (GNU coreutils); `du -sk` is the fallback
+    # and rounds to 1 KiB, which is enough for a report. A path that cannot be
+    # measured reports 0 — this is a report, not a gate, and it must not fail
+    # a job that has already provisioned everything it was asked for.
+    local path="$1" bytes
+    bytes="$(du -sb "$path" 2>/dev/null | cut -f1 || true)"
+    if [ -z "$bytes" ]; then
+        bytes="$(du -sk "$path" 2>/dev/null | cut -f1 || true)"
+        bytes="${bytes:-0}"
+        bytes=$((bytes * 1024))
+    fi
+    printf '%s' "${bytes:-0}"
+}
+
+report_cache_payload() {
+    # The two paths `_setup-avd.yml` caches, derived from the same SDK root the
+    # cache step uses. If that list ever changes, this one has to change with
+    # it — this report is what makes the difference visible.
+    local paths=("$SDK_ROOT/system-images" "$SDK_ROOT/emulator")
+    local total=0 path size line
+    local lines=()
+
+    lines+=("cache payload — the paths _setup-avd.yml caches:")
+    for path in "${paths[@]}"; do
+        size="$(dir_size_bytes "$path")"
+        lines+=("  $path = $size bytes")
+        total=$((total + size))
+    done
+    lines+=("  total = $total bytes")
+
+    size="$(dir_size_bytes "$avd_dir")"
+    lines+=("  not cached: $avd_dir = $size bytes (the AVD is created here, it never travels)")
+
+    for line in "${lines[@]}"; do
+        echo "provision-avd: $line"
+    done
+
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        {
+            echo "### Android SDK cache payload"
+            echo
+            echo '```'
+            printf '%s\n' "${lines[@]}"
+            echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+    fi
+}
+
+report_cache_payload
+
 echo "provision-avd: emulator $emulator_bin, AVD $AVD_NAME in $ANDROID_AVD_HOME"

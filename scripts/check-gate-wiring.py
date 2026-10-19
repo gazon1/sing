@@ -407,35 +407,29 @@ SCRIPT_GATES = [
     ScriptGate(
         name="dead-settings",
         cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
-        # The sabotage removes a baseline entry, so the field it exempts becomes
-        # reportable. An earlier version of this entry mutated the DI bindings in
-        # CoreDiModule.kt, which proved only that the check can see an unwired
-        # *section* — and it stayed green on `reminderDefault` and all seven
-        # work-schedule fields, which are wired and still dead. The check descends
-        # to the field, so the control has to descend with it.
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
         #
-        # The target must be a field the baseline still carries. It has now failed
-        # that rule twice, in the same way.
+        # It used to remove a baseline entry, so the field it exempts became
+        # reportable. That was a good control while the baseline carried one —
+        # it exercised the whole chain, waiver to report — and it became a
+        # control that proved nothing twice: first when `Notifications.reminderDefault`
+        # got wired (#657) and the baseline no longer needed it, then when
+        # `Notifications.sound` stopped being dead because `PLUMBING` was
+        # narrowed to file kinds. Both times the match went stale and the
+        # control raised "sabotage would be a no-op".
         #
-        # It used to be `Notifications.reminderDefault`, which stopped being a valid
-        # target when that setting got wired (#657): with the field wired the baseline
-        # no longer needs it, the `_replace` match went stale, and the control raised
-        # "sabotage would be a no-op".
+        # Then the weekend flags were wired and their waivers were removed, and
+        # the baseline became empty — which left the control matching a line
+        # that only existed in a *comment* and changing that, while the gate
+        # correctly stayed green. A control that edits a file without changing
+        # what the gate reads is not a control.
         #
-        # Then `Notifications.sound`, for the same reason and by a different route.
-        # Nothing was ever wrong with it — the `PLUMBING` list excluded
-        # `core/notifications/` as a directory, so `AndroidNotifier`, three files from
-        # the store in that directory and the only consumer of the field, was not
-        # counted as a reader and the field was baselined as dead. Narrowing `PLUMBING`
-        # to the plumbing *file kinds* made the field live, the baseline no longer
-        # carried it, and the control went stale the same way.
-        #
-        # So the baseline entry is the thing that has to be re-read after any wiring
-        # or unwiring change, not just the gate. `WorkSchedule.weekendSat` is baselined
-        # today and is read by nothing, so exempting it away is what makes the gate
-        # report.
-        sabotage_path="scripts/check-dead-settings-baseline.txt",
-        sabotage=_replace('WorkSchedule.weekendSat', 'WorkSchedule.no_such_field'),
+        # So the sabotage now goes at the gate's own promise: a persisted
+        # setting that no feature reads. It adds a field to the settings model,
+        # and the gate must report it.
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why="a persisted setting rendered in Settings and read by no feature is a " +
             "control that looks like it works; every baseline line is a claim that " +
             "needs its own justification",
@@ -516,6 +510,19 @@ SCRIPT_GATES = [
             "the `env` context holds the variables a workflow defines, not the "
             "runner's environment, so `${{ env.ANDROID_HOME }}` expands to the empty "
             "string and a path built from it names nothing — silently, with no warning"
+        ),
+    ),
+    ScriptGate(
+        name="maestro-flow-catalogue",
+        cmd=[sys.executable, "scripts/check-maestro-flow-catalogue.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        sabotage_path="config/docs/maestro-flows.txt",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a flow removed from the tree without a word leaves the suite smaller "
+            "and the run green — the run reports the flows that are left, so the "
+            "one that is gone is only visible in a diff nobody reads"
         ),
     ),
     ScriptGate(

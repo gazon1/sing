@@ -9,6 +9,23 @@
 #   CI:      full suite — jvmTest, desktopApp:test, mcp-server:test,
 #            kover, static-gates, Maestro flows
 #
+# WHAT IS CHECKED: the tree that is being pushed, not the checked-out worktree.
+#
+# `git push` hands the hook the refs it is about to write:
+#     <local ref> <local sha> <remote ref> <remote sha>
+# The local sha is the tree the remote will end up holding. The worktree is a
+# different thing: `git push origin HEAD:other-branch` and a force-push of a
+# rebuilt branch both push a tree the worktree does not hold, and a hook that
+# gates the worktree reports green for a tree nobody pushed — and red for a
+# tree that is fine. So every pushed local ref is checked out into a throwaway
+# detached worktree, the structural gates run there, and the worktree is
+# removed again.
+#
+# The detekt auto-correct step is the one deliberate exception: it rewrites
+# files in the current worktree on purpose — the corrected files are what the
+# author then commits and pushes — and it cannot rewrite a detached throwaway
+# tree meaningfully. It stays on the current worktree and says so out loud.
+#
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
 # To disable entirely: git config --unset core.hooksPath
@@ -18,26 +35,182 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+# ── The push description (stdin) ──────────────────────────────────────────
+#
+# One line per ref. It is read ONCE, here, and everything below works from
+# the parsed values: a second read would find an empty stdin and silently
+# validate nothing.
+#
+#   local sha all zeros  → the remote ref is being DELETED. No tree is pushed,
+#                          so there is nothing to validate.
+#   remote sha all zeros → the remote ref is new.
+PUSH_REFS=()
+PUSH_LOCAL_SHAS=()
+PUSH_REMOTE_REFS=()
+PUSH_REMOTE_SHAS=()
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -n "${local_sha:-}" ] || continue
+    PUSH_REFS+=("$local_ref")
+    PUSH_LOCAL_SHAS+=("$local_sha")
+    PUSH_REMOTE_REFS+=("${remote_ref:-}")
+    PUSH_REMOTE_SHAS+=("${remote_sha:-}")
+done
+
+# ── Throwaway worktree management ─────────────────────────────────────────
+#
+# The tree being pushed is checked out in a detached worktree under a temp
+# directory. It is removed on every exit path (trap), and the git metadata is
+# pruned, so `git worktree list` does not accumulate entries.
+TMP_ROOT=""
+TEMP_WORKTREES=()
+
+cleanup() {
+    local rc=$?
+    for t in ${TEMP_WORKTREES[@]+"${TEMP_WORKTREES[@]}"}; do
+        git worktree remove --force "$t" >/dev/null 2>&1 || rm -rf "$t"
+    done
+    git worktree prune >/dev/null 2>&1 || true
+    if [ -n "$TMP_ROOT" ]; then
+        rm -rf "$TMP_ROOT"
+    fi
+    exit $rc
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+new_temp_root() {
+    if [ -z "$TMP_ROOT" ]; then
+        TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/pre-push-gate-XXXXXX")"
+        # An empty hooks dir: `git worktree add` fires the post-checkout hook,
+        # which would regenerate DIGEST.md inside the throwaway tree. The tree
+        # under validation must be the tree that is being pushed, unchanged.
+        mkdir -p "$TMP_ROOT/hooks"
+        # The owning pid, so a later run can tell a dead run's leftovers from
+        # a live run's worktree.
+        echo "$$" > "$TMP_ROOT/pid"
+    fi
+}
+
+# A hook that was SIGKILLed cannot run its trap, and a killed hook leaves its
+# throwaway worktree registered in this repository's metadata. Left alone, those
+# entries accumulate in `git worktree list` and in `.git/worktrees/`.
+#
+# So each run reaps the leftovers of DEAD runs before it starts. A temp worktree
+# whose owning pid is still alive belongs to a concurrent push — it is left
+# alone: removing it would pull the ground from under that push.
+reap_stale_temp_worktrees() {
+    local tree_path root pid
+    while read -r tree_path; do
+        root="$(dirname "$tree_path")"
+        pid="$(cat "$root/pid" 2>/dev/null || true)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            continue
+        fi
+        echo "pre-push: removing a stale temporary worktree from a killed run ($tree_path)"
+        git worktree remove --force "$tree_path" >/dev/null 2>&1 || rm -rf "$tree_path"
+        rm -rf "$root"
+    done < <(git worktree list --porcelain | sed -n 's/^worktree //p' | grep -E '/pre-push-gate-' || true)
+    git worktree prune >/dev/null 2>&1 || true
+}
+
+reap_stale_temp_worktrees
 
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
+#
+# Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
+# the ones from this checkout — the checker is the current one, the way CI
+# runs it — and they are pointed at the pushed tree.
 
-echo "=== Pre-push [$BRANCH] — structural gates ==="
+GATES_FAILED=0
 
-if ! python3 scripts/build-version-catalog-gate.py --quiet .; then
+echo "=== Pre-push — structural gates (against the pushed tree) ==="
+
+if [ "${#PUSH_REFS[@]}" -eq 0 ]; then
+    echo "no refs in this push — nothing to validate"
+fi
+
+for i in "${!PUSH_REFS[@]}"; do
+    local_ref="${PUSH_REFS[$i]}"
+    local_sha="${PUSH_LOCAL_SHAS[$i]}"
+    remote_ref="${PUSH_REMOTE_REFS[$i]}"
+    remote_sha="${PUSH_REMOTE_SHAS[$i]}"
+
+    if [ "$local_sha" = "$ZERO_SHA" ]; then
+        echo ""
+        echo "→ $local_ref → $remote_ref — deletion: no tree is pushed, skipped"
+        continue
+    fi
+
+    if [ -n "$remote_sha" ] && [ "$local_sha" = "$remote_sha" ]; then
+        echo ""
+        echo "→ $local_ref → $remote_ref — already up to date, skipped"
+        continue
+    fi
+
     echo ""
-    echo "pre-push FAILED — hardcoded version literal. Add it to gradle/libs.versions.toml"
-    echo "and reference it via libs.*, or push with --no-verify."
+    echo "→ $local_ref → $remote_ref @ $local_sha"
+
+    tree=""
+    resolved="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || true)"
+    if [ -n "$resolved" ]; then
+        new_temp_root
+        # One path per ref: a path that is already a registered worktree is
+        # refused by `git worktree add`, and a second ref must not inherit the
+        # first ref's tree.
+        candidate="$TMP_ROOT/tree-$i"
+        if git -c core.hooksPath="$TMP_ROOT/hooks" worktree add --detach --quiet \
+            "$candidate" "$resolved" >"$TMP_ROOT/worktree-add.log" 2>&1; then
+            tree="$candidate"
+            TEMP_WORKTREES+=("$candidate")
+            echo "   pushed tree checked out in a temporary worktree (detached at ${resolved:0:8})"
+        else
+            echo "   !!! could not create a temporary worktree for ${resolved:0:8}:"
+            sed 's/^/       /' "$TMP_ROOT/worktree-add.log" || true
+        fi
+    else
+        echo "   !!! $local_sha does not resolve to a commit in this repository"
+    fi
+
+    if [ -z "$tree" ]; then
+        echo "   !!! FALLBACK — validating the CURRENT WORKTREE ($CURRENT_BRANCH) instead."
+        echo "   !!! That is NOT the tree being pushed: this check does not cover the pushed content."
+        tree="$REPO_ROOT"
+    fi
+
+    if (cd "$tree" && python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .); then
+        echo "   version-catalog gate: OK"
+    else
+        echo "   version-catalog gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — hardcoded version literal in the tree of $local_ref."
+        echo "Add it to gradle/libs.versions.toml and reference it via libs.*, or push with --no-verify."
+    fi
+
+    if [ ! -d "$tree/Maestro/flows" ]; then
+        echo "   maestro selector gate: SKIPPED (this tree has no Maestro/flows)"
+    elif (cd "$tree" && python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows); then
+        echo "   maestro selector gate: OK"
+    else
+        echo "   maestro selector gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — unknown id: selector in a Maestro flow in the tree of $local_ref."
+        echo "Add it to TestTags.kt or DYNAMIC_EXPANSIONS / ALLOWLIST, or push with --no-verify."
+    fi
+done
+
+if [ "$GATES_FAILED" = "1" ]; then
+    echo ""
+    echo "=== Pre-push FAILED — structural gates ==="
     exit 1
 fi
 
-if ! python3 scripts/ci/validate-maestro-selectors.py; then
-    echo ""
-    echo "pre-push FAILED — unknown id: selector in a Maestro flow."
-    echo "Add it to TestTags.kt or DYNAMIC_EXPANSIONS / ALLOWLIST, or push with --no-verify."
-    exit 1
-fi
-
+echo ""
 echo "=== Structural gates OK ==="
 echo ""
 
@@ -46,6 +219,11 @@ echo ""
 # Runs in all worktrees and in the main checkout: the correction has value here —
 # the files it rewrites get committed by the push that follows, instead of being
 # reported to a CI that cannot fix anything.
+#
+# It acts on the CURRENT WORKTREE, not on the pushed tree, and that is not an
+# oversight: a detached throwaway tree is thrown away a second later, so a
+# correction made there would be lost. The corrected files are the ones the
+# author commits and pushes next — the push this hook is vetting.
 #
 # `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md):
 # one invocation per module (not a combined task list — the flag only reaches the
@@ -59,7 +237,7 @@ echo ""
 # left to report. A hook watching the exit code would pass with the violation
 # already gone and the author none the wiser.
 
-echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
+echo "=== Pre-push [$CURRENT_BRANCH] — detekt auto-correct (current worktree) ==="
 
 # Does this push carry Kotlin at all? Two things count: the commits being pushed,
 # and whatever is still uncommitted in the working tree, because auto-correct acts
@@ -71,26 +249,27 @@ echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
 # someone else's code is `--no-verify`, which costs every other gate too. CI runs
 # blocking detekt over the whole tree regardless, so skipping here stops a ~2
 # minute Gradle run on a change that cannot need it, and stops nothing else.
-#
-# `git push` hands the hook one line per ref on stdin:
-#     <local ref> <local sha> <remote ref> <remote sha>
-# An all-zero remote sha is a new branch, where every commit reachable from the
-# local sha is new to the remote.
 KOTLIN_TOUCHED=0
 if ! git diff --quiet HEAD -- '*.kt' '*.kts' 2>/dev/null; then
     KOTLIN_TOUCHED=1
 fi
-while read -r _local_ref local_sha _remote_ref remote_sha; do
-    [ -n "${local_sha:-}" ] || continue
-    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+for i in "${!PUSH_REFS[@]}"; do
+    local_sha="${PUSH_LOCAL_SHAS[$i]}"
+    remote_sha="${PUSH_REMOTE_SHAS[$i]}"
+    if [ "$local_sha" = "$ZERO_SHA" ]; then
+        continue
+    fi
+    if [ -z "$remote_sha" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
         RANGE=("${local_sha}" --not --remotes)
     else
         RANGE=("${remote_sha}..${local_sha}")
     fi
-    if [ "$KOTLIN_TOUCHED" = "0" ] &&
-        git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null |
-        grep -q .; then
-        KOTLIN_TOUCHED=1
+    # Captured instead of piped: with `pipefail`, `grep -q` closing the pipe
+    # early can make the pipeline report SIGPIPE (141) for a hit.
+    if [ "$KOTLIN_TOUCHED" = "0" ]; then
+        if [ -n "$(git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null)" ]; then
+            KOTLIN_TOUCHED=1
+        fi
     fi
 done
 
@@ -123,12 +302,12 @@ fi
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own
 # cheap pre-push already; the full Gradle suite belongs only in CI.
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
-    echo "=== Pre-push [$BRANCH] — worktree detected ==="
-    echo "Structural gates OK. Detekt OK. Full suite runs in CI."
+    echo "=== Pre-push [$CURRENT_BRANCH] — worktree detected ==="
+    echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite runs in CI."
     exit 0
 fi
 
-echo "=== Pre-push [$BRANCH] — full suite delegated to CI ==="
-echo "Structural gates OK. Detekt OK. Full suite (jvmTest, desktopApp:test,"
+echo "=== Pre-push [$CURRENT_BRANCH] — full suite delegated to CI ==="
+echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite (jvmTest, desktopApp:test,"
 echo "kover, static-gates) runs in CI — no need to duplicate it here."
 echo "=== Pre-push OK ==="

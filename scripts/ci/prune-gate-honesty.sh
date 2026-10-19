@@ -48,12 +48,20 @@ echo "=== gate-honesty probe worktree prune ==="
 #   locked
 #   (or just: reason gate-honesty probe <name> with no locked)
 
-mapfile -t WT_LINES < <(git worktree list --porcelain)
-
 CURRENT_WT=""
 declare -a STALE_WTS=()    # list of stale worktree paths
 declare -A WT_REASON=()    # path → reason
 
+# Git 2.56 writes the probe's marker as the *reason of the lock*:
+#
+#   locked gate-honesty probe unittestprobe
+#
+# and older versions wrote a separate `reason` line. The first version of this
+# script looked only for the `reason` line, so on this git it found nothing at
+# all and reported "no stale worktrees" while a hundred and twenty of them
+# were registered — a script that reports a clean state it never checked.
+# Both forms are read here, and the path pattern is the last resort: an entry
+# under /tmp/gate-honesty-*/probe-tree is a probe whether git says so or not.
 while IFS= read -r line; do
     key="${line%% *}"
     val="${line#* }"
@@ -64,13 +72,25 @@ while IFS= read -r line; do
         reason)
             if [[ "$val" == gate-honesty\ probe\ * ]]; then
                 WT_REASON["$CURRENT_WT"]="$val"
-            else
-                # Not a gate-honesty entry; reset
-                CURRENT_WT=""
+            fi
+            ;;
+        locked)
+            # `locked` alone means "locked, no reason"; `locked <reason>` is
+            # git 2.56's way of writing why.
+            if [[ "$val" == gate-honesty\ probe\ * ]]; then
+                WT_REASON["$CURRENT_WT"]="$val"
             fi
             ;;
     esac
 done < <(git worktree list --porcelain)
+
+# A probe entry whose git metadata names no reason is still a probe if it
+# sits where the probes are made.
+while IFS= read -r wt_path; do
+    if [[ "$wt_path" == /tmp/gate-honesty-*/probe-tree ]]; then
+        WT_REASON["$wt_path"]="${WT_REASON["$wt_path"]:-gate-honesty probe (path match)}"
+    fi
+done < <(git worktree list --porcelain | awk '$1 == "worktree" { print $2 }')
 
 # Build list of stale worktrees (reason present + dir missing)
 for wt_path in "${!WT_REASON[@]}"; do
@@ -136,7 +156,16 @@ for wt in "${STALE_WTS[@]}"; do
     if git -C "$(git rev-parse --git-dir)" worktree remove --force "$wt" 2>/dev/null; then
         ((REMOVED++))
     else
-        echo "  (already gone or git error — running worktree prune)"
+        # The directory is gone, so `worktree remove` has nothing to remove.
+        # The metadata is what is left — and git refuses to prune a *locked*
+        # entry, so the lock has to go first. Without the unlock, the entry
+        # survives the prune and the next run finds it again.
+        git -C "$(git rev-parse --git-dir)" worktree unlock "$wt" 2>/dev/null || true
+        if git -C "$(git rev-parse --git-dir)" worktree prune 2>/dev/null; then
+            ((REMOVED++))
+        else
+            echo "  (git error — the entry stays)"
+        fi
     fi
 done
 

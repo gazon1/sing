@@ -290,6 +290,10 @@ gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_m
 
 # Maestro
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
+# The flow catalogue: the flows this repository promises to have, written down.
+# A flow deleted without a word leaves the suite smaller and every run green,
+# because a suite reports the flows that are left.
+gate blocking "maestro flow catalogue is current" sgate maestro_flow_catalogue_is_current
 
 # Source and documentation contracts. Both have a GateSpec in
 # scripts/src/sgate/commands/_registry.py and a positive control in GATE_CONTROLS,
