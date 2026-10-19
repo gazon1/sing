@@ -103,6 +103,7 @@ runs:
             | tar -xz -C "$VENV/bin" actionlint
           "$VENV/bin/actionlint" --version
           "$VENV/bin/shellcheck" --version | head -1
+        fi
 
     - name: Install the documentation link checker (pinned)
       if: ${{ inputs.with-link-lint == 'true' }}
@@ -117,7 +118,6 @@ runs:
         # fails on the next is a gate whose floor moved without anyone deciding.
         VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==0.24.2"
         "$VENV/bin/lychee" --version
-        fi
 
     - name: Verify both gate registries load
       shell: bash
