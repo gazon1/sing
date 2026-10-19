@@ -506,6 +506,19 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="workflow-env-context",
+        cmd=[sys.executable, "scripts/check-workflow-env-context.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        sabotage_path=".github/workflows/e2e.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "the `env` context holds the variables a workflow defines, not the "
+            "runner's environment, so `${{ env.ANDROID_HOME }}` expands to the empty "
+            "string and a path built from it names nothing — silently, with no warning"
+        ),
+    ),
+    ScriptGate(
         name="release-tags",
         cmd=[sys.executable, "scripts/check-release-tags.py"],
         # A tag that produced no release is the failure this gate was written after:

@@ -849,6 +849,19 @@ object TestTags {
 
     /** Icon button in the Statistics screen header that opens the Saved Views agenda list. */
     const val STATISTICS_OPEN_SAVED_VIEWS = "statistics_open_saved_views"
+
+    /**
+     * Tabs of the Statistics screen.
+     *
+     * The health bucket cards live on the Health tab, and the screen opens on
+     * Tasks — so a flow that opens Statistics and waits for a bucket without
+     * selecting the tab waits for something that is on the next tab. The tabs
+     * carry stable ids for that reason; a text selector would be a different
+     * thing to break in every language the app ships.
+     */
+    const val STATISTICS_TAB_TASKS = "statistics_tab_tasks"
+    const val STATISTICS_TAB_TIME = "statistics_tab_time"
+    const val STATISTICS_TAB_HEALTH = "statistics_tab_health"
 }
 
 /**

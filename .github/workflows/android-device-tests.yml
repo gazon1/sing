@@ -103,22 +103,41 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # KVM has to be enabled on *this* runner, not on the runner that produced
+      # the AVD. The setup job enables it for itself; that enabling does not
+      # travel with a cache, and the two jobs run on different machines.
+      #
+      # Without this the emulator binary is found, the AVD is created, and the
+      # emulator then dies with "x86_64 emulation currently requires hardware
+      # acceleration! … This user doesn't have permissions to use KVM
+      # (/dev/kvm)" — a failure that reads like a missing emulator and is
+      # neither.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       # Runners do not share a filesystem, so what `setup-avd` installed and created
-      # died with that job. These four paths and this key are the transport; they must
-      # stay identical to the `actions/cache` block in _setup-avd.yml, and the key is
-      # assembled from that job's outputs rather than re-spelled here.
+      # died with that job. These four paths and this key are the transport.
+      #
+      # The key and the SDK root are the producer's own outputs, read verbatim.
+      # They used to be re-assembled here out of `${{ env.ANDROID_HOME }}` and a
+      # hand-written key — and the `env` context does not carry the runner's own
+      # environment variables, so the paths expanded to `/system-images`,
+      # `/emulator` and `/platform-tools` at the filesystem root. The cache
+      # therefore restored nothing, and the job that depends on it finds no
+      # emulator binary. The provisioning step below covers that case.
       - name: Restore AVD and SDK cache
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.android/avd
-            ${{ env.ANDROID_HOME }}/system-images
-            ${{ env.ANDROID_HOME }}/emulator
-            ${{ env.ANDROID_HOME }}/platform-tools
-          key: avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-${{ needs.setup-avd.outputs.cache_key }}
+            ${{ needs.setup-avd.outputs.sdk_root }}/system-images
+            ${{ needs.setup-avd.outputs.sdk_root }}/emulator
+          key: ${{ needs.setup-avd.outputs.cache_key }}
           restore-keys: |
-            avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-
-            avd-${{ needs.setup-avd.outputs.avd_name }}-
+            ${{ needs.setup-avd.outputs.cache_key_prefix }}
 
       # Matches every other workflow in this repository, so the JDK the DI graph is
       # validated against is the same one here. `cache-read-only` outside main: a PR must
@@ -140,6 +159,20 @@ jobs:
             echo "$sdk_root/platform-tools"
             echo "$sdk_root/build-tools/37.0.0"
           } >> "$GITHUB_PATH"
+
+      # The cache above is an optimisation, not a guarantee: an entry can be
+      # evicted, and the entry written before the paths were fixed holds nothing.
+      # This step is the guarantee — a no-op when the cache did its job, and a
+      # provisioning run when it did not. The producer runs the same script, so
+      # both sides agree on what "provisioned" means.
+      - name: Ensure the emulator and the AVD are present
+        env:
+          AVD_NAME: ${{ needs.setup-avd.outputs.avd_name }}
+          SYSTEM_IMAGE: ${{ needs.setup-avd.outputs.system_image }}
+          DEVICE: ${{ needs.setup-avd.outputs.device }}
+          SDK_ROOT: ${{ needs.setup-avd.outputs.sdk_root }}
+          ANDROID_AVD_HOME: ${{ needs.setup-avd.outputs.android_avd_home }}
+        run: bash scripts/ci/provision-avd.sh
 
       # loguru, pydantic and click — the emulator module's own dependencies. The
       # same action the static job uses, with the two linters it installs turned
@@ -182,7 +215,12 @@ jobs:
       # that pinning `-gpu` invites; software rendering is the supported answer.
       - name: Instrumented tests
         env:
-          AVD: singularity-api36
+          # The AVD the emulator module boots. It defaults to "Medium_Phone",
+          # an AVD this workflow never creates — so without this the module
+          # would have booted the right binary against the wrong AVD, and the
+          # failure would have looked like a boot problem rather than a
+          # misnamed one.
+          AVD: ${{ needs.setup-avd.outputs.avd_name }}
           GRADLE_ARGS: -PTEST_AUTH_BYPASS=true
           EMULATOR_EXTRA_FLAGS: >-
             -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio

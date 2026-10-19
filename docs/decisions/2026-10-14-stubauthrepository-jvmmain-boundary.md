@@ -32,7 +32,7 @@ The question: should `StubAuthRepository` be available in `jvmMain` (or `commonM
 
 - `StubAuthRepository` is only available in the Android DI module (`testAuthModule`). JVM tests that need auth injection use `FakeAuthRepository`.
 - If a future JVM E2E target is added (e.g., a desktop Compose smoke test harness), a `jvmMain` variant of `StubAuthRepository` would need environment-variable-based configuration instead of `getprop`.
-- The `AttachAccountScreen` happy-path Maestro flow (`smoke/03-attach-account.yaml`) is driven by `StubAuthRepository.migrateAnonymousTo` in the Android E2E environment.
+- The `AttachAccountScreen` happy-path Maestro flow (`auth/07-account-attach.yaml`) is driven by `StubAuthRepository.migrateAnonymousTo` in the Android E2E environment. The smoke flow that used to cover it (`smoke/03-attach-account.yaml`) asserted the attach button, which only renders for `Session.Anonymous` — and the stub's session is `Session.SignedIn` — so it waited for an element that cannot exist; it is now `smoke/03-account-tab.yaml` and asserts the Account tab itself.
 
 ## Links
 

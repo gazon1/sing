@@ -23,6 +23,8 @@ import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -38,6 +40,14 @@ import kotlinx.datetime.toLocalDateTime
  * - `project=<name>`         — creates a project
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
+ * - `updatedAt=now|-22d|<ISO instant>` — stamps the task's created/updated
+ *   timestamps. A task stamped "now" is never stagnant (the health window is 21
+ *   days without movement), so a flow that needs the *stagnant* bucket has to
+ *   seed a task whose timestamps lie in the past.
+ * - `dependsOn=<title>` — makes the seeded task depend on an existing task
+ *   named `<title>`. A dependency on an incomplete task is what makes a task
+ *   *blocked*. The dependency is named by title because a deep link cannot know
+ *   an id it has not created itself — seed the dependency first.
  * - `cleanup=<prefix>[,<prefix>…]` — deletes instead of seeding: removes every
  *   task, note and project in the active profile whose title/name starts with
  *   any of the given prefixes. Comma-separated so one link can sweep several
@@ -160,7 +170,11 @@ class DebugSeedActivity :
     ) {
         val title = params["task"]!!
         val dueDate = params["due"]?.let { resolveDate(it) }
-        val now = Clock.System.now()
+        // A task stamped "now" is never stagnant: the health window is 21 days
+        // without movement, and a flow cannot reach that bucket by seeding a
+        // fresh task. `updatedAt=-22d` puts both timestamps in the past, which
+        // is what the stagnation bucket is defined by.
+        val stamp = params["updatedAt"]?.let { resolveInstant(it) } ?: Clock.System.now()
 
         val input: CreateTaskInput = TaskDomain.createInput(
             title = title,
@@ -171,15 +185,31 @@ class DebugSeedActivity :
             right = { it },
         )
 
-        taskRepo.upsert(
-            TaskDomain.buildTask(
-                input = input,
-                id = TaskId.generate(),
-                createdAt = now,
-                updatedAt = now,
-                userId = userId,
-            ),
+        val task = TaskDomain.buildTask(
+            input = input,
+            id = TaskId.generate(),
+            createdAt = stamp,
+            updatedAt = stamp,
+            userId = userId,
         )
+        taskRepo.upsert(task)
+
+        // A dependency is what makes a task *blocked* — a different bucket from
+        // "stale", and one a fresh task can never be. The dependency is named by
+        // title, because a deep link cannot know an id it has not created
+        // itself; the other task has to be seeded first.
+        params["dependsOn"]?.let { dependencyTitle ->
+            val dependency = taskRepo.observeAll().first()
+                .firstOrNull { it.title == dependencyTitle }
+            if (dependency == null) {
+                android.util.Log.w(
+                    "DebugSeedActivity",
+                    "No task titled '$dependencyTitle' to depend on; seeding without a dependency",
+                )
+            } else {
+                taskRepo.setDependencies(task.id, setOf(dependency.id))
+            }
+        }
     }
 
     private suspend fun seedProject(
@@ -335,6 +365,42 @@ class DebugSeedActivity :
                 } else {
                     // Assume YYYY-MM-DD
                     LocalDate.parse(expr)
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves an instant expression to a point in time.
+     *
+     * Supported:
+     * - `now`     — the current instant
+     * - `-22d`    — that many days in the past (the sign is what matters; the
+     *   past is the only direction that matters for the stagnation bucket)
+     * - `<ISO-8601>` — exact instant, e.g. `2026-09-01T00:00:00Z`
+     *
+     * The past is what a stale task needs: the health window is 21 days
+     * without movement, so a task stamped "now" is never stagnant, no matter
+     * how the flow sets its due date.
+     */
+    private fun resolveInstant(expr: String): Instant {
+        val now = Clock.System.now()
+        return when (expr.lowercase()) {
+            "now" -> now
+
+            else -> {
+                val relMatch = Regex("^([+-]?)(\\d+)d$").matchEntire(expr.lowercase())
+                if (relMatch != null) {
+                    // Same shape as [resolveDate]: the sign is the direction, and
+                    // the offset is *added* to now. Subtracting a negative offset
+                    // stamps the task in the future — and a task in the future is
+                    // not stagnant, which is the opposite of what the flow asked
+                    // for, and looks exactly like a seed that did nothing.
+                    val sign = if (relMatch.groupValues[1] == "-") -1L else 1L
+                    val days = relMatch.groupValues[2].toLong() * sign
+                    now + days.days
+                } else {
+                    Instant.parse(expr)
                 }
             }
         }

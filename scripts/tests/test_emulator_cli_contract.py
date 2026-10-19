@@ -66,9 +66,20 @@ _ADB_NONE = textwrap.dedent("""\
 # test cost ~30 s. The retry path is covered in-process by
 # test_ensure_emulator.IntegrationTest.test_lock_conflict_one_retry_then_ok;
 # this test exists for the shell contract, not for the retry policy.
-_EMULATOR_DIES = textwrap.dedent("""\
+#
+# `-list-avds` is answered, because the module now asks the tool what AVDs
+# exist before it boots one — a stub that only ever died would be refused at
+# that gate, and this test would measure the refusal instead of the crash.
+_EMULATOR_DIES = textwrap.dedent(f"""\
     #!/bin/sh
     echo "$@" >> "$STUB_CALLS"
+    case "$*" in
+      *-list-avds*)
+        echo "Available Android Virtual Devices:"
+        echo "    {_STUB_AVD}"
+        exit 0
+        ;;
+    esac
     echo "qemu: fatal: could not initialise" >&2
     exit 1
     """)
