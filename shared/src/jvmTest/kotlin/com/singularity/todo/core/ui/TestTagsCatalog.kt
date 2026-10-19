@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui
 
+import com.singularity.todo.arch.KotlinText
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.text.Regex
@@ -79,12 +80,24 @@ object TestTagsCatalog {
 
         // Stack of (brace depth at which the object opened, object name).
         val objectStack = ArrayDeque<Pair<Int, String>>()
-        var depth = 0
         // Depth of the `object TestTags` block itself; nothing outside it is a tag.
         var rootDepth: Int? = null
 
-        for (rawLine in source.lines()) {
-            val code = rawLine.substringBefore("//")
+        // The comments are blanked and the literals are kept, because a declaration
+        // is recognised by the *value* it holds — `= "prefix_${slug(name)}"` — and
+        // that value lives inside a string literal.
+        //
+        // The depths come from the same walk, so a brace inside a string or inside a
+        // KDoc does not move the depth of the lines after it. Counting braces per
+        // line over raw text did, and it is what mis-attributed a nested
+        // declaration to the wrong object.
+        val lines = KotlinText.stripComments(source).lines()
+        val depths = KotlinText.lineDepths(source)
+
+        for ((index, code) in lines.withIndex()) {
+            // The depth at the *start* of the line: an object header opens its block
+            // on its own line, so the block's depth is the depth before it.
+            val depth = if (index == 0) 0 else depths.getOrElse(index - 1) { 0 }
 
             OBJECT_REGEX.find(code)?.let { found ->
                 if (rootDepth == null && found.groupValues[1] == "TestTags") {
@@ -101,10 +114,9 @@ object TestTagsCatalog {
                 }
             }
 
-            depth += code.count { it == '{' }
-            depth -= code.count { it == '}' }
-            // An object opened at depth d is closed once depth falls back to d.
-            while (objectStack.isNotEmpty() && objectStack.last().first >= depth) {
+            // An object opened at depth d is closed once the depth falls back to d.
+            val endDepth = depths.getOrElse(index) { depth }
+            while (objectStack.isNotEmpty() && objectStack.last().first >= endDepth) {
                 objectStack.removeLast()
             }
         }

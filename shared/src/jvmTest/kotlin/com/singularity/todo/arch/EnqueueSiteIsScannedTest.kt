@@ -278,16 +278,13 @@ class EnqueueSiteIsScannedTest {
     /**
      * Comments, removed in place so line numbers survive for the failure message.
      *
-     * Only block comments and comments that are alone on their line. A trailing `//` is
-     * left alone for the reason in the control above: the only reliable way to strip it is
-     * to track string literals, and a stripper that mis-tracks them eats code.
+     * The stripper tracks string literals, so a `//` inside a URL is left alone and a
+     * brace inside a string is not mistaken for code. That is what [KotlinText] does
+     * for the whole module; the local regex stripper this replaced could not, and its
+     * KDoc said so: "the only reliable way to strip it is to track string literals, and
+     * a stripper that mis-tracks them eats code".
      */
-    private fun stripComments(source: String): String = source
-        .replace(BLOCK_COMMENT) { blank(it.value) }
-        .replace(FULL_LINE_COMMENT) { it.value }
-
-    /** Same length and same newlines, so a line number in the message still points at the call. */
-    private fun blank(text: String): String = NON_NEWLINE.replace(text, " ")
+    private fun stripComments(source: String): String = KotlinText.stripComments(source)
 
     // ── the tree ───────────────────────────────────────────────────────────────────
 
@@ -321,11 +318,5 @@ class EnqueueSiteIsScannedTest {
         )
 
         val DECLARES_PORT = Regex("""private val \w+\s*:\s*SyncRepository""")
-
-        val BLOCK_COMMENT = Regex("""/\*[\s\S]*?\*/""")
-
-        val FULL_LINE_COMMENT = Regex("""(?m)^[ \t]*//[^\n]*""")
-
-        val NON_NEWLINE = Regex("""[^\n]""")
     }
 }

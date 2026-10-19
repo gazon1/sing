@@ -127,7 +127,7 @@ class CapabilityFlagTest {
                 root.walkTopDown()
                     .filter { it.isFile && it.name.endsWith(".kt") && !it.isTestDouble() }
                     .flatMap { file ->
-                        CAPABILITY_FLAG.findAll(SourceScan.stripComments(file.readText()))
+                        CAPABILITY_FLAG.findAll(KotlinText.stripComments(file.readText()))
                             .map { it.groupValues[1] }
                             .filter { it in CAPABILITY_FLAGS }
                             .map { "${file.nameWithoutExtension}.$it" }

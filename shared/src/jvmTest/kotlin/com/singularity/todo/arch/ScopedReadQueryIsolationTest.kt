@@ -236,7 +236,7 @@ class ScopedReadQueryIsolationTest {
         // Comments are blanked first so a `@Query` written inside a KDoc worked example
         // cannot be counted as a real query. Line numbers survive, so a finding still
         // points at the right place.
-        val source = SourceScan.stripComments(daoSource().readText())
+        val source = KotlinText.stripComments(daoSource().readText())
         val lines = source.lines()
         val reads = mutableListOf<Read>()
         var iface = ""
@@ -263,7 +263,7 @@ class ScopedReadQueryIsolationTest {
      */
     private fun scopedTables(): Map<String, Set<String>> {
         val scoped = mutableMapOf<String, Set<String>>()
-        SourceScan.stripComments(entitiesSource().readText()).split("@Entity").forEach { block ->
+        KotlinText.stripComments(entitiesSource().readText()).split("@Entity").forEach { block ->
             val table = Regex("""tableName\s*=\s*"(\w+)"""")
                 .find(block)?.groupValues?.get(1) ?: return@forEach
             val columns = buildSet { collectScopingColumns(block, this) }

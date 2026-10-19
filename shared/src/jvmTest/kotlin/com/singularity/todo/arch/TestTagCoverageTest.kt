@@ -178,16 +178,21 @@ class TestTagCoverageTest {
      */
     private fun untaggedClassesIn(file: File): List<String> {
         val lines = file.readText().split("\n")
+        // Two views of the same file. The raw lines carry the tag — its value
+        // lives inside a string literal, which the code view blanks. The code
+        // view carries the class and its body, which the raw lines get wrong
+        // whenever a literal or a comment holds a brace.
+        val code = RunnableTestMember.codeLines(lines)
         val relative = file.relativeTo(repoRoot).path
         val tagAnnotation = tagAnnotationRegex(lines)
         val offenders = mutableListOf<String>()
 
         lines.forEachIndexed { index, line ->
-            val name = RunnableTestMember.classHeaderAt(lines, index) ?: return@forEachIndexed
+            val name = RunnableTestMember.classHeaderAt(code, index) ?: return@forEachIndexed
             val annotationBlock = annotationBlockAbove(lines, index)
             if (annotationBlock.any { tagAnnotation.containsMatchIn(it) }) return@forEachIndexed
 
-            if (RunnableTestMember.classHasTestMember(lines, index)) {
+            if (RunnableTestMember.classHasTestMember(code, index)) {
                 offenders += "$relative:${index + 1} $name"
             }
         }
@@ -206,13 +211,14 @@ class TestTagCoverageTest {
      */
     private fun unselectableTagValuesIn(file: File): List<String> {
         val lines = file.readText().split("\n")
+        val code = RunnableTestMember.codeLines(lines)
         val relative = file.relativeTo(repoRoot).path
         val tagAnnotation = tagAnnotationRegex(lines)
         val tagValue = tagValueRegex(lines)
         val offenders = mutableListOf<String>()
 
         lines.forEachIndexed { index, line ->
-            val name = RunnableTestMember.classHeaderAt(lines, index) ?: return@forEachIndexed
+            val name = RunnableTestMember.classHeaderAt(code, index) ?: return@forEachIndexed
             val annotationBlock = annotationBlockAbove(lines, index)
             val tagLines = annotationBlock.filter { tagAnnotation.containsMatchIn(it) }
             if (tagLines.isEmpty()) return@forEachIndexed

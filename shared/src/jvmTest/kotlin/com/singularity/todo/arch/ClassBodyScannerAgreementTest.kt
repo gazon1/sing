@@ -7,54 +7,67 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The class-body scanner is not string-aware, and this test is the tripwire for
- * the day that stops being true.
+ * Two implementations of one rule, checked against every real test class.
  *
- * ## The weakness
+ * ## The question
  *
- * [RunnableTestMember.classBody] finds the end of a class by counting braces line
- * by line. A Kotlin string literal holding an unbalanced brace — `"{"`, or a JSON
- * fixture embedded in an assertion message — shifts the depth, so the body ends
- * early or runs long and the answer becomes "is there a test member in the wrong
- * span".
+ * "Does this class declare a member JUnit will execute?" is answered by
+ * [RunnableTestMember], and the answer decides whether a class needs a `@Tag`,
+ * and whether `-Ptest.tags` selects it. The rule is: find the end of the class
+ * body, and look for a test annotation inside it.
  *
- * The dangerous direction is specific: a class whose body is mis-scoped can be
- * reported as containing no test member, therefore left untagged, therefore never
- * selected by `-Ptest.tags`, therefore never run. That is the whole D1 shape — two
- * `@ParameterizedTest` classes reported clean by the gate that exists to report
- * them.
+ * Finding the end of the body means counting braces, and a brace count over
+ * raw source counts braces that are not braces. A string holding `"{"`, a KDoc
+ * mentioning a `{`, a raw string holding a JSON fixture — each shifts the
+ * depth, and the body ends in the wrong place.
  *
- * ## Why this is a test and not a lexer
+ * The dangerous direction is specific: a class whose body is mis-scoped is
+ * reported as containing no test member, therefore left untagged, therefore
+ * never selected by `-Ptest.tags`, therefore never run. That is the whole D1
+ * shape — two `@ParameterizedTest` classes reported clean by the gate that
+ * exists to report them.
  *
- * Measured on 2026-10-05: **97 lines** in the test tree carry an unbalanced literal
- * brace inside a string, and comparing this scanner against a string-aware one
- * across all 269 real test classes produced **zero** differing verdicts. So the trap
- * is set on 97 lines and nothing has fallen into it — the braces that matter are
- * balanced `${...}` templates, and the unbalanced ones sit after the last test
- * member in their class.
+ * ## What was wrong with this test
  *
- * Fixing it would mean a real lexer for a defect with zero measured impact, in
- * `commonTest`, which has no parser dependency today. A gate that needs a new build
- * dependency is a gate that gets removed the first time that dependency is
- * inconvenient. So the scanner stays naive and this test watches it instead: it
- * re-measures the same thing on every run, and fails the moment the answer changes.
+ * Until 2026-10-19 this test compared a *naive* scanner with a "string-aware"
+ * one, and the second was string-aware only about plain double-quoted strings
+ * and line comments. It shared the implementation's blind spots for raw
+ * strings, for character literals and for block comments — so for the shapes
+ * that actually occur, it could not report a disagreement. It was a tripwire
+ * with the wire cut.
  *
- * That is the whole design. The issue (#173) said to revisit "when a test file puts
- * a bare `}` in a literal above a test member in its class" — which is exactly the
- * condition this detects, so it no longer depends on anyone noticing.
+ * The measurement that followed (ADR
+ * `2026-10-19-ast-grep-for-kotlin-parsing-in-python-gates.md`) found **five
+ * real test classes** invisible to the inventory for exactly that reason:
+ * `ApplyOutcomeArmsTest` (a `"}"` inside a string above the first test),
+ * `SharedHarnessConventionsTest` (a `{` in a KDoc), `TaskTimeSlotFailureTest`
+ * (a KDoc quoting a code sample that contains a comment of its own),
+ * `ArchitectureTest` (a raw string written with a run of four quotes) and
+ * `EnqueueSiteIsScannedTest`. All five carry a `@Tag`, so no test was being
+ * skipped in CI — but the guard had a hole, and a class that *were* untagged
+ * would have been exempt from the requirement and silently excluded.
+ *
+ * ## What this test is now
+ *
+ * The scanner is string-aware, and this test compares it against a second,
+ * independently written implementation of the same rules — a state machine
+ * rather than a set of index jumps — over every test class in the tree. A
+ * change that breaks one implementation and not the other is a red test here.
+ *
+ * The exotic shapes themselves are pinned in
+ * `config/test-fixtures/runnable-test-members.txt`, which both languages read,
+ * so a shape nobody thought of is still a case both sides must agree on.
  *
  * ## What happens when it fails
  *
- * The failure means the scanner is now answering about the wrong span. Two honest
- * fixes, and which one is right depends on why:
+ * The failure means the two implementations of the class-body rule disagree.
+ * The honest fix is whichever of the two is wrong — and the shape of the
+ * disagreement says which: if the oracle is the one that found a test member
+ * the scanner did not, the scanner is mis-scoping the body.
  *
- * - the class is a legitimate target, so the scanner needs to become string-aware;
- * - the literal is incidental, so move it out of the class body or below its last
- *   test member.
- *
- * **Do not** add the literal to a suppression list. A suppression here records that
- * a gate stopped seeing something, which is the failure mode this repository has
- * already paid for three times.
+ * **Do not** add the offending file to a suppression list. A suppression here
+ * records that a gate stopped seeing something, which is the failure mode this
+ * repository has already paid for three times.
  */
 @Tag("fast")
 class ClassBodyScannerAgreementTest {
@@ -97,7 +110,7 @@ class ClassBodyScannerAgreementTest {
     )
 
     @Test
-    fun the_naive_scanner_still_agrees_with_a_string_aware_one() {
+    fun the_two_implementations_of_the_class_body_rule_agree() {
         val diverged = mutableListOf<String>()
         var compared = 0
 
@@ -108,11 +121,13 @@ class ClassBodyScannerAgreementTest {
                 .filter { it.isFile && it.name.endsWith("Test.kt") }
                 .forEach { file ->
                     val lines = file.readText().split("\n")
+                    val production = RunnableTestMember.codeLines(lines)
+                    val oracle = stripLiteralsAndComments(lines.joinToString("\n")).split("\n")
                     for (index in lines.indices) {
-                        val name = RunnableTestMember.classHeaderAt(lines, index) ?: continue
+                        val name = RunnableTestMember.classHeaderAt(production, index) ?: continue
                         compared++
-                        if (RunnableTestMember.classHasTestMember(lines, index) !=
-                            stringAwareHasTestMember(lines, index)
+                        if (RunnableTestMember.classHasTestMember(production, index) !=
+                            stringAwareHasTestMember(oracle, index)
                         ) {
                             diverged += "${file.relativeTo(repoRoot).path}:${index + 1} $name"
                         }
@@ -130,9 +145,9 @@ class ClassBodyScannerAgreementTest {
         assertEquals(
             diverged,
             emptyList(),
-            "the naive class-body scanner and a string-aware one now disagree on " +
-                "${diverged.size} class(es). A literal brace above a test member has " +
-                "shifted the span the scanner reads:\n" +
+            "the two implementations of the class-body rule now disagree on " +
+                "${diverged.size} class(es). A literal or a comment above a test member " +
+                "has shifted the span one of them reads:\n" +
                 diverged.joinToString("\n") { "  $it" } +
                 "\n\nEither make the scanner string-aware, or move the literal below " +
                 "the class's last test member. Do not suppress it — see the KDoc.",
@@ -140,20 +155,40 @@ class ClassBodyScannerAgreementTest {
     }
 
     /**
-     * The oracle: the same question asked of a body whose string literals and line
-     * comments are blanked out first, so only real braces count.
+     * The oracle: the same question asked of a body whose comments and literal
+     * contents are blanked out first, so only real braces count.
      *
-     * Written to differ from the implementation in exactly one way — it is
-     * string-aware — so that agreement means something. An oracle that shared the
-     * implementation's assumptions could not detect the implementation being wrong.
+     * It is a second implementation of the same rules, written independently of
+     * the one in [RunnableTestMember] — a state machine over the text rather
+     * than a set of index jumps. Agreement between them means something: a
+     * change that breaks one of them and not the other is a red test here.
+     *
+     * The two rules that are easy to get wrong, and that this repository
+     * actually contains, are:
+     *
+     *  - **Kotlin block comments nest.** A comment that contains another
+     *    comment ends at the second closing marker, not the first. A KDoc here
+     *    quotes a code sample that has a comment of its own.
+     *  - **A run of four or more quotes** at the end of a raw string means the
+     *    first N-3 are content and the last three close it.
+     *
+     * Neither shape is hypothetical: the first is in `TaskTimeSlotFailureTest`,
+     * the second in `ArchitectureTest`. Before they were handled, five real
+     * test classes were invisible to the inventory — and this test could not
+     * report it, because the oracle shared the implementation's blind spots.
+     * That is what the KDoc above this class used to warn about, and it is
+     * why the shapes are now written down in
+     * `config/test-fixtures/runnable-test-members.txt` as well: the fixture
+     * pins them in both languages, and this test checks them against every
+     * real class in the tree.
      */
-    private fun stringAwareHasTestMember(lines: List<String>, classIndex: Int): Boolean {
-        if (!lines[classIndex].contains('{')) return false
+    private fun stringAwareHasTestMember(codeLines: List<String>, classIndex: Int): Boolean {
+        if (!codeLines[classIndex].contains('{')) return false
         val body = mutableListOf<String>()
         var depth = 0
         var opened = false
-        for (i in classIndex until lines.size) {
-            val stripped = stripLiteralsAndComments(lines[i])
+        for (i in classIndex until codeLines.size) {
+            val stripped = codeLines[i]
             body.add(stripped)
             for (ch in stripped) {
                 when (ch) {
@@ -163,8 +198,6 @@ class ClassBodyScannerAgreementTest {
                     }
 
                     '}' -> depth--
-
-                    else -> Unit
                 }
             }
             if (opened && depth == 0) break
@@ -173,61 +206,257 @@ class ClassBodyScannerAgreementTest {
     }
 
     /**
-     * Blank out string literals and line comments, preserving offsets.
+     * The file with comments and literal contents blanked, one line per source
+     * line.
      *
-     * A character walk rather than a regex, because the oracle has to agree with the
-     * production counter on everything *except* string-awareness. A regex would bring
-     * its own ideas about what a string is, and an oracle that shares the
-     * implementation's blind spots cannot detect it being wrong — which is the only
-     * job this method has.
+     * The rules, one per state of [OracleLexer]:
+     *
+     *  - a line comment runs to the end of the line;
+     *  - a block comment runs to its matching closing marker, and block
+     *    comments nest;
+     *  - a plain string ends at the next unescaped quote, or at the end of the
+     *    line if there is none;
+     *  - a raw string ends at the last three quotes of a run of three or more;
+     *  - a character literal ends at the next unescaped quote.
      */
-    private fun stripLiteralsAndComments(line: String): String {
-        val out = StringBuilder(line.length)
-        var inString = false
-        var escaped = false
-        var i = 0
-        while (i < line.length) {
-            val ch = line[i]
-            if (inString) {
-                // Every branch appends exactly one character, the escape ones
-                // included. The contract is that the result is the same length as
-                // the input, so a caller can map one to the other — the oracle
-                // needs that to stay comparable with the production counter.
-                when {
-                    escaped -> {
-                        escaped = false
-                        out.append(' ')
-                    }
+    private fun stripLiteralsAndComments(text: String): String = OracleLexer(text).strip()
 
-                    ch == BACKSLASH -> {
-                        escaped = true
-                        out.append(' ')
-                    }
+    /**
+     * The oracle's lexer: an explicit state machine over the text.
+     *
+     * Each state says what it consumes and where it goes next, so every rule is
+     * stated exactly once and no state can be reached by two different paths.
+     * That is the whole point of the oracle: it must be a *different* shape of
+     * implementation from [RunnableTestMember]'s index jumps, so that the two
+     * can fail apart.
+     */
+    private class OracleLexer(private val text: String) {
 
-                    ch == QUOTE -> {
-                        inString = false
-                        out.append(' ')
-                    }
+        private enum class State { CODE, LINE_COMMENT, BLOCK_COMMENT, RAW_STRING, STRING, CHARACTER }
 
-                    else -> out.append(' ') // keep the offset, drop the content
-                }
-            } else if (ch == QUOTE) {
-                inString = true
-                out.append(' ')
-            } else if (ch == '/' && i + 1 < line.length && line[i + 1] == '/') {
-                // A `//` comment runs to the end of the line by definition.
-                repeat(line.length - i) { out.append(' ') }
-                break
-            } else {
-                out.append(ch)
+        private val out = StringBuilder(text.length)
+
+        /** Nesting depth of the block comment currently being consumed. */
+        private var blockDepth = 0
+
+        fun strip(): String {
+            var index = 0
+            var state = State.CODE
+            while (index < text.length) {
+                val step = step(state, index)
+                index = step.first
+                state = step.second
             }
-            i++
+            return out.toString()
         }
-        return out.toString()
-    }
 
-    private companion object {
-        private const val BACKSLASH = '\\'
-        private const val QUOTE = '"'
+        private fun step(state: State, index: Int): Pair<Int, State> = when (state) {
+            State.CODE -> codeStep(index)
+            State.LINE_COMMENT -> lineCommentStep(index)
+            State.BLOCK_COMMENT -> blockCommentStep(index)
+            State.RAW_STRING -> rawStringStep(index)
+            State.STRING -> stringStep(index)
+            State.CHARACTER -> characterStep(index)
+        }
+
+        private fun codeStep(index: Int): Pair<Int, State> = when {
+            text.startsWith("//", index) -> lineCommentStep(index)
+
+            text.startsWith("/*", index) -> {
+                blockDepth = 1
+                out.append("  ")
+                index + 2 to State.BLOCK_COMMENT
+            }
+
+            text.startsWith(TRIPLE, index) -> rawStringStep(index)
+
+            text[index] == QUOTE -> stringStep(index)
+
+            text[index] == SINGLE_QUOTE -> characterStep(index)
+
+            else -> {
+                out.append(text[index])
+                index + 1 to State.CODE
+            }
+        }
+
+        private fun lineCommentStep(index: Int): Pair<Int, State> {
+            val end = text.indexOf('\n', index).let { if (it < 0) text.length else it }
+            blank(index, end)
+            return end to State.CODE
+        }
+
+        private fun blockCommentStep(index: Int): Pair<Int, State> {
+            val opens = text.startsWith("/*", index)
+            val closes = !opens && text.startsWith("*/", index)
+            val step = if (opens || closes) 2 else 1
+            if (opens) {
+                blockDepth++
+            } else if (closes) {
+                blockDepth--
+            }
+            val blanked = if (step == 2) {
+                "  "
+            } else if (text[index] == '\n') {
+                "\n"
+            } else {
+                " "
+            }
+            out.append(blanked)
+            val next = index + step
+            return next to if (blockDepth == 0) State.CODE else State.BLOCK_COMMENT
+        }
+
+        private fun rawStringStep(index: Int): Pair<Int, State> {
+            val closed = rawStringEnd(index)
+            val end = if (closed < 0) text.length else closed
+            blank(index, end)
+            return end to State.CODE
+        }
+
+        /**
+         * The index just past the closing marker of the raw string that opens
+         * at [start], or -1 when the string is never closed.
+         *
+         * The closing marker is the last three quotes of the run, so a run of
+         * four leaves the first quote as content.
+         */
+        private fun rawStringEnd(start: Int): Int {
+            val first = text.indexOf(TRIPLE, start + 3)
+            if (first < 0) return -1
+            var run = first
+            while (run < text.length && text[run] == QUOTE) run++
+            return if (run - first > 3) run else first + 3
+        }
+
+        private fun stringStep(index: Int): Pair<Int, State> {
+            out.append(QUOTE)
+            var i = index + 1
+            while (i < text.length) {
+                val c = text[i]
+                if (c == BACKSLASH) {
+                    out.append("  ")
+                    i += 2
+                } else if (c == QUOTE) {
+                    out.append(QUOTE)
+                    i++
+                    return i to State.CODE
+                } else if (text.startsWith(TEMPLATE, i)) {
+                    // A template's delimiters are text and its body is code, so
+                    // the braces in the body count and the closing `}` does not.
+                    out.append("  ")
+                    i = templateStep(i + 2)
+                } else {
+                    out.append(if (c == '\n') '\n' else ' ')
+                    i++
+                    if (c == '\n') return unterminated(i)
+                }
+            }
+            return unterminated(i)
+        }
+
+        /**
+         * The body of a string template: code until the `}` that closes it.
+         *
+         * The template's own delimiters are text — the implementation counts the
+         * braces in the body and does not count the `}` that ends the template.
+         * An oracle that did not know about templates would report a difference
+         * on every file that has one, and a tripwire that cries wolf is a
+         * tripwire people learn to switch off.
+         */
+        private fun templateStep(index: Int): Int {
+            var depth = 0
+            var i = index
+            while (i < text.length) {
+                val c = text[i]
+                when {
+                    text.startsWith("//", i) -> i = lineCommentStep(i).first
+
+                    text.startsWith("/*", i) -> i = blockCommentEnd(i)
+
+                    text.startsWith(TRIPLE, i) -> i = rawStringStep(i).first
+
+                    c == QUOTE -> i = stringStep(i).first
+
+                    c == SINGLE_QUOTE -> i = characterStep(i).first
+
+                    c == '{' -> {
+                        depth++
+                        out.append(c)
+                        i++
+                    }
+
+                    c == '}' -> {
+                        if (depth == 0) {
+                            out.append(' ')
+                            return i + 1
+                        }
+                        depth--
+                        out.append(c)
+                        i++
+                    }
+
+                    else -> {
+                        out.append(c)
+                        i++
+                    }
+                }
+            }
+            return i
+        }
+
+        /** The index just past the end of the block comment that starts at [index]. */
+        private fun blockCommentEnd(index: Int): Int {
+            blockDepth = 0
+            var i = index
+            while (i < text.length) {
+                val (next, state) = blockCommentStep(i)
+                i = next
+                if (state == State.CODE) return i
+            }
+            return i
+        }
+
+        private fun characterStep(index: Int): Pair<Int, State> {
+            out.append(SINGLE_QUOTE)
+            var i = index + 1
+            while (i < text.length) {
+                val c = text[i]
+                if (c == BACKSLASH) {
+                    out.append("  ")
+                    i += 2
+                } else if (c == SINGLE_QUOTE) {
+                    out.append(SINGLE_QUOTE)
+                    i++
+                    return i to State.CODE
+                } else {
+                    out.append(if (c == '\n') '\n' else ' ')
+                    i++
+                    if (c == '\n') return unterminated(i)
+                }
+            }
+            return unterminated(i)
+        }
+
+        /** An unterminated literal swallows the rest of the file. */
+        private fun unterminated(from: Int): Pair<Int, State> {
+            blank(from, text.length)
+            return text.length to State.CODE
+        }
+
+        /** Replaces [from until to] with spaces, keeping the line structure. */
+        private fun blank(from: Int, to: Int) {
+            for (k in from until minOf(to, text.length)) {
+                out.append(if (text[k] == '\n') '\n' else ' ')
+            }
+        }
+
+        private companion object {
+            private const val TRIPLE = "\"\"\""
+            private const val TEMPLATE = "\${"
+            private const val QUOTE = '"'
+            private const val SINGLE_QUOTE = '\''
+            private const val BACKSLASH = '\\'
+        }
     }
 }

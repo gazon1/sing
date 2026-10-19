@@ -194,7 +194,7 @@ class SharedHarnessConventionsTest {
             "Test files hand-rolling TestScope instead of using runVmTest:\n" +
                 violations.joinToString("\n") { "  - $it" } +
                 "\n\nUse `runVmTest { }` from " +
-                "`shared/src/jvmTest/kotlin/com/singularity/todo/test/helpers/RunVmTest.kt`. " +
+                "`shared/src/commonTest/kotlin/com/singularity/todo/test/helpers/RunVmTest.kt`. " +
                 "It wires the scope, clock, and state assertions correctly.",
         )
     }
