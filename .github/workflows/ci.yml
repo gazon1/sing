@@ -78,6 +78,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [changes]
+    # The detekt auto-correct step pushes the corrected tree to
+    # `detekt-auto-fix/<job>/<run-id>` so a human can review and merge it —
+    # see docs/decisions/2026-10-17-detekt-auto-fix-ci-commit.md. Without
+    # write permission the push is refused with a 403 and the branch is never
+    # created, which leaves the whole mechanism inert.
+    permissions:
+      contents: write
     # Run when scripts/docs changed, or when anything changed on main (always), or on
     # workflow_dispatch (manual trigger).
     if: >
@@ -130,25 +137,15 @@ jobs:
         run: >
           npx --yes "@fission-ai/openspec@${SPECKIT_VERSION}" validate --all --json --strict
 
+      # No second checkout here. The one at the top of this job is already at
+      # `github.sha`, and a second sparse checkout broke the job in two ways:
+      # it dropped `scripts/`, so the step below ran a script that no longer
+      # existed (exit 127), and it dropped `.github/actions/setup-python-tools`,
+      # so the local action could not be archived at job teardown and the job
+      # failed there instead. The gate run above writes only into `.venv/` and
+      # `build/`, both untracked, so a fresh tree buys nothing. The JVM job runs
+      # the same script with this same shape and is green.
       - name: Detekt auto-correct (commit + push)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: |
-            gradle
-            gradlew
-            shared/
-            desktopApp/
-            androidApp/
-            mcp-server/
-            adr-cli/
-            adr-core/
-            core-base/
-            detekt-rules/
-          sparse-checkout-cone-mode: false
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Detekt auto-correct
         run: bash scripts/ci/detekt-auto-fix.sh "static" "${{ github.run_id }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -180,7 +177,8 @@ jobs:
       || github.event_name == 'workflow_dispatch'
     permissions:
       actions: read # flake analysis downloads the previous run's results
-      contents: read
+      # write for the detekt auto-correct branch — see the static job.
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -238,7 +236,7 @@ jobs:
       # The script commits and pushes the auto-correct result to
       # `detekt-auto-fix/<job>/<run-id>`. The CI verdict is still produced by the
       # separate `git diff` step below (which now measures an already-fixed tree).
-      # See docs/decisions/YYYY-MM-DD-detekt-auto-fix-ci-commit.md.
+      # See docs/decisions/2026-10-17-detekt-auto-fix-ci-commit.md.
       - name: Detekt auto-correct (commit + push)
         run: bash scripts/ci/detekt-auto-fix.sh "tests" "${{ github.run_id }}"
         env:

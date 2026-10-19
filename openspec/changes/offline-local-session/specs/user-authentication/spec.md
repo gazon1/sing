@@ -21,6 +21,12 @@ re-established by asking again on every launch has not left the auth flow.
 Supersedes the provider-side identity required by the previous REQ-UA-004. The
 claim path it existed to protect is REQ-UA-005, which stands.
 
+#### Scenario: Anonymous session
+- User chooses to continue without an account
+- The session reports an anonymous identity that is local to the device, not one
+  the backend recognises
+- Data created in this session is scoped to that identity
+
 #### Scenario: Offline entry with no network and no server
 - No Supabase project is configured and the device has no connectivity
 - The user activates "Continue Offline"

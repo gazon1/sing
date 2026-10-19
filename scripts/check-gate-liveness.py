@@ -102,13 +102,20 @@ SLOW_NAMES = {
 #: Shapes that mean "this script actually spawns the JVM toolchain", matched in
 #: the gate's *resolved* script so a registry command that wraps one is caught.
 #:
-#: Deliberately the argv-list form (`["./gradlew", …]`), not the bare string.
-#: A bare `./gradlew` also appears in docstrings, in `print()` lines that suggest
-#: a command to the user, and in README fixtures — `check-test-task-ins.py:13`,
+#: Deliberately the argv-list form, not the bare string. A bare `./gradlew` also
+#: appears in docstrings, in `print()` lines that suggest a command to the user,
+#: and in README fixtures — `check-test-task-ins.py:13`,
 #: `check-baseline-ratchet.py:237`, `check-publication-hygiene.py:387`. Matching
 #: those would skip three cheap gates as "heavyweight" and silently weaken this
 #: gate, which is the same failure as the one this filter just had.
-GRADLE_MARKERS = ('["./gradlew"', "['./gradlew'", '"./gradlew",')
+#:
+#: `gw` is the repo's Gradle wrapper (see `gw`): `check-gate-honesty.py` runs it
+#: as `[str(worktree / "gw"), ":shared:detekt", ...]`, so a marker that only knew
+#: `./gradlew` did not recognise the heaviest gate in the registry.
+GRADLE_MARKERS = (
+    re.compile(r"""\[\s*[^,\]]*["'][^"']*gradlew["']"""),
+    re.compile(r"""\[\s*[^,\]]*["']gw["']"""),
+)
 
 # Marker for gates that must not be probed. Declared in the registry (static-gates.sh)
 # rather than guessed from the script's own filename, so the rule is visible where
@@ -195,7 +202,35 @@ def resolves_to_gradle(cmd: str) -> bool:
         text = path.read_text(encoding='utf-8')
     except OSError:
         return False
-    return any(marker in text for marker in GRADLE_MARKERS)
+    return any(marker.search(text) for marker in GRADLE_MARKERS)
+
+
+def direct_script_resolves_to_gradle(cmd: str) -> bool:
+    """True when a command names a script directly and that script boots Gradle.
+
+    `resolves_to_gradle` only follows `sgate <name>` through the registry, so a
+    gate written as `python3 scripts/check-something.py` was invisible to it —
+    and was probed as if it were cheap. That is how "gate honesty" came to be
+    probed: it plants a detekt violation in a throwaway worktree, so each probe
+    is a full `:shared:detekt` run, and the probe outlived the budget the gate
+    runner gives the whole liveness check.
+
+    The same trap is one registration away, so the check reads the script the
+    command names rather than trusting the command's shape.
+    """
+    parts = cmd.split()
+    scripts = [p for p in parts if p.endswith('.py')]
+    for script in scripts:
+        path = ROOT / script
+        if path.resolve() == pathlib.Path(__file__).resolve():
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        if any(marker.search(text) for marker in GRADLE_MARKERS):
+            return True
+    return False
 
 
 def is_slow(name: str, cmd: str) -> bool:
@@ -203,7 +238,7 @@ def is_slow(name: str, cmd: str) -> bool:
         return True
     if any(cmd.startswith(p) for p in SLOW_PREFIXES):
         return True
-    return resolves_to_gradle(cmd)
+    return resolves_to_gradle(cmd) or direct_script_resolves_to_gradle(cmd)
 
 
 def is_registry_function(cmd: str) -> bool:

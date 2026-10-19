@@ -13,16 +13,17 @@
 в начале, стоит один rebase пустого дерева; найденное на пуше — полную перепроверку
 готовой работы, потому что чужие коммиты меняют то, на что опиралась твоя.
 
-Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один и
-заодно раньше показал транш из 15 новых спек. `main` двигается параллельными траншами —
-чужие изменения принимай как данность и перепроверяй, а не откатывай.
-`git fetch origin && git log --oneline HEAD..origin/main | head`.
+Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один.
+`main` двигается параллельными траншами — чужие изменения принимай как данность и
+перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main | head`.
 
 **Механическая защита от divergence (#268):**
 - `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
   который отстаёт от `origin/main`; предупреждает о неpushнутых коммитах.
-- `check-unmerged.sh` (`scripts/ci/check-unmerged.sh`) — blocking gate в static-gates;
-  фейлится если origin/main ушёл вперёд. Используй вручную перед rebase.
+- Проверки divergence в CI больше нет: runner checkout'ит detached-коммит без трекинговой
+  ветки и без рефа `origin/main`, поэтому гейт падал на каждом прогоне настройкой раннера,
+  а не расхождением. Локально ту же проверку делает `pre-rebase` — на тот ref, на который
+  собираешься переносить коммиты.
 
 ## Структура
 
@@ -73,8 +74,8 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
 `-Ptest.tags=fast,slow` в CI молча его исключит (`TestTagCoverageTest`). **`slow` = класс
-пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn), не
-«долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
+пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn),
+не «долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
 
 ```kotlin
 // Три формы теста (singularity-todo-test-helpers skill):
@@ -116,8 +117,7 @@ class MyViewModel(
 **`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
 **Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
-recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR
-`2026-10-04-configuration-cache-hardening` §A3.
+recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR `2026-10-04-configuration-cache-hardening` §A3.
 
 ## expect/actual порты
 
@@ -181,14 +181,13 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 
 ## 🔧 Run-loop (UI-верификация)
 
-**Android:** `mcp__android_emulator__android_{preflight,build_and_run,ui_status,screenshot,
-ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия,
-`android_logs` для крашей. **Desktop:** `./gradlew :desktopApp:test` или
-`xvfb-run -a ./gradlew :desktopApp:run`.
+**Android:** `mcp__android_emulator__android_{preflight,build_and_run,ui_status,screenshot,ui_describe,
+ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия, `android_logs` для крашей.
+**Desktop:** `./gradlew :desktopApp:test` или `xvfb-run -a ./gradlew :desktopApp:run`.
 
-**Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` ·
-`find-usages` · `render-compose-preview` · `version-lookup` · `open-file`; **Journeys:**
-`android journey create|run <name>`. Подробности: `singularity-todo-android-cli` skill.
+**Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` · `find-usages` ·
+`render-compose-preview` · `version-lookup` · `open-file`; **Journeys:** `android journey create|run <name>`.
+Подробности: `singularity-todo-android-cli` skill.
 
 **DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/` + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android); desktop — `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"`.
 
@@ -198,11 +197,10 @@ ui_describe,ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и пос�
 
 ## 🤖 Coroutine test failures
 
-Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt`
-(состояние, контекст, job-иерархия, стектрейлы) — читай **первым**: кадры
-приложения раньше kotlinx указывают, где корутина была, умерла она там, где
-`lastObservedStackTrace`, а одинаковые стектрейсы — не доказательство утечки.
-ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
+Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt` (состояние,
+контекст, job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше kotlinx указывают,
+где корутина была, умерла она там, где `lastObservedStackTrace`, а одинаковые стектрейсы — не
+доказательство утечки. ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
 
 ## ❌ Что НЕ делать
 
@@ -218,23 +216,21 @@ ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debuggi
 
 ## 🧠 Decision log
 
-Если задача меняет архитектуру, контракт или обнаруживает неочевидный workaround — создай
-запись в `docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest
-(`./scripts/refresh-decisions-digest.sh`). **Писать:** выбор между несколькими разумными
-вариантами; неочевидный workaround; изменение контракта между слоями. **Не писать:**
-опечатки, форматирование, новый use case по существующему паттерну. Формат: frontmatter +
-`Context / Idea / Decision / Rationale / Consequences / Links`; policy —
-`docs/doc-maintenance.md`.
+Если задача меняет архитектуру, контракт или обнаруживает неочевидный workaround — создай запись в
+`docs/decisions/YYYY-MM-DD-<slug>.md` и пересобери digest (`./scripts/refresh-decisions-digest.sh`).
+**Писать:** выбор между несколькими разумными вариантами; неочевидный workaround; изменение
+контракта между слоями. **Не писать:** опечатки, форматирование, новый use case по существующему
+паттерну. Формат: frontmatter + `Context / Idea / Decision / Rationale / Consequences / Links`;
+policy — `docs/doc-maintenance.md`.
 
 ## 🗂 Skills
 
-Скилл — это **процедура**: что агент делает. Состояние кода — это документ в
-`docs/architecture/` (см. обзор в `DIGEST.md`). Каталог — `docs/SKILLS-CATALOG.md`
-(auto-generated, не редактировать); правила написания — `writing-for-agents`.
+Скилл — это **процедура**: что агент делает. Состояние кода — это документ в `docs/architecture/`
+(см. обзор в `DIGEST.md`). Каталог — `docs/SKILLS-CATALOG.md` (auto-generated, не редактировать);
+правила написания — `writing-for-agents`.
 
 > **Фича «готова», но ничего не делает** — самый частый дефект: код компилируется, покрыт
 > тестами и **не вызывается никем**. Проверка: `scripts/find-unwired-surfaces.py`.
 
-Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md`
-(`CONTEXT.md` в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина
-каждого — `docs/doc-maintenance.md`.
+Issue tracker — `docs/agents/issue-tracker.md`; доменные доки — `docs/agents/domain.md` (`CONTEXT.md`
+в корне, ADR-и в `docs/decisions/`). Список снятых скиллов и причина каждого — `docs/doc-maintenance.md`.

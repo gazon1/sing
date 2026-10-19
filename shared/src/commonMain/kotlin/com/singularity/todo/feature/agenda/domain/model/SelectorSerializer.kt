@@ -32,7 +32,7 @@ import kotlinx.serialization.serializer
 
 /**
  * The serialized discriminator tag for a [Selector] variant.
- * Kept as a plain `when` expression (14 cases) so it requires no reflection
+ * Kept as a plain `when` expression (17 cases) so it requires no reflection
  * and works across all KMP targets.
  */
 val Selector.typeTag: String
@@ -272,7 +272,36 @@ private class RegistryHolder {
                 decode = { Selector.Anything },
             ),
         )
-    }.also { require(it.size == 13) { "Expected 13 leaf entries, got ${it.size}" } }
+        // Added with the work-day preset. It was in the sealed hierarchy and in
+        // `typeTag`, but never in this registry — so `getValue("TimeOfDay")` threw
+        // "Key TimeOfDay is missing in the map" the moment anything tried to
+        // serialize a work-day section, and the failure was silent.
+        //
+        // See docs/decisions/2026-10-19-selector-registry-completeness-guard.md —
+        // and note that the check in `init` below could not have caught it, because
+        // it compares this registry against a list that had been left at the old count.
+        put(
+            "TimeOfDay",
+            SelectorEntry(
+                encode = { s ->
+                    val timeOfDay = s as Selector.TimeOfDay
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("TimeOfDay"),
+                            "minStartMinutes" to JsonPrimitive(timeOfDay.minStartMinutes),
+                            "maxEndMinutes" to JsonPrimitive(timeOfDay.maxEndMinutes),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.TimeOfDay(
+                        minStartMinutes = obj.getValue("minStartMinutes").jsonPrimitive.content.toInt(),
+                        maxEndMinutes = obj.getValue("maxEndMinutes").jsonPrimitive.content.toInt(),
+                    )
+                },
+            ),
+        )
+    }.also { require(it.size == 14) { "Expected 14 leaf entries, got ${it.size}" } }
 
     // compositeEntries encode lambdas capture `this` (the RegistryHolder instance) and look up
     // from `allEntries` at CALL time, not at capture/creation time. This avoids the
@@ -376,7 +405,7 @@ object SelectorSerializer : KSerializer<Selector> {
 
     private val registry = RegistryHolder()
 
-    /** All 16 expected typeTag values — used for the construction assertion. */
+    /** All 17 expected typeTag values — used for the construction assertion. */
     private val expectedTypeTags: Set<String> by lazy {
         setOf(
             Selector.DateBucket(RelativeBucket.Today),
@@ -395,6 +424,7 @@ object SelectorSerializer : KSerializer<Selector> {
             Selector.AnyOf(emptyList()),
             Selector.Not(Selector.Anything),
             Selector.Anything,
+            Selector.TimeOfDay(0, 0),
         ).map { it.typeTag }.toSet()
     }
 
