@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 /**
  * Every `id:` selector in a Maestro flow must resolve to an entry in
  * [TestTagsCatalog]. This is the blocking JVM equivalent of the shell-script
- * check in `Maestro/scripts/check-tags.sh`.
+ * check in `scripts/ci/validate-maestro-selectors.py`.
  *
  * The two assertions:
  * 1. Every `id:` in a flow is derivable from `TestTags.kt` (static const or

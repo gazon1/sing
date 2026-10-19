@@ -39,6 +39,12 @@ on:
       sdk_root:
         description: "Android SDK root containing emulator/ and platform-tools/"
         value: ${{ jobs.setup-avd.outputs.sdk_root }}
+      system_image:
+        description: "System image actually set up, echoed so callers can key the cache"
+        value: ${{ jobs.setup-avd.outputs.system_image }}
+      cache_key:
+        description: "Cache key actually used, so callers restore exactly what was written"
+        value: ${{ jobs.setup-avd.outputs.cache_key }}
 
 jobs:
   setup-avd:
@@ -47,6 +53,8 @@ jobs:
       avd_name: ${{ steps.setup.outputs.AVD_NAME }}
       android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
       sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
+      system_image: ${{ inputs.system_image }}
+      cache_key: ${{ inputs.cache_key }}
     steps:
       - name: Enable KVM
         run: |
@@ -55,13 +63,25 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Restore AVD cache
+      - name: Restore AVD and SDK cache
         id: cache-avd
         uses: actions/cache@v4
         with:
+          # The cache is the ONLY thing that carries this work to the caller jobs:
+          # GitHub runners do not share a filesystem, so everything created here
+          # evaporates when the job ends. `needs.setup-avd.outputs.*` carries path
+          # *strings*, not state — before this job cached the emulator, the Maestro
+          # shard ran on a runner where `/usr/local/lib/android/sdk/emulator` simply
+          # did not exist and `_emulator_binary_available()` reported "emulator
+          # binary not found in PATH" while this job had executed that exact binary
+          # moments earlier. Caller jobs restore these same four paths under the
+          # same key; the path list and the key must stay identical in
+          # e2e.yml and android-device-tests.yml.
           path: |
             ~/.android/avd
             ${{ env.ANDROID_HOME }}/system-images
+            ${{ env.ANDROID_HOME }}/emulator
+            ${{ env.ANDROID_HOME }}/platform-tools
           key: avd-${{ inputs.avd_name }}-${{ inputs.system_image }}-${{ inputs.cache_key }}
           restore-keys: |
             avd-${{ inputs.avd_name }}-${{ inputs.system_image }}-
@@ -77,16 +97,35 @@ jobs:
           set -euo pipefail
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           echo "SDK_ROOT=$sdk_root" >> "$GITHUB_OUTPUT"
-          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_OUTPUT"
+
+          # Pin ANDROID_AVD_HOME *before* anything creates an AVD, so the location
+          # is a fact of this workflow rather than something discovered afterwards.
+          # The runner image put the AVD under ~/.config/.android/avd while the
+          # cache and the cache-hit check both assumed ~/.android/avd, so the cache
+          # was saving an empty directory and the "already exists" branch could never
+          # be taken — the AVD was recreated every run and handed to the caller as a
+          # path pointing at nothing. avdmanager honours ANDROID_AVD_HOME, so
+          # setting it first makes both sides agree by construction.
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
 
           cmdline="$(dirname "$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f | sort | tail -1)")"
           echo "cmdline-tools: $cmdline"
 
           yes | "$cmdline/sdkmanager" --licenses >/dev/null 2>&1 || true
-          "$cmdline/sdkmanager" "$SYSTEM_IMAGE"
+
+          # Every package this workflow's contract depends on, named. This used to
+          # install only "$SYSTEM_IMAGE" and rely on sdkmanager pulling the emulator
+          # in as a transitive dependency — which it does, so the bug was invisible
+          # here and only appeared as a missing binary in the caller job. A
+          # requirement that depends on someone else's side effect is not a
+          # requirement; it is a coincidence waiting for a sdkmanager version bump.
+          "$cmdline/sdkmanager" "emulator" "platform-tools" "$SYSTEM_IMAGE"
 
           # Create AVD only if cache miss (restore-existing=true skips recreation)
-          avd_dir="$HOME/.android/avd/${AVD_NAME}.avd"
+          avd_dir="$ANDROID_AVD_HOME/${AVD_NAME}.avd"
           if [ ! -d "$avd_dir" ] || [ ! -f "$avd_dir/userdata.img" ]; then
             echo "Creating AVD $AVD_NAME (cache miss)"
             echo no | "$cmdline/avdmanager" create avd \
@@ -106,26 +145,10 @@ jobs:
           test -x "$sdk_root/emulator/emulator" \
             || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
 
-          # Locate the AVD ini that avdmanager wrote — its directory is ANDROID_AVD_HOME,
-          # required for the emulator to find the AVD. The runner image creates AVDs
-          # somewhere avdmanager calls home and emulator does not; locate by file.
-          avd_ini="$(find "$HOME" -maxdepth 6 -name "${AVD_NAME}.ini" -print -quit 2>/dev/null || true)"
-          [ -n "$avd_ini" ] \
-            || { echo "::error::no ${AVD_NAME}.ini under \$HOME"; exit 1; }
-          ANDROID_AVD_HOME="$(dirname "$avd_ini")"
-          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_OUTPUT"
-          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
-
-          # `export`, because the verification below runs in THIS step and
-          # `$GITHUB_ENV` only reaches later ones. As a plain shell variable it was
-          # invisible to the emulator child process, which then fell back to its own
-          # default AVD home — the very directory the comment above says does not
-          # match — and `emulator -list-avds` reported nothing while the .ini sat on
-          # disk the whole time. The gate said the AVD was missing; it was found and
-          # simply never pointed at.
-          export ANDROID_AVD_HOME
-
-          # Verify the AVD is visible to the emulator binary.
+          # Verify the AVD is visible to the emulator binary. ANDROID_AVD_HOME is
+          # exported above, so this sees the directory the AVD was actually written
+          # to — no searching for the .ini and hoping the result is the one the
+          # emulator would consult.
           "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
             || { echo "::error::emulator -list-avds does not list $AVD_NAME"; exit 1; }
           echo "AVD_NAME=$AVD_NAME" >> "$GITHUB_OUTPUT"

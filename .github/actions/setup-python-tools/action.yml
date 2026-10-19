@@ -100,7 +100,7 @@ runs:
           "$VENV/bin/shellcheck" --version | head -1
         fi
 
-    - name: Verify the suite can import itself
+    - name: Verify both gate registries load
       shell: bash
       run: |
         set -euo pipefail
@@ -108,8 +108,24 @@ runs:
         # in the tests job, which ran check-gate-wiring.py without ever
         # installing scripts/src — so the job that exists to prove gates can
         # fail could not run the gate.
-        python3 -c "import sgate" || {
-          echo "::error ::sgate is not importable after this action — nothing below it will run"
+        #
+        # There are two registries and importing the package only reaches one of
+        # them: scripts/ci/static-gates.sh is what the run-all command reads, and
+        # GATES in _registry.py is what the per-gate command reads. Blanking the
+        # shell registry left the import green, the Python list intact, and
+        # run-all printing "No gates found." with exit 0 — a passing `static`
+        # job that had evaluated nothing. The logic lives in
+        # scripts/check-gate-registries.py rather than inline here so it is
+        # testable, and it runs *before* the suite rather than inside it, because
+        # the liveness gate lives in the runner it is checking and cannot report
+        # on a runner that never started.
+        #
+        # (Comment wording matters to check-gate-wiring.py here: it scans this
+        # file for command invocations, and naming one inside prose is enough to
+        # trigger its blanket-reachability fallback, which would mark a retired
+        # gate reachable again. Say "run-all", not the full invocation.)
+        python3 scripts/check-gate-registries.py || {
+          echo "::error ::a gate registry is empty or unloadable — see above; every gate below is unevaluated"
           exit 1
         }
         python3 -c "import traceability" || {
