@@ -78,6 +78,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [changes]
+    # The detekt auto-correct step pushes the corrected tree to
+    # `detekt-auto-fix/<job>/<run-id>` so a human can review and merge it —
+    # see docs/decisions/2026-10-17-detekt-auto-fix-ci-commit.md. Without
+    # write permission the push is refused with a 403 and the branch is never
+    # created, which leaves the whole mechanism inert.
+    permissions:
+      contents: write
     # Run when scripts/docs changed, or when anything changed on main (always), or on
     # workflow_dispatch (manual trigger).
     if: >
@@ -170,7 +177,8 @@ jobs:
       || github.event_name == 'workflow_dispatch'
     permissions:
       actions: read # flake analysis downloads the previous run's results
-      contents: read
+      # write for the detekt auto-correct branch — see the static job.
+      contents: write
     steps:
       - uses: actions/checkout@v7
 

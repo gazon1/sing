@@ -100,6 +100,7 @@ class NoRunCatchingInSuspend(config: Config) : Rule(config, "", null) {
                 }
 
                 is KtLambdaExpression -> return isSuspendLambda(current)
+
                 else -> current = current.parent
             }
         }

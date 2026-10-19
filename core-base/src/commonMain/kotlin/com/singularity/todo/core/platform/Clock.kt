@@ -22,28 +22,6 @@ import kotlin.time.Instant
  * The flow is cold — no work happens until a collector is active. Back-pressure
  * is handled naturally by [delay].
  *
- * ## Time zone is captured at collection time
- * [zone] is resolved once when collection starts. If the device time zone changes
- * while the flow is active (user travels, changes OS settings), the flow continues
- * using the original zone. Re-collect after a time zone change if up-to-date
- * behavior is required.
- *
- * ## Why both parameters are required
- * The zone used to be defaulted and the clock was read from `Clock.System` through
- * the `todayAt(zone)` overload (#91), so this flow was a second, un-injectable
- * source of "today" — and `AgendaViewModel` composes its whole task stream from it.
- * A task dated tomorrow relative to a test's pinned clock was bucketed against the
- * host's date and matched no section at all.
- *
- * @param zone The time zone used to compute midnight.
- */
-/**
- * Emits the current [LocalDate] in [zone] immediately, then re-emits exactly once
- * at each local midnight.
- *
- * The flow is cold — no work happens until a collector is active. Back-pressure
- * is handled naturally by [delay].
- *
  * @param maxEmissions Maximum number of emissions before the flow completes.
  *        Pass `null` (default) for infinite — the loop runs forever, suitable for
  *        production. Pass `1` in tests to emit once and complete, preventing
