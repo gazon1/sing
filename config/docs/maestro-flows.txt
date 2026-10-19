@@ -1,0 +1,113 @@
+# The Maestro flows this repository expects to have, one per line, as the path
+# relative to the repository root.
+#
+# This list is a promise, not a description. `scripts/check-maestro-flow-catalogue.py`
+# holds the tree to it in both directions: a flow that is not listed here is a
+# finding, and a line here that no longer has a file is a finding too. Both mean
+# the suite is not the suite we said it was, and a suite that changes shape
+# silently makes every green run before it incomparable to every green run after.
+#
+# The directory decides the suite, not this file: everything under `smoke/` runs
+# on every push, everything under `Maestro/flows/` runs in the nightly full
+# suite. The catalogue does not assign suites — it only says which flows exist.
+#
+# To add a flow: add the file, add the line here, in the same commit.
+# To remove a flow: remove the file, remove the line here, in the same commit,
+# and say why in the commit message. A flow can also be removed without being
+# deleted — a flow that asserts an element the app cannot render is worse than
+# no flow, because it fails for a reason nobody is looking for.
+#
+# Sorted by path, one flow per line, no blank lines.
+Maestro/flows/agenda/01-smart-lists.yaml
+Maestro/flows/agenda/02-saved-views-open.yaml
+Maestro/flows/agenda/03-saved-views-crud.yaml
+Maestro/flows/agenda/04-saved-view-results.yaml
+Maestro/flows/agenda/05-reachability.yaml
+Maestro/flows/agenda/06-full-lifecycle.yaml
+Maestro/flows/agenda/07-copy-to-profile.yaml
+Maestro/flows/agenda/08-persistence-restart.yaml
+Maestro/flows/archive/01-restore.yaml
+Maestro/flows/attachments/01-add-url.yaml
+Maestro/flows/attachments/02-delete.yaml
+Maestro/flows/attachments/03-empty-url-rejected.yaml
+Maestro/flows/attachments/04-persistence.yaml
+Maestro/flows/attachments/05-renders-correctly.yaml
+Maestro/flows/auth/01-first-run-anonymous.yaml
+Maestro/flows/auth/02-signin-wrong-password.yaml
+Maestro/flows/auth/03-signup-toggle.yaml
+Maestro/flows/auth/04-signin-with-seeded-data.yaml
+Maestro/flows/auth/05-session-invalidation.yaml
+Maestro/flows/auth/06-signup-unconfirmed.yaml
+Maestro/flows/auth/07-account-attach.yaml
+Maestro/flows/auth/08-signup-network-error.yaml
+Maestro/flows/auth/09-signin-network-error.yaml
+Maestro/flows/auth/10-attach-account-validation-error.yaml
+Maestro/flows/auth/11-cold-install-login.yaml
+Maestro/flows/auth/12-unreadable-store-recovers.yaml
+Maestro/flows/backup/01-round-trip.yaml
+Maestro/flows/calendar/01-month-view.yaml
+Maestro/flows/calendar/02-view-mode.yaml
+Maestro/flows/calendar/03-tap-day.yaml
+Maestro/flows/calendar_sync/01-provider-toggle.yaml
+Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
+Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
+Maestro/flows/lifecycle/01-kill-restart-persist.yaml
+Maestro/flows/lifecycle/03-rotate-in-editor.yaml
+Maestro/flows/nav/bottom-nav-tabs.yaml
+Maestro/flows/negative/01-empty-inbox.yaml
+Maestro/flows/negative/02-empty-notes.yaml
+Maestro/flows/negative/03-empty-projects.yaml
+Maestro/flows/negative/04-empty-archive.yaml
+Maestro/flows/negative/05-empty-search.yaml
+Maestro/flows/negative/06-empty-tags.yaml
+Maestro/flows/notes/01-edit-body.yaml
+Maestro/flows/notes/02-filter-chips.yaml
+Maestro/flows/notes/create-note.yaml
+Maestro/flows/pomodoro/01-open-tab.yaml
+Maestro/flows/pomodoro/02-start-focus-task.yaml
+Maestro/flows/pomodoro/03-pause-resume.yaml
+Maestro/flows/pomodoro/04-skip-to-break.yaml
+Maestro/flows/pomodoro/05-stop-resets.yaml
+Maestro/flows/profile/01-create-profile.yaml
+Maestro/flows/profile/02-isolation.yaml
+Maestro/flows/projects/01-open-detail.yaml
+Maestro/flows/projects/02-add-task.yaml
+Maestro/flows/search/02-cyrillic.yaml
+Maestro/flows/search/03-clear.yaml
+Maestro/flows/search/04-filter-description.yaml
+Maestro/flows/search/05-filter-pinned.yaml
+Maestro/flows/search/06-no-results.yaml
+Maestro/flows/search/07-saved-search.yaml
+Maestro/flows/settings/01-theme-toggle.yaml
+Maestro/flows/settings/02-notifications.yaml
+Maestro/flows/settings/03-cycle-tabs.yaml
+Maestro/flows/smoke/01-launch-today.yaml
+Maestro/flows/smoke/02-menu-settings.yaml
+Maestro/flows/smoke/03-account-tab.yaml
+Maestro/flows/smoke/03-health-blocked-drilldown.yaml
+Maestro/flows/smoke/04-health-stagnant-drilldown.yaml
+Maestro/flows/smoke/05-health-overdue-drilldown.yaml
+Maestro/flows/sync/01-change-sync-interval.yaml
+Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
+Maestro/flows/system/menu-sheet.yaml
+Maestro/flows/system/search-finds-task.yaml
+Maestro/flows/tasks/01-set-priority.yaml
+Maestro/flows/tasks/02-set-due-date.yaml
+Maestro/flows/tasks/03-due-date-cancel.yaml
+Maestro/flows/tasks/04-delete.yaml
+Maestro/flows/tasks/05-archive-via-menu.yaml
+Maestro/flows/tasks/06-delete-undo.yaml
+Maestro/flows/tasks/07-cyrillic-title.yaml
+Maestro/flows/tasks/08-date-buckets.yaml
+Maestro/flows/tasks/09-rename-empty.yaml
+Maestro/flows/tasks/13-create-full-task.yaml
+Maestro/flows/tasks/14-prefill-from-today.yaml
+Maestro/flows/tasks/15-prefill-from-inbox.yaml
+Maestro/flows/tasks/16-return-to-source-tab.yaml
+Maestro/flows/tasks/17-create-daily-recurring.yaml
+Maestro/flows/tasks/18-time-tracking-start-stop.yaml
+Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml
+Maestro/flows/tasks/create-task.yaml
+Maestro/flows/tasks/open-task-detail.yaml
+Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml
+Maestro/flows/tasks/toggle-task-complete.yaml

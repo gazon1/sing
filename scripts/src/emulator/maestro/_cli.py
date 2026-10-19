@@ -38,6 +38,18 @@ GREEN  = lambda s: _col("0;32", s)
 YELLOW = lambda s: _col("0;33", s)
 
 
+def _report_is_fresh(report: Path, started_at: float) -> bool:
+    """True when `report` exists and was written after the run started.
+
+    A JUnit file from an earlier run is not evidence about this run, and a file
+    that does not exist at all means the flow never reported.
+    """
+    try:
+        return report.is_file() and report.stat().st_mtime >= started_at
+    except OSError:
+        return False
+
+
 @click.command(
     help="Run Maestro UI flows against a connected Android device or emulator.",
     epilog="SERIAL env var also accepted for device selection.",
@@ -214,6 +226,10 @@ def main(
     junit_path = Path(junit_dir) if junit_dir else ROOT / "build" / "maestro-results"
     passed: list[str] = []
     failed: list[str] = []
+    # The moment the run starts: a JUnit report older than this belongs to an
+    # earlier run, and counting it as this run's report is how a flow that
+    # never executed still looks like it passed.
+    run_started_at = time.time()
 
     for flow_path in flows:
         flow_name = flow_path.stem
@@ -242,6 +258,29 @@ def main(
         else:
             failed.append(flow_name)
             deps.capture_artifacts(serial, flow_name, junit_path / flow_name, deps)
+
+    # ── Every selected flow must have reported ────────────────────────────────
+    #
+    # A flow that Maestro never executed leaves no JUnit file. Without this
+    # check the flow is simply absent from `passed` and `failed`, the run ends
+    # with "flows passed", and the green says nothing about the flow that was
+    # supposed to run. The report must also be *this* run's report: a file left
+    # over from an earlier run is not evidence.
+    unreported = [
+        flow.stem
+        for flow in flows
+        if not _report_is_fresh(junit_path / f"{flow.stem}.xml", run_started_at)
+    ]
+    if unreported:
+        logger.error(
+            f"{len(unreported)} flow(s) produced no JUnit report and cannot be "
+            f"counted as passed: {', '.join(unreported)}"
+        )
+        logger.error(
+            "A green run must mean every selected flow ran. Investigate the "
+            "device state and the flow output; do not lower the bar."
+        )
+        return ctx.exit(EXIT_FAIL)
 
     # ── Crash triage ──────────────────────────────────────────────────────────
     if deps.device_alive(serial):

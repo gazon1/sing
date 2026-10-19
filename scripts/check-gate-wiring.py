@@ -519,6 +519,19 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="maestro-flow-catalogue",
+        cmd=[sys.executable, "scripts/check-maestro-flow-catalogue.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        sabotage_path="config/docs/maestro-flows.txt",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a flow removed from the tree without a word leaves the suite smaller "
+            "and the run green — the run reports the flows that are left, so the "
+            "one that is gone is only visible in a diff nobody reads"
+        ),
+    ),
+    ScriptGate(
         name="release-tags",
         cmd=[sys.executable, "scripts/check-release-tags.py"],
         # A tag that produced no release is the failure this gate was written after:
