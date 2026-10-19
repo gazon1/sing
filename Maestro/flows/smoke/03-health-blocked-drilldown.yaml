@@ -1,12 +1,10 @@
 # Smoke: BLOCKED health bucket in Statistics navigates to the Blocked agenda.
 #
 # Fixture: one task with an unmet dependency (blocked by another incomplete task).
-# The seed helper does not support `dependsOn`, so the fixture must be created
-# through the DebugSeedActivity with a task that has a `dependsOn` reference
-# to an incomplete task — e.g. via a URL like:
-#   todo-debug://seed?task=Blocked%20task&depends=task-id-of-incomplete
-# (The seed URL schema supports dependsOn; verify the exact param name from
-#  DebugSeedActivity code if this flow fails to set up the fixture.)
+# A dependency is what makes a task blocked, and a fresh task can never be one,
+# so the flow seeds two tasks: the blocker first, then the blocked task with
+# `dependsOn` naming the blocker by title (a deep link cannot know an id it has
+# not created itself).
 #
 # Navigation tested regardless of fixture:
 #   Statistics → tap health_bucket_blocked → AgendaGraph(Blocked) → "Blocked" section
@@ -17,6 +15,18 @@ tags:
   - statistics
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+
+# The blocker: an incomplete task that nothing depends on yet.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Blocker"
+
+# The blocked task: depends on the blocker, which is not completed.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Blocked%20Task&dependsOn=${RUN_ID}%20Blocker"
 
 # Open the hamburger menu.
 - tapOn:
@@ -29,7 +39,11 @@ tags:
 - tapOn:
     id: menu_statistics
 
-# Wait for the Statistics screen to load.
+# Statistics opens on the Tasks tab; the bucket cards live on the Health tab.
+# Waiting for a bucket without selecting the tab waits for something that is
+# on the next tab — which is what the flow did, and it failed for 15 s.
+- tapOn:
+    id: statistics_tab_health
 - extendedWaitUntil:
     visible:
       id: health_bucket_blocked

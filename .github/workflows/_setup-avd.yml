@@ -19,11 +19,6 @@ on:
         type: string
         default: pixel_6
         description: "Hardware profile for AVD (default: pixel_6)"
-      cache_key:
-        required: false
-        type: string
-        default: ""
-        description: "Custom cache key suffix; defaults to avd_name for cache invalidation"
     # A caller that invokes this as a reusable workflow reads its results through
     # `needs.<job>.outputs.*`, which is populated only from what this block declares.
     # Without it the caller's `needs.setup-avd.outputs.sdk_root` resolves to an empty
@@ -42,9 +37,15 @@ on:
       system_image:
         description: "System image actually set up, echoed so callers can key the cache"
         value: ${{ jobs.setup-avd.outputs.system_image }}
+      device:
+        description: "Hardware profile the AVD was created with, so a consumer can recreate it"
+        value: ${{ jobs.setup-avd.outputs.device }}
       cache_key:
-        description: "Cache key actually used, so callers restore exactly what was written"
+        description: "The full cache key this workflow writes — consumers restore this key verbatim"
         value: ${{ jobs.setup-avd.outputs.cache_key }}
+      cache_key_prefix:
+        description: "Prefix of the cache key, for consumers' restore-keys fallback"
+        value: ${{ jobs.setup-avd.outputs.cache_key_prefix }}
 
 jobs:
   setup-avd:
@@ -52,10 +53,19 @@ jobs:
     outputs:
       avd_name: ${{ steps.setup.outputs.AVD_NAME }}
       android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
-      sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
+      sdk_root: ${{ steps.ctx.outputs.sdk_root }}
       system_image: ${{ inputs.system_image }}
-      cache_key: ${{ inputs.cache_key }}
+      device: ${{ inputs.device }}
+      cache_key: ${{ steps.ctx.outputs.cache_key }}
+      cache_key_prefix: ${{ steps.ctx.outputs.cache_key_prefix }}
     steps:
+      # The provisioning logic lives in scripts/ci/provision-avd.sh so that the
+      # producer and the consumers run the same code. It used to be inline here,
+      # and the consumers had their own idea of what "provisioned" meant — which
+      # is how the emulator binary went missing in one job while another job was
+      # installing it.
+      - uses: actions/checkout@v7
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -63,32 +73,27 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Restore AVD and SDK cache
-        id: cache-avd
-        uses: actions/cache@v4
-        with:
-          # The cache is the ONLY thing that carries this work to the caller jobs:
-          # GitHub runners do not share a filesystem, so everything created here
-          # evaporates when the job ends. `needs.setup-avd.outputs.*` carries path
-          # *strings*, not state — before this job cached the emulator, the Maestro
-          # shard ran on a runner where `/usr/local/lib/android/sdk/emulator` simply
-          # did not exist and `_emulator_binary_available()` reported "emulator
-          # binary not found in PATH" while this job had executed that exact binary
-          # moments earlier. Caller jobs restore these same four paths under the
-          # same key; the path list and the key must stay identical in
-          # e2e.yml and android-device-tests.yml.
-          path: |
-            ~/.android/avd
-            ${{ env.ANDROID_HOME }}/system-images
-            ${{ env.ANDROID_HOME }}/emulator
-            ${{ env.ANDROID_HOME }}/platform-tools
-          key: avd-${{ inputs.avd_name }}-${{ inputs.system_image }}-${{ inputs.cache_key }}
-          restore-keys: |
-            avd-${{ inputs.avd_name }}-${{ inputs.system_image }}-
-            avd-${{ inputs.avd_name }}-
-
-      - name: Install AVD
-        id: setup
+      # One place resolves the SDK root and builds the cache key. The callers
+      # restore `needs.setup-avd.outputs.cache_key` verbatim instead of
+      # re-assembling the key, and the cache paths are absolute paths under that
+      # same root.
+      #
+      # The paths used to be `${{ env.ANDROID_HOME }}/…`, and the `env` context
+      # does not contain the runner's own environment variables — so the list
+      # expanded to `/system-images`, `/emulator` and `/platform-tools` at the
+      # filesystem root. The cache was therefore saving and restoring nothing,
+      # and the entry it left behind (1659 bytes) is what the next run found and
+      # accepted as a hit. A cache hit means "do not save", so the empty entry
+      # was permanent: every consumer restored an empty directory and every
+      # shard died with "'emulator' binary not found in PATH".
+      #
+      # The version suffix in the key retires entries written under an older
+      # layout. Bump it whenever the set of cached paths changes; an entry
+      # written under an older layout cannot be repaired in place, because
+      # cache keys are immutable. `v3` drops the AVD from the cached paths —
+      # `v2` carried it and it did not survive the cache (see the cache step).
+      - name: Resolve the SDK root and the cache key
+        id: ctx
         env:
           AVD_NAME: ${{ inputs.avd_name }}
           SYSTEM_IMAGE: ${{ inputs.system_image }}
@@ -96,60 +101,91 @@ jobs:
         run: |
           set -euo pipefail
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          echo "SDK_ROOT=$sdk_root" >> "$GITHUB_OUTPUT"
+          if [ ! -d "$sdk_root" ]; then
+            echo "::error::no Android SDK at $sdk_root (ANDROID_SDK_ROOT and ANDROID_HOME are unset or wrong)"
+            exit 1
+          fi
+          echo "sdk_root=$sdk_root" >> "$GITHUB_OUTPUT"
+          # One grouped redirect (SC2129): separate appends to the same file
+          # re-open it once per line, which is what shellcheck rejects.
+          #
+          # The prefix carries the version too, and that is deliberate. A
+          # restore-key is a *prefix* match, so a prefix of `…-v2` also matches
+          # `…-v20`, and — worse — a prefix without the version matches the
+          # entries written under the old layout, which is exactly the trap
+          # this key version exists to close. A consumer that finds nothing
+          # restores nothing and provisions for itself.
+          {
+            echo "cache_key=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v4"
+            echo "cache_key_prefix=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v4-"
+          } >> "$GITHUB_OUTPUT"
 
+      - name: Restore AVD and SDK cache
+        id: cache-avd
+        uses: actions/cache@v4
+        with:
+          # The cache is the transport that carries this work to the caller jobs:
+          # GitHub runners do not share a filesystem, so everything created here
+          # evaporates when the job ends. `needs.setup-avd.outputs.*` carries path
+          # *strings*, not state.
+          #
+          # It is an optimisation and not a guarantee. A cache entry can be
+          # evicted, and the consumers re-provision with
+          # scripts/ci/provision-avd.sh when the entry is not there — so a
+          # missing cache costs time, not a red build.
+          # Only the immutable SDK content travels. The AVD does not: its
+          # `userdata.img` is a sparse, mutable image, and it did not survive
+          # the cache anyway — the first consumer of the v2 entry found the
+          # emulator and the system image installed (sdkmanager had nothing to
+          # download) and still had to create the AVD itself, in half a second.
+          # Carrying a mutable image between runners was never working; what it
+          # did do was make the entry look like it carried the AVD.
+          #
+          # The AVD is created where it is used, by scripts/ci/provision-avd.sh.
+          #
+          # `platform-tools` is not among them: the runner image ships it, and
+          # the image's copy is root-owned, so restoring over it made tar fail
+          # with "Cannot utime: Operation not permitted" on a directory the
+          # runner user cannot chmod. The files extracted and adb worked, but a
+          # cache that cannot be restored cleanly is a cache that reports a
+          # failure nobody can act on. The image provides it; the cache does not
+          # need to.
+          path: |
+            ${{ steps.ctx.outputs.sdk_root }}/system-images
+            ${{ steps.ctx.outputs.sdk_root }}/emulator
+          key: ${{ steps.ctx.outputs.cache_key }}
+          restore-keys: |
+            ${{ steps.ctx.outputs.cache_key_prefix }}
+
+      - name: Install the emulator and create the AVD
+        id: setup
+        env:
+          AVD_NAME: ${{ inputs.avd_name }}
+          SYSTEM_IMAGE: ${{ inputs.system_image }}
+          DEVICE: ${{ inputs.device }}
+          SDK_ROOT: ${{ steps.ctx.outputs.sdk_root }}
+        run: |
+          set -euo pipefail
           # Pin ANDROID_AVD_HOME *before* anything creates an AVD, so the location
           # is a fact of this workflow rather than something discovered afterwards.
-          # The runner image put the AVD under ~/.config/.android/avd while the
-          # cache and the cache-hit check both assumed ~/.android/avd, so the cache
-          # was saving an empty directory and the "already exists" branch could never
-          # be taken — the AVD was recreated every run and handed to the caller as a
-          # path pointing at nothing. avdmanager honours ANDROID_AVD_HOME, so
-          # setting it first makes both sides agree by construction.
+          # The runner image puts the AVD under ~/.config/.android/avd, and
+          # avdmanager honours ANDROID_AVD_HOME — so setting it first is what
+          # makes the producer and the consumers agree on where the AVD lives.
+          # The AVD is created where it is used: the cache carries the SDK, and
+          # scripts/ci/provision-avd.sh creates the AVD on each runner.
           export ANDROID_AVD_HOME="$HOME/.android/avd"
           mkdir -p "$ANDROID_AVD_HOME"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_OUTPUT"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
 
-          cmdline="$(dirname "$(find "$sdk_root/cmdline-tools" -name sdkmanager -type f | sort | tail -1)")"
-          echo "cmdline-tools: $cmdline"
-
-          yes | "$cmdline/sdkmanager" --licenses >/dev/null 2>&1 || true
-
-          # Every package this workflow's contract depends on, named. This used to
-          # install only "$SYSTEM_IMAGE" and rely on sdkmanager pulling the emulator
-          # in as a transitive dependency — which it does, so the bug was invisible
-          # here and only appeared as a missing binary in the caller job. A
-          # requirement that depends on someone else's side effect is not a
-          # requirement; it is a coincidence waiting for a sdkmanager version bump.
-          "$cmdline/sdkmanager" "emulator" "platform-tools" "$SYSTEM_IMAGE"
-
-          # Create AVD only if cache miss (restore-existing=true skips recreation)
-          avd_dir="$ANDROID_AVD_HOME/${AVD_NAME}.avd"
-          if [ ! -d "$avd_dir" ] || [ ! -f "$avd_dir/userdata.img" ]; then
-            echo "Creating AVD $AVD_NAME (cache miss)"
-            echo no | "$cmdline/avdmanager" create avd \
-              --force --name "$AVD_NAME" --package "$SYSTEM_IMAGE" --device "$DEVICE"
-          else
-            echo "AVD $AVD_NAME already exists (cache hit)"
-          fi
+          bash scripts/ci/provision-avd.sh
 
           # Put emulator and platform-tools on PATH for subsequent steps.
           {
-            echo "$sdk_root/emulator"
-            echo "$sdk_root/platform-tools"
-            echo "$sdk_root/build-tools/37.0.0"
+            echo "$SDK_ROOT/emulator"
+            echo "$SDK_ROOT/platform-tools"
+            echo "$SDK_ROOT/build-tools/37.0.0"
           } >> "$GITHUB_PATH"
 
-          # Verify emulator binary exists.
-          test -x "$sdk_root/emulator/emulator" \
-            || { echo "::error::no emulator binary at $sdk_root/emulator/emulator"; exit 1; }
-
-          # Verify the AVD is visible to the emulator binary. ANDROID_AVD_HOME is
-          # exported above, so this sees the directory the AVD was actually written
-          # to — no searching for the .ini and hoping the result is the one the
-          # emulator would consult.
-          "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
-            || { echo "::error::emulator -list-avds does not list $AVD_NAME"; exit 1; }
           echo "AVD_NAME=$AVD_NAME" >> "$GITHUB_OUTPUT"
-          echo "emulator: $sdk_root/emulator/emulator, AVD $AVD_NAME in $ANDROID_AVD_HOME"
+          echo "emulator: $SDK_ROOT/emulator/emulator, AVD $AVD_NAME in $ANDROID_AVD_HOME"

@@ -13,6 +13,7 @@ Two rules this module exists to enforce:
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 from typing import Callable, NamedTuple
 
@@ -43,6 +44,38 @@ def popen(args: list[str], stdout_fd: int | None = None) -> subprocess.Popen:
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
+
+
+# ── AVD primitives ─────────────────────────────────────────────────────────────
+
+#: The header `emulator -list-avds` prints above the names.
+_LIST_AVDS_HEADER = "Available Android Virtual Devices"
+
+
+def list_avds() -> list[str] | None:
+    """The AVDs this machine can boot, as ``emulator -list-avds`` reports them.
+
+    ``None`` means the ``emulator`` binary is not on PATH — a different failure
+    from "the AVD you asked for is not among them", and one the caller has to
+    name rather than fold into an empty list.
+
+    The AVD home can hold a directory the tool refuses to boot (a system image
+    that is gone, a device profile that no longer resolves), and the configured
+    name is a claim, not a fact. This is the only authority on what exists.
+    """
+    exe = shutil.which("emulator")
+    if exe is None:
+        return None
+    result = try_run([exe, "-list-avds"], timeout=30)
+    if result is None or result.returncode != 0:
+        return []
+    names = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line or line.startswith(_LIST_AVDS_HEADER):
+            continue
+        names.append(line)
+    return names
 
 
 # ── adb primitives ─────────────────────────────────────────────────────────────

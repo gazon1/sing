@@ -1,0 +1,90 @@
+# Smoke: the Account tab opens from the settings nav rail.
+#
+# The rail is a scrollable column of twelve ~76dp rows, so the trailing tabs
+# (Files, Backup, Account) are below the fold on a phone viewport — the screen
+# looks complete, but the tab is not on it. This flow walks the rail the way a
+# user does and lands on Account.
+#
+# What is asserted is what the E2E build can actually show. The "Attach
+# account" button is rendered only for `Session.Anonymous`, and the E2E build
+# replaces the auth repository with `StubAuthRepository`, whose session is
+# `Session.SignedIn` from the first frame ("the session is immediately
+# `Session.SignedIn` and the auth screen never appears"). The attach affordance
+# is therefore unreachable in this environment, and a flow that waits for it
+# waits forever for an element that cannot be on the screen. The signed-in
+# account section is the thing this tab really shows, so that is what is
+# asserted.
+#
+# The attach path itself is covered by Maestro/flows/auth/07-account-attach.yaml
+# (scenario AUTH-ATTACH-01), which needs an anonymous session to exist at all.
+appId: com.singularity.todo
+name: smoke-account-tab
+tags:
+  - smoke
+  - settings
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# The agenda is up (the stub session never shows the auth screen).
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+
+# Open menu -> Settings.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_settings
+
+# Switch to Account tab.
+# The settings nav rail is a scrollable column of twelve ~76dp rows, so the
+# trailing tabs (Files, Backup, Account) are below the fold on a phone viewport
+# — the screen looks complete, but the tab is not on it. Swipe the rail first,
+# the way Maestro/flows/settings/03-cycle-tabs.yaml does: that flow needs five
+# swipes to bring Account into view (three for Files, one for Backup, one for
+# Account). Maestro's scrollUntilVisible swipes from the centre of the screen,
+# which scrolls the content pane and not the rail, hence the explicit swipes.
+# A swipe past the end of the rail is a no-op, so over-swiping is harmless.
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_account
+    timeout: 10000
+- tapOn:
+    id: settings_tab_account
+
+# The Account tab is open: its account section is on the screen.
+- extendedWaitUntil:
+    visible:
+      id: auth_sign_out_button
+    timeout: 10000
+- assertVisible:
+    id: auth_sign_out_button
+- takeScreenshot: smoke/03-account-tab

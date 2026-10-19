@@ -306,6 +306,13 @@ gate blocking "skills describe the tools that exist" python3 scripts/check-skill
 # Four CI steps piped, so their failures could not fail them.
 gate blocking "workflow steps keep their exit status" sgate workflow_steps_keep_their_exit_status
 
+# The `env` context holds the variables a workflow defines — not the runner's
+# environment. `${{ env.ANDROID_HOME }}` expands to the empty string, silently,
+# and a path built from it names nothing. That is not a theory: the Maestro
+# shards failed a release cycle with "emulator binary not found in PATH"
+# because the cache paths were written `${{ env.ANDROID_HOME }}/…`.
+gate blocking "workflow env context resolves" sgate workflow_env_context_resolves
+
 # Releases. `meta` proves a tag was on main with a green CI run; it says nothing
 # about whether a release came out of it, nor whether the release that exists
 # describes the assets it actually carries. `publish` had never run, so neither

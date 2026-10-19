@@ -35,7 +35,11 @@ tags:
 - tapOn:
     id: menu_statistics
 
-# Wait for the Statistics screen to load.
+# Statistics opens on the Tasks tab; the bucket cards live on the Health tab.
+# Waiting for a bucket without selecting the tab waits for something that is
+# on the next tab — which is what the flow did, and it failed for 15 s.
+- tapOn:
+    id: statistics_tab_health
 - extendedWaitUntil:
     visible:
       id: health_bucket_overdue

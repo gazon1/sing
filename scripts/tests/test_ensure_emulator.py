@@ -393,6 +393,7 @@ class IntegrationTest(unittest.TestCase):
                      unittest.mock.patch.object(ee, "_avd_is_running", lambda: avd_running), \
                      unittest.mock.patch.object(cfg, "log_file", log_path), \
                      unittest.mock.patch.object(cfg, "android_avd_home", pathlib.Path("/tmp")), \
+                     unittest.mock.patch.object(_device, "list_avds", lambda: [cfg.avd]), \
                      unittest.mock.patch.object(_startup.time, "sleep", fake.time_sleep), \
                      unittest.mock.patch.object(_startup.time, "monotonic", fake_monotonic), \
                      unittest.mock.patch.object(pathlib.Path, "read_text",
@@ -702,6 +703,80 @@ class IsPhysicalPinTest(unittest.TestCase):
 
     def test_empty_pin_is_not_physical(self):
         self.assertFalse(_startup._is_physical_pin(""))
+
+
+class ListAvdsTest(unittest.TestCase):
+    """`emulator -list-avds` is the only authority on what exists."""
+
+    def _completed(self, stdout: str, returncode: int = 0):
+        cp = unittest.mock.Mock()
+        cp.returncode = returncode
+        cp.stdout = stdout
+        return cp
+
+    def test_it_reports_no_binary_as_none(self):
+        """None is "the binary is missing", which is not the same as "no AVDs"."""
+        with unittest.mock.patch.object(_device.shutil, "which", return_value=None):
+            self.assertIsNone(_device.list_avds())
+
+    def test_it_parses_the_names_out_of_the_tool_output(self):
+        output = (
+            "Available Android Virtual Devices:\n"
+            "    Pixel_7_API_34\n"
+            "    singularity-api36\n"
+        )
+        with unittest.mock.patch.object(_device.shutil, "which", return_value="/bin/emulator"), \
+             unittest.mock.patch.object(_device, "try_run",
+                                        return_value=self._completed(output)):
+            self.assertEqual(
+                ["Pixel_7_API_34", "singularity-api36"], _device.list_avds()
+            )
+
+    def test_it_reports_a_failing_tool_as_an_empty_list(self):
+        with unittest.mock.patch.object(_device.shutil, "which", return_value="/bin/emulator"), \
+             unittest.mock.patch.object(_device, "try_run",
+                                        return_value=self._completed("", returncode=1)):
+            self.assertEqual([], _device.list_avds())
+
+
+class AvdPreflightTest(unittest.TestCase):
+    """start_avd must refuse a machine that has no such AVD — and say so.
+
+    The alternative is spending the whole boot budget on a typo and logging
+    "the emulator was still not ready", which is how a renamed AVD read as a
+    flaky emulator for a whole release cycle.
+    """
+
+    def _start(self, listed: list[str] | None, avd: str = "singularity-api36") -> tuple[int, str]:
+        orig_avd = ee.AVD
+        ee.cfg.avd = avd
+        try:
+            with unittest.mock.patch.object(_device, "list_avds", return_value=listed), \
+                 unittest.mock.patch.object(_startup, "logger") as log, \
+                 unittest.mock.patch.object(ee, "_avd_is_running", lambda: False), \
+                 unittest.mock.patch.object(ee, "popen") as popen:
+                rc = ee.start_avd("")
+                message = " ".join(str(c) for c in log.error.call_args_list)
+                self.assertEqual(0, popen.call_count, "the emulator must not be launched")
+                return rc, message
+        finally:
+            ee.cfg.avd = orig_avd
+
+    def test_a_missing_avd_is_refused_with_the_available_ones(self):
+        rc, message = self._start(["Pixel_7_API_34"])
+        self.assertEqual(EXIT_NOT_READY, rc)
+        self.assertIn("singularity-api36", message)
+        self.assertIn("Pixel_7_API_34", message)
+
+    def test_a_missing_binary_is_named_as_such(self):
+        rc, message = self._start(None)
+        self.assertEqual(EXIT_NOT_READY, rc)
+        self.assertIn("not on PATH", message)
+
+    def test_an_empty_list_says_that_no_avd_is_defined(self):
+        rc, message = self._start([])
+        self.assertEqual(EXIT_NOT_READY, rc)
+        self.assertIn("none", message)
 
 
 if __name__ == "__main__":

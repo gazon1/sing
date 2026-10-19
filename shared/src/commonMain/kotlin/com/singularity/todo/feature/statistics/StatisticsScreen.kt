@@ -100,6 +100,17 @@ fun StatisticsScreen(
                 Tab(
                     selected = selectedTab == index,
                     onClick = { selectedTab = index },
+                    // A stable id per tab: the health bucket cards live on the
+                    // Health tab, the screen opens on Tasks, and a flow that
+                    // waits for a bucket without selecting the tab is waiting
+                    // for something on the next tab.
+                    modifier = Modifier.testTag(
+                        when (index) {
+                            0 -> TestTags.STATISTICS_TAB_TASKS
+                            1 -> TestTags.STATISTICS_TAB_TIME
+                            else -> TestTags.STATISTICS_TAB_HEALTH
+                        },
+                    ),
                     text = { Text(title) },
                 )
             }

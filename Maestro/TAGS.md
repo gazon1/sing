@@ -325,6 +325,9 @@ non-alphanumeric characters with `_`.
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
+| `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |
+| `STATISTICS_TAB_TASKS` | `statistics_tab_tasks` | |
+| `STATISTICS_TAB_TIME` | `statistics_tab_time` | |
 
 ## Dynamic functions
 

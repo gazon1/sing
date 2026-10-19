@@ -1,12 +1,9 @@
 # Smoke: STAGNANT health bucket in Statistics navigates to the Stagnant agenda.
 #
 # Fixture: one undated task whose updatedAt is at least 21 days in the past.
-# The seed helper creates tasks with updatedAt = now, so it cannot produce a
-# stagnant task directly. The fixture must be seeded through a URL that sets
-# updatedAt to a past value — e.g. via DebugSeedActivity with a param like
-#   todo-debug://seed?task=Stale%20task&updatedAt=-22d
-# (Verify the exact URL param name from DebugSeedActivity if this flow fails
-#  to set up the fixture; the seed schema may need extending.)
+# A task stamped "now" is never stagnant — the health window is 21 days without
+# movement — so the fixture is seeded with `updatedAt=-22d`, which puts both
+# timestamps in the past. That is what the stagnation bucket is defined by.
 #
 # Navigation tested regardless of fixture:
 #   Statistics → tap health_bucket_stagnant → AgendaGraph(Stagnant) → "Not touched in a while" section
@@ -17,6 +14,12 @@ tags:
   - statistics
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+
+# Seed an undated task that has not moved for 22 days.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Stagnant%20Task&updatedAt=-22d"
 
 # Open the hamburger menu.
 - tapOn:
@@ -29,7 +32,11 @@ tags:
 - tapOn:
     id: menu_statistics
 
-# Wait for the Statistics screen to load.
+# Statistics opens on the Tasks tab; the bucket cards live on the Health tab.
+# Waiting for a bucket without selecting the tab waits for something that is
+# on the next tab — which is what the flow did, and it failed for 15 s.
+- tapOn:
+    id: statistics_tab_health
 - extendedWaitUntil:
     visible:
       id: health_bucket_stagnant
