@@ -210,7 +210,13 @@ def import_change(change_dir: Path, dry_run: bool = False, replace: bool = False
 
     issue_file = ISSUES_DIR / f"{slug}.yaml"
     if issue_file.exists() and not replace:
-        return False, f"SKIP (exists): {issue_file}"
+        # A skip is a success: the record is already there, which is what the
+        # caller wanted. Returning a failure here made the summary read
+        # "N failed" for every change that was already imported, and the exit
+        # code was 1 on a run that had done its job — so the exit code said
+        # "something went wrong" about a directory that was in the state the
+        # script exists to produce.
+        return True, f"SKIP (exists): {issue_file}"
 
     if dry_run:
         return True, f"DRY-RUN: would write {issue_file}\n  title={title}, status={status}, adr_refs={len(adr_refs)}"
