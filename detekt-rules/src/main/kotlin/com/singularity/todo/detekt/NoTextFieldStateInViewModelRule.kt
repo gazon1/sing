@@ -43,7 +43,8 @@ import org.jetbrains.kotlin.psi.KtTypeReference
  *   `MviViewModel` / `DraftMviViewModel`).
  * - A constructor parameter of type `TextFieldState` in such a class.
  * - A property of type `TextFieldState` in a class that implements a `*UiState`-style sealed
- *   interface declared in the same file.
+ *   interface — including one declared in another file, which the interface's *name* is
+ *   enough to recognise.
  * - A ViewModel property that stores the result of `rememberTextFieldState()` /
  *   `rememberBridgedTextFieldState()` — the creation call is correct, storing it is not.
  *
@@ -57,9 +58,9 @@ import org.jetbrains.kotlin.psi.KtTypeReference
  *
  * ## Known limits
  *
- * - The UI state half only sees interfaces declared in the same file. A `*UiState` interface
- *   declared elsewhere is not resolved, so a data class in another file that implements it is
- *   not checked.
+ * - A UI state interface whose name does not end with `UiState` is only recognised when it is
+ *   declared in the same file as the class that implements it. PSI has no type resolution
+ *   here, so a cross-file `sealed interface ProjectsState` cannot be resolved.
  * - Detection is by declared type text, so a `TextFieldState` reached through a type alias is
  *   not seen.
  *
@@ -146,10 +147,25 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
         return clazz.superTypeListEntries.any { rawSuperName(it) in MVI_BASE_TYPES }
     }
 
-    /** True for a class that implements one of the file's UI state interfaces. */
+    /**
+     * True for a class that implements a UI state interface.
+     *
+     * Two ways to know, and the first one does not need the interface to be in sight:
+     *
+     * - The **name** of the implemented interface. This repo's UI states are named
+     *   `*UiState`, and the supertype's name is right there in the class's own
+     *   declaration — so a `ProjectsContent : ProjectsUiState` in another file is
+     *   recognised without resolving anything.
+     * - The **same file's** UI state interfaces, which covers an interface with a
+     *   different name — a sealed `ProjectsState` — as long as it is declared next
+     *   to the class that implements it.
+     */
     private fun isUiStateImplementation(clazz: KtClass, uiStateInterfaces: Set<String>): Boolean {
         if (clazz.isInterface()) return false
-        return clazz.superTypeListEntries.any { rawSuperName(it) in uiStateInterfaces }
+        return clazz.superTypeListEntries.any { entry ->
+            val name = rawSuperName(entry) ?: return@any false
+            name in uiStateInterfaces || name.endsWith("UiState")
+        }
     }
 
     /** The primary constructor's parameters, plus any secondary constructor's. */

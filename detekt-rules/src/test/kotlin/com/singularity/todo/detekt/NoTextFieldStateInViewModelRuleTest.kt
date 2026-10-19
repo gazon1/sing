@@ -144,6 +144,22 @@ class NoTextFieldStateInViewModelRuleTest {
         )
     }
 
+    @Test
+    fun `a UI state class in another file is flagged`() {
+        // The interface is not declared here — the class only names it. The name is
+        // enough to recognise a UI state, so the rule does not need to resolve the type
+        // across files.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            data class Content(val titleState: TextFieldState) : TaskUiState
+        """
+        assertTrue(
+            findingsIn(code).any { it.message.contains("titleState") },
+            "a UI state declared in another file is the same defect as one declared next to it",
+        )
+    }
+
     // ── Not reported ───────────────────────────────────────────────────────────────
 
     @Test
