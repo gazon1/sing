@@ -74,6 +74,12 @@ a security scan into a second copy of the test pipeline. `manual` builds
 hold the app's Kotlin code. The extractor sees the compiled classes and maps
 them back to sources.
 
+The build runs with `--no-build-cache`, and that flag is load-bearing rather
+than decorative. The first manual run compiled nothing: Gradle restored all
+three compile tasks from its build cache ("FROM-CACHE"), so the compiler never
+ran, and the extractor reported *"this run didn't build any of it"*. The
+scanner has to watch the compilation happen, not the class files appear.
+
 Those two task names are declared in `GRADLE_TASK_PARITY` as CI-only
 asymmetries, the way `:mcp-server:jar` and `:adr-cli:installDist` already are.
 The gate that enforces it — "every Gradle task a workflow names must be named
