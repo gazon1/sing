@@ -157,6 +157,13 @@ the IME up, covering the save button. Always follow `inputText` with
 **Assert the field value before tapping save.** Catch dropped keystrokes at
 the real cause — the `assertVisible`/`inputText` round-trip.
 
+**Put the tag on a node that survives the merge.** A Material3 `Card` is a
+`Surface`, and a Surface merges its descendants: a tag below the card is
+visible in the unmerged semantics tree only, where Maestro — which drives the
+accessibility tree — cannot see it. A card that needs two identifiers (an id
+*and* a title) puts the id on the card, which is the merged node, and the title
+on the item's outer node.
+
 ## Adding a flow
 
 1. Pick the subdirectory matching the feature; name it `<verb>-<object>.yaml`.

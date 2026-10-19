@@ -2,6 +2,10 @@
 #
 # Two notes, neither pinned or archived, so Pinned and Archived must come up
 # empty while All shows both.
+#
+# Both titles carry ${RUN_ID} so the runner's per-attempt sweep can find
+# exactly this run's rows and remove them — and so the title-based tags the
+# flow addresses carry the same prefix.
 appId: com.singularity.todo
 name: notes-filter-chips
 tags:
@@ -51,28 +55,28 @@ tags:
 # All: both notes.
 - extendedWaitUntil:
     visible:
-      id: note_item_by_title_alpha
+      id: note_item_by_title_${RUN_ID}_alpha
     timeout: 8000
 - assertVisible:
-    id: note_item_by_title_beta
+    id: note_item_by_title_${RUN_ID}_beta
 # Pinned: neither is pinned.
 - tapOn:
     id: note_filter_chip_pinned
 - extendedWaitUntil:
     notVisible:
-      id: note_item_by_title_alpha
-    timeout: 8000
+      id: note_item_by_title_${RUN_ID}_alpha
+    timeout: 5000
 # Archived: neither is archived.
 - tapOn:
     id: note_filter_chip_archived
 - extendedWaitUntil:
     notVisible:
-      id: note_item_by_title_alpha
-    timeout: 8000
+      id: note_item_by_title_${RUN_ID}_alpha
+    timeout: 5000
 # Back to All restores them.
 - tapOn:
     id: note_filter_chip_all
 - extendedWaitUntil:
     visible:
-      id: note_item_by_title_alpha
-    timeout: 8000
+      id: note_item_by_title_${RUN_ID}_alpha
+    timeout: 5000
