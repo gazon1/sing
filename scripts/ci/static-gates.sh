@@ -312,6 +312,42 @@ gate blocking "workflow steps keep their exit status" sgate workflow_steps_keep_
 # half had ever been checked by anything.
 gate blocking "releases describe themselves" sgate releases_describe_themselves
 
+# Provenance and licensing. Both were registered in `_registry.py` with a positive
+# control and a sabotage that can fail, and neither had a line here — so `run-all`,
+# which reads this file, never ran them. A control for a gate that never executes
+# proves nothing about the gate.
+gate blocking "pro licence boundary" python3 scripts/check-pro-licence-boundary.py
+gate blocking "provenance" python3 scripts/check-provenance.py
+
+# ADR references: a prose mention of a dated-ADR slug carries no path, so a moved or
+# deleted decision leaves a dangling claim nothing else sees.
+gate blocking "adr references are valid" python3 scripts/check-adr-references.py
+
+# Gate honesty. Registered here rather than only invoked from `check.sh`, because a
+# positive control that the registry can run is the point of the gate. It plants a
+# detekt violation in a throwaway worktree and reads the report back, so it needs the
+# JVM and does not belong in the `static` job's no-build-output environment — this
+# line is how `sgate run-all` reaches it from a checkout that has one.
+gate blocking "gate honesty" python3 scripts/check-gate-honesty.py
+
+# ─── Deliberately NOT here ─────────────────────────────────────────────────────
+#
+# Eleven more gates are registered in `_registry.py`, each with a positive control,
+# and each used to be absent from this file. Four of them are above and pass; the
+# remaining seven exit non-zero on a clean tree, so registering them would trade
+# "a gate that never runs" for "CI red for a reason unrelated to this change":
+#
+#     doc dead refs                    exit 1   doc sizes are within budget   exit 1
+#     flaky tests are acknowledged     exit 1   backlog issue refs            exit 1
+#     req id uniqueness                exit 1   rebase compiles               exit 1
+#     test runs                        exit 1
+#
+# They are the repo's knowingly-red corpus, in the same shape as the advisory
+# `script conventions` entry below. Each carries `needs_clean_run=False` or a
+# documented exemption in `GATE_CONTROLS` for exactly this reason. `manifest-verify`
+# now reports a registry entry with no gate line in this direction too, so the two
+# lists cannot drift apart unnoticed again — which is how all eleven went missing.
+
 # AppTracer
 
 # REMOVED: "local branch is not behind origin/main" (bash scripts/ci/check-unmerged.sh)
