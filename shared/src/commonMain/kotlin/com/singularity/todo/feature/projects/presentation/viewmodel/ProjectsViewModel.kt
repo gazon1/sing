@@ -89,7 +89,13 @@ class ProjectsViewModel(
                             ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
                         }
                         if (sorted.isEmpty()) {
-                            ProjectsUiState.Empty
+                            // The query and the sort order travel with the empty state:
+                            // they describe the filter that produced it, and the screen
+                            // hands the query straight back to the search field. A state
+                            // that dropped the query would make the field look empty while
+                            // the ViewModel still filtered by the old one — and the list
+                            // could never come back.
+                            ProjectsUiState.Empty(searchQuery = query, sortOrder = sort)
                         } else {
                             ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
                         }

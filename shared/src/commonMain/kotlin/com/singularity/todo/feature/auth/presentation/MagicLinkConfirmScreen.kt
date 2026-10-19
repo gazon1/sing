@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -36,14 +40,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.ObserveTextFieldEdits
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.auth.AuthIntent
 import com.singularity.todo.feature.auth.AuthUiEvent
 import com.singularity.todo.feature.auth.AuthUiState
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.auth.ConfirmationPendingContent
-import com.singularity.todo.feature.auth.MagicLinkFormState
-import com.singularity.todo.feature.auth.rememberMagicLinkFormState
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
@@ -61,14 +64,16 @@ fun MagicLinkConfirmScreen(
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalAppNavigator.current
-    val form = rememberMagicLinkFormState()
+    // The email and the token live in the fields; the deep link writes into them.
+    val emailState = rememberTextFieldState()
+    val tokenState = rememberTextFieldState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
     MagicLinkConfirmEffects(
         prefillEmail = prefillEmail,
         prefillToken = prefillToken,
-        form = form,
+        emailState = emailState,
         viewModel = viewModel,
         onNavigateHome = { navigator.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Today)) },
         onError = { errorMessage = it },
@@ -97,19 +102,13 @@ fun MagicLinkConfirmScreen(
             )
         } else {
             MagicLinkVerifyForm(
-                email = form.value.email,
-                token = form.value.token,
+                emailState = emailState,
+                tokenState = tokenState,
                 emailEnabled = prefillEmail.isEmpty(),
                 isLoading = state is AuthUiState.Loading,
                 errorMessage = errorMessage,
                 message = message,
-                onEmailChange = { newEmail ->
-                    form.update { copy(email = newEmail) }
-                    errorMessage = null
-                    message = null
-                },
-                onTokenChange = { newToken ->
-                    form.update { copy(token = newToken) }
+                onFieldEdited = {
                     errorMessage = null
                     message = null
                 },
@@ -118,16 +117,17 @@ fun MagicLinkConfirmScreen(
                     message = null
                     viewModel.onIntent(
                         AuthIntent.VerifyMagicLink(
-                            email = form.value.email.trim(),
-                            token = form.value.token.trim(),
+                            email = emailState.text.toString().trim(),
+                            token = tokenState.text.toString().trim(),
                         ),
                     )
                 },
                 onResend = {
-                    if (form.value.email.isNotBlank()) {
+                    val email = emailState.text.toString()
+                    if (email.isNotBlank()) {
                         errorMessage = null
                         message = null
-                        viewModel.onIntent(AuthIntent.SendMagicLink(form.value.email.trim()))
+                        viewModel.onIntent(AuthIntent.SendMagicLink(email.trim()))
                     }
                 },
             )
@@ -147,7 +147,7 @@ fun MagicLinkConfirmScreen(
 private fun MagicLinkConfirmEffects(
     prefillEmail: String,
     prefillToken: String,
-    form: MagicLinkFormState,
+    emailState: TextFieldState,
     viewModel: AuthViewModel,
     onNavigateHome: () -> Unit,
     onError: (String?) -> Unit,
@@ -156,16 +156,17 @@ private fun MagicLinkConfirmEffects(
     // Sync deep-link email when it arrives (e.g. app was killed and reopened via link).
     LaunchedEffect(prefillEmail) {
         if (prefillEmail.isNotBlank()) {
-            form.update { copy(email = prefillEmail) }
+            emailState.setTextAndPlaceCursorAtEnd(prefillEmail)
         }
     }
 
     // Auto-submit when the deep-link token is received.
     LaunchedEffect(prefillToken) {
-        if (prefillToken.isNotBlank() && form.value.email.isNotBlank()) {
+        val email = emailState.text.toString()
+        if (prefillToken.isNotBlank() && email.isNotBlank()) {
             viewModel.onIntent(
                 AuthIntent.VerifyMagicLink(
-                    email = form.value.email.trim(),
+                    email = email.trim(),
                     token = prefillToken.trim(),
                 ),
             )
@@ -259,17 +260,20 @@ private fun MagicLinkBackButton(onClick: () -> Unit) {
  */
 @Composable
 private fun MagicLinkVerifyForm(
-    email: String,
-    token: String,
+    emailState: TextFieldState,
+    tokenState: TextFieldState,
     isLoading: Boolean,
     errorMessage: String?,
     message: String?,
-    onEmailChange: (String) -> Unit,
-    onTokenChange: (String) -> Unit,
+    onFieldEdited: () -> Unit,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     emailEnabled: Boolean = true,
 ) {
+    // The fields own their text, so "the user typed something" is observed rather than reported.
+    // Typing clears the transient error and message, the way the value-based `onValueChange` did.
+    ObserveTextFieldEdits(emailState) { onFieldEdited() }
+    ObserveTextFieldEdits(tokenState) { onFieldEdited() }
     Text(
         text = "A sign-in link was sent to your email. Enter the code from the link below.",
         style = MaterialTheme.typography.bodyMedium,
@@ -279,28 +283,26 @@ private fun MagicLinkVerifyForm(
     Spacer(modifier = Modifier.height(32.dp))
 
     OutlinedTextField(
-        value = email,
-        onValueChange = onEmailChange,
+        state = emailState,
         label = { Text("Email") },
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TestTags.AUTH_ATTACH_EMAIL_INPUT),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         enabled = emailEnabled,
     )
 
     Spacer(modifier = Modifier.height(16.dp))
 
     OutlinedTextField(
-        value = token,
-        onValueChange = onTokenChange,
+        state = tokenState,
         label = { Text("Code from email") },
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TOKEN_TAG),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
     )
 
     if (errorMessage != null) {
@@ -337,7 +339,7 @@ private fun MagicLinkVerifyForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(SUBMIT_TAG),
-            enabled = email.isNotBlank() && token.isNotBlank(),
+            enabled = emailState.text.isNotBlank() && tokenState.text.isNotBlank(),
         ) {
             Text("Verify")
         }
@@ -347,7 +349,7 @@ private fun MagicLinkVerifyForm(
         TextButton(
             onClick = onResend,
             modifier = Modifier.testTag(TestTags.AUTH_MAGIC_RESEND_BUTTON),
-            enabled = email.isNotBlank(),
+            enabled = emailState.text.isNotBlank(),
         ) {
             Text("Resend link")
         }
@@ -359,13 +361,12 @@ private fun MagicLinkVerifyForm(
 @Composable
 private fun MagicLinkConfirmScreenPreview() = PreviewThemed(darkTheme = false) {
     MagicLinkConfirmScreenContent(
-        email = "user@example.com",
-        token = "",
+        emailState = rememberTextFieldState("user@example.com"),
+        tokenState = rememberTextFieldState(),
         isLoading = false,
         errorMessage = null,
         message = null,
-        onEmailChange = {},
-        onTokenChange = {},
+        onFieldEdited = {},
         onSubmit = {},
         onResend = {},
         onBack = {},
@@ -374,13 +375,12 @@ private fun MagicLinkConfirmScreenPreview() = PreviewThemed(darkTheme = false) {
 
 @Composable
 internal fun MagicLinkConfirmScreenContent(
-    email: String,
-    token: String,
+    emailState: TextFieldState,
+    tokenState: TextFieldState,
     isLoading: Boolean,
     errorMessage: String?,
     message: String? = null,
-    onEmailChange: (String) -> Unit,
-    onTokenChange: (String) -> Unit,
+    onFieldEdited: () -> Unit,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
     onBack: () -> Unit,
@@ -390,13 +390,12 @@ internal fun MagicLinkConfirmScreenContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         MagicLinkVerifyForm(
-            email = email,
-            token = token,
+            emailState = emailState,
+            tokenState = tokenState,
             isLoading = isLoading,
             errorMessage = errorMessage,
             message = message,
-            onEmailChange = onEmailChange,
-            onTokenChange = onTokenChange,
+            onFieldEdited = onFieldEdited,
             onSubmit = onSubmit,
             onResend = onResend,
         )

@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -36,6 +39,9 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 
 /**
@@ -104,7 +110,7 @@ private fun SavedSearchChipWithMenu(
     onDelete: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var renameText by remember { mutableStateOf(saved.name) }
+    val renameState = rememberTextFieldState(saved.name)
 
     Box {
         FilterChip(
@@ -139,16 +145,16 @@ private fun SavedSearchChipWithMenu(
                     Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
                         Text("Rename", style = MaterialTheme.typography.bodyMedium)
                         OutlinedTextField(
-                            value = renameText,
-                            onValueChange = { renameText = it },
-                            singleLine = true,
+                            state = renameState,
+                            lineLimits = TextFieldLineLimits.SingleLine,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         TextButton(
                             onClick = {
-                                if (renameText.isNotBlank()) {
-                                    onRename(renameText)
-                                    renameText = saved.name
+                                val renamed = renameState.text.toString()
+                                if (renamed.isNotBlank()) {
+                                    onRename(renamed)
+                                    renameState.setTextAndPlaceCursorAtEnd(saved.name)
                                 }
                                 showMenu = false
                             },
@@ -176,3 +182,44 @@ private fun SavedSearchChipWithMenu(
         }
     }
 }
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
+    SavedSearchesRow(
+        savedSearches = listOf(
+            previewSavedSearch("s1", "Overdue", "is:overdue"),
+            previewSavedSearch("s2", "Due this week", "due:7d"),
+            previewSavedSearch("s3", "Work", "tag:work"),
+        ),
+        activeSavedSearchId = SavedSearchId.fromString("s1"),
+        onLoadSearch = { },
+        onSaveClick = noopClick,
+        onRename = { _, _ -> },
+        onDelete = { },
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SavedSearchesRowEmptyPreview() = PreviewThemed(darkTheme = false) {
+    SavedSearchesRow(
+        savedSearches = emptyList(),
+        activeSavedSearchId = null,
+        onLoadSearch = { },
+        onSaveClick = noopClick,
+        onRename = { _, _ -> },
+        onDelete = { },
+    )
+}
+
+private fun previewSavedSearch(id: String, name: String, query: String) = SavedSearch(
+    id = SavedSearchId.fromString(id),
+    userId = UserId.anonymous,
+    name = name,
+    queryString = query,
+    createdAt = PreviewSamples.now,
+    updatedAt = PreviewSamples.now,
+)

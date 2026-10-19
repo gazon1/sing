@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -19,10 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -31,6 +29,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.Task
 
 /**
@@ -54,7 +54,7 @@ fun SubtasksSection(
     onAddSubtask: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var newTitle by remember { mutableStateOf("") }
+    val newTitleState = rememberTextFieldState()
     val completed = subtasks.count { it.isCompleted }
     val total = subtasks.size
 
@@ -70,30 +70,27 @@ fun SubtasksSection(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OutlinedTextField(
-                        value = newTitle,
-                        onValueChange = { newTitle = it },
+                        state = newTitleState,
                         modifier = Modifier
                             .weight(1f)
                             .testTag(TestTags.SUBTASK_ADD_INPUT),
                         placeholder = { Text("Add subtask...", style = MaterialTheme.typography.bodySmall) },
-                        singleLine = true,
+                        lineLimits = TextFieldLineLimits.SingleLine,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                val trimmed = newTitle.trim()
-                                if (trimmed.isNotEmpty()) {
-                                    onAddSubtask(trimmed)
-                                    newTitle = ""
-                                }
-                            },
-                        ),
+                        onKeyboardAction = {
+                            val trimmed = newTitleState.text.toString().trim()
+                            if (trimmed.isNotEmpty()) {
+                                onAddSubtask(trimmed)
+                                newTitleState.clearText()
+                            }
+                        },
                     )
                     IconButton(
                         onClick = {
-                            val trimmed = newTitle.trim()
+                            val trimmed = newTitleState.text.toString().trim()
                             if (trimmed.isNotEmpty()) {
                                 onAddSubtask(trimmed)
-                                newTitle = ""
+                                newTitleState.clearText()
                             }
                         },
                         modifier = Modifier
@@ -172,4 +169,33 @@ private fun SubtaskRow(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SubtasksSectionEmptyPreview() = PreviewThemed(darkTheme = false) {
+    SubtasksSection(
+        subtasks = emptyList(),
+        onToggle = { },
+        onDelete = { },
+        onOpen = { },
+        onAddSubtask = { },
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SubtasksSectionWithItemsPreview() = PreviewThemed(darkTheme = false) {
+    SubtasksSection(
+        subtasks = listOf(
+            PreviewSamples.task(id = "t2", title = "Collect requirements", completed = true),
+            PreviewSamples.task(id = "t3", title = "Draft the spec"),
+        ),
+        onToggle = { },
+        onDelete = { },
+        onOpen = { },
+        onAddSubtask = { },
+    )
 }

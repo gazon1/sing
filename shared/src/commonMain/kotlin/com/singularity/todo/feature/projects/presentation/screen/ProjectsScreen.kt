@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -32,6 +34,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -54,9 +57,8 @@ fun ProjectsScreen() {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectsViewModel = koinViewModel()
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    val content = state as? ProjectsUiState.Content
-    val searchQuery = content?.searchQuery.orEmpty()
-    val sortOrder = content?.sortOrder ?: ProjectSortOrder.Name
+    val searchQuery = state.searchQuery
+    val sortOrder = state.sortOrder
 
     Scaffold(
         topBar = {
@@ -74,7 +76,6 @@ fun ProjectsScreen() {
         ProjectsContent(
             state = state,
             modifier = Modifier.padding(padding),
-            searchQuery = searchQuery,
             onNavigateToProject = { nav.openDetail(it) },
             onCreateProject = { nav.openEditor(null) },
             onDelete = { id -> viewModel.onIntent(ProjectsIntent.Delete(id)) },
@@ -104,19 +105,23 @@ private fun ProjectSearchAndSortRow(
     onQueryChange: (String) -> Unit,
     onSortOrderChange: (ProjectSortOrder) -> Unit,
 ) {
+    val queryState = rememberBridgedTextFieldState(
+        externalText = query,
+        onTextChanged = onQueryChange,
+    )
     Column {
         OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
+            state = queryState,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .testTag(TestTags.PROJECTS_SEARCH_INPUT),
             placeholder = { Text("Search projects") },
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
+                if (queryState.text.isNotEmpty()) {
+                    IconButton(onClick = { queryState.clearText() }) {
                         Icon(Icons.Default.Close, contentDescription = "Clear search")
                     }
                 }
@@ -154,7 +159,6 @@ private fun ProjectsUiEvent.toNotification(): Notification = when (this) {
 private fun ProjectsContent(
     state: ProjectsUiState,
     modifier: Modifier = Modifier,
-    searchQuery: String = "",
     onNavigateToProject: (ProjectId) -> Unit,
     onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
@@ -166,7 +170,11 @@ private fun ProjectsContent(
         // A search that matched nothing is not the same as having no projects —
         // "No projects yet" would push the user to create one they do not need.
         is ProjectsUiState.Empty -> EmptyState(
-            title = if (searchQuery.isBlank()) "No projects yet" else "No projects match \"$searchQuery\"",
+            title = if (state.searchQuery.isBlank()) {
+                "No projects yet"
+            } else {
+                "No projects match \"${state.searchQuery}\""
+            },
             testTag = TestTags.PROJECTS_LIST_EMPTY,
             modifier = modifier,
         )
@@ -242,7 +250,7 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
 private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
         ProjectsContent(
-            state = ProjectsUiState.Empty,
+            state = ProjectsUiState.Empty(),
             onNavigateToProject = {},
             onCreateProject = {},
             onDelete = {},

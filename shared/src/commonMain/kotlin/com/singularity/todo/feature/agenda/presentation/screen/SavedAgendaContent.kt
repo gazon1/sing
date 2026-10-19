@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -246,12 +247,15 @@ private fun SavedAgendaNameField(
     onNameChange: (String) -> Unit,
     onDone: () -> Unit,
 ) {
+    val nameState = rememberBridgedTextFieldState(
+        externalText = name,
+        onTextChanged = onNameChange,
+    )
     OutlinedTextField(
-        value = name,
-        onValueChange = onNameChange,
+        state = nameState,
         label = { Text("View name") },
         placeholder = { Text("My saved view") },
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TestTags.SAVED_AGENDA_NAME_INPUT),
@@ -259,7 +263,7 @@ private fun SavedAgendaNameField(
             capitalization = KeyboardCapitalization.Words,
             imeAction = ImeAction.Done,
         ),
-        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        onKeyboardAction = { onDone() },
         enabled = enabled,
     )
     Spacer(modifier = Modifier.height(16.dp))

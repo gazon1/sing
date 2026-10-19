@@ -4,14 +4,54 @@ import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 
 enum class ProjectSortOrder { Name, Color }
 
+/**
+ * The state of the projects list.
+ *
+ * The filter and the sort order live on the interface rather than on [Content] alone.
+ * They describe *what the list is filtered by*, not *what the list holds*, and a list
+ * that holds nothing is still filtered: a search that matched no project is a different
+ * screen from a project list that has never had a project in it.
+ *
+ * That distinction is not cosmetic. The search field is bound to [searchQuery], and the
+ * ViewModel reads the query it is given back out of the state: a state that dropped the
+ * query would make the screen pass an empty string to the field, the field would hand
+ * that empty string back to the ViewModel as if the user had cleared it, and the list
+ * would never come back.
+ */
 @Immutable
 sealed interface ProjectsUiState {
-    data object Loading : ProjectsUiState
-    data object Empty : ProjectsUiState
+
+    /** The query the list is filtered by. Empty when nothing is filtered. */
+    val searchQuery: String
+
+    /** The order the list is sorted in. */
+    val sortOrder: ProjectSortOrder
+
+    data object Loading : ProjectsUiState {
+        override val searchQuery: String = ""
+        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name
+    }
+
+    /**
+     * The list holds no projects.
+     *
+     * The query is kept so the screen can say *why* the list is empty ("no projects
+     * match …" rather than "no projects yet") and so the filter the user typed survives
+     * the state that reports the filter found nothing.
+     */
+    data class Empty(
+        override val searchQuery: String = "",
+        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name,
+    ) : ProjectsUiState
+
     data class Content(
         val projects: List<ProjectWithCounts>,
-        val searchQuery: String = "",
-        val sortOrder: ProjectSortOrder = ProjectSortOrder.Name,
+        override val searchQuery: String = "",
+        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name,
     ) : ProjectsUiState
-    data class Error(val message: String) : ProjectsUiState
+
+    data class Error(val message: String) : ProjectsUiState {
+        override val searchQuery: String = ""
+        override val sortOrder: ProjectSortOrder = ProjectSortOrder.Name
+    }
 }

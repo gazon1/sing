@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,9 +23,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
-import androidx.compose.material3.MaterialTheme
 
 /**
  * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
@@ -43,6 +47,11 @@ fun TaskTitleRow(
     onCheckToggle: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val titleState = rememberBridgedTextFieldState(
+        externalText = title,
+        onTextChanged = onTitleChange,
+    )
+
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -73,21 +82,20 @@ fun TaskTitleRow(
             Spacer(modifier = Modifier.width(TaskSpacing.md))
         }
         BasicTextField(
-            value = title,
-            onValueChange = onTitleChange,
+            state = titleState,
             textStyle = LocalTextStyle.current.copy(
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             modifier = Modifier
                 .weight(1f)
                 .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
                 .testTag(TestTags.TASK_DETAIL_TITLE),
-            decorationBox = { innerTextField ->
-                if (title.isEmpty()) {
+            decorator = { innerTextField ->
+                if (titleState.text.isEmpty()) {
                     Text(
                         text = "Название задачи",
                         color = placeholderTextColor(),
@@ -99,4 +107,30 @@ fun TaskTitleRow(
             },
         )
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskTitleRowPreview() = PreviewThemed(darkTheme = false) {
+    TaskTitleRow(
+        taskId = "t1",
+        title = "Buy groceries",
+        isCompleted = false,
+        onTitleChange = { },
+        onCheckToggle = noopClick,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskTitleRowCompletedPreview() = PreviewThemed(darkTheme = false) {
+    TaskTitleRow(
+        taskId = "t1",
+        title = "Buy groceries",
+        isCompleted = true,
+        onTitleChange = { },
+        onCheckToggle = noopClick,
+    )
 }

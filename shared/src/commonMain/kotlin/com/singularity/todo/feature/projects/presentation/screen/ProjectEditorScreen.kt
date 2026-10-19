@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -48,6 +49,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
@@ -263,23 +265,30 @@ private fun IdentitySection(
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
 ) {
+    val nameState = rememberBridgedTextFieldState(
+        externalText = name,
+        onTextChanged = onNameChanged,
+    )
+    val descriptionState = rememberBridgedTextFieldState(
+        externalText = description,
+        onTextChanged = onDescriptionChanged,
+    )
+
     OutlinedTextField(
-        value = name,
-        onValueChange = onNameChanged,
+        state = nameState,
         label = { Text("Project name") },
         isError = errorMessage != null,
         supportingText = errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
     )
 
     OutlinedTextField(
-        value = description,
-        onValueChange = onDescriptionChanged,
+        state = descriptionState,
         label = { Text("Description (optional)") },
-        minLines = 3,
+        lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 3),
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),

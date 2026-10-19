@@ -318,9 +318,11 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_ADD_URL_BUTTON` | `attachments_add_url_button` | |
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
+| `CHAT_INPUT` | `chat_input` | |
 | `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `LOADING_INDICATOR` | `loading_indicator` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
+| `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
 | `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |

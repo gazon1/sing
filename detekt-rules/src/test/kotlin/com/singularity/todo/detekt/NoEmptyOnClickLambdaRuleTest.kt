@@ -396,10 +396,13 @@ class NoEmptyOnClickLambdaRuleTest {
     }
 
     @Test
-    fun `an empty onValueChange on a read-only field is not flagged`() {
-        // Material3 requires onValueChange even when the field cannot change. The
-        // handler is unreachable by construction, so this is the correct body and
-        // reporting it would train a reader to ignore the rule.
+    fun `an empty onValueChange on a read-only field is flagged`() {
+        // This used to be exempt: Material3's value-based overload required an
+        // `onValueChange` even when the field could not change, so an empty one was the
+        // only body that compiled. The state-based overload has no such parameter, so the
+        // exemption became dead code — and a dead exemption is a stale rule. A
+        // value-based field is now reported by `NoValueBasedTextFieldRule` instead, and
+        // this rule no longer needs to make an exception for it.
         val code = """
             package com.singularity.todo.feature.settings
 
@@ -413,7 +416,10 @@ class NoEmptyOnClickLambdaRuleTest {
                 )
             }
         """
-        assertEquals(0, findingsIn(code).size, "a read-only field cannot change its value")
+        assertTrue(
+            findingsIn(code).any { it.message.contains("onValueChange") },
+            "the read-only exemption is gone with the value-based API it existed for",
+        )
     }
 
     @Test

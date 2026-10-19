@@ -578,6 +578,24 @@ no-empty-onclick-lambda:
   NoEmptyOnClickLambda:
     active: true
 
+# Added 2026-10-19 with the state-based text field migration: the value-based
+# text field API (value: + onValueChange:) is gone from the app. The GenUI
+# renderer was the one documented exception and has been migrated since, so
+# nothing is exempt but the test sources (ADR
+# 2026-10-19-text-field-state-migration).
+no-value-based-text-field:
+  NoValueBasedTextField:
+    active: true
+
+# Added 2026-10-19 with the state-based text field migration: the other half
+# of the same decision. A TextFieldState is a mutable buffer and must live in
+# the composable that owns the field; the ViewModel keeps a plain String, and
+# a TextFieldState in a ViewModel or in a UI state is a second source of truth
+# (ADR 2026-10-19-text-field-state-migration).
+no-text-field-state-in-viewmodel:
+  NoTextFieldStateInViewModel:
+    active: true
+
 # Added 2026-10-05: these two rules were implemented and registered in
 # META-INF/services, but had no detekt.yml block, so detekt never loaded them and
 # they had never run. check-detekt-registrations.sh now enforces the invariant that

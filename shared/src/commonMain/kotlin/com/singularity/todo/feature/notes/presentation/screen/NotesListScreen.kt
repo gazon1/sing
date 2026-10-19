@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -30,7 +32,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -52,7 +53,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,14 +66,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.theme.NoteSwipeColors
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.NoteSwipeColors
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
@@ -88,6 +90,7 @@ import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
@@ -334,24 +337,29 @@ private fun SortDropdownMenu(
 // ─── Search field ───────────────────────────────────────────────────────────
 
 /**
- * Title search box. The text field is screen-local echo; the query the list is
- * actually filtered by is debounced 200 ms in the ViewModel, so a fast typist
- * triggers one repository query rather than one per keystroke.
+ * Title search box.
+ *
+ * The field owns the text and pushes it to the ViewModel, which keeps the query the list is
+ * actually filtered by debounced 200 ms — so a fast typist triggers one repository query
+ * rather than one per keystroke.
  */
 @Composable
 private fun NoteSearchField(query: String, onQueryChange: (String) -> Unit) {
+    val queryState = rememberBridgedTextFieldState(
+        externalText = query,
+        onTextChanged = onQueryChange,
+    )
     OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
+        state = queryState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         placeholder = { Text("Search notes") },
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+            if (queryState.text.isNotEmpty()) {
+                IconButton(onClick = { queryState.clearText() }) {
                     Icon(Icons.Default.Close, contentDescription = "Clear search")
                 }
             }
@@ -361,7 +369,7 @@ private fun NoteSearchField(query: String, onQueryChange: (String) -> Unit) {
 
 @Composable
 private fun QuickAddRow(onSubmit: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
+    val textState = rememberTextFieldState()
     val focusManager = LocalFocusManager.current
 
     Row(
@@ -371,24 +379,24 @@ private fun QuickAddRow(onSubmit: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
+            state = textState,
             placeholder = { Text("Quick add note...") },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TestTags.NOTES_QUICK_ADD_INPUT),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             leadingIcon = {
                 Icon(Icons.Default.Add, contentDescription = null)
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = {
+            onKeyboardAction = {
+                val text = textState.text.toString()
                 if (text.isNotBlank()) {
                     onSubmit(text.trim())
-                    text = ""
+                    textState.clearText()
                     focusManager.clearFocus()
                 }
-            }),
+            },
         )
     }
 }

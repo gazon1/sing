@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -33,6 +34,7 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -50,7 +52,6 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.rememberEditorSession
 import com.singularity.todo.feature.notes.urlFor
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -128,11 +129,16 @@ fun NoteEditorScreenContent(
     onDismissAiSheet: () -> Unit = {},
 ) {
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
-    var linkUrl by rememberSaveable { mutableStateOf("") }
-    val linkQueryFlow = remember { MutableStateFlow("") }
 
     val draft = editorState.draft
     val session = rememberEditorSession(draft) { _, html -> onBodyChange(html) }
+
+    // The field owns the title's text; the draft keeps the domain value. An external
+    // title (the AI rewriting it) comes back through the bridge.
+    val titleState = rememberBridgedTextFieldState(
+        externalText = draft.title,
+        onTextChanged = onTitleChange,
+    )
 
     Scaffold(
         topBar = {
@@ -169,10 +175,7 @@ fun NoteEditorScreenContent(
             session?.let { editorSession ->
                 EditorTitleAndBody(
                     session = editorSession,
-                    onTitleChange = { newTitle ->
-                        editorSession.updateTitleFieldValue(newTitle)
-                        onTitleChange(newTitle)
-                    },
+                    titleState = titleState,
                 )
             }
         }
@@ -180,18 +183,14 @@ fun NoteEditorScreenContent(
 
     if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(
-            url = linkUrl,
-            onUrlChange = { linkUrl = it },
             onConfirm = { url ->
                 session?.richTextState?.addLinkToSelection(url = url)
                 session?.recordLink(url)
                 linkOverlay.dismissAll()
-                linkUrl = ""
                 session?.dispatchHtml()
             },
             onDismiss = {
                 linkOverlay.dismissAll()
-                linkUrl = ""
             },
         )
     }
@@ -199,7 +198,6 @@ fun NoteEditorScreenContent(
     val internalPicker = linkOverlay.sheet as? NoteLinkSheet.InternalPicker
     if (internalPicker != null) {
         InternalLinkPickerSheet(
-            queryFlow = linkQueryFlow,
             onSearch = { q ->
                 val notes = searchNotesForLink?.invoke(q) ?: emptyList()
                 val tasks = searchTasksForLink?.invoke(q) ?: emptyList()
@@ -210,11 +208,9 @@ fun NoteEditorScreenContent(
                 session?.richTextState?.addLinkToSelection(url = url)
                 session?.recordLink(url)
                 session?.dispatchHtml()
-                linkQueryFlow.value = ""
             },
             onDismiss = {
                 linkOverlay.dismissAll()
-                linkQueryFlow.value = ""
             },
         )
     }
@@ -241,19 +237,18 @@ typealias DraftUiStateCompat = com.singularity.todo.core.ui.DraftUiState<EditorS
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditorTitleAndBody(session: EditorSession, onTitleChange: (String) -> Unit) {
+private fun EditorTitleAndBody(session: EditorSession, titleState: TextFieldState) {
     val richTextState = session.richTextState
 
     Column(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
-            value = session.titleFieldValue,
-            onValueChange = onTitleChange,
+            state = titleState,
             placeholder = { Text("Title") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .testTag(TestTags.NOTE_EDITOR_TITLE_INPUT),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
 
         RichTextEditor(

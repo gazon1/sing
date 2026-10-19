@@ -73,14 +73,9 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         // outside it, and each one was a real unwired surface found by reading the
         // code and invisible to the rule. An allow-list of names is a list somebody
         // has to remember to extend, so it is gone.
-        // A read-only field's onValueChange cannot fire, so an empty one is not a dead
-        // control — it is the only correct body. Material3 still requires the parameter,
-        // so a read-only OutlinedTextField has to write something.
-        val readOnlyField = isReadOnlyField(expression)
         for (arg in expression.valueArguments) {
             val paramName = arg.getArgumentName()?.text ?: continue
             if (!NoEmptyOnClickLambdaPolicy.isHandlerParameter(paramName)) continue
-            if (readOnlyField && paramName == "onValueChange") continue
             val lambda = arg.getArgumentExpression() as? KtLambdaExpression ?: continue
             if (isEmptyLambda(lambda)) {
                 val callee = expression.calleeExpression as? KtNameReferenceExpression
@@ -152,24 +147,6 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         val body = lambda.functionLiteral.bodyExpression ?: return true
         return body.statements.isEmpty()
     }
-
-    /**
-     * True when this call passes `readOnly = true` at the same site.
-     *
-     * A read-only text field cannot produce a value change, so an empty `onValueChange`
-     * beside it is unreachable rather than unwired — the field's value comes from a click
-     * that opens a dialog (`WorkScheduleSettingsScreen`), and the field only displays the
-     * result. Reporting it would be the rule complaining about the only body that is
-     * correct.
-     *
-     * Scoped to the *same call* on purpose: `readOnly` somewhere else in the file says
-     * nothing about this field.
-     */
-    private fun isReadOnlyField(expression: KtCallExpression): Boolean =
-        expression.valueArguments.any { arg ->
-            arg.getArgumentName()?.text == "readOnly" &&
-                arg.getArgumentExpression()?.text == "true"
-        }
 
     private fun isPreviewContext(element: org.jetbrains.kotlin.psi.KtElement): Boolean {
         val file = element.containingKtFile
