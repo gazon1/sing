@@ -36,7 +36,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: emulator-${{ github.event.pull_request.number || github.ref }}
+  # `github.workflow` is load-bearing, not decoration. This workflow and e2e.yml are
+  # two separate emulator fleets, but both used to land in one group —
+  # `emulator-<pr number>` on a pull_request, `emulator-<ref>` otherwise — and with
+  # `cancel-in-progress: true` for pull_request they cancelled each other rather
+  # than queueing. On PR 740 this workflow started, skipped its `plan` job for
+  # lacking the `run-device-tests` label, and cancelled the in-progress Maestro run:
+  # neither emulator workflow ran. Naming the workflow keeps each fleet its own
+  # group while still replacing a superseded run of itself on the same PR.
+  group: emulator-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -94,6 +102,23 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      # Runners do not share a filesystem, so what `setup-avd` installed and created
+      # died with that job. These four paths and this key are the transport; they must
+      # stay identical to the `actions/cache` block in _setup-avd.yml, and the key is
+      # assembled from that job's outputs rather than re-spelled here.
+      - name: Restore AVD and SDK cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd
+            ${{ env.ANDROID_HOME }}/system-images
+            ${{ env.ANDROID_HOME }}/emulator
+            ${{ env.ANDROID_HOME }}/platform-tools
+          key: avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-${{ needs.setup-avd.outputs.cache_key }}
+          restore-keys: |
+            avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-
+            avd-${{ needs.setup-avd.outputs.avd_name }}-
 
       # Matches every other workflow in this repository, so the JDK the DI graph is
       # validated against is the same one here. `cache-read-only` outside main: a PR must

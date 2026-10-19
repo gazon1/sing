@@ -31,7 +31,17 @@ on:
     # Smoke on every push to main, full suite only on schedule or tags
 
 concurrency:
-  group: emulator-${{ github.event.pull_request.number || github.ref }}
+  # `github.workflow` is load-bearing, not decoration. Maestro flows and
+  # instrumented tests are two separate emulator fleets, but both used to land in
+  # one group: `emulator-<pr number>` on a pull_request and `emulator-<ref>` on
+  # everything else. With `cancel-in-progress: true` for pull_request they did not
+  # merely queue — they cancelled each other. On PR 740 (labelled `run-maestro`
+  # only) the `Android device tests` run started, skipped its `plan` job for
+  # lacking the `run-device-tests` label, and cancelled the in-progress Maestro run
+  # on its way out: both emulator workflows ended up doing nothing, silently.
+  # On main the same collision just serialises them, delaying instrumented tests
+  # behind a Maestro run by up to an hour.
+  group: emulator-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -162,6 +172,28 @@ jobs:
       SHARDS: ${{ strategy.job-total }}
     steps:
       - uses: actions/checkout@v7
+
+      # Runners do not share a filesystem, so everything `setup-avd` installed and
+      # created died with that job: the Maestro shard started on a runner where
+      # /usr/local/lib/android/sdk/emulator did not exist, and the AVD the setup job
+      # had just created was not there either. These four paths and this key are the
+      # transport. They must stay identical to the `actions/cache` block in
+      # _setup-avd.yml, and the key is assembled from that job's own outputs rather
+      # than re-spelled here. `actions/cache/restore`, not `actions/cache`, because a
+      # shard must never write an entry: keys are immutable, and four shards racing
+      # to save the same key each log a misleading "another job is creating it".
+      - name: Restore AVD and SDK cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd
+            ${{ env.ANDROID_HOME }}/system-images
+            ${{ env.ANDROID_HOME }}/emulator
+            ${{ env.ANDROID_HOME }}/platform-tools
+          key: avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-${{ needs.setup-avd.outputs.cache_key }}
+          restore-keys: |
+            avd-${{ needs.setup-avd.outputs.avd_name }}-${{ needs.setup-avd.outputs.system_image }}-
+            avd-${{ needs.setup-avd.outputs.avd_name }}-
 
       # Maestro needs a JDK; the runner image has none the CLI can rely on.
       - uses: actions/setup-java@v6

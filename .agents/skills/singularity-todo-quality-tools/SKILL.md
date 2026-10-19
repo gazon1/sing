@@ -89,13 +89,15 @@ that reason (`docs/decisions/2026-10-05-ci-checks-run-in-parallel.md`): the
 against the previous run's artifact, and kover's report needing a test run.
 All three live in one job on purpose.
 
-**Why everything device-related lives in `scripts/ci/e2e-shard.sh`.** The
+**Why everything device-related lives in `scripts/src/emulator/`.** The
 `android-emulator-runner` action kills the emulator the moment its `script:`
 step returns, and it runs each LINE of `script:` as a separate command, so
 variables and `if`/`for` blocks do not survive between lines. Boot, install and
 flow execution therefore have to be one script file, not a `script: |` block.
 The nightly that booted in one step and ran `adb` in the next addressed a
-device that no longer existed.
+device that no longer existed. That reasoning is why `scripts/ci/e2e-shard.sh`
+was replaced rather than repaired: the whole lifecycle now lives in
+`scripts/run-maestro-e2e.py` over `scripts/src/emulator/`.
 
 **Where the meta-gate reaches.** `scripts/check-gate-wiring.py` has seven parts
 and a change to it is a change to the contract of every gate at once:

@@ -22,7 +22,7 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 
 import sgate
-from sgate.commands.base import CLEAN, register
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register
 from sgate.log import logger
 
 
@@ -247,11 +247,35 @@ def run_all(emit_json: bool, concurrency: int,
         ]
 
     if not gates:
+        # Exiting 0 here reported success for a run that executed zero gates, and
+        # verified it: blanking scripts/ci/static-gates.sh made `sgate run-all` print
+        # "No gates found." in yellow and exit 0 — a green `static` job that had
+        # checked nothing. An empty registry is not a suite that passed; it is a
+        # suite that is not there, which is the one fact a caller cannot infer from
+        # a zero. `import sgate` does not catch this either: load_gates() reads
+        # _registry.GATES, a separate Python list, while this branch reads
+        # static-gates.sh — emptying either one leaves the other intact.
         if emit_json:
-            click.echo(json.dumps({"error": "no gates found", "gates": []}))
+            click.echo(
+                json.dumps(
+                    {
+                        "error": "no gates found — the registry at "
+                        f"{sgate.repo.STATIC_GATES_SH} declared none, so nothing was "
+                        "evaluated. This is not a pass.",
+                        "gates": [],
+                    }
+                )
+            )
         else:
-            click.echo("[yellow]No gates found.[/yellow]")
-        raise SystemExit(CLEAN)
+            click.secho(
+                f"No gates found in {sgate.repo.STATIC_GATES_SH}: zero gates were "
+                "evaluated. Treating this as a failure, because a suite that ran "
+                "nothing and a suite that passed are different facts and a zero "
+                "cannot say which.",
+                fg="red",
+                err=True,
+            )
+        raise SystemExit(VALIDATION_FAILURE)
 
     results: list[GateResult] = []
     results_lock = threading.Lock()
