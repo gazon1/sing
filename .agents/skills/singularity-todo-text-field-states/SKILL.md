@@ -128,10 +128,22 @@ rewrite back into the field, with a guard on each direction:
   A value the field pushed and no longer holds is the lagging case; a value the field never
   pushed is a genuine rewrite and wins.
 
-**The known trade-off:** an upstream that *deliberately* rewrites the field to a value the
-field pushed earlier is not applied. The two are indistinguishable from the field's side,
-and the lagging case is the one that destroys work, so it wins. A rewrite to a value the
-field never pushed always lands.
+**The known trade-off, and the way out of it:** an upstream that *deliberately* rewrites the
+field to a value the field pushed earlier is not applied. The two are indistinguishable from
+the field's side, and the lagging case is the one that destroys work, so it wins. A rewrite
+to a value the field never pushed always lands.
+
+**The way out is the revision token.** `rememberBridgedTextFieldState` takes a third
+parameter, `revision: Long = 0`. When the party that performs the rewrite advances it, the
+guard is lifted for the value that arrives with the new token — a *declared* rewrite wins
+over the keyboard. The token is a counter, not a value; any change to it means "this value
+is a rewrite".
+
+The default is `0`, so a field that is never rewritten behaves exactly as before. **A caller
+that rewrites and forgets to advance the token gets the old behaviour, silently.** The
+GenUI renderer is the reference implementation: the surface counts the *server's* writes
+(`SurfaceController.serverRevision`) and the field's own writes are not counted, because
+only the server rewrites the model.
 
 **The last edit is flushed when the field leaves the composition.** The push is
 asynchronous, so a user who types and navigates away in the same frame would leave the
@@ -139,6 +151,14 @@ upstream one character behind. The bridge pushes the field's final text on the w
 but only when the upstream is *behind* (its value is one the field pushed). An upstream
 that changed from the outside — a discarded draft, a cleared query — is ahead, and the
 text on screen is the text that was discarded; pushing it back would resurrect it.
+
+**The price of the flush is one character, in the rarest case, and it is accepted.** A
+field whose upstream has received *no* push at all — the user typed one character and left
+in the same frame — has an upstream value the field never pushed, so the flush declines and
+that character is lost. The alternative would resurrect a discarded draft every time a
+user cleared a field and navigated away, which is a far larger loss. The behaviour is
+pinned by `flushDeclinesWhenTheUpstreamNeverReceivedAPush`; a change to it has to change
+that test on purpose.
 
 ## 7. Testing
 
@@ -183,42 +203,51 @@ that types and then asserts on the app's state has to let the composition settle
 Who owns the text is the decision; this is where each field's answer lives. A field that
 is not in this table has not been classified yet — classify it before you touch it.
 
-**Bridged** — the field and a ViewModel-owned string hold the same text.
+**The table is checked.** `TextFieldShapeConventionTest`
+(`shared/src/jvmTest/.../arch/TextFieldShapeConventionTest.kt`) compares it with the
+code: a file that owns a field and is missing from this table fails the build, a row
+whose shape does not match the helper the file calls fails the build, and a row whose
+file no longer exists fails the build. Adding a field means adding a row here.
 
-| Where | Field |
-|---|---|
-| `feature/notes/presentation/screen/NotesListScreen.kt` | the search query |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the title |
-| `feature/ai/chat/ChatScreen.kt` | the chat input |
-| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the view's name |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | start, end, quote, note |
-| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the name, the description |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the name, the description |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the search query |
-| `feature/search/SearchScreen.kt` | the query |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the API key, the base URL |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the title |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the description |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the GenUI input |
+Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
-**Anchored** — the value comes from outside and the field follows it.
-
-| Where | Field |
-|---|---|
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the provider, the model |
-| `feature/settings/screens/WorkScheduleSettingsScreen.kt` | the time |
-| `feature/search/presentation/SavedSearchesRow.kt` | the rename field of a saved search |
-| `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | the interval amount, the day of month |
-
-**Local** — the field owns the text; it is read when the user commits.
-
-The auth forms (`LoginScreen`, `AttachAccountScreen`, `MagicLinkConfirmScreen`,
-`ChangePasswordScreen`, `AuthFormFields`), the sheets and dialogs that commit on a
-button (`AttachmentsSheet`, `AddTagDialog`, `LinkUrlDialog`, `InternalLinkPickerSheet`,
-`ChecklistEditorSheet`, `TimeEntryEditorSheet`, `TaskEditorEstimateSheet`,
-`SubtasksSection`, `TaskDetailProposalSection`), the quick-add row of the notes list,
-`ProjectDetailBody`'s two fields, `ProfileSwitcherScreen`, `ChatInputBar` and the
-regexp sheet of `SavedAgendaScreen`.
+| File | Shape | Field |
+|---|---|---|
+| `core/ui/components/ChatInputBar.kt` | local | the input bar's state — the bar takes the state, the screen creates it |
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | bridged | the saved view's name |
+| `feature/agenda/presentation/screen/SavedAgendaScreen.kt` | local | the regexp sheet's pattern |
+| `feature/ai/chat/ChatScreen.kt` | local, bridged | the chat input (bridged) and the `ChatInputBar` states (local) |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | bridged | start, end, quote, note |
+| `feature/attachments/components/AttachmentsSheet.kt` | local | the attachment's caption |
+| `feature/auth/AuthFormFields.kt` | local | the shared email and password fields |
+| `feature/auth/LoginScreen.kt` | local | the email and password fields |
+| `feature/auth/presentation/AttachAccountScreen.kt` | local | the email field |
+| `feature/auth/presentation/MagicLinkConfirmScreen.kt` | local | the code field |
+| `feature/checklist/components/ChecklistEditorSheet.kt` | local | the item's text |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | bridged | the GenUI input — the server can rewrite it (see the revision token) |
+| `feature/notes/components/InternalLinkPickerSheet.kt` | local | the link's text |
+| `feature/notes/presentation/screen/LinkUrlDialog.kt` | local | the URL |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | bridged | the title — the AI rewrites it |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | local, bridged | the quick-add row (local) and the search query (bridged) |
+| `feature/profile/ProfileSwitcherScreen.kt` | local | the profile's name |
+| `feature/profile/presentation/ChangePasswordScreen.kt` | local | the password field |
+| `feature/projects/presentation/screen/ProjectDetailBody.kt` | local | the two fields of the body |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | bridged | the name, the description |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | bridged | the name, the description |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | bridged | the search query |
+| `feature/search/SearchScreen.kt` | bridged | the query |
+| `feature/search/presentation/SaveSearchDialog.kt` | local | the saved search's name, its query |
+| `feature/search/presentation/SavedSearchesRow.kt` | anchored | the rename field of a saved search |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | local, bridged, anchored | the API key (local), the base URL (bridged), the provider and the model (anchored) |
+| `feature/settings/screens/WorkScheduleSettingsScreen.kt` | anchored | the time |
+| `feature/tags/components/AddTagDialog.kt` | local | the tag's name |
+| `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | anchored | the interval amount, the day of month |
+| `feature/tasks/presentation/components/detail/SubtasksSection.kt` | local | the new subtask |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | bridged | the description |
+| `feature/tasks/presentation/components/detail/TaskDetailProposalSection.kt` | local | the proposal's text |
+| `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | local | the estimate |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | bridged | the title |
+| `feature/timetracking/presentation/components/TimeEntryEditorSheet.kt` | local | the note |
 
 A local field is still *seeded* from a parameter — the rename dialog's current name, the
 regexp sheet's pattern, the tag dialog's name. That is safe only because those
