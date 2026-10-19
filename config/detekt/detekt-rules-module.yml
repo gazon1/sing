@@ -152,6 +152,14 @@ exceptions:
       - 'MalformedURLException'
       - 'NumberFormatException'
       - 'ParseException'
+      # Koin's two answers about a definition: "there is none" and "there is
+      # one, but it cannot be created". `getOptionalOrNull` (core/di) answers
+      # the first with `null` and reports the second to the caller — swallowing
+      # them there is the function's purpose, and the second one is not
+      # swallowed: it is logged and the feature degrades instead of the screen
+      # crashing.
+      - 'NoDefinitionFoundException'
+      - 'InstanceCreationException'
   TooGenericExceptionCaught:
     active: true
     excludes:
