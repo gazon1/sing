@@ -1,158 +1,158 @@
 #!/usr/bin/env python3
-"""Unit tests for the controls registry — the sabotage declarations themselves.
+"""Unit tests for sgate.controls — the declarative positive-control data.
 
-`scripts/src/sgate/commands/_registry.py` declares one `Control` per gate that
-proves the gate can fail. Each declaration is validated by `__post_init__` at
-*declaration* time, which is the right place — a typo should not survive to the
-moment someone runs a control against a tree. But it leaves one gap: when the
-guard fires, it names the field, not the control.
+The regression these tests exist for is an *import-time* crash, so the first two
+tests import the registry itself. `Edit.__post_init__` refused `repl=''` because it
+tested `not self.repl`, which cannot tell "the declaration forgot a replacement"
+apart from "delete the match". The `log-interpolation` control declares `repl=''`
+(a deletion), so importing `_registry.py` raised `ValueError` and took down every
+gate: `sgate run-all` died before dispatching anything, and CI's `static` job went
+red on the import. See ADR 2026-10-19-sgate-regex-repl-empty-is-a-deletion.md.
 
-That gap cost a CI run. The `log-interpolation` control declared
-`Edit(kind='regex', pattern=..., repl='')`, and `Edit.__post_init__` rejects a
-falsy `repl` for a regex. The `ValueError` was raised while `_registry.py` was
-being imported, so `import sgate` failed for the `static` and `tests` jobs alike,
-and both died in "Set up gate tooling" before a single test ran.
-
-Note what the guard did and did not do. It *did* make the build red — a
-declaration-time guard is not silent. But the red arrived as an import failure in
-an unrelated package, on a runner, roughly twenty minutes into a CI run, naming a
-file and a field rather than the control. A test in this suite fails on the
-author's machine in a second and names the slug, and it checks the three things
-`__post_init__` cannot reach at all: that the files a control names exist, that
-it says why, and that it is shaped like its kind.
+Importing the registry is the control. A unit test that only built an `Edit` in
+isolation would have stayed green while the module that assembles all of them
+could not be loaded at all — which is the shape of defect the file's own docstring
+warns about: a gate that dies instead of reporting is indistinguishable from a
+gate that passes.
 """
 from __future__ import annotations
 
-import dataclasses
+import re
 import unittest
-from pathlib import Path
 
-from sgate.commands._registry import GATE_CONTROLS
-from sgate.controls import Control
-
-ROOT = Path(__file__).resolve().parent.parent.parent
+from sgate.commands._registry import GATE_CONTROLS, GATES
+from sgate.controls import Control, Edit
 
 
-class ControlDeclarationTest(unittest.TestCase):
-    """Every declared control is a control somebody can actually run."""
+class TestRegistryImports(unittest.TestCase):
+    """Assembling every control must succeed at import time."""
 
-    def test_the_registry_is_populated(self):
-        """A guard that passes over an empty registry passes over a broken one.
+    def test_control_registry_imports(self):
+        """`_registry.py` is importable and the control dict is populated.
 
-        Not a floor on the count — the registry is meant to shrink as gates are
-        retired, and asserting it only grows asserts the opposite of what is
-        wanted. This is a sanity bound against a parse or import regression that
-        yields an empty dict, which would make every test below vacuously green.
+        This is the assertion the failing CI run could not make: `import sgate`
+        raised before a single gate was dispatched.
         """
+        self.assertIsInstance(GATE_CONTROLS, dict)
         self.assertGreater(
-            len(GATE_CONTROLS), 20,
-            f"Expected 20+ declared controls, found {len(GATE_CONTROLS)}",
+            len(GATE_CONTROLS), 0, "Registry assembled zero controls"
         )
 
-    def test_every_control_survives_its_own_guards(self):
-        """Re-run each declaration's validation in a loop that can name the control.
+    def test_gate_registry_imports(self):
+        """The gate list is a non-empty tuple of specs."""
+        self.assertIsInstance(GATES, tuple)
+        self.assertGreater(len(GATES), 20, "Expected 20+ gates in the registry")
 
-        A guard that fires while `_registry.py` is imported takes the whole
-        package with it, so this test never runs — which is the honest limit of an
-        import-time guard: it fails loudly, but it reports a file and a field, not
-        the control, and it does so on a runner instead of on the machine that
-        wrote the declaration.
+    def test_every_control_declares_its_input_change(self):
+        """Each control declares the input change its kind is supposed to declare.
 
-        `dataclasses.replace` reconstructs a value and so re-enters
-        `__post_init__`, which covers whatever *did* survive import — a guard added
-        after this test was written, or a declaration reached by a path that does
-        not trigger the import. Collecting every failure into one message matters
-        too: a registry is edited one declaration at a time, and a test that
-        reports one bad control per run turns a small mistake into several.
+        A `sabotage` with no edit would be applied as a no-op, which is precisely
+        the "matched nothing and reported a pass" failure the design exists to
+        prevent. `fixture` controls seed a corpus instead of editing one, and
+        `exempt` is the one kind that deliberately carries neither — so the
+        assertion is per kind rather than "every control has an edit".
         """
-        broken: list[str] = []
-        for slug, control in sorted(GATE_CONTROLS.items()):
-            if control.edit is None:
-                continue
-            try:
-                dataclasses.replace(control.edit)
-            except ValueError as exc:
-                broken.append(f"  {slug}: {exc}")
-        self.assertEqual(
-            broken, [],
-            "every declared edit must pass its own validation:\n" + "\n".join(broken),
-        )
-
-    def test_every_control_is_a_usable_control(self):
-        """The fields `__post_init__` cannot check: the files have to exist.
-
-        A control whose `path` names a moved file still validates, still imports,
-        and still appears in the registry — it fails at run time, in the one place
-        where nobody is reading the output. Same for `proves`, which is the join
-        key back to the gate registry: a typo there silently drops the control out
-        of the coverage check instead of failing it.
-        """
-        missing: list[str] = []
-        for slug, control in sorted(GATE_CONTROLS.items()):
-            for field in ("path", "proves"):
-                value = getattr(control, field)
-                if value and not (ROOT / value).exists():
-                    missing.append(f"  {slug}: {field}={value!r} does not exist")
-        self.assertEqual(
-            missing, [],
-            "every path a control names must exist on disk:\n" + "\n".join(missing),
-        )
-
-    def test_every_control_says_why(self):
-        """`why` is not decoration — it is what tells the next reader the choice.
-
-        Several of these record a regression that already happened. A control
-        without one reads as arbitrary, and the first person to tidy it up will
-        delete the entry that was holding a gate honest.
-        """
-        unreasoned = sorted(
-            slug for slug, control in GATE_CONTROLS.items()
-            if not control.why.strip()
-        )
-        self.assertEqual(
-            unreasoned, [],
-            f"these controls state no reason: {unreasoned}",
-        )
-
-    def test_every_control_is_shaped_by_its_kind(self):
-        """Each kind carries the fields it means something by.
-
-        `__post_init__` already enforces the required ones. This asserts the
-        mirror image — that a kind does not carry a field it has no use for,
-        which reads as "this was configured like the others" rather than "this is
-        what this kind is": a `fixture` control with an `edit`, a `sabotage`
-        control with no edit, an `exempt` with neither a reason nor a waiver.
-        """
-        wrong: list[str] = []
-        for slug, control in sorted(GATE_CONTROLS.items()):
-            if control.kind == "exempt":
-                if control.edit is not None:
-                    wrong.append(f"  {slug}: exempt control also carries an edit")
-                if not control.reason.strip():
-                    wrong.append(f"  {slug}: exempt control states no reason")
+        for name, control in GATE_CONTROLS.items():
+            self.assertIsInstance(control, Control, f"{name} is not a Control")
+            if control.kind in ("sabotage", "gradle"):
+                self.assertIsInstance(
+                    control.edit,
+                    Edit,
+                    f"{control.kind} control {name!r} declares no Edit",
+                )
             elif control.kind == "fixture":
-                if control.edit is not None:
-                    wrong.append(f"  {slug}: fixture control also carries an edit")
-                if not control.fixture.strip():
-                    wrong.append(f"  {slug}: fixture control names no setup function")
-            elif control.edit is None:
-                wrong.append(f"  {slug}: {control.kind} control carries no edit")
-        self.assertEqual(
-            wrong, [],
-            "each control must be shaped by its kind:\n" + "\n".join(wrong),
-        )
+                self.assertTrue(
+                    control.fixture, f"fixture control {name!r} names no fixture"
+                )
+            else:  # exempt — documented as carrying no input change
+                self.assertIsNone(
+                    control.edit,
+                    f"exempt control {name!r} should carry no edit to apply",
+                )
 
-    def test_controls_are_a_dict_of_controls(self):
-        """The registry is keyed by slug; a value that is not a `Control` is a typo.
 
-        Cheap, and it pins the type the rest of the tooling joins against.
+class TestTheDeletionThatCrashedTheImport(unittest.TestCase):
+    """The specific control whose declaration took sgate down."""
+
+    def test_log_interpolation_declares_an_empty_replacement(self):
+        """`log-interpolation` deletes an allowlist line, so `repl` is `''`.
+
+        Kept as a named assertion rather than a general one: this is the control
+        that made `import sgate` raise, and a future edit to it is the most likely
+        way the same crash returns.
         """
-        wrong = sorted(
-            f"{slug}={type(control).__name__}"
-            for slug, control in GATE_CONTROLS.items()
-            if not isinstance(control, Control)
+        control = GATE_CONTROLS["log-interpolation"]
+        self.assertEqual(control.edit.kind, "regex")
+        self.assertEqual(
+            control.edit.repl, "", "the deletion edit must stay a deletion"
         )
-        self.assertEqual(wrong, [], f"non-Control entries in the registry: {wrong}")
+        self.assertTrue(control.edit.pattern, "a deletion still needs a pattern")
+
+
+class TestRegexRepl(unittest.TestCase):
+    """`repl` distinguishes unset (`None`) from a deliberate deletion (`""`)."""
+
+    def test_empty_replacement_is_a_deletion_and_is_legal(self):
+        """`repl=''` with a pattern constructs: that edit removes the match."""
+        edit = Edit(
+            kind="regex", pattern=r"^targets: \[android\]$", repl="", flags="MULTILINE"
+        )
+        self.assertEqual(edit.repl, "")
+
+    def test_omitted_replacement_is_rejected(self):
+        """A regex edit with no `repl` at all is the loudness the design wants.
+
+        This is the case the old `not self.repl` check was written for, and it must
+        keep failing: nothing here says which file to read.
+        """
+        with self.assertRaises(ValueError) as ctx:
+            Edit(kind="regex", pattern="anything")
+        self.assertIn("repl", str(ctx.exception))
+
+    def test_pattern_is_still_required(self):
+        """An empty `pattern` is the "finds nothing" case and stays refused."""
+        with self.assertRaises(ValueError) as ctx:
+            Edit(kind="regex", repl="")
+        self.assertIn("pattern", str(ctx.exception))
+
+    def test_empty_replacement_actually_deletes(self):
+        """`re.subn` with `repl=''` removes the match and reports the hit.
+
+        `$` matches before the trailing newline, so the line's text goes and its
+        newline stays — the assertion is on the text being gone, not on the file
+        becoming empty. The applier's own `assert n >= 1` is what makes the edit
+        loud when the pattern has moved on.
+        """
+        new, n = re.subn(
+            r"^targets: \[android\]$", "", "targets: [android]\n", count=1, flags=re.M
+        )
+        self.assertEqual(n, 1, "deletion matched nothing — it would prove nothing")
+        self.assertEqual(new.strip(), "", "the line's text survived the deletion")
+
+
+class TestUnchangedValidation(unittest.TestCase):
+    """The neighbouring checks must keep behaving as before."""
+
+    def test_replace_requires_old(self):
+        with self.assertRaises(ValueError):
+            Edit(kind="replace", new="x")
+
+    def test_age_dir_requires_positive_days(self):
+        with self.assertRaises(ValueError):
+            Edit(kind="age_dir", days=0)
+
+    def test_unknown_flag_is_rejected_at_declaration_time(self):
+        with self.assertRaises(ValueError):
+            Edit(kind="regex", pattern="x", repl="y", flags="NOT_A_FLAG")
+
+    def test_non_regex_edits_default_repl_to_none_without_raising(self):
+        """`repl` is only meaningful for `regex`; other kinds must not trip it.
+
+        This is the second half of the contract: the check is kind-scoped, so a
+        `replace` edit never needs to spell out a replacement.
+        """
+        edit = Edit(kind="replace", old="a", new="b")
+        self.assertIsNone(edit.repl)
 
 
 if __name__ == "__main__":

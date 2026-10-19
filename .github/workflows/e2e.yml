@@ -131,22 +131,21 @@ jobs:
 
   # Sets up the AVD once and shares it across all matrix shards.
   # AVD image caching via actions/cache speeds up warm runs.
+  #
+  # This is a job-level `uses:`, not a step. A reusable workflow is invoked from
+  # `jobs.<id>.uses`; putting it in a step's `uses:` asks GitHub to resolve
+  # `.github/workflows/_setup-avd.yml` as a *local action*, which is not one —
+  # the run dies with "Can't find 'action.yml' ... Did you forget to run
+  # actions/checkout", before a single line of setup executes. The job cannot
+  # declare `runs-on`, `steps` or `outputs` alongside `uses:`; results arrive
+  # through `needs.setup-avd.outputs.*`, declared by the called workflow.
   setup-avd:
     needs: [plan]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    outputs:
-      avd_name: ${{ steps.setup.outputs.AVD_NAME }}
-      android_avd_home: ${{ steps.setup.outputs.ANDROID_AVD_HOME }}
-      sdk_root: ${{ steps.setup.outputs.SDK_ROOT }}
-    steps:
-      - uses: actions/checkout@v7
-      - name: Set up AVD
-        uses: ./.github/workflows/_setup-avd.yml
-        with:
-          avd_name: singularity-api36
-          system_image: system-images;android-36;google_apis;x86_64
-          device: pixel_6
+    uses: ./.github/workflows/_setup-avd.yml
+    with:
+      avd_name: singularity-api36
+      system_image: system-images;android-36;google_apis;x86_64
+      device: pixel_6
 
   e2e:
     name: e2e (${{ needs.plan.outputs.suite }}, shard ${{ matrix.shard }})
@@ -199,11 +198,17 @@ jobs:
       # performance impact tracked in ADR 2026-10-18; unify via #723.
       - name: Set AVD environment
         run: |
-          echo "ANDROID_AVD_HOME=${{ needs.setup-avd.outputs.android_avd_home }}" >> "$GITHUB_ENV"
+          # One grouped redirect per file (SC2129): several separate appends to the
+          # same file re-open it once per line, which is what shellcheck rejects.
+          # ANDROID_AVD_HOME is an environment variable, not an executable path, so
+          # it goes to GITHUB_ENV; the three tool directories go to GITHUB_PATH.
           sdk_root="${{ needs.setup-avd.outputs.sdk_root }}"
-          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
-          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
-          echo "$sdk_root/build-tools/37.0.0" >> "$GITHUB_PATH"
+          echo "ANDROID_AVD_HOME=${{ needs.setup-avd.outputs.android_avd_home }}" >> "$GITHUB_ENV"
+          {
+            echo "$sdk_root/emulator"
+            echo "$sdk_root/platform-tools"
+            echo "$sdk_root/build-tools/37.0.0"
+          } >> "$GITHUB_PATH"
 
       # The whole lifecycle (boot + APK install + Maestro run) lives in
       # run_maestro_e2e.py so the emulator stays up for the full duration.

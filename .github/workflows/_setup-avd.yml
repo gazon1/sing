@@ -24,6 +24,21 @@ on:
         type: string
         default: ""
         description: "Custom cache key suffix; defaults to avd_name for cache invalidation"
+    # A caller that invokes this as a reusable workflow reads its results through
+    # `needs.<job>.outputs.*`, which is populated only from what this block declares.
+    # Without it the caller's `needs.setup-avd.outputs.sdk_root` resolves to an empty
+    # string and the emulator job runs with no SDK on PATH — a silent failure that
+    # looks like a flaky boot rather than a missing declaration.
+    outputs:
+      avd_name:
+        description: "Name of the AVD that was created or restored"
+        value: ${{ jobs.setup-avd.outputs.avd_name }}
+      android_avd_home:
+        description: "Directory holding the AVD ini, for ANDROID_AVD_HOME"
+        value: ${{ jobs.setup-avd.outputs.android_avd_home }}
+      sdk_root:
+        description: "Android SDK root containing emulator/ and platform-tools/"
+        value: ${{ jobs.setup-avd.outputs.sdk_root }}
 
 jobs:
   setup-avd:
@@ -100,6 +115,15 @@ jobs:
           ANDROID_AVD_HOME="$(dirname "$avd_ini")"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_OUTPUT"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          # `export`, because the verification below runs in THIS step and
+          # `$GITHUB_ENV` only reaches later ones. As a plain shell variable it was
+          # invisible to the emulator child process, which then fell back to its own
+          # default AVD home — the very directory the comment above says does not
+          # match — and `emulator -list-avds` reported nothing while the .ini sat on
+          # disk the whole time. The gate said the AVD was missing; it was found and
+          # simply never pointed at.
+          export ANDROID_AVD_HOME
 
           # Verify the AVD is visible to the emulator binary.
           "$sdk_root/emulator/emulator" -list-avds | grep -qx "$AVD_NAME" \
