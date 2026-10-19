@@ -20,7 +20,7 @@ tags:
       id: task_item_${RUN_ID}_attachtesttask2026
     timeout: 8000
 - tapOn:
-    id: task_item_attachtesttask2026
+    id: task_item_${RUN_ID}_attachtesttask2026
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input

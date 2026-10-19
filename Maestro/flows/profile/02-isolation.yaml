@@ -123,4 +123,4 @@ tags:
 - tapOn:
     id: nav_tab_inbox
 - assertNotVisible:
-    id: task_item_worktask
+    id: task_item_${RUN_ID}_worktask

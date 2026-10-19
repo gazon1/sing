@@ -51,7 +51,7 @@ tags:
 
 # ── 3. Card → Results (view name is the Results top-bar title) ──────────
 - tapOn:
-    id: saved_agenda_card_journey_view
+    id: saved_agenda_card_${RUN_ID}_journey_view
 - extendedWaitUntil:
     visible:
       id: top_bar_back_button
@@ -112,4 +112,4 @@ tags:
       id: saved_agenda_empty_title
     timeout: 8000
 - assertNotVisible:
-    id: saved_agenda_card_journey_renamed
+    id: saved_agenda_card_${RUN_ID}_journey_renamed

@@ -182,15 +182,15 @@ class RealFlowsAreReachableTest(unittest.TestCase):
     def test_every_tag_ci_asks_for_actually_selects_a_flow(self):
         """SUITE values CI uses, read out of the files that drive the jobs.
 
-        CI no longer uses TAGS=-based selection. Instead e2e.yml passes
-        SUITE=smoke|full to e2e-shard.sh, which runs either
-        Maestro/flows/smoke/ (smoke) or Maestro/flows/ (full) directly,
-        bypassing the tag filter entirely.
+        CI selects by suite: e2e.yml passes SUITE=smoke|full to
+        scripts/run-maestro-e2e.py, which runs the flow root filtered by the
+        `smoke` tag for the smoke suite and unfiltered for the full one.
 
-        This test still guards the same failure mode: a SUITE whose directory
-        is empty would run zero flows and report success. It also verifies
-        that the smoke directory has at least one flow, because smoke is the
-        default SUITE and an empty smoke/ directory would be silent in CI.
+        This test still guards the same failure mode: a suite that selects
+        zero flows would run nothing and report success. The smoke suite is
+        selected by tag, so the smoke *directory* is no longer the selection —
+        but its flows are the ones the tag is expected to keep, and an empty
+        directory would mean the suite lost its own contents.
         """
         sources = {
             p.relative_to(_ROOT).as_posix(): p.read_text(encoding="utf-8")
@@ -200,8 +200,8 @@ class RealFlowsAreReachableTest(unittest.TestCase):
             )
             if p.is_file()
         }
-        # SUITE=smoke|full is set by e2e.yml; e2e-shard.sh reads it and picks
-        # the directory.  The only values currently used are smoke and full.
+        # SUITE=smoke|full is set by e2e.yml; the runner reads it and picks
+        # the selection.  The only values currently used are smoke and full.
         suites: set[str] = set()
         for text in sources.values():
             suites |= set(re.findall(r"SUITE=([a-z]+)", text))
@@ -210,7 +210,7 @@ class RealFlowsAreReachableTest(unittest.TestCase):
         self.assertTrue(
             smoke_dir.is_dir() and any(smoke_dir.glob("*.yaml")),
             f"smoke SUITE is used in CI but Maestro/flows/smoke/ is empty or "
-            f"absent — the job would run zero flows and pass",
+            f"absent — the suite would have lost its own contents",
         )
 
 
