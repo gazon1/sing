@@ -50,13 +50,19 @@ private const val RECENT_PUSH_LIMIT = 16
  * The trade-off this buys: an upstream that *deliberately* rewrites the field to a
  * value the field pushed earlier is not applied. The two cases are indistinguishable
  * from the field's side — both arrive as "a value I sent a moment ago" — and the
- * stale case is the one that destroys work, so it wins. A deliberate rewrite to a
- * value the field no longer holds is rare; a lagging upstream is not.
+ * stale case is the one that destroys work, so it wins.
+ *
+ * The one way out is [isDeliberateRewrite]: an upstream that *knows* it is rewriting
+ * says so, and the guard is lifted for that value. See [rememberBridgedTextFieldState]
+ * for how the upstream says it.
  *
  * @param externalText the upstream value.
  * @param lastEmitted the last text the field held.
  * @param currentText the text the field currently holds.
  * @param pushedValues the texts the field pushed upstream, oldest first.
+ * @param isDeliberateRewrite `true` when the upstream declared this value a rewrite
+ *   rather than an echo. The echo guard does not apply to it; the only question left
+ *   is whether the field already shows it.
  * @return `true` when [externalText] must be written into the field.
  */
 internal fun shouldPullExternalText(
@@ -64,9 +70,16 @@ internal fun shouldPullExternalText(
     lastEmitted: String,
     currentText: String,
     pushedValues: List<String> = emptyList(),
-): Boolean = externalText != lastEmitted &&
-    externalText != currentText &&
-    pushedValues.none { it == externalText }
+    isDeliberateRewrite: Boolean = false,
+): Boolean = if (isDeliberateRewrite) {
+    // A declared rewrite wins over whatever the field holds — but there is nothing to
+    // write when the field already shows that text.
+    externalText != currentText
+} else {
+    externalText != lastEmitted &&
+        externalText != currentText &&
+        pushedValues.none { it == externalText }
+}
 
 /**
  * Decides whether the field's text must be pushed upstream.
@@ -94,6 +107,14 @@ internal fun shouldPushFieldText(fieldText: String, externalText: String): Boole
  *   it is ahead, and the text on screen is the text that was discarded. Pushing it back
  *   would resurrect what the user threw away.
  *
+ * **The trade-off is accepted, and it is pinned by a test.** The price is one character
+ * in the rarest case: a field whose upstream has received *no* push at all — the user
+ * typed one character and left in the same frame — has an upstream value the field never
+ * pushed, so the flush declines and that character is lost. The alternative is to push
+ * on every dispose, which would resurrect a discarded draft every time a user cleared a
+ * field and navigated away. The draft is worth more than the character, and the
+ * character is recoverable by typing it again.
+ *
  * @param fieldText the text the field currently holds.
  * @param externalText the upstream value.
  * @param pushedValues the texts the field pushed upstream, oldest first.
@@ -112,13 +133,23 @@ internal fun shouldFlushOnDispose(
  * read by the bridge's own coroutines, and a snapshot write per keystroke is work the
  * frame does not need.
  */
-private class BridgeHistory(initialText: String) {
+private class BridgeHistory(initialText: String, initialRevision: Long) {
 
     /** The last text the field held, seed included. */
     var lastEmitted: String = initialText
 
     /** The texts the field pushed upstream, oldest first, bounded. */
     val pushedValues: MutableList<String> = mutableListOf()
+
+    /**
+     * The last revision token the bridge saw.
+     *
+     * A revision that differs from this one is the upstream declaring a rewrite; the
+     * token is remembered so the same declaration arriving twice is not read as two
+     * rewrites. It starts at the token the field was created with, so the *first*
+     * upstream value is never mistaken for a rewrite.
+     */
+    var lastRevision: Long = initialRevision
 
     /** Records a text the field handed out, dropping the oldest when the bound is hit. */
     fun recordPush(text: String) {
@@ -150,14 +181,28 @@ private class BridgeHistory(initialText: String) {
  * but the ViewModel's contract in this project is a single immutable UI state, and a mutable
  * buffer inside it would be a second source of truth for the same value.
  *
+ * **The revision token.** The pull guard cannot tell a *lagging* upstream from an upstream that
+ * *deliberately rewrites* the field to a value the field pushed earlier — from the field's side
+ * both arrive as "a value I sent a moment ago". A lagging upstream must not win, so it does. An
+ * upstream that knows it is rewriting can say so: it advances [revision], and the guard is lifted
+ * for the value that arrives with the new token. The token is a counter, not a value: any change
+ * to it means "the value that comes with it is a rewrite".
+ *
+ * The default is `0`, and a caller that never rewrites never advances it — the guard stays
+ * exactly as it was. A caller that *does* rewrite must advance it, or the rewrite is silently
+ * dropped when it lands on a value the field pushed earlier.
+ *
  * @param externalText the upstream (ViewModel) value.
  * @param onTextChanged invoked with the field text whenever the user edits it.
+ * @param revision the upstream's rewrite counter. Advance it when the upstream deliberately
+ *   replaces the value; the bridge then applies that value even if the field pushed it before.
  * @return the [TextFieldState] to hand to the text field.
  */
 @Composable
 fun rememberBridgedTextFieldState(
     externalText: String,
     onTextChanged: (String) -> Unit,
+    revision: Long = 0,
 ): TextFieldState {
     // Seeded from the upstream: a field that starts empty while the upstream holds a loaded value
     // would push that empty value back on its first emission and wipe what was loaded.
@@ -165,7 +210,7 @@ fun rememberBridgedTextFieldState(
     val currentExternal by rememberUpdatedState(externalText)
     val currentOnTextChanged by rememberUpdatedState(onTextChanged)
 
-    val history = remember { BridgeHistory(externalText) }
+    val history = remember { BridgeHistory(externalText, revision) }
 
     // field -> upstream
     LaunchedEffect(state) {
@@ -182,8 +227,21 @@ fun rememberBridgedTextFieldState(
     }
 
     // upstream -> field (only when the change did not come from us)
-    LaunchedEffect(externalText) {
-        if (shouldPullExternalText(externalText, history.lastEmitted, state.text.toString(), history.pushedValues)) {
+    LaunchedEffect(externalText, revision) {
+        // A new revision is the upstream declaring a rewrite. The token is consumed here,
+        // so the same declaration arriving twice is not read as two rewrites.
+        val isRewrite = revision != history.lastRevision
+        if (isRewrite) {
+            history.lastRevision = revision
+        }
+        val shouldPull = shouldPullExternalText(
+            externalText = externalText,
+            lastEmitted = history.lastEmitted,
+            currentText = state.text.toString(),
+            pushedValues = history.pushedValues,
+            isDeliberateRewrite = isRewrite,
+        )
+        if (shouldPull) {
             state.setTextAndPlaceCursorAtEnd(externalText)
         }
     }

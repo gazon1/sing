@@ -94,6 +94,51 @@ class TextFieldStateBridgeTest {
     }
 
     @Test
+    fun pullAppliesADeliberateRewriteEvenWhenTheFieldPushedThatValue() {
+        // The upstream declares a rewrite: the value it sends is one the field pushed
+        // earlier and has moved on from. Without the declaration the bridge would read
+        // this as a lagging echo and keep the field's newer text — which is the wrong
+        // winner when the upstream meant to replace the value.
+        assertTrue(
+            shouldPullExternalText(
+                externalText = "abc",
+                lastEmitted = "abcd",
+                currentText = "abcd",
+                pushedValues = listOf("a", "ab", "abc"),
+                isDeliberateRewrite = true,
+            ),
+        )
+    }
+
+    @Test
+    fun pullSkipsADeliberateRewriteTheFieldAlreadyShows() {
+        // A rewrite to the text the field already holds has nothing to write.
+        assertFalse(
+            shouldPullExternalText(
+                externalText = "abcd",
+                lastEmitted = "abcd",
+                currentText = "abcd",
+                pushedValues = listOf("abcd"),
+                isDeliberateRewrite = true,
+            ),
+        )
+    }
+
+    @Test
+    fun pullStillIgnoresALaggingEchoWithoutTheDeclaration() {
+        // The same value, without the rewrite declaration, stays an echo: the lagging
+        // case must not be lost to the mechanism that rescues the deliberate one.
+        assertFalse(
+            shouldPullExternalText(
+                externalText = "abc",
+                lastEmitted = "abcd",
+                currentText = "abcd",
+                pushedValues = listOf("a", "ab", "abc"),
+            ),
+        )
+    }
+
+    @Test
     fun pushSkipsTheValueTheUpstreamAlreadyHolds() {
         // The field was seeded from the upstream. Pushing the seed back would mark the
         // upstream dirty for a value it already has.
@@ -148,6 +193,29 @@ class TextFieldStateBridgeTest {
                 fieldText = "abc",
                 externalText = "abc",
                 pushedValues = listOf("a", "ab", "abc"),
+            ),
+        )
+    }
+
+    @Test
+    fun flushDeclinesWhenTheUpstreamNeverReceivedAPush() {
+        // The accepted price of the flush, pinned.
+        //
+        // The user typed one character and left in the same frame: the push is
+        // asynchronous, so the upstream never received *any* value from the field and
+        // holds something the field never pushed. The flush declines, and that one
+        // character is lost.
+        //
+        // The alternative — pushing on every dispose — would resurrect a discarded
+        // draft every time a user cleared a field and navigated away, which is a far
+        // larger loss than one character. The trade-off is accepted; this test is what
+        // "accepted" means: the behaviour is deliberate, not an accident, and a change
+        // to it has to change this test on purpose.
+        assertFalse(
+            shouldFlushOnDispose(
+                fieldText = "a",
+                externalText = "",
+                pushedValues = emptyList(),
             ),
         )
     }

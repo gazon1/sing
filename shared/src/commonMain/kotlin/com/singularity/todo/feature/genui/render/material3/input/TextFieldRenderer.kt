@@ -41,9 +41,15 @@ internal fun ComponentRegistry.registerTextField(): Unit = register("text_field"
  * **The one difference.** The bridge recognises an echo by the values the field pushed, not by
  * the last one alone: a model value that equals a value the field pushed earlier is treated as
  * an echo and is not written back into the field. The difference is benign in the common case —
- * the field already shows that text, so nothing visible changes — and the bridge's own KDoc
- * records the trade-off for the case where the field has moved on since.
- * `TextFieldStateBridgeTest` pins the guards.
+ * the field already shows that text, so nothing visible changes — but it is *not* benign when
+ * the server rewrites the field to a value the field had already sent and has moved on since.
+ * That is a rewrite, not an echo, and the field would keep the text the user typed.
+ *
+ * **The rewrite token.** The surface knows which writes came from the server and which came from
+ * the field, so it can say "this value is a rewrite": `ctx.serverRevision()` counts the server's
+ * writes, and the counter is handed to the bridge as its revision token. A server rewrite then
+ * wins over the keyboard — the same rule the value-based field had, and the same rule the
+ * surface protocol never spelled out. `TextFieldStateBridgeTest` pins the guards.
  *
  * See ADR `2026-10-19-text-field-state-migration`.
  */
@@ -51,9 +57,11 @@ internal fun ComponentRegistry.registerTextField(): Unit = register("text_field"
 private fun BoundTextField(f: UiNode.TextField, ctx: DataContext, modifier: Modifier) {
     val bound by ctx.value(f.path).collectAsStateWithLifecycle(initialValue = null)
     val current: String = (bound as? JsonPrimitive)?.content ?: f.initial
+    val serverRevision by ctx.serverRevision().collectAsStateWithLifecycle(initialValue = 0L)
     val state = rememberBridgedTextFieldState(
         externalText = current,
         onTextChanged = { newValue: String -> ctx.write(f.path, JsonPrimitive(newValue)) },
+        revision = serverRevision,
     )
     OutlinedTextField(
         state = state,
