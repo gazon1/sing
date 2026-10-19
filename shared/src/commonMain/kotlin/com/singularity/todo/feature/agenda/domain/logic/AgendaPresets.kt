@@ -7,6 +7,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 
 /**
@@ -278,6 +279,38 @@ object AgendaPresets {
             Selector.DateBucket(RelativeBucket.Overdue),
             order = 0,
         )
+    }
+
+    /**
+     * The agenda the Today tab shows on [dayOfWeek].
+     *
+     * The working-day switches in Settings live under the heading "Working Days":
+     * [saturdayIsWorkingDay] and [sundayIsWorkingDay] say whether that weekend day
+     * is a working day, not whether it is a weekend. (The persisted fields are named
+     * `weekendSat` / `weekendSun`, which reads the other way round — the setting
+     * screen is the authority on what the switch means.)
+     *
+     * On a working day the [workDay] preset applies; on a day off the [offDay]
+     * preset does, so a Saturday that is not a working day shows the plain
+     * date-based sections instead of morning/lunch/afternoon work blocks.
+     *
+     * This is the "caller's responsibility" that [workDayPreset] documents:
+     * deciding whether today is a working day belongs to whoever knows the user's
+     * working-day choices — here, the Today route, which reads them from settings.
+     */
+    fun forToday(
+        dayOfWeek: DayOfWeek,
+        saturdayIsWorkingDay: Boolean,
+        sundayIsWorkingDay: Boolean,
+        workDay: AgendaDefinition,
+        offDay: AgendaDefinition = Today,
+    ): AgendaDefinition {
+        val isWorkingDay = when (dayOfWeek) {
+            DayOfWeek.SATURDAY -> saturdayIsWorkingDay
+            DayOfWeek.SUNDAY -> sundayIsWorkingDay
+            else -> true
+        }
+        return if (isWorkingDay) workDay else offDay
     }
 
     /**

@@ -1,7 +1,7 @@
 ---
 title: "The AVD transport is an optimisation; provisioning is the guarantee"
 date: 2026-10-19
-status: open
+status: accepted
 tags: ["ci", "android", "emulator", "e2e"]
 ---
 
