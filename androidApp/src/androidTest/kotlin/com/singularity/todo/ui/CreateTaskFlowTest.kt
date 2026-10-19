@@ -32,20 +32,21 @@ class CreateTaskFlowTest {
 
     @Before
     fun setup() {
-        device =
-            UiDevice.getInstance(
-                androidx.test.platform.app.InstrumentationRegistry
-                    .getInstrumentation(),
-            )
+        device = awaitUiDevice()
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // unlock
     }
 
     /**
      * Navigate to Today tab (start destination) and wait for it to load.
+     *
+     * The wait is the shared one — see [awaitShell]. The 8 s it replaces was
+     * shorter than a cold start takes on a loaded CI runner, and it failed with
+     * a bare `NullPointerException` on the next line, naming neither the cause
+     * nor the screen that was there instead.
      */
     private fun navigateToToday() {
-        device.wait(Until.findObject(By.res("nav_tab_today")), 8_000)
+        device.awaitShell()
     }
 
     /**
@@ -62,21 +63,25 @@ class CreateTaskFlowTest {
         navigateToToday()
 
         // Tap the FAB to open the task editor.
-        device.findObject(By.res("tasks_fab")).click()
+        device
+            .awaitObject(By.res("tasks_fab"), "the add-task FAB", TAB_TIMEOUT_MS)
+            .click()
 
         // The title input must appear in the editor.
         val titleInput =
-            device.wait(
-                Until.findObject(By.res("task_editor_title_input")),
-                3_000,
+            device.awaitObject(
+                By.res("task_editor_title_input"),
+                "the task editor's title input",
+                TAB_TIMEOUT_MS,
             )
-        assertNotNull("Task editor title input should appear after FAB tap", titleInput)
 
         // Type the task title.
         titleInput.setText("Test task UiAutomator")
 
         // Tap Save.
-        device.findObject(By.res("task_editor_save")).click()
+        device
+            .awaitObject(By.res("task_editor_save"), "the editor's save button", TAB_TIMEOUT_MS)
+            .click()
 
         // Editor closes. Wait for the created task to appear in the list.
         // Slug: "Test task UiAutomator" → "test_task_uiautomator"
@@ -104,12 +109,18 @@ class CreateTaskFlowTest {
         navigateToToday()
 
         // Open editor.
-        device.findObject(By.res("tasks_fab")).click()
-        device.wait(Until.findObject(By.res("task_editor_title_input")), 3_000)
+        device
+            .awaitObject(By.res("tasks_fab"), "the add-task FAB", TAB_TIMEOUT_MS)
+            .click()
+        device.awaitObject(
+            By.res("task_editor_title_input"),
+            "the task editor's title input",
+            TAB_TIMEOUT_MS,
+        )
 
         // Type a title.
         device
-            .findObject(By.res("task_editor_title_input"))
+            .awaitObject(By.res("task_editor_title_input"), "the task editor's title input", TAB_TIMEOUT_MS)
             .setText("Do not save this task")
 
         // Press back to cancel.
@@ -144,11 +155,15 @@ class CreateTaskFlowTest {
         navigateToToday()
 
         // FAB opens the editor.
-        device.findObject(By.res("tasks_fab")).click()
-        device.wait(Until.findObject(By.res("task_editor_title_input")), 3_000)
+        device
+            .awaitObject(By.res("tasks_fab"), "the add-task FAB", TAB_TIMEOUT_MS)
+            .click()
 
-        val titleInput = device.findObject(By.res("task_editor_title_input"))
-        assertNotNull("Title input should be present", titleInput)
+        val titleInput = device.awaitObject(
+            By.res("task_editor_title_input"),
+            "the task editor's title input",
+            TAB_TIMEOUT_MS,
+        )
 
         // Input should be empty initially.
         val initialText = titleInput.text
