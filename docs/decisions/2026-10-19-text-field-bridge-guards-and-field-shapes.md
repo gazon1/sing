@@ -82,6 +82,19 @@ cannot be edited. It seeds from the value and follows it when it changes, and it
 only when the text actually differs — writing the same text again would reset the
 cursor of a field that is not read-only. The three hand-rolled call sites now use it.
 
+**The bridge flushes the pending edit when the field leaves the composition.** The push is
+asynchronous — a `snapshotFlow` emission lands on the next frame — so a user who types and
+navigates away in the same frame would leave the upstream one character behind. The
+bridge pushes the field's final text on the way out.
+
+The flush is guarded by the upstream being *behind*: the upstream's value must be one the
+field pushed. An upstream that changed from the outside — a discarded draft, a cleared
+query — is not behind, it is ahead, and the text on screen is the text that was discarded.
+Pushing it back would resurrect what the user threw away. The price is one character in
+the rarest case: a field whose upstream has not received *any* push yet (one character
+typed and left in the same frame) has an upstream value the field never pushed, and the
+flush declines.
+
 **`ObserveTextFieldEdits` moved to its own file**,
 `core/ui/components/TextFieldEdits.kt`, next to the `fieldTextFlow` primitive both it and
 the bridge read the field's text through. The two now agree by construction on what

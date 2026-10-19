@@ -133,6 +133,13 @@ field pushed earlier is not applied. The two are indistinguishable from the fiel
 and the lagging case is the one that destroys work, so it wins. A rewrite to a value the
 field never pushed always lands.
 
+**The last edit is flushed when the field leaves the composition.** The push is
+asynchronous, so a user who types and navigates away in the same frame would leave the
+upstream one character behind. The bridge pushes the field's final text on the way out —
+but only when the upstream is *behind* (its value is one the field pushed). An upstream
+that changed from the outside — a discarded draft, a cleared query — is ahead, and the
+text on screen is the text that was discarded; pushing it back would resurrect it.
+
 ## 7. Testing
 
 | What | Where |
@@ -171,7 +178,55 @@ state that has not been updated yet, so it stays disabled until the edit lands. 
 that types and then asserts on the app's state has to let the composition settle first
 (`waitForIdle()`, or the scope's own `settle()`).
 
-## 8. Traps
+## 8. The inventory: every field in the app
+
+Who owns the text is the decision; this is where each field's answer lives. A field that
+is not in this table has not been classified yet — classify it before you touch it.
+
+**Bridged** — the field and a ViewModel-owned string hold the same text.
+
+| Where | Field |
+|---|---|
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the search query |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the title |
+| `feature/ai/chat/ChatScreen.kt` | the chat input |
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the view's name |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | start, end, quote, note |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the name, the description |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the name, the description |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the search query |
+| `feature/search/SearchScreen.kt` | the query |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the API key, the base URL |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the title |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the description |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the GenUI input |
+
+**Anchored** — the value comes from outside and the field follows it.
+
+| Where | Field |
+|---|---|
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the provider, the model |
+| `feature/settings/screens/WorkScheduleSettingsScreen.kt` | the time |
+| `feature/search/presentation/SavedSearchesRow.kt` | the rename field of a saved search |
+| `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | the interval amount, the day of month |
+
+**Local** — the field owns the text; it is read when the user commits.
+
+The auth forms (`LoginScreen`, `AttachAccountScreen`, `MagicLinkConfirmScreen`,
+`ChangePasswordScreen`, `AuthFormFields`), the sheets and dialogs that commit on a
+button (`AttachmentsSheet`, `AddTagDialog`, `LinkUrlDialog`, `InternalLinkPickerSheet`,
+`ChecklistEditorSheet`, `TimeEntryEditorSheet`, `TaskEditorEstimateSheet`,
+`SubtasksSection`, `TaskDetailProposalSection`), the quick-add row of the notes list,
+`ProjectDetailBody`'s two fields, `ProfileSwitcherScreen`, `ChatInputBar` and the
+regexp sheet of `SavedAgendaScreen`.
+
+A local field is still *seeded* from a parameter — the rename dialog's current name, the
+regexp sheet's pattern, the tag dialog's name. That is safe only because those
+composables are created fresh each time they open (`if (showDialog) { … }`, or a `let` on
+a nullable). A field that lives as long as the list does must not be seeded: the
+rename field of a saved search is the worked example, and it is anchored for that reason.
+
+## 9. Traps
 
 - **A field's text is not a parameter.** A caller that needs the value reads the field's
   state; it does not pass the value in and expect to get it back.

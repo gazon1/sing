@@ -43,6 +43,45 @@ factory { MyService(get(), get()) }  // ✅ fine for non-ViewModel
 val service = koinInject<MyService>()  // ✅
 ```
 
+### An optional dependency
+
+`getOrNull` is **not** the optional-dependency tool. It answers "is there a definition
+for this type?" — a definition that exists and *fails to be created* is not a missing
+definition, it throws, and the caller cannot tell the two apart. A broken optional
+binding therefore takes the whole screen down in composition instead of degrading to
+"this feature is not configured".
+
+```kotlin
+// WRONG — a broken AI binding crashes the note editor:
+ai = NoteAiController(improveNote = getOrNull<ImproveNoteUseCase>()?.let(::improveNoteLambda))
+
+// RIGHT — a broken AI binding is reported and the editor continues without AI:
+ai = NoteAiController(
+    improveNote = getOptionalOrNull<ImproveNoteUseCase> { reportBrokenAi(it) }
+        ?.let(::improveNoteLambda),
+)
+```
+
+`Scope.getOptionalOrNull(onFailure)` lives in
+`shared/src/commonMain/kotlin/com/singularity/todo/core/di/OptionalDependencies.kt`. A
+missing definition is the normal case and is not reported; a definition that cannot be
+created is a defect and goes to `onFailure`, where the call site logs it.
+
+### The graph must be resolvable, not only registered
+
+`TestPlatformModuleParityTest` compares the *registrations* of the production platform
+module against the test one. It never resolves anything, so it cannot see a definition
+whose own dependencies are missing — and that is how the note editor stayed broken on
+every platform (`RewriteNoteUseCase` took the `TypedTool` *interface*, `factoryOf`
+erased the generic argument, and nothing was bound for the raw type).
+
+`DomainGraphResolutionTest`
+(`desktopApp/src/jvmTest/kotlin/com/singularity/todo/DomainGraphResolutionTest.kt`)
+enumerates every definition in the graph and creates each one. A definition that needs a
+*runtime parameter* is skipped — the caller supplies it, and its absence is not a broken
+graph. Run it after touching a module: it is the check that turns "the screen crashes
+when a user reaches it" into a red test.
+
 ### Multi-Platform Module Structure
 
 **There is no `expect`/`actual` for DI.** Per AGENTS.md the only `expect`/`actual` seam in this
