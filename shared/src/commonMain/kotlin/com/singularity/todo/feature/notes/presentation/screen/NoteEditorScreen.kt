@@ -151,7 +151,21 @@ fun NoteEditorScreenContent(
                 },
                 actions = {
                     SavedIndicator(visible = savedVisible)
-                    IconButton(onClick = onSaveNow, modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE)) {
+                    IconButton(
+                        onClick = {
+                            // Flush the editor before the save reads the draft.
+                            //
+                            // The body lives inside the editor's state object, and the
+                            // dispatch to the ViewModel is asynchronous: a save issued in
+                            // the same frame as the last keystroke would otherwise persist
+                            // the *previous* body — the user typed, pressed save, and the
+                            // note came back without the text. The flush is a no-op when
+                            // the dispatch has already happened.
+                            session.dispatchHtml()
+                            onSaveNow()
+                        },
+                        modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVE),
+                    ) {
                         Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
                 },

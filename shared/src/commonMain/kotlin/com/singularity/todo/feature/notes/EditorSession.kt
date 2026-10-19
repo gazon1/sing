@@ -4,7 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import com.mohamedrejeb.richeditor.model.RichTextState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * Holds all mutable editor state for one note-editing session.
@@ -17,15 +21,15 @@ import com.mohamedrejeb.richeditor.model.RichTextState
  *
  * Keyed to [state.id] so switching notes creates a fresh session automatically.
  *
+ * @param lastDispatchedHtml The HTML the session starts from — the *loaded* content,
+ *   normalised through [RichTextState.toHtml]. Every dispatch is compared against
+ *   it, so the load itself is never echoed back as a phantom edit.
  * @param onBodyChange Called whenever the HTML changes after the initial load.
- *                     The initial load is skipped to avoid echoing the loaded
- *                     content back to the ViewModel as a phantom edit.
  */
 @Stable
 class EditorSession(
     val richTextState: RichTextState,
     private var lastDispatchedHtml: String,
-    private var firstLoadSkipped: Boolean,
     private val onBodyChange: (id: String, html: String) -> Unit,
     private val id: String,
 ) {
@@ -60,9 +64,7 @@ class EditorSession(
 
     /**
      * Dispatches the current HTML to the ViewModel if it differs from what
-     * was last dispatched. The [firstLoadSkipped] guard skips the very first
-     * dispatch, which would otherwise echo the just-loaded content back as
-     * a phantom user edit.
+     * was last dispatched.
      */
     fun dispatchHtml() {
         val html = richTextState.toHtml()
@@ -71,12 +73,6 @@ class EditorSession(
             onBodyChange(id, html)
         }
     }
-
-    fun notifyFirstLoadSkipped() {
-        firstLoadSkipped = true
-    }
-
-    val isFirstLoadSkipped: Boolean get() = firstLoadSkipped
 }
 
 /**
@@ -89,29 +85,40 @@ fun rememberEditorSession(
     state: EditorState.Editing,
     onBodyChange: (id: String, html: String) -> Unit,
 ): EditorSession {
-    val richTextState = remember(state.id) {
-        RichTextState().also { it.setHtml(state.html) }
-    }
+    val onBodyChangeState = rememberUpdatedState(onBodyChange)
 
     val session = remember(state.id) {
+        val richTextState = RichTextState().also { it.setHtml(state.html) }
         EditorSession(
             richTextState = richTextState,
-            lastDispatchedHtml = state.html,
-            firstLoadSkipped = false,
-            onBodyChange = onBodyChange,
+            // The baseline is the loaded content *as this editor renders it* —
+            // `state.html` may differ from `toHtml()` in normalisation only.
+            // Comparing against the rendered form is what makes the first
+            // observation a no-op instead of a phantom edit.
+            lastDispatchedHtml = richTextState.toHtml(),
+            onBodyChange = { id, html -> onBodyChangeState.value(id, html) },
             id = state.id,
         )
     }
 
-    // Dispatch HTML to ViewModel on every mutation.
-    // The LaunchedEffect re-triggers whenever richTextState changes (i.e. on every
-    // keystroke), so we don't need an explicit onValueChange callback here.
-    LaunchedEffect(state.id, richTextState) {
-        if (!session.isFirstLoadSkipped) {
-            session.notifyFirstLoadSkipped()
-            return@LaunchedEffect
-        }
-        session.dispatchHtml()
+    // Dispatch the HTML to the ViewModel on every edit.
+    //
+    // The editor's text lives *inside* the state object, and the state object is the
+    // same instance for the whole session — it has identity equality, so a
+    // `LaunchedEffect` keyed on it starts once and never restarts. The effect has to
+    // *read* the state to see the change: `snapshotFlow` re-emits whenever the text
+    // it reads changes.
+    //
+    // There is no "skip the first emission" guard: the first emission is the loaded
+    // content, and [EditorSession.dispatchHtml] compares it against the loaded
+    // baseline, so it dispatches nothing. A positional guard (`drop(1)`) would be
+    // wrong here — an edit made before the flow's first emission is a real edit,
+    // and dropping the first emission drops it with the phantom.
+    LaunchedEffect(state.id, session) {
+        snapshotFlow { session.richTextState.annotatedString }
+            .map { session.richTextState.toHtml() }
+            .distinctUntilChanged()
+            .collect { session.dispatchHtml() }
     }
 
     return session

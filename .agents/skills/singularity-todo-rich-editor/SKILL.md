@@ -28,7 +28,7 @@ feature/notes/
 ├── NotePreviewScreen.kt         # Read-only screen: RichText + backlinks + BottomAppBar
 ├── NotesListViewModel.kt         # List VM: filter, sort, multi-select, quick-add
 ├── NotesScreen.kt               # List screen with QuickAddRow + NotesEmptyState
-├── EditorSession.kt            # Top-level class: RichTextState + title + dispatch
+├── EditorSession.kt            # Top-level class: RichTextState + dispatch
 ├── EditorAction.kt             # sealed interface for toolbar actions
 ├── Ids.kt                      # NoteId, Note, NoteColor, LinkResult, LinkKind
 ├── LinkResult.kt               # Generic link picker result (LinkRef sealed interface)
@@ -50,16 +50,14 @@ core/ui/components/
 
 ## EditorSession Hoisting Pattern
 
-`RichTextState` has no stable equality (uses internal `MutableState`), so it **must** be created via `remember` and stored at the screen level.
+`RichTextState` has no stable equality (it wraps an internal `MutableState`), so it **must** be created via `remember` and stored at the screen level.
 
 ```kotlin
 // EditorSession.kt (top-level class)
 
 class EditorSession(
     val richTextState: RichTextState,
-    var titleFieldValue: String,
     private var lastDispatchedHtml: String,
-    private var firstLoadSkipped: Boolean,
     private val onBodyChange: (id: String, html: String) -> Unit,
     private val id: String,
 ) {
@@ -70,6 +68,7 @@ class EditorSession(
         insertedLinks.add(sel.min..<sel.max to url)
     }
 
+    /** Dispatches the current HTML if it differs from the last dispatched one. */
     fun dispatchHtml() {
         val html = richTextState.toHtml()
         if (html != lastDispatchedHtml) {
@@ -77,9 +76,6 @@ class EditorSession(
             onBodyChange(id, html)
         }
     }
-
-    fun notifyFirstLoadSkipped() { firstLoadSkipped = true }
-    val isFirstLoadSkipped: Boolean get() = firstLoadSkipped
 }
 
 @Composable
@@ -87,25 +83,35 @@ fun rememberEditorSession(
     state: EditorState.Editing,
     onBodyChange: (id: String, html: String) -> Unit,
 ): EditorSession {
-    val richTextState = remember(state.id) {
-        RichTextState().also { it.setHtml(state.html) }
-    }
+    val onBodyChangeState = rememberUpdatedState(onBodyChange)
     val session = remember(state.id) {
-        EditorSession(richTextState, state.title, state.html, false, onBodyChange, state.id)
+        val richTextState = RichTextState().also { it.setHtml(state.html) }
+        EditorSession(
+            richTextState = richTextState,
+            // The baseline is the loaded content *as this editor renders it*:
+            // `state.html` and `toHtml()` can differ in normalisation only.
+            lastDispatchedHtml = richTextState.toHtml(),
+            onBodyChange = { id, html -> onBodyChangeState.value(id, html) },
+            id = state.id,
+        )
     }
-    LaunchedEffect(state.title) { session.titleFieldValue = state.title }
-    LaunchedEffect(state.id, richTextState) {
-        if (!session.isFirstLoadSkipped) { session.notifyFirstLoadSkipped(); return@LaunchedEffect }
-        session.dispatchHtml()
+    LaunchedEffect(state.id, session) {
+        snapshotFlow { session.richTextState.annotatedString }
+            .map { session.richTextState.toHtml() }
+            .distinctUntilChanged()
+            .collect { session.dispatchHtml() }
     }
     return session
 }
 ```
 
-**Why this pattern:**
+**Why this pattern — and the trap it avoids:**
 - `RichTextState` identity has no `equals()` — `remember` keyed on `state.id` guarantees a fresh state per note
-- `EditorToolbar` (in `Scaffold.bottomBar`) and `EditorTitleAndBody` (in content area) share the same session
-- `LaunchedEffect` over `richTextState` dispatches HTML on every keystroke
+- `EditorToolbar` (in `Scaffold.bottomBar`) and `EditorTitleAndBody` (in the content area) share the same session
+- **A `LaunchedEffect` keyed on the `RichTextState` does not fire per keystroke.** The state object is the *same instance* for the whole session, so the effect starts once and never restarts. Keying the effect on the object and expecting it to re-run on every edit is the bug that silently lost every note body: the effect ran once, dispatched the loaded content, and never ran again. The effect has to *read* the state — `snapshotFlow` re-emits whenever what it reads changes.
+- **There is no "skip the first emission" guard.** The first emission *is* the loaded content, and `dispatchHtml()` compares it against the baseline (`lastDispatchedHtml` = the loaded content normalised through `toHtml()`), so it dispatches nothing. A positional guard (`drop(1)`) is wrong here: an edit made before the flow's first emission is a real edit, and dropping the first emission drops it along with the phantom.
+- **The save button flushes the editor before it saves.** The dispatch is asynchronous, so a save issued in the same frame as the last keystroke would persist the *previous* body — the user typed, pressed save, and the note came back without the text. `NoteEditorScreen` calls `session.dispatchHtml()` before `onSaveNow()`; the flush is a no-op when the dispatch has already happened.
+- The regression test for the whole chain is `NoteEditorFieldFlowTest.the_body_typed_in_the_editor_reaches_the_note` (desktopApp): it types into the body and asserts the text reaches the *note*, not just the editor's buffer.
 
 ## EditorAction Sealed Interface
 
