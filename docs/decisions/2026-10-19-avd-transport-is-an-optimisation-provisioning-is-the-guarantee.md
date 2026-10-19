@@ -56,24 +56,38 @@ the AVD the workflow names".
    once, in a step whose outputs the job publishes, and the consumers read
    `needs.setup-avd.outputs.{sdk_root,cache_key,cache_key_prefix}` verbatim. No
    side re-spells a path or a key.
-2. **The key carries a version.** `avd-<avd>-<device>-<system-image>-v2`. A cache
+2. **The key carries a version.** `avd-<avd>-<device>-<system-image>-v3`. A cache
    entry written under an older layout cannot be repaired in place — keys are
    immutable — so a change to the set of cached paths retires the old entry by
    changing the key.
-3. **One script defines "provisioned".** `scripts/ci/provision-avd.sh` installs
+3. **The cache carries the SDK, not the AVD.** The cached paths are
+   `system-images`, `emulator` and `platform-tools`. The AVD is created where it
+   is used. The AVD's `userdata.img` is a sparse, mutable image, and it did not
+   survive the cache: the first consumer of the entry that carried it found the
+   emulator and the system image already installed — sdkmanager had nothing to
+   download — and still had to create the AVD itself, in half a second. Carrying
+   a mutable image between runners was never working; what it did was make the
+   entry look like it carried the AVD.
+4. **One script defines "provisioned".** `scripts/ci/provision-avd.sh` installs
    `emulator`, `platform-tools` and the system image, creates the AVD, and verifies
    both the binary and `emulator -list-avds`. It is idempotent, and it runs in the
    producer *and* in every consumer: a consumer whose cache restore came back empty
    provisions for itself instead of dying.
-4. **The AVD name reaches the emulator through `AVD`**, taken from the producer's
+5. **The AVD name reaches the emulator through `AVD`**, taken from the producer's
    `avd_name` output, so the module cannot boot an AVD this workflow never created.
-5. **The module asks the tool what exists before it boots anything.**
+6. **The module asks the tool what exists before it boots anything.**
    `emulator -list-avds` is the only authority on which AVDs a machine has, and
    `start_avd` consults it first. A name is a claim; the list is the fact. The
    refusal it produces — "AVD 'X' does not exist on this machine. Available: …" —
    is the difference between an answer and a five-minute boot attempt that ends
    with "the emulator was still not ready".
-6. **The contract is pinned by a gate, not by a comment.** A repository-wide
+7. **The consumer enables KVM on its own runner.** The producer enables it for
+   itself, and that enabling does not travel with a cache. Without it the
+   emulator is found, the AVD is created, and the emulator then dies with
+   "x86_64 emulation currently requires hardware acceleration! … This user
+   doesn't have permissions to use KVM (/dev/kvm)" — a failure that reads like a
+   missing emulator and is neither.
+8. **The contract is pinned by a gate, not by a comment.** A repository-wide
    check reports every `${{ env.NAME }}` in a workflow whose name the file does
    not define, because the `env` context holds the variables a workflow defines
    and not the runner's environment. The specific transport is pinned by
@@ -109,13 +123,17 @@ shards with a misleading message.
 
 - **A cache miss now costs time instead of the build.** A cold shard downloads the
   system image and creates the AVD. That is minutes, not a red run.
-- **The cache is still written, and it is still the fast path.** The `v2` suffix
+- **The cache is still written, and it is still the fast path.** The `v3` suffix
   means the first run after this change writes a real entry; later runs restore it.
+  The `v2` entry measured 2.15 GB.
+- **The AVD no longer travels.** It is created on each runner, in half a second,
+  and the cache carries only the immutable SDK content. The `v2` entry carried
+  the AVD, and the AVD did not survive it.
+- **Each consumer enables KVM for itself.** The producer's enabling does not
+  travel with a cache, and the two jobs run on different machines.
 - **The version suffix is manual.** Changing the set of cached paths means bumping
   it. That is a cost with a reason: an entry cannot be repaired in place, so a silent
   reuse would restore the wrong layout and look like it worked.
-- **`~/.android/avd` is cached whole**, including the AVD's `userdata.img`. The
-  entry is large; the repository's cache budget is finite.
 - **The test is a contract test, not a proof.** It proves the two sides agree on
   paths, key and AVD name. It cannot prove the cache was populated — only a run can.
 - **The consumer now depends on `scripts/ci/provision-avd.sh` being present**, which

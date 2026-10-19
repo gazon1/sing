@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 import unittest
 
 import yaml
@@ -101,11 +102,18 @@ def _normalise(paths: list[str]) -> list[str]:
 
 
 class CachePathsAgreeTest(unittest.TestCase):
-    """The producer and the consumers must cache the same four locations."""
+    """The producer and the consumers must cache the same locations.
+
+    Three, not four: the AVD is not among them. Its `userdata.img` is a
+    sparse, mutable image, and it did not survive the cache — the first
+    consumer of the entry that carried it found the emulator and the system
+    image already installed and still had to create the AVD itself, in half a
+    second. Caching a mutable image between runners was never working; what it
+    did was make the entry look like it carried the AVD.
+    """
 
     def setUp(self):
         self.expected = [
-            "~/.android/avd",
             "<sdk>/system-images",
             "<sdk>/emulator",
             "<sdk>/platform-tools",
@@ -141,6 +149,18 @@ class CachePathsAgreeTest(unittest.TestCase):
 class CacheKeyIsSingleSourcedTest(unittest.TestCase):
     """The key is the producer's output, not a string both sides re-spell."""
 
+    @staticmethod
+    def _key(ctx: dict) -> str:
+        match = re.search(r'cache_key=(avd-\S+)"', ctx["run"])
+        assert match, f"no cache_key in the ctx step: {ctx['run']!r}"
+        return match.group(1)
+
+    @staticmethod
+    def _prefix(ctx: dict) -> str:
+        match = re.search(r'cache_key_prefix=(\S+)"', ctx["run"])
+        assert match, f"no cache_key_prefix in the ctx step: {ctx['run']!r}"
+        return match.group(1)
+
     def test_producer_publishes_a_full_key_and_a_prefix(self):
         producer = _load(PRODUCER)
         outputs = producer["jobs"]["setup-avd"]["outputs"]
@@ -169,8 +189,7 @@ class CacheKeyIsSingleSourcedTest(unittest.TestCase):
             s for s in _steps(producer, "setup-avd")
             if s.get("id") == "ctx"
         )
-        self.assertIn("cache_key=avd-", ctx["run"])
-        self.assertIn("-v2", ctx["run"])
+        self.assertRegex(self._key(ctx), r"^avd-.+-v\d+$")
 
     def test_the_restore_prefix_carries_the_version_too(self):
         """A restore-key is a prefix match, so an unversioned prefix is a trap.
@@ -178,15 +197,19 @@ class CacheKeyIsSingleSourcedTest(unittest.TestCase):
         A prefix of `…-v2` also matches `…-v20`, and a prefix without the
         version matches the entries written under the old layout — which is
         precisely the entry that carried nothing. The prefix must not be able
-        to reach back across a layout change.
+        to reach back across a layout change, so it has to be the key plus a
+        separator.
         """
         producer = _load(PRODUCER)
         ctx = next(
             s for s in _steps(producer, "setup-avd")
             if s.get("id") == "ctx"
         )
-        self.assertIn("cache_key_prefix=avd-", ctx["run"])
-        self.assertIn("-v2-", ctx["run"])
+        key = self._key(ctx)
+        prefix = self._prefix(ctx)
+        self.assertEqual(key + "-", prefix)
+        # The trailing separator is what stops `…-v2` from matching `…-v20`.
+        self.assertTrue(prefix.endswith("-"), prefix)
 
     def test_no_caller_passes_an_undefined_input(self):
         """Every input a caller passes must exist on the producer.

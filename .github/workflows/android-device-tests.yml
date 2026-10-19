@@ -103,6 +103,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # KVM has to be enabled on *this* runner, not on the runner that produced
+      # the AVD. The setup job enables it for itself; that enabling does not
+      # travel with a cache, and the two jobs run on different machines.
+      #
+      # Without this the emulator binary is found, the AVD is created, and the
+      # emulator then dies with "x86_64 emulation currently requires hardware
+      # acceleration! … This user doesn't have permissions to use KVM
+      # (/dev/kvm)" — a failure that reads like a missing emulator and is
+      # neither.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       # Runners do not share a filesystem, so what `setup-avd` installed and created
       # died with that job. These four paths and this key are the transport.
       #
@@ -117,7 +133,6 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.android/avd
             ${{ needs.setup-avd.outputs.sdk_root }}/system-images
             ${{ needs.setup-avd.outputs.sdk_root }}/emulator
             ${{ needs.setup-avd.outputs.sdk_root }}/platform-tools

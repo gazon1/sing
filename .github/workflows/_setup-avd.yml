@@ -87,9 +87,11 @@ jobs:
       # was permanent: every consumer restored an empty directory and every
       # shard died with "'emulator' binary not found in PATH".
       #
-      # The `v2` suffix in the key retires that entry. Bump it whenever the set
-      # of cached paths changes; an entry written under an older layout cannot
-      # be repaired in place, because cache keys are immutable.
+      # The version suffix in the key retires entries written under an older
+      # layout. Bump it whenever the set of cached paths changes; an entry
+      # written under an older layout cannot be repaired in place, because
+      # cache keys are immutable. `v3` drops the AVD from the cached paths —
+      # `v2` carried it and it did not survive the cache (see the cache step).
       - name: Resolve the SDK root and the cache key
         id: ctx
         env:
@@ -114,8 +116,8 @@ jobs:
           # this key version exists to close. A consumer that finds nothing
           # restores nothing and provisions for itself.
           {
-            echo "cache_key=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v2"
-            echo "cache_key_prefix=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v2-"
+            echo "cache_key=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v3"
+            echo "cache_key_prefix=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v3-"
           } >> "$GITHUB_OUTPUT"
 
       - name: Restore AVD and SDK cache
@@ -131,8 +133,16 @@ jobs:
           # evicted, and the consumers re-provision with
           # scripts/ci/provision-avd.sh when the entry is not there — so a
           # missing cache costs time, not a red build.
+          # Only the immutable SDK content travels. The AVD does not: its
+          # `userdata.img` is a sparse, mutable image, and it did not survive
+          # the cache anyway — the first consumer of the v2 entry found the
+          # emulator and the system image installed (sdkmanager had nothing to
+          # download) and still had to create the AVD itself, in half a second.
+          # Carrying a mutable image between runners was never working; what it
+          # did do was make the entry look like it carried the AVD.
+          #
+          # The AVD is created where it is used, by scripts/ci/provision-avd.sh.
           path: |
-            ~/.android/avd
             ${{ steps.ctx.outputs.sdk_root }}/system-images
             ${{ steps.ctx.outputs.sdk_root }}/emulator
             ${{ steps.ctx.outputs.sdk_root }}/platform-tools
@@ -151,12 +161,11 @@ jobs:
           set -euo pipefail
           # Pin ANDROID_AVD_HOME *before* anything creates an AVD, so the location
           # is a fact of this workflow rather than something discovered afterwards.
-          # The runner image put the AVD under ~/.config/.android/avd while the
-          # cache and the cache-hit check both assumed ~/.android/avd, so the cache
-          # was saving an empty directory and the "already exists" branch could never
-          # be taken — the AVD was recreated every run and handed to the caller as a
-          # path pointing at nothing. avdmanager honours ANDROID_AVD_HOME, so
-          # setting it first makes both sides agree by construction.
+          # The runner image puts the AVD under ~/.config/.android/avd, and
+          # avdmanager honours ANDROID_AVD_HOME — so setting it first is what
+          # makes the producer and the consumers agree on where the AVD lives.
+          # The AVD is created where it is used: the cache carries the SDK, and
+          # scripts/ci/provision-avd.sh creates the AVD on each runner.
           export ANDROID_AVD_HOME="$HOME/.android/avd"
           mkdir -p "$ANDROID_AVD_HOME"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_OUTPUT"
