@@ -87,6 +87,7 @@ Maestro/flows/smoke/03-account-tab.yaml
 Maestro/flows/smoke/03-health-blocked-drilldown.yaml
 Maestro/flows/smoke/04-health-stagnant-drilldown.yaml
 Maestro/flows/smoke/05-health-overdue-drilldown.yaml
+Maestro/flows/smoke/06-session-anonymous.yaml
 Maestro/flows/sync/01-change-sync-interval.yaml
 Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
 Maestro/flows/system/menu-sheet.yaml

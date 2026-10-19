@@ -1,0 +1,88 @@
+# Smoke: the app can be put into a local (anonymous) session, and the account
+# section offers "Attach account" there.
+#
+# Why this flow exists. The E2E build replaces the auth repository with a stub
+# that reports `Session.SignedIn` from the first frame, so the app never shows
+# the auth screen — and the account section renders its "Attach account"
+# affordance only for `Session.Anonymous`. A flow that waited for that button
+# therefore waited for an element that could not be on the screen, which is
+# what happened to `auth/07-account-attach.yaml` for as long as the attach
+# path was unreachable in a test.
+#
+# The `session=anonymous` deep link puts the app into a local session through
+# `AuthRepository.startLocalSession()` — the same call the "Continue offline"
+# button makes — so the path a flow drives is the path a user takes. The
+# session link is a debug-side deep link (`androidApp/src/debug/`), so it is
+# not in a release APK.
+appId: com.singularity.todo
+name: smoke-session-anonymous
+tags:
+  - smoke
+  - auth
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Put the app into a local session. The link brings the app up with the new
+# session already in place, so the agenda is what waits afterwards.
+- openLink: "todo-debug://seed?session=anonymous"
+
+# A local session is not blocked: the agenda is up.
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 15000
+
+# Open menu -> Settings.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_settings
+
+# Switch to the Account tab. The settings nav rail is a scrollable column of
+# twelve ~76dp rows, so the trailing tabs are below the fold on a phone
+# viewport; five swipes bring Account into view, the way
+# `smoke/03-account-tab.yaml` does it. A swipe past the end of the rail is a
+# no-op, so over-swiping is harmless.
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
+- swipe:
+    start: 105, 2000
+    end: 105, 1600
+    duration: 1000
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_account
+    timeout: 10000
+- tapOn:
+    id: settings_tab_account
+
+# The attach affordance exists only for a local session. Its presence is the
+# proof that the session switch reached the UI.
+- extendedWaitUntil:
+    visible:
+      id: auth_attach_account_button
+    timeout: 10000
+- assertVisible:
+    id: auth_attach_account_button
+- takeScreenshot: smoke/06-session-anonymous

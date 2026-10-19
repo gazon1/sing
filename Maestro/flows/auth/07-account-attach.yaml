@@ -1,6 +1,15 @@
 # AUTH-ATTACH-01: attach an email/password account to an anonymous session.
 #
-# preconditions: StubAuthRepository, starts in Anonymous session by default.
+# preconditions: the app is in a local (anonymous) session, entered through
+# the `session=anonymous` deep link below.
+#
+# The precondition used to read "StubAuthRepository starts in Anonymous session
+# by default", and it does not: the stub reports `Session.SignedIn` from the
+# first frame, so the flow spent its first ten seconds waiting for the
+# "Attach account" button — which is rendered only for `Session.Anonymous` —
+# and then failed. The wait was not slow; the element could not be there.
+# The session link fixes the precondition instead of weakening the assertion.
+#
 # steps:
 #   1. Navigate to Settings → Account tab.
 #   2. Tap "Attach account" button (visible only for Session.Anonymous).
@@ -14,13 +23,17 @@ tags:
   - auth
   - AUTH-ATTACH-01
 ---
-# Launch — StubAuthRepository starts in Anonymous session by default.
-# The auth guard lets Anonymous through to the agenda (no auth screen shown).
+# Launch. The auth guard lets a local session through to the agenda (no auth
+# screen shown).
 - launchApp:
     appId: com.singularity.todo
     clearState: true
     permissions:
       notifications: allow
+
+# Enter a local session. The attach affordance exists only for
+# `Session.Anonymous`, and the E2E build starts `SignedIn`.
+- openLink: "todo-debug://seed?session=anonymous"
 
 # Verify the agenda is visible (Anonymous session is not blocked).
 - extendedWaitUntil:
