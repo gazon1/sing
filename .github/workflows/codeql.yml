@@ -22,10 +22,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  # required for the SARIF upload
-  security-events: write
-  # required to fetch internal or private CodeQL packs
-  packages: read
+  # read-only at the workflow level: the one job below asks for what it needs.
   contents: read
 
 jobs:
@@ -33,6 +30,12 @@ jobs:
     name: Analyze (java-kotlin)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    permissions:
+      # required for the SARIF upload
+      security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:

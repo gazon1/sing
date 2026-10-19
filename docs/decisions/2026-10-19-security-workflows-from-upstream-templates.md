@@ -90,6 +90,14 @@ the local loop reaches the same compilation through `:shared:jvmTest` and
 `:shared:detekt`, and mirroring a compile-only task in the developer loop
 would buy nothing the rehearsal does not already cover.
 
+**The write permission is granted at the job level, not the workflow level.**
+CodeQL's first successful analysis flagged this workflow itself:
+*"topLevel 'security-events' permission set to 'write'"*. A workflow-level
+write permission is granted to every job in the file; a job-level one is
+granted to the job that needs it. `scorecard.yml` already had that shape, and
+`codeql.yml` now matches it. The repository's other four workflows still
+carry their own findings — that is a separate decision, not this one.
+
 **The cron slots are after the nightly chain** — 05:00 for CodeQL, 06:00 for
 Scorecard — so a scan never competes with a build for a runner.
 
