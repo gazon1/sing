@@ -103,6 +103,14 @@ jobs:
           echo "suite=$suite" >> "$GITHUB_OUTPUT"
           echo "shards=$shards" >> "$GITHUB_OUTPUT"
 
+  # The one place the debug APK the shards install is assembled. ci.yml's
+  # `android` free leg used to assemble the same APK for the same commit — one
+  # APK, built twice, in two workflows, on two runners, each with its own
+  # Gradle build cache — and it now compiles only
+  # (docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md).
+  #
+  # The artifact this job uploads is what every shard below installs, so the
+  # build happens once per commit and the shards share it.
   build-apk:
     needs: plan
     runs-on: ubuntu-24.04
@@ -208,6 +216,7 @@ jobs:
       # write an entry: keys are immutable, and four shards racing to save the
       # same key each log a misleading "another job is creating it".
       - name: Restore AVD and SDK cache
+        id: cache-avd
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -216,6 +225,19 @@ jobs:
           key: ${{ needs.setup-avd.outputs.cache_key }}
           restore-keys: |
             ${{ needs.setup-avd.outputs.cache_key_prefix }}
+
+      # What the cache carried, and whether it carried anything at all. The
+      # payload sizes are printed by scripts/ci/provision-avd.sh further down,
+      # which reports the same two paths the producer caches; this line ties
+      # those sizes to the restore, so a diff between two runs shows a cache
+      # that grew. The producer's own log carries the same report, because the
+      # producer runs the same script.
+      - name: Report the cache transport
+        env:
+          CACHE_KEY: ${{ needs.setup-avd.outputs.cache_key }}
+          CACHE_HIT: ${{ steps.cache-avd.outputs.cache-hit }}
+        run: |
+          echo "cache-transport: key=$CACHE_KEY hit=${CACHE_HIT:-false}"
 
       # Maestro needs a JDK; the runner image has none the CLI can rely on.
       - uses: actions/setup-java@v6
