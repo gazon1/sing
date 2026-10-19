@@ -3,8 +3,6 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.printToString
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import org.koin.core.Koin
@@ -28,21 +26,8 @@ import com.singularity.todo.core.error.runCatchingCancellable
  */
 @OptIn(ExperimentalTestApi::class)
 internal fun DesktopComposeUiTest.dumpSemantics(): String =
-    runCatching {
-        val roots = onAllNodes(isRoot(), useUnmergedTree = true)
-        val count = roots.fetchSemanticsNodes().size
-        if (count == 1) {
-            roots[0].printToString(maxDepth = 25)
-        } else {
-            buildString {
-                appendLine("The scene has $count roots; each is dumped below.")
-                for (index in 0 until count) {
-                    appendLine("=== Root $index ===")
-                    appendLine(roots[index].printToString(maxDepth = 25))
-                }
-            }
-        }
-    }.getOrElse { "<semantics tree unavailable: ${it.message}>" }
+    runCatching { semanticsTree(maxDepth = 25) }
+        .getOrElse { "<semantics tree unavailable: ${it.message}>" }
 
 /**
  * The directory under `build/diagnostics/` where this test's artifacts live.

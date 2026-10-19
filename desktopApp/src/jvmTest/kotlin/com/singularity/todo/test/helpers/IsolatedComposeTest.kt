@@ -2,8 +2,6 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 
 /**
@@ -41,7 +39,7 @@ fun runIsolatedComposeTest(
         // A bare `println` is lost when only the XML report is read; a suppressed
         // exception rides the stack trace into every runner's report.
         val tree = runCatching {
-            onRoot(useUnmergedTree = true).printToString(maxDepth = 25)
+            semanticsTree(maxDepth = 25)
         }.getOrElse { "<semantics tree unavailable: ${it.message}>" }
         t.addSuppressed(AssertionError("Semantics tree at failure:\n$tree"))
         throw t

@@ -89,6 +89,30 @@ class HarnessConventionTest {
     }
 
     @Test
+    fun `raw root lookups are only in test helpers`() {
+        val violations = testSources
+            .mapNotNull { file ->
+                val body = file.readLines().filterNot { line ->
+                    val t = line.trimStart()
+                    t.startsWith("import ") || t.startsWith("//") ||
+                        t.startsWith("*") || t.startsWith("/*")
+                }.joinToString("\n")
+                val calls = RAW_ROOT_PATTERN.findAll(body).toList()
+                if (calls.isEmpty()) null else "${file.name}: ${calls.size} raw onRoot call(s)"
+            }
+
+        if (violations.isEmpty()) return
+        fail(
+            "Test files with raw onRoot() calls:\n" +
+                violations.joinToString("\n") { "  - $it" } +
+                "\n\n`onRoot` asserts there is exactly one semantics root, and a Popup " +
+                "or a Dialog opens a second one — the call then throws instead of " +
+                "telling you what is on screen. Use `semanticsTree()` and " +
+                "`semanticsRoots()` from test/helpers, which handle every root.",
+        )
+    }
+
+    @Test
     fun `exempted files actually contain raw selectors`() {
         val stale = EXEMPT_RAW_TAGS.filter { (fileName, _) ->
             val file = testSources.find { it.name == fileName }
@@ -333,6 +357,15 @@ class HarnessConventionTest {
         val RAW_SELECTOR_PATTERN = Regex(
             """onNodeWith(Tag|Text|ContentDescription)\(|onAllNodesWithTag\(""",
         )
+
+        /**
+         * Matches a raw root lookup: `onRoot(`.
+         *
+         * `onRoot` is the one selector that lies about the scene: it asserts
+         * there is exactly one root, and a Popup or a Dialog opens a second one.
+         * The helpers in test/helpers walk every root instead.
+         */
+        val RAW_ROOT_PATTERN = Regex("""onRoot\(""")
 
         /**
          * Matches a raw one-shot display assertion. The helpers' own terminal

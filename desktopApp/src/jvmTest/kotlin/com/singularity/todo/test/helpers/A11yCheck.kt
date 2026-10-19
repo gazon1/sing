@@ -6,7 +6,6 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onRoot
 
 /**
  * Accessibility check over the merged semantics tree: every clickable node must
@@ -43,12 +42,20 @@ import androidx.compose.ui.test.onRoot
 @OptIn(ExperimentalTestApi::class)
 class A11yChecker(private val test: DesktopComposeUiTest) {
 
-    /** Returns one line per unlabelled clickable node; empty when the tree is clean. */
+    /**
+     * Returns one line per unlabelled clickable node; empty when the tree is clean.
+     *
+     * Every root is scanned, not just the first: a `Popup` and a `Dialog` each
+     * open their own window, and `onRoot` throws when there is more than one —
+     * so the check used to report *nothing* on any screen with a sheet or a
+     * dialog open, which is exactly the screen where a missing label is most
+     * likely.
+     */
     fun scan(): List<String> {
-        val root = runCatching { test.onRoot(useUnmergedTree = false).fetchSemanticsNode() }
-            .getOrNull() ?: return emptyList()
         val violations = mutableListOf<String>()
-        root.visit { node -> if (node.isUnlabelledClickable()) violations += node.describe() }
+        for (root in test.mergedRoots()) {
+            root.visit { node -> if (node.isUnlabelledClickable()) violations += node.describe() }
+        }
         return violations
     }
 }

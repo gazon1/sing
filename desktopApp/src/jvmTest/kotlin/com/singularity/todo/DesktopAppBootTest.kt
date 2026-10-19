@@ -1,8 +1,6 @@
 package com.singularity.todo
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.printToString
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
@@ -10,6 +8,7 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.semanticsTree
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
@@ -46,7 +45,7 @@ class DesktopAppBootTest {
 
         if (System.getProperty(DUMP_TREE_PROPERTY) == "true") {
             println("=== SEMANTICS TREE START ===")
-            println(onRoot().printToString(maxDepth = 12))
+            println(semanticsTree(maxDepth = 12))
             println("=== SEMANTICS TREE END ===")
         }
 

@@ -20,9 +20,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.printToString
 import kotlin.test.assertEquals
 
 /** Generous upper bound; real transitions settle in well under a second. */
@@ -582,7 +580,7 @@ fun explainMissingTag(availableTags: List<String>, wantedTag: String): String {
  */
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.mainTreeSize(): Int = step("mainTreeSize") {
-    onRoot(useUnmergedTree = true).printToString(maxDepth = 60).split("Node #").size - 1
+    mainRootNodeCount()
 }
 
 /**
