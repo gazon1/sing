@@ -44,20 +44,22 @@ internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier
     }
     Card(
         // Identity tag, for tests that already hold a NoteId (see desktopApp's
-        // NotesScreenTest). The title-based tag lives on the inner Row: Modifier.testTag
-        // stores a single value, so applying it twice in one chain keeps only the last.
+        // NotesScreenTest).
+        //
+        // This is the *merged* node: a Material3 Card is a Surface, and a Surface
+        // merges its descendants. The node therefore keeps this tag and swallows
+        // every tag below it — a tag on the inner Row is visible in the unmerged
+        // tree only, which no end-to-end test can address. The title-based tag
+        // lives on the item's outer node instead; see `SwipeableNoteCard`.
         modifier = modifier
             .fillMaxWidth()
             .testTag(TestTags.noteItem(note.id.value)),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Row(
-            // Addressable by the title an end-to-end test typed, which never knows the
-            // generated ULID.
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
-                .testTag(TestTags.noteItemByTitle(note.title)),
+                .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -113,6 +115,11 @@ internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier
  *
  * Supports slot customization via [body] and [trailing] parameters following
  * Material 3 naming convention (`body` for main content, `trailing` for meta/actions).
+ *
+ * The identity tag is on the Card, which is the *merged* node: a Material3 Card is a
+ * Surface, and a Surface merges its descendants, so this tag survives while every tag
+ * below it does not. A caller that also needs a title-based tag has to put it on a node
+ * *outside* the card — the modifier here is applied to the card itself.
  *
  * @param body    Main content slot — rendered inside the [Card].
  * @param trailing Meta slot — rendered inside the [Card], after [body].

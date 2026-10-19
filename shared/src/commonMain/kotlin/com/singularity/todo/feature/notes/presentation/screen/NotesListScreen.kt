@@ -574,7 +574,17 @@ fun SwipeableNoteCard(
         backgroundContent = {
             SwipeBackground(dismissState.currentValue, isArchived)
         },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            // The title-based tag goes on this node, the outermost one of the item, and
+            // not on the card: a Material3 Card is a Surface, and a Surface merges its
+            // descendants — a tag below it exists in the unmerged tree only, where no
+            // end-to-end test can address it. The id-based tag is on the card itself,
+            // which is the merged node and keeps it.
+            //
+            // `Modifier.testTag` stores a single value, so one node cannot carry both
+            // tags; the outer node and the card are two nodes.
+            .testTag(TestTags.noteItemByTitle(note.title)),
     ) {
         NoteCardContent(
             note = note,
