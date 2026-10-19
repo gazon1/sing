@@ -1,19 +1,31 @@
-# Smoke: attach an email/password account to the anonymous session.
+# Smoke: the Account tab opens from the settings nav rail.
 #
-# Covers: anonymous session -> Settings -> Account tab -> Attach Account ->
-# attach form -> agenda home.
+# The rail is a scrollable column of twelve ~76dp rows, so the trailing tabs
+# (Files, Backup, Account) are below the fold on a phone viewport — the screen
+# looks complete, but the tab is not on it. This flow walks the rail the way a
+# user does and lands on Account.
 #
-# AUTH-ATTACH-01 smoke path.
+# What is asserted is what the E2E build can actually show. The "Attach
+# account" button is rendered only for `Session.Anonymous`, and the E2E build
+# replaces the auth repository with `StubAuthRepository`, whose session is
+# `Session.SignedIn` from the first frame ("the session is immediately
+# `Session.SignedIn` and the auth screen never appears"). The attach affordance
+# is therefore unreachable in this environment, and a flow that waits for it
+# waits forever for an element that cannot be on the screen. The signed-in
+# account section is the thing this tab really shows, so that is what is
+# asserted.
+#
+# The attach path itself is covered by Maestro/flows/auth/07-account-attach.yaml
+# (scenario AUTH-ATTACH-01), which needs an anonymous session to exist at all.
 appId: com.singularity.todo
-name: smoke-attach-account
+name: smoke-account-tab
 tags:
   - smoke
-  - auth
-  - AUTH-ATTACH-01
+  - settings
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
-# Verify anonymous session lands on agenda (no auth screen shown with StubAuthRepository).
+# The agenda is up (the stub session never shows the auth screen).
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -68,33 +80,11 @@ tags:
 - tapOn:
     id: settings_tab_account
 
-# Attach account button visible only for anonymous sessions.
+# The Account tab is open: its account section is on the screen.
 - extendedWaitUntil:
     visible:
-      id: auth_attach_account_button
+      id: auth_sign_out_button
     timeout: 10000
-- tapOn:
-    id: auth_attach_account_button
-
-# Fill and submit the attach form.
-- extendedWaitUntil:
-    visible:
-      id: auth_attach_email_input
-    timeout: 10000
-- inputText:
-    id: auth_attach_email_input
-    text: "alice@example.com"
-- inputText:
-    id: auth_attach_password_input
-    text: "ValidPassword123!"
-- tapOn:
-    id: auth_attach_submit_button
-
-# Verify navigation to agenda.
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 15000
 - assertVisible:
-    id: nav_tab_inbox
-- takeScreenshot: smoke/03-attach-account
+    id: auth_sign_out_button
+- takeScreenshot: smoke/03-account-tab

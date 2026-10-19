@@ -391,9 +391,14 @@ class DebugSeedActivity :
             else -> {
                 val relMatch = Regex("^([+-]?)(\\d+)d$").matchEntire(expr.lowercase())
                 if (relMatch != null) {
-                    val days = relMatch.groupValues[2].toLong()
-                    val signed = if (relMatch.groupValues[1] == "-") -days else days
-                    now - signed.days
+                    // Same shape as [resolveDate]: the sign is the direction, and
+                    // the offset is *added* to now. Subtracting a negative offset
+                    // stamps the task in the future — and a task in the future is
+                    // not stagnant, which is the opposite of what the flow asked
+                    // for, and looks exactly like a seed that did nothing.
+                    val sign = if (relMatch.groupValues[1] == "-") -1L else 1L
+                    val days = relMatch.groupValues[2].toLong() * sign
+                    now + days.days
                 } else {
                     Instant.parse(expr)
                 }
