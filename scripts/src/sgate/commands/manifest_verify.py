@@ -84,6 +84,13 @@ NOT_RUN_IN_STATIC: frozenset[str] = frozenset({
     "rebase compiles",
     "req id uniqueness",
     "test runs",
+    # Green on a clean tree, and excluded because it cannot finish in CI: each
+    # probe is a full `:shared:detekt` run (~1.5 min) in a throwaway worktree, so
+    # the script costs minutes against the 300s budget every gate gets. Its own
+    # module docstring says it is a `just` recipe and not part of `check.sh` — the
+    # person who needs it is the one about to regenerate a baseline or trust a
+    # green lint run, and they need it then, not on every commit.
+    "gate honesty",
 })
 
 

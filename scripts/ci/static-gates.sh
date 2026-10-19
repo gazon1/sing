@@ -323,19 +323,12 @@ gate blocking "provenance" python3 scripts/check-provenance.py
 # deleted decision leaves a dangling claim nothing else sees.
 gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 
-# Gate honesty. Registered here rather than only invoked from `check.sh`, because a
-# positive control that the registry can run is the point of the gate. It plants a
-# detekt violation in a throwaway worktree and reads the report back, so it needs the
-# JVM and does not belong in the `static` job's no-build-output environment — this
-# line is how `sgate run-all` reaches it from a checkout that has one.
-gate blocking "gate honesty" python3 scripts/check-gate-honesty.py
-
 # ─── Deliberately NOT here ─────────────────────────────────────────────────────
 #
-# Eleven more gates are registered in `_registry.py`, each with a positive control,
+# Twelve more gates are registered in `_registry.py`, each with a positive control,
 # and each used to be absent from this file. Four of them are above and pass; the
-# remaining seven exit non-zero on a clean tree, so registering them would trade
-# "a gate that never runs" for "CI red for a reason unrelated to this change":
+# remaining eight are not runnable in CI, so registering them would trade "a gate
+# that never runs" for "CI red for a reason unrelated to this change":
 #
 #     doc dead refs                    exit 1   doc sizes are within budget   exit 1
 #     flaky tests are acknowledged     exit 1   backlog issue refs            exit 1
@@ -347,6 +340,16 @@ gate blocking "gate honesty" python3 scripts/check-gate-honesty.py
 # documented exemption in `GATE_CONTROLS` for exactly this reason. `manifest-verify`
 # now reports a registry entry with no gate line in this direction too, so the two
 # lists cannot drift apart unnoticed again — which is how all eleven went missing.
+#
+# "gate honesty" is the eighth and the odd one out: it is green on a clean tree,
+# and it is excluded because it cannot *finish*. Each probe is a full
+# `:shared:detekt` run (~1.5 min) in a throwaway worktree, so the script costs
+# minutes and blows the 300s budget the gate runner gives every gate — and, being
+# a `python3` invocation rather than an `sgate` one, the liveness probe classified
+# it as cheap and ran it anyway, which is how it took down "gates are alive" too.
+# Its own module docstring says it is a `just` recipe and not part of `check.sh`:
+# the person who needs it is the one about to regenerate a baseline or trust a
+# green lint run, and they need it then, not on every commit. Run it by hand.
 
 # AppTracer
 
