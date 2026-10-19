@@ -2,10 +2,10 @@
 # that task actually appears.
 #
 # The task is seeded through the DebugSeedActivity deep-link rather than typed into
-# the editor. Compose's controlled BasicTextField discards externally injected text —
-# neither Maestro `inputText` nor `adb shell input text` reaches `onValueChange` — so
-# the draft title stays empty and the Save button never enables. Seeding is the
-# project's sanctioned fixture mechanism (see helpers/seed.yaml).
+# the editor. Seeding is the project's sanctioned fixture mechanism (see
+# helpers/seed.yaml): it produces a deterministic row, stamped with the run id
+# where the caller needs a unique one, without the flow depending on keyboard/IME
+# behaviour or on the editor's Save button enabling.
 #
 # The title is fixed rather than parameterized on purpose: callers address the row by
 # its generated testTag (`TestTags.taskItem("Buy milk")` -> `task_item_buy_milk`), and

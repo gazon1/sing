@@ -17,10 +17,9 @@ tags:
 # Seed an undated task via the DebugSeedActivity deep-link. `due=` is omitted, so
 # the task has no due date and Inbox buckets it under "No Date".
 #
-# Seeding is used instead of driving the editor's title field because Compose's
-# controlled BasicTextField discards externally injected text: neither Maestro
-# `inputText` nor `adb shell input text` reaches `onValueChange`, so the draft
-# title stays empty and the Save button never enables.
+# Seeding is used instead of driving the editor's title field because it yields a
+# deterministic fixture stamped with ${RUN_ID} that the runner's per-attempt
+# sweep can find and remove, independent of keyboard/IME behaviour.
 #
 # The title is prefixed with ${RUN_ID}. Room survives between runs on one emulator,
 # so a fixed title would collide with the previous run's copy — and this flow

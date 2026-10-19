@@ -20,10 +20,10 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 
-# Create a task. Seeded through the DebugSeedActivity deep-link: Compose's
-# controlled BasicTextField discards externally injected text, so neither
-# `inputText` nor `adb shell input text` reaches `onValueChange` and the editor's
-# Save button never enables.
+# Create a task. Seeded through the seed helper's DebugSeedActivity deep-link:
+# seeding yields a deterministic fixture stamped with ${RUN_ID} that the
+# runner's per-attempt sweep can find and remove, independent of keyboard/IME
+# behaviour.
 #
 # ${RUN_ID} keeps the title unique per run — Room survives between runs on one
 # emulator, and the offline restart below has to find this run's task, not a
