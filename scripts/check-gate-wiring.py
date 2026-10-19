@@ -573,12 +573,48 @@ SCRIPT_GATES = [
     ),
     # doc-dead-refs: sabotage is in GATE_CONTROLS, filled by _prefer_registry_controls.
     # Part J requires a ScriptGate entry here so the control is recognised as present.
+    #
+    # `--strict` in the command, because the gate itself runs strict (the registry
+    # passes it as a script argument). A control whose clean run is more lenient
+    # than the gate it proves would pass on a tree the gate rejects — the control
+    # would certify a state the build never accepts.
     ScriptGate(
         name="doc-dead-refs",
-        cmd=[sys.executable, "scripts/check-doc-dead-refs.py"],
+        cmd=[sys.executable, "scripts/check-doc-dead-refs.py", "--strict"],
         sabotage_path="README.md",
         sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
         why="a new dead reference must fail until baselined",
+    ),
+    # log-interpolation: the executable twin of the registry control. It plants
+    # a log call that interpolates a type the allowlist does not carry, and the
+    # gate must report it. The plant does not compile — it is restored right
+    # after, and nothing compiles during the control.
+    ScriptGate(
+        name="log-interpolation",
+        cmd=[sys.executable, "scripts/check-log-interpolation-allowlist.py"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/config/RemoteConfigCacheRepositoryImpl.kt",
+        sabotage=_append(
+            '\n\n// TEMPORARY probe planted by the log-interpolation control.\n'
+            'private fun logInterpolationControlProbe() {\n'
+            '    log.i { "planted=$Task" }\n'
+            '}\n'
+        ),
+        why="a log call that interpolates a type nobody allowlisted must be reported, or the allowlist is a list nobody reads",
+    ),
+    # doc-links: the lychee gate. The command is the wrapper script, so
+    # `_control_identity` resolves it to the same path the registry knows and
+    # Part J can join the two. The sabotage appends a *markdown link* to a file
+    # that does not exist, which is what this gate and only this gate looks at
+    # — `check-doc-dead-refs.py` matches backticked paths, so the same text
+    # would pass it. That is the point: the two gates cover different shapes of
+    # reference, and a control that only one of them can fail proves nothing
+    # about the other.
+    ScriptGate(
+        name="doc-links",
+        cmd=["./scripts/check-doc-links.sh"],
+        sabotage_path="docs/agents/domain.md",
+        sabotage=_append('\nSee [DefinitelyNotAFile](docs/decisions/DefinitelyNotAFile.md) for details.\n'),
+        why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
     ),
     # backlog-issue-refs: the snapshot (94 OPEN issues, none with a Backlog field) is
     # already in the failure state the gate detects. A control that can't distinguish
@@ -2319,6 +2355,47 @@ def check_script_gates_vs_registry() -> list[str]:
                 f"Part J: SCRIPT_GATES entry '{sg_name}' "
                 f"references script '{script_path}' which is not in _registry.GATES. "
                 f"Add it to the registry or remove the control."
+            )
+
+    # 1b. A twin and the registry entry it stands for must agree.
+    #
+    # The two copies of a control are the same control until one of them is
+    # edited: the registry declares *what* changes and *which command* proves
+    # it, and the twin in this file does the same thing in code. Nothing
+    # compared them, and the copy that rotted was the one that ran:
+    # `build-output-readers` carried a hand-written twin that sabotaged a
+    # different file than the registry named, passed every sabotage run, and
+    # proved nothing. A twin that points somewhere else is a control that
+    # certifies a different thing than the registry claims it certifies.
+    #
+    # The comparison is on the two things that make a control a control: the
+    # file it changes, and the command it runs afterwards.
+    for sg in SCRIPT_GATES:
+        control = _registry.GATE_CONTROLS.get(sg.name)
+        if control is None or control.kind != "sabotage":
+            continue
+        if any("{tmp}" in arg for arg in control.argv):
+            # A fixture path is chosen at run time; it is not part of the
+            # contract the twin and the registry share.
+            continue
+        registry_path = control.path
+        if sg.sabotage_path != registry_path:
+            errors.append(
+                f"Part J: the control for '{sg.name}' and the registry entry "
+                f"disagree about the file they change: the twin changes "
+                f"'{sg.sabotage_path}', the registry names '{registry_path}'. "
+                f"Two controls that change different files are two controls, "
+                f"and only one of them runs."
+            )
+        registry_argv = [
+            sys.executable if arg == "{python}" else arg for arg in control.argv
+        ]
+        if list(sg.cmd) != registry_argv:
+            errors.append(
+                f"Part J: the control for '{sg.name}' and the registry entry "
+                f"disagree about the command they run: the twin runs "
+                f"{sg.cmd}, the registry names {registry_argv}. A control that "
+                f"runs a different command proves a different gate."
             )
 
     # 2. Registry gates with a script that have no positive control.

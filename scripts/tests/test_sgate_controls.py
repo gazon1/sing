@@ -71,22 +71,69 @@ class TestRegistryImports(unittest.TestCase):
                 )
 
 
-class TestTheDeletionThatCrashedTheImport(unittest.TestCase):
-    """The specific control whose declaration took sgate down."""
+class TestTheControlThatMustBeAbleToFail(unittest.TestCase):
+    """The control whose declaration took `import sgate` down, and what replaced it.
 
-    def test_log_interpolation_declares_an_empty_replacement(self):
-        """`log-interpolation` deletes an allowlist line, so `repl` is `''`.
+    `log-interpolation` used to *delete* an allowlist line — a regex edit with an
+    empty replacement — and that declaration was the one that made
+    `import sgate` raise: `Edit` validated the replacement with truthiness, so
+    `repl=''` was refused as a missing value when it is a deletion. The fix
+    distinguished unset from empty (ADR
+    `2026-10-19-sgate-regex-repl-empty-is-a-deletion.md`).
 
-        Kept as a named assertion rather than a general one: this is the control
-        that made `import sgate` raise, and a future edit to it is the most likely
-        way the same crash returns.
-        """
+    The control itself was replaced on 2026-10-19, for a reason that has nothing
+    to do with the import: the deletion could not fail the gate. It removed the
+    `TaskId` entry from the allowlist, and no log call in this tree interpolates
+    a name that resolves to `TaskId` — so removing the entry changed nothing,
+    and the control reported a pass for a gate that had never been shown to
+    fail. It now plants a log call that interpolates a type the allowlist does
+    not carry, which the gate must report.
+
+    The deletion capability itself is still pinned, by
+    `TestRegexRepl.test_empty_replacement_is_a_deletion_and_is_legal`, and the
+    property that matters here is the one that was missing: **the control has
+    to be able to fail the gate.**
+    """
+
+    def test_log_interpolation_plants_a_violation_the_gate_must_report(self):
+        """The control changes a file, and it changes one the gate reads."""
         control = GATE_CONTROLS["log-interpolation"]
-        self.assertEqual(control.edit.kind, "regex")
-        self.assertEqual(
-            control.edit.repl, "", "the deletion edit must stay a deletion"
+        self.assertEqual(control.kind, "sabotage")
+        self.assertIsNotNone(control.edit, "a sabotage control declares no Edit")
+        self.assertTrue(
+            control.path.endswith(".kt"),
+            "the plant has to be a Kotlin file the gate scans, not the gate's "
+            f"own source: {control.path}",
         )
-        self.assertTrue(control.edit.pattern, "a deletion still needs a pattern")
+        self.assertIn(
+            "Task",
+            control.edit.new,
+            "the plant has to interpolate a type the allowlist does not carry, "
+            "or the gate has nothing to report",
+        )
+
+    def test_a_registry_control_still_uses_a_regex_edit(self):
+        """A regex edit with a *deletion* is a legal declaration.
+
+        The named control no longer needs to be the one that exercises it, but
+        the declaration form must stay legal in the registry — that is the whole
+        fix from the import crash.
+        """
+        regex_controls = [
+            (name, control)
+            for name, control in GATE_CONTROLS.items()
+            if control.edit is not None and control.edit.kind == "regex"
+        ]
+        self.assertTrue(
+            regex_controls,
+            "no registry control uses a regex edit any more, so the regex path "
+            "is no longer exercised by a live control",
+        )
+        for name, control in regex_controls:
+            self.assertIsNotNone(
+                control.edit.repl,
+                f"control {name!r} declares a regex edit with no replacement",
+            )
 
 
 class TestRegexRepl(unittest.TestCase):

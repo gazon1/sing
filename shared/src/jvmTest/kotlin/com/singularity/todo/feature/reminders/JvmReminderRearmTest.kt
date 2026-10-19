@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  *
  * ## What was untested before this file
  *
- * This logic lived in `desktopApp/main.kt` as a private `suspend fun`, which means **no
+ * This logic lived in `desktopApp/src/main/kotlin/com/singularity/todo/main.kt` as a private `suspend fun`, which means **no
  * test executed it** — not because it was hard to test, but because it was written where
  * the tests cannot reach. It is the code that decides whether a Desktop reminder works
  * once or works after a reboot, so "it compiles and it reads correctly" was not good

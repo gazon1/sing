@@ -12,11 +12,35 @@ of the gate is to make each exemption a deliberate, visible decision made in
 the same commit as the code it exempts, not a quiet addition to a text file
 that reviewers never see.
 
+## What "type" means here, exactly
+
+The gate has no parser, so it cannot know the declared type of an interpolated
+value. It uses the *name* of the interpolated identifier as a proxy: `$TaskId`
+is read as the type `TaskId`, and `$task` is read as a type called `task`, which
+no one has heard of. A name the map does not know is **not** a finding.
+
+That is a real limitation and it is stated here rather than left in the code to
+be discovered: the gate catches an interpolation whose variable is named after
+a type it knows, and it stays quiet about every other name. Thirty-eight
+distinct names are interpolated in this tree that the map does not know, among
+them `email` — the very case the gate exists for.
+
+Closing that gap is a policy decision, not a refactoring: the honest fix is to
+allowlist *names* rather than types, which changes what the allowlist means
+and turns the gate red on every unknown name until each is judged. The
+maintainers own that call. Until it is made, this gate is a floor and not a
+ceiling, and the docstring says so.
+
 ## Sabotage
 
-The control in _registry.py removes one type from ALLOWLISTED_TYPES when
-`--sabotage` is passed, which causes the script to report that now-unlisted
-type as an unexpected finding and fail the gate.
+The control in `_registry.py` plants a log call that interpolates a type the
+map knows and the allowlist does not, and the gate must report it and fail.
+
+The previous control removed the `TaskId` entry from the allowlist instead,
+and it could not fail the gate: no log call in this tree interpolates a name
+that resolves to `TaskId`, so removing the entry changed nothing. A control
+that cannot fail the gate is worse than no control, because it is reported as
+a passing one.
 
 ## Usage
 
@@ -33,6 +57,8 @@ import sys
 from pathlib import Path
 
 import click
+
+from scanners.source_text import strip_comments
 
 WORKSPACE = Path(__file__).resolve().parent.parent
 
@@ -70,97 +96,144 @@ ALLOWLISTED_TYPES: frozenset[str] = frozenset({
     "kotlin.Unit",
 })
 
-# Pattern: log.<level> { "string" }
-# The log call uses a lambda: log.w { "message ${expr}" }
-# We match the whole call first, then extract interpolations from the string.
+# The log call: `log.<level> { "message" }`, with an optional argument list
+# (`log.e(e) { "message" }` — the exception being logged) and with the message
+# starting on any later line.
 #
-# Kotlin interpolation forms:
-#   ${expr}   — full expression in braces
-#   $var      — simple variable reference
-#   $x.y      — member access on simple variable
-# We capture the first identifier after $ as the base type.
-#
-# Because ${...} blocks can contain } characters (e.g. Redaction::redactEmail}),
-# we cannot use a simple character class to skip over them. Instead we match
-# log.<level> { " and then manually parse the string content, treating ${...}
-# as atomic units.
-_LOG_CALL_RE = re.compile(r'\blog\.\w+\s*\{\s*"', re.MULTILINE)
-
-# Extract all interpolations from a log string.
-# Matches ${expr}, $var, $x.y
-_INTERPOLATION_RE = re.compile(r'\$\{([^}]+)\}|\$(\w+(?:\.\w+)*)')
+# The old pattern required the opening quote on the same line as the call, and
+# the scan was line by line, so a multi-line call and a call with an argument
+# were both invisible: 28 of the 74 interpolations in this tree were seen.
+_LOG_CALL_RE = re.compile(r"\blog\.\w+\s*(?:\([^()]*\))?\s*\{")
 
 
 # Modules to scan
 MODULES = ("shared", "androidApp", "desktopApp", "mcp-server")
 
 
-def _extract_string_content(line: str, start: int) -> str | None:
+def _string_at(text: str, start: int) -> tuple[str, int] | None:
     """
-    Extract the content of a Kotlin double-quoted string starting at `start` (the opening ").
+    The content of the string literal that starts at [start], and the index
+    just past it.
 
-    Handles ${...} interpolations as atomic units so their internal {}/} don't
-    terminate the string prematurely.
-    Returns the string content (without quotes), or None if no closing " is found.
+    A plain string ends at the next unescaped quote; a raw string ends at the
+    last three quotes of a run of three or more. [start] must point at the
+    opening quote.
     """
-    n = len(line)
-    i = start + 1  # skip opening "
+    n = len(text)
+    if text.startswith('"""', start):
+        close = text.find('"""', start + 3)
+        if close == -1:
+            return None
+        run = close
+        while run < n and text[run] == '"':
+            run += 1
+        if run - close > 3:
+            return text[start + 3:run - 3], run
+        return text[start + 3:close], close + 3
+    i = start + 1
     while i < n:
-        ch = line[i]
+        ch = text[i]
+        if ch == "\\":
+            i += 2
+            continue
         if ch == '"':
-            # Unescaped closing quote
-            return line[start + 1:i]
-        elif ch == '$':
-            if i + 1 < n:
-                nxt = line[i + 1]
-                if nxt == '{':
-                    # Skip to first } that closes this ${...} (no nested ${...} in Kotlin strings)
-                    j = i + 2
-                    while j < n and line[j] != '}':
-                        j += 1
-                    i = j
-                    continue
-                elif nxt.isidentifier():
-                    # $identifier — skip the identifier
-                    j = i + 2
-                    while j < n and line[j].isidentifier():
-                        j += 1
-                    i = j
-                    continue
+            return text[start + 1:i], i + 1
+        if ch == "\n":
+            # A plain string does not span lines in Kotlin.
+            return None
         i += 1
-    return None  # no closing quote found
+    return None
+
+
+def _interpolations(content: str) -> list[str]:
+    """
+    The base name of every template expression in a Kotlin string.
+
+    The three forms are `${expr}`, `$name` and `$name.member`. For a braced
+    expression the base is the first segment of the expression; for a simple
+    one it is the identifier itself. The base is what the type map is keyed by.
+    """
+    found: list[str] = []
+    i = 0
+    n = len(content)
+    while i < n:
+        ch = content[i]
+        if ch != "$" or i + 1 >= n:
+            i += 1
+            continue
+        nxt = content[i + 1]
+        if nxt == "{":
+            depth = 1
+            j = i + 2
+            while j < n and depth > 0:
+                if content[j] == "{":
+                    depth += 1
+                elif content[j] == "}":
+                    depth -= 1
+                j += 1
+            expr = content[i + 2:max(i + 2, j - 1)]
+            base = expr.split(".")[0].split("(")[0].strip()
+            if base:
+                found.append(base)
+            i = j
+            continue
+        if nxt.isalpha() or nxt == "_":
+            j = i + 1
+            while j < n and (content[j].isalnum() or content[j] == "_"):
+                j += 1
+            found.append(content[i + 1:j])
+            i = j
+            continue
+        i += 1
+    return found
+
+
+def find_interpolations_in_text(text: str) -> list[tuple[str, str, int]]:
+    """
+    Scan Kotlin source for log interpolations.
+    Returns list of (raw_log_call, base_type, line_number).
+    """
+    findings: list[tuple[str, str, int]] = []
+
+    # Comments are blanked first, so a log call quoted in a comment is not a
+    # log call. The string *contents* stay: they are the message.
+    code = strip_comments(text)
+
+    for match in _LOG_CALL_RE.finditer(code):
+        # The message is the first string literal after the call's opening brace.
+        j = match.end()
+        while j < len(code) and code[j].isspace():
+            j += 1
+        if j >= len(code) or code[j] != '"':
+            continue
+        literal = _string_at(code, j)
+        if literal is None:
+            continue
+        content, _ = literal
+        lineno = code.count("\n", 0, match.start()) + 1
+        for base in _interpolations(content):
+            findings.append((match.group(0).strip()[:60], base, lineno))
+    return findings
 
 
 def find_interpolations_in_file(path: Path) -> list[tuple[str, str, int]]:
-    """
-    Scan one Kotlin file for log interpolations.
-    Returns list of (raw_log_call, base_type, line_number).
-    """
-    findings = []
+    """Scan one Kotlin file for log interpolations."""
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
-        return findings
+        return []
+    return find_interpolations_in_text(text)
 
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        # Skip comment-only lines
-        stripped = line.strip()
-        if stripped.startswith("//"):
-            continue
 
-        for m in _LOG_CALL_RE.finditer(line):
-            # m.end() is the position right after 'log.<level> { "'
-            string_content = _extract_string_content(line, m.end() - 1)
-            if string_content is None:
-                continue
-
-            for im in _INTERPOLATION_RE.finditer(string_content):
-                # Group 1 = ${expr}, Group 2 = $var
-                expr = (im.group(1) or im.group(2)).split(".")[0]
-                findings.append((m.group(0).strip()[:60], expr, lineno))
-
-    return findings
-
+# The probe the `--sabotage` flag scans: a log call that interpolates a type
+# the map knows and the allowlist does not. It goes through the same detector
+# as the real tree, so the flag proves the *detection* path and not merely the
+# reporting path.
+PROBE_SOURCE = """
+private fun logInterpolationControlProbe() {
+    log.i { "planted=$Task" }
+}
+"""
 
 
 def resolve_type_to_fqn(type_name: str) -> str | None:
@@ -223,11 +296,16 @@ def cli(quiet: bool, sabotage: bool) -> None:
     # the sabotage control in _registry.py), remove one entry so the gate fails
     # if that type is still being logged.
     allowlist = set(ALLOWLISTED_TYPES)
-    if sabotage:
-        # Remove TaskId — if any log call still uses it, the gate will report it.
-        allowlist.discard("com.singularity.todo.feature.tasks.domain.model.TaskId")
 
     findings = scan_workspace()
+    if sabotage:
+        # Scan the probe through the real detector. The previous version removed
+        # a type from the allowlist instead, and it could not fail the gate: no
+        # log call in this tree interpolates a name that resolves to that type,
+        # so removing the entry changed nothing. A control that cannot fail is
+        # worse than no control, because it is reported as a passing one.
+        for raw, base, lineno in find_interpolations_in_text(PROBE_SOURCE):
+            findings.append((raw, base, lineno, resolve_type_to_fqn(base) or ""))
     unexpected: list[tuple[str, str, int, str]] = []
 
     for raw, base_type, lineno, fqn in findings:

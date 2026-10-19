@@ -7,7 +7,7 @@ import org.koin.core.Koin
 /**
  * Runs one `fire-reminder` request from a freshly started graph.
  *
- * ## Why this exists rather than three lines in `desktopApp/main.kt`
+ * ## Why this exists rather than three lines in `desktopApp/src/main/kotlin/com/singularity/todo/main.kt`
  *
  * The two things it does must happen in this order, and the reason is not obvious at the
  * callsite:

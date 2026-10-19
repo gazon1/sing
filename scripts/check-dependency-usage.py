@@ -198,6 +198,41 @@ def read_allowlist(path: Path) -> tuple[set[str], int | None]:
     return {e for e in entries if e}, ceiling
 
 
+KNOWN_USED_PATH = WORKSPACE / "scripts" / "dependency-usage-known-used.txt"
+
+
+def read_known_used(path: Path) -> dict[str, str]:
+    """
+    Dependencies the project claims to use, and the evidence for the claim.
+
+    The file is the bar a scan has to clear: if the scan cannot see one of
+    these as used, the scan is blind — not lucky. A scan that reports nothing
+    looks exactly like a scan that is right, and the tool that reported
+    `compose.material3` as unused, in a tree that imports it 216 times, is the
+    reason this file exists.
+
+    Format: `<coordinate> | <source set> | <evidence>`. Comments and blank
+    lines are not records.
+    """
+    if not path.exists():
+        return {}
+    records: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        text = line.split("#", 1)[0].strip()
+        if not text:
+            continue
+        parts = [p.strip() for p in text.split("|")]
+        if not parts or not parts[0]:
+            continue
+        records[parts[0]] = parts[2] if len(parts) > 2 else ""
+    return records
+
+
+def load_known_used() -> dict[str, str]:
+    """The dependencies this project claims to use, and their evidence."""
+    return read_known_used(KNOWN_USED_PATH)
+
+
 def load_allowlist() -> tuple[set[str], int | None]:
     """
     Accepted findings, and the ceiling on how many there may be.
@@ -380,6 +415,50 @@ def cli(ctx: click.Context, resolved: Path | None, quiet: bool) -> None:
     for key, module in sorted(declared.items()):
         if module not in roots_by_coordinate:
             skipped_unmeasured.append((key, module))
+
+    # The blind-spot check, before anything is reported. A dependency this
+    # project demonstrably uses landing in the findings means the scan cannot
+    # see it — which is a failure of the measurement, not a fact about the
+    # dependency. Reporting it as a finding would train the reader to ignore
+    # the list, and the next real finding with it.
+    known_used = load_known_used()
+    blind: list[str] = []
+    found_coordinates = {coordinate for coordinate, _, _ in findings}
+    for coordinate, evidence in sorted(known_used.items()):
+        if coordinate not in declared_modules:
+            blind.append(
+                f"{coordinate} — the project no longer declares it; remove the "
+                f"claim from scripts/dependency-usage-known-used.txt"
+            )
+            continue
+        if coordinate not in roots_by_coordinate:
+            blind.append(
+                f"{coordinate} — it did not resolve in any source set this gate "
+                f"scans, so the scan cannot see it at all"
+            )
+            continue
+        if coordinate in found_coordinates:
+            blind.append(
+                f"{coordinate} — the scan reports it as unused, and the project "
+                f"uses it ({evidence or 'no evidence recorded'})"
+            )
+    if blind:
+        click.echo(
+            "\ncould not measure: the scan cannot see dependencies this project "
+            "uses. A finding here would be a fact about the scan, not about the "
+            "dependency:\n",
+            err=True,
+        )
+        for line in blind:
+            click.echo(f"  {line}", err=True)
+        click.echo(
+            "\nEither the scan lost the ability to see a source set (a KMP "
+            "module's commonMain does not reach a JVM-bytecode analysis), or "
+            "the project stopped using the dependency — in which case remove "
+            "the claim from scripts/dependency-usage-known-used.txt.",
+            err=True,
+        )
+        raise ctx.exit(IO_ERROR)
 
     if not quiet:
         click.echo(

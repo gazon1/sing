@@ -24,7 +24,7 @@ Three processes, one file:
 
 | Process | Opens it because |
 |---|---|
-| Desktop GUI (`desktopApp/main.kt`) | It is the app |
+| Desktop GUI (`desktopApp/src/main/kotlin/com/singularity/todo/main.kt`) | It is the app |
 | `:mcp-server` (`Main.kt`) | An agent needs the same data |
 | **`singularity-todo fire-reminder <id> <userId>`** | A `systemd --user` reminder unit fired; see ADR `2026-10-07-desktop-reminders-systemd-user-timers` |
 
@@ -110,7 +110,7 @@ If you add one, the checklist is short because the database side is done:
 1. Resolve the path from the **same** expression. Do not accept a path argument; two paths
    means two databases and a class of bug that looks like data loss.
 2. `startKoin { modules(listOf(platformModule(), coreLoggingModule()) + domainModule()) }`
-   — `mcp-server/Main.kt:95` and `desktopApp/main.kt` both do this, and both note in KDoc
+   — `mcp-server/Main.kt:95` and `desktopApp/src/main/kotlin/com/singularity/todo/main.kt` both do this, and both note in KDoc
    that a hand-rolled subset drifts and leaves DAOs unbound, which kills the entry point at
    startup.
 3. Resolve the active profile **before** any repository call. `ReminderRepository.get` is

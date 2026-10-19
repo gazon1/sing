@@ -1,25 +1,3 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "sgate"
-version = "0.1.0"
-description = "Unified CLI for singularity-todo gate scripts"
-requires-python = ">=3.12"
-dependencies = [
-    "click>=8.0",
-    "structlog>=24.0",
-    "rich>=13.0",
-]
-
-[project.scripts]
-sgate = "sgate.cli:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["sgate*"]
-
 # ruff — the lint half of what check-script-conventions.py used to do.
 #
 # Why split rather than replace: the three rules ruff cannot express are the
@@ -28,6 +6,16 @@ include = ["sgate*"]
 # *requirements about a pattern ruff must accept*. ruff only rejects; it cannot
 # require. Those stay in check-script-conventions.py, which is why that file is
 # still there rather than deleted.
+#
+# Why this file still exists at all: it is the ruff configuration for the
+# `scripts/` tree. It used to *also* declare a `[project]` for a package named
+# `sgate` — a second, competing declaration alongside the real one in
+# `scripts/src/pyproject.toml` (which is what CI actually installs, and which
+# every reference in the tree points at). That duplicate was removed on
+# 2026-10-19: it declared a `structlog` dependency that nothing imported, and
+# two different `[project.scripts]` for the same `sgate` binary were a standing
+# invitation to edit the wrong one. This file now carries ruff configuration
+# only.
 [tool.ruff]
 line-length = 100
 target-version = "py312"
