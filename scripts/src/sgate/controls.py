@@ -17,8 +17,10 @@ Two rules the data enforces, because both have already bitten this repository:
 1. A control that matches nothing must be **loud**. Four controls once matched
    nothing after their target moved on, the gate read an untouched file and
    correctly passed, and the harness reported a passing control. Hence
-   `Edit.__post_init__` refusing an empty `old`/`new` or `pattern`/`repl` pair:
-   an edit with nothing to find is not representable.
+   `Edit.__post_init__` refusing an edit that finds nothing: an empty `old`/`new`
+   pair, an empty `pattern`, or a `regex` that declares no `repl` at all. An empty
+   *replacement* is not that case — `repl=''` deletes the match, which is a real
+   sabotage, so "unset" (`None`) and "empty" (`""`) are different values.
 2. A gate that is red on a clean tree must **say so with a date**, not merely
    waive. `Control.needs_clean_run=False` carries `until` for that reason; a
    waiver without an expiry is output nobody reads.
@@ -67,8 +69,9 @@ class Edit:
     count: int = -1
     #: `regex`: the pattern (must be non-empty).
     pattern: str = ""
-    #: `regex`: the replacement.
-    repl: str = ""
+    #: `regex`: the replacement. `None` means the declaration forgot it; `""` is a
+    #: deliberate deletion of the match and is legal (see `__post_init__`).
+    repl: str | None = None
     #: `regex`: `re` flags, spelled as a name so the declaration stays readable.
     flags: str = ""
     #: `age_dir`: how many days into the past to set the directory mtime.
@@ -87,7 +90,13 @@ class Edit:
             )
         if self.kind in _EDIT_REQUIRES_REGEX and not self.pattern:
             raise ValueError(f"edit {self.kind!r} needs a non-empty `pattern`")
-        if self.kind == "regex" and not self.repl:
+        # `None` is "the declaration forgot", not "replace with nothing". An empty
+        # replacement is the *deletion* edit — `Edit(kind='regex', pattern=p,
+        # repl='')` removes the match — and refusing it took down the whole sgate
+        # import when the log-interpolation control started declaring one. What must
+        # stay loud is an edit that finds nothing, and that is `pattern`'s job: the
+        # applier asserts the substitution matched at least once.
+        if self.kind == "regex" and self.repl is None:
             raise ValueError("edit 'regex' needs `repl`")
         if self.kind == "age_dir" and self.days <= 0:
             raise ValueError("edit 'age_dir' needs `days` > 0 to move the mtime into the past")
