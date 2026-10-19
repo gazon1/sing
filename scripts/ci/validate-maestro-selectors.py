@@ -84,6 +84,41 @@ def _parse_testtags_kt() -> Set[str]:
     return ids
 
 
+#: `fun savedAgendaCard(name: String) = "saved_agenda_card_${slug(name)}"` — the
+#: prefix a dynamic generator stamps onto everything it emits. Parsed from
+#: TestTags.kt so the question "can this id still be produced?" is answered by the
+#: file that declares the generator, rather than by whether a flow happens to
+#: exercise that path today.
+_DYNAMIC_GENERATOR_PATTERN = re.compile(r'"([a-z_0-9]+)_\$\{')
+
+
+def _live_dynamic_prefixes() -> Set[str]:
+    """Prefixes of every dynamic id generator currently declared in TestTags.kt."""
+    testtags = (
+        Path(__file__).resolve().parents[2]
+        / "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt"
+    )
+    if not testtags.exists():
+        return set()
+    return {
+        f"{m.group(1)}_"
+        for m in _DYNAMIC_GENERATOR_PATTERN.finditer(
+            testtags.read_text(encoding="utf-8")
+        )
+    }
+
+
+
+def _is_stale_entry(de_id: str, live_prefixes: Set[str]) -> bool:
+    """True when no generator left in TestTags.kt can still produce `de_id`.
+
+    Split out so the predicate is exercised directly rather than re-implemented in
+    a test. A second copy of this rule is the exact drift this repository has
+    already paid for twice — the copy agrees until the rule changes, and then the
+    test keeps passing the version nobody runs.
+    """
+    return not any(de_id.startswith(prefix) for prefix in live_prefixes)
+
 
 # ---------------------------------------------------------------------------
 # Known finite input spaces for TestTags dynamic functions.
@@ -388,10 +423,22 @@ def main() -> int:
                     location += f":{line_no}"
                 errors.append(f"  {location}: unknown id: {id_val!r}")
 
-    # Warn about DYNAMIC_EXPANSIONS entries that are never used in any flow.
-    # This catches stale entries from removed features or renamed flows.
-    # Skip taskItem/taskCheckbox entries — those are seeded by helpers and their
-    # exact titles are not guaranteed to appear in entry-point flows.
+    # Warn about DYNAMIC_EXPANSIONS entries that are neither used by any flow nor
+    # producible by any generator left in TestTags.kt.
+    #
+    # "Unused" alone is not "stale", and the difference cost this warning its
+    # credibility: it named 28 entries, and every one of them was the output of a
+    # generator that still exists (`savedAgendaCard("personal")`,
+    # `calendarDay("2026-09-15")`, `genUi("whatsnew")`). They are unused because no
+    # flow covers that path *yet* — a feature without a test, not a removed one.
+    # Deleting them would not have cleaned anything up: a flow written next month
+    # would come back "unknown id" against an id this file had deleted, because
+    # flow ids are validated against this literal set and nothing expands
+    # `saved_agenda_card_${...}` at validation time.
+    #
+    # So an entry is only reported once its generator is gone from TestTags.kt —
+    # which is the event this warning was written to catch.
+    live_prefixes = _live_dynamic_prefixes()
     stale_dynamic: List[str] = []
     for de_id in sorted(DYNAMIC_EXPANSIONS):
         if de_id not in ids_used_in_flows:
@@ -401,10 +448,15 @@ def main() -> int:
             # Skip pomodoroTaskChip seed entries.
             if de_id.startswith("pomodoro_task_chip_"):
                 continue
+            if not _is_stale_entry(de_id, live_prefixes):
+                continue
             stale_dynamic.append(de_id)
 
     if stale_dynamic:
-        warnings.append(f"  DYNAMIC_EXPANSIONS has {len(stale_dynamic)} entry/entries not used in any flow (possible stale):")
+        warnings.append(
+            f"  DYNAMIC_EXPANSIONS has {len(stale_dynamic)} entry/entries no longer "
+            "produced by any generator in TestTags.kt (possible stale):"
+        )
         for sid in stale_dynamic:
             warnings.append(f"    - {sid}")
         warnings.append("  Remove stale entries from DYNAMIC_EXPANSIONS when the corresponding feature is removed.")

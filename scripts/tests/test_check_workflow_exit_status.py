@@ -145,7 +145,10 @@ class DoesNotFireTest(unittest.TestCase):
 
 class MainTest(unittest.TestCase):
     def test_a_clean_tree_passes(self):
-        self.assertEqual(0, cw.main(["--quiet"]))
+        # Through `run(cli.main, argv)`, the path `__main__` takes. The gate was
+        # converted from `sys.exit(main(argv))` to a Click command, so the `main`
+        # this called no longer exists.
+        self.assertEqual(0, cw.run(cw.cli.main, ["--quiet"]))
 
     def test_a_defect_is_found_on_this_repository(self):
         # The gate is about this repository, so the committed workflows are its corpus.

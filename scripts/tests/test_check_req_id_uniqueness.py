@@ -175,7 +175,10 @@ class VacuousCorpusTest(unittest.TestCase):
             root = pathlib.Path(tmp)
             (root / 'openspec' / 'specs').mkdir(parents=True)
             argv = ['--root', str(root)]
-            self.assertEqual(1, mod.main(argv))
+            # Through `run(cli.main, argv)`, the path `__main__` takes. The gate was
+            # converted from `sys.exit(main(argv))` to a Click command, so the `main`
+            # this called no longer exists.
+            self.assertEqual(1, mod.run(mod.cli.main, argv))
 
 
 class RepositoryTest(unittest.TestCase):

@@ -1,8 +1,10 @@
-# ADR: Startup blob reader recovery
+---
+created: 2026-10-19
+tags: [auth, security, recovery, infrastructure]
+status: accepted
+---
 
-**Date:** 2026-10-19
-**Status:** accepted
-**Deciders:** Mavis agent
+# ADR: Startup blob reader recovery
 
 ## Context
 

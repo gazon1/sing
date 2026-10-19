@@ -118,11 +118,33 @@ create policy sync_tasks_owner_policy on sync_tasks using (true);
     def test_a_missing_directory_is_a_failure_not_a_pass(self):
         # The shape that actually matters: the path moves, or the glob stops matching, and
         # a gate that scans nothing reports success forever.
-        self.assertEqual(1, gate.main_for(["/nonexistent/migrations"]))
+        #
+        # IO_ERROR, not VALIDATION_FAILURE. "Scanned nothing" means the corpus was
+        # not read — the path moved — which is a different failure from "the corpus
+        # was read and what it says is wrong". This test asserted the validation
+        # code, which was true before the gate grew the distinction and has been
+        # wrong since; asserting the named constant states the contract instead of
+        # a number that can drift silently.
+        self.assertEqual(gate.IO_ERROR, gate.main_for(["/nonexistent/migrations"]))
 
     def test_an_empty_directory_is_a_failure_not_a_pass(self):
         with tempfile.TemporaryDirectory() as d:
-            self.assertEqual(1, gate.main_for([d]))
+            self.assertEqual(gate.IO_ERROR, gate.main_for([d]))
+
+    def test_a_corpus_that_was_read_and_disagrees_is_a_validation_failure(self):
+        """The other half of the distinction above.
+
+        Asserting only IO_ERROR would pass if the gate returned 2 for everything.
+        The two exit codes mean different things to whatever reads this gate's
+        output, so a corpus that *was* scanned has to keep reporting 1.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            path = pathlib.Path(d) / "bad.sql"
+            path.write_text(
+                "create or replace function public.f() returns int as $$ select 1 $$ language sql;\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(gate.VALIDATION_FAILURE, gate.main_for([d]))
 
 
 if __name__ == "__main__":

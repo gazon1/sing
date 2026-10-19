@@ -1957,8 +1957,26 @@ def _module_backed_gate_commands() -> set[str]:
     }
 
 
+#: A gate line in `GATE_REGISTRY`: `gate <blocking|advisory> "name" <command>`.
+#: Kept identical to `run_all._GATE_LINE` — the two files parse the same registry,
+#: and a divergence between their parsers would put the reachability corpus out of
+#: step with what CI runs.
+_REGISTRY_GATE_LINE = re.compile(r'^gate\s+(blocking|advisory)\s+"([^"]+)"\s+(.+)$')
+
+
 def _registered_gate_scripts() -> list[str]:
     """Scripts of every gate in the registry — what `sgate run-all` actually runs.
+
+    Read from `GATE_REGISTRY` (`scripts/ci/static-gates.sh`), because that is the
+    file `run_all.py` loads (`_load_static_gates`) — not from `_registry.GATES`.
+
+    The two disagreed. `backlog-issue-refs` was deleted from the shell registry in
+    #657, but its `GateSpec` survived in `_registry.py`, so reading the Python
+    mirror answered "what does run-all run" with a set containing a gate run-all
+    has not run since #657. That stale entry is what kept
+    `check-backlog-issue-refs.py` in the reachable set, and Part H — whose whole
+    subject is reachability — asserted against it. The mirror is 39 entries wide
+    against the registry's 29, 13 of them with no gate line at all.
 
     Narrow on purpose. The old fallback marked reachable *every* script any command
     module names, which is a superset of the registry: a gate retired in #657 kept
@@ -1966,11 +1984,53 @@ def _registered_gate_scripts() -> list[str]:
     to no module — carried that whole superset into the reachable set. Part H then
     reported 33 of 33 candidates reachable and could not report the orphan it exists
     to find.
+
+    Routing mirrors `run_all._run_gate`: `sgate <name>` resolves through the backing
+    map, `python3 <script>` and `./<script>` name their path, and a bare bash
+    function name runs no `scripts/check-*` file.
     """
-    reg = _load_registry()
-    return sorted(
-        str(spec.script) for spec in reg.GATES if spec.script and str(spec.script).endswith((".py", ".sh"))
-    )
+    backing = sgate_backing_scripts()
+    out: set[str] = set()
+    for _mode, _name, command in _registry_gate_commands():
+        try:
+            tokens = shlex.split(command)
+        except ValueError:
+            continue
+        if not tokens:
+            continue
+        head, *args = tokens
+        if head == "sgate" and args:
+            out.update(backing.get(args[0], ()))
+        elif head == "python3" and args:
+            out.update(s for s in (args[0],) if s.endswith((".py", ".sh")))
+        elif head.startswith("./"):
+            candidate = head[2:]
+            out.update((candidate,) if candidate.endswith((".py", ".sh")) else ())
+    return sorted(out)
+
+
+def _registry_gate_commands() -> list[tuple[str, str, str]]:
+    """`(mode, display_name, command)` for every gate line in `GATE_REGISTRY`.
+
+    The same parse `run_all._load_static_gates` performs, kept in step with it so
+    "what the registry registers" means one thing in both places.
+    """
+    if not GATE_REGISTRY.is_file():
+        return []
+    out: list[tuple[str, str, str]] = []
+    for line in GATE_REGISTRY.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "gate()" in stripped:
+            continue
+        match = _REGISTRY_GATE_LINE.match(line)
+        if not match:
+            continue
+        mode, name, cmd = match.group(1), match.group(2), match.group(3).rstrip()
+        # Inline comment, the same cut `run_all` applies.
+        if " # " in cmd:
+            cmd = cmd.split(" # ", 1)[0].rstrip()
+        out.append((mode, name, cmd))
+    return out
 
 
 #: `sgate` commands that run no check script and therefore back nothing. Listed so
