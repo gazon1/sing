@@ -170,6 +170,18 @@ contract.
   util-linux's setgid runner, a footgun), and the obvious better fix — have the Kotlin
   `RunnableTestMember` emit a manifest — is blocked by `static-gates.sh` being explicitly
   the no-JVM gate registry. Benchmark before adopting.
+  - **Premise corrected 2026-10-19.** The "no-JVM gate registry" claim above is wrong:
+    `static-gates.sh:181` registers `gate blocking "declared dependencies are used"`,
+    and that gate shells out to Gradle (`scripts/check-dependency-usage.py:313` runs
+    `./gradlew :shared:printResolvedArtifacts -q`). No gate enforces a JVM-free registry;
+    the JVM-free *intent* appears only in comments (`static-gates.sh:2`,
+    `.github/workflows/ci.yml:74`, `setup-repo-tools/action.yml:20`), and its real motive
+    is speed, not prohibition. The rejection of `ast-grep` therefore does not rest on the
+    stated reason. What survives: the tool is not installed, the `/usr/bin/sg` footgun is
+    real, and the hand-rolled stripper is a genuine weakness worth measuring. The
+    benchmark was run — see ADR
+    `2026-10-19-ast-grep-for-kotlin-parsing-in-python-gates.md`, which also supersedes
+    this bullet's conclusion that adoption is a question for a future benchmark.
 
 ## Links
 
