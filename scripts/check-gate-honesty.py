@@ -139,19 +139,89 @@ PROBES = [
 
 REPORT = ROOT / "shared/build/reports/detekt/detekt.md"
 
+#: Must match the `mkdtemp` prefix below: `_sweep_stale_probe_worktrees` recognises
+#: this script's leftovers by it, and a sweep that misses its own prefix is a sweep
+#: that reaps nothing while looking like it works.
+PROBE_PREFIX = "gate-honesty-"
+
+#: Per-probe deadline for the detekt run. Generous enough for a cold Gradle start
+#: on a fresh worktree, short enough that a wedged build cannot hold a worktree
+#: for the rest of the day.
+DETEKT_TIMEOUT_SECONDS = 900
+
 
 def _run_detekt_in(worktree: pathlib.Path) -> tuple[int, str]:
     """Run :shared:detekt inside a worktree. Returns (exit code, output tail)."""
     # Use ./gw to get GRADLE_USER_HOME isolation (per ADR 2026-10-04).
     # Detekt writes shared/build/reports/detekt/detekt.md inside the worktree,
     # so each probe gets its own report file and they never contend.
-    proc = subprocess.run(
-        [str(worktree / "gw"), ":shared:detekt", "--console=plain"],
-        cwd=worktree,
+    #
+    # Bounded. Gradle can sit on a lock or wait on a daemon forever, and a probe
+    # with no deadline holds its worktree for as long as it hangs — 1305 of them
+    # did, until the machine rebooted and cleared /tmp out from under a registry
+    # that had already forgotten it was allowed to forget anything.
+    try:
+        proc = subprocess.run(
+            [str(worktree / "gw"), ":shared:detekt", "--console=plain"],
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            timeout=DETEKT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            124,
+            f"detekt did not finish within {DETEKT_TIMEOUT_SECONDS}s — a probe with "
+            "no deadline is a probe that never cleans up",
+        )
+    return proc.returncode, (proc.stdout + proc.stderr)[-4000:]
+
+
+def _sweep_stale_probe_worktrees() -> int:
+    """Reap probe worktrees this script orphaned on an earlier run.
+
+    `--lock` at creation time (see `probe_once`) made every abnormal exit
+    permanent: a killed run left a locked entry, `git worktree prune` refuses
+    locked entries, and the entry outlived the directory it named — /tmp is a
+    tmpfs, so the directory disappeared on the next reboot while the metadata sat
+    in `.git/worktrees/` for ever. `git worktree list` grew past 1300 rows.
+
+    Scoped to this script's own prefix, and only where the directory is already
+    gone. A blanket `prune --expire=now` would also reap the maintainer's own
+    stale worktrees, which is not this gate's to decide.
+    """
+    listed = subprocess.run(
+        ["git", "-C", str(ROOT), "worktree", "list", "--porcelain"],
         capture_output=True,
         text=True,
     )
-    return proc.returncode, (proc.stdout + proc.stderr)[-4000:]
+    if listed.returncode != 0:
+        return 0
+
+    reaped = 0
+    path: str | None = None
+    stale: list[str] = []
+    for line in [*listed.stdout.splitlines(), ""]:
+        if line.startswith("worktree "):
+            path = line.removeprefix("worktree ")
+        elif not line and path is not None:
+            if PROBE_PREFIX in path and not pathlib.Path(path).exists():
+                stale.append(path)
+            path = None
+
+    for target in stale:
+        # Unlock first: prune declines locked entries by design, and the lock is
+        # what stranded them in the first place.
+        subprocess.run(
+            ["git", "-C", str(ROOT), "worktree", "unlock", target],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(ROOT), "worktree", "remove", "--force", target],
+            capture_output=True,
+        )
+        reaped += 1
+    return reaped
 
 
 def probe_once(probe: Probe) -> tuple[bool, str]:
@@ -162,7 +232,7 @@ def probe_once(probe: Probe) -> tuple[bool, str]:
     GIT_CONFIG_* parameters ensure the worktree's git identity is isolated from
     any global config (e.g. a shared hooksPath).
     """
-    wt_dir = pathlib.Path(tempfile.mkdtemp(prefix="gate-honesty-"))
+    wt_dir = pathlib.Path(tempfile.mkdtemp(prefix=PROBE_PREFIX))
     worktree = wt_dir / "probe-tree"
 
     # git config for this invocation only — does not pollute ~/.gitconfig or
@@ -180,18 +250,21 @@ def probe_once(probe: Probe) -> tuple[bool, str]:
 
     try:
         # Create disposable worktree. --detach = detached HEAD, no branch needed.
-        # --reason is stored by git worktree prune; it appears in `git worktree list`.
-        # git requires --lock alongside --reason, and refuses the worktree outright
-        # without it. The lock is what we want anyway: the worktree is deleted below,
-        # so anything holding it open is a bug worth surfacing rather than unlocking
-        # silently.
+        #
+        # Not `--lock`. It was added with the reasoning that anything holding the
+        # worktree open should be surfaced rather than unlocked silently — but the
+        # lock only ever applies to the abnormal path, because `finally` removes the
+        # worktree with `--force` on the normal one. So it bought nothing and cost
+        # everything: `git worktree prune` refuses locked entries, so a run killed
+        # mid-probe left a registry row that no later run and no reboot could remove.
+        # A directory on /tmp is a tmpfs; it vanishes on the next power cycle while
+        # the metadata naming it sat in `.git/worktrees/` indefinitely. That is how
+        # `git worktree list` came to hold 1305 rows for trees that no longer exist.
         wt_result = subprocess.run(
             [
                 "git", "-C", str(ROOT),
                 "worktree", "add",
                 "--detach",
-                "--lock",
-                "--reason", f"gate-honesty probe {probe.name}",
                 str(worktree),
             ],
             capture_output=True, text=True, env=git_env,
@@ -275,6 +348,14 @@ def cli(
     click.echo("=" * 72)
     click.echo("GATE HONESTY — can the lint gate tell a clean tree from a broken one?")
     click.echo("=" * 72)
+
+    # Reap what an interrupted earlier run left behind, before adding to it. Doing
+    # it here rather than in a hook is deliberate: `git worktree prune` alone would
+    # not help (its default expiry is three months, so fresh orphans are exempt) and
+    # a blanket prune would take the maintainer's own worktrees with it.
+    reaped = _sweep_stale_probe_worktrees()
+    if reaped:
+        click.echo(f"reaped {reaped} orphaned probe worktree(s) from an earlier run")
 
     failures = 0
     for p in selected:
