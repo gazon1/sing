@@ -4,12 +4,11 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 
 /**
  * The number of pushed values the bridge remembers.
@@ -85,6 +84,52 @@ internal fun shouldPushFieldText(fieldText: String, externalText: String): Boole
     fieldText != externalText
 
 /**
+ * Decides whether the field's text must be pushed when the field leaves the composition.
+ *
+ * Two conditions, and the second is the one that matters:
+ *
+ * - The upstream must not already hold the text — otherwise there is nothing to push.
+ * - The upstream must be *behind*: its value must be one the field pushed. An upstream
+ *   that changed from the outside — a discarded draft, a cleared query — is not behind,
+ *   it is ahead, and the text on screen is the text that was discarded. Pushing it back
+ *   would resurrect what the user threw away.
+ *
+ * @param fieldText the text the field currently holds.
+ * @param externalText the upstream value.
+ * @param pushedValues the texts the field pushed upstream, oldest first.
+ * @return `true` when the field's text must be pushed on the way out.
+ */
+internal fun shouldFlushOnDispose(
+    fieldText: String,
+    externalText: String,
+    pushedValues: List<String>,
+): Boolean = shouldPushFieldText(fieldText, externalText) && externalText in pushedValues
+
+/**
+ * What the bridge remembers between emissions.
+ *
+ * Plain fields, not snapshot state: nothing composes from these values, they are only
+ * read by the bridge's own coroutines, and a snapshot write per keystroke is work the
+ * frame does not need.
+ */
+private class BridgeHistory(initialText: String) {
+
+    /** The last text the field held, seed included. */
+    var lastEmitted: String = initialText
+
+    /** The texts the field pushed upstream, oldest first, bounded. */
+    val pushedValues: MutableList<String> = mutableListOf()
+
+    /** Records a text the field handed out, dropping the oldest when the bound is hit. */
+    fun recordPush(text: String) {
+        pushedValues += text
+        while (pushedValues.size > RECENT_PUSH_LIMIT) {
+            pushedValues.removeAt(0)
+        }
+    }
+}
+
+/**
  * Owns the text of a state-based text field and keeps a ViewModel-owned string in sync.
  *
  * The field is the source of truth while the user types: edits are pushed to [onTextChanged]
@@ -96,6 +141,10 @@ internal fun shouldPushFieldText(fieldText: String, externalText: String): Boole
  * never overwrite what the user is currently typing, and a lagging upstream that echoes an
  * older push cannot undo the user's latest edit either. The push is guarded the other way
  * round: a value the upstream already holds is an echo and is not written back.
+ *
+ * The last edit is flushed when the field leaves the composition. The push is asynchronous —
+ * a `snapshotFlow` emission lands on the next frame — so a user who types and navigates away
+ * in the same frame would otherwise leave the upstream one character behind.
  *
  * The state lives in the composable, not in the ViewModel: a `TextFieldState` is a plain holder,
  * but the ViewModel's contract in this project is a single immutable UI state, and a mutable
@@ -114,12 +163,9 @@ fun rememberBridgedTextFieldState(
     // would push that empty value back on its first emission and wipe what was loaded.
     val state = rememberTextFieldState(initialText = externalText)
     val currentExternal by rememberUpdatedState(externalText)
+    val currentOnTextChanged by rememberUpdatedState(onTextChanged)
 
-    // The last text the field held, seed included.
-    var lastEmitted by remember { mutableStateOf(externalText) }
-
-    // The texts the field pushed upstream, oldest first, bounded.
-    var pushedValues by remember { mutableStateOf(emptyList<String>()) }
+    val history = remember { BridgeHistory(externalText) }
 
     // field -> upstream
     LaunchedEffect(state) {
@@ -128,17 +174,39 @@ fun rememberBridgedTextFieldState(
                 // Every text the field holds is recorded, including the seed it started
                 // with: the pull guard below compares the upstream against the last text
                 // the field held, and the seed is one of them.
-                lastEmitted = text
+                history.lastEmitted = text
                 if (!shouldPushFieldText(text, currentExternal)) return@collect
-                pushedValues = (pushedValues + text).takeLast(RECENT_PUSH_LIMIT)
-                onTextChanged(text)
+                history.recordPush(text)
+                currentOnTextChanged(text)
             }
     }
 
     // upstream -> field (only when the change did not come from us)
     LaunchedEffect(externalText) {
-        if (shouldPullExternalText(externalText, lastEmitted, state.text.toString(), pushedValues)) {
+        if (shouldPullExternalText(externalText, history.lastEmitted, state.text.toString(), history.pushedValues)) {
             state.setTextAndPlaceCursorAtEnd(externalText)
+        }
+    }
+
+    // The last edit must not be lost when the field leaves the composition. The push above
+    // is asynchronous — the emission lands on the next frame — so a user who types and
+    // navigates away in the same frame leaves the upstream one character behind.
+    //
+    // The flush is guarded by the upstream being *behind*: its value must be one the
+    // field pushed. An upstream that changed from the outside — a discarded draft, a
+    // cleared query — is not behind, it is ahead, and the text on screen is the text
+    // that was discarded. Pushing it back would resurrect what the user threw away.
+    //
+    // The price is one character in the rarest case: a field whose upstream has not
+    // received *any* push yet (the user typed one character and left in the same
+    // frame) has an upstream value the field never pushed, and the flush declines.
+    DisposableEffect(state) {
+        onDispose {
+            val text = state.text.toString()
+            history.lastEmitted = text
+            if (!shouldFlushOnDispose(text, currentExternal, history.pushedValues)) return@onDispose
+            history.recordPush(text)
+            currentOnTextChanged(text)
         }
     }
 

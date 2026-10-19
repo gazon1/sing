@@ -111,4 +111,44 @@ class TextFieldStateBridgeTest {
         // keeps a value the user has deleted.
         assertTrue(shouldPushFieldText(fieldText = "", externalText = "abc"))
     }
+
+    @Test
+    fun flushPushesThePendingEditWhenTheUpstreamIsBehind() {
+        // The upstream still holds the value before the last keystroke — the field pushed
+        // it, the upstream has not applied it yet. The edit is pending, and it must go
+        // out when the field leaves the composition.
+        assertTrue(
+            shouldFlushOnDispose(
+                fieldText = "abcd",
+                externalText = "abc",
+                pushedValues = listOf("a", "ab", "abc"),
+            ),
+        )
+    }
+
+    @Test
+    fun flushDoesNotResurrectADiscardedDraft() {
+        // The upstream cleared the field from the outside — a discarded draft. Its value
+        // is not one the field pushed, so the upstream is ahead, not behind, and the text
+        // on screen is the text that was thrown away.
+        assertFalse(
+            shouldFlushOnDispose(
+                fieldText = "abc",
+                externalText = "",
+                pushedValues = listOf("a", "ab"),
+            ),
+        )
+    }
+
+    @Test
+    fun flushSkipsAValueTheUpstreamAlreadyHolds() {
+        // Nothing is pending: the upstream already has this text.
+        assertFalse(
+            shouldFlushOnDispose(
+                fieldText = "abc",
+                externalText = "abc",
+                pushedValues = listOf("a", "ab", "abc"),
+            ),
+        )
+    }
 }

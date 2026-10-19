@@ -183,6 +183,55 @@ class TextFieldStateBridgeUiTest {
         assertTagTextEquals(FIELD, "second")
     }
 
+    @Test
+    fun the_last_edit_reaches_the_upstream_when_the_field_leaves_the_composition() =
+        runIsolatedComposeTest {
+            val upstream = Upstream()
+            var visible by mutableStateOf(true)
+            setContent {
+                if (visible) {
+                    BridgeField(upstream)
+                }
+            }
+
+            awaitTag(FIELD).performTextInput("Buy milk")
+            // The field leaves the composition. The push is asynchronous — it lands on
+            // the next frame — so the bridge flushes the pending edit on the way out.
+            visible = false
+            waitForIdle()
+
+            assert(upstream.value == "Buy milk") {
+                "the last edit must reach the upstream even though the field is gone, " +
+                    "got: ${upstream.value}"
+            }
+        }
+
+    @Test
+    fun a_discarded_draft_is_not_resurrected_when_the_field_leaves_the_composition() =
+        runIsolatedComposeTest {
+            val upstream = Upstream()
+            var visible by mutableStateOf(true)
+            setContent {
+                if (visible) {
+                    BridgeField(upstream)
+                }
+            }
+
+            awaitTag(FIELD).performTextInput("Buy milk")
+            waitForIdle()
+
+            // The upstream discards the draft from the outside — a cancelled dialog, a
+            // reset form — and the field leaves in the same pass. The text on screen is
+            // the text that was thrown away, and the flush must not push it back.
+            upstream.rewrite("")
+            visible = false
+            waitForIdle()
+
+            assert(upstream.value == "") {
+                "a discarded draft must not come back, got: ${upstream.value}"
+            }
+        }
+
     /**
      * The upstream a bridge talks to: a plain string plus a counter of the writes
      * the field made to it. The string is snapshot state, so a rewrite from the
