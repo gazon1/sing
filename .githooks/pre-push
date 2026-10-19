@@ -61,25 +61,63 @@ echo ""
 
 echo "=== Pre-push [$BRANCH] — detekt auto-correct ==="
 
-BEFORE="$(git status --porcelain)"
-
-for task in :shared:detekt :desktopApp:detekt; do
-    ./gradlew "$task" \
-        --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain || true
+# Does this push carry Kotlin at all? Two things count: the commits being pushed,
+# and whatever is still uncommitted in the working tree, because auto-correct acts
+# on the working tree rather than on a diff.
+#
+# When neither does, detekt can only rewrite a violation this push did not
+# introduce. Running it anyway is how a Python-only push got held hostage by an
+# unrelated Kotlin finding — and the author's response to a hook that blocks on
+# someone else's code is `--no-verify`, which costs every other gate too. CI runs
+# blocking detekt over the whole tree regardless, so skipping here stops a ~2
+# minute Gradle run on a change that cannot need it, and stops nothing else.
+#
+# `git push` hands the hook one line per ref on stdin:
+#     <local ref> <local sha> <remote ref> <remote sha>
+# An all-zero remote sha is a new branch, where every commit reachable from the
+# local sha is new to the remote.
+KOTLIN_TOUCHED=0
+if ! git diff --quiet HEAD -- '*.kt' '*.kts' 2>/dev/null; then
+    KOTLIN_TOUCHED=1
+fi
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    [ -n "${local_sha:-}" ] || continue
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        RANGE=("${local_sha}" --not --remotes)
+    else
+        RANGE=("${remote_sha}..${local_sha}")
+    fi
+    if [ "$KOTLIN_TOUCHED" = "0" ] &&
+        git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null |
+        grep -q .; then
+        KOTLIN_TOUCHED=1
+    fi
 done
 
-AFTER="$(git status --porcelain)"
-
-if [ "$BEFORE" != "$AFTER" ]; then
+if [ "$KOTLIN_TOUCHED" = "0" ]; then
+    echo "no Kotlin in this push — auto-correct skipped (blocking detekt still runs in CI)"
     echo ""
-    echo "pre-push FAILED — detekt auto-correct rewrote files. Review the diff below,"
-    echo "amend the commit, and push again (or push with --no-verify)."
-    git --no-pager diff --stat
-    exit 1
-fi
+else
+    BEFORE="$(git status --porcelain)"
 
-echo "detekt auto-correct changed nothing"
-echo ""
+    for task in :shared:detekt :desktopApp:detekt; do
+        ./gradlew "$task" \
+            --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain || true
+    done
+
+    AFTER="$(git status --porcelain)"
+
+    if [ "$BEFORE" != "$AFTER" ]; then
+        echo ""
+        echo "pre-push FAILED — detekt auto-correct rewrote files. Review the diff below,"
+        echo "amend the commit, and push again (or push with --no-verify)."
+        git --no-pager diff --stat
+        exit 1
+    fi
+
+    echo "detekt auto-correct changed nothing"
+    echo ""
+fi
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own

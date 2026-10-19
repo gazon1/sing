@@ -267,6 +267,16 @@ gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_m
 # Maestro
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 
+# Source and documentation contracts. Both have a GateSpec in
+# scripts/src/sgate/commands/_registry.py and a positive control in GATE_CONTROLS,
+# but neither had a line here — so `sgate run-all`, which reads *this* file, never
+# ran them. The scripts were green, the controls were registered, and nothing
+# executed: a gate that runs on no one reports success forever. Part H of
+# check-gate-wiring.py is what finally said so, once it stopped resolving
+# `run-all` against the Python mirror instead of this registry.
+gate blocking "log interpolation allowlist" python3 scripts/check-log-interpolation-allowlist.py
+gate blocking "skills describe the tools that exist" python3 scripts/check-skill-drift.py
+
 # Workflow semantics. actionlint reads a workflow as YAML plus GitHub's expression
 # language; neither knows that in POSIX a pipeline's status is the *last* command's.
 # Four CI steps piped, so their failures could not fail them.
