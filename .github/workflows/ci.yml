@@ -130,43 +130,15 @@ jobs:
         run: >
           npx --yes "@fission-ai/openspec@${SPECKIT_VERSION}" validate --all --json --strict
 
-      # A second checkout, so the auto-correct measures the committed tree and
-      # not whatever the gate run above left behind.
-      #
-      # The sparse list has to cover everything the step below needs, and it
-      # used to cover neither of the two that matter: `scripts/` — the step runs
-      # `scripts/ci/detekt-auto-fix.sh`, so the sparse checkout deleted the very
-      # script it was about to run, and the step died with exit 127 — and
-      # `config/`, which holds `config/detekt/detekt.yml` and the per-module
-      # baselines. Without it detekt runs with the default rule set and no
-      # baseline: the custom rules do not fire, nothing is corrected, and the
-      # run is green without having measured anything. That is the #136 failure
-      # mode, in a step whose name promises a measurement.
-      #
-      # `git add -A` inside a sparse checkout still commits the full tree — the
-      # skipped paths keep their index entries — so the pushed branch is not a
-      # partial commit.
+      # No second checkout here. The one at the top of this job is already at
+      # `github.sha`, and a second sparse checkout broke the job in two ways:
+      # it dropped `scripts/`, so the step below ran a script that no longer
+      # existed (exit 127), and it dropped `.github/actions/setup-python-tools`,
+      # so the local action could not be archived at job teardown and the job
+      # failed there instead. The gate run above writes only into `.venv/` and
+      # `build/`, both untracked, so a fresh tree buys nothing. The JVM job runs
+      # the same script with this same shape and is green.
       - name: Detekt auto-correct (commit + push)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: |
-            gradle
-            gradlew
-            scripts/
-            config/
-            shared/
-            desktopApp/
-            androidApp/
-            mcp-server/
-            adr-cli/
-            adr-core/
-            core-base/
-            detekt-rules/
-          sparse-checkout-cone-mode: false
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Detekt auto-correct
         run: bash scripts/ci/detekt-auto-fix.sh "static" "${{ github.run_id }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -256,7 +228,7 @@ jobs:
       # The script commits and pushes the auto-correct result to
       # `detekt-auto-fix/<job>/<run-id>`. The CI verdict is still produced by the
       # separate `git diff` step below (which now measures an already-fixed tree).
-      # See docs/decisions/YYYY-MM-DD-detekt-auto-fix-ci-commit.md.
+      # See docs/decisions/2026-10-17-detekt-auto-fix-ci-commit.md.
       - name: Detekt auto-correct (commit + push)
         run: bash scripts/ci/detekt-auto-fix.sh "tests" "${{ github.run_id }}"
         env:
