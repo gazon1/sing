@@ -6,6 +6,10 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.test.fakes.FakeSettingsRepository
+import kotlinx.coroutines.Dispatchers
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -55,7 +59,26 @@ class AndroidNotifierTest {
 
     private val context: Application get() = ApplicationProvider.getApplicationContext()
 
-    private fun notifier() = AndroidNotifier(context)
+    // `AndroidNotifier` grew a `NotificationsSettingsRepository` and a `CoroutineScope`
+    // when `post` began reading the user's sound/vibration preferences instead of
+    // assuming both on. The production wiring (`PlatformModule.android.kt`) supplies
+    // both; this file kept calling the one-argument constructor and stopped compiling —
+    // which took `testAndroidHostTest`, and with it the floor recorded in
+    // `config/docs/test-runs-baseline.txt`, down for the whole module.
+    //
+    // Nothing here exercises either dependency: `post` returns before `scope.launch` when
+    // the permission is denied, and `isSupported` never reaches them. They are supplied
+    // because the constructor demands them, so the honest thing is to name that in the
+    // docstring rather than leave a reader assuming the fakes are exercised.
+    private val settings = FakeSettingsRepository().notifications
+    private val scope = AutoCloseableCoroutineScope(Dispatchers.Unconfined)
+
+    @After
+    fun closeScope() {
+        scope.close()
+    }
+
+    private fun notifier() = AndroidNotifier(context, settings, scope)
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
