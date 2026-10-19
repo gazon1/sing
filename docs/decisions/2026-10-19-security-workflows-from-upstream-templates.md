@@ -71,8 +71,18 @@ sources live in `src/commonMain/kotlin` and `src/jvmMain/kotlin`, not in the
 `./gradlew build` — the whole project, tests and detekt included — which turns
 a security scan into a second copy of the test pipeline. `manual` builds
 `:shared:compileKotlinJvm :core-base:compileKotlinJvm`: the two modules that
-hold the app's Kotlin code, with a task name `ci.yml` already runs. The
-extractor sees the compiled classes and maps them back to sources.
+hold the app's Kotlin code. The extractor sees the compiled classes and maps
+them back to sources.
+
+Those two task names are declared in `GRADLE_TASK_PARITY` as CI-only
+asymmetries, the way `:mcp-server:jar` and `:adr-cli:installDist` already are.
+The gate that enforces it — "every Gradle task a workflow names must be named
+by `check.sh`, or declared" — is right to ask: a task that exists on one
+surface only is how a local loop ends up green on a module CI would fail. The
+answer here is that these are compiles for a scanner, not a test population:
+the local loop reaches the same compilation through `:shared:jvmTest` and
+`:shared:detekt`, and mirroring a compile-only task in the developer loop
+would buy nothing the rehearsal does not already cover.
 
 **The cron slots are after the nightly chain** — 05:00 for CodeQL, 06:00 for
 Scorecard — so a scan never competes with a build for a runner.

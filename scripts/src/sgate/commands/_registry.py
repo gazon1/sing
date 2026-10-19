@@ -145,6 +145,26 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "installDist is a CI-only artifact"
         ),
     ),
+    ":shared:compileKotlinJvm": GradleTaskParity(
+        scope="ci",
+        why=(
+            "the CodeQL analysis job (codeql.yml) compiles the JVM target so the "
+            "extractor can map bytecode back to sources. It is a compile, not a "
+            "test population: the local loop reaches the same compilation through "
+            ":shared:jvmTest and :shared:detekt, and mirroring a compile-only task "
+            "in the developer loop would buy nothing the rehearsal does not "
+            "already cover. See "
+            "docs/decisions/2026-10-19-security-workflows-from-upstream-templates.md"
+        ),
+    ),
+    ":core-base:compileKotlinJvm": GradleTaskParity(
+        scope="ci",
+        why=(
+            "same reason as :shared:compileKotlinJvm — the CodeQL analysis job "
+            "compiles it so the scanner sees the module's sources. The local loop "
+            "compiles :core-base through the tasks that depend on it"
+        ),
+    ),
 }
 
 #: Modules that have a `detekt { }` block in their build file but are not wired
