@@ -5,6 +5,7 @@ Run with: python3 -m unittest discover -s scripts/tests
 
 import importlib.util
 import pathlib
+import shutil
 import sys
 import tempfile
 import unittest
@@ -117,23 +118,22 @@ class TestBaseline(unittest.TestCase):
 
 class TestGate(unittest.TestCase):
     def setUp(self):
-        self._saved_argv = sys.argv
         self.tmp = pathlib.Path(tempfile.mkdtemp())
         self.baseline = self.tmp / "flaky.txt"
         self.baseline.write_text("", encoding="utf-8")
-        self.addCleanup(self._restore)
-
-    def _restore(self):
-        sys.argv = self._saved_argv
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
 
     def _run(self, previous_dir, current_dir, *extra):
-        sys.argv = [
-            "check-flaky-tests.py",
+        # Through `run(cli.main, argv)`, the same path `__main__` takes. The gate
+        # was converted from `sys.exit(main())` to a Click command, and calling the
+        # removed `main()` left six tests failing with an AttributeError — a suite
+        # that reports a broken gate for a reason that has nothing to do with it.
+        argv = [
             "--current", str(current_dir),
             "--previous", str(previous_dir),
             "--baseline", str(self.baseline),
         ] + list(extra)
-        return cft.main()
+        return cft.run(cft.cli.main, argv)
 
     def test_unacknowledged_new_failure_fails(self):
         prev = write_run(self.tmp / "prev", [("A", "t", "pass")])

@@ -115,32 +115,27 @@ class TestRegistryDiscipline(unittest.TestCase):
     """A registry that cannot notice its own staleness is a sink, not a list."""
 
     def _run(self, registry):
-        """Run `main` with a temporary registry and return what it printed.
+        """Run the gate against a temporary registry and return what it printed.
 
-        Two things have to be handled, and both were found by the tests erroring
-        rather than failing:
+        Goes through `run(cli.main, argv)` — the same path `__main__` takes, with
+        an explicit argv instead of `sys.argv`. Two things this replaces, both
+        found by the tests erroring rather than failing:
 
-        * `main` ends in `sys.exit`, so the call is wrapped;
-        * `main` parses `sys.argv`, which under unittest is
-        `['python -m unittest', 'discover', '-s', …]` — argparse rejects it,
-          exits 2, and writes to *stderr*, leaving the captured stdout empty. So
-          argv is replaced too.
+        * the gate was converted from `sys.exit(main())` to a Click command, so the
+          `main` these tests called no longer exists;
+        * reading `sys.argv` under unittest picks up ``['python -m unittest',
+          'discover', '-s', ...]``, which the parser rejects — exit 2, stderr, and
+          an empty captured stdout. Passing argv directly removes that trap.
         """
         saved_registry = csi.JUSTIFIED_FILE_SUPPRESSIONS
-        saved_argv = sys.argv
         try:
             csi.JUSTIFIED_FILE_SUPPRESSIONS = registry
-            sys.argv = ["check-suppression-intent.py"]
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                try:
-                    csi.main()
-                except SystemExit:
-                    pass
+                csi.run(csi.cli.main, [])
             return buf.getvalue()
         finally:
             csi.JUSTIFIED_FILE_SUPPRESSIONS = saved_registry
-            sys.argv = saved_argv
 
     def test_an_empty_reason_is_rejected(self):
         path = "shared/src/commonMain/kotlin/com/singularity/todo/core/log/FileLogWriter.kt"
