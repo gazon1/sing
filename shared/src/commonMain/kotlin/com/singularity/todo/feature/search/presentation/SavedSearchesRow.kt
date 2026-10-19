@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -35,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -110,7 +110,11 @@ private fun SavedSearchChipWithMenu(
     onDelete: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val renameState = rememberTextFieldState(saved.name)
+    // Anchored, not seeded: the chip lives as long as the list does, and the saved
+    // name can change underneath it — the rename is applied elsewhere, the list is
+    // refreshed, the name comes back from a sync. A one-way seed would leave the
+    // field showing the old name; the anchored shape follows the value.
+    val renameState = rememberAnchoredTextFieldState(saved.name)
 
     Box {
         FilterChip(

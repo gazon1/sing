@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.components.dayOfMonthTransformation
 import com.singularity.todo.core.ui.components.recurrenceIntervalTransformation
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
@@ -512,7 +511,11 @@ private fun IntervalEditor(
     // The field owns the text; the amount is only committed when the text is a valid
     // number. An invalid edit is rejected outright, so the text snaps back to the last
     // valid value — exactly what the old onValueChange guard did.
-    val amountState = rememberTextFieldState(amount.toString())
+    //
+    // The text is anchored to the committed amount: the amount is the value the app
+    // keeps, and the field follows it when it changes — a rejected edit snaps back
+    // here, and so does an amount changed from outside the field.
+    val amountState = rememberAnchoredTextFieldState(amount.toString())
     LaunchedEffect(amountState) {
         snapshotFlow { amountState.text.toString() }
             .distinctUntilChanged()
@@ -520,11 +523,6 @@ private fun IntervalEditor(
                 text.toIntOrNull()
                     ?.let { v -> if (v > 0) onAmountChange(v) }
             }
-    }
-    LaunchedEffect(amount) {
-        if (amountState.text.toString() != amount.toString()) {
-            amountState.setTextAndPlaceCursorAtEnd(amount.toString())
-        }
     }
 
     Row(
@@ -585,8 +583,8 @@ private fun WeekdayEditor(selected: Set<Int>, onChange: (Set<Int>) -> Unit) {
 @Composable
 private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
     // Same contract as the interval amount: the text snaps back when it is not a day
-    // of the month.
-    val dayState = rememberTextFieldState(day.toString())
+    // of the month. Anchored to the committed day, for the same reason.
+    val dayState = rememberAnchoredTextFieldState(day.toString())
     LaunchedEffect(dayState) {
         snapshotFlow { dayState.text.toString() }
             .distinctUntilChanged()
@@ -594,11 +592,6 @@ private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
                 text.toIntOrNull()
                     ?.let { d -> if (d in 1..31) onChange(d) }
             }
-    }
-    LaunchedEffect(day) {
-        if (dayState.text.toString() != day.toString()) {
-            dayState.setTextAndPlaceCursorAtEnd(day.toString())
-        }
     }
 
     Row(
