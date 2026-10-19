@@ -36,11 +36,7 @@ class NavigationSmokeTest {
 
     @Before
     fun setup() {
-        device =
-            UiDevice.getInstance(
-                androidx.test.platform.app.InstrumentationRegistry
-                    .getInstrumentation(),
-            )
+        device = awaitUiDevice()
         // Unlock the lock screen so ActivityScenario can land on the app.
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // KEYCODE_MENU = unlock
@@ -77,11 +73,7 @@ class NavigationSmokeTest {
         val scenario = ActivityScenario.launch<MainActivity>(intent)
 
         // Wait for the start destination to appear — Today is the start tab.
-        val todayTab =
-            device.wait(
-                Until.findObject(By.res("nav_tab_today")),
-                8_000,
-            )
+        val todayTab = device.awaitShell()
         assertNotNull("Today tab should be visible after cold start", todayTab)
 
         // Verify the shell FAB is present on agenda tabs (Today is an agenda tab).
@@ -103,7 +95,9 @@ class NavigationSmokeTest {
             )
 
         tabs.forEach { tabId ->
-            device.findObject(By.res(tabId)).click()
+            device
+                .awaitObject(By.res(tabId), "the $tabId tab", TAB_TIMEOUT_MS)
+                .click()
             // Wait for the tab to be re-selected after the tap.
             device.wait(Until.findObject(By.res(tabId)), 3_000)
             // Verify the tab item is still present (navigation succeeded, tab is visible).
@@ -131,15 +125,19 @@ class NavigationSmokeTest {
                 MainActivity::class.java,
             )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
-        device.wait(Until.findObject(By.res("nav_tab_today")), 8_000)
+        device.awaitShell()
 
         // Inbox — agenda tab, FAB present.
-        device.findObject(By.res("nav_tab_inbox")).click()
+        device
+            .awaitObject(By.res("nav_tab_inbox"), "the Inbox tab", TAB_TIMEOUT_MS)
+            .click()
         device.wait(Until.findObject(By.res("nav_tab_inbox")), 3_000)
         assertNotNull("FAB should be on Inbox tab", device.findObject(By.res("tasks_fab")))
 
         // Upcoming — not an agenda tab, no FAB.
-        device.findObject(By.res("nav_tab_upcoming")).click()
+        device
+            .awaitObject(By.res("nav_tab_upcoming"), "the Upcoming tab", TAB_TIMEOUT_MS)
+            .click()
         device.wait(Until.findObject(By.res("nav_tab_upcoming")), 3_000)
         assertNull(
             "FAB should NOT be on Upcoming tab",
@@ -147,12 +145,16 @@ class NavigationSmokeTest {
         )
 
         // Plans — agenda tab, FAB present.
-        device.findObject(By.res("nav_tab_plans")).click()
+        device
+            .awaitObject(By.res("nav_tab_plans"), "the Plans tab", TAB_TIMEOUT_MS)
+            .click()
         device.wait(Until.findObject(By.res("nav_tab_plans")), 3_000)
         assertNotNull("FAB should be on Plans tab", device.findObject(By.res("tasks_fab")))
 
         // Pomodoro — not an agenda tab, no FAB.
-        device.findObject(By.res("nav_tab_pomodoro")).click()
+        device
+            .awaitObject(By.res("nav_tab_pomodoro"), "the Pomodoro tab", TAB_TIMEOUT_MS)
+            .click()
         device.wait(Until.findObject(By.res("nav_tab_pomodoro")), 3_000)
         assertNull(
             "FAB should NOT be on Pomodoro tab",
