@@ -130,6 +130,22 @@ jobs:
         run: >
           npx --yes "@fission-ai/openspec@${SPECKIT_VERSION}" validate --all --json --strict
 
+      # A second checkout, so the auto-correct measures the committed tree and
+      # not whatever the gate run above left behind.
+      #
+      # The sparse list has to cover everything the step below needs, and it
+      # used to cover neither of the two that matter: `scripts/` — the step runs
+      # `scripts/ci/detekt-auto-fix.sh`, so the sparse checkout deleted the very
+      # script it was about to run, and the step died with exit 127 — and
+      # `config/`, which holds `config/detekt/detekt.yml` and the per-module
+      # baselines. Without it detekt runs with the default rule set and no
+      # baseline: the custom rules do not fire, nothing is corrected, and the
+      # run is green without having measured anything. That is the #136 failure
+      # mode, in a step whose name promises a measurement.
+      #
+      # `git add -A` inside a sparse checkout still commits the full tree — the
+      # skipped paths keep their index entries — so the pushed branch is not a
+      # partial commit.
       - name: Detekt auto-correct (commit + push)
         uses: actions/checkout@v4
         with:
@@ -137,6 +153,8 @@ jobs:
           sparse-checkout: |
             gradle
             gradlew
+            scripts/
+            config/
             shared/
             desktopApp/
             androidApp/
