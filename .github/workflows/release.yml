@@ -219,7 +219,7 @@ jobs:
           if-no-files-found: error
 
   desktop:
-    name: desktop (${{ matrix.label }})
+    name: desktop (${{ matrix.label }}-${{ matrix.fmt }})
     needs: meta
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -396,6 +396,8 @@ jobs:
           echo "msi=$msi" >> "$GITHUB_OUTPUT"
 
       - name: Validate signing secrets
+        if: github.event_name == 'push'
+        shell: bash
         env:
           WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
@@ -409,6 +411,7 @@ jobs:
           fi
 
       - name: Sign MSI (Authenticode)
+        if: github.event_name == 'push'
         env:
           WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
           WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
@@ -433,6 +436,7 @@ jobs:
           cp "${{ steps.locate.outputs.msi }}" "dist/singularity-$env:VERSION-windows-x64.msi"
 
       - name: Install and smoke the packaged launcher
+        if: github.event_name == 'push'
         run: |
           # Smoke runs directly on the runner (a transient VM, not persistent).
           # PowerShell is available on windows-2025 without any setup.
@@ -486,6 +490,8 @@ jobs:
           echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
 
       - name: Validate signing secrets
+        if: github.event_name == 'push'
+        shell: bash
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_SIGNING_CERT_BASE64: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
@@ -498,6 +504,7 @@ jobs:
           fi
 
       - name: Provision signing certificate
+        if: github.event_name == 'push'
         env:
           APPLE_SIGNING_CERT_BASE64: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
         run: |
@@ -510,12 +517,14 @@ jobs:
           security list-keychain -d user -s ~/Library/Keychains/login.keychain-db
 
       - name: Sign DMG (Apple Developer ID)
+        if: github.event_name == 'push'
         run: |
           # codesign is on PATH in macOS runners with Xcode.
           codesign --force --deep --sign "$APPLE_SIGNING_IDENTITY" \
             "${{ steps.locate.outputs.dmg }}"
 
       - name: Validate notarization secrets
+        if: github.event_name == 'push'
         env:
           APPLE_NOTARY_API_KEY: ${{ secrets.APPLE_NOTARY_API_KEY }}
           APPLE_NOTARY_API_ISSUE: ${{ secrets.APPLE_NOTARY_API_ISSUE }}
@@ -527,6 +536,7 @@ jobs:
           fi
 
       - name: Notarize DMG (Apple Notarization)
+        if: github.event_name == 'push'
         run: |
           xcrun notarytool submit "${{ steps.locate.outputs.dmg }}" \
             --api-key "$APPLE_NOTARY_API_KEY" \
@@ -541,6 +551,7 @@ jobs:
           cp "${{ steps.locate.outputs.dmg }}" "dist/singularity-$VERSION-macos-x64.dmg"
 
       - name: Install and smoke the packaged launcher
+        if: github.event_name == 'push'
         env:
           DMG_PATH: ${{ steps.locate.outputs.dmg }}
         run: |
