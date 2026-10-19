@@ -225,6 +225,9 @@ object TagsMd {
 
         "settingsTab" -> DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
 
+        "Settings.workingDaySwitch" ->
+            DynamicMeta(fnName, "Settings", "MONDAY", "Working-day toggles in the work schedule section")
+
         "Settings.content" -> DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area")
 
         "menuItem" -> DynamicMeta(fnName, "Menu", "Settings", "Menu bottom sheet items")
