@@ -26,7 +26,6 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-SIZES_PATH = ROOT / 'scripts' / 'check-doc-sizes.py'
 
 
 class ArgvTest(unittest.TestCase):
@@ -54,27 +53,29 @@ class ArgvTest(unittest.TestCase):
 
 
 class BudgetIsDeclaredOnceTest(unittest.TestCase):
-    """`check-doc-sizes.py` enforces what this generator aims at.
+    """The generator holds the digest budgets, and it is their only owner.
 
-    Two files now hold the same number. That is the #520 shape — one rule, two owners,
-    already drifted once in this repo (AdrStorage vs the Python corpus rules). The
-    agreement is asserted here rather than left to a comment asking people to remember.
+    The second copy lived in a doc-sizes script that was removed on 2026-10-19, so
+    the #520 shape — one rule, two owners, drifting apart — no longer applies here:
+    there is one owner left. The budget is the generator's own constant, and the
+    gate that reports it reads the number the generator prints.
     """
 
-    @staticmethod
-    def _constant(text: str, name: str) -> int:
-        match = re.search(rf'^{name}\s*=\s*(\d+)', text, re.M)
-        assert match, f'{name} not found in check-doc-sizes.py'
-        return int(match.group(1))
+    def test_orientation_budget_is_the_generators_own_constant(self):
+        self.assertEqual(mod.MAX_ORIENTATION_LINES, 120)
 
-    def test_orientation_budget_matches_the_enforced_budget(self):
-        sizes = SIZES_PATH.read_text(encoding='utf-8')
-        self.assertEqual(mod.MAX_ORIENTATION_LINES, self._constant(sizes, 'DIGEST_MAX'))
+    def test_full_digest_budget_is_the_generators_own_constant(self):
+        self.assertEqual(mod.MAX_DIGEST_FULL_LINES, 3000)
 
-    def test_full_digest_budget_matches_the_enforced_budget(self):
-        sizes = SIZES_PATH.read_text(encoding='utf-8')
-        self.assertEqual(mod.MAX_DIGEST_FULL_LINES,
-                         self._constant(sizes, 'DIGEST_FULL_MAX'))
+    def test_the_budget_constants_are_not_duplicated_anywhere(self):
+        """A second copy of either number is how the two drifted apart before."""
+        repo_text = "\n".join(
+            p.read_text(encoding="utf-8")
+            for p in sorted((ROOT / "scripts").rglob("*.py"))
+            if p.name != pathlib.Path(__file__).name
+        )
+        self.assertNotIn("DIGEST_MAX", repo_text)
+        self.assertNotIn("DIGEST_FULL_MAX", repo_text)
 
     def test_the_orientation_layer_has_room_for_its_own_sections(self):
         """A budget below the fixed cost of the sections would fail every run.

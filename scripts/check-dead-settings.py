@@ -87,22 +87,36 @@ FIELD_DECL = re.compile(r"\bval (\w+)\s*:")
 # reason rather than convenience:
 #
 # - `core/settings/`   — declares the keys, builds the flows, and is the writer.
-# - `core/<domain>/`  — `XSettingsStore` and `XSettingsContributor` read a field to
-#                       hand it to the next layer. That is the plumbing this bug
-#                       hides behind; counting it made the earlier version green on
-#                       every dead field in the codebase.
 # - `feature/settings/`— renders and writes every section unconditionally. This is
 #                       why `reminderDefault` looks alive on screen.
 # - fakes and tests    — do not consume anything in production.
+# - the plumbing file *kinds*, not the domain directories — `XSettingsStore`,
+#   `XSettingsContributor` and `XSettingsRepository` read a field to hand it to the
+#   next layer, and that is the plumbing this bug hides behind; counting it made an
+#   earlier version green on every dead field in the codebase.
+#
+# The narrowing from `core/<domain>/` to these suffixes is the fix, not a style
+# preference. A directory prefix cannot tell the two apart: `core/notifications/`
+# holds the plumbing (`NotificationsSettingsStore`, the contributor, the repository
+# that only builds the Flow) *and* `AndroidNotifier`, which reads
+# `notificationsSettings.sound` / `.vibration` and puts them on the notification it
+# actually posts. Excluding the directory made a live read invisible, and the gate
+# reported `Notifications.sound` and `Notifications.vibration` as dead while the
+# only consumer in the codebase sat three files away in the same folder.
+#
+# So the unit is the file that exists to move a value onward, named by what it is,
+# not the folder it happens to live in.
 PLUMBING = (
     "core/settings/",
-    "core/notifications/",
-    "core/schedule/",
-    "core/appearance/",
     "feature/settings/",
     "test/fakes/",
     "Test.kt",
     "DiModule.kt",
+    "SettingsStore.kt",
+    "SettingsContributor.kt",
+    "SettingsRepository.kt",
+    "SettingsExporter.kt",
+    "SettingsDataStoreMigration.kt",
 )
 
 

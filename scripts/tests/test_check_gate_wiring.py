@@ -957,6 +957,8 @@ class PartHResolutionTest(unittest.TestCase):
             'scripts/check-backlog-issue-refs.py', reachable,
             'a gate wired to nothing is reachable only through the blanket fallback',
         )
+        # The script itself was removed on 2026-10-19; the assertion stays because
+        # the blanket fallback it names is a property of the scan, not of the file.
 
     def test_the_command_module_name_is_the_one_a_surface_writes(self):
         """Five modules rename themselves (`run_all.py` registers `run-all`), and a
@@ -1043,7 +1045,7 @@ class GradleControlSkipTest(unittest.TestCase):
     def test_gradle_cmds_are_detected(self):
         self.assertTrue(gw._is_gradle_gate(['./gw', '-q', ':detekt-rules:koverVerify']))
         self.assertTrue(gw._is_gradle_gate(['./gradlew', 'test']))
-        self.assertFalse(gw._is_gradle_gate([sys.executable, 'scripts/check-doc-sizes.py']))
+        self.assertFalse(gw._is_gradle_gate([sys.executable, 'scripts/check-provenance.py']))
 
     def test_exactly_the_known_gate_is_gradle_backed(self):
         gradle = [

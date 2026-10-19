@@ -1,3 +1,29 @@
-# This file intentionally empty.
-# All 10 baseline entries were wired into Agenda in PR #680 (F1/F2/F3).
-# see ADR 2026-10-07-dead-settings-gate-must-reach-the-field
+# `check-dead-settings` baseline — one `Section.field` per line, with a reason.
+#
+# A line here is a claim that a human looked and chose, per
+# docs/decisions/2026-10-07-dead-settings-gate-must-reach-the-field.md. The reason
+# is what separates a decision from an oversight, so an entry without one is not an
+# exemption, it is a silenced finding.
+#
+# History: the previous 10 entries were all wired into Agenda in PR #680 (F1/F2/F3),
+# which is what emptied this file. Those four — dayStartMinutes, dayEndMinutes,
+# lunchStartMinutes, lunchEndMinutes — are read in AgendaRouteMapping.kt today.
+
+# ─── Read by nothing. Not a gate false positive. ───────────────────────────────
+#
+# Agenda consumes four of the six WorkSchedule fields (dayStartMinutes,
+# dayEndMinutes, lunchStartMinutes, lunchEndMinutes) and the two weekend flags are
+# not among them: no file outside the settings plumbing names them. That was
+# verified by hand as well as by the gate, so these entries waive a true finding.
+#
+# They are waived rather than removed because removing them would delete persisted
+# user preferences and drop two Settings controls, which is a product decision and
+# not a gate repair. The open question is what a weekend flag should *do* in the
+# agenda — dim the day, exclude it from the work schedule, change the greeting
+# window — and nobody has decided that yet. Until then the controls are honest
+# about being inert: they are rendered, they persist, and they change nothing.
+#
+# What clears these: a consumer of `workScheduleSettings.weekendSat/weekendSun` in
+# a feature, or their removal from SettingsBundle together with a schema migration.
+WorkSchedule.weekendSat  # genuinely unread — see the block comment above; no consumer exists yet
+WorkSchedule.weekendSun  # genuinely unread — see the block comment above; no consumer exists yet

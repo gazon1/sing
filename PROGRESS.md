@@ -12,8 +12,10 @@ Rewritten 2026-10-05. The previous version was a 472-line chronological journal 
 completed epics, every one still marked `**Status:** in progress` because nothing updated
 the marker. A file that says "in progress" for work that merged weeks ago cannot be used
 to decide what to do next — which is what a progress journal is for. Finished epics are
-now in `docs/progress-archive/`, and this file carries a budget
-(`PROGRESS_MAX = 300` in `scripts/check-doc-sizes.py`) so it cannot become that again.
+now in `docs/progress-archive/`. The 300-line budget that kept this file from becoming
+that again was removed on 2026-10-19 together with the doc-sizes gate
+(`scripts/check-doc-sizes.py`) that held it — the budget is no longer enforced by
+anything, so keep the file short by hand.
 
 ## Where things stand
 
@@ -26,7 +28,7 @@ now in `docs/progress-archive/`, and this file carries a budget
 | Tests | `:shared:jvmTest` passes: 326 classes / 2672 tests, 0 skipped. |
 | OpenSpec | `openspec/specs/` holds the folded capabilities; 41 change directories remain in `openspec/changes/` (13 archived). **The count is not the state** — several are finished with unticked boxes, which is what the 2026-10-07 sweep measured. |
 | Docs | 396 accepted / 9 deferred / 6 superseded ADRs; 14 findings docs archived. DIGEST 1215/1250. |
-| Gates | One registry (`scripts/ci/static-gates.sh`), called by both CI's `static` job and `check.sh`. `requirement identifiers are unique` is **advisory and red today** — see the exit plan in `scripts/check-req-id-uniqueness.py`. |
+| Gates | One registry (`scripts/ci/static-gates.sh`), called by both CI's `static` job and `check.sh`. The `requirement identifiers are unique` gate was removed on 2026-10-19, so a reused requirement identifier is no longer reported by anything. |
 
 ## In flight
 

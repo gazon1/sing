@@ -55,7 +55,7 @@ VALIDATION_FAILURE = 1
 IO_ERROR = 2
 
 
-def run(cmd: list[str], capture: bool = True) -> tuple[int, str]:
+def run_cmd(cmd: list[str], capture: bool = True) -> tuple[int, str]:
     """Run a command, return (rc, stdout+stderr)."""
     try:
         result = subprocess.run(
@@ -85,7 +85,7 @@ def changed_files_since_upstream(quiet: bool) -> list[str]:
     catch.
     """
     # Check if we have an upstream
-    rc, upstream = run(["git", "rev-parse", "--abbrev-ref", "HEAD@{upstream}"])
+    rc, upstream = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD@{upstream}"])
     if rc != 0:
         # Not on a tracked branch — collect all DI-sensitive files as
         # a coarse but safe approximation: we cannot know what changed,
@@ -105,13 +105,13 @@ def changed_files_since_upstream(quiet: bool) -> list[str]:
 
     # Get the diff against upstream — files that are new/changed vs upstream
     # This is exactly what changed in the rebase.
-    rc, diff = run(["git", "diff", "--name-only", "HEAD@{upstream}", "HEAD"])
+    rc, diff = run_cmd(["git", "diff", "--name-only", "HEAD@{upstream}", "HEAD"])
     if rc != 0:
         return []
 
     # Also include uncommitted changes (staged + unstaged), since the gate is
     # meant to run on a dirty tree before pushing.
-    rc, untracked = run(["git", "diff", "--name-only", "HEAD"])
+    rc, untracked = run_cmd(["git", "diff", "--name-only", "HEAD"])
     if rc == 0:
         diff += "\n" + untracked
 
@@ -138,7 +138,7 @@ def gradle_compile(tasks: list[str], quiet: bool) -> bool:
     if quiet:
         cmd.append("--quiet")
 
-    rc, output = run(cmd)
+    rc, output = run_cmd(cmd)
     return rc == 0
 
 

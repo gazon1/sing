@@ -65,14 +65,46 @@ KNOWN_NON_GATES: set[str] = {
 }
 
 
+# Registry gates deliberately kept out of `static-gates.sh`.
+#
+# Each is registered here, with a positive control, and exits non-zero on a clean
+# tree — the repo's knowingly-red corpus, the same shape as the advisory `script
+# conventions` entry in the registry file. Registering them would turn CI red for a
+# reason unrelated to any change under test; deleting them would delete a gate that
+# a maintainer still runs by hand.
+#
+# Each carries `needs_clean_run=False` or a documented exemption in `GATE_CONTROLS`.
+# Adding a name here is a claim that a human checked it still fails on a clean tree;
+# remove the name when it passes, and the check below will say so.
+NOT_RUN_IN_STATIC: frozenset[str] = frozenset({
+    "backlog issue refs are resolved",
+    "doc dead refs",
+    "doc sizes are within budget",
+    "flaky tests are acknowledged",
+    "rebase compiles",
+    "req id uniqueness",
+    "test runs",
+    # Green on a clean tree, and excluded because it cannot finish in CI: each
+    # probe is a full `:shared:detekt` run (~1.5 min) in a throwaway worktree, so
+    # the script costs minutes against the 300s budget every gate gets. Its own
+    # module docstring says it is a `just` recipe and not part of `check.sh` — the
+    # person who needs it is the one about to regenerate a baseline or trust a
+    # green lint run, and they need it then, not on every commit.
+    "gate honesty",
+})
+
+
 def check_manifest() -> tuple[list[str], list[str], list[str]]:
     """Check consistency between static-gates.sh and the registry.
 
     Returns:
-        (missing_from_registry, registry_duplicates, invalid_cmd_types)
+        (missing_from_registry, registry_duplicates, invalid_cmd_types,
+         not_registered_in_static)
         - missing_from_registry: gates in static-gates.sh with no registry entry
         - registry_duplicates: duplicate gate names in the registry
         - invalid_cmd_types: registry entries with unknown cmd_type
+        - not_registered_in_static: registry gates with no gate line, i.e. gates
+          `sgate run-all` never dispatches (see NOT_RUN_IN_STATIC)
     """
     # Load gates from static-gates.sh
     import sgate.gates
@@ -88,6 +120,20 @@ def check_manifest() -> tuple[list[str], list[str], list[str]]:
     # Missing from registry: gates in static-gates.sh that have no registry entry
     missing_from_registry = sorted(
         name for name in shell_gate_names if name not in registry_name_set
+    )
+
+    # The other direction, which is the one that actually bit: a registry gate with
+    # no line in static-gates.sh is a gate `sgate run-all` never dispatches, because
+    # run-all reads that file and not this registry. Eleven of them were registered
+    # here, each with a positive control, and none of them ran — including two whose
+    # controls were proving gates CI never executed. A control for a gate that never
+    # runs is a control that measures nothing.
+    #
+    # Checking only the direction above let that happen silently: the two lists
+    # drifted by eleven rows and every check agreed.
+    not_registered_in_static = sorted(
+        name for name in registry_name_set
+        if name not in shell_gate_names and name not in NOT_RUN_IN_STATIC
     )
 
     # Duplicate names in registry
@@ -109,7 +155,12 @@ def check_manifest() -> tuple[list[str], list[str], list[str]]:
             )
     invalid_cmd_types = sorted(invalid_cmd_types)
 
-    return missing_from_registry, registry_duplicates, invalid_cmd_types
+    return (
+        missing_from_registry,
+        registry_duplicates,
+        invalid_cmd_types,
+        not_registered_in_static,
+    )
 
 
 @click.command("manifest-verify")
@@ -126,8 +177,8 @@ def manifest_verify(emit_json: bool) -> None:
     """
     import json
 
-    missing, duplicates, invalid_types = check_manifest()
-    has_issues = bool(missing or duplicates or invalid_types)
+    missing, duplicates, invalid_types, not_run = check_manifest()
+    has_issues = bool(missing or duplicates or invalid_types or not_run)
 
     if emit_json:
         data = {
@@ -135,6 +186,7 @@ def manifest_verify(emit_json: bool) -> None:
             "missing_from_registry": missing,
             "registry_duplicates": duplicates,
             "invalid_cmd_types": invalid_types,
+            "not_registered_in_static": not_run,
         }
         print(json.dumps(data, indent=2))
         raise SystemExit(1 if has_issues else 0)
@@ -147,6 +199,13 @@ def manifest_verify(emit_json: bool) -> None:
         print("GATES IN static-gates.sh WITH NO REGISTRY ENTRY:")
         for name in missing:
             print(f"  {name}")
+        print()
+
+    if not_run:
+        print("REGISTRY GATES WITH NO LINE IN static-gates.sh — `sgate run-all` never runs them:")
+        for name in not_run:
+            print(f"  {name}")
+        print("  Add a gate line, or record it in NOT_RUN_IN_STATIC with why the corpus is red.")
         print()
 
     if duplicates:

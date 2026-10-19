@@ -48,6 +48,12 @@ package com.singularity.todo.feature.agenda.domain.selector
  *    of the four dispatch sites above.
  * 6. Add tests in `commonTest`: round-trip JSON, matches predicate, badge,
  *    description.
+ * 7. Add the variant to `SelectorSerializer`'s registry *and* to its
+ *    `expectedTypeTags`. The registry's own completeness check compares two
+ *    hand-written lists, so it cannot see a variant that is missing from both —
+ *    `SelectorSerializerCoverageTest` is the guard that can, because it reads
+ *    `Selector.kt` and the registry and compares them.
+ *    See `docs/decisions/2026-10-19-selector-registry-completeness-guard.md`.
  *
  * @see com.singularity.todo.feature.agenda.domain.model.Selector
  * @see com.singularity.todo.feature.agenda.domain.model.SelectorSerializer

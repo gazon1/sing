@@ -91,9 +91,9 @@ _Rules for this list:_
   rather than aspirational._
 - _Assert on something **observable**: a returned value, a persisted row, an emitted event, a logged
   line. "The system must be correct" is not observable._
-- _Number sequentially from `AC-01`. Never reuse a number —
-  `scripts/check-req-id-uniqueness.py` exists because reused identifiers produced a traceability
-  matrix that confidently reported the wrong requirement._
+- _Number sequentially from `AC-01`. Never reuse a number — the gate that used to check this
+  was removed on 2026-10-19, and reused identifiers produced a traceability matrix that
+  confidently reported the wrong requirement._
 
 ## Open questions
 

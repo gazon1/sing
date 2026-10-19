@@ -260,12 +260,10 @@ docs-audit:
     #!/bin/bash
     set -uo pipefail
     status=0
-    echo "=== Doc size budgets (AGENTS.md, SKILL.md, description, DIGEST.md) ==="
-    # No --warn-only. It returns 0 by construction, so the `|| status=1` on the
-    # old line could never fire and the budget was unenforced: `just docs-audit`
-    # reported "AGENTS.md: 264 lines (max 250)" and still exited 0. A budget that
-    # prints a violation and passes is the vacuous-gate pattern.
-    python3 scripts/check-doc-sizes.py || status=1
+    echo "=== Doc size budgets: removed 2026-10-19 ==="
+    # `scripts/check-doc-sizes.py` and the `doc sizes are within budget` gate are
+    # gone. The DIGEST budget still has an owner (the generator that prints it);
+    # the AGENTS.md / SKILL.md / PROGRESS.md line caps do not have one any more.
     echo ""
     echo "=== pro/ licence boundary (no FSL or vendor code in the Apache-2.0 core) ==="
     # Source rules plus the rule's own control. The APK mode is deliberately NOT here:

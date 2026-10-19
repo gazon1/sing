@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -71,7 +72,11 @@ class AndroidNotifierTest {
     // because the constructor demands them, so the honest thing is to name that in the
     // docstring rather than leave a reader assuming the fakes are exercised.
     private val settings = FakeSettingsRepository().notifications
-    private val scope = AutoCloseableCoroutineScope(Dispatchers.Unconfined)
+
+    // A `Job` in the context, so `close()` has something to cancel. Without one
+    // the scope holds no child jobs to cancel and closing it could not do its
+    // job; the launches `post` starts would outlive the test.
+    private val scope = AutoCloseableCoroutineScope(Dispatchers.Unconfined + Job())
 
     @After
     fun closeScope() {

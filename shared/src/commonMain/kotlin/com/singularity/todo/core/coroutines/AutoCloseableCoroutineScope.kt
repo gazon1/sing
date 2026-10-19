@@ -2,7 +2,6 @@ package com.singularity.todo.core.coroutines
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -43,6 +42,16 @@ class AutoCloseableCoroutineScope(override val coroutineContext: CoroutineContex
     val job: Job? = coroutineContext[Job]
 
     override fun close() {
-        cancel()
+        // `kotlinx.coroutines`' `CoroutineScope.cancel()` throws
+        // "Scope cannot be cancelled because it does not have a job" when the
+        // context carries no `Job` — and this class declares [job] as nullable,
+        // so a Job-less instance is a shape the type explicitly allows.
+        //
+        // A scope with no job has no children to cancel, so closing it is a
+        // no-op. Throwing would turn "there was nothing to cancel" into a
+        // failure inside a cleanup path, which is where an exception is least
+        // welcome: `addCloseable(scope)` closes it from `onCleared()`.
+        val job = coroutineContext[Job] ?: return
+        job.cancel()
     }
 }

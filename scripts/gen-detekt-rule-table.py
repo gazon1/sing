@@ -47,7 +47,7 @@ DETEKT_YML = ROOT / "config/detekt/detekt.yml"
 SKILL_DIR = ROOT / ".agents/skills/singularity-todo-detekt-rules-authoring"
 
 # The inventory lives in a sibling leaf, not in SKILL.md. Two reasons, one of them a hard gate:
-# `check-doc-sizes.py` caps a skill file at 500 lines, and the table pushed SKILL.md to 522.
+# A skill file was capped at 500 lines, and the table pushed SKILL.md to 522.
 # The split is also the right shape on its own — you do not need the inventory of all 25 rules to
 # write one, so loading it on every use of this skill is waste.
 INVENTORY = SKILL_DIR / "RULES.md"

@@ -312,13 +312,61 @@ gate blocking "workflow steps keep their exit status" sgate workflow_steps_keep_
 # half had ever been checked by anything.
 gate blocking "releases describe themselves" sgate releases_describe_themselves
 
+# Provenance and licensing. Both were registered in `_registry.py` with a positive
+# control and a sabotage that can fail, and neither had a line here — so `run-all`,
+# which reads this file, never ran them. A control for a gate that never executes
+# proves nothing about the gate.
+gate blocking "pro licence boundary" python3 scripts/check-pro-licence-boundary.py
+gate blocking "provenance" python3 scripts/check-provenance.py
+
+# ADR references: a prose mention of a dated-ADR slug carries no path, so a moved or
+# deleted decision leaves a dangling claim nothing else sees.
+gate blocking "adr references are valid" python3 scripts/check-adr-references.py
+
+# ─── Deliberately NOT here ─────────────────────────────────────────────────────
+#
+# Twelve more gates are registered in `_registry.py`, each with a positive control,
+# and each used to be absent from this file. Four of them are above and pass; the
+# remaining eight are not runnable in CI, so registering them would trade "a gate
+# that never runs" for "CI red for a reason unrelated to this change":
+#
+#     doc dead refs                    exit 1   doc sizes are within budget   exit 1
+#     flaky tests are acknowledged     exit 1   backlog issue refs            exit 1
+#     req id uniqueness                exit 1   rebase compiles               exit 1
+#     test runs                        exit 1
+#
+# They are the repo's knowingly-red corpus, in the same shape as the advisory
+# `script conventions` entry below. Each carries `needs_clean_run=False` or a
+# documented exemption in `GATE_CONTROLS` for exactly this reason. `manifest-verify`
+# now reports a registry entry with no gate line in this direction too, so the two
+# lists cannot drift apart unnoticed again — which is how all eleven went missing.
+#
+# "gate honesty" is the eighth and the odd one out: it is green on a clean tree,
+# and it is excluded because it cannot *finish*. Each probe is a full
+# `:shared:detekt` run (~1.5 min) in a throwaway worktree, so the script costs
+# minutes and blows the 300s budget the gate runner gives every gate — and, being
+# a `python3` invocation rather than an `sgate` one, the liveness probe classified
+# it as cheap and ran it anyway, which is how it took down "gates are alive" too.
+# Its own module docstring says it is a `just` recipe and not part of `check.sh`:
+# the person who needs it is the one about to regenerate a baseline or trust a
+# green lint run, and they need it then, not on every commit. Run it by hand.
+
 # AppTracer
 
-# Rebase divergence prevention: fail if origin/main has commits not yet in current branch.
-# This gate runs after a git fetch (which check-unmerged.sh does internally).  It is
-# blocking because rebasing onto a stale main creates divergent history that requires
-# force-push to fix — a state the author may not notice until a colleague cannot pull.
-gate blocking "local branch is not behind origin/main" bash scripts/ci/check-unmerged.sh
+# REMOVED: "local branch is not behind origin/main" (bash scripts/ci/check-unmerged.sh)
+#
+# The premise was sound — rebasing onto a stale main creates divergent history that
+# needs a force-push — but a runner cannot check it. CI checks out a detached commit
+# with no tracking branch and no `origin/main` ref, so the gate failed every run on
+# the runner's setup rather than on anyone's divergence:
+#
+#     check-unmerged: upstream 'origin/main' does not exist. Run 'git fetch' first.
+#
+# A gate that is always red for a reason unrelated to what it checks trains people to
+# read past it, and it was the third blocking failure in `Static gates` on a run whose
+# other two were unrelated. Divergence prevention is not lost: `.githooks/pre-rebase`
+# implements the same rule locally, where an upstream ref genuinely exists, and does so
+# on the ref about to be rebased onto rather than on a tracking branch CI never has.
 
 # Gate-script conventions. Advisory because the corpus is knowingly red: every
 # legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a

@@ -4,6 +4,8 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 import androidx.compose.runtime.Stable
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
@@ -245,43 +247,95 @@ class SavedAgendaViewModel(
         )
     }
 
+    /**
+     * Saves the draft.
+     *
+     * ## One coroutine, one lifecycle
+     *
+     * The whole save — building the payload, writing it, reporting the outcome —
+     * runs in a single coroutine, because `isSaving` is that coroutine's
+     * lifecycle: it is set before the write and cleared after it, and nothing in
+     * between may clear it.
+     *
+     * It used to be two. `catchTo` launches its own coroutine and returns
+     * immediately, so wrapping the write in it meant the outer coroutine finished
+     * while the write was still in flight — and a `finally` that cleared
+     * `isSaving` there re-enabled Save mid-write, so the next tap wrote twice.
+     *
+     * ## The failure is visible
+     *
+     * Everything that can throw is inside the guarded region, including the
+     * serialization of the sections. It used to be outside: a section whose
+     * selector the serializer did not know threw straight out of this coroutine,
+     * reached only the crash reporter, and left the screen spinning forever with
+     * nothing written and nothing said. A save that cannot happen now says so.
+     */
     private fun onSave() {
         val current = currentState
         if (current !is SavedAgendaViewState.Editing || current.isSaving || !current.canSave) return
         setState(current.copy(isSaving = true))
         scope.launch {
-            val draft = draftState.state
-            val nameToSave = draft.name.trim()
-            val sectionsJson = AgendaDefinition(nameToSave, draft.sections).toSectionsJson()
-            val now = deps.clock.now()
-            when (mode) {
-                is SavedAgendaScreenMode.View -> { /* no-op — results screen has no save action */ }
-
-                is SavedAgendaScreenMode.Edit -> {
-                    val updated = SavedAgendaViewFactory.update(
-                        current.view ?: error("view must not be null when canSave is true"),
-                        nameToSave,
-                        sectionsJson,
-                        now,
-                    )
-                    // Both save arms used to fold by hand and emit ShowError directly, so a
-                    // failed save was visible but reported nowhere.
-                    catchTo("Failed to save agenda view", { msg -> emit(SavedAgendaEvent.ShowError(msg)) }) {
-                        deps.repo.upsert(updated)
-                            .onSuccess {
-                                draftState.markSaved()
-                                emit(SavedAgendaEvent.SaveSuccess)
-                            }
+            try {
+                // `runCatchingCancellable` rather than a bare try/catch: it rethrows
+                // cancellation, so a cancelled save is not reported as a failed one.
+                runCatchingCancellable { saveDraft(current) }
+                    .onFailure { error ->
+                        deps.log.e(error) { "Saving a saved agenda view failed" }
+                        crashReporter.report(error = error, issueKey = "agenda.saved_view.save_failed")
+                        emit(SavedAgendaEvent.ShowError(error.toMessage("Failed to save agenda view")))
                     }
+            } finally {
+                // The current state, not the snapshot from before the write: the user
+                // may have kept typing while it was in flight, and restoring the old
+                // snapshot would throw those edits away.
+                val latest = currentState
+                if (latest is SavedAgendaViewState.Editing) {
+                    setState(latest.copy(isSaving = false))
                 }
+            }
+        }
+    }
 
-                is SavedAgendaScreenMode.Create -> {
-                    // Anonymous sentinel — repo stamps ambient userId on insert
-                    val newView = SavedAgendaViewFactory.create(UserId.anonymous, nameToSave, sectionsJson, now)
-                    catchTo("Failed to create agenda view", { msg -> emit(SavedAgendaEvent.ShowError(msg)) }) {
-                        deps.repo.upsert(newView).onSuccess { emit(SavedAgendaEvent.SaveSuccess) }
+    /**
+     * Writes the draft and reports the outcome.
+     *
+     * Everything that can throw is in here — the payload serialization included, not
+     * only the repository call — so that a save which cannot happen says so instead
+     * of leaving the screen spinning.
+     */
+    private suspend fun saveDraft(current: SavedAgendaViewState.Editing) {
+        val draft = draftState.state
+        val nameToSave = draft.name.trim()
+        val sectionsJson = AgendaDefinition(nameToSave, draft.sections).toSectionsJson()
+        val now = deps.clock.now()
+        when (mode) {
+            is SavedAgendaScreenMode.View -> { /* no-op — results screen has no save action */ }
+
+            is SavedAgendaScreenMode.Edit -> {
+                val updated = SavedAgendaViewFactory.update(
+                    current.view ?: error("view must not be null when canSave is true"),
+                    nameToSave,
+                    sectionsJson,
+                    now,
+                )
+                deps.repo.upsert(updated)
+                    .onSuccess {
+                        draftState.markSaved()
+                        emit(SavedAgendaEvent.SaveSuccess)
                     }
-                }
+                    .onFailure {
+                        emit(SavedAgendaEvent.ShowError(it.toMessage("Failed to save agenda view")))
+                    }
+            }
+
+            is SavedAgendaScreenMode.Create -> {
+                // Anonymous sentinel — repo stamps ambient userId on insert
+                val newView = SavedAgendaViewFactory.create(UserId.anonymous, nameToSave, sectionsJson, now)
+                deps.repo.upsert(newView)
+                    .onSuccess { emit(SavedAgendaEvent.SaveSuccess) }
+                    .onFailure {
+                        emit(SavedAgendaEvent.ShowError(it.toMessage("Failed to create agenda view")))
+                    }
             }
         }
     }
