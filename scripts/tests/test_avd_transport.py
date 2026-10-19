@@ -104,19 +104,23 @@ def _normalise(paths: list[str]) -> list[str]:
 class CachePathsAgreeTest(unittest.TestCase):
     """The producer and the consumers must cache the same locations.
 
-    Three, not four: the AVD is not among them. Its `userdata.img` is a
-    sparse, mutable image, and it did not survive the cache — the first
-    consumer of the entry that carried it found the emulator and the system
-    image already installed and still had to create the AVD itself, in half a
-    second. Caching a mutable image between runners was never working; what it
-    did was make the entry look like it carried the AVD.
+    Two. The AVD is not among them: its `userdata.img` is a sparse, mutable
+    image, and it did not survive the cache — the first consumer of the entry
+    that carried it found the emulator and the system image already installed
+    and still had to create the AVD itself, in half a second. Caching a mutable
+    image between runners was never working; what it did was make the entry
+    look like it carried the AVD.
+
+    `platform-tools` is not among them either: the runner image ships it, and
+    the image's copy is root-owned, so restoring over it made tar fail with
+    "Cannot utime: Operation not permitted" — a cache that cannot be restored
+    cleanly reports a failure nobody can act on.
     """
 
     def setUp(self):
         self.expected = [
             "<sdk>/system-images",
             "<sdk>/emulator",
-            "<sdk>/platform-tools",
         ]
 
     def test_producer_caches_the_four_locations(self):

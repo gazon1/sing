@@ -105,6 +105,32 @@ def device_alive(serial: str) -> bool:
 
 # ── APK installation ───────────────────────────────────────────────────────────
 
+def resolve_apk(path: Path) -> Path | None:
+    """The APK to install: the file itself, or the one inside a directory.
+
+    The workflow downloads the `e2e-apk` artifact into a *directory* (`apk/`),
+    because `actions/download-artifact` with a `path:` extracts the archive
+    there and the archive's own layout is not ours to predict. So the argument
+    is a directory in practice and a file only when a caller passes one.
+
+    A directory that holds no APK is a failure, not a reason to install
+    something else; a directory that holds several is ambiguous, and picking
+    one of them is how a test suite ends up testing the wrong build.
+    """
+    path = path.expanduser()
+    if path.is_file():
+        return path.resolve()
+    if path.is_dir():
+        candidates = sorted(path.rglob("*.apk"))
+        if len(candidates) == 1:
+            return candidates[0].resolve()
+        if len(candidates) > 1:
+            names = ", ".join(str(c) for c in candidates)
+            print(f"{RED}Several APKs in {path}: {names}{_col('0', '')}", flush=True)
+            return None
+    return None
+
+
 def adb_install(serial: str, apk_path: Path) -> bool:
     """Install APK via adb install -r -t. Returns True on success."""
     cp = try_run(["adb", "-s", serial, "install", "-r", "-t", str(apk_path)], timeout=120)
@@ -235,9 +261,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{GREEN}Device: {device}{_col('0', '')}", flush=True)
 
     # ── Install APK ──────────────────────────────────────────────────────────
-    apk = args.apk.resolve()
-    if not apk.is_file():
-        print(f"{RED}APK not found: {apk}{_col('0', '')}", flush=True)
+    apk = resolve_apk(args.apk)
+    if apk is None:
+        target = args.apk.expanduser()
+        if target.is_dir():
+            print(f"{RED}No APK in {target.resolve()}{_col('0', '')}", flush=True)
+        else:
+            print(f"{RED}APK not found: {target.resolve()}{_col('0', '')}", flush=True)
         return EXIT_FAIL
 
     print(f"{YELLOW}Installing {apk.name}...{_col('0', '')}", flush=True)

@@ -116,8 +116,8 @@ jobs:
           # this key version exists to close. A consumer that finds nothing
           # restores nothing and provisions for itself.
           {
-            echo "cache_key=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v3"
-            echo "cache_key_prefix=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v3-"
+            echo "cache_key=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v4"
+            echo "cache_key_prefix=avd-${AVD_NAME}-${DEVICE}-${SYSTEM_IMAGE}-v4-"
           } >> "$GITHUB_OUTPUT"
 
       - name: Restore AVD and SDK cache
@@ -142,10 +142,17 @@ jobs:
           # did do was make the entry look like it carried the AVD.
           #
           # The AVD is created where it is used, by scripts/ci/provision-avd.sh.
+          #
+          # `platform-tools` is not among them: the runner image ships it, and
+          # the image's copy is root-owned, so restoring over it made tar fail
+          # with "Cannot utime: Operation not permitted" on a directory the
+          # runner user cannot chmod. The files extracted and adb worked, but a
+          # cache that cannot be restored cleanly is a cache that reports a
+          # failure nobody can act on. The image provides it; the cache does not
+          # need to.
           path: |
             ${{ steps.ctx.outputs.sdk_root }}/system-images
             ${{ steps.ctx.outputs.sdk_root }}/emulator
-            ${{ steps.ctx.outputs.sdk_root }}/platform-tools
           key: ${{ steps.ctx.outputs.cache_key }}
           restore-keys: |
             ${{ steps.ctx.outputs.cache_key_prefix }}

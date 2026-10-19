@@ -135,7 +135,6 @@ jobs:
           path: |
             ${{ needs.setup-avd.outputs.sdk_root }}/system-images
             ${{ needs.setup-avd.outputs.sdk_root }}/emulator
-            ${{ needs.setup-avd.outputs.sdk_root }}/platform-tools
           key: ${{ needs.setup-avd.outputs.cache_key }}
           restore-keys: |
             ${{ needs.setup-avd.outputs.cache_key_prefix }}

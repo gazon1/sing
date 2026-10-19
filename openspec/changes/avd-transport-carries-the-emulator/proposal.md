@@ -67,9 +67,16 @@ order the run revealed them:
    emulation currently requires hardware acceleration! … This user doesn't have
    permissions to use KVM (/dev/kvm)" — a failure that reads like a missing
    emulator and is neither.
+3. **`platform-tools` could not be restored.** The runner image ships it,
+   root-owned, and tar could not set its mode or times: "Cannot utime:
+   Operation not permitted". The files extracted and adb worked, but a cache
+   that cannot be restored cleanly reports a failure nobody can act on. The
+   image provides it; the cache does not need to.
 
-Neither was visible while the transport was broken: the shard died before it
-reached either one.
+None of the three was visible while the transport was broken: the shard died
+before it reached any of them. The second run got as far as a booted
+emulator — `Device: emulator-5554` — and then found the APK the workflow
+downloads as a *directory* while the script required a file.
 
 ## The two real options
 

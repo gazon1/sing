@@ -38,11 +38,21 @@
       moves to `v3`, because the cached layout changed.
 - [x] Enable KVM on the consumer's runner. The producer's enabling does not
       travel with a cache, and the two jobs run on different machines.
-- [ ] Confirm on a real run that the shard boots the AVD and the Maestro flows
-      pass. The last run reached the emulator and died on KVM permissions;
-      the KVM fix is in, and the run that proves it is the next one. No local
-      run can stand in for this — there is no Android SDK on the development
-      host.
+- [x] Enable KVM on the consumer's runner. The producer's enabling does not
+      travel with a cache, and the two jobs run on different machines. (Done
+      above; the second run booted the emulator: `Device: emulator-5554`.)
+- [x] Accept the APK as a file *or* a directory. The workflow downloads the
+      `e2e-apk` artifact into a directory, and the script required a file, so
+      the run stopped at the install step with "APK not found: /…/apk" — a
+      directory that was there, with the APK inside it.
+- [x] Drop `platform-tools` from the cached paths: the runner image ships it
+      root-owned, and restoring over it made tar fail with "Cannot utime:
+      Operation not permitted". The key moves to `v4`, because the cached
+      layout changed.
+- [ ] Confirm on a real run that the Maestro flows pass. Two runs have got as
+      far as a booted emulator; the one after the APK fix is the one that
+      proves the flows. No local run can stand in for this — there is no
+      Android SDK on the development host.
 - [ ] Decide what to do with the four dead settings the static gate reports
       (`Notifications.sound`, `Notifications.vibration`,
       `WorkSchedule.weekendSat`, `WorkSchedule.weekendSun`). That gate is

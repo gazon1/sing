@@ -61,13 +61,17 @@ the AVD the workflow names".
    immutable — so a change to the set of cached paths retires the old entry by
    changing the key.
 3. **The cache carries the SDK, not the AVD.** The cached paths are
-   `system-images`, `emulator` and `platform-tools`. The AVD is created where it
-   is used. The AVD's `userdata.img` is a sparse, mutable image, and it did not
-   survive the cache: the first consumer of the entry that carried it found the
-   emulator and the system image already installed — sdkmanager had nothing to
-   download — and still had to create the AVD itself, in half a second. Carrying
-   a mutable image between runners was never working; what it did was make the
-   entry look like it carried the AVD.
+   `system-images` and `emulator`. The AVD is created where it is used: its
+   `userdata.img` is a sparse, mutable image, and it did not survive the
+   cache — the first consumer of the entry that carried it found the emulator
+   and the system image already installed — sdkmanager had nothing to
+   download — and still had to create the AVD itself, in half a second.
+   Carrying a mutable image between runners was never working; what it did was
+   make the entry look like it carried the AVD.
+   `platform-tools` is not cached either: the runner image ships it, and the
+   image's copy is root-owned, so restoring over it made tar fail with
+   "Cannot utime: Operation not permitted" — a cache that cannot be restored
+   cleanly reports a failure nobody can act on.
 4. **One script defines "provisioned".** `scripts/ci/provision-avd.sh` installs
    `emulator`, `platform-tools` and the system image, creates the AVD, and verifies
    both the binary and `emulator -list-avds`. It is idempotent, and it runs in the
