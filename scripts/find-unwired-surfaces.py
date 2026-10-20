@@ -881,6 +881,148 @@ def _injected_by_constructor(
     return injected
 
 
+# ── Constructor-injected types ─────────────────────────────────────────────────
+#
+# A DI binding that asks for a type without naming it:
+#
+#     single { HlcFactory(deviceIdProvider = get(), clock = get(), scope = get()) }
+#
+# The type is in the constructor's signature, and the call site says only
+# `get()`. A scan that reads `get<X>()` sees nothing here, so a binding that
+# the graph does use reads as an orphan — which is how `DeviceIdProvider` and
+# `GenuiTransport` ended up in the allowlist with a note saying the scanner
+# could not follow them.
+#
+# The resolution is deliberately one-sided: a type is marked consumed only when
+# the scan can name the constructor it came from and the parameter it fills.
+# A miss leaves the finding where it was, which is the safe direction — the
+# allowlist entry it may replace stays until the scan is sure.
+
+_CLASS_DECL = re.compile(
+    r"(?:^|\n)[ \t]*"
+    r"(?:@[A-Za-z_][\w.]*(?:\([^()]*\))?[ \t]*\n?[ \t]*)*"
+    r"(?:(?:public|internal|private|protected|open|abstract|sealed|data|value|inline|expect|actual)"
+    r"[ \t]+)*"
+    r"class[ \t]+([A-Za-z_]\w*)[ \t]*",
+)
+
+_PARAMETER = re.compile(
+    r"^(?:@[A-Za-z_][\w.]*(?:\([^()]*\))?[ \t]*)*"
+    r"(?:(?:private|public|internal|protected|override|open|final|abstract)[ \t]+)*"
+    r"(?:val[ \t]+|var[ \t]+)?"
+    r"([A-Za-z_]\w*)[ \t]*:[ \t]*([A-Za-z_][\w.]*)",
+)
+
+
+def _balanced(text: str, start: int, open_char: str = "(", close_char: str = ")") -> tuple[str, int]:
+    """The text between `open_char` at `start` and its match, plus the index after it."""
+    depth = 0
+    for index in range(start, len(text)):
+        char = text[index]
+        if char == open_char:
+            depth += 1
+        elif char == close_char:
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:index], index + 1
+    return "", len(text)
+
+
+def _split_arguments(text: str) -> list[str]:
+    """Split an argument list on its top-level commas."""
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for char in text:
+        if char in "([{<":
+            depth += 1
+        elif char in ")]}>":
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    if current:
+        parts.append("".join(current))
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _constructor_parameters(code: dict[pathlib.Path, str]) -> dict[str, list[tuple[str, str]]]:
+    """Class name → its primary constructor's `(parameter name, type)` pairs.
+
+    Only the primary constructor is read, and only the parameter list: the
+    scanner wants to know what a `get()` in a call site was asking for.
+    """
+    out: dict[str, list[tuple[str, str]]] = {}
+    for text in code.values():
+        for match in _CLASS_DECL.finditer(text):
+            name = match.group(1)
+            cursor = match.end()
+            while cursor < len(text) and text[cursor] in " \t":
+                cursor += 1
+            if cursor >= len(text) or text[cursor] != "(":
+                continue
+            params_text, _ = _balanced(text, cursor)
+            parameters: list[tuple[str, str]] = []
+            for part in _split_arguments(params_text):
+                found = _PARAMETER.match(part.strip())
+                if found:
+                    parameters.append((found.group(1), found.group(2).split(".")[-1]))
+            if parameters:
+                out.setdefault(name, parameters)
+    return out
+
+
+_BINDING_BLOCK = re.compile(
+    r"\b(?:single|factory|viewModel|viewModelOf|factoryOf|singleOf)\b[^{]*\{"
+)
+
+_CONSTRUCTOR_CALL = re.compile(r"\b([A-Z][A-Za-z0-9_]*)[ \t]*\(")
+
+_NAMED_GET = re.compile(r"^([A-Za-z_]\w*)[ \t]*=[ \t]*get\(\)$")
+_POSITIONAL_GET = re.compile(r"^get\(\)$")
+
+
+def _inferred_get_types(
+    code: dict[pathlib.Path, str],
+    parameters: dict[str, list[tuple[str, str]]],
+) -> set[str]:
+    """The types a DI binding asks for through a bare `get()`.
+
+    A binding block constructs a class; the class's constructor says what each
+    argument is; a bare `get()` in that argument position is a request for that
+    parameter's type. A named argument names the parameter directly.
+    """
+    found: set[str] = set()
+    for text in code.values():
+        for block_match in _BINDING_BLOCK.finditer(text):
+            body, _ = _balanced(text, block_match.end() - 1, "{", "}")
+            for call in _CONSTRUCTOR_CALL.finditer(body):
+                class_name = call.group(1)
+                signature = parameters.get(class_name)
+                if not signature:
+                    continue
+                args_text, _ = _balanced(body, call.end() - 1)
+                position = 0
+                for argument in _split_arguments(args_text):
+                    named = _NAMED_GET.match(argument)
+                    if named:
+                        for param_name, param_type in signature:
+                            if param_name == named.group(1):
+                                found.add(param_type)
+                                break
+                        continue
+                    if _POSITIONAL_GET.match(argument):
+                        if position < len(signature):
+                            found.add(signature[position][1])
+                        position += 1
+                        continue
+                    if "=" not in argument:
+                        position += 1
+    return found
+
+
 def _precompute_orphan_binding(
     code: dict[pathlib.Path, str],
 ) -> tuple[set[str], set[str], dict[pathlib.Path, set[str]], set[str]]:
@@ -889,6 +1031,14 @@ def _precompute_orphan_binding(
     bound_fqcns: set[str] = set()
     all_consumed: set[str] = set()
     per_file_consumed: dict[pathlib.Path, set[str]] = {p: set() for p in code}
+
+    # A type asked for by a bare `get()` is a consumer, even though no `get<T>()`
+    # names it. Without this, every binding whose only consumer is a constructor
+    # argument reads as an orphan.
+    inferred = _inferred_get_types(code, _constructor_parameters(code))
+    all_consumed |= inferred
+    for path in code:
+        per_file_consumed[path] |= inferred
 
     for path, text in code.items():
         # Collect bindings first so we can exclude them from bare-<> consumers
@@ -947,68 +1097,17 @@ def _check_orphan_binding(
         # Analytics — off by default (GDPR). NoopAnalytics is a safe all-no-op.
         # Wired in CoreDiModule.kt; no production call site exists yet.
         "Analytics",
-        "NoopAnalytics",
-        # Crash reporting — NoOpCrashReportingPort is the default value of
-        # MviViewModel's `crashReporter` parameter, so it is reached through a
-        # default rather than a call site, which the static scan cannot follow.
-        # JvmCrashReportingPort is the JVM binding and is genuinely inert by design:
-        # AppTracer is Android-only and desktop keeps its Kermit file log.
-        "NoOpCrashReportingPort",
-        "JvmCrashReportingPort",
-        # Billing — NoopSubscriptionProvider is the safe stub until a real SDK is wired.
-        # No production call site exists yet.
+        # Billing — NoopSubscriptionProvider is the safe stub until a real SDK is
+        # wired. No production call site exists yet.
         "SubscriptionProvider",
-        "NoopSubscriptionProvider",
-        # Consumed via constructor injection (val repo: Repo) — static scan can't track
-        "AttachmentRepository",
-        "BackupRepository",
-        "DraftStore",
-        "IdGenerator",
-        "ProjectRemindersRepository",
+        # The remote-config seam. Bound in SyncDiModule; no production call site
+        # asks for it yet. The entry that used to stand here named `Repo` — a
+        # different type — and the seam it named was never the consumer.
         "RemoteConfigRepository",
-        "SessionStore",
-        "SyncApiClient",
-        "SyncPrefs",
-        "SyncRepository",
-        # Consumed by a bare `get()` inside the SyncEngine / SyncRunner / SyncViewModel
-        # bindings, the same way SyncPrefs is. The interface has to be named there so
-        # the binding can state `single<SyncStateRepository> { … }`, and a static scan
-        # reads the binding's own name as a reference to itself.
-        "SyncStateRepository",
-        "TimeZoneProvider",
-        # ── 2026-10-08: 14 new entries added after expanding scan to all *DiModule.kt ──
-        #
-        # All are consumed via constructor injection inside other bindings. The static scan
-        # only tracks direct `get<Name>()` calls from production code; it cannot follow
-        # a type that appears only as a constructor parameter of another binding's lambda.
-        # These are all confirmed live via grep on the source corpus.
-        "InternalLinkRepository",   # consumed by LinkManager / NoteEditor in NotesDiModule
-        "TagGroupRepository",       # consumed by TagsViewModel constructor injection
-        "ArchiveRepository",       # consumed by ArchiveManager / TaskDetailViewModel
-        "AttachmentSaver",         # consumed by AttachmentUploadService / TaskEditor
-        "DependencyValidator",     # consumed by TaskEditorViewModel constructor
-        "ProjectLookup",           # consumed by ProjectDetailViewModel / AgendaEvaluator
-        "SavedSearchRepository",   # consumed by SearchViewModel constructor injection
-        "SearchQueryResolver",     # consumed by SearchViewModel / SavedSearch use
-        "TagLookup",              # consumed by AgendaEvaluator / TaskListUse
-        "BackgroundJobCatalog",   # consumed by JvmBackgroundWorkScheduler / SyncEngine
-        "GoogleCredentialStore",  # consumed by GoogleSyncEngine / CalendarSyncOrchestrator
-        "A2uiCatalog",            # consumed by GenuiRenderer / UiSchemaResolver
-        "ProposalDispatch",       # consumed by ProposalPlanner (factory chain in proposals)
-        "ProposalPlanner",       # consumed by ProposalCoordinator / ProposalScreen VM
-        # ── 2026-10-20: the three findings the gate reported after the gate
-        #    registry was cleaned up. Two of them are the limitation above, and
-        #    one is a seam.
-        "DeviceIdProvider",       # consumed by a bare `get()` in the HlcFactory binding —
-                                  # `HlcFactory(deviceIdProvider = get(), …)`, SyncDiModule.kt
-        "GenuiTransport",         # consumed by a bare `get()` in the GenuiSession factory —
-                                  # `GenuiSession(get(), …)`, GenuiDiModule.kt
-        # AuthGateway is bound and nothing asks for it: no production call site
-        # exists yet, the same state Analytics and SubscriptionProvider are in.
-        # The android test module overrides it with a no-op gateway, so the
-        # binding is the seam that override replaces — removing it would delete
-        # the seam, not the dead code.
-        "AuthGateway",
+        # The attachment seam. Bound in TasksDiModule; the entry that used to
+        # stand here named AttachmentUploadService and TaskEditor, and neither
+        # asks for it any more.
+        "AttachmentSaver",
     }
     for path, text in code.items():
         # Skip test files: they bind stubs for the Koin graph validation test and

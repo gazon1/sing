@@ -58,6 +58,20 @@ class CmdType(StrEnum):
     PATH = "path"                # run something on PATH
 
 
+@dataclass(frozen=True)
+class Placement:
+    """Where a registered gate runs when it is not a line in static-gates.sh.
+
+    A reason in prose rots: the step it names gets renamed and the sentence
+    still reads exactly as it did. `tracked_by` is the pointer that resolves —
+    a path, and for a workflow the *name of a step* — and
+    `scripts/check-waiver-references.py` is what says it still resolves.
+    """
+
+    reason: str
+    tracked_by: str
+
+
 #: Registry gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.
 #:
 #: Each maps a gate name to why it runs somewhere else. A registered gate with no
@@ -68,41 +82,106 @@ class CmdType(StrEnum):
 #: The list is short on purpose. Every entry is a claim that a human checked where
 #: the gate runs; a name that is added here because it was inconvenient is a gate
 #: that nobody runs.
-NOT_RUN_IN_STATIC: dict[str, str] = {
-    "flaky tests are acknowledged": (
-        "CI runs it as a step of the `tests` job, after the JUnit XML it reads "
-        "exists: `python3 scripts/check-flaky-tests.py --current shared/build/"
-        "test-results/jvmTest`. It cannot be a gate line: the static job runs "
-        "before any test has run, so the directory it reads does not exist."
+NOT_RUN_IN_STATIC: dict[str, Placement] = {
+    "flaky tests are acknowledged": Placement(
+        reason=(
+            "CI runs it as a step of the `tests` job, after the JUnit XML it reads "
+            "exists: `python3 scripts/check-flaky-tests.py --current shared/build/"
+            "test-results/jvmTest`. It cannot be a gate line: the static job runs "
+            "before any test has run, so the directory it reads does not exist."
+        ),
+        tracked_by=".github/workflows/ci.yml#Late flake pass (advisory)",
     ),
-    "gates are alive": (
-        "CI runs it as a step of the `tests` job. It probes every gate named in "
-        "static-gates.sh, so inside that file it would probe the file it is "
-        "probing — a probe that probes itself launches every gate, and every gate "
-        "launches the probe (#529). It also costs a second full pass over the gate "
-        "corpus (63s), which belongs in the Gradle-bound job, not in the one whose "
-        "wall time is the sum of its slowest gate."
+    "gates are alive": Placement(
+        reason=(
+            "CI runs it as a step of the `meta` job. It probes every gate named in "
+            "static-gates.sh, so inside that file it would probe the file it is "
+            "probing — a probe that probes itself launches every gate, and every gate "
+            "launches the probe (#529). It also costs a second full pass over the gate "
+            "corpus (63s), which belongs in its own job, parallel with the JVM tests, "
+            "not in the one whose wall time is the sum of its slowest gate."
+        ),
+        tracked_by=".github/workflows/ci.yml#Gates are alive",
     ),
-    "gate scripts' own unit tests": (
-        "CI runs them as a step of the `tests` job: `python3 -m unittest discover "
-        "-s scripts/tests`. 1140 assertions in 70 seconds — more than every other "
-        "gate in the static job together — and the job they were moved out of has "
-        "13 seconds of gates left."
+    "gate scripts' own unit tests": Placement(
+        reason=(
+            "CI runs them as a step of the `meta` job: `python3 -m unittest discover "
+            "-s scripts/tests`. 1187 assertions in 70 seconds — more than every other "
+            "gate in the static job together — and they are about the gates, not "
+            "about the app, so they belong beside the gates and not behind the JVM "
+            "tests."
+        ),
+        tracked_by=".github/workflows/ci.yml#Gate scripts' own unit tests",
     ),
-    "instrumented test floor": (
-        "CI runs it in android-device-tests.yml, the only job with an emulator. It "
-        "needs the instrumented XML that job produces."
+    "instrumented test floor": Placement(
+        reason=(
+            "CI runs it in android-device-tests.yml, the only job with an emulator. It "
+            "needs the instrumented XML that job produces."
+        ),
+        tracked_by=".github/workflows/android-device-tests.yml#Check the instrumented suite's floor",
     ),
-    "rebase compiles": (
-        "CI runs it as a step of the `tests` job, after the Gradle invocation it "
-        "compiles: it needs the build output to exist."
+    "rebase compiles": Placement(
+        reason=(
+            "CI runs it as a step of the `tests` job, after the Gradle invocation it "
+            "compiles: it needs the build output to exist."
+        ),
+        tracked_by=".github/workflows/ci.yml#Post-rebase DI compile",
     ),
-    "test runs": (
-        "CI runs it as a step of the `tests` job, against the JUnit XML that "
-        "Gradle has just written, with the run stamp the job records before it "
-        "starts. A gate line would read a directory that does not exist yet."
+    "test runs": Placement(
+        reason=(
+            "CI runs it as a step of the `tests` job, against the JUnit XML that "
+            "Gradle has just written, with the run stamp the job records before it "
+            "starts. A gate line would read a directory that does not exist yet."
+        ),
+        tracked_by=".github/workflows/ci.yml#Executed test counts",
     ),
 }
+
+#: What each module under ``scripts/src/sgate/commands/`` is.
+#:
+#: A reader of ``sgate --help`` cannot tell a gate from a utility: the CLI
+#: lists them side by side, and a command that exists to run another gate's
+#: script looks like a gate of its own. One of them was in fact dead —
+#: ``unwired_backlog_refs`` was a shim for a script that went with its gate in
+#: 2026-10-19, so the command could only fail.
+#:
+#: The kinds:
+#:   gate            — a gate: a line in static-gates.sh names it
+#:   utility         — a command that is not a gate (info, the registry doc)
+#:   suite           — a group of gates run together
+#:   driver          — the runner itself (``run-all``)
+#:   infrastructure  — the machinery the others are built from
+#:
+#: ``scripts/check-gate-registries.py`` checks this list against the files on
+#: disk in both directions: a module nobody classified is a decision nobody
+#: made, and a classified module that is gone is a claim about a file that no
+#: longer exists.
+COMMAND_MODULES: dict[str, str] = {
+    "adr_references_are_valid": "gate",
+    "adr_status_policy": "gate",
+    "build_output_readers": "gate",
+    "conventions": "gate",
+    "decisions_digest_within_budget": "gate",
+    "gradle_test_population": "gate",
+    "light_adr_modules_stay_light": "gate",
+    "room_schema_integrity": "gate",
+    "settings_read_by_a_feature": "gate",
+    "test_task_external_inputs_declared": "gate",
+    "yaml_has_no_duplicate_keys": "gate",
+    "check_benchmarks": "utility",
+    "info": "utility",
+    "render_registry": "utility",
+    "wiring": "utility",
+    "run_all": "driver",
+    "suite_docs": "suite",
+    "suite_lint": "suite",
+    "base": "infrastructure",
+    "_gate_runner": "infrastructure",
+    "_parsers": "infrastructure",
+    "_registry": "infrastructure",
+    "_runner": "infrastructure",
+}
+
 
 # ── Gradle-derived data ─────────────────────────────────────────────────────────
 #
@@ -621,6 +700,8 @@ _REGISTERED: tuple[GateSpec, ...] = (
     ),
     GateSpec(
         name="script conventions",
+        # Blocking: the corpus is green now that the rule reads the AST, so the
+        # gate can stop a change instead of only reporting it.
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
@@ -703,8 +784,8 @@ GATE_CONTROLS: dict[str, Control] = {
         path='.github/workflows/ci.yml',
         edit=Edit(
             kind='replace',
-            old='          set -o pipefail\\n          ./gradlew --continue \\\\n',
-            new='          ./gradlew --continue \\\\n',
+            old='          set -o pipefail\n          ./gradlew --continue \\\n',
+            new='          ./gradlew --continue \\\n',
             count=1,
         ),
         why=(

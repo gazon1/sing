@@ -178,6 +178,53 @@ jobs:
   # docs/decisions/2026-10-05-ci-checks-run-in-parallel.md. What is here respects
   # all three: the run stamp, the count and coverage floors, and the flake
   # comparison all read results this same job produced, so they stay together.
+  # The gate tooling, on its own job.
+  #
+  # These three checks are about the gates, not about the app: they run the
+  # gate scripts, prove the controls can fail, and probe every gate once to
+  # see which ones die. They used to sit in the `tests` job, behind 40 minutes
+  # of Gradle, where they added nothing to the wall time of the job that
+  # matters — they ran *after* it. On their own job they run in parallel with
+  # the JVM tests, so a broken gate is red while the app's own tests are still
+  # running.
+  #
+  # The wiring gate stays in the `tests` job: one of its controls reads the
+  # JUnit XML the Gradle step produces, and a control that cannot read its
+  # input proves nothing.
+  meta:
+    name: Gate tooling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: [changes]
+    if: >
+      needs.changes.outputs.scripts == 'true'
+      || needs.changes.outputs.all == 'true'
+      || github.ref == 'refs/heads/main'
+      || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same action as the other jobs, one reason: the checks import `sgate`,
+      # which the action installs.
+      - name: Set up gate tooling
+        uses: ./.github/actions/setup-python-tools
+
+      # The gate scripts' own unit tests: the regression tests for the wiring
+      # gate, the liveness probe and the controls. 1187 assertions.
+      - name: Gate scripts' own unit tests
+        run: python3 -m unittest discover -s scripts/tests
+
+      # "Gates are alive" — the probe that runs every registered gate once and
+      # reports the ones that die. It is the second full pass over the gate
+      # corpus (63 seconds), and it used to be inside the static job, where it
+      # doubled that job's cost to prove that gates do not crash.
+      #
+      # It probes the gates named in scripts/ci/static-gates.sh, and it is not
+      # one of them: a probe that probed itself would launch every gate, and
+      # every gate would launch the probe.
+      - name: Gates are alive
+        run: python3 scripts/check-gate-liveness.py
+
   tests:
     name: JVM tests, detekt, coverage
     runs-on: ubuntu-24.04
@@ -448,7 +495,11 @@ jobs:
       # the difference flaky — which is the one thing a flake measurement must not
       # do. It ran after `Coverage floors`, `Coverage table` and
       # `Kover verify (detekt-rules)`, any of which pulls the shared test task.
-      - name: Flake analysis vs previous run (advisory)
+      #
+      # Advisory: the step is soft (`continue-on-error`), and a soft step
+      # nobody declares is a step that reads as a gate. The name says what the
+      # step is; this comment says what kind of step it is.
+      - name: Late flake pass (advisory)
         if: ${{ !cancelled() }}
         continue-on-error: true
         env:
@@ -553,38 +604,6 @@ jobs:
         env:
           GATE_WIRING_GRADLE: "1"
         run: python3 scripts/check-gate-wiring.py
-
-      # The gate scripts' own unit tests, here rather than in the `static` job.
-      #
-      # They are the regression tests for the machinery above: the wiring gate,
-      # the liveness probe, the controls. Running them in the static job made
-      # that job's wall time the sum of its slowest gate — 70 seconds of unit
-      # tests to prove 1140 assertions, on a job whose other gates take 13
-      # seconds together. This job is Gradle-bound for ~40 minutes, so 70
-      # seconds of Python lands in slack nobody is waiting on.
-      #
-      # Nothing is lost: the tests still run on every push and pull request, and
-      # a failure here fails the job just as loudly.
-      - name: Gate scripts' own unit tests
-        if: ${{ !cancelled() }}
-        run: python3 -m unittest discover -s scripts/tests
-
-      # "Gates are alive" — the probe that runs every registered gate once and
-      # reports the ones that die. It is the second full pass over the gate
-      # corpus (63 seconds), and it used to be inside the static job, where it
-      # doubled that job's cost to prove that gates do not crash.
-      #
-      # Here it costs the same wall time and blocks nothing that was not
-      # already blocking: the static job still runs every gate, so a gate that
-      # dies is red there too. What this adds is the *timing* signal — a gate
-      # that has started hanging shows up as a probe that never finishes.
-      #
-      # It probes the gates named in scripts/ci/static-gates.sh, and it is not
-      # one of them: a probe that probed itself would launch every gate, and
-      # every gate would launch the probe.
-      - name: Gates are alive
-        if: ${{ !cancelled() }}
-        run: python3 scripts/check-gate-liveness.py
 
       - name: Upload JUnit results
         if: ${{ !cancelled() }}
@@ -734,7 +753,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [static, tests, android, changes]
+    needs: [static, meta, tests, android, changes]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
