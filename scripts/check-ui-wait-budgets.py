@@ -40,7 +40,11 @@ everybody is a decision to make once, in the catalogue, where the reasoning can 
 written down; a number that is wrong in one place is a flake waiting for a busy
 runner.
 
-Usage: python3 scripts/check-ui-wait-budgets.py [--json] [--quiet]
+Usage: python3 scripts/check-ui-wait-budgets.py [--json] [--quiet] [--root DIR]
+
+`--root` names the tree to check. The pre-push hook uses it: the hook checks the
+tree that is being pushed, not the worktree it happens to run in, and a gate
+that checked the worktree would report green for a tree nobody pushed.
 """
 from __future__ import annotations
 
@@ -97,12 +101,13 @@ VISIBLE_ID_PATTERN = re.compile(r"^\s*id:\s*(?P<id>\S+)\s*$")
 TIMEOUT_PATTERN = re.compile(r"^\s*timeout:\s*(?P<timeout>\d+)\s*$")
 
 
-def catalogue_budgets() -> dict[str, int]:
+def catalogue_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
     """The budgets the catalogue promises, as name -> milliseconds."""
+    catalogue = (root / "config" / "docs" / "ui-wait-budgets.txt") if root else CATALOGUE
     try:
-        text = CATALOGUE.read_text(encoding="utf-8")
+        text = catalogue.read_text(encoding="utf-8")
     except OSError as exc:
-        raise click.ClickException(f"cannot read {CATALOGUE}: {exc}") from exc
+        raise click.ClickException(f"cannot read {catalogue}: {exc}") from exc
     budgets: dict[str, int] = {}
     for number, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
@@ -111,26 +116,38 @@ def catalogue_budgets() -> dict[str, int]:
         match = CATALOGUE_PATTERN.match(stripped)
         if not match:
             raise click.ClickException(
-                f"{CATALOGUE}:{number}: cannot read a budget from {stripped!r}; "
+                f"{catalogue}:{number}: cannot read a budget from {stripped!r}; "
                 "the format is '<name> <milliseconds>'"
             )
         name = match.group("name")
         if name in budgets:
             raise click.ClickException(
-                f"{CATALOGUE}:{number}: the budget {name!r} is listed twice"
+                f"{catalogue}:{number}: the budget {name!r} is listed twice"
             )
         budgets[name] = int(match.group("value"))
     if not budgets:
-        raise click.ClickException(f"{CATALOGUE} promises no budgets at all")
+        raise click.ClickException(f"{catalogue} promises no budgets at all")
     return budgets
 
 
-def kotlin_budgets() -> dict[str, int]:
+def kotlin_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
     """The wait constants the instrumented suite declares, as constant name -> ms."""
+    probe = (
+        root
+        / "androidApp"
+        / "src"
+        / "androidTest"
+        / "kotlin"
+        / "com"
+        / "singularity"
+        / "todo"
+        / "ui"
+        / "ShellProbe.kt"
+    ) if root else SHELL_PROBE
     try:
-        text = SHELL_PROBE.read_text(encoding="utf-8")
+        text = probe.read_text(encoding="utf-8")
     except OSError as exc:
-        raise click.ClickException(f"cannot read {SHELL_PROBE}: {exc}") from exc
+        raise click.ClickException(f"cannot read {probe}: {exc}") from exc
     budgets: dict[str, int] = {}
     for line in text.splitlines():
         match = CONSTANT_PATTERN.match(line)
@@ -139,7 +156,7 @@ def kotlin_budgets() -> dict[str, int]:
     return budgets
 
 
-def shell_waits() -> list[dict]:
+def shell_waits(root: pathlib.Path | None = None) -> list[dict]:
     """Every Maestro wait for the shell, as a list of records.
 
     The scan is line-based on purpose: the question is "which wait in this file
@@ -148,9 +165,11 @@ def shell_waits() -> list[dict]:
     different, larger question.
     """
     waits: list[dict] = []
-    if not MAESTRO_DIR.is_dir():
+    base = root if root else ROOT
+    maestro_dir = (base / "Maestro") if root else MAESTRO_DIR
+    if not maestro_dir.is_dir():
         return waits
-    for path in sorted(MAESTRO_DIR.rglob("*.yaml")):
+    for path in sorted(maestro_dir.rglob("*.yaml")):
         if not path.is_file():
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -184,7 +203,7 @@ def shell_waits() -> list[dict]:
             if visible == SHELL_ELEMENT:
                 waits.append(
                     {
-                        "file": str(path.relative_to(ROOT)),
+                        "file": str(path.relative_to(base)),
                         "line": timeout_line,
                         "timeout": timeout,
                     }
@@ -192,10 +211,10 @@ def shell_waits() -> list[dict]:
     return waits
 
 
-def scan() -> list[dict]:
+def scan(root: pathlib.Path | None = None) -> list[dict]:
     """The mismatches between the catalogue and the layers that wait."""
-    budgets = catalogue_budgets()
-    constants = kotlin_budgets()
+    budgets = catalogue_budgets(root)
+    constants = kotlin_budgets(root)
     findings: list[dict] = []
 
     if "shell" not in budgets:
@@ -289,10 +308,17 @@ def scan() -> list[dict]:
 @click.command()
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 @click.option("--quiet", is_flag=True, help="Print nothing when the gate is clean")
+@click.option(
+    "--root",
+    default=None,
+    help="The tree to check (default: this repository)",
+)
 @click.pass_context
-def cli(ctx: click.Context, emit_json: bool, quiet: bool) -> None:
+def cli(ctx: click.Context, emit_json: bool, quiet: bool, root: str | None) -> None:
+    """Hold every layer that waits to the one written budget."""
+    tree = pathlib.Path(root).resolve() if root else None
     try:
-        findings = scan()
+        findings = scan(tree)
     except click.ClickException as exc:
         click.echo(f"ui wait budgets: {exc.format_message()}")
         raise ctx.exit(IO_ERROR)
@@ -300,7 +326,7 @@ def cli(ctx: click.Context, emit_json: bool, quiet: bool) -> None:
     if emit_json:
         click.echo(json.dumps({"findings": findings}, indent=2))
     elif not findings and not quiet:
-        budgets = catalogue_budgets()
+        budgets = catalogue_budgets(tree)
         click.echo(
             "ui wait budgets: "
             + ", ".join(f"{name}={value}ms" for name, value in sorted(budgets.items()))
