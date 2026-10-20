@@ -125,6 +125,38 @@ def _covered_scripts(shell_gates: list[tuple[str, str, str]]) -> set[str]:
     return covered
 
 
+def _module_classification_problems() -> list[str]:
+    """Every command module is classified, and every classified module exists.
+
+    `sgate --help` lists the gates and the utilities side by side, so nothing
+    says which is which. The classification is the statement, and this check is
+    what keeps it true: a module nobody classified is a decision nobody made,
+    and a classified module that is gone is a claim about a file that no longer
+    exists.
+    """
+    from sgate.commands._registry import COMMAND_MODULES
+
+    commands_dir = ROOT / "scripts" / "src" / "sgate" / "commands"
+    on_disk = {
+        path.stem
+        for path in commands_dir.glob("*.py")
+        if path.stem != "__init__"
+    }
+    problems: list[str] = []
+    for name in sorted(on_disk - set(COMMAND_MODULES)):
+        problems.append(
+            f"'{name}' is a command module nobody classified — add it to "
+            "COMMAND_MODULES in _registry.py with what it is (gate, utility, "
+            "suite, driver, infrastructure)."
+        )
+    for name in sorted(set(COMMAND_MODULES) - on_disk):
+        problems.append(
+            f"'{name}' is classified in COMMAND_MODULES but no longer exists — the "
+            "classification is a claim about a file that is gone."
+        )
+    return problems
+
+
 def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     """
     Return `(violations, warnings, summary)` for the two gate registries.
@@ -215,6 +247,9 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
             "the declaration outlived its gate. Remove the entry: it can hide a gate "
             "that nobody runs."
         )
+
+    for problem in _module_classification_problems():
+        report(problem)
 
     return violations, warnings, summary
 
