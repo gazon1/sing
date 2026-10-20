@@ -577,4 +577,14 @@ checkout's registry even when an editable install points elsewhere. That is not
 accidental: it is what makes a gate on the registry trustworthy on a machine with
 two checkouts of it.
 
+## Links
+
+- `docs/decisions/2026-10-20-a-gate-that-reads-less-than-it-claims.md` — the change
+  record for the five defects fixed here
+- `docs/decisions/2026-10-20-gate-truth-round-two.md` — the round that made the gate
+  corpus coherent without reading the gates
+- `docs/decisions/2026-10-19-ast-grep-for-kotlin-parsing-in-python-gates.md` — the
+  measured rejection of a Kotlin parser in Python gates, which F5 upholds
+
+
 
