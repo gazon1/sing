@@ -1,0 +1,21 @@
+# The instrumented suite's floor: what an emulator run must deliver.
+#
+# Recorded from the run of `main` on 2026-10-19: five test classes, nineteen
+# tests, none skipped. `scripts/check-instrumented-test-floor.py` holds every
+# run to it.
+#
+# classes, tests — floors. A run with fewer of either means coverage was lost,
+# and the run stays green because the report lists the tests that are left: a
+# deleted class is a line in a diff nobody reads. The floor is the record of
+# what the tier used to be.
+#
+# skipped — a ceiling, and it is 0. A skipped instrumented test says nothing
+# about the app on a device, which is the only thing this tier knows, and a
+# tier that reports "skipped" reads as a tier that ran.
+#
+# The floor is deliberately a floor and not a target: a suite that grows above
+# it is fine, and only a drop is a finding. A drop means tests stopped being
+# selected, which is a defect to investigate, not a number to regenerate.
+classes 5
+tests 19
+skipped 0

@@ -233,6 +233,21 @@ jobs:
           EMULATOR_TIMEOUT: 600
         run: python3 scripts/run-android-ui-tests.py
 
+      # The floor of the instrumented suite.
+      #
+      # This tier runs on a schedule, on pushes to main and on demand — and a
+      # suite that runs on a schedule is a suite whose size nobody watches. A
+      # deleted test class leaves the run green, because the report lists the
+      # tests that are left. The floor is the record of what the tier used to
+      # be: five classes, nineteen tests, none skipped.
+      #
+      # It runs after the tests because it reads their report, and it runs even
+      # when the tests failed, because a failed run is exactly the run whose
+      # size is worth checking.
+      - name: Check the instrumented suite's floor
+        if: ${{ !cancelled() }}
+        run: python3 scripts/check-instrumented-test-floor.py
+
       # Uploaded unconditionally, not `if: failure()`. A report that exists only when
       # something broke cannot answer "did NavigationFlowInstrumentedTest pass on abc1234",
       # which is the question a nightly run gets asked the next morning.
