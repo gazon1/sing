@@ -18,6 +18,7 @@ import argparse
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -28,6 +29,17 @@ SCRIPT_DIR = ROOT / "scripts"
 SRC = SCRIPT_DIR / "src"
 GRADLEW = ROOT / "gradlew"
 APP_ID = "com.singularity.todo"
+
+#: Where the instrumented suite leaves its failure bundle on the device.
+#:
+#: The shell's directory, not the app's own storage: AGP uninstalls the app
+#: under test when the run ends, and an app's private directory is deleted with
+#: it. The shell's directory survives, which is why the bundle is copied there
+#: instead of being written where the test process can read it directly.
+DIAGNOSTICS_DEVICE_PATH = "/data/local/tmp/singularity-diagnostics"
+
+#: Where the pulled bundle lands on the host. The workflow uploads this path.
+DIAGNOSTICS_HOST_PATH = ROOT / "androidApp" / "build" / "diagnostics"
 
 
 # ── APK provenance ─────────────────────────────────────────────────────────────
@@ -247,6 +259,44 @@ def capture_logcat(serial: str, artifact_dir: Path) -> None:
         print(f"  {YELLOW}Logcat: {logcat_file}{_col('0', '')}", flush=True)
 
 
+def capture_diagnostics(serial: str) -> None:
+    """Pull the instrumented suite's failure bundle off the device.
+
+    The bundle — screenshot, screen tree, step log, environment — is left by
+    the failing test in the shell's directory on the device (see
+    `FailureBundle.kt` in the androidTest sources). It is pulled into
+    `androidApp/build/diagnostics/<TestClass>/attempt-N/`, which is the path the
+    workflow uploads.
+
+    Best-effort: a run whose device died has no bundle to pull, and a missing
+    bundle must not turn a failed run into a different failed run.
+    """
+    if not device_alive(serial):
+        return
+    listing = adb("-s", serial, "shell", "ls", DIAGNOSTICS_DEVICE_PATH)
+    if not listing or "No such file" in listing or "No such directory" in listing:
+        return
+
+    DIAGNOSTICS_HOST_PATH.mkdir(parents=True, exist_ok=True)
+    pulled = try_run(
+        ["adb", "-s", serial, "pull", DIAGNOSTICS_DEVICE_PATH, str(DIAGNOSTICS_HOST_PATH)],
+        timeout=120,
+    )
+    if pulled is None or pulled.returncode != 0:
+        print(f"  {YELLOW}Could not pull the diagnostics bundle{_col('0', '')}", flush=True)
+        return
+
+    # `adb pull <dir> <dest>` creates <dest>/<dirname>; the host layout the
+    # workflow expects is <dest>/<TestClass>/attempt-N, so the extra level is
+    # lifted away here rather than in the workflow.
+    nested = DIAGNOSTICS_HOST_PATH / Path(DIAGNOSTICS_DEVICE_PATH).name
+    if nested.is_dir():
+        for child in nested.iterdir():
+            shutil.move(str(child), str(DIAGNOSTICS_HOST_PATH / child.name))
+        shutil.rmtree(nested, ignore_errors=True)
+    print(f"  {YELLOW}Diagnostics: {DIAGNOSTICS_HOST_PATH}{_col('0', '')}", flush=True)
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
@@ -332,11 +382,16 @@ def main(argv: list[str] | None = None) -> int:
     artifact_dir = Path(args.artifact_dir) if args.artifact_dir else ROOT / "build" / "android-ui-results"
 
     print(f"\n{YELLOW}=== Running UI tests on {device} ==={_col('0', '')}", flush=True)
+    # The bundle directory is emptied first: an emulator that ran a previous
+    # suite would otherwise hand this run diagnostics that belong to it, and a
+    # bundle from another run is worse than no bundle.
+    adb("-s", device, "shell", "rm", "-rf", DIAGNOSTICS_DEVICE_PATH)
     test = gradle(
         ":androidApp:connectedDebugAndroidTest",
         f"-Pandroid.testInstrumentationRunnerArguments.device={device}",
         "--no-build-cache",
     )
+    capture_diagnostics(device)
 
     if test.returncode == 0:
         executed = executed_test_count()

@@ -9,9 +9,11 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.singularity.todo.MainActivity
+import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -28,13 +30,29 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class CreateTaskFlowTest {
+
+    /**
+     * Captures the failure bundle when a test in this class fails.
+     *
+     * The device handle is resolved lazily: the rule is built before the test
+     * runs, and the accessibility service is not bound until then.
+     */
+    @get:Rule
+    val diagnostics = FailureBundleRule { device }
     private lateinit var device: UiDevice
 
     @Before
     fun setup() {
         device = awaitUiDevice()
+        setStepRecorder(StepRecorder())
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // unlock
+    }
+
+    /** The recorder is per-test: the next test must not inherit this one's steps. */
+    @After
+    fun tearDown() {
+        clearStepRecorder()
     }
 
     /**

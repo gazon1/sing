@@ -28,7 +28,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000
 # The seeded task appears in the Overdue section of the Today tab.
 # Scroll to make it visible in case it arrived below the fold.
 - scrollUntilVisible:
@@ -62,7 +62,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000
 - tapOn:
     id: nav_tab_inbox
 - scrollUntilVisible:

@@ -3,6 +3,7 @@ package com.singularity.todo.feature.gate.presentation.viewmodel
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
@@ -12,6 +13,7 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Intent for [AppVersionGateViewModel].
@@ -38,12 +40,16 @@ sealed interface AppVersionGateIntent : MviIntent {
  * @param appVersion The current app version (injected from platform-specific [appVersion]).
  * @param playStoreUrl Platform-specific URL to open for update (Play Store on Android,
  *   releases page on Desktop). Used in the [AppVersionGateState.Blocked] state.
+ * @param readTimeoutMs Upper bound on one remote-config read, in milliseconds. The gate is a
+ *   full-screen splash in front of the whole app, so a read that never comes back cannot be
+ *   waited for indefinitely; see [check].
  * @param scope Coroutine scope for collecting [RemoteConfigPort.observe].
  */
 class AppVersionGateViewModel(
     private val remoteConfigPort: RemoteConfigPort,
     private val appVersion: AppVersion,
     private val playStoreUrl: String,
+    private val readTimeoutMs: Long = REMOTE_CONFIG_READ_TIMEOUT_MS,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
@@ -62,6 +68,15 @@ class AppVersionGateViewModel(
      * version gate they cannot pass. A hard failure here is the worst possible place to be
      * strict.
      *
+     * A read that never *returns* is the same failure with a longer fuse. The state stays
+     * [AppVersionGateState.Checking], and Checking is a full-screen splash in front of the whole
+     * app — so a read that hangs takes the entire app down with it, not just the gate. Nothing
+     * about a hang throws, so nothing about it reports itself: the app simply never starts. A
+     * slow *local* read is enough to get there — a Room database created on first launch, a
+     * locked multi-instance database. The read therefore has a deadline, [readTimeoutMs], and a
+     * read that misses it is handled exactly like a read that failed: reported, breadcrumbed,
+     * evaluated against the defaults.
+     *
      * The bypass is also breadcrumbed, because failing open is otherwise invisible: the end
      * state is `Allowed(defaults)`, which is byte-for-byte what a healthy read produces. A
      * config outage would read as a healthy dashboard for as long as it lasted. The report
@@ -75,11 +90,11 @@ class AppVersionGateViewModel(
      */
     private fun check() {
         catchTo(
-            errorLabel = "Failed to read remote config",
+            errorLabel = READ_FAILED,
             onError = { onReadFailed() },
-            onBeforeReport = { recordBypass() },
+            onBeforeReport = { recordBypass(it) },
         ) {
-            runCatchingResult { evaluate(remoteConfigPort.snapshot()) }
+            runCatchingResult { evaluate(readWithinTimeout { remoteConfigPort.snapshot() }) }
         }
     }
 
@@ -95,10 +110,42 @@ class AppVersionGateViewModel(
         evaluate(RemoteConfigSnapshot.defaults())
     }
 
-    /** The bypass itself. Kept separate so every failure path records it identically. */
-    private fun recordBypass() {
-        crashReporter.addBreadcrumb("Version gate bypassed — remote config unreadable, admitted on defaults")
+    /**
+     * The bypass itself. Kept separate so every failure path records it identically.
+     *
+     * The wording names the reason, because "the gate was let through" and "the gate was let
+     * through because the read never came back" are two different investigations: the first
+     * points at the config server, the second at whatever the read was waiting on.
+     */
+    private fun recordBypass(error: Throwable) {
+        val reason = if (isReadTimeout(error)) TIMED_OUT_REASON else UNREADABLE_REASON
+        crashReporter.addBreadcrumb("Version gate bypassed — $reason, admitted on defaults")
     }
+
+    /**
+     * Whether this failure is a missed deadline rather than a failed read.
+     *
+     * The code is the only thing that tells the two apart, and it has to survive into the
+     * report: the timeout is the one failure the gate raises itself, so it raises it with a
+     * code of its own.
+     */
+    private fun isReadTimeout(error: Throwable): Boolean =
+        (error as? AppError)?.code == READ_TIMEOUT
+
+    /**
+     * Runs [read] under a deadline and turns a missed deadline into a failed read.
+     *
+     * A timeout is not a thrown error — the read simply never came back — so it is turned into
+     * one here. [AppError.Network] carries a machine-shaped code, which is what lets the report
+     * group timeouts apart from every other failed read and what lets the breadcrumb say which
+     * reason the gate was let through for.
+     */
+    private suspend fun <T : Any> readWithinTimeout(read: suspend () -> T): T =
+        withTimeoutOrNull(readTimeoutMs) { read() }
+            ?: throw AppError.Network(
+                message = "Remote config read timed out after $readTimeoutMs ms",
+                code = READ_TIMEOUT,
+            )
 
     override fun onIntent(intent: AppVersionGateIntent) {
         when (intent) {
@@ -109,12 +156,17 @@ class AppVersionGateViewModel(
                 // the same path as a thrown read — same grouping key, same ordering, one
                 // place where a bypass can be recorded. It was previously reported and
                 // breadcrumbmed by hand, which is exactly how the two drifted apart.
+                //
+                // The refresh is under the same deadline as the first read. This screen is a
+                // full-screen splash too, and a refresh that never returns leaves the user on
+                // `Checking` with nothing left to press but the button they already pressed.
                 catchTo(
                     errorLabel = REFRESH_FAILED,
                     onError = { onReadFailed() },
-                    onBeforeReport = { recordBypass() },
+                    onBeforeReport = { recordBypass(it) },
                 ) {
-                    remoteConfigPort.refresh().mapCatching { evaluate(it) }
+                    val refreshed = readWithinTimeout { remoteConfigPort.refresh() }
+                    refreshed.mapCatching { evaluate(it) }
                 }
             }
         }
@@ -138,5 +190,32 @@ class AppVersionGateViewModel(
     private companion object {
         /** Machine-shaped grouping key — it leaves the device. */
         const val REFRESH_FAILED = "gate.remote_config_refresh_failed"
+
+        /**
+         * Machine-shaped grouping key for a read that missed its deadline.
+         *
+         * Its own key, so a timeout is a row of its own in the report rather than one line
+         * inside the general "the config could not be read" bucket: the two have different
+         * causes and different fixes.
+         */
+        const val READ_TIMEOUT = "gate.remote_config_read_timeout"
+
+        /** The read failed outright. */
+        const val UNREADABLE_REASON = "remote config unreadable"
+
+        /** The read did not come back in time. */
+        const val TIMED_OUT_REASON = "remote config read timed out"
+
+        /** The label a failed read is reported under; the fallback grouping key. */
+        const val READ_FAILED = "Failed to read remote config"
+
+        /**
+         * How long one remote-config read may take before the gate gives up on it.
+         *
+         * Long enough for the slow case that is still a success — a Room database created on
+         * first launch, a cold multi-instance lock — and short enough that a user does not sit
+         * in front of a splash wondering whether the app is broken.
+         */
+        const val REMOTE_CONFIG_READ_TIMEOUT_MS = 5_000L
     }
 }

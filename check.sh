@@ -229,6 +229,18 @@ if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
             -Pandroid.testInstrumentationRunnerArguments.device="$SERIAL" \
             --quiet || true
         echo -e "${GREEN}Android instrumentation completed${NC}"
+        # The floor of the instrumented tier, checked where the report is. The
+        # instrumentation itself is optional here — its failure is not this
+        # script's verdict — but a run that delivered fewer classes and tests
+        # than the tier is recorded to deliver is a finding, and the report is
+        # the only place that fact exists.
+        if [[ -d androidApp/build/outputs/androidTest-results/connected ]]; then
+            python3 scripts/check-instrumented-test-floor.py || {
+                echo -e "${RED}the instrumented suite delivered fewer tests than its floor${NC}"
+                exit 1
+            }
+            echo -e "${GREEN}instrumented test floor met${NC}"
+        fi
     fi
 fi
 

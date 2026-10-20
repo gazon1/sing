@@ -10,6 +10,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.version.AppVersion
 import com.singularity.todo.feature.gate.presentation.state.AppVersionGateState
 import com.singularity.todo.test.fakes.RecordingCrashReportingPort
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Tag
@@ -82,6 +84,29 @@ private class ThrowingRemoteConfigPort(private val error: Throwable) : RemoteCon
     override fun observe(): StateFlow<RemoteConfigSnapshot> = observed
 }
 
+/**
+ * A config source whose read **never completes**.
+ *
+ * The other half of the fail-open policy. A read that throws is a broken config server; a read
+ * that hangs is a slow *local* one — a Room database being created on first launch, a locked
+ * multi-instance database. Nothing about it throws, so nothing about it reports itself: the gate
+ * simply stays on `Checking`, which is a full-screen splash in front of the whole app.
+ */
+private class HangingRemoteConfigPort(
+    private val served: RemoteConfigSnapshot = RemoteConfigSnapshot.defaults(),
+    private val hangOnSnapshot: Boolean = true,
+    private val hangOnRefresh: Boolean = true,
+) : RemoteConfigPort {
+    override suspend fun snapshot(): RemoteConfigSnapshot =
+        if (hangOnSnapshot) awaitCancellation() else served
+
+    override suspend fun refresh(): Result<RemoteConfigSnapshot> =
+        if (hangOnRefresh) awaitCancellation() else Result.success(served)
+
+    private val observed = MutableStateFlow(served)
+    override fun observe(): StateFlow<RemoteConfigSnapshot> = observed
+}
+
 private const val PLAY_STORE_URL = "market://details?id=com.singularity.todo"
 
 private val CURRENT = AppVersion("1.2.0", code = 12)
@@ -89,11 +114,30 @@ private val CURRENT = AppVersion("1.2.0", code = 12)
 /** Substring of the bypass breadcrumb; the invariant, not the wording. */
 private const val BYPASS_MARKER = "bypassed"
 
+/** Substring that names the reason: the read missed its deadline. */
+private const val TIMED_OUT_MARKER = "timed out"
+
+/** Substring of the grouping key the timeout is reported under. */
+private const val TIMEOUT_KEY_MARKER = "timeout"
+
+/** Substring that names the reason: the read failed outright. */
+private const val UNREADABLE_MARKER = "unreadable"
+
+/**
+ * The deadline the tests inject.
+ *
+ * Small enough to be obvious and short enough to be quick even if a test ever runs it on real
+ * time; the injected value is what proves the gate gives up on its own schedule rather than on
+ * the production one.
+ */
+private const val TEST_READ_TIMEOUT_MS = 50L
+
 @OptIn(ExperimentalCoroutinesApi::class)
 private fun TestScope.newVm(
     port: RemoteConfigPort,
     current: AppVersion = CURRENT,
     reporter: CrashReportingPort? = null,
+    readTimeoutMs: Long = TEST_READ_TIMEOUT_MS,
 ): Pair<AppVersionGateViewModel, AutoCloseableCoroutineScope> {
     val scope = testScope(this)
     val vm = AppVersionGateViewModel(
@@ -105,6 +149,7 @@ private fun TestScope.newVm(
         // These assertions are about what reached the reporting layer, so they must opt in
         // to a recording one explicitly rather than inherit the silence.
         crashReporter = reporter ?: com.singularity.todo.core.observability.NoOpCrashReportingPort(),
+        readTimeoutMs = readTimeoutMs,
     )
     return vm to scope
 }
@@ -301,6 +346,155 @@ class AppVersionGateViewModelTest {
             breadcrumbAt in 0 until reportAt,
             "the bypass record must precede the report on the returned-failure route too. " +
                 "Recorded order was: ${reporter.events}",
+        )
+        scope.close()
+    }
+
+    // ─── The read deadline ───────────────────────────────────────────────────────
+    //
+    // The fail-open policy above covers a read that *fails*. A read that never returns is the
+    // same defect with a longer fuse, and it is not covered by anything: nothing throws, so
+    // nothing reports, and the gate stays on `Checking` — a full-screen splash in front of the
+    // whole app. A slow local read (a Room database created on first launch, a locked
+    // multi-instance database) is enough to get there.
+
+    @Test
+    fun `a read that never returns is admitted on the defaults once the deadline passes`() = runTest {
+        // The state itself is the whole point: `Allowed(defaults)` instead of `Checking`, which
+        // would leave the user in front of a splash with no way past it.
+        val (vm, scope) = newVm(HangingRemoteConfigPort())
+        advanceUntilIdle()
+
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
+        scope.close()
+    }
+
+    @Test
+    fun `the deadline the gate gives up on is the one that was injected`() = runTest {
+        // Without this, a test that waits for the production deadline would pass just as
+        // happily — virtual time makes five seconds as instant as fifty milliseconds, so the
+        // only way to know which deadline was honoured is to look at the clock.
+        //
+        // The lower bound matters as much as the upper one: a gate that never gives up never
+        // waits at all, so zero virtual time is the shape of the defect this change removes,
+        // not a fast success.
+        val (vm, scope) = newVm(HangingRemoteConfigPort())
+        advanceUntilIdle()
+
+        assertTrue(
+            testScheduler.currentTime in 1..TEST_READ_TIMEOUT_MS,
+            "the gate must give up at the injected deadline, not after it and not never: " +
+                "virtual time was ${testScheduler.currentTime} ms",
+        )
+        scope.close()
+    }
+
+    @Test
+    fun `a read that never returns is reported`() = runTest {
+        val reporter = RecordingCrashReportingPort()
+        val (vm, scope) = newVm(HangingRemoteConfigPort(), reporter = reporter)
+        advanceUntilIdle()
+
+        assertEquals(1, reporter.reports.size, "a read that never returns is a failure and must be reported")
+        assertTrue(
+            reporter.reports.single().second.contains(TIMEOUT_KEY_MARKER),
+            "the report must group the timeout apart from every other failed read, " +
+                "got key: ${reporter.reports.single().second}",
+        )
+        scope.close()
+    }
+
+    @Test
+    fun `a read that never returns leaves a record that the gate was bypassed`() = runTest {
+        val reporter = RecordingCrashReportingPort()
+        val (vm, scope) = newVm(HangingRemoteConfigPort(), reporter = reporter)
+        advanceUntilIdle()
+
+        // The whole point of the record: a healthy read and a bypassed one produce the same
+        // state, so without this an outage reads as a healthy dashboard.
+        assertEquals(1, reporter.breadcrumbs.size, "failing open must leave exactly one bypass record")
+        assertTrue(
+            reporter.breadcrumbs.single().contains(BYPASS_MARKER),
+            "the record must say the gate was bypassed, got: ${reporter.breadcrumbs.single()}",
+        )
+        scope.close()
+    }
+
+    @Test
+    fun `the bypass record of a timed-out read names the deadline`() = runTest {
+        // The reason is part of the record. "The gate was let through" and "the gate was let
+        // through because the read never came back" are two different investigations: the first
+        // points at the config server, the second at whatever the read was waiting on.
+        val reporter = RecordingCrashReportingPort()
+        val (vm, scope) = newVm(HangingRemoteConfigPort(), reporter = reporter)
+        advanceUntilIdle()
+
+        val breadcrumb = reporter.breadcrumbs.single()
+        assertTrue(breadcrumb.contains(TIMED_OUT_MARKER), "the record must name the timeout, got: $breadcrumb")
+        assertFalse(breadcrumb.contains(UNREADABLE_MARKER), "the record must not blame the config, got: $breadcrumb")
+        scope.close()
+    }
+
+    @Test
+    fun `the bypass record of a timed-out read rides along with the report`() = runTest {
+        // The same ordering the thrown path has: the record is written before the report, so
+        // the backend attaches it to the report it explains. A timeout with no next event
+        // would otherwise travel nowhere.
+        val reporter = RecordingCrashReportingPort()
+        val (vm, scope) = newVm(HangingRemoteConfigPort(), reporter = reporter)
+        advanceUntilIdle()
+
+        val breadcrumbAt = reporter.breadcrumbIndexContaining(BYPASS_MARKER)
+        val reportAt = reporter.reportIndexWithKey(reporter.reports.single().second)
+        assertTrue(
+            breadcrumbAt in 0 until reportAt,
+            "the bypass record must be written BEFORE the report, so it rides along with it. " +
+                "Recorded order was: ${reporter.events}",
+        )
+        scope.close()
+    }
+
+    @Test
+    fun `a thrown read is still recorded as an unreadable config`() = runTest {
+        // The deadline must not have changed the existing path: the same read, the same
+        // wording, the same fail-open outcome. Without this, a timeout-specific wording could
+        // quietly swallow the thrown case.
+        val reporter = RecordingCrashReportingPort()
+        val (vm, scope) = newVm(ThrowingRemoteConfigPort(IllegalStateException("config down")), reporter = reporter)
+        advanceUntilIdle()
+
+        val breadcrumb = reporter.breadcrumbs.single()
+        assertTrue(
+            breadcrumb.contains(UNREADABLE_MARKER),
+            "the record must name the unreadable config, got: $breadcrumb",
+        )
+        assertFalse(breadcrumb.contains(TIMED_OUT_MARKER), "a thrown read did not time out, got: $breadcrumb")
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
+        scope.close()
+    }
+
+    @Test
+    fun `a refresh that never returns is admitted on the defaults`() = runTest {
+        // The same deadline on the second path. The blocked screen is a full-screen splash too,
+        // and a refresh that never returns leaves the user on `Checking` with nothing left to
+        // press but the button they already pressed.
+        val reporter = RecordingCrashReportingPort()
+        val port = HangingRemoteConfigPort(
+            served = snapshotWithMinimum(AppVersion("2.0.0", code = 20)),
+            hangOnSnapshot = false,
+            hangOnRefresh = true,
+        )
+        val (vm, scope) = newVm(port, reporter = reporter)
+        advanceUntilIdle()
+        assertIs<AppVersionGateState.Blocked>(vm.stateFlow.value)
+
+        vm.onIntent(AppVersionGateIntent.CheckAgain)
+        advanceUntilIdle()
+
+        assertIs<AppVersionGateState.Allowed>(vm.stateFlow.value)
+        assertTrue(
+            reporter.breadcrumbs.any { it.contains(TIMED_OUT_MARKER) },
+            "the timed-out refresh must leave a record naming the timeout: ${reporter.breadcrumbs}",
         )
         scope.close()
     }

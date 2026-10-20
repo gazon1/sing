@@ -29,7 +29,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 15000
+    timeout: 30000
 
 # Navigate to Settings via the menu.
 - tapOn:

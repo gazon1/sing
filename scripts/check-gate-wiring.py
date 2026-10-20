@@ -526,6 +526,20 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="ui-wait-budgets",
+        cmd=[sys.executable, "scripts/check-ui-wait-budgets.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        sabotage_path="config/docs/ui-wait-budgets.txt",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "the instrumented suite and the Maestro flows wait for the same screen "
+            "from two runners that cannot share a constant, and they drifted apart "
+            "until the instrumented suite's 8 s made `android-device-tests` red on "
+            "every run of `main` — one written budget is what keeps them honest"
+        ),
+    ),
+    ScriptGate(
         name="release-tags",
         cmd=[sys.executable, "scripts/check-release-tags.py"],
         # A tag that produced no release is the failure this gate was written after:
@@ -966,6 +980,27 @@ SABOTAGE_ONLY_GATES = [
         sabotage=_regex_sub(r'^(shared:jvmTest )\d+( \d+)$', r'\g<1>99999\g<2>', flags=re.M),
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
         sabotage_requires_clean_tree=True,
+    ),
+    ScriptGate(
+        name="instrumented-test-floor",
+        # The fixture report has the shape of a real run, so the control fails
+        # the gate by moving the floor rather than by having no report at all.
+        cmd=[
+            sys.executable,
+            "scripts/check-instrumented-test-floor.py",
+            "--report-dir",
+            "scripts/tests/fixtures/instrumented-report",
+        ],
+        sabotage_path="config/docs/instrumented-test-floor.txt",
+        # Rewrite the floor by regex, never by naming its current value: a
+        # literal `tests 19` stops matching the moment the floor moves, and a
+        # control that quietly stops sabotaging is reported as a passing one.
+        sabotage=_regex_sub(r'^tests \d+$', 'tests 99999', flags=re.M),
+        why=(
+            "the instrumented tier runs on a schedule, on pushes to main and on "
+            "demand — a suite whose size nobody watches loses a class quietly, "
+            "and the run stays green because the report lists what is left"
+        ),
     ),
     ScriptGate(
         name="adr-references",

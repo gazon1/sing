@@ -39,7 +39,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 15000
+    timeout: 30000
 - assertVisible:
     id: nav_tab_inbox
 
@@ -98,7 +98,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 15000
+    timeout: 30000
 
 # Verify the user is on the agenda (not on the attach or settings screen).
 - assertVisible:

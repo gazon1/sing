@@ -36,4 +36,4 @@ name: seed
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000

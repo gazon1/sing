@@ -1,0 +1,38 @@
+# The budgets the UI layers wait on, in milliseconds, as `<name> <milliseconds>`.
+#
+# Two layers wait for the same screen: the Android instrumented suite
+# (`androidApp/src/androidTest/kotlin/com/singularity/todo/ui/ShellProbe.kt`) and the
+# Maestro flows (`Maestro/helpers/launch-clean.yaml`). They are separate runners, so
+# they cannot share a constant, and the number that is right for one is not
+# automatically right for the other.
+#
+# This file is the promise, and `scripts/check-ui-wait-budgets.py` holds both layers to
+# it. The failure it exists for: the Maestro helper that reaches the agenda shell
+# learned that 8 s is not enough for a cold start on a loaded CI runner and moved to
+# 30 s, with the reason written next to it: *"8 s is not always enough on a loaded CI
+# runner; 20 s covers cold-start variance including migration deferred-startup on
+# first launch"*. The instrumented suite kept 8 s, and `android-device-tests` was red
+# on every run of `main` for days with *"Today tab should be visible after cold
+# start"* — a message about a screen that was on screen 1.35 s after the activity
+# resumed.
+#
+# Worse, the Maestro layer had already drifted against itself: forty-one of its waits
+# for the same `nav_tab_today` existed with five different timeouts, and the one that
+# had been reasoned about was the only one of the five that was right. Every one of
+# the others was as brittle as the instrumented suite had been, waiting for a screen
+# a loaded runner produces slowly.
+#
+# The shell budget is the one that matters: it is how long a cold start is given to
+# produce the bottom navigation bar. A run that needs longer than the budget to reach
+# the shell is a slow runner, not a broken app — unless the app is stuck, and the
+# instrumented suite's failure message is what tells the two apart.
+#
+# Sorted by name, one budget per line, no blank lines.
+#
+# shell   — how long the bottom navigation bar is given to appear.
+# tab     — how long an element the shell already renders is given to appear.
+# device  — how long the accessibility service is given to bind before the first
+#           device handle is requested.
+shell 30000
+tab 10000
+device 15000

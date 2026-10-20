@@ -14,7 +14,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000
 
 # Pin the first task via detail view.
 - tapOn:

@@ -294,6 +294,12 @@ gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 # A flow deleted without a word leaves the suite smaller and every run green,
 # because a suite reports the flows that are left.
 gate blocking "maestro flow catalogue is current" sgate maestro_flow_catalogue_is_current
+# The wait budgets: one written number for the screen both UI layers wait for.
+# The instrumented suite and the Maestro flows cannot share a constant — separate
+# runners — and they drifted: forty-one waits for the same shell carried five
+# different timeouts, and the instrumented suite's 8 s is the reason
+# `android-device-tests` was red on every run of `main`.
+gate blocking "ui wait budgets are consistent" sgate ui_wait_budgets_are_consistent
 
 # Source and documentation contracts. Both have a GateSpec in
 # scripts/src/sgate/commands/_registry.py and a positive control in GATE_CONTROLS,
