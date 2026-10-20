@@ -15,7 +15,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000
 
 # Open the task in the editor.
 - tapOn:

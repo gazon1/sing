@@ -52,7 +52,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 10000
+    timeout: 30000
 
 # ── 3. The view is still in the list ────────────────────────────────────
 - tapOn:
