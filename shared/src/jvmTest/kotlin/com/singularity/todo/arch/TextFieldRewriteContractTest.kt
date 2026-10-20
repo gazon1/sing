@@ -1,6 +1,5 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -45,19 +44,20 @@ import kotlin.test.assertTrue
  *
  * ## What this test holds
  *
- * The contract is published in two places, and this test keeps them honest:
- *
- * - the **registry** below — one row per bridged field site, with the upstream,
- *   the kind of source the site is handed, and the owner that builds it;
- * - the **rewrite table** in the skill, which is what a developer reads before
- *   adding a field.
+ * The contract is published in **one** place: the rewrite table in
+ * `.agents/skills/singularity-todo-text-field-states/SKILL.md` — one row per bridged
+ * field site, with the upstream, the kind of source the site is handed, and the
+ * owner that builds it. This test *is* that table's reader; it holds no second
+ * copy of it. A contract written twice is a contract that can disagree with
+ * itself, and the copy nobody reads is the copy that rots.
  *
  * Five things are checked:
  *
  * 1. **Every bridged field site has a row.** A file that calls the bridged helper
- *    and is not in the registry fails the build. A new bridged field is a new
+ *    and is not in the table fails the build. A new bridged field is a new
  *    answer to "who may rewrite this?", and the answer is a decision somebody has
- *    to make on purpose.
+ *    to make on purpose. A row whose file no longer owns a bridged field fails
+ *    too: a stale row is a contract with nobody.
  * 2. **The owner's source is of the kind the row claims.** The row names the file
  *    that builds the source; that file must declare a source of the claimed kind.
  * 3. **An owned row names a counter that exists and moves.** The file that declares
@@ -73,7 +73,7 @@ import kotlin.test.assertTrue
  *
  * ## Where the evidence comes from
  *
- * The registry makes claims about the code, and every claim is checked against the
+ * The table makes claims about the code, and every claim is checked against the
  * code's *structure*, not against its text. A file that uses the bridged helper has
  * to import it — the helper lives in `com.singularity.todo.core.ui.textfields`, and
  * no other package can reach it without an import — so the import list is the
@@ -111,12 +111,28 @@ class TextFieldRewriteContractTest {
 
         assertTrue(
             unclassified.isEmpty(),
-            "These files own a bridged text field and have no rewrite contract in " +
-                "the registry of TextFieldRewriteContractTest:\n" +
+            "These files own a bridged text field and have no rewrite contract in the " +
+                "rewrite table of .agents/skills/singularity-todo-text-field-states/:\n" +
                 unclassified.joinToString("\n") { "  - $it" } +
-                "\n\nAdd the file to the registry with the upstream that may rewrite it " +
-                "and the kind of source it is handed, and to the rewrite table " +
-                "in .agents/skills/singularity-todo-text-field-states/.",
+                "\n\nAdd the file to the table with the upstream that may rewrite it, the " +
+                "kind of source it is handed, and the owner that builds it.",
+        )
+    }
+
+    @Test
+    fun `every rewrite contract names a file that still owns a bridged field`() {
+        val bridged = bridgedSites()
+        val stale = registry.mapNotNull { row ->
+            if (row.site in bridged) null else "  - ${row.site} -> ${row.kind.sourceType}"
+        }.sorted()
+
+        assertTrue(
+            stale.isEmpty(),
+            "These rows name a file that no longer owns a bridged text field:\n" +
+                stale.joinToString("\n") + "\n" +
+                "\n\nA row that no longer describes anything is a contract with nobody. " +
+                "Remove it from the rewrite table in " +
+                ".agents/skills/singularity-todo-text-field-states/SKILL.md.",
         )
     }
 
@@ -166,8 +182,8 @@ class TextFieldRewriteContractTest {
             "These fields are handed an owned source, but the file that owns the " +
                 "counter does not declare one:\n" +
                 missing.joinToString("\n") { "  - $it" } +
-                "\n\nName the file that declares the counter in the registry's Counter " +
-                "column, and in the rewrite table in " +
+                "\n\nName the file that declares the counter in the Counter column of " +
+                "the rewrite table in " +
                 ".agents/skills/singularity-todo-text-field-states/SKILL.md.",
         )
     }
@@ -190,8 +206,8 @@ class TextFieldRewriteContractTest {
                 "it carries — a counter that never moves says \"this is a rewrite\" " +
                 "about nothing:\n" +
                 frozen.joinToString("\n") { "  - $it" } +
-                "\n\nName the file that advances the counter in the registry's Advances " +
-                "column.",
+                "\n\nName the file that advances the counter in the Advances column of " +
+                "the rewrite table.",
         )
     }
 
@@ -239,29 +255,7 @@ class TextFieldRewriteContractTest {
         )
     }
 
-    @Test
-    fun `the skill's rewrite table lists every registered field site`() {
-        val table = skillRewriteTable()
-        val missing = registry.mapNotNull { row ->
-            val name = row.site.substringAfterLast('/')
-            val found = table.any {
-                it.site == name && it.source == row.kind.sourceType &&
-                    it.counter == row.counter && it.advances == row.advances
-            }
-            if (found) null else "$row.site -> ${row.kind.sourceType} -> ${row.counter} -> ${row.advances}"
-        }.sorted()
-
-        assertTrue(
-            missing.isEmpty(),
-            "The rewrite table in .agents/skills/singularity-todo-text-field-states/" +
-                "SKILL.md does not list these files with their contract:\n" +
-                missing.joinToString("\n") { "  - $it" } +
-                "\n\nThe table has one row per file: " +
-                "| File | Field | Upstream | Source | Counter | Advances |.",
-        )
-    }
-
-    // ── the registry ───────────────────────────────────────────────────────────
+    // ── the registry: the skill's rewrite table ─────────────────────────────────
 
     /**
      * The kind of source a field site is handed.
@@ -290,8 +284,6 @@ class TextFieldRewriteContractTest {
      * @property counter the file that declares the revision counter, relative to
      *   `commonMain/kotlin/com/singularity/todo/`. Empty for a static row.
      * @property advances the file that advances the counter. Empty for a static row.
-     * @property buildsSource whether the site builds the source itself — the
-     *   GenUI renderer, whose owner is a server the renderer does not own.
      */
     private data class Row(
         val site: String,
@@ -301,168 +293,26 @@ class TextFieldRewriteContractTest {
         val owner: String,
         val counter: String = "",
         val advances: String = "",
-        val buildsSource: Boolean = false,
-    )
+    ) {
+        /**
+         * Whether the site builds the source itself.
+         *
+         * The GenUI renderer does: its owner is a server the renderer does not own,
+         * and the renderer is the boundary where the server's value and the server's
+         * count are read. A row says so by naming the site itself as the owner.
+         */
+        val buildsSource: Boolean get() = owner == site
+    }
 
     /**
-     * The rewrite contract of every file that owns a bridged text field.
+     * The rewrite contract of every file that owns a bridged text field, as the skill
+     * publishes it.
      *
      * A file may have more than one row: the task title and the task description
      * are served by two upstreams — the create draft and the detail draft — and
      * the two are different kinds of upstream.
      */
-    private val registry: List<Row> = listOf(
-        // The saved agenda's name. Nothing renames a saved agenda from outside
-        // the screen: the ViewModel holds what the field produced.
-        Row(
-            site = "feature/agenda/presentation/screen/SavedAgendaContent.kt",
-            fields = "the saved agenda's name",
-            upstream = "the agenda ViewModel",
-            kind = Kind.STATIC,
-            owner = "feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt",
-        ),
-        // The chat input. The ViewModel clears it when a message is sent — a
-        // value the field never produced.
-        Row(
-            site = "feature/ai/chat/ChatScreen.kt",
-            fields = "the chat input",
-            upstream = "the chat ViewModel, which clears it after sending",
-            kind = Kind.STATIC,
-            owner = "feature/ai/chat/ChatViewModel.kt",
-        ),
-        // The annotation draft. It is seeded when the editor opens and edited by
-        // the user afterwards; nothing replaces it while the editor is open.
-        Row(
-            site = "feature/attachments/annotation/AttachmentAnnotationPanel.kt",
-            fields = "the annotation draft (start, end, quote, note)",
-            upstream = "the annotation ViewModel, which seeds it on open",
-            kind = Kind.STATIC,
-            owner = "feature/attachments/annotation/AttachmentAnnotationViewModel.kt",
-        ),
-        // The surface's field. The server writes it, and it can write a value
-        // the field produced — so the renderer hands the bridge an owned source
-        // carrying the server's count. The renderer builds it: the owner is a
-        // server, and the renderer is the boundary that reads its value and its
-        // counter.
-        Row(
-            site = "feature/genui/render/material3/input/TextFieldRenderer.kt",
-            fields = "the surface's text field",
-            upstream = "the surface's server, through the data context",
-            kind = Kind.OWNED,
-            owner = "feature/genui/render/material3/input/TextFieldRenderer.kt",
-            counter = "feature/genui/surface/SurfaceController.kt",
-            advances = "feature/genui/surface/SurfaceController.kt",
-            buildsSource = true,
-        ),
-        // The note's title. A proposal applied to the note, a sync from another
-        // device — either rewrites the note under the editor, and the rewrite
-        // can land on a value the field produced. The editor counts the
-        // replacements, and the title is handed an owned source.
-        Row(
-            site = "feature/notes/presentation/screen/NoteEditorScreen.kt",
-            fields = "the note's title",
-            upstream = "the note itself (a proposal applied to it, a sync)",
-            kind = Kind.OWNED,
-            owner = "feature/notes/Ids.kt",
-            counter = "feature/notes/Ids.kt",
-            advances = "feature/notes/presentation/viewmodel/NoteEditor.kt",
-        ),
-        // The notes query. The ViewModel clears it.
-        Row(
-            site = "feature/notes/presentation/screen/NotesListScreen.kt",
-            fields = "the notes search query",
-            upstream = "the notes ViewModel, which clears it",
-            kind = Kind.STATIC,
-            owner = "feature/notes/Ids.kt",
-        ),
-        // The project's name and description. The ViewModel observes the project,
-        // so a synced value reaches the field as a value it never produced — and a
-        // rewrite can land on a name the field did produce, so the draft's counter
-        // travels with the source.
-        Row(
-            site = "feature/projects/presentation/screen/ProjectDetailHero.kt",
-            fields = "the project's name, the project's description",
-            upstream = "the project ViewModel, which observes the project",
-            kind = Kind.OWNED,
-            owner = "feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt",
-            counter = "feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt",
-            advances = "feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt",
-        ),
-        // The project editor's drafts. The editor holds what the user typed.
-        Row(
-            site = "feature/projects/presentation/screen/ProjectEditorScreen.kt",
-            fields = "the project's name, the project's description",
-            upstream = "the project editor ViewModel",
-            kind = Kind.STATIC,
-            owner = "feature/projects/presentation/state/ProjectEditorUiState.kt",
-        ),
-        // The projects query. The ViewModel clears it.
-        Row(
-            site = "feature/projects/presentation/screen/ProjectsScreen.kt",
-            fields = "the projects search query",
-            upstream = "the projects ViewModel, which clears it",
-            kind = Kind.STATIC,
-            owner = "feature/projects/presentation/state/ProjectsUiState.kt",
-        ),
-        // The search query. The ViewModel clears it.
-        Row(
-            site = "feature/search/SearchScreen.kt",
-            fields = "the search query",
-            upstream = "the search ViewModel, which clears it",
-            kind = Kind.STATIC,
-            owner = "feature/search/SearchViewModel.kt",
-        ),
-        // The AI provider's settings. They are loaded from disk and nothing
-        // rewrites them while the screen is open.
-        Row(
-            site = "feature/settings/screens/AiProviderSettingsScreen.kt",
-            fields = "the base URL, the model, the system prompt",
-            upstream = "the settings ViewModel, which loads them from disk",
-            kind = Kind.STATIC,
-            owner = "feature/settings/SettingsUiState.kt",
-        ),
-        // The task's description, in the detail screen. The coordinator observes
-        // the task, so a synced value reaches the field as a value it never
-        // produced — and a rewrite can land on a description the field did
-        // produce, so the draft's counter travels with the source.
-        Row(
-            site = "feature/tasks/presentation/components/detail/TaskDescriptionField.kt",
-            fields = "the task's description (detail)",
-            upstream = "the task coordinator, which observes the task",
-            kind = Kind.OWNED,
-            owner = "feature/tasks/presentation/state/TaskDetailUiState.kt",
-            counter = "feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt",
-            advances = "feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt",
-        ),
-        // The task's description, in the create screen. The draft is seeded once
-        // and afterwards holds what the user typed.
-        Row(
-            site = "feature/tasks/presentation/components/detail/TaskDescriptionField.kt",
-            fields = "the task's description (create)",
-            upstream = "the create draft, which seeds it once",
-            kind = Kind.STATIC,
-            owner = "feature/tasks/presentation/state/TaskCreateUiState.kt",
-        ),
-        // The task's title, in the detail screen. The coordinator observes the task.
-        Row(
-            site = "feature/tasks/presentation/components/detail/TaskTitleRow.kt",
-            fields = "the task's title (detail)",
-            upstream = "the task coordinator, which observes the task",
-            kind = Kind.OWNED,
-            owner = "feature/tasks/presentation/state/TaskDetailUiState.kt",
-            counter = "feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt",
-            advances = "feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt",
-        ),
-        // The task's title, in the create screen. The draft is seeded once and
-        // afterwards holds what the user typed.
-        Row(
-            site = "feature/tasks/presentation/components/detail/TaskTitleRow.kt",
-            fields = "the task's title (create)",
-            upstream = "the create draft, which seeds it once",
-            kind = Kind.STATIC,
-            owner = "feature/tasks/presentation/state/TaskCreateUiState.kt",
-        ),
-    )
+    private val registry: List<Row> by lazy { skillRewriteTable() }
 
     // ── the scan ───────────────────────────────────────────────────────────────
 
@@ -481,52 +331,33 @@ class TextFieldRewriteContractTest {
     // ── the skill's rewrite table ──────────────────────────────────────────────
 
     /**
-     * One row of the skill's rewrite table.
-     *
-     * @property site the file, without its path.
-     * @property source the kind of source the code uses.
-     * @property counter the file that declares the revision, empty for a static row.
-     * @property advances the file that advances the revision, empty for a static row.
-     */
-    private data class Published(val site: String, val source: String, val counter: String, val advances: String)
-
-    /**
-     * The rewrite table of the text-field skill.
+     * The rewrite table of the text-field skill, read row by row.
      *
      * The table is a Markdown table of
-     * `| File | Field | Upstream | Source | Counter | Advances |` rows; the file cell
-     * holds a backticked path, the source cell holds the kind of source the code uses,
-     * and the counter and advances cells hold the files that declare and advance the
-     * revision (or `-`). A row that does not parse is ignored — the table is prose with
-     * a shape, and the test reads the rows it understands.
+     * `| File | Field | Upstream | Source | Owner | Counter | Advances |` rows; the
+     * file cell holds a backticked path, the source cell holds the kind of source the
+     * code uses, the owner cell holds the file that builds the source, and the counter
+     * and advances cells hold the files that declare and advance the revision (or `-`).
+     * The table is found by its header, so a row of another table is never read as a
+     * row of this one.
      */
-    private fun skillRewriteTable(): List<Published> {
-        val skill = File(
-            System.getProperty("skills.root")
-                ?: error("skills.root system property is not set — see shared/build.gradle.kts"),
-            "singularity-todo-text-field-states/SKILL.md",
-        )
-        assertTrue(skill.isFile, "the text-field skill is missing: ${skill.absolutePath}")
-
-        return skill.readLines()
-            .filter { it.trimStart().startsWith("|") }
-            .map { it.trim().trim('|') }
-            .map { it.split("|").map { cell -> cell.trim() } }
-            .filter { cells -> cells.size >= 6 }
+    private fun skillRewriteTable(): List<Row> =
+        SkillTables.table("File", "Field", "Upstream", "Source", "Owner", "Counter", "Advances")
             .mapNotNull { cells ->
-                val file = cells[0].removeSurrounding("`").trim()
-                if (!file.endsWith(".kt")) return@mapNotNull null
+                val site = cells[0].removeSurrounding("`").trim()
+                if (!site.endsWith(".kt")) return@mapNotNull null
                 val source = cells[3].removeSurrounding("`").trim()
-                if (source !in Kind.entries.map { kind -> kind.sourceType }) return@mapNotNull null
-                Published(
-                    site = file.substringAfterLast('/'),
-                    source = source,
-                    counter = cells[4].removeSurrounding("`").trim().pathOrEmpty(),
-                    advances = cells[5].removeSurrounding("`").trim().pathOrEmpty(),
+                val kind = Kind.entries.firstOrNull { it.sourceType == source } ?: return@mapNotNull null
+                Row(
+                    site = site,
+                    fields = cells[1],
+                    upstream = cells[2],
+                    kind = kind,
+                    owner = cells[4].removeSurrounding("`").trim().pathOrEmpty(),
+                    counter = cells[5].removeSurrounding("`").trim().pathOrEmpty(),
+                    advances = cells[6].removeSurrounding("`").trim().pathOrEmpty(),
                 )
             }
-            .toList()
-    }
 
     /** A cell that holds a path, or nothing. */
     private fun String.pathOrEmpty(): String =
