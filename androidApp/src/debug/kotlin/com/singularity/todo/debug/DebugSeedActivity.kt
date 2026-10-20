@@ -39,6 +39,10 @@ import kotlinx.datetime.toLocalDateTime
  *
  * Supported parameters:
  * - `task=<title>`           — creates a task (pair with `due=`)
+ * - `desc=<text>`            — sets the description of the seeded task. A flow
+ *   that filters by description needs the description to be there before the
+ *   filter is applied; the parameter was asked for by such a flow and silently
+ *   ignored, which made the flow assert against a task that had none.
  * - `note=<title>`           — creates a note
  * - `project=<name>`         — creates a project
  * - `profile=<name>`         — creates and switches to a profile
@@ -191,6 +195,7 @@ class DebugSeedActivity :
 
         val input: CreateTaskInput = TaskDomain.createInput(
             title = title,
+            description = params["desc"],
             kind = TaskKind.Task,
             dueDate = dueDate,
         ).fold(
