@@ -64,13 +64,29 @@ class SelfProbeTest(unittest.TestCase):
         targets = [g for g in gates if mod.SELF_PROBE_SKIP not in g[2]]
         self.assertEqual([g[1] for g in targets], ['something else'])
 
-    def test_the_real_registry_marks_the_liveness_gate(self):
-        """Without the marker in static-gates.sh the self-probe exclusion is dead:
-        the first version of this gate died of its own fan-out timeout (#529)."""
+    def test_the_liveness_gate_is_not_in_the_registry_it_probes(self):
+        """The liveness gate cannot probe itself, because it probes the shell registry.
+
+        It used to be a line in `static-gates.sh` carrying `# no-self-probe`, and
+        the marker was the only thing stopping it from launching every gate, each
+        of which launched it again — the first version of this gate died of its own
+        fan-out timeout (#529).
+
+        On 2026-10-20 the line left the registry altogether: the probe runs in the
+        `tests` job now, and the set it probes is the static registry, which does
+        not contain it. The marker is therefore dead weight, and the exclusion it
+        expressed is now structural.
+
+        If the gate ever comes back to the static registry, the marker has to come
+        back with it — that is what this test says.
+        """
         marked = [cmd for _, name, cmd in mod.registered_gates()
                   if 'gates are alive' in name]
-        self.assertEqual(len(marked), 1, 'the liveness gate must be registered once')
-        self.assertIn(mod.SELF_PROBE_SKIP, marked[0])
+        self.assertEqual(
+            marked, [],
+            'the liveness gate must not be a line in the registry it probes — '
+            'put it back with the # no-self-probe marker, or leave it out',
+        )
 
 
 class StdinTest(unittest.TestCase):

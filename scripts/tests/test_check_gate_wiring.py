@@ -762,8 +762,8 @@ class PartHTest(unittest.TestCase):
 
     def test_a_gate_reachable_only_from_a_just_recipe_is_reachable(self):
         self._repo_with({
-            'scripts/check-gate-honesty.py': '#!/usr/bin/env python3\n',
-            '.just/tests/mod.just': 'honest:\n    python3 scripts/check-gate-honesty.py {{args}}\n',
+            'scripts/check-recipe-only.py': '#!/usr/bin/env python3\n',
+            '.just/tests/mod.just': 'recipeonly:\n    python3 scripts/check-recipe-only.py {{args}}\n',
         })
         self.assertEqual(gw.check_gate_reachability(), [],
                          '.just/**/*.just is nested; a non-recursive glob misses it '
@@ -968,8 +968,8 @@ class PartHResolutionTest(unittest.TestCase):
             'run-all',
         )
         self.assertEqual(
-            gw._registered_command_name('@click.command()', 'manifest_verify'),
-            'manifest_verify',
+            gw._registered_command_name('@click.command()', 'render_registry'),
+            'render_registry',
         )
 
     def test_a_command_named_only_in_a_comment_is_not_an_invocation(self):

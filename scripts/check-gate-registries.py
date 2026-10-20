@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Both gate registries load, and the two agree on what exists.
+"""check_gate_registries.py — the two gate registries agree on what exists.
 
 There are two places a gate can be declared, and they are not the same place:
 
@@ -16,14 +16,25 @@ succeeding, left ``load_gates()`` still returning all 39 entries, and left
 ``static`` job that had evaluated nothing. ``run-all`` now exits non-zero for
 that case; this script is what notices before any gate runs.
 
-Both halves are needed. The emptiness check catches a registry that lost its
-contents, which is the failure that a zero exit code could hide. The agreement
-check catches drift, which is a separate and currently *real* condition: the
-two registries do not name the same gates today — some are present only in
-Python, some only in the shell registry. Drift is reported as a warning rather
-than an error, because it predates this script and failing on it would block
-every run on someone else's debt; the count and the diff go to the log where
-they get read.
+The other half is drift, and drift was real: the two files disagreed about
+nine names while every check agreed. Four shapes of it, each caught here:
+
+  - a gate line in the shell file with no registry entry — CI runs it,
+    ``sgate <name>`` cannot dispatch it;
+  - a registry entry with no gate line and nothing that runs it — ``sgate
+    run-all`` never dispatches it, so a control for it measures nothing. The
+    exceptions are named, with a reason, in ``NOT_RUN_IN_STATIC``;
+  - the same gate described with two different modes — one surface says it
+    blocks the build, the other says it only warns, and which one a caller
+    reads decides what a red gate means;
+  - a name in ``NOT_RUN_IN_STATIC`` that is not a registered gate any more —
+    a declaration that outlived its gate, and can hide one from the check
+    above.
+
+This was a warning for a while, because the drift predated the script and
+failing on it would have blocked every run on someone else's debt. It is a
+blocking gate now: the debt is paid, and a warning nobody reads is a check
+that reports nothing.
 
 CLI shape (R2/R3): Click, not argparse; ``--check`` reports without a
 non-zero exit; ``--json`` puts the verdict on stdout as machine-readable
@@ -34,6 +45,7 @@ read at all).
 
 ADR: docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md
 ADR: docs/decisions/2026-10-14-sgate-exit-code-architecture.md
+ADR: docs/decisions/2026-10-20-gate-clusters-and-the-two-registries.md
 
 Run standalone::
 
@@ -45,14 +57,17 @@ under --strict. Exit 2 when a registry could not be read.
 from __future__ import annotations
 
 import json
+import pathlib
+import re
 
 import click
-from sgate.commands.base import run
+from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run
 from sgate.repo import STATIC_GATES_SH
 
-CLEAN = 0
-VALIDATION_FAILURE = 1
-IO_ERROR = 2
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+#: The registry, resolved once per run so `sgate <name>` can be traced to a script.
+_REGISTRY_BY_NAME: dict[str, object] = {}
 
 import click
 
@@ -60,21 +75,75 @@ class RegistryUnavailable(RuntimeError):
     """A registry could not be read — an infrastructure failure, not a verdict."""
 
 
+def _covered_scripts(shell_gates: list[tuple[str, str, str]]) -> set[str]:
+    """The gate scripts the shell registry actually runs.
+
+    Three steps, in order:
+
+    1. a script named in a gate command is run by that gate;
+    2. ``sgate <name>`` runs whatever the registry says that name is — so the
+       command resolves through the registry to a script;
+    3. a script that a covered script runs is itself covered. This is the
+       delegation case: a cluster gate names its members in its own source, and
+       the members are run by the cluster.
+
+    The question this answers is "does this gate run?", not "is this name
+    mentioned?". The two are different, and the difference is how a registry
+    entry ended up describing a gate that no surface executed.
+    """
+    covered: set[str] = set()
+    for _mode, _name, command in shell_gates:
+        for match in re.finditer(
+            r"(?:^|[\s'\"])((?:scripts/)?(?:check|gen)[-_][\w.-]+\.(?:py|sh))", command
+        ):
+            covered.add(match.group(1))
+        tokens = command.split()
+        if tokens and tokens[0] == "sgate" and len(tokens) > 1:
+            spec = _REGISTRY_BY_NAME.get(tokens[1])
+            script = getattr(spec, "script", None)
+            if script:
+                covered.add(str(script))
+
+    frontier = list(covered)
+    for _ in range(2):
+        found: set[str] = set()
+        for script in frontier:
+            path = ROOT / script
+            if not path.is_file():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for match in re.finditer(
+                r"scripts/(?:check|gen)[-_][\w.-]+\.(?:py|sh)", text
+            ):
+                found.add(match.group(0))
+        new = found - covered
+        covered |= new
+        frontier = sorted(new)
+    return covered
+
+
 def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     """
     Return `(violations, warnings, summary)` for the two gate registries.
 
     A violation is something a caller must act on: an empty registry, or —
-    under ``strict`` — the two registries naming different gates. Drift without
-    ``strict`` is a warning: it predates this script, and failing on it would
-    block every run on someone else's debt.
+    under ``strict`` — the two registries naming different gates, describing
+    one gate with two different modes, or naming a gate that nothing runs.
+    Drift without ``strict`` is a warning: it predates this script, and
+    failing on it would block every run on someone else's debt.
     """
     try:
-        from sgate.commands._registry import GATES
+        from sgate.commands._registry import GATES, NOT_RUN_IN_STATIC
         from sgate.commands.run_all import _load_static_gates
         from sgate.gates import load_gates
 
-        static_gates = _load_static_gates()
+        global _REGISTRY_BY_NAME
+        _REGISTRY_BY_NAME = {spec.name: spec for spec in GATES}
+
+        shell_gates = _load_static_gates()
         registry_gates = load_gates()
     except Exception as exc:  # noqa: BLE001 — any failure here means "not loadable"
         raise RegistryUnavailable(f"the gate registries did not load: {exc}") from exc
@@ -82,7 +151,7 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     violations: list[str] = []
     warnings: list[str] = []
 
-    if not static_gates:
+    if not shell_gates:
         violations.append(
             f"{STATIC_GATES_SH} declared zero gates. `sgate run-all` would evaluate "
             "nothing at all, which is not a pass."
@@ -90,28 +159,62 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     if not registry_gates or not GATES:
         violations.append("the Python gate registry (sgate.commands._registry.GATES) is empty.")
 
-    static_names = {name for _, name, _ in static_gates}
+    covered = _covered_scripts(shell_gates)
+    shell_names = {name for _, name, _ in shell_gates}
     registry_names = {spec.name for spec in GATES}
-    only_static = sorted(static_names - registry_names)
-    only_registry = sorted(registry_names - static_names)
+    shell_modes = {name: mode for mode, name, _ in shell_gates}
+    registry_modes = {spec.name: spec.mode.value for spec in GATES}
 
     summary = (
-        f"gate registries: {len(static_gates)} gates in static-gates.sh, "
+        f"gate registries: {len(shell_gates)} gates in static-gates.sh, "
         f"{len(registry_gates)} in the Python registry"
     )
 
-    if only_static or only_registry:
-        message = (
-            "the two gate registries disagree — "
-            f"only in static-gates.sh: {only_static}; "
-            f"only in _registry.GATES: {only_registry}. "
-            "`sgate run-all` evaluates the first, `sgate <name>` the second, "
-            "so which surface a caller uses decides which gates run."
-        )
+    def report(message: str) -> None:
         if strict:
             violations.append(message)
         else:
             warnings.append(message)
+
+    for name in sorted(shell_names - registry_names):
+        report(
+            f"'{name}' is a gate line in scripts/ci/static-gates.sh with no entry in "
+            "_registry.GATES — `sgate run-all` runs it, `sgate <name>` cannot dispatch "
+            "it. Add a GateSpec with the same display name."
+        )
+
+    for name in sorted(shell_names & registry_names):
+        shell_mode = shell_modes[name]
+        registry_mode = registry_modes[name]
+        if shell_mode != registry_mode:
+            report(
+                f"'{name}' is {shell_mode} in scripts/ci/static-gates.sh and "
+                f"{registry_mode} in _registry.GATES — the two registries disagree about "
+                "whether a failing gate stops the build. One surface reads the first, "
+                "the other the second, and which one a caller uses decides what a red "
+                "gate means."
+            )
+
+    for name in sorted(registry_names - shell_names - set(NOT_RUN_IN_STATIC)):
+        spec = _REGISTRY_BY_NAME[name]
+        script = str(spec.script) if spec.script else ""
+        if script and script in covered:
+            # A member of a cluster: the shell registry names the cluster, the
+            # cluster runs this one. It runs.
+            continue
+        report(
+            f"'{name}' is registered in _registry.GATES with no gate line in "
+            "scripts/ci/static-gates.sh — `sgate run-all` never dispatches it, so a "
+            "control for it measures nothing. Add a gate line, or record it in "
+            "NOT_RUN_IN_STATIC with where it runs instead."
+        )
+
+    for name in sorted(set(NOT_RUN_IN_STATIC) - registry_names):
+        report(
+            f"'{name}' is in NOT_RUN_IN_STATIC but is not a registered gate any more — "
+            "the declaration outlived its gate. Remove the entry: it can hide a gate "
+            "that nobody runs."
+        )
 
     return violations, warnings, summary
 

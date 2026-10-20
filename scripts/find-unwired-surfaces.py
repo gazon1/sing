@@ -996,6 +996,19 @@ def _check_orphan_binding(
         "A2uiCatalog",            # consumed by GenuiRenderer / UiSchemaResolver
         "ProposalDispatch",       # consumed by ProposalPlanner (factory chain in proposals)
         "ProposalPlanner",       # consumed by ProposalCoordinator / ProposalScreen VM
+        # ── 2026-10-20: the three findings the gate reported after the gate
+        #    registry was cleaned up. Two of them are the limitation above, and
+        #    one is a seam.
+        "DeviceIdProvider",       # consumed by a bare `get()` in the HlcFactory binding —
+                                  # `HlcFactory(deviceIdProvider = get(), …)`, SyncDiModule.kt
+        "GenuiTransport",         # consumed by a bare `get()` in the GenuiSession factory —
+                                  # `GenuiSession(get(), …)`, GenuiDiModule.kt
+        # AuthGateway is bound and nothing asks for it: no production call site
+        # exists yet, the same state Analytics and SubscriptionProvider are in.
+        # The android test module overrides it with a no-op gateway, so the
+        # binding is the seam that override replaces — removing it would delete
+        # the seam, not the dead code.
+        "AuthGateway",
     }
     for path, text in code.items():
         # Skip test files: they bind stubs for the Koin graph validation test and
@@ -1322,9 +1335,9 @@ def cli(ctx: click.Context, quiet: bool, update_floor: bool) -> None:
         click.echo(f"\n{len(blocking)} finding(s).", err=True)
     elif findings:
         click.echo(
-            f"\n0 blocking finding(s); {len(findings)} exempted. Every exemption must name a "
-            f"live entry in docs/deferred-backlog.md — see "
-            f"scripts/check-unwired-backlog-refs.py.",
+            f"\n0 blocking finding(s); {len(findings)} exempted. Every exemption names a "
+            f"reason in DECLARED_INTENT in this file — a row without one is an "
+            f"exemption nobody can audit.",
             err=True,
         )
     else:
