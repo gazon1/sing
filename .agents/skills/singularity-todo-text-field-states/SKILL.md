@@ -18,7 +18,7 @@ picking the wrong one is the defect this skill exists to prevent.
 | Shape | Who owns the text | Helper | When |
 |---|---|---|---|
 | **local** | the field itself | `rememberTextFieldState` (Compose's) | nothing outside the field reads or writes the text |
-| **bridged** | the field *and* a ViewModel-owned string, in sync | `rememberBridgedTextFieldState(externalText, onTextChanged)` | the ViewModel must validate, persist or report the text |
+| **bridged** | the field *and* a ViewModel-owned string, in sync | `rememberBridgedTextFieldState(source, onTextChanged)` | the ViewModel must validate, persist or report the text |
 | **anchored** | an outside value; the field only shows it | `rememberAnchoredTextFieldState(text)` | the field is a display of something else (a dropdown, a read-only value) |
 
 **Bridged is the default.** If the ViewModel has to know the text, the field is bridged —
@@ -36,7 +36,7 @@ submit, a one-off search box whose result is read at the moment of use.
 ```kotlin
 // ── bridged ──────────────────────────────────────────────────────────────────
 val state = rememberBridgedTextFieldState(
-    externalText = viewModel.state.value.title,          // what the ViewModel holds
+    source = viewModel.state.value.titleSource,          // what the ViewModel holds
     onTextChanged = { viewModel.onIntent(SettingsIntent.Title(it)) },  // where it goes
 )
 OutlinedTextField(state = state, label = { Text("Title") })
@@ -55,7 +55,11 @@ OutlinedTextField(state = state, readOnly = true)
 a mutable, snapshot-backed holder, and putting one inside an immutable `UiState` creates a
 second source of truth for the same value.
 
-**The `externalText` must be the whole value, not a fragment of it.** The bridge compares
+**The source is built by the owner, and the field passes it through.** A bridged field never
+builds its own source: the source says *who may rewrite this field*, and only the owner knows
+the answer. See §9.
+
+**The source's text must be the whole value, not a fragment of it.** The bridge compares
 the upstream's value with the field's own to decide who won, so an upstream that hands the
 field a *different* string is a rewrite, not an update. This is why the projects list's
 `Empty` state carries its query: an `Empty` that dropped the query would make the screen
@@ -133,15 +137,21 @@ field to a value the field pushed earlier is not applied. The two are indistingu
 the field's side, and the lagging case is the one that destroys work, so it wins. A rewrite
 to a value the field never pushed always lands.
 
-**The way out is the revision token.** `rememberBridgedTextFieldState` takes a third
-parameter, `revision: Long = 0`. When the party that performs the rewrite advances it, the
-guard is lifted for the value that arrives with the new token — a *declared* rewrite wins
-over the keyboard. The token is a counter, not a value; any change to it means "this value
-is a rewrite".
+**The way out is the source.** The party that performs the rewrite says so *in the type of the
+source it hands the field*:
 
-The default is `0`, so a field that is never rewritten behaves exactly as before. **A caller
-that rewrites and forgets to advance the token gets the old behaviour, silently.** The
-GenUI renderer is the reference implementation: the surface counts the *server's* writes
+- a **static** source (`StaticText`) — the upstream replaces the value only with one the field
+  never produced, so the echo guard applies it as it is;
+- an **owned** source (`OwnedText`) — the upstream owns the value and may replace it with
+  anything, including a value the field itself produced. The source carries the count of the
+  replacements, and the guard is lifted for the value that arrives with a new count.
+
+The count is a property of the source, not a parameter of the bridge: a call site cannot
+freeze it, and it cannot forget the question, because the source is required and its type
+says what it means. **A caller that rewrites and hands the field a static source gets the
+old behaviour, silently** — the owner has to build an owned source and advance the count.
+
+The GenUI renderer is the reference implementation: the surface counts the *server's* writes
 (`SurfaceController.serverRevision`) and the field's own writes are not counted, because
 only the server rewrites the model.
 
@@ -224,7 +234,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/auth/presentation/AttachAccountScreen.kt` | local | the email field |
 | `feature/auth/presentation/MagicLinkConfirmScreen.kt` | local | the code field |
 | `feature/checklist/components/ChecklistEditorSheet.kt` | local | the item's text |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | bridged | the GenUI input — the server can rewrite it (see the revision token) |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | bridged | the GenUI input — the server can rewrite it (see the owned source) |
 | `feature/notes/components/InternalLinkPickerSheet.kt` | local | the link's text |
 | `feature/notes/presentation/screen/LinkUrlDialog.kt` | local | the URL |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | bridged | the title — the AI rewrites it |
@@ -264,61 +274,85 @@ content it shows, so a rewrite it did not make reaches it only through the upstr
 value, and the bridge's echo guard drops a rewrite that lands on a value the field
 *produced earlier* — it looks exactly like a lagging upstream.
 
-Three answers, and a field that is *bridged* must have one:
+**The answer is a type, and it is the source's type.** Every bridged field is handed a
+source, and the source says who may replace the value:
 
-- **none** — nothing outside the field writes its value. The upstream only holds what
-  the field produced.
-- **the value itself** — the upstream rewrites the value, and the rewrite is carried by
-  the value: the echo guard applies a value the field never produced. A rewrite that
-  lands on a value the field *did* produce is **not** carried here.
-- **the value and a revision token** — the upstream rewrites the value and the rewrite
-  can land on a value the field produced, so the field is told it is a rewrite: it
-  passes a `revision`, and the guard is lifted for that value.
+- **`StaticText`** — the upstream replaces the value only with one the field never
+  produced: it loads the value once, or it clears it. The echo guard is enough, and there
+  is no counter.
+- **`OwnedText`** — the upstream owns the value and may replace it with anything,
+  including a value the field produced earlier. The source carries the count of the
+  replacements, and the guard is lifted for the value that arrives with a new count.
+
+**The owner builds the source; the field passes it through.** A field that built its own
+source would be answering a question it cannot know the answer to. The owner is the
+component that holds the value and knows who else writes it — a ViewModel's state, a
+draft.
+
+**The bridge has no `revision` parameter**, and that is the point. The count used to be an
+argument with a default, and three failures came out of that: an upstream that owned the
+value passed no count, an upstream passed a count that never moved (`revision = 0`), and a
+field forgot the question altogether because the argument had a default. All three were
+silent. A count that lives in the source cannot be frozen at the call site, and the
+question cannot be left out — the source is required, and its type says what it means.
 
 **The table is checked.** `TextFieldRewriteContractTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`) compares it with the
-code: a file that owns a bridged field and is missing from this table fails the build,
-a row that claims a revision but finds none in the file fails the build, a row whose
-revision is a frozen constant fails the build, and a row whose counter names a file
-that does not declare the revision fails the build. Adding a bridged field means
-adding a row here.
+code: a file that owns a bridged field and is missing from this table fails the build, a
+row whose owner does not declare a source of the claimed kind fails the build, an owned row
+whose counter is never declared or never advanced fails the build, a file that builds its
+own source fails the build, and a row whose file no longer exists fails the build. Adding
+a bridged field means adding a row here.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
-| File | Field | Upstream | Answer | Counter |
-|---|---|---|---|---|
-| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | none | - |
-| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | the value itself | - |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | none | - |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | the value and a revision token | `feature/genui/render/material3/input/TextFieldRenderer.kt` |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title, the note's body | the note itself (a proposal applied to it, a sync) | the value and a revision token | `feature/notes/Ids.kt` |
-| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | the value itself | - |
-| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | the value and a revision token | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | none | - |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | the value itself | - |
-| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | the value itself | - |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | none | - |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description | the task coordinator, which observes the task | the value and a revision token | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title | the task coordinator, which observes the task | the value and a revision token | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| File | Field | Upstream | Source | Counter | Advances |
+|---|---|---|---|---|---|
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | - | - |
+| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | - | - |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | - | - |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | - | - |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | - | - |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | - | - |
+| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | - | - |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | - | - |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (create) | the create draft, which seeds it once | `StaticText` | - | - |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (create) | the create draft, which seeds it once | `StaticText` | - | - |
+
+The **Counter** column names the file that declares the count; the **Advances** column
+names the file that moves it. They are often the same file, and they are not always: the
+note's editor counts its revisions in the state and moves them in the ViewModel, because
+the state is what the field is handed and the ViewModel is what replaces the note.
 
 The note's body is not a bridged field — it is a rich-text editor that holds its own
 content — and it takes the rewrite a different way: the editor's session is re-seeded
 from the draft when the draft's revision changes. The revision is the same idea as the
-token: the party that rewrote the content says so.
+count in an owned source: the party that rewrote the content says so.
 
-**The counter column names the file that owns the number.** A revision that is passed
-as a literal can never move, so the field would never learn that it is a rewrite —
-and a frozen token is worse than no token, because it looks like the contract is
-honoured. The counter is the draft's own revision: it moves when the entity was
-*replaced* from outside, and it never moves for a keystroke or for the echo of the
-field's own save.
+**The counter columns name the files that own the number.** A count that is passed as a
+literal can never move, so the field would never learn that it is a rewrite — and a
+frozen count is worse than none, because it looks like the contract is honoured. The
+count is the draft's own revision: it moves when the entity was *replaced* from outside,
+and it never moves for a keystroke or for the echo of the field's own save. The
+**Counter** column names the file that declares it, the **Advances** column the file that
+moves it.
 
-**The rows that say "the value itself" carry the rarer half of the gap.** A rewrite
-that lands on a value the field produced is dropped there: the field keeps showing what
-it last held while the entity says something else, and the next keystroke overwrites
-the rewrite. Closing that is the revision token, one site at a time — the task detail
-and the project detail now carry it, because both observe an entity that a sync can
-rewrite.
+**A file may appear twice.** The task title and the task description are served by two
+upstreams — the create draft and the detail draft — and the two are different kinds of
+upstream. The create draft seeds the value once and afterwards holds what the user typed,
+so a replacement lands on a value the field never produced: `StaticText` is the honest
+answer there. The detail draft observes an entity a sync can rewrite, and the rewrite can
+land on a value the field produced: `OwnedText`, with the draft's count.
+
+**The GenUI renderer builds its own source, and that is the one exception.** Its owner is
+a server the renderer does not own, and the renderer is the boundary where the server's
+value and the server's count are read. The count still comes from the data context, not
+from the renderer.
 
 ## 10. Traps
 
@@ -336,6 +370,13 @@ rewrite.
   body lives inside the rich editor's state object, not in a string the screen can read
   back. A rewrite of the note reaches it only when the session is *re-seeded* — and
   without that, the next keystroke dispatches the old body over the new one.
+- **A field never builds its own source.** The source says who may rewrite the field, and
+  only the owner knows. A field that constructs `StaticText(...)` or `OwnedText(...)` is
+  answering a question it cannot know the answer to — the GenUI renderer is the one
+  documented exception, because its owner is a server.
+- **`OwnedText` without a moving count is a lie.** The type says the upstream may replace
+  the value with anything; the count says it actually did. An owner that hands out
+  `OwnedText(text, 0)` forever has claimed an authority it never uses.
 
 ## Related
 

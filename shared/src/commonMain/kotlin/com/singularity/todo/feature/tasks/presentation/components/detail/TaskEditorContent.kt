@@ -41,6 +41,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
+import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.components.TextSource
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -61,17 +63,15 @@ import kotlin.time.Instant
 /**
  * Unified task editor Composable for both Create and View modes.
  *
- * @param titleDraft Current title value.
+ * @param titleSource Current title, as the field's source. The owner builds it: the create
+ *   draft hands over a static one, the detail draft an owned one.
  * @param onTitleChange Called when title text changes.
  * @param isCompleted Whether the task is completed (affects checkbox appearance).
  * @param onCheckToggle Called when the completion checkbox is toggled. `null` hides the
  *   checkbox — Create mode has no task to complete yet, and a checkbox that does nothing
  *   is worse than no checkbox.
- * @param descriptionDraft Current description value.
+ * @param descriptionSource Current description, as the field's source.
  * @param onDescriptionChange Called when description text changes.
- * @param revision The draft's revision counter. It moves when the task was rewritten from
- *   outside, and that is what tells the bridged fields that the new text is a
- *   *replacement* rather than the echo of a keystroke the field itself produced.
  * @param priority Current priority value.
  * @param onPrioritySelect Called when a priority is selected in the sheet.
  * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
@@ -106,13 +106,12 @@ import kotlin.time.Instant
 @Composable
 fun TaskEditorContent(
     taskId: String,
-    titleDraft: String,
+    titleSource: TextSource,
     onTitleChange: (String) -> Unit,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
-    descriptionDraft: String,
+    descriptionSource: TextSource,
     onDescriptionChange: (String) -> Unit,
-    revision: Long = 0,
     priority: TaskPriority,
     onPrioritySelect: (TaskPriority) -> Unit,
     onPriorityClear: (() -> Unit)?,
@@ -174,18 +173,16 @@ fun TaskEditorContent(
             // Title row
             TaskTitleRow(
                 taskId = taskId,
-                title = titleDraft,
+                titleSource = titleSource,
                 isCompleted = isCompleted,
                 onTitleChange = onTitleChange,
                 onCheckToggle = onCheckToggle,
-                revision = revision,
             )
 
             // Description
             TaskDescriptionField(
-                description = descriptionDraft,
+                descriptionSource = descriptionSource,
                 onDescriptionChange = onDescriptionChange,
-                revision = revision,
             )
 
             // View-mode extra sections
@@ -342,8 +339,8 @@ fun TaskEditorContent(
     TaskEditorSheetsHost(
         model = TaskEditorModel(
             taskId = null,
-            titleDraft = titleDraft,
-            descriptionDraft = descriptionDraft,
+            titleSource = titleSource,
+            descriptionSource = descriptionSource,
             priority = priority,
             dueDate = dueDate,
             dueTime = dueTime,
@@ -437,11 +434,11 @@ fun TaskEditorContent(
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
-        titleDraft = model.titleDraft,
+        titleSource = model.titleSource,
         onTitleChange = callbacks.onTitleChange,
         isCompleted = isCompleted,
         onCheckToggle = callbacks.onCheckToggle,
-        descriptionDraft = model.descriptionDraft,
+        descriptionSource = model.descriptionSource,
         onDescriptionChange = callbacks.onDescriptionChange,
         priority = model.priority,
         onPrioritySelect = callbacks.priority.onChange,
@@ -509,11 +506,11 @@ private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
 private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     TaskEditorContent(
         taskId = "",
-        titleDraft = "",
+        titleSource = StaticText(""),
         onTitleChange = {},
         isCompleted = false,
         onCheckToggle = null,
-        descriptionDraft = "",
+        descriptionSource = StaticText(""),
         onDescriptionChange = {},
         priority = TaskPriority.None,
         onPrioritySelect = {},
@@ -540,11 +537,11 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
     val today = PreviewSamples.today
     TaskEditorContent(
         taskId = "",
-        titleDraft = "Buy groceries",
+        titleSource = StaticText("Buy groceries"),
         onTitleChange = {},
         isCompleted = false,
         onCheckToggle = null,
-        descriptionDraft = "Milk, eggs, bread",
+        descriptionSource = StaticText("Milk, eggs, bread"),
         onDescriptionChange = {},
         priority = TaskPriority.High,
         onPrioritySelect = {},
@@ -576,11 +573,11 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
     val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
     TaskEditorContent(
         taskId = "",
-        titleDraft = "Review PR",
+        titleSource = StaticText("Review PR"),
         onTitleChange = {},
         isCompleted = false,
         onCheckToggle = null,
-        descriptionDraft = "",
+        descriptionSource = StaticText(""),
         onDescriptionChange = {},
         priority = TaskPriority.Urgent,
         onPrioritySelect = {},

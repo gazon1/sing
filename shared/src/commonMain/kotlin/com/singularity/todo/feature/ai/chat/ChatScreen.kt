@@ -73,7 +73,7 @@ fun ChatScreenContent(
     // restored and the send action can read it. Sending clears the ViewModel's copy, and the
     // bridge pulls that empty value back into the field.
     val inputState = rememberBridgedTextFieldState(
-        externalText = state.input,
+        source = state.inputSource,
         onTextChanged = { vm.onIntent(ChatViewModel.Intent.InputChanged(it)) },
     )
 

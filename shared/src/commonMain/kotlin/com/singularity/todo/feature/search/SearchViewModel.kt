@@ -8,6 +8,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
@@ -54,7 +55,17 @@ data class SearchUiState(
     val savedSearches: List<SavedSearch> = emptyList(),
     val results: SearchResults = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
     val isSearching: Boolean = false,
-)
+) {
+    /**
+     * The query as the field's source.
+     *
+     * The ViewModel holds the query the user typed and hands it back unchanged; a saved search
+     * replaces it with a query the field never produced, which the field takes as it stands. So
+     * the value is never rewritten with one the field produced: the field's echo guard needs no
+     * lifting, and there is no counter to read.
+     */
+    val querySource: StaticText get() = StaticText(query)
+}
 
 /**
  * One-shot events emitted by [SearchViewModel].

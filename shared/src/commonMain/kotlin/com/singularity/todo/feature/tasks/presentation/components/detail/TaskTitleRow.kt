@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
+import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.components.TextSource
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
@@ -38,24 +40,22 @@ import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColo
  * control — that did nothing when pressed. There is no task to complete before it
  * exists, so the honest rendering is no checkbox, not a dead one.
  *
- * @param revision the draft's revision counter. It moves when the task was rewritten from
- *   outside, and that is what tells the bridged field that the new title is a
- *   *replacement* rather than the echo of a keystroke the field itself produced.
+ * @param titleSource the title as the field's source. The owner builds it, and its type
+ *   says who may replace the title: the create draft hands over a static one, the
+ *   detail draft an owned one that carries the count of the replacements.
  */
 @Composable
 fun TaskTitleRow(
     taskId: String,
-    title: String,
+    titleSource: TextSource,
     isCompleted: Boolean,
     onTitleChange: (String) -> Unit,
     onCheckToggle: (() -> Unit)?,
-    revision: Long = 0,
     modifier: Modifier = Modifier,
 ) {
     val titleState = rememberBridgedTextFieldState(
-        externalText = title,
+        source = titleSource,
         onTextChanged = onTitleChange,
-        revision = revision,
     )
 
     Row(
@@ -122,7 +122,7 @@ fun TaskTitleRow(
 private fun TaskTitleRowPreview() = PreviewThemed(darkTheme = false) {
     TaskTitleRow(
         taskId = "t1",
-        title = "Buy groceries",
+        titleSource = StaticText("Buy groceries"),
         isCompleted = false,
         onTitleChange = { },
         onCheckToggle = noopClick,
@@ -134,7 +134,7 @@ private fun TaskTitleRowPreview() = PreviewThemed(darkTheme = false) {
 private fun TaskTitleRowCompletedPreview() = PreviewThemed(darkTheme = false) {
     TaskTitleRow(
         taskId = "t1",
-        title = "Buy groceries",
+        titleSource = StaticText("Buy groceries"),
         isCompleted = true,
         onTitleChange = { },
         onCheckToggle = noopClick,

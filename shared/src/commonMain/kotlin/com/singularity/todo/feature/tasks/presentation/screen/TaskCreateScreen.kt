@@ -101,8 +101,8 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
     TaskEditorContent(
         model = TaskEditorModel(
             taskId = null,
-            titleDraft = state.draft.title,
-            descriptionDraft = state.draft.description,
+            titleSource = state.draft.titleSource,
+            descriptionSource = state.draft.descriptionSource,
             priority = state.draft.priority,
             dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
             dueTime = state.draft.dueTime,

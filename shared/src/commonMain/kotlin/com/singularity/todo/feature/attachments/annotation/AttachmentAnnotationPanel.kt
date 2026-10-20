@@ -222,19 +222,19 @@ private fun AnnotationEditorForm(
     // The states are created above the quote field's visibility check: a state created
     // inside the `if` would be thrown away on the first recomposition.
     val startState = rememberBridgedTextFieldState(
-        externalText = draft.start,
+        source = draft.startSource,
         onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftStartChanged(it)) },
     )
     val endState = rememberBridgedTextFieldState(
-        externalText = draft.end,
+        source = draft.endSource,
         onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftEndChanged(it)) },
     )
     val quoteState = rememberBridgedTextFieldState(
-        externalText = draft.quote,
+        source = draft.quoteSource,
         onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftQuoteChanged(it)) },
     )
     val noteState = rememberBridgedTextFieldState(
-        externalText = draft.note,
+        source = draft.noteSource,
         onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftNoteChanged(it)) },
     )
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {

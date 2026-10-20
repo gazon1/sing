@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.state
 
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
 /**
@@ -24,6 +25,20 @@ data class ProjectEditorUiState(
     }
 
     val isEditMode: Boolean get() = projectId != null
+
+    /**
+     * The name as the field's source.
+     *
+     * The editor seeds the name once, when the project is loaded, and afterwards holds what the
+     * user typed, so it never replaces the field's value with one the field never produced: the
+     * field's echo guard needs no lifting, and there is no counter to read.
+     */
+    val nameSource: StaticText get() = StaticText(name)
+
+    /**
+     * The description as the field's source; see [nameSource] for why no counter is needed.
+     */
+    val descriptionSource: StaticText get() = StaticText(description)
 }
 
 sealed interface ProjectEditorIntent : MviIntent {

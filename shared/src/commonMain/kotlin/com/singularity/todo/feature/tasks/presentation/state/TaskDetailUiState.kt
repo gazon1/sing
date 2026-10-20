@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.ui.components.OwnedText
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -49,7 +50,24 @@ data class TaskDetailUi(
     val timeSlotState: TaskTimeSlotState = TaskTimeSlotState.Idle,
     /** First-run state for this task. */
     val firstRun: FirstRun = FirstRun.Unresolved,
-)
+) {
+    /**
+     * The title as the field's source.
+     *
+     * The coordinator observes the task, so the task can be rewritten from outside the
+     * screen — a sync from another device, a change made on another one — and the
+     * rewrite can land on a title the field itself produced. The draft counts the
+     * replacements, and the type says the count is there: a field that holds this
+     * source cannot be wired as if the title were a value nobody else writes.
+     */
+    val titleSource: OwnedText get() = OwnedText(titleDraft, revision)
+
+    /**
+     * The description as the field's source; see [titleSource] for why the count is
+     * there.
+     */
+    val descriptionSource: OwnedText get() = OwnedText(descriptionDraft, revision)
+}
 
 /**
  * UI state экрана просмотра задачи.

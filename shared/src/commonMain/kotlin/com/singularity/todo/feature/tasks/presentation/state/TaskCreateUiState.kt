@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import androidx.compose.runtime.Immutable
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
@@ -46,7 +47,20 @@ data class TaskDraft(
     val recurrence: RecurrenceSpec? = null,
     val checklist: List<DraftChecklistItem> = emptyList(),
     val attachments: List<DraftAttachment> = emptyList(),
-)
+) {
+    /**
+     * The title as the field's source.
+     *
+     * The draft is seeded once — from the store, or from a section's prefill — and
+     * after that the field's own keystrokes are what it holds. A replacement therefore
+     * lands on a value the field never produced, the field's echo guard needs no
+     * lifting, and there is no counter to read.
+     */
+    val titleSource: StaticText get() = StaticText(title)
+
+    /** The description as the field's source; see [titleSource] for why no counter is read. */
+    val descriptionSource: StaticText get() = StaticText(description)
+}
 
 /**
  * A checklist item in a create-mode draft.

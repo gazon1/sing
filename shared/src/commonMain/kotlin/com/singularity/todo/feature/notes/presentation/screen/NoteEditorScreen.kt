@@ -136,13 +136,13 @@ fun NoteEditorScreenContent(
     // The field owns the title's text; the draft keeps the domain value. An external
     // title (the AI rewriting it, a sync) comes back through the bridge.
     //
-    // The revision is what says the new title is a *rewrite* and not an echo of
-    // something the field pushed earlier. Without it the bridge's guard treats the
-    // rewrite as a lagging upstream and drops it.
+    // The draft hands over the source, and the source says what it is: the editor
+    // owns the title, so the draft counts the replacements and the bridge lifts its
+    // echo guard for the value that arrives with a new count. Without it the guard
+    // treats the rewrite as a lagging upstream and drops it.
     val titleState = rememberBridgedTextFieldState(
-        externalText = draft.title,
+        source = draft.titleSource,
         onTextChanged = onTitleChange,
-        revision = draft.revision,
     )
 
     Scaffold(

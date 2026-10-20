@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.components.TextSource
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
@@ -19,21 +21,19 @@ import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColo
  * Многострочное поле описания. Реальный текстовый ввод вместо статичного
  * Text — в оригинале это выглядело как кнопка, а не поле ввода.
  *
- * @param revision the draft's revision counter. It moves when the task was rewritten from
- *   outside, and that is what tells the bridged field that the new description is a
- *   *replacement* rather than the echo of a keystroke the field itself produced.
+ * @param descriptionSource the description as the field's source. The owner builds it, and
+ *   its type says who may replace the description: the create draft hands over a static
+ *   one, the detail draft an owned one that carries the count of the replacements.
  */
 @Composable
 fun TaskDescriptionField(
-    description: String,
+    descriptionSource: TextSource,
     onDescriptionChange: (String) -> Unit,
-    revision: Long = 0,
     modifier: Modifier = Modifier,
 ) {
     val descriptionState = rememberBridgedTextFieldState(
-        externalText = description,
+        source = descriptionSource,
         onTextChanged = onDescriptionChange,
-        revision = revision,
     )
     BasicTextField(
         state = descriptionState,
@@ -66,7 +66,7 @@ fun TaskDescriptionField(
 @Composable
 private fun TaskDescriptionFieldPreview() = PreviewThemed(darkTheme = false) {
     TaskDescriptionField(
-        description = "Pick up the oat milk and the olive oil.",
+        descriptionSource = StaticText("Pick up the oat milk and the olive oil."),
         onDescriptionChange = { },
     )
 }
@@ -75,7 +75,7 @@ private fun TaskDescriptionFieldPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun TaskDescriptionFieldEmptyPreview() = PreviewThemed(darkTheme = false) {
     TaskDescriptionField(
-        description = "",
+        descriptionSource = StaticText(""),
         onDescriptionChange = { },
     )
 }

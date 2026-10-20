@@ -7,6 +7,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.engine.GenuiOutcome
 import com.singularity.todo.feature.genui.engine.GenuiSession
@@ -50,7 +51,16 @@ class ChatViewModel(
         val isLoading: Boolean = false,
         /** Set when a surface could not be produced, so the screen can say so next to the reply. */
         val surfaceError: String? = null,
-    )
+    ) {
+        /**
+         * The input as the field's source.
+         *
+         * The ViewModel clears the input when the message is sent, so the value is replaced only
+         * with one the field never produced: the field's echo guard needs no lifting, and there is
+         * no counter to read.
+         */
+        val inputSource: StaticText get() = StaticText(input)
+    }
 
     sealed interface Intent : MviIntent {
         data class InputChanged(val text: String) : Intent

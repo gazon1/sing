@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -174,7 +175,7 @@ private fun SavedAgendaEditorList(
     ) {
         item(key = "name_field") {
             SavedAgendaNameField(
-                name = state.draft.name,
+                nameSource = state.draft.nameSource,
                 enabled = !state.isSaving,
                 onNameChange = { onIntent(SavedAgendaIntent.NameChanged(it)) },
                 onDone = { keyboardController?.hide() },
@@ -242,13 +243,13 @@ private fun SavedAgendaEditorList(
 /** The view's name field, as a list item. Its trailing spacer is the gap to the header below. */
 @Composable
 private fun SavedAgendaNameField(
-    name: String,
+    nameSource: StaticText,
     enabled: Boolean,
     onNameChange: (String) -> Unit,
     onDone: () -> Unit,
 ) {
     val nameState = rememberBridgedTextFieldState(
-        externalText = name,
+        source = nameSource,
         onTextChanged = onNameChange,
     )
     OutlinedTextField(

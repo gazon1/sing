@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.OwnedText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -58,23 +59,20 @@ fun ProjectHeroSection(
     ui: ProjectDetailUi,
     lastEditedAt: Instant?,
     now: Instant,
-    nameDraft: String,
-    descriptionDraft: String,
-    revision: Long = 0,
+    nameSource: OwnedText,
+    descriptionSource: OwnedText,
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
     // The state is created here, above the description field's visibility check: a state
     // created inside the `if` would be thrown away the moment the field is re-composed.
     val nameState = rememberBridgedTextFieldState(
-        externalText = nameDraft,
+        source = nameSource,
         onTextChanged = actions::onUpdateName,
-        revision = revision,
     )
     val descriptionState = rememberBridgedTextFieldState(
-        externalText = descriptionDraft,
+        source = descriptionSource,
         onTextChanged = actions::onUpdateDescription,
-        revision = revision,
     )
 
     Column(
@@ -108,7 +106,7 @@ fun ProjectHeroSection(
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (descriptionDraft.isNotEmpty() || ui.project.description != null) {
+                if (descriptionSource.text.isNotEmpty() || ui.project.description != null) {
                     Spacer(Modifier.height(4.dp))
                     BasicTextField(
                         state = descriptionState,
@@ -203,8 +201,8 @@ private fun ProjectHeroSectionPreview() = PreviewThemed(darkTheme = false) {
         ui = previewProjectDetailUi(),
         lastEditedAt = PreviewSamples.now,
         now = PreviewSamples.now,
-        nameDraft = "Website redesign",
-        descriptionDraft = "Ship the new landing page by the end of the sprint.",
+        nameSource = OwnedText("Website redesign", 0),
+        descriptionSource = OwnedText("Ship the new landing page by the end of the sprint.", 0),
         actions = ProjectDetailActions.Empty,
     )
 }

@@ -98,9 +98,8 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                     ui = s.ui,
                     lastEditedAt = lastEditedAt,
                     now = clock.now(),
-                    nameDraft = draftState.name,
-                    descriptionDraft = draftState.description,
-                    revision = draftState.revision,
+                    nameSource = draftState.nameSource,
+                    descriptionSource = draftState.descriptionSource,
                     actions = actions,
                 )
                 ProjectMetaChipsRow(ui = s.ui, actions = actions)

@@ -5,6 +5,8 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
+import com.singularity.todo.core.ui.components.OwnedText
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -166,7 +168,18 @@ sealed interface EditorState {
          * no announcement.
          */
         val revision: Long = 0,
-    ) : EditorState
+    ) : EditorState {
+        /**
+         * The title as the field's source.
+         *
+         * The editor owns the title, and the note may be rewritten from outside it — a
+         * proposal applied to the note, a sync from another device — so the owner
+         * counts the replacements and the field reads the count. The type says so: a
+         * field that holds this source cannot be wired as if the title were a value
+         * nobody else writes.
+         */
+        val titleSource: OwnedText get() = OwnedText(title, revision)
+    }
 }
 
 /** Result of an AI note improvement action. */
@@ -302,3 +315,18 @@ sealed interface NotesUiState {
         override val searchQuery: String,
     ) : NotesUiState
 }
+
+/**
+ * The query as the search field's source.
+ *
+ * The ViewModel holds the query the user typed and hands it back unchanged — on the error
+ * path too — so it never replaces the field's value with one the field never produced: the
+ * field's echo guard needs no lifting, and there is no counter to read.
+ *
+ * It is a *view* of the query rather than a piece of the state the machine carries: every
+ * variant already carries the query itself, as a required constructor parameter, and the
+ * source is what the field is handed. A property of the interface would say the variants
+ * have to carry the source too — and then the query and the source would be two values
+ * that could disagree.
+ */
+val NotesUiState.searchQuerySource: StaticText get() = StaticText(searchQuery)
