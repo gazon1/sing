@@ -30,7 +30,7 @@ internal fun ComponentRegistry.registerTextField(): Unit = register("text_field"
  * **The value is not a local string.** It is a `JsonPrimitive` at a path in the surface's shared
  * data model, and that model can be rewritten by an incoming server message
  * (`UiEvent.UpdateData`) *while the user is typing*. The field therefore uses the shared bridge,
- * `rememberBridgedTextFieldState` in `core/ui/components/TextFieldStateBridge.kt`, which keeps
+ * `rememberBridgedTextFieldState` in `core/ui/textfields/TextFieldStateBridge.kt`, which keeps
  * the field's own text and the model in agreement in both directions.
  *
  * **The rule the bridge applies.** The field owns the text while the user types: every edit is
