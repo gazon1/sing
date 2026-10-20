@@ -300,8 +300,6 @@ it again.
 - **WHEN** the user starts a timer from the task's detail view
 - **THEN** the timer runs for that task
 
----
-
 ### Requirement: A setting whose heading names a set is modelled as that set
 
 A setting whose heading names a *set* — a working week, a set of working days —
@@ -366,8 +364,6 @@ name would move every weekend worker to the wrong week.
 - **When** their working days are read
 - **Then** Saturday is one of their working days
 - **And** Sunday is not
-
----
 
 ### Requirement: A setting that changes the agenda changes the agenda
 

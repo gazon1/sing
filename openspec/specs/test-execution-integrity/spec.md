@@ -477,10 +477,6 @@ assertion.
 - **And** the message SHALL say that the report exists
 - **And** it SHALL NOT be reported as "nothing ran"
 
-## ADDED Requirements
-
----
-
 ### Requirement: REQ-19 A floor that the suite has outgrown is a finding too
 
 A committed floor SHALL be enforced in **both** directions. A run that delivers
@@ -526,8 +522,6 @@ a fuller run is legitimate.
 - **Given** a run that skipped a test
 - **When** the floor is updated
 - **Then** the tool SHALL refuse
-
----
 
 ### Requirement: REQ-20 The device tier answers on every pull request, and never blocks a merge
 
@@ -589,8 +583,6 @@ information reaches the pull request while the pull request is still open.
 - **When** the instrumented floor is checked
 - **Then** the floor is not measured against the smoke's report
 
----
-
 ### Requirement: REQ-21 A wait's budget is a property of the element's kind
 
 Every wait in the Maestro flows that names an element SHALL carry a timeout, and
@@ -635,8 +627,6 @@ decisions about.
 - **Given** two flows that wait for elements of the same kind
 - **When** the gate runs
 - **Then** both waits carry the same timeout, because both carry the kind's budget
-
----
 
 ### Requirement: REQ-22 A flow's fixtures belong to that flow
 

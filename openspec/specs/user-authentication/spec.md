@@ -100,8 +100,6 @@ claim path it existed to protect is REQ-UA-005, which stands.
 
 ---
 
-## ADDED Requirements
-
 ### Requirement: REQ-UA-005
 
 When an anonymous user signs up or signs in, ownership of their existing data SHALL
@@ -309,8 +307,6 @@ can recover from with a single action.
 - The session store is excluded from that restore, because the key that decrypts it cannot
   be restored and a store whose ciphertext and key disagree is unreadable by construction
 
----
-
 ### Requirement: REQ-UA-020
 
 When a user without an account holds local data and signs in to an account, the
@@ -342,8 +338,6 @@ it irreversibly.
 
 ---
 
----
-
 ### Requirement: REQ-UA-021
 
 Signing out of an account **SHALL** end the offline-session marker but **SHALL NOT**
@@ -359,8 +353,6 @@ into offline mode, which removes the place where a different account can be chos
 - The user works offline, signs in to an account, then signs out
 - The user activates "Continue Offline"
 - The same local data is present under the same owner
-
----
 
 ---
 
