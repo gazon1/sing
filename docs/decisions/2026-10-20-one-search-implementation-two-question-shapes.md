@@ -31,11 +31,18 @@ Python consumers and one Kotlin consumer read them. The rules are not the proble
 
 **B**, and the shared parts are shared *mechanically*, not by convention.
 
-- `AdrStorage.searchAdrs` answers the structured question: "what did we decide, and is it
-  still open?" Every hit carries the status, the tags, the date and a snippet.
-- `AdrStorage.searchDocs` answers the scattered one: "where is the rule about X?" Hits
-  carry a path and a snippet. The decisions are included in its `all` scope, so "search
-  everything" is one call.
+- `CorpusSearch.searchDecisions` answers the structured question: "what did we decide,
+  and is it still open?" Every hit carries the status, the tags, the date and a snippet.
+- `CorpusSearch.searchDocuments` answers the scattered one: "where is the rule about X?"
+  Hits carry a path and a snippet. The decisions are included in its `all` scope, so
+  "search everything" is one call.
+- The engine is **exposed, not wrapped**. It was first reachable as
+  `AdrStorage.searchAdrs` / `AdrStorage.searchDocs` — two pass-throughs that said the
+  same thing twice, on a class that had no reason to own a search. `AdrStorage` now
+  publishes the engine it built (`storage.search`), and the storage has no reason to own
+  a search. The engine's constructor is internal: only the storage knows where the
+  decisions live and which rules apply, and a caller that could build its own would be
+  able to search a different corpus than the project describes.
 - One engine, `CorpusSearch`, does the traversal, the case normalisation, the matching,
   the ordering and the snippet. The two tools differ in *what they report*, not in how
   they look.

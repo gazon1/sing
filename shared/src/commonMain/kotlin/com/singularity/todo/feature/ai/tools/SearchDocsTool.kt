@@ -32,7 +32,7 @@ class SearchDocsTool(private val storage: AdrStorage) :
         DESCRIPTION,
     ) {
     override suspend fun execute(args: SearchDocsInput): String {
-        val envelope = storage.searchDocs(args.query, SearchScope.from(args.scope), args.limit)
+        val envelope = storage.search.searchDocuments(args.query, SearchScope.from(args.scope), args.limit)
         return Json.encodeToString(SearchEnvelope.serializer(), envelope)
     }
 

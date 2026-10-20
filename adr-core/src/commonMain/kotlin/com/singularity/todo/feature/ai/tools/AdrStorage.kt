@@ -114,39 +114,16 @@ class AdrStorage(
      * corpus rules — the same ones `listAdrs` and the status gate use. A search with its
      * own idea of where the decisions are would answer a different question than the
      * one the corpus describes.
+     *
+     * The engine is exposed rather than wrapped: a wrapper would be a second name for
+     * the same two answers, and the storage has no reason to own the search.
      */
-    private val search: CorpusSearch = CorpusSearch(
+    val search: CorpusSearch = CorpusSearch(
         projectRoot = projectRoot,
         decisionsDir = decisionsDir,
         corpus = corpus,
         readAdr = { path -> readAdrAt(Path(path)) },
     )
-
-    /**
-     * Search the decisions and the deferred backlog.
-     *
-     * The structured question: "what did we decide, and is it still open?" Each hit
-     * carries the status and the tags, so the answer can be read without opening the
-     * document.
-     */
-    fun searchAdrs(
-        query: String,
-        limit: Int = CorpusSearch.DEFAULT_LIMIT,
-        kind: SearchKind = SearchKind.ALL,
-    ): SearchEnvelope = search.searchDecisions(query, limit, kind)
-
-    /**
-     * Search the documents, the skills and the specifications — and the decisions when
-     * the scope covers them.
-     *
-     * The scattered question: "where is the rule about X?" The answer is a path and a
-     * snippet, not a decision with a status.
-     */
-    fun searchDocs(
-        query: String,
-        scope: SearchScope = SearchScope.ALL,
-        limit: Int = CorpusSearch.DEFAULT_LIMIT,
-    ): SearchEnvelope = search.searchDocuments(query, scope, limit)
 
     /**
      * The working directory and every ancestor up to the filesystem root.

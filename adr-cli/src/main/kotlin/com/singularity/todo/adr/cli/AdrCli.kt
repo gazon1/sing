@@ -233,7 +233,7 @@ class AdrCli(
             return ExitCode.USAGE
         }
         val envelope = try {
-            storage.searchAdrs(query)
+            storage.search.searchDecisions(query)
         } catch (e: CliFailure) {
             err.appendLine("adr: ${e.message}")
             return ExitCode.ERROR
@@ -241,27 +241,37 @@ class AdrCli(
             err.appendLine("adr: ${e.message}")
             return ExitCode.ERROR
         }
-        if (args.json) {
-            emit(envelope)
-            return ExitCode.OK
+        // The three answers stay apart, and each has its own exit code: a usage error is
+        // not a failure of the corpus, and an empty result is not a failure of anything.
+        return when {
+            args.json -> {
+                emit(envelope)
+                ExitCode.OK
+            }
+
+            envelope.error != null -> {
+                err.appendLine("adr search: ${envelope.error}")
+                ExitCode.USAGE
+            }
+
+            !envelope.available -> {
+                err.appendLine("adr search: the corpus was not searched")
+                envelope.warnings.forEach { err.appendLine("  $it") }
+                ExitCode.ERROR
+            }
+
+            envelope.hits.isEmpty() -> {
+                out.appendLine("No decision matches '$query'.")
+                ExitCode.OK
+            }
+
+            else -> {
+                envelope.hits.forEach { hit ->
+                    out.appendLine("${hit.slug}  ${hit.date}  ${hit.status}  ${hit.title}")
+                }
+                ExitCode.OK
+            }
         }
-        if (envelope.error != null) {
-            err.appendLine("adr search: ${envelope.error}")
-            return ExitCode.USAGE
-        }
-        if (!envelope.available) {
-            err.appendLine("adr search: the corpus was not searched")
-            envelope.warnings.forEach { err.appendLine("  $it") }
-            return ExitCode.ERROR
-        }
-        if (envelope.hits.isEmpty()) {
-            out.appendLine("No decision matches '$query'.")
-            return ExitCode.OK
-        }
-        envelope.hits.forEach { hit ->
-            out.appendLine("${hit.slug}  ${hit.date}  ${hit.status}  ${hit.title}")
-        }
-        return ExitCode.OK
     }
 
     private fun read(args: ParsedArgs): Int {

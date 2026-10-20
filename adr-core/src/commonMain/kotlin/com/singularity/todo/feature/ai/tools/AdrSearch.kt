@@ -3,7 +3,6 @@ package com.singularity.todo.feature.ai.tools
 import kotlinx.serialization.Serializable
 import java.nio.file.Path
 import kotlin.io.path.Path
-import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
@@ -135,8 +134,15 @@ data class SearchEnvelope(
  * the archive is skipped, the ignored files are skipped, and the backlog is not a
  * decision — exactly as the status gate and the CLI already treat them. A search that
  * disagreed with the gate about what a decision *is* would be worse than no search.
+ *
+ * ## Why the constructor is not public
+ *
+ * The engine is built by [AdrStorage], which is the only thing that knows where the
+ * decisions live and which rules apply. A caller that could build its own would be able
+ * to search a different corpus than the one the project describes — and two corpora are
+ * exactly what this design exists to prevent.
  */
-internal class CorpusSearch(
+class CorpusSearch internal constructor(
     private val projectRoot: String?,
     private val decisionsDir: String,
     private val corpus: AdrCorpusConfig,
@@ -170,54 +176,21 @@ internal class CorpusSearch(
         val warnings = mutableListOf<String>()
 
         if (kind != SearchKind.DEFERRED) {
-            for (path in corpus.discover(decisionsDir)) {
-                // `discover` walks the whole corpus, including the backlog. The rule that
-                // says a backlog entry is not a decision is `isDecision`, and it has to be
-                // applied here — otherwise the search would list the backlog twice, once
-                // as a decision and once as a backlog entry.
-                if (!corpus.isDecision(path)) continue
-                val adr = readAdr(path)
-                if (adr == null) {
-                    warnings += "skipped an unreadable decision under $decisionsDir"
-                    continue
-                }
-                val match = matchIn(needle, adr.title, adr.tags, adr.body) ?: continue
-                hits += AdrSearchHit(
-                    slug = adr.slug,
-                    title = adr.title,
-                    date = adr.date,
-                    tags = adr.tags,
-                    status = adr.status,
-                    kind = SearchKind.DECISION.id,
-                    scope = SearchScope.DECISIONS.id,
-                    snippet = match,
-                    path = relativeToRoot(path),
-                )
-            }
+            // `discover` walks the whole corpus, including the backlog. The rule that
+            // says a backlog entry is not a decision is `isDecision`, and it has to be
+            // applied here — otherwise the search would list the backlog twice, once
+            // as a decision and once as a backlog entry.
+            hits += corpus.discover(decisionsDir)
+                .filter { corpus.isDecision(it) }
+                .mapNotNull { path -> decisionHit(path, needle, warnings) }
         }
 
         if (kind != SearchKind.DECISION) {
             val deferredDir = Path(decisionsDir, corpus.deferredDir)
             if (deferredDir.isDirectory()) {
-                for (slug in corpus.deferred(decisionsDir)) {
+                hits += corpus.deferred(decisionsDir).mapNotNull { slug ->
                     val path = Path(deferredDir.toString(), "$slug.md").toString()
-                    val adr = readAdr(path)
-                    if (adr == null) {
-                        warnings += "skipped an unreadable backlog entry under ${corpus.deferredDir}"
-                        continue
-                    }
-                    val match = matchIn(needle, adr.title, adr.tags, adr.body) ?: continue
-                    hits += AdrSearchHit(
-                        slug = adr.slug,
-                        title = adr.title,
-                        date = adr.date,
-                        tags = adr.tags,
-                        status = adr.status,
-                        kind = SearchKind.DEFERRED.id,
-                        scope = SearchScope.DECISIONS.id,
-                        snippet = match,
-                        path = relativeToRoot(path),
-                    )
+                    deferredHit(path, needle, warnings)
                 }
             }
         }
@@ -256,11 +229,10 @@ internal class CorpusSearch(
             if (projectRoot == null) {
                 warnings += "the document scopes need a project checkout, and this process has none"
             } else {
-                for (candidate in SearchScope.entries) {
-                    if (candidate.relativePath == null) continue
-                    if (scope != SearchScope.ALL && candidate != scope) continue
-                    hits += searchScopeDirectory(candidate, needle, warnings)
-                }
+                hits += SearchScope.entries
+                    .filter { it.relativePath != null }
+                    .filter { scope == SearchScope.ALL || it == scope }
+                    .flatMap { searchScopeDirectory(it, needle, warnings) }
             }
         }
 
@@ -281,16 +253,15 @@ internal class CorpusSearch(
             warnings += "the ${scope.id} scope is not available: $relative"
             return emptyList()
         }
-        val hits = mutableListOf<AdrSearchHit>()
-        for (file in markdownFiles(root)) {
-            val text = try {
-                file.readText()
-            } catch (e: Exception) {
+        return markdownFiles(root).mapNotNull { file ->
+            // An unreadable file is a warning, not a failure: one broken document must
+            // not turn the whole scope into "nothing was searched".
+            val text = runCatching { file.readText() }.getOrElse {
                 warnings += "skipped an unreadable file under $relative"
-                continue
+                return@mapNotNull null
             }
-            val match = matchIn(needle, titleOf(text), emptyList(), text) ?: continue
-            hits += AdrSearchHit(
+            val match = matchIn(needle, titleOf(text), emptyList(), text) ?: return@mapNotNull null
+            AdrSearchHit(
                 slug = file.fileName.toString().removeSuffix(".md"),
                 title = titleOf(text),
                 kind = "document",
@@ -299,7 +270,51 @@ internal class CorpusSearch(
                 path = relativeToRoot(file.toString()),
             )
         }
-        return hits
+    }
+
+    /**
+     * One decision, if it matches.
+     *
+     * A decision that cannot be read is a warning rather than a failure: the rest of
+     * the corpus was still searched, and the caller is told what was skipped.
+     */
+    private fun decisionHit(path: String, needle: String, warnings: MutableList<String>): AdrSearchHit? {
+        val adr = readAdr(path) ?: run {
+            warnings += "skipped an unreadable decision under $decisionsDir"
+            return null
+        }
+        val match = matchIn(needle, adr.title, adr.tags, adr.body) ?: return null
+        return AdrSearchHit(
+            slug = adr.slug,
+            title = adr.title,
+            date = adr.date,
+            tags = adr.tags,
+            status = adr.status,
+            kind = SearchKind.DECISION.id,
+            scope = SearchScope.DECISIONS.id,
+            snippet = match,
+            path = relativeToRoot(path),
+        )
+    }
+
+    /** One backlog entry, if it matches. */
+    private fun deferredHit(path: String, needle: String, warnings: MutableList<String>): AdrSearchHit? {
+        val adr = readAdr(path) ?: run {
+            warnings += "skipped an unreadable backlog entry under ${corpus.deferredDir}"
+            return null
+        }
+        val match = matchIn(needle, adr.title, adr.tags, adr.body) ?: return null
+        return AdrSearchHit(
+            slug = adr.slug,
+            title = adr.title,
+            date = adr.date,
+            tags = adr.tags,
+            status = adr.status,
+            kind = SearchKind.DEFERRED.id,
+            scope = SearchScope.DECISIONS.id,
+            snippet = match,
+            path = relativeToRoot(path),
+        )
     }
 
     private fun markdownFiles(root: Path, depth: Int = 0): List<Path> {

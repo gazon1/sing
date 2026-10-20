@@ -135,7 +135,7 @@ class AdrSearchTest {
 
     @Test
     fun `a decision matching by title is found`() {
-        val envelope = storage(checkout()).searchAdrs("sync conflict")
+        val envelope = storage(checkout()).search.searchDecisions("sync conflict")
 
         assertTrue(envelope.available)
         assertEquals(null, envelope.error)
@@ -148,7 +148,7 @@ class AdrSearchTest {
 
     @Test
     fun `a decision matching by body is found with a snippet`() {
-        val envelope = storage(checkout()).searchAdrs("last write wins")
+        val envelope = storage(checkout()).search.searchDecisions("last write wins")
 
         assertTrue(envelope.available)
         val hit = envelope.hits.firstOrNull { it.slug == "2026-10-01-sync-conflict-policy" }
@@ -161,7 +161,7 @@ class AdrSearchTest {
 
     @Test
     fun `an archived decision is not a decision`() {
-        val envelope = storage(checkout()).searchAdrs("archived decision about sync")
+        val envelope = storage(checkout()).search.searchDecisions("archived decision about sync")
 
         assertTrue(envelope.available)
         assertTrue(
@@ -172,7 +172,7 @@ class AdrSearchTest {
 
     @Test
     fun `the deferred backlog is found and marked as a backlog entry`() {
-        val envelope = storage(checkout()).searchAdrs("planned sync change")
+        val envelope = storage(checkout()).search.searchDecisions("planned sync change")
 
         assertTrue(envelope.available)
         val hit = envelope.hits.firstOrNull { it.slug == "2026-07-01-planned-sync" }
@@ -182,7 +182,7 @@ class AdrSearchTest {
 
     @Test
     fun `a blank query is an error, not an empty result`() {
-        val envelope = storage(checkout()).searchAdrs("   ")
+        val envelope = storage(checkout()).search.searchDecisions("   ")
 
         assertNotNull(envelope.error, "a blank query must say so")
         assertFalse(envelope.available)
@@ -192,7 +192,7 @@ class AdrSearchTest {
     @Test
     fun `a corpus that is not there is not the same answer as no match`() {
         val empty = createTempDirectory("adr-search-empty").toFile().also { temporaries += it }
-        val envelope = storage(empty).searchAdrs("anything")
+        val envelope = storage(empty).search.searchDecisions("anything")
 
         assertFalse(envelope.available, "there was no corpus to search")
         assertTrue(envelope.hits.isEmpty())
@@ -201,7 +201,7 @@ class AdrSearchTest {
 
     @Test
     fun `a search that matches nothing says so without an error`() {
-        val envelope = storage(checkout()).searchAdrs("nothing matches this phrase")
+        val envelope = storage(checkout()).search.searchDecisions("nothing matches this phrase")
 
         assertTrue(envelope.available, "the corpus was searched")
         assertEquals(null, envelope.error)
@@ -210,7 +210,7 @@ class AdrSearchTest {
 
     @Test
     fun `the limit is clamped rather than trusted`() {
-        val envelope = storage(checkout()).searchAdrs("sync", limit = 10_000)
+        val envelope = storage(checkout()).search.searchDecisions("sync", limit = 10_000)
 
         assertTrue(
             envelope.hits.size <= SearchLimits.MAX,
@@ -220,7 +220,7 @@ class AdrSearchTest {
 
     @Test
     fun `newer decisions come first`() {
-        val envelope = storage(checkout()).searchAdrs("sync")
+        val envelope = storage(checkout()).search.searchDecisions("sync")
 
         val dated = envelope.hits.filter { it.kind == "decision" }
         assertTrue(dated.size >= 2, "expected several decisions, got ${dated.map { it.slug }}")
@@ -233,7 +233,7 @@ class AdrSearchTest {
 
     @Test
     fun `the document scope finds the architecture documents`() {
-        val envelope = storage(checkout()).searchDocs("last write wins", scope = SearchScope.ARCHITECTURE)
+        val envelope = storage(checkout()).search.searchDocuments("last write wins", scope = SearchScope.ARCHITECTURE)
 
         assertTrue(envelope.available)
         val hit = envelope.hits.firstOrNull { it.path.endsWith("docs/architecture/sync.md") }
@@ -244,7 +244,7 @@ class AdrSearchTest {
 
     @Test
     fun `the decisions scope answers the structured question`() {
-        val envelope = storage(checkout()).searchDocs("sync", scope = SearchScope.DECISIONS)
+        val envelope = storage(checkout()).search.searchDocuments("sync", scope = SearchScope.DECISIONS)
 
         assertTrue(envelope.available)
         assertTrue(envelope.hits.isNotEmpty())

@@ -187,7 +187,7 @@ class SearchDecisionsTool(private val storage: AdrStorage) :
         DESCRIPTION,
     ) {
     override suspend fun execute(args: SearchDecisionsInput): String {
-        val envelope = storage.searchAdrs(args.query, args.limit, SearchKind.from(args.kind))
+        val envelope = storage.search.searchDecisions(args.query, args.limit, SearchKind.from(args.kind))
         return Json.encodeToString(SearchEnvelope.serializer(), envelope)
     }
 

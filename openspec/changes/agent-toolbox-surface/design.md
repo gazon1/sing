@@ -60,7 +60,7 @@ rule was fixed at its owner, and the test now pins both shapes a tool class can 
 
 :adr-core/commonMain
   feature/ai/tools/AdrSearch.kt          the engine, the scopes, the envelope
-  feature/ai/tools/AdrStorage.kt        + searchAdrs, + searchDocs
+  feature/ai/tools/AdrStorage.kt        + the search engine it publishes
 
 :mcp-server
   mcp/ToolsetSnapshot.kt                the one snapshot, and the identity

@@ -27,7 +27,7 @@
 ## Slice 2 — searchable knowledge
 
 - [x] `AdrSearch.kt` — the engine, the scopes, the envelope
-- [x] `AdrStorage.searchAdrs` and `AdrStorage.searchDocs`
+- [x] `AdrStorage.search` — the engine, exposed rather than wrapped
 - [x] `search_decisions` — the structured question
 - [x] `search_docs` — the scoped question
 - [x] Both tools registered on both platforms and in the catalogue
