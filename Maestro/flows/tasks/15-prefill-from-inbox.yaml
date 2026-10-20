@@ -17,7 +17,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda_section_no_date
-    timeout: 5000
+    timeout: 8000
 
 # Open create via FAB
 - tapOn:

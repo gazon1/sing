@@ -110,7 +110,7 @@ Use `extendedWaitUntil` with a specific condition — never a fixed `delay`.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
-    timeout: 8000
+    timeout: 30000
 
 # ❌ Wrong — no condition, arbitrary sleep
 - waitForAnimationToEnd:
@@ -123,9 +123,47 @@ id assertion is always preferred.
 
 ### Timeout budget
 
-- **8s** — cold start, full-screen navigation
-- **5s** — local UI transitions (sheet open, row appear, keyboard)
-- **2s** — snackbar, animation settle
+The timeout of a wait is not yours to choose: it is the budget of the *kind* of
+element the flow waits for, and `config/docs/ui-wait-budgets.txt` is where those
+budgets live. `config/docs/maestro-element-kinds.txt` says which kind each
+element belongs to, and `scripts/check-ui-wait-budgets.py` fails a flow whose
+timeout disagrees with its kind's budget.
+
+| Kind | Budget | What it waits for |
+|---|---|---|
+| `shell` | 30s | the bottom navigation after a cold start |
+| `boot` | 30s | the first screen after a cold start that is not the shell |
+| `tab` | 10s | a tab switch |
+| `menu` | 5s | a menu sheet, or an item in one |
+| `field` | 5s | a text input |
+| `button` | 8s | a FAB, a save, a submit, a switch, a chip |
+| `item` | 8s | a list item or row |
+| `dialog` | 8s | a modal or a sheet |
+| `text` | 8s | a label or message that is not a control |
+| `network` | 20s | an element that only appears after a server round-trip |
+
+So a wait looks like this, and the number is the element's kind, not a guess:
+
+```yaml
+# ✅ Correct — the menu kind's budget
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+
+# ❌ Wrong — 8s for a menu item, 10s for a tab: a drift the gate reports
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 8000
+```
+
+Adding a wait for a new element means adding it to
+`config/docs/maestro-element-kinds.txt` — an element nobody budgeted is a
+finding, because a budget nobody promised is a budget nobody keeps in step.
+
+`waitForAnimationToEnd` is not a wait for an element and carries no element
+budget; it is a fallback for animations, and its timeout is its own.
 
 ---
 

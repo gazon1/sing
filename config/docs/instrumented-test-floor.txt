@@ -1,8 +1,8 @@
 # The instrumented suite's floor: what an emulator run must deliver.
 #
-# Recorded from the run of `main` on 2026-10-19: five test classes, nineteen
-# tests, none skipped. `scripts/check-instrumented-test-floor.py` holds every
-# run to it.
+# Recorded from the instrumented suite as of 2026-10-20: seven test classes,
+# twenty-four tests, none skipped. `scripts/check-instrumented-test-floor.py`
+# holds every run to it.
 #
 # classes, tests — floors. A run with fewer of either means coverage was lost,
 # and the run stays green because the report lists the tests that are left: a
@@ -11,11 +11,34 @@
 #
 # skipped — a ceiling, and it is 0. A skipped instrumented test says nothing
 # about the app on a device, which is the only thing this tier knows, and a
-# tier that reports "skipped" reads as a tier that ran.
+# tier that reports "skipped" reads as a tier that ran. The ceiling is a policy
+# value, not an observation: `--update-floor` carries it over instead of
+# measuring it, because a writer that measured it would raise the ceiling every
+# time a run skipped something — which is the one thing the ceiling exists to
+# prevent.
 #
-# The floor is deliberately a floor and not a target: a suite that grows above
-# it is fine, and only a drop is a finding. A drop means tests stopped being
-# selected, which is a defect to investigate, not a number to regenerate.
-classes 5
-tests 19
+# The floor ratchets in both directions, and that is the point of it. A run that
+# delivers MORE than this file records is a finding too: the floor is behind the
+# suite, and it then describes a tier that no longer exists. That is not
+# hypothetical — the floor sat at five classes and nineteen tests while the
+# suite had already grown to six and twenty-one, and the one-sided floor
+# compared 21 against 19, found no drop, and stayed green. A floor that
+# understates reality is not a weak floor; it is a floor that has stopped
+# asking its question.
+#
+# Raising it is deliberate, because a floor that regenerates itself stops being
+# a floor:
+#
+#   python3 scripts/check-instrumented-test-floor.py --update-floor
+#
+# rewrites the block below from the run on disk. It refuses a drop unless
+# --allow-drop is passed (a drop means the tier lost coverage — investigate,
+# do not regenerate), it refuses a run with skipped tests, it warns when the
+# floor rises so that a filtered run is not recorded as the floor, and it
+# leaves everything above the markers untouched.
+#
+# GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
+classes 7
+tests 24
 skipped 0
+# GENERATED:END

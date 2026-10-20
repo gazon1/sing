@@ -63,7 +63,7 @@ tags:
     element:
       id: task_editor_priority_row
     direction: DOWN
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: task_editor_priority_row
 # priority_option_* testTags don't reach Android accessibility from inside a

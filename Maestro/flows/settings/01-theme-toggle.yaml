@@ -22,7 +22,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 8000
+    timeout: 10000
 - assertVisible:
     id: settings_theme_mode_System
 - assertVisible:
@@ -42,4 +42,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 5000
+    timeout: 10000

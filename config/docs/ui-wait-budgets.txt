@@ -1,4 +1,4 @@
-# The budgets the UI layers wait on, in milliseconds, as `<name> <milliseconds>`.
+# The budgets the UI layers wait on, in milliseconds.
 #
 # Two layers wait for the same screen: the Android instrumented suite
 # (`androidApp/src/androidTest/kotlin/com/singularity/todo/ui/ShellProbe.kt`) and the
@@ -27,7 +27,9 @@
 # the shell is a slow runner, not a broken app — unless the app is stuck, and the
 # instrumented suite's failure message is what tells the two apart.
 #
-# Sorted by name, one budget per line, no blank lines.
+# ── Section 1 — the instrumented suite's budgets ─────────────────────────────
+#
+# `<name> <milliseconds>`, sorted by name, one budget per line, no blank lines.
 #
 # shell   — how long the bottom navigation bar is given to appear.
 # tab     — how long an element the shell already renders is given to appear.
@@ -36,3 +38,63 @@
 shell 30000
 tab 10000
 device 15000
+
+# ── Section 2 — the Maestro layer's budgets, by the kind of element ──────────
+#
+# `kind <name> <milliseconds>`, one kind per line.
+#
+# Fixing the shell was not enough. The Maestro layer still waits for 137 different
+# elements, and the same element was waited for with different timeouts in different
+# flows: `menu_settings` existed with 5 s, 8 s and 10 s; `task_editor_title_input`
+# with 3 s, 5 s, 8 s and 15 s. The number depended on which flow asked, which is
+# the defect the shell had, one layer down. A budget per *kind* of element ends it:
+# every flow that waits for a menu item waits for it for the menu's budget, and the
+# budget is written down here once.
+#
+# `config/docs/maestro-element-kinds.txt` maps every Maestro element that is waited
+# for to its kind, and the gate holds every wait to the budget of the kind its
+# element belongs to. An element nobody budgeted is a finding, so that file is the
+# promise that every waited-for element has a budget.
+#
+# shell   — the bottom navigation after a cold start. MUST equal the instrumented
+#           shell budget above: both layers wait for the same screen, and the
+#           cross-layer rule is the whole point of this file.
+# boot    — the first screen after a cold start that is not the shell (the
+#           server-config screen, the offline-continue screen). It is a cold start
+#           with a different first screen, so it takes the shell's number rather
+#           than a widget's.
+# tab     — a tab switch: a tap, a recomposition, the tab is there. Same number as
+#           the instrumented `tab` budget: the same kind of wait in both layers.
+# menu    — a menu sheet, or an item in one.
+# field   — a text input.
+# button  — a plain button: a FAB, a save, a submit, a switch, a chip.
+# item    — a list item or row: it may be animated, re-ordered, or scrolled to.
+# dialog  — a modal or a sheet, and the controls inside one.
+# text    — a plain label or message that is not a control.
+# network — an element that only appears after a server round-trip.
+#
+# The rule the budgets were chosen by: a kind's budget is the most common timeout
+# the tree used for that kind, and never less than 5 s. An outlier is aligned to the
+# budget; a budget that is wrong for everybody is a decision to make once, here,
+# where the reasoning can be written down.
+#
+# Three kinds are not the mode of their own waits, and say why:
+#   - shell:   the instrumented shell budget, which the cross-layer rule fixes.
+#   - boot:    the shell's number — a cold start is a cold start, whatever screen
+#              it lands on.
+#   - network: the slowest wait in the kind (20 s). A server answer has no upper
+#              bound, and this kind exists precisely because the answer can be
+#              slow; the mode would cut a slow answer in half.
+#   - tab:     10 s, above the mode (8 s): a tab switch is the recomposition the
+#              shell has to survive, and the instrumented layer gives the same
+#              wait 10 s.
+kind shell 30000
+kind boot 30000
+kind tab 10000
+kind menu 5000
+kind field 5000
+kind button 8000
+kind item 8000
+kind dialog 8000
+kind text 8000
+kind network 20000

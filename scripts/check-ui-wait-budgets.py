@@ -13,26 +13,44 @@ learned that 8 s is not enough for a cold start on a loaded CI runner and moved 
 30 s, with the reason written next to it: *"8 s is not always enough on a loaded CI
 runner; 20 s covers cold-start variance including migration deferred-startup on
 first launch"*. The instrumented suite kept 8 s, and `android-device-tests` was red
-on every run of `main` for days with *"Today tab should be visible after cold
+on every run of `main` for days, with *"Today tab should be visible after cold
 start"* — a message about a screen that was on screen 1.35 s after the activity
 resumed.
 
-Worse, the Maestro layer had already drifted against itself: forty-one of its waits
+Worse, the Maestro layer had already drifted against *itself*: forty-one of its waits
 for the same `nav_tab_today` existed with five different timeouts, and the one that
 had been reasoned about was the only one of the five that was right. Every one of
-the others was as brittle as the instrumented suite had been, waiting for a screen a
-loaded runner produces slowly.
+the others was as brittle as the instrumented suite had been.
+
+Fixing the shell was not the end of it. The Maestro layer waits for 137 different
+elements, and it waited for the *same* element with different timeouts in different
+flows — `menu_settings` with 5 s, 8 s and 10 s; `task_editor_title_input` with 3 s,
+5 s, 8 s and 15 s. The number depended on which flow asked. That is the same defect
+the shell had, one layer down, and it is answered the same way: a budget per *kind*
+of element, written down once.
 
 ## What this gate holds
 
-`config/docs/ui-wait-budgets.txt` is the promise: `<name> <milliseconds>` per line.
-This gate holds every layer that waits to it:
+`config/docs/ui-wait-budgets.txt` is the promise. It has two sections:
 
-* the instrumented suite's wait constants must equal the catalogue — and a wait
-  constant the catalogue does not know about is a finding, because a budget nobody
-  promised is a budget nobody will keep in step;
-* every Maestro wait for the shell must use the shell budget, in every flow and
-  every helper, and a wait with no timeout at all is a finding too.
+* the instrumented suite's budgets — `<name> <milliseconds>` — which the Kotlin wait
+  constants must equal, and a wait constant the catalogue does not know about is a
+  finding, because a budget nobody promised is a budget nobody will keep in step;
+* the Maestro layer's budgets, by the kind of element waited for —
+  `kind <name> <milliseconds>`.
+
+`config/docs/maestro-element-kinds.txt` maps every Maestro element that is waited
+for to its kind, and this gate holds every wait to the budget of its kind:
+
+* an element nobody budgeted is a finding — nobody promised a budget for it, so
+  nobody will keep it in step;
+* a wait that disagrees with its kind's budget is a finding, naming the element, its
+  kind, the budget and the number that was used;
+* a wait with no timeout at all is a finding — it waits for Maestro's default rather
+  than for the budget;
+* `nav_tab_today` keeps its cross-layer rule: it is the shell kind, and the shell
+  kind's budget must equal the instrumented shell budget, because both layers wait
+  for the same screen.
 
 The gate does not care whether 30 s is the right number. It cares that there is
 one number, and that the layers that wait on it agree. A number that is wrong for
@@ -62,6 +80,7 @@ IO_ERROR = 2
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CATALOGUE = ROOT / "config" / "docs" / "ui-wait-budgets.txt"
+ELEMENT_KINDS = ROOT / "config" / "docs" / "maestro-element-kinds.txt"
 SHELL_PROBE = (
     ROOT
     / "androidApp"
@@ -80,6 +99,19 @@ MAESTRO_DIR = ROOT / "Maestro"
 # a wait for a cold start, so every one of them is the shell budget.
 SHELL_ELEMENT = "nav_tab_today"
 
+# The kind the shell element belongs to, and the kind whose budget must equal the
+# instrumented shell budget: both layers wait for the same screen.
+SHELL_KIND = "shell"
+
+# No kind waits for less than this. A budget below it is a budget that gives up
+# before a loaded runner has finished composing.
+MIN_KIND_BUDGET = 5000
+
+# The Maestro commands that wait for an element. `extendedWaitUntil` waits for a
+# condition to hold, `scrollUntilVisible` waits for an element to be scrolled to;
+# both name an element and both carry a timeout.
+WAIT_COMMANDS = ("extendedWaitUntil", "scrollUntilVisible")
+
 # Catalogue name -> the constant that carries it in the instrumented suite.
 #
 # The mapping is written out rather than derived, because a derivation would have
@@ -96,23 +128,45 @@ CONSTANT_PATTERN = re.compile(
     r"^\s*(?:internal\s+)?const\s+val\s+(?P<name>[A-Z_]+_TIMEOUT_MS)\s*=\s*(?P<value>[\d_]+)L?\s*$",
 )
 CATALOGUE_PATTERN = re.compile(r"^(?P<name>[a-z][a-z0-9-]*)\s+(?P<value>\d+)$")
-EXTENDED_WAIT_PATTERN = re.compile(r"^(\s*)-\s*extendedWaitUntil:\s*$")
+KIND_PATTERN = re.compile(r"^kind\s+(?P<name>[a-z][a-z0-9-]*)\s+(?P<value>\d+)$")
+ELEMENT_KIND_PATTERN = re.compile(r"^(?P<id>\S+)\s+(?P<kind>[a-z][a-z0-9-]*)\s*$")
+COMMAND_PATTERN = re.compile(r"^(?P<indent>\s*)-\s*(?P<command>[A-Za-z_][A-Za-z0-9_]*):\s*$")
 VISIBLE_ID_PATTERN = re.compile(r"^\s*id:\s*(?P<id>\S+)\s*$")
-TIMEOUT_PATTERN = re.compile(r"^\s*timeout:\s*(?P<timeout>\d+)\s*$")
+TIMEOUT_PATTERN = re.compile(r"^(?P<lead>\s*timeout:\s*)(?P<timeout>\d+)(?P<tail>\s*)$")
 
 
-def catalogue_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
-    """The budgets the catalogue promises, as name -> milliseconds."""
+def _catalogue_text(root: pathlib.Path | None = None) -> tuple[pathlib.Path, str]:
     catalogue = (root / "config" / "docs" / "ui-wait-budgets.txt") if root else CATALOGUE
     try:
         text = catalogue.read_text(encoding="utf-8")
     except OSError as exc:
         raise click.ClickException(f"cannot read {catalogue}: {exc}") from exc
+    return catalogue, text
+
+
+def _parse_catalogue(root: pathlib.Path | None = None) -> tuple[dict[str, int], dict[str, int]]:
+    """The catalogue's two sections: the instrumented budgets and the kind budgets."""
+    catalogue, text = _catalogue_text(root)
     budgets: dict[str, int] = {}
+    kinds: dict[str, int] = {}
     for number, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
+        kind_match = KIND_PATTERN.match(stripped)
+        if kind_match:
+            name = kind_match.group("name")
+            if name in kinds:
+                raise click.ClickException(
+                    f"{catalogue}:{number}: the kind {name!r} is listed twice"
+                )
+            kinds[name] = int(kind_match.group("value"))
+            continue
+        if stripped.startswith("kind "):
+            raise click.ClickException(
+                f"{catalogue}:{number}: cannot read a kind budget from {stripped!r}; "
+                "the format is 'kind <name> <milliseconds>'"
+            )
         match = CATALOGUE_PATTERN.match(stripped)
         if not match:
             raise click.ClickException(
@@ -127,7 +181,60 @@ def catalogue_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
         budgets[name] = int(match.group("value"))
     if not budgets:
         raise click.ClickException(f"{catalogue} promises no budgets at all")
+    if not kinds:
+        raise click.ClickException(f"{catalogue} promises no kind budgets at all")
+    return budgets, kinds
+
+
+def catalogue_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
+    """The instrumented suite's budgets, as name -> milliseconds."""
+    budgets, _ = _parse_catalogue(root)
     return budgets
+
+
+def kind_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
+    """The Maestro layer's budgets, as kind name -> milliseconds."""
+    _, kinds = _parse_catalogue(root)
+    return kinds
+
+
+def element_kinds(root: pathlib.Path | None = None) -> dict[str, str]:
+    """The Maestro elements that are waited for, as element id -> kind.
+
+    The file is the promise that every waited-for element has a budget, so a
+    mapping to a kind the catalogue does not price is an error, not a finding:
+    the file cannot mean what it says.
+    """
+    path = (root / "config" / "docs" / "maestro-element-kinds.txt") if root else ELEMENT_KINDS
+    kinds = kind_budgets(root)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise click.ClickException(f"cannot read {path}: {exc}") from exc
+    mapping: dict[str, str] = {}
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        match = ELEMENT_KIND_PATTERN.match(stripped)
+        if not match:
+            raise click.ClickException(
+                f"{path}:{number}: cannot read a mapping from {stripped!r}; "
+                "the format is '<maestro id> <kind>'"
+            )
+        element = match.group("id")
+        kind = match.group("kind")
+        if kind not in kinds:
+            raise click.ClickException(
+                f"{path}:{number}: the element {element!r} is mapped to the kind "
+                f"{kind!r}, which the catalogue does not price"
+            )
+        if element in mapping:
+            raise click.ClickException(
+                f"{path}:{number}: the element {element!r} is listed twice"
+            )
+        mapping[element] = kind
+    return mapping
 
 
 def kotlin_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
@@ -156,12 +263,12 @@ def kotlin_budgets(root: pathlib.Path | None = None) -> dict[str, int]:
     return budgets
 
 
-def shell_waits(root: pathlib.Path | None = None) -> list[dict]:
-    """Every Maestro wait for the shell, as a list of records.
+def maestro_waits(root: pathlib.Path | None = None) -> list[dict]:
+    """Every Maestro wait for an element, as a list of records.
 
     The scan is line-based on purpose: the question is "which wait in this file
-    waits for the shell, and how long does it give itself", and a YAML parse of a
-    flow file that carries its own header and several documents answers a
+    waits for which element, and how long does it give itself", and a YAML parse of
+    a flow file that carries its own header and several documents answers a
     different, larger question.
     """
     waits: list[dict] = []
@@ -175,12 +282,12 @@ def shell_waits(root: pathlib.Path | None = None) -> list[dict]:
         lines = path.read_text(encoding="utf-8").splitlines()
         index = 0
         while index < len(lines):
-            match = EXTENDED_WAIT_PATTERN.match(lines[index])
-            if not match:
+            match = COMMAND_PATTERN.match(lines[index])
+            if not match or match.group("command") not in WAIT_COMMANDS:
                 index += 1
                 continue
             start = index
-            indent = len(match.group(1))
+            indent = len(match.group("indent"))
             block: list[str] = []
             index += 1
             while index < len(lines):
@@ -189,32 +296,36 @@ def shell_waits(root: pathlib.Path | None = None) -> list[dict]:
                     break
                 block.append(line)
                 index += 1
-            visible = None
+            elements: list[str] = []
             timeout = None
             timeout_line = start
             for offset, line in enumerate(block):
                 id_match = VISIBLE_ID_PATTERN.match(line)
                 if id_match:
-                    visible = id_match.group("id")
+                    elements.append(id_match.group("id").strip("\"'"))
                 timeout_match = TIMEOUT_PATTERN.match(line)
                 if timeout_match:
                     timeout = int(timeout_match.group("timeout"))
                     timeout_line = start + 1 + offset
-            if visible == SHELL_ELEMENT:
-                waits.append(
-                    {
-                        "file": str(path.relative_to(base)),
-                        "line": timeout_line,
-                        "timeout": timeout,
-                    }
-                )
+            if not elements:
+                continue
+            waits.append(
+                {
+                    "file": str(path.relative_to(base)),
+                    "line": timeout_line,
+                    "command": match.group("command"),
+                    "elements": elements,
+                    "timeout": timeout,
+                }
+            )
     return waits
 
 
 def scan(root: pathlib.Path | None = None) -> list[dict]:
     """The mismatches between the catalogue and the layers that wait."""
-    budgets = catalogue_budgets(root)
+    budgets, kinds = _parse_catalogue(root)
     constants = kotlin_budgets(root)
+    mapping = element_kinds(root)
     findings: list[dict] = []
 
     if "shell" not in budgets:
@@ -279,29 +390,92 @@ def scan(root: pathlib.Path | None = None) -> list[dict]:
                 }
             )
 
-    shell_budget = budgets["shell"]
-    for wait in shell_waits():
-        if wait["timeout"] is None:
+    for name, value in sorted(kinds.items()):
+        if value < MIN_KIND_BUDGET:
             findings.append(
                 {
-                    "kind": "shell wait without a timeout",
+                    "kind": "kind budget is below the floor",
                     "detail": (
-                        f"{wait['file']} waits for {SHELL_ELEMENT} with no timeout, "
-                        "so it waits for Maestro's default rather than for the "
-                        "budget the catalogue promises"
+                        f"the {name} kind is {value}ms, and no kind waits for less "
+                        f"than {MIN_KIND_BUDGET}ms"
                     ),
                 }
             )
-        elif wait["timeout"] != shell_budget:
+
+    if SHELL_KIND not in kinds:
+        findings.append(
+            {
+                "kind": "catalogue has no kind budget",
+                "detail": (
+                    f"the catalogue prices no {SHELL_KIND!r} kind, and every wait "
+                    "for the shell is a wait for that kind"
+                ),
+            }
+        )
+    else:
+        if kinds[SHELL_KIND] != budgets["shell"]:
             findings.append(
                 {
-                    "kind": "shell wait disagrees with the catalogue",
+                    "kind": "the shell kind disagrees with the instrumented shell budget",
                     "detail": (
-                        f"{wait['file']} waits {wait['timeout']}ms for "
-                        f"{SHELL_ELEMENT} and the catalogue promises {shell_budget}ms"
+                        f"the {SHELL_KIND} kind is {kinds[SHELL_KIND]}ms and the "
+                        f"instrumented shell budget is {budgets['shell']}ms — both "
+                        "layers wait for the same screen"
                     ),
                 }
             )
+        shell_kind = mapping.get(SHELL_ELEMENT)
+        if shell_kind is not None and shell_kind != SHELL_KIND:
+            findings.append(
+                {
+                    "kind": "the shell element is not budgeted as the shell kind",
+                    "detail": (
+                        f"{SHELL_ELEMENT} is budgeted as the {shell_kind} kind, and "
+                        f"every wait for it is a wait for a cold start"
+                    ),
+                }
+            )
+
+    waits = maestro_waits(root)
+    for wait in waits:
+        for element in wait["elements"]:
+            kind = mapping.get(element)
+            if kind is None:
+                findings.append(
+                    {
+                        "kind": "element nobody budgeted",
+                        "detail": (
+                            f"{wait['file']} waits for {element}, and no kind "
+                            "prices it — an element nobody budgeted is a budget "
+                            "nobody keeps in step"
+                        ),
+                    }
+                )
+                continue
+            budget = kinds[kind]
+            if wait["timeout"] is None:
+                findings.append(
+                    {
+                        "kind": "wait without a timeout",
+                        "detail": (
+                            f"{wait['file']} waits for {element} with no timeout, "
+                            f"so it waits for Maestro's default rather than for the "
+                            f"{budget}ms the {kind} kind promises"
+                        ),
+                    }
+                )
+            elif wait["timeout"] != budget:
+                findings.append(
+                    {
+                        "kind": "wait disagrees with its kind's budget",
+                        "detail": (
+                            f"{wait['file']} waits {wait['timeout']}ms for "
+                            f"{element} (a {kind}), and the {kind} kind's budget "
+                            f"is {budget}ms"
+                        ),
+                    }
+                )
+
     return findings
 
 
@@ -327,9 +501,12 @@ def cli(ctx: click.Context, emit_json: bool, quiet: bool, root: str | None) -> N
         click.echo(json.dumps({"findings": findings}, indent=2))
     elif not findings and not quiet:
         budgets = catalogue_budgets(tree)
+        kinds = kind_budgets(tree)
         click.echo(
             "ui wait budgets: "
             + ", ".join(f"{name}={value}ms" for name, value in sorted(budgets.items()))
+            + " | "
+            + ", ".join(f"kind {name}={value}ms" for name, value in sorted(kinds.items()))
         )
     elif findings:
         click.echo(f"ui wait budgets: {len(findings)} mismatch(es)")

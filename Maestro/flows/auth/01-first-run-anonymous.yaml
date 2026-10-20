@@ -42,7 +42,7 @@ tags:
     element:
       id: "task_item_${RUN_ID}_anonymous_task"
     direction: DOWN
-    timeout: 15000
+    timeout: 8000
 
 # Go offline and restart the app. The task must still be visible — local-first.
 - setAirplaneMode: enabled
@@ -62,7 +62,7 @@ tags:
     element:
       id: "task_item_${RUN_ID}_anonymous_task"
     direction: DOWN
-    timeout: 15000
+    timeout: 8000
 
 # No error was shown (the anonymous path has no sync guard to trip).
 # The task survived the offline restart.

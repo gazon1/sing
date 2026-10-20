@@ -37,7 +37,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
-    timeout: 8000
+    timeout: 10000
 
 # The row's testTag is the slugified title: TestTags.taskItem("<run> SDNoDate").
 # Scroll to it rather than waiting for it in place: launch-clean does not clear
@@ -46,7 +46,7 @@ tags:
     element:
       id: "task_item_${RUN_ID}_sdnodate"
     direction: DOWN
-    timeout: 15000
+    timeout: 8000
 
 # Scroll to "No Date" section — it may contain stale tasks too.
 - scrollUntilVisible:
@@ -66,7 +66,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: tasks_fab
-    timeout: 5000
+    timeout: 8000
 - assertNotVisible:
     id: "task_item_${RUN_ID}_sdnodate"
 
@@ -76,7 +76,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "task_item_${RUN_ID}_sdnodate"
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: "task_item_${RUN_ID}_sdnodate"
 - extendedWaitUntil:
@@ -89,7 +89,7 @@ tags:
     element:
       id: task_editor_due_row
     direction: DOWN
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: task_editor_due_row
 
@@ -116,7 +116,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: dialog_date_picker_ok
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: dialog_date_picker_ok
 
@@ -132,7 +132,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
-    timeout: 8000
+    timeout: 10000
 
 # Inbox renders every bucket on one scrolling list, so "Today" and "No Date" can
 # be on screen together. A bare assertNotVisible would therefore fail against the
@@ -149,7 +149,7 @@ tags:
     element:
       id: agenda_section_today
     direction: UP
-    timeout: 10000
+    timeout: 8000
 - extendedWaitUntil:
     visible:
       id: "task_item_${RUN_ID}_sdnodate"

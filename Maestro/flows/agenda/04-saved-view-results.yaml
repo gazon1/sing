@@ -34,7 +34,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
@@ -51,7 +51,7 @@ tags:
     element:
       id: top_bar_back_button
     direction: UP
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: top_bar_back_button
 - extendedWaitUntil:

@@ -17,7 +17,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: settings_tab_notifications
-    timeout: 8000
+    timeout: 10000
 - tapOn:
     id: settings_tab_notifications
 - extendedWaitUntil:

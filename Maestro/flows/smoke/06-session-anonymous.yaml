@@ -82,7 +82,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_attach_account_button
-    timeout: 10000
+    timeout: 8000
 - assertVisible:
     id: auth_attach_account_button
 - takeScreenshot: smoke/06-session-anonymous

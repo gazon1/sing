@@ -105,7 +105,7 @@ internal const val TAB_TIMEOUT_MS = 10_000L
  */
 internal fun UiDevice.awaitShell(timeoutMs: Long = SHELL_TIMEOUT_MS): UiObject2 =
     step("awaitShell", TODAY_TAB) {
-        awaitObject(By.res(TODAY_TAB), "the app shell (bottom navigation)", timeoutMs)
+        awaitObject(By.res(TODAY_TAB), "the app shell (bottom navigation)", timeoutMs, TODAY_TAB)
     }
 
 /**
@@ -121,13 +121,16 @@ internal fun UiDevice.awaitShell(timeoutMs: Long = SHELL_TIMEOUT_MS): UiObject2 
  * @param by how to find the object.
  * @param what what the object is, in words — it goes into the failure message.
  * @param timeoutMs how long the object is given to appear.
+ * @param element the element the step log names, when the caller knows it; the
+ *   step log falls back to [what] otherwise.
  * @throws AssertionError when the object does not appear.
  */
 internal fun UiDevice.awaitObject(
     by: BySelector,
     what: String,
     timeoutMs: Long = SHELL_TIMEOUT_MS,
-): UiObject2 = step("awaitObject", what) { findWithDeadline(by, what, timeoutMs) }
+    element: String? = null,
+): UiObject2 = step("awaitObject", element ?: what) { findWithDeadline(by, what, timeoutMs) }
 
 /**
  * The wait itself, without the step recording.
@@ -142,7 +145,7 @@ internal fun UiDevice.awaitObject(
  * @param timeoutMs how long the object is given to appear.
  * @throws AssertionError when the object does not appear.
  */
-private fun UiDevice.findWithDeadline(
+internal fun UiDevice.findWithDeadline(
     by: BySelector,
     what: String,
     timeoutMs: Long,

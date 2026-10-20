@@ -42,14 +42,15 @@ sealed interface AppVersionGateIntent : MviIntent {
  *   releases page on Desktop). Used in the [AppVersionGateState.Blocked] state.
  * @param readTimeoutMs Upper bound on one remote-config read, in milliseconds. The gate is a
  *   full-screen splash in front of the whole app, so a read that never comes back cannot be
- *   waited for indefinitely; see [check].
+ *   waited for indefinitely; see [check]. Defaults to [RemoteConfigPort.READ_TIMEOUT_MS] —
+ *   the port bounds its own read by the same number, so the two layers cannot drift apart.
  * @param scope Coroutine scope for collecting [RemoteConfigPort.observe].
  */
 class AppVersionGateViewModel(
     private val remoteConfigPort: RemoteConfigPort,
     private val appVersion: AppVersion,
     private val playStoreUrl: String,
-    private val readTimeoutMs: Long = REMOTE_CONFIG_READ_TIMEOUT_MS,
+    private val readTimeoutMs: Long = RemoteConfigPort.READ_TIMEOUT_MS,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AppVersionGateState, AppVersionGateIntent, Nothing>(
@@ -76,6 +77,11 @@ class AppVersionGateViewModel(
      * locked multi-instance database. The read therefore has a deadline, [readTimeoutMs], and a
      * read that misses it is handled exactly like a read that failed: reported, breadcrumbed,
      * evaluated against the defaults.
+     *
+     * This deadline is the *outer* of two, and it is the one the UI sees. The port bounds its
+     * own read as well ([RemoteConfigPort.READ_TIMEOUT_MS]), because a deadline here can only
+     * end a read that honours cancellation — the port's bound is the one that survives a read
+     * that blocks in a driver call. Both layers use the same number, so neither can drift.
      *
      * The bypass is also breadcrumbed, because failing open is otherwise invisible: the end
      * state is `Allowed(defaults)`, which is byte-for-byte what a healthy read produces. A
@@ -128,9 +134,16 @@ class AppVersionGateViewModel(
      * The code is the only thing that tells the two apart, and it has to survive into the
      * report: the timeout is the one failure the gate raises itself, so it raises it with a
      * code of its own.
+     *
+     * The port's own timeout code counts too. The port bounds its read as well, and when
+     * that bound is the one that fires, the reason is still "the read did not come back" —
+     * a record that said "the config could not be read" would point at the config server
+     * when the cause was a slow disk.
      */
-    private fun isReadTimeout(error: Throwable): Boolean =
-        (error as? AppError)?.code == READ_TIMEOUT
+    private fun isReadTimeout(error: Throwable): Boolean {
+        val code = (error as? AppError)?.code ?: return false
+        return code == READ_TIMEOUT || code == RemoteConfigPort.READ_TIMEOUT_CODE
+    }
 
     /**
      * Runs [read] under a deadline and turns a missed deadline into a failed read.
@@ -139,6 +152,10 @@ class AppVersionGateViewModel(
      * one here. [AppError.Network] carries a machine-shaped code, which is what lets the report
      * group timeouts apart from every other failed read and what lets the breadcrumb say which
      * reason the gate was let through for.
+     *
+     * This is the outer guard, and it is the one the UI sees: the port bounds its own read by
+     * the same number ([RemoteConfigPort.READ_TIMEOUT_MS]), so a read that blocks in a driver
+     * call is ended by the port even though this deadline could not end it.
      */
     private suspend fun <T : Any> readWithinTimeout(read: suspend () -> T): T =
         withTimeoutOrNull(readTimeoutMs) { read() }
@@ -208,14 +225,5 @@ class AppVersionGateViewModel(
 
         /** The label a failed read is reported under; the fallback grouping key. */
         const val READ_FAILED = "Failed to read remote config"
-
-        /**
-         * How long one remote-config read may take before the gate gives up on it.
-         *
-         * Long enough for the slow case that is still a success — a Room database created on
-         * first launch, a cold multi-instance lock — and short enough that a user does not sit
-         * in front of a splash wondering whether the app is broken.
-         */
-        const val REMOTE_CONFIG_READ_TIMEOUT_MS = 5_000L
     }
 }

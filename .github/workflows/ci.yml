@@ -593,9 +593,17 @@ jobs:
           # E2E workflow (every push to main, every tag, every nightly, every
           # labelled PR) and android-device-tests.yml — and locally by
           # `check.sh`, which still assembles it.
+          #
+          # `compileDebugAndroidTestKotlin` is here for the instrumented source
+          # set, which nothing else compiles on a pull request. The device tier
+          # runs on a schedule, on main, and on a label — so a broken
+          # androidTest source would sit there until the next nightly, and the
+          # nightly would be red for a reason that has nothing to do with the
+          # change under test. Compiling it costs a Kotlin compile and no
+          # emulator; the tier's *running* is still the device job's business.
           - variant: free
             flags: ""
-            tasks: ":androidApp:compileDebugKotlin"
+            tasks: ":androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin"
           # No Tracer token: proves FSL code compiles and the DI rebinding holds,
           # not that the vendor SDK works.
           #

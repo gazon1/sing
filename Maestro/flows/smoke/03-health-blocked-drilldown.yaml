@@ -35,7 +35,7 @@ tags:
     element:
       id: menu_statistics
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_statistics
 
@@ -47,7 +47,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: health_bucket_blocked
-    timeout: 15000
+    timeout: 8000
 
 # Drill down into BLOCKED.
 - tapOn:
@@ -57,7 +57,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda_section_blocked
-    timeout: 15000
+    timeout: 8000
 - assertVisible:
     id: agenda_section_blocked
 

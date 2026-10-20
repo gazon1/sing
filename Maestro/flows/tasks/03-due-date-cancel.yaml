@@ -20,7 +20,7 @@ tags:
     element:
       id: task_editor_due_row
     direction: DOWN
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: task_editor_due_row
 - extendedWaitUntil:

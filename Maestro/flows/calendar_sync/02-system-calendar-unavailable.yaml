@@ -24,14 +24,14 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 # Open Settings.
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 8000
+    timeout: 10000
 
 # Navigate to Calendar tab.
 - tapOn:
@@ -47,7 +47,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: calendar_sync_system_enable_switch
-    timeout: 5000
+    timeout: 8000
 
 # The system calendar unavailable message is shown when the platform cannot
 # serve the system calendar. On desktop this is always the case; on Android
@@ -55,4 +55,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: calendar_sync_system_unavailable
-    timeout: 5000
+    timeout: 8000

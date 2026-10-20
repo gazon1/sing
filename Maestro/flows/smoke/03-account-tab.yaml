@@ -84,7 +84,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_sign_out_button
-    timeout: 10000
+    timeout: 8000
 - assertVisible:
     id: auth_sign_out_button
 - takeScreenshot: smoke/03-account-tab

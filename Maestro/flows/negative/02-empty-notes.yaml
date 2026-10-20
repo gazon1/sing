@@ -12,7 +12,7 @@ tags:
     element:
       id: menu_notes
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_notes
 - extendedWaitUntil:

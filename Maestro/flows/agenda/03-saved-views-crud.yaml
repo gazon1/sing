@@ -16,7 +16,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
@@ -35,7 +35,7 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: saved_agenda_name_input
-    timeout: 8000
+    timeout: 5000
 - extendedWaitUntil:
     visible:
       id: agenda_saved_views_button
@@ -57,13 +57,13 @@ tags:
 - extendedWaitUntil:
     visible:
       id: saved_agenda_menu_edit
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: saved_agenda_menu_edit
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input
-    timeout: 8000
+    timeout: 5000
 - assertVisible:
     id: saved_agenda_delete_button
 - tapOn:

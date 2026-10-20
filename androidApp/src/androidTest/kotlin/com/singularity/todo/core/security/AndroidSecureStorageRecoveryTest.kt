@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
+import com.singularity.todo.testing.InstrumentedTestBase
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -48,11 +49,20 @@ import java.io.File
  * The first version of this file also deleted every keystore alias between tests and had
  * three of four tests fail with `AEADBadTagException` in tests that only wrote and read —
  * the cache effect above, leaking across tests.
+ *
+ * ## Why it does not ask for a device
+ *
+ * The class extends [InstrumentedTestBase], so it gets the failure bundle and the step
+ * recorder like every other instrumented class. It never asks for a device handle: the
+ * bundle resolves the device only when a test has already failed, and it takes the
+ * handle that is already there rather than waiting for one. The runtime of this class
+ * is therefore unchanged — no accessibility service is waited for, and the encryption
+ * is still the thing under test.
  */
 @RunWith(AndroidJUnit4::class)
 @MediumTest
 @Suppress("NoRunBlocking") // Instrumented tests use runBlocking to test suspend functions synchronously.
-class AndroidSecureStorageRecoveryTest {
+class AndroidSecureStorageRecoveryTest : InstrumentedTestBase() {
 
     private lateinit var context: Context
 

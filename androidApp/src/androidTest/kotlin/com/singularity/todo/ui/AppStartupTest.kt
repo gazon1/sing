@@ -7,16 +7,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.filters.SmallTest
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
 import com.singularity.todo.BuildConfig
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
-import org.junit.After
+import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
@@ -42,24 +39,7 @@ import org.koin.core.context.GlobalContext
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
-class AppStartupTest {
-
-    /**
-     * Captures the failure bundle when a test in this class fails.
-     *
-     * The device handle is resolved lazily: the rule is built before the test
-     * runs, and the accessibility service is not bound until then.
-     */
-    @get:Rule
-    val diagnostics = FailureBundleRule { device }
-
-    private lateinit var device: UiDevice
-
-    @Before
-    fun setup() {
-        device = awaitUiDevice()
-        setStepRecorder(StepRecorder())
-    }
+class AppStartupTest : InstrumentedTestBase() {
 
     /**
      * The APK under test must be assembled with the auth bypass.
@@ -80,12 +60,6 @@ class AppStartupTest {
                 "the build and the test task.",
             BuildConfig.TEST_AUTH_BYPASS,
         )
-    }
-
-    /** The recorder is per-test: the next test must not inherit this one's steps. */
-    @After
-    fun tearDown() {
-        clearStepRecorder()
     }
 
     /**

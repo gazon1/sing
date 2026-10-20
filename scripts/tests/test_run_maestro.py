@@ -12,6 +12,7 @@ import pathlib
 import tempfile
 import unittest
 import unittest.mock
+import urllib.parse
 
 import emulator.maestro
 import emulator.maestro._artifacts as _artifacts
@@ -601,6 +602,233 @@ class UnreportedFlowTest(unittest.TestCase):
             os.utime(stale, (old - 3600, old - 3600))
             result = self._invoke(self._deps(write_report=False), junit_dir)
         self.assertEqual(result.exit_code, EXIT_FAIL)
+
+
+class FixtureCleanupTest(unittest.TestCase):
+    """The cleanup link must name the fixtures it is supposed to remove.
+
+    The app deletes a task, note or project whose title *starts with* one of
+    the comma-separated prefixes in ``cleanup=``. So the property that matters
+    is not "the link was sent" but "the prefixes the app will read are real
+    prefixes of the titles that were seeded".
+
+    It was not, and the failure was invisible. The value was built as
+    ``f"'{run_id},Buy%20milk'"`` — shell-style quotes and a pre-encoded
+    space — and then URL-quoted again, so the app read the prefixes
+    ``"'r4797858390"`` and ``"Buy%20milk'"``. Neither matched a title. Every
+    fixture stayed on the device for the rest of the shard, and the nightly
+    run of 2026-10-20 failed 43 flows across all four shards because of it:
+    a flow that asserts an empty list failed on the *previous* flow's data,
+    and a flow that asserts its own task failed on another flow's task being
+    in the way.
+
+    These tests assert the property, not the implementation: they decode the
+    link the app would receive and check the prefixes against real titles.
+    """
+
+    RUN_ID = "r4797858390"
+
+    def _cleanup_prefixes(self, mode: str = "run") -> list[str]:
+        """The prefixes the app reads, taken from the link the runner sends."""
+        calls: list[str] = []
+
+        deps = DeviceDeps(
+            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+        with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
+            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, mode, deps)
+
+        self.assertEqual(len(calls), 1, f"expected exactly one cleanup link, got {calls}")
+        link = calls[0]
+        self.assertIn("todo-debug://seed?cleanup=", link)
+        raw = link.split("todo-debug://seed?cleanup=", 1)[1]
+        decoded = urllib.parse.unquote(raw)
+        return [p.strip() for p in decoded.split(",") if p.strip()]
+
+    def test_the_run_id_is_one_of_the_prefixes(self):
+        prefixes = self._cleanup_prefixes()
+        self.assertIn(self.RUN_ID, prefixes)
+
+    def test_a_seeded_title_starts_with_one_of_the_prefixes(self):
+        """The property the app actually uses: titles are matched by prefix."""
+        prefixes = self._cleanup_prefixes()
+        for title in (
+            f"{self.RUN_ID} Anonymous task",
+            f"{self.RUN_ID}_ClearSearchTask2026",
+            "Buy milk",
+        ):
+            self.assertTrue(
+                any(title.startswith(p) for p in prefixes),
+                f"{title!r} is matched by none of the prefixes {prefixes!r}",
+            )
+
+    def test_the_fixed_seed_title_is_swept_too(self):
+        self.assertIn("Buy milk", self._cleanup_prefixes())
+
+    def test_the_prefixes_carry_no_quoting(self):
+        """Quotes and pre-encoded spaces are what broke it; they must not come back."""
+        prefixes = self._cleanup_prefixes()
+        for prefix in prefixes:
+            self.assertNotIn("'", prefix)
+            self.assertNotIn("%", prefix)
+
+    def test_the_all_mode_sweeps_everything_instead(self):
+        calls: list[str] = []
+        deps = DeviceDeps(
+            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+        with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
+            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, "all", deps)
+        self.assertIn("todo-debug://seed?reset=content", calls[0])
+
+    def test_the_off_mode_sends_nothing(self):
+        calls: list[str] = []
+        deps = DeviceDeps(
+            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+        with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
+            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, "off", deps)
+        self.assertEqual(calls, [])
+
+
+class FailedFlowCleanupTest(unittest.TestCase):
+    """A failing flow's fixtures must not survive into the next flow.
+
+    Cleaning on success only is deliberate — a failing flow keeps its data so
+    the failure can be triaged against it. But "until the next flow starts" is
+    long enough. Leaving the data for the rest of the shard makes every later
+    flow that asserts an empty list fail on the previous flow's leftovers, and
+    a suite whose failures cascade reports one defect as forty.
+    """
+
+    def _run(self, tmp: str):
+        """The repository's smoke flows, the first of which fails.
+
+        Returns the cleanup calls and the number of them that had already
+        happened when each flow started.
+        """
+        flows = ROOT / "Maestro/flows/smoke"
+
+        cleanup_calls: list[str] = []
+        cleanup_before: dict[str, int] = {}
+        attempts: list[str] = []
+
+        def fake_try_run(cmd, **kw):
+            flow = pathlib.Path(cmd[2]).stem
+            attempts.append(flow)
+            cleanup_before[flow] = len(cleanup_calls)
+            if len(attempts) == 1:
+                # The first flow fails.
+                return unittest.mock.Mock(returncode=1, stdout="flow failed", stderr="")
+            report = pathlib.Path(cmd[cmd.index("--output") + 1])
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                f'<testsuite name="{flow}" tests="1" failures="0"/>\n'
+            )
+            return unittest.mock.Mock(returncode=0, stdout="flow passed", stderr="")
+
+        deps = DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: cleanup_calls.append(run_id),
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+        from click.testing import CliRunner
+
+        orig = _cli._default_device_deps
+        try:
+            _cli._default_device_deps = lambda: deps
+            CliRunner().invoke(
+                _cli.main,
+                [
+                    "--flow", str(flows),
+                    "--skip-install", "--allow-stale-apk",
+                    "--junit-dir", str(pathlib.Path(tmp) / "junit"),
+                ],
+            )
+        finally:
+            _cli._default_device_deps = orig
+
+        return cleanup_calls, cleanup_before, attempts
+
+    def test_the_failing_flow_is_swept_before_the_next_one_starts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cleanup_calls, cleanup_before, attempts = self._run(tmp)
+
+        self.assertGreaterEqual(len(attempts), 2, "the smoke suite has fewer than two flows")
+        second = attempts[1]
+        self.assertEqual(
+            cleanup_before[second], 1,
+            f"the failing flow's fixtures were still on the device when "
+            f"{second} started (cleanup calls so far: {cleanup_before[second]})",
+        )
+        self.assertEqual(
+            len(cleanup_calls), len(attempts),
+            f"every flow must be swept exactly once: {cleanup_calls}",
+        )
+
+    def test_a_passing_flow_is_swept_immediately(self):
+        """A passing flow is swept on success, without waiting for a next flow."""
+        with tempfile.TemporaryDirectory() as tmp:
+            cleanup_calls, cleanup_before, attempts = self._run(tmp)
+        # The first (failing) flow is not swept when it fails — it is swept
+        # before the second one starts. Every later flow is swept on success,
+        # so by the time the last flow starts there is one sweep per flow
+        # before it.
+        last = attempts[-1]
+        self.assertEqual(cleanup_before[last], len(attempts) - 1)
 
 
 if __name__ == "__main__":

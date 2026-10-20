@@ -28,13 +28,13 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 5000
+    timeout: 10000
 
 # Cycle all 12 tabs. A crash or hang on any tab fails the flow.
 # The NavRail is a fixed 80dp column with a private ScrollView — scroll each

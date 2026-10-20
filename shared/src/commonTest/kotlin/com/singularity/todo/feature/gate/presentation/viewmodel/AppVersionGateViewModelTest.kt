@@ -390,6 +390,32 @@ class AppVersionGateViewModelTest {
     }
 
     @Test
+    fun `the gate's deadline is the port's deadline`() = runTest {
+        // The gate's deadline and the port's own bound are one number. They were two
+        // constants once, and two constants is two numbers that can drift: the gate would
+        // give up on a read the port was still willing to wait for, and the port would keep
+        // a read alive the gate had already given up on.
+        //
+        // The VM is built here *without* a deadline, so this pins the production default
+        // rather than the injected one.
+        val scope = testScope(this)
+        val vm = AppVersionGateViewModel(
+            remoteConfigPort = HangingRemoteConfigPort(),
+            appVersion = CURRENT,
+            playStoreUrl = PLAY_STORE_URL,
+            scope = scope,
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            RemoteConfigPort.READ_TIMEOUT_MS,
+            testScheduler.currentTime,
+            "the gate's default deadline must be the port's own constant, not a second literal",
+        )
+        scope.close()
+    }
+
+    @Test
     fun `a read that never returns is reported`() = runTest {
         val reporter = RecordingCrashReportingPort()
         val (vm, scope) = newVm(HangingRemoteConfigPort(), reporter = reporter)

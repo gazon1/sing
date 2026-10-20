@@ -3,7 +3,7 @@ package com.singularity.todo.ui
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.UiDevice
+import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,9 +33,14 @@ import java.io.FileInputStream
  *   external one.
  * - `/data/local/tmp` belongs to the shell and outlives the uninstall, which
  *   is the only reason the bundle survives to be pulled.
+ *
+ * The class extends [InstrumentedTestBase] like every other instrumented class, so
+ * a failure of this test gets a bundle of its own. That is the whole of its
+ * relationship to the base class: the assertions below are about the delivery
+ * mechanism and do not use the base class's wiring.
  */
 @RunWith(AndroidJUnit4::class)
-class FailureBundleDeliveryTest {
+class FailureBundleDeliveryTest : InstrumentedTestBase() {
 
     private fun shell(command: String): String {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -48,7 +53,6 @@ class FailureBundleDeliveryTest {
     @Test
     @SmallTest
     fun the_bundle_is_published_to_the_shells_directory() {
-        val device: UiDevice = awaitUiDevice()
         val testClass = "BundleDeliveryProbe"
         val destination = "${FailureBundle.DEVICE_ROOT}/$testClass/attempt-1"
 

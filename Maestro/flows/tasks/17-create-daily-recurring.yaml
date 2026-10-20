@@ -44,13 +44,13 @@ tags:
     element:
       id: task_editor_recurrence_row
     direction: DOWN
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: task_editor_recurrence_row
 - extendedWaitUntil:
     visible:
       id: recurrence_option_daily
-    timeout: 5000
+    timeout: 8000
 
 # ── Choose Daily and commit it ────────────────────────────────────────
 #
@@ -65,7 +65,7 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: recurrence_option_daily
-    timeout: 5000
+    timeout: 8000
 
 # ── The row now reports the rule ──────────────────────────────────────
 - assertVisible:

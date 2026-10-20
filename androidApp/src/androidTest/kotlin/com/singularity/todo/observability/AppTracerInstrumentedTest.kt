@@ -8,6 +8,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.filters.SmallTest
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -44,10 +45,19 @@ import org.koin.core.context.GlobalContext
  * still a valid test of the "no-throw" contract, but not of the real backend path.
  *
  * ## Tag: `slow` — requires an emulator and a full app install
+ *
+ * ## Why it does not ask for a device
+ *
+ * The class extends [InstrumentedTestBase], so it gets the failure bundle and the step
+ * recorder like every other instrumented class. It never asks for a device handle: the
+ * bundle resolves the device only when a test has already failed, and it takes the
+ * handle that is already there rather than waiting for one. The runtime of this class
+ * is therefore unchanged — it drives the app through its own activity, not through
+ * UiAutomator, and it does not now wait for an accessibility service it never uses.
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
-class AppTracerInstrumentedTest {
+class AppTracerInstrumentedTest : InstrumentedTestBase() {
 
     private lateinit var scenario: ActivityScenario<MainActivity>
 

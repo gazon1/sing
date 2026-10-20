@@ -23,7 +23,7 @@ tags:
     element:
       id: task_editor_due_row
     direction: DOWN
-    timeout: 5000
+    timeout: 8000
 # Tapping the row opens the date picker (the text "Добавить дату" may not appear in
 # the Android accessibility tree due to a Compose rendering quirk — this is a known
 # issue and not a regression from any recent change).

@@ -16,13 +16,13 @@ tags:
     element:
       id: menu_search
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_search
 - extendedWaitUntil:
     visible:
       id: search_input
-    timeout: 8000
+    timeout: 5000
 # Nothing typed yet -> a prompt, not a blank screen.
 - assertVisible:
     id: search_empty_placeholder

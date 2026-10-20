@@ -61,7 +61,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_continue_offline_button
-    timeout: 40000
+    timeout: 30000
 
 - assertNotVisible:
     id: loading_indicator

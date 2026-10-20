@@ -174,3 +174,32 @@ internal inline fun <T> step(
         throw throwable
     }
 }
+
+/**
+ * Runs [block] as a recorded step, treating a null result as a failure.
+ *
+ * A wait that timed out is a failed step even though nothing threw: the
+ * element the test needed was not there, and a log that says "OK" for it sends
+ * the reader looking in the wrong place.
+ *
+ * @param name the step name.
+ * @param detail what the step was done to.
+ * @param block the work; a null result is recorded as a failure.
+ * @return whatever [block] returned, null included.
+ */
+internal inline fun <T : Any> stepOrFail(
+    name: String,
+    detail: String? = null,
+    block: () -> T?,
+): T? {
+    val recorder = stepRecorder()
+    if (recorder == null) return block()
+    val start = System.currentTimeMillis()
+    val result = block()
+    if (result == null) {
+        recorder.recordFail(name, detail, start, AssertionError("no $name result for $detail"))
+    } else {
+        recorder.recordOk(name, detail, start)
+    }
+    return result
+}

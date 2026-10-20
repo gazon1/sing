@@ -1,6 +1,8 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.createBackgroundScope
+import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.platform.monoClockMillis
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.HlcFactory
@@ -196,6 +198,12 @@ fun syncModule(): org.koin.core.module.Module = module {
             syncApi = get(),
             log = get(),
             clock = get(),
+            // The scope the bounded read runs in, created here rather than left to the
+            // implementation's default, for the same reason the AuthRepository's scope
+            // is created here: the dispatcher is the platform layer's job, and the
+            // failure handler — mandatory, per `createBackgroundScope` — is attached by
+            // the factory that owns it. One place to forget is one too many.
+            readScope = createBackgroundScope(loggingBackgroundFailureHandler()),
         )
     }
 

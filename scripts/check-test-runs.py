@@ -105,6 +105,24 @@ because JUnit counts a skipped testcase in `tests=` exactly like a passing one.
 That is how `TaskOutgoingLinksTest` sat `@Disabled` with 15 tests for a month
 (ADR `2026-09-25-test-jvm-heap-default`) behind a fully green task.
 
+## No report, or a report below the floor
+
+Two facts, two verdicts, two exit codes, because they are two investigations:
+
+- **no report** — the source set produced no JUnit XML at all (no results
+  directory, or a directory that holds no report). Nothing ran, so no floor was
+  compared. Exit `EXIT_NO_RUN` (3), the code that means "fails on a clean tree"
+  (ADR `2026-10-16-readers-first-and-nothing-ran`).
+- **a report below the floor** — a report exists and it ran fewer tests than the
+  floor records. The run happened; its report is the evidence, and it is short.
+  Exit `1`, the regression code.
+
+The boundary is the report, not the count. A report that exists and reports
+*zero* tests is the second case, not the first: the run happened, wrote a
+report, and that report is below the floor. Reading it as "nothing ran" sent
+the reader to re-run the tests instead of investigating the suite, and it
+exited with the code that means the opposite of what happened.
+
 ## Usage
 
     scripts/check-test-runs.py                    # compare against the baseline
@@ -725,24 +743,43 @@ def cli(
                     )
                 else:
                     nothing_ran.append(
-                        f"{label}: no test results on disk"
+                        f"{label}: no JUnit report on disk — the source set produced "
+                        f"no report"
                     )
                     empty_results.add(label)
             continue
         classes, tests, skipped = actual
-        if label in required and tests == 0:
-            # An empty results directory is the same fact as a missing one: the
-            # task produced nothing. Counting it as "0 tests against a floor of
-            # 2785" describes a loss of 2785 tests, which is the opposite of true.
-            nothing_ran.append(f"{label}: results directory present but empty")
+        if label in required and tests == 0 and classes == 0:
+            # No report at all is the same fact as a missing one: the task
+            # produced nothing. Counting it as "0 tests against a floor of 2785"
+            # describes a loss of 2785 tests, which is the opposite of true.
+            #
+            # The `classes == 0` half is load-bearing. A report that exists and
+            # reports zero tests is a different fact: the run HAPPENED and wrote
+            # a report, and that report is below the floor — which is a
+            # regression to investigate, not an absence to re-run. Reporting it
+            # as "nothing ran" sent the reader to the wrong investigation, and
+            # it exited with the code that means "nothing ran" (REQ-18).
+            nothing_ran.append(
+                f"{label}: the results directory holds no JUnit report — the source "
+                f"set produced no report"
+            )
             empty_results.add(label)
             continue
         if tests < base_tests:
-            regressions.append(
-                f"{label}: {tests} tests in {classes} classes, "
-                f"baseline {base_tests} tests (-{base_tests - tests}). "
-                f"A drop means tests stopped running: investigate, do not regenerate."
-            )
+            if tests == 0:
+                regressions.append(
+                    f"{label}: the report exists and reports 0 tests in {classes} "
+                    f"classes, baseline {base_tests} tests (-{base_tests}). "
+                    f"The run happened and its report is below the floor: "
+                    f"investigate, do not regenerate."
+                )
+            else:
+                regressions.append(
+                    f"{label}: {tests} tests in {classes} classes, "
+                    f"baseline {base_tests} tests (-{base_tests - tests}). "
+                    f"A drop means tests stopped running: investigate, do not regenerate."
+                )
         if skipped > max_skipped:
             regressions.append(
                 f"{label}: {skipped} skipped tests, ceiling {max_skipped} "
@@ -799,8 +836,10 @@ def cli(
         for line in nothing_ran:
             print(f"  {line}", file=sys.stderr)
         print(
-            "\nThese source sets are required here, and their results are absent or empty.\n"
-            "There is no count to compare against a floor, so no floor was compared.\n"
+            "\nThese source sets are required here, and no JUnit report was produced\n"
+            "for them. There is no count to compare against a floor, so no floor was\n"
+            "compared. A report that exists and is below the floor is a different\n"
+            "fact, and it is reported as the regression it is.\n"
             "Run them (./gradlew :shared:jvmTest :desktopApp:test) and re-run this gate;\n"
             "the counts it prints afterwards are the ones worth reading.",
             file=sys.stderr,
