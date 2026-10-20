@@ -167,7 +167,6 @@ COMMAND_MODULES: dict[str, str] = {
     "room_schema_integrity": "gate",
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
-    "yaml_has_no_duplicate_keys": "gate",
     "check_benchmarks": "utility",
     "info": "utility",
     "render_registry": "utility",
@@ -614,6 +613,21 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-gate-registries.py"),
     ),
+    # The generated catalogue of this registry: which gates exist, and whether
+    # each one blocks. `docs/scripts/gate-registry.md` is derived from GATES, so
+    # a gate added, removed or reclassified changes the table — and this gate is
+    # what says the committed table still matches.
+    #
+    # Until 2026-10-20 nothing checked that. The table had drifted: the
+    # generator read the command-modules directory instead of the registry, so it
+    # listed private helpers as gates and reported `mode=unknown` for most rows.
+    GateSpec(
+        name="gate registry is current",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("sgate"),
+        script_args=("render-registry", "--check"),
+    ),
     # The two clusters.
     #
     # Each of these is one gate that runs several checks over one subject: the
@@ -743,6 +757,31 @@ GATE_CONTROLS: dict[str, Control] = {
     # line goes inside main(), so it is a gate line rather than a stray command,
     # and the file is restored right after.
     'gate-registries': Control(kind='sabotage', proves='scripts/check-gate-registries.py', argv=('{python}', 'scripts/check-gate-registries.py', '--strict'), path='scripts/ci/static-gates.sh', edit=Edit(kind='replace', old='main() {\n', new='main() {\ngate blocking "phantom gate the registry does not know" python3 scripts/check-nothing.py\n', count=1), why='a gate line the Python registry does not know is drift: `sgate run-all` would run it and `sgate <name>` could not dispatch it, and the two registries are what decide which gates run'),
+    # The generated catalogue's freshness. The probe edits the generated table
+    # itself, because that file is the only thing the gate reads: a comparison
+    # that could not tell a stale table from a current one would prove nothing.
+    #
+    # The edit changes a mode, which is the field the table exists to carry: a
+    # catalogue that says a blocking gate is advisory is a catalogue that
+    # understates what stops the build.
+    'gate-registry-is-current': Control(
+        kind='sabotage',
+        proves='sgate',
+        argv=('{python}', '-m', 'sgate', 'render-registry', '--check'),
+        path='docs/scripts/gate-registry.md',
+        edit=Edit(
+            kind='replace',
+            old='| version catalog has no literals | blocking |',
+            new='| version catalog has no literals | advisory |',
+            count=1,
+        ),
+        why=(
+            "a catalogue of the gates that no longer matches the registry is a "
+            "catalogue that answers questions about a gate set nobody runs — and a "
+            "reader has no way to tell, because the file looks exactly as "
+            "authoritative as the registry it drifted from"
+        ),
+    ),
     # The two cluster gates. Each control breaks one member's input, and the
     # cluster must report it — the aggregate is a gate, so it needs a control of
     # its own, not only the members' six.

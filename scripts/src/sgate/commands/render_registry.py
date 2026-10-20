@@ -73,54 +73,72 @@ def _extract_docstring(path: Path) -> tuple[str | None, dict[int, str], str | No
 
 
 def _generate_table(commands_dir: Path) -> str:
-    """Generate the gate-registry.md table content."""
-    lines = [
-        "| Gate | Mode | Purpose | Exit Codes | ADR |",
-        "|------|------|---------|------------|-----|",
-    ]
+    """Generate the gate-registry.md table content.
 
-    gates = sgate.gates.load_gates()
-    gate_map = {g.name: g for g in gates}
+    The rows come from the *registry* (`_registry.GATES`), not from the files in
+    `sgate/commands/`.
 
-    # Import all command modules to discover them
-    commands_path = Path(__file__).parent
-    for cmd_file in sorted(commands_path.glob("*.py")):
-        if cmd_file.stem in ("base", "__init__"):
-            continue
+    Until 2026-10-20 this iterated the command modules directory, which is a
+    different set: it listed private helpers (`_gate-runner`, `_parsers`,
+    `_registry`, `_runner`) as gates, it missed every gate whose command is
+    generated from a `GateSpec` rather than hand-written, and it reported
+    `mode=unknown` for most rows because the module stem and the gate's
+    display name are different strings. A table of that shape is worse than no
+    table: a reader looking for "which gates exist, and is each blocking?"
+    got a list of modules and a column of unknowns.
 
-        purpose, exit_codes, adr_link = _extract_docstring(cmd_file)
-        gate_name = cmd_file.stem.replace("_", "-")
+    The registry is the source of truth for the two facts a reader needs most
+    — the gate's name and whether it stops the build. Purpose, exit codes and
+    the ADR reference still come from the docstring of the script the gate
+    runs, because that is where they are written.
 
-        # Check if this gate is in the registry
-        matching_gate = None
-        for g in gates:
-            if g.name.replace(" ", "-") == gate_name or g.name.replace(" ", "_") == gate_name:
-                matching_gate = g
-                break
+    The header row is written by the caller; this function returns rows only.
+    """
+    lines: list[str] = []
 
-        mode = matching_gate.mode if matching_gate else "unknown"
-        cmd_short = matching_gate.command[:50] + "…" if matching_gate and len(matching_gate.command) > 50 else (matching_gate.command if matching_gate else "")
+    from sgate.commands._registry import GATES
+
+    for spec in GATES:
+        doc_source = _docstring_source(spec.script)
+        purpose, exit_codes, adr_link = (
+            _extract_docstring(doc_source) if doc_source is not None else (None, {}, None)
+        )
 
         ec_str = ", ".join(f"{k}={v}" for k, v in sorted(exit_codes.items())) if exit_codes else "—"
         adr_str = adr_link if adr_link else "—"
 
-        purpose_str = purpose if purpose else cmd_short
+        purpose_str = purpose if purpose else spec.name
         if len(purpose_str) > 80:
             purpose_str = purpose_str[:77] + "..."
 
-        lines.append(f"| {gate_name} | {mode} | {purpose_str} | {ec_str} | {adr_str} |")
+        lines.append(
+            f"| {spec.name} | {spec.mode.value} | {purpose_str} | {ec_str} | {adr_str} |"
+        )
 
     return "\n".join(lines)
+
+
+def _docstring_source(script: Path) -> Path | None:
+    """The file whose docstring describes a gate: its script, if it has one.
+
+    A gate that runs a shell function or a PATH command has no script to read;
+    for those the table carries the gate's own name as its purpose.
+    """
+    if not script or str(script) in ("", "."):
+        return None
+    candidate = sgate.repo.ROOT / script
+    return candidate if candidate.is_file() else None
 
 
 @click.command("render-registry")
 @click.option("--check", is_flag=True, help="Fail if gate-registry.md is outdated")
 @click.option("--json", is_flag=True, help="Emit machine-readable output to stdout")
 def render_registry(check: bool, json: bool) -> None:
-    """Generate docs/scripts/gate-registry.md from sgate command docstrings.
+    """Generate docs/scripts/gate-registry.md from the gate registry.
 
-    Reads all sgate/commands/*.py files, extracts first-paragraph purpose,
-    Exit codes block, and ADR reference, then writes a Markdown table.
+    The rows come from `_registry.GATES`: every registered gate gets a row, with
+    the mode the registry declares. Purpose, exit codes and the ADR reference
+    come from the docstring of the script the gate runs.
 
     Exit codes:
       0 = clean (generated successfully or --check passed)
@@ -137,7 +155,9 @@ def render_registry(check: bool, json: bool) -> None:
 
 # Gate Registry
 
-Generated from `sgate/commands/*.py` docstrings.
+Generated from `_registry.GATES` — the registry that says which gates exist and
+whether each one is blocking. Purpose, exit codes and ADR references come from
+the docstring of the script each gate runs.
 
 | Gate | Mode | Purpose | Exit Codes | ADR |
 |------|------|---------|------------|-----|"""

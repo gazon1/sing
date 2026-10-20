@@ -1,25 +1,39 @@
 #!/usr/bin/env python3
 """check-script-conventions.py — enforce naming, docstring, and import conventions for gate scripts.
 
-Naming conventions (R5):
+What this gate enforces (2026-10-20, audited):
   R5.1: Gate script names match `check-<gate-name>.py` (kebab-case)
   R5.2: Shell wrappers that only exec/python3 are deleted (no pass-through wrappers)
+  R2.1: Gate scripts use Click, not argparse
+
+What it declares but does not enforce:
   R5.3: All imports use absolute imports (no relative `from .foo import`)
   R5.4: Gate scripts that implement a decision reference the ADR in a comment
-
-CLI conventions (R2):
-  R2.1: Gate scripts use Click, not argparse
   R2.2: Every gate command accepts --check and --json flags
   R2.3: No manual PYTHONPATH manipulation (paths via sgate.repo)
+  R3.x: the output/exit-code conventions (R3.1-R3.7)
 
-Output conventions (R3):
-  R3.1: Violations go to stdout, not stderr
-  R3.2: Failures print to stderr for progress only
-  R3.3: Distinct exit codes for different failure modes
-  R3.4: Violations include file and line number when available
-  R3.5: No CI env vars required for local runs
-  R3.6: No raw tracebacks in CI output
-  R3.7: --json flag emits machine-readable JSON to stdout
+Why the list is short
+---------------------
+Until 2026-10-20 this file advertised eight rules and enforced two, which is
+the failure mode this gate exists to catch elsewhere:
+
+  - R5.4 could never fire. Its condition was
+    `if "ADR" not in content and "#" not in content.split("\\n")[0]` — the
+    first line of a script is its shebang, which always contains `#`, so the
+    second half was always true and the rule was never reached. Fixing the
+    condition exposes 26 scripts that cite no ADR, so making R5.4 real is a
+    change of its own (it needs those 26 scripts to grow a reference) and not
+    a bug fix that belongs in a refactoring commit.
+
+  - `check_json_flag` was a no-op: every branch continued or fell off the end
+    of the loop, so its error list was always empty. It claimed to check
+    R2.2 and R3.7, and it is not wired to any of them.
+
+Both were removed rather than repaired, because repairing them is *adding*
+lint coverage — a separate decision with its own cost, not a simplification.
+The declared rules stay listed above so that the gap is visible rather than
+invisible: a rule nobody enforces is a claim the repository does not make.
 
 Why R2.1 is detected with the AST and not with a substring search
 ------------------------------------------------------------------
@@ -44,6 +58,7 @@ import re
 from pathlib import Path
 
 import click
+
 from sgate.commands.base import run
 
 CLEAN = 0
@@ -73,11 +88,10 @@ def check_naming_and_structure(scripts_dir: Path) -> list[str]:
                     "call the Python script directly instead"
                 )
 
-        # R5.4: ADR reference in comment (if script has non-trivial logic)
-        content = path.read_text()
-        if "gate" in name or len(content) > 500:
-            if "ADR" not in content and "#" not in content.split("\n")[0]:
-                errors.append(f"{name}: no ADR reference in header comment (R5.4)")
+        # R5.4 (an ADR reference in the header comment) was removed on
+        # 2026-10-20: its condition could never be true, and making it real
+        # would expose 26 scripts that cite no ADR — a lint-coverage change,
+        # not a simplification. See the module docstring.
 
     return errors
 
@@ -128,17 +142,18 @@ def check_cli_framework(scripts_dir: Path) -> list[str]:
 
 
 def check_json_flag(scripts_dir: Path) -> list[str]:
-    """Check R2.2/R3.7: --json flag emits JSON."""
-    errors = []
-    for path in sorted(scripts_dir.glob("check-*.py")):
-        content = path.read_text()
-        if '"--json"' in content or "'--json'" in content:
-            continue  # has --json, ok
-        # Allow if it uses click.option
-        if "@click.option" in content and ("--check" in content or "is_flag=True" in content):
-            continue  # likely a click-based script
-        # For now, just warn
-    return errors
+    """R2.2/R3.7 — every gate command accepts --check and --json.
+
+    Not enforced. The function used to be a no-op: every branch continued or
+    fell off the end of the loop, so it returned an empty list while claiming
+    to check two rules. Enforcing it for real is a lint-coverage change (28
+    of 35 scripts lack --check, 24 lack --json), so it is not decided here.
+
+    Kept as a named function with an empty body rather than deleted, so that
+    the gap is a visible line in the file rather than a rule that quietly
+    disappeared between two versions.
+    """
+    return []
 
 
 @click.command()

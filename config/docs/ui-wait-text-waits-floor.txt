@@ -1,0 +1,22 @@
+# ui-wait-text-waits-floor — the number of Maestro waits this gate tolerates
+# without pricing them.
+#
+# Counted 2026-10-20 against Maestro/flows/**.
+#
+# A Maestro wait may name a *text* rather than an element id: `visible: "Copy to
+# profile"`, or `visible: {text: "…"}`. The kind catalogue
+# (config/docs/maestro-element-kinds.txt) is keyed by element id, so a text wait
+# has no kind and therefore no budget for this gate to hold it to.
+#
+# These waits were invisible until 2026-10-20: the scanner this gate used
+# matched a target only when it was written as `id: …`, and a wait whose target
+# was a text was skipped by a `continue` that said nothing.
+#
+# One-directional on purpose. Lowering it is the debt being paid down and needs
+# no justification; raising it is new debt and must be argued in review.
+#
+# The floor counts waits, not files: two text waits in one flow count twice,
+# because each is a wait nobody prices.
+#
+# Rewrite with: scripts/check-ui-wait-budgets.py --update-floor
+26

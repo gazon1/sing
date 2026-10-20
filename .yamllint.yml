@@ -43,9 +43,19 @@ rules:
   octal-values: disable
 
   # Kept on: a duplicate key is a silent corruption — the second value wins and
-  # nothing errors. The in-repo gate yaml_has_no_duplicate_keys catches this too
-  # via a custom PyYAML loader; this is the same property from a different parser
-  # (ruamel), so a bug in one detector does not silently disable the check.
+  # nothing errors.
+  #
+  # This is the ONLY duplicate-key detector in the repository. The in-repo gate
+  # `yaml_has_no_duplicate_keys` used to be a second one, but it ran
+  # `scripts/check-yaml-duplicate-keys.py`, and that script was deleted on
+  # 2026-10-15 (commit 9b3fa75a, "remove 26 gates across five groups") in favour
+  # of this rule. The CLI wrapper in `sgate/commands/` outlived the script it
+  # invoked and would have exited IO_ERROR on every run; it was removed on
+  # 2026-10-20.
+  #
+  # Note for the next reader: `yaml.safe_load` — which the PyYAML-based gates
+  # use — silently overwrites a duplicate key, so every gate that parses YAML
+  # with it is blind to this property. Only this rule sees it.
   key-duplicates:
     level: error
 
