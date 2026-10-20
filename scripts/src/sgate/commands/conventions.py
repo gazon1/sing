@@ -16,10 +16,15 @@ from sgate.output import gate_fail
 @click.option("--check", is_flag=True, help="Print violations without exiting non-zero (dry-run)")
 @click.option("--json", is_flag=True, help="Emit JSON output to stdout")
 def conventions(check: bool, json: bool) -> None:
-    """Run check-script-conventions.py — lint all gate scripts for R1.1–R8.2 compliance.
+    """Run check-script-conventions.py — lint the gate scripts.
 
-    Checks: docstrings (R1.1), Click over argparse (R2.1), no manual PYTHONPATH (R2.3),
-    distinct exit codes (R3.3), naming (R5.1), absolute imports (R5.3), ADR reference (R5.4).
+    Enforces: naming (R5.1), no pass-through shell wrapper (R5.2), Click over
+    argparse (R2.1).
+
+    The rules the script declares but does not enforce (R5.3, R5.4, R2.2,
+    R2.3, R3.x) are listed in its own docstring. They were removed from the
+    enforced set on 2026-10-20: R5.4 could never fire, and the `--json` check
+    was a no-op that claimed to enforce R2.2 and R3.7.
 
     Exit codes:
       0 = clean

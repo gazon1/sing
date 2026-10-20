@@ -2,31 +2,56 @@
 
 # Gate Registry
 
-Generated from `sgate/commands/*.py` docstrings.
+Generated from `_registry.GATES` — the registry that says which gates exist and
+whether each one is blocking. Purpose, exit codes and ADR references come from
+the docstring of the script each gate runs.
 
 | Gate | Mode | Purpose | Exit Codes | ADR |
 |------|------|---------|------------|-----|
-| Gate | Mode | Purpose | Exit Codes | ADR |
-|------|------|---------|------------|-----|
-| -gate-runner | unknown | sgate.commands._gate_runner — decorators for gate command execution. | — | — |
-| -parsers | unknown | sgate.commands._parsers — shared output-parser helpers for backlog gates. | — | — |
-| -registry | unknown | sgate.commands._registry — single source of truth for gate metadata. | — | — |
-| -runner | unknown | sgate.commands._runner — shared gate execution logic. | — | — |
-| adr-references-are-valid | blocking | sgate.commands.adr_references — custom gate: ADR references are valid. | — | — |
-| adr-status-policy | unknown | sgate.commands.adr_status_policy — shim for: ADR status policy. | — | — |
-| build-output-readers | unknown | sgate.commands.build_output_readers — native Click for: build-output readers ... | — | — |
-| check-benchmarks | unknown | sgate.commands.check_benchmarks — performance regression checker for gates. | — | — |
-| conventions | unknown | sgate.commands.conventions — shim for check-script-conventions.py. | — | — |
-| decisions-digest-within-budget | unknown | sgate.commands.decisions_digest_within_budget — custom gate: DIGEST.md within... | — | — |
-| gradle-test-population | unknown | sgate.commands.gradle_test_population — native Click for: gradle invocations ... | — | — |
-| info | unknown | sgate.commands.info — sgate info: show detailed gate info. | — | — |
-| light-adr-modules-stay-light | unknown | sgate.commands.adr_module_boundary — custom gate: light ADR modules must stay... | — | — |
-| render-registry | unknown | sgate.commands.render_registry — generate docs/scripts/gate-registry.md from ... | — | — |
-| room-schema-integrity | blocking | sgate.commands.room_schema_integrity — native Click for: room schema integrity. | — | — |
-| run-all | unknown | sgate.commands.run_all — sgate run-all: run all gates in parallel. | — | — |
-| settings-read-by-a-feature | blocking | sgate.commands.dead_settings — custom gate: persisted settings with no consumer. | — | — |
-| suite-docs | unknown | sgate.commands.suite_docs — run all documentation gates concurrently. | — | — |
-| suite-lint | unknown | sgate.commands.suite_lint — run all lint-rule governance gates concurrently. | — | — |
-| test-task-external-inputs-declared | blocking | sgate.commands.test_task_external_inputs_declared — native Click for: test-ta... | — | — |
-| wiring | unknown | sgate.commands.wiring — shim for check-gate-wiring.py Part A. | — | — |
-| yaml-has-no-duplicate-keys | unknown | sgate.commands.yaml_has_no_duplicate_keys — native Click for: YAML has no dup... | — | — |
+| version catalog has no literals | blocking | Build version catalog gate. | — | — |
+| gate scripts' own unit tests | blocking | gate scripts' own unit tests | — | — |
+| build-output readers precede the invocations that rewrite them | blocking | check-build-output-readers.py — a step that reads build output must read it f... | — | — |
+| gradle invocations keep one test population | blocking | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
+| waiver references resolve | blocking | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
+| test-task external inputs declared | blocking | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
+| declared dependencies are used | blocking | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
+| room schema integrity | blocking | check-room-schema-integrity.py — prove the declared schema, the exported
+sche... | — | — |
+| gates are alive | blocking | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
+| skills describe the tools that exist | blocking | check-skill-drift.py — a skill must not describe tools it no longer has (#526). | — | — |
+| workflow env context resolves | blocking | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
+| maestro flow catalogue is current | blocking | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
+| ui wait budgets are consistent | blocking | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
+| git hooks path is per-worktree | advisory | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
+| unwired surfaces | blocking | Find surfaces that are fully implemented but wired to nothing. | — | — |
+| settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
+| detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
+| detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
+| detekt rule registry | blocking | detekt rule registry | — | — |
+| detekt baseline ratchet | blocking | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. | — | — |
+| lint rules are declared decisions | blocking | check-rule-intent.py — a rule that reports findings must be a rule you chose. | — | — |
+| file-level suppressions explain themselves | blocking | check-suppression-intent.py — a file-level suppression must say what it is hi... | — | — |
+| scenario specs valid | blocking | scenario specs valid | — | — |
+| coverage matrix current | blocking | coverage matrix current | — | — |
+| coverage holes did not grow | blocking | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |
+| supabase schema is self-consistent | blocking | check-supabase-schema-integrity.py — the versioned sync schema is self-consis... | — | — |
+| sync allowlist seed matches contract | blocking | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from... | — | — |
+| workflow steps keep their exit status | blocking | check-workflow-exit-status.py — a `run:` block must not swallow its exit status. | — | — |
+| releases describe themselves | blocking | check-release-tags.py — every release must be able to describe itself. | — | — |
+| maestro selectors valid | blocking | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
+| doc dead refs | blocking | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
+| doc links | blocking | doc links | — | — |
+| GitHub workflows are valid | blocking | GitHub workflows are valid | — | — |
+| YAML is structurally valid | blocking | YAML is structurally valid | — | — |
+| gate registries agree | blocking | check_gate_registries.py — the two gate registries agree on what exists. | — | — |
+| gate registry is current | blocking | gate registry is current | — | — |
+| ci workflow shape is declared | blocking | check_ci_workflow_shape.py — the shape of the CI workflow's Gradle block. | — | — |
+| detekt governance is consistent | blocking | check_detekt_governance.py — the governance around the detekt rules. | — | — |
+| pro licence boundary | blocking | check-pro-licence-boundary.py — prove the Apache-2.0 half contains no `pro` c... | — | — |
+| provenance | blocking | check-provenance.py — a derivation marker in production code must be registered. | — | — |
+| adr references are valid | blocking | check_adr_references.py — find references to ADRs that no longer exist. | — | — |
+| flaky tests are acknowledged | blocking | check-flaky-tests.py — classify a test run against the previous one. | — | — |
+| rebase compiles | blocking | Post-rebase compile gate for DI and import-sensitive modules. | — | — |
+| test runs | blocking | check-test-runs.py — fail when a test run executed fewer tests than the basel... | — | — |
+| instrumented test floor | blocking | check-instrumented-test-floor.py — the instrumented suite's floor, and the ra... | — | — |
+| script conventions | blocking | check-script-conventions.py — enforce naming, docstring, and import conventio... | — | — |

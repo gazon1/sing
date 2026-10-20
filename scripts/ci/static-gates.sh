@@ -300,6 +300,20 @@ gate blocking "doc links" sgate doc_links
 # place, and a warning does not stop anything.
 gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
 
+# The generated gate catalogue: which gates exist, and whether each one blocks.
+#
+# `docs/scripts/gate-registry.md` is generated from `_registry.GATES`. It had
+# no freshness check anywhere — not in this file, not in check.sh — so it could
+# drift silently. It drifted: the generator read the *command modules* directory
+# rather than the registry, so the table listed private helpers (`_gate-runner`,
+# `_parsers`, `_registry`, `_runner`) as gates, missed every gate whose command
+# comes from a GateSpec, and reported `mode=unknown` for most rows.
+#
+# `--check` compares the file against what the generator produces now. The
+# generator is the registry, so a gate that is added, removed or reclassified
+# changes this table, and this gate is what says so.
+gate blocking "gate registry is current" sgate render-registry --check
+
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
 #

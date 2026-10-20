@@ -311,6 +311,22 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="gate-registry-is-current",
+        cmd=[sys.executable, "-m", "sgate", "render-registry", "--check"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        #
+        # The probe edits the *generated* table, which is the only thing this gate
+        # reads. A gate that only compared the file against itself would pass on
+        # any file; the sabotage is what makes the comparison mean something.
+        why=(
+            "a catalogue of the gates that no longer matches the registry is a "
+            "catalogue that answers questions about a gate set nobody runs — and the "
+            "reader has no way to tell, because the file looks exactly as authoritative "
+            "as the registry it drifted from"
+        ),
+    ),
+    ScriptGate(
         name="maestro-flow-catalogue",
         cmd=[sys.executable, "scripts/check-maestro-flow-catalogue.py"],
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);

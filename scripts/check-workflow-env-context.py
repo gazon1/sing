@@ -37,6 +37,7 @@ import sys
 
 import click
 import yaml
+
 from sgate.commands.base import run
 
 CLEAN = 0
@@ -168,6 +169,16 @@ def scan() -> list[dict]:
 @click.option("--check", is_flag=True, help="Dry-run: print the result without exiting non-zero")
 @click.pass_context
 def cli(ctx: click.Context, emit_json: bool, check: bool) -> None:
+    # A gate that scans nothing reports "every reference resolves" — which is
+    # exactly what it said when `.github/workflows/` was missing or renamed.
+    # An absent directory is not a clean bill of health; it is the gate not
+    # running. The sibling gate refuses the same way
+    # (scripts/check-workflow-exit-status.py:233).
+    workflows = _workflow_files()
+    if not workflows:
+        click.echo(f"::error::no workflows found under {WORKFLOWS}", err=True)
+        raise ctx.exit(IO_ERROR)
+
     findings = scan()
     if emit_json:
         click.echo(json.dumps({"findings": findings}, indent=2))

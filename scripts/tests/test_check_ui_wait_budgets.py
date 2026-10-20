@@ -52,6 +52,7 @@ class TreeFixture(unittest.TestCase):
         self.root = pathlib.Path(self._tmp.name)
         self.catalogue = self.root / 'ui-wait-budgets.txt'
         self.element_kinds = self.root / 'maestro-element-kinds.txt'
+        self.text_waits_floor = self.root / 'ui-wait-text-waits-floor.txt'
         self.shell_probe = self.root / 'ShellProbe.kt'
         self.maestro = self.root / 'Maestro'
 
@@ -59,12 +60,14 @@ class TreeFixture(unittest.TestCase):
             mod.ROOT,
             mod.CATALOGUE,
             mod.ELEMENT_KINDS,
+            mod.TEXT_WAITS_FLOOR,
             mod.SHELL_PROBE,
             mod.MAESTRO_DIR,
         )
         mod.ROOT = self.root
         mod.CATALOGUE = self.catalogue
         mod.ELEMENT_KINDS = self.element_kinds
+        mod.TEXT_WAITS_FLOOR = self.text_waits_floor
         mod.SHELL_PROBE = self.shell_probe
         mod.MAESTRO_DIR = self.maestro
 
@@ -73,6 +76,7 @@ class TreeFixture(unittest.TestCase):
             mod.ROOT,
             mod.CATALOGUE,
             mod.ELEMENT_KINDS,
+            mod.TEXT_WAITS_FLOOR,
             mod.SHELL_PROBE,
             mod.MAESTRO_DIR,
         ) = self._saved
@@ -83,6 +87,9 @@ class TreeFixture(unittest.TestCase):
 
     def write_element_kinds(self, text):
         self.element_kinds.write_text(text, encoding='utf-8')
+
+    def write_text_waits_floor(self, count=0):
+        self.text_waits_floor.write_text(f"{count}\n", encoding='utf-8')
 
     def write_shell_probe(self, text=SHELL_PROBE_SOURCE):
         self.shell_probe.write_text(text, encoding='utf-8')
@@ -156,6 +163,26 @@ appId: com.singularity.todo
     visible:
       id: menu_settings
     timeout: 5000
+"""
+
+# A wait whose target is a *text* rather than an element id. No kind prices
+# it: the catalogue is keyed by element id.
+FLOW_FOR_A_TEXT = """\
+appId: com.singularity.todo
+---
+- extendedWaitUntil:
+    visible: "Copy to profile"
+    timeout: 8000
+"""
+
+# The same thing written as a mapping — the other shape the corpus uses.
+FLOW_FOR_A_TEXT_AS_MAPPING = """\
+appId: com.singularity.todo
+---
+- extendedWaitUntil:
+    visible:
+      text: "Copy to profile"
+    timeout: 8000
 """
 
 
@@ -288,6 +315,7 @@ class ScanTest(TreeFixture):
     def test_a_tree_that_agrees_has_no_findings(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_BUDGET)
         self.assertEqual([], mod.scan())
@@ -295,6 +323,7 @@ class ScanTest(TreeFixture):
     def test_a_maestro_wait_below_its_kind_budget_is_a_finding(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_OTHER_BUDGET)
         findings = mod.scan()
@@ -306,6 +335,7 @@ class ScanTest(TreeFixture):
     def test_a_maestro_wait_without_a_timeout_is_a_finding(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_WITHOUT_TIMEOUT)
         findings = mod.scan()
@@ -315,6 +345,7 @@ class ScanTest(TreeFixture):
     def test_an_element_nobody_budgeted_is_a_finding(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_FOR_UNMAPPED_ELEMENT)
         findings = mod.scan()
@@ -325,13 +356,74 @@ class ScanTest(TreeFixture):
     def test_a_wait_for_another_budgeted_element_is_not_a_finding(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_FOR_OTHER_ELEMENT)
         self.assertEqual([], mod.scan())
 
+    def test_a_wait_for_a_text_is_counted_and_priced_by_the_floor(self):
+        """A wait naming a text is not priced by any kind — but it is counted.
+
+        The scanner this gate used matched a target only when it was written as
+        `id: …`, so a wait whose target was a text was skipped by a `continue`
+        that said nothing. 26 of 435 waits in the committed corpus were invisible
+        that way, and the gate reported "consistent" over a corpus it had only
+        partly read.
+        """
+        self.write_catalogue(CATALOGUE)
+        self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
+        self.write_shell_probe()
+        self.write_flow('flows/smoke/01.yaml', FLOW_FOR_A_TEXT)
+
+        # At floor 1 the wait is tolerated.
+        self.write_text_waits_floor(1)
+        self.assertEqual([], mod.scan())
+
+        # At floor 0 it is a finding: a wait nobody prices is a wait nobody
+        # keeps in step.
+        self.write_text_waits_floor(0)
+        findings = mod.scan()
+        self.assertEqual(1, len(findings))
+        self.assertEqual('more waits than the floor allows', findings[0]['kind'])
+        self.assertIn('text', findings[0]['detail'])
+
+    def test_a_text_wait_written_as_a_mapping_is_counted_too(self):
+        """`visible: {text: "…"}` is the other shape a text target takes."""
+        self.write_catalogue(CATALOGUE)
+        self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor(0)
+        self.write_shell_probe()
+        self.write_flow('flows/smoke/01.yaml', FLOW_FOR_A_TEXT_AS_MAPPING)
+
+        findings = mod.scan()
+        self.assertEqual(1, len(findings))
+        self.assertEqual('more waits than the floor allows', findings[0]['kind'])
+
+    def test_a_wait_with_a_budgeted_id_is_not_counted_as_a_text_wait(self):
+        """An id-bearing wait is priced by its kind; it is not unpriced debt."""
+        self.write_catalogue(CATALOGUE)
+        self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor(0)
+        self.write_shell_probe()
+        self.write_flow('flows/smoke/01.yaml', FLOW_AT_BUDGET)
+        self.assertEqual([], mod.scan())
+
+    def test_a_missing_floor_is_an_error_rather_than_zero(self):
+        """A floor that cannot be read is a floor that cannot fail."""
+        self.write_catalogue(CATALOGUE)
+        self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
+        self.write_shell_probe()
+        self.write_flow('flows/smoke/01.yaml', FLOW_AT_BUDGET)
+        self.text_waits_floor.unlink()
+        with self.assertRaises(click.ClickException):
+            mod.scan()
+
     def test_a_kind_budget_that_disagrees_with_the_instrumented_shell_is_a_finding(self):
         self.write_catalogue(CATALOGUE.replace('kind shell 30000', 'kind shell 12000'))
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow(
             'flows/smoke/01.yaml',
@@ -349,6 +441,7 @@ class ScanTest(TreeFixture):
         self.write_element_kinds(
             ELEMENT_KINDS.replace('nav_tab_today shell', 'nav_tab_today tab')
         )
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow(
             'flows/smoke/01.yaml',
@@ -364,6 +457,7 @@ class ScanTest(TreeFixture):
     def test_a_kind_budget_below_the_floor_is_a_finding(self):
         self.write_catalogue(CATALOGUE.replace('kind menu 5000', 'kind menu 1000'))
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_BUDGET)
         findings = mod.scan()
@@ -373,6 +467,7 @@ class ScanTest(TreeFixture):
     def test_a_constant_that_drifted_from_the_catalogue_is_a_finding(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe(
             SHELL_PROBE_SOURCE.replace('SHELL_TIMEOUT_MS = 30_000L', 'SHELL_TIMEOUT_MS = 8_000L')
         )
@@ -384,6 +479,7 @@ class ScanTest(TreeFixture):
     def test_a_constant_the_catalogue_does_not_carry_is_a_finding(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe(
             SHELL_PROBE_SOURCE + '\ninternal const val POPUP_TIMEOUT_MS = 5_000L\n'
         )
@@ -399,6 +495,7 @@ class ScanTest(TreeFixture):
             'kind button 5000\nkind item 8000\nkind dialog 5000\n'
         )
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_BUDGET)
         findings = mod.scan()
@@ -422,6 +519,9 @@ class RepositoryAgreementTest(unittest.TestCase):
             )
             (root / 'config' / 'docs' / 'maestro-element-kinds.txt').write_text(
                 ELEMENT_KINDS, encoding='utf-8'
+            )
+            (root / 'config' / 'docs' / 'ui-wait-text-waits-floor.txt').write_text(
+                '0\n', encoding='utf-8'
             )
             probe = root / 'androidApp' / 'src' / 'androidTest' / 'kotlin' / 'com' / 'singularity' / 'todo' / 'ui'
             probe.mkdir(parents=True)
@@ -460,6 +560,7 @@ class CliContractTest(TreeFixture):
     def test_a_clean_tree_exits_zero(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_BUDGET)
         self.assertEqual(0, mod.main(['--quiet']))
@@ -467,6 +568,7 @@ class CliContractTest(TreeFixture):
     def test_a_tree_with_a_finding_exits_one(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_OTHER_BUDGET)
         self.assertEqual(1, mod.main(['--quiet']))
@@ -474,6 +576,7 @@ class CliContractTest(TreeFixture):
     def test_json_output_carries_the_findings(self):
         self.write_catalogue(CATALOGUE)
         self.write_element_kinds(ELEMENT_KINDS)
+        self.write_text_waits_floor()
         self.write_shell_probe()
         self.write_flow('flows/smoke/01.yaml', FLOW_AT_OTHER_BUDGET)
         import io
