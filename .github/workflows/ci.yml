@@ -495,10 +495,13 @@ jobs:
       # the difference flaky — which is the one thing a flake measurement must not
       # do. It ran after `Coverage floors`, `Coverage table` and
       # `Kover verify (detekt-rules)`, any of which pulls the shared test task.
-      - name: Flake analysis vs previous run (advisory)
+      #
+      # Advisory: the step is soft (`continue-on-error`), and a soft step
+      # nobody declares is a step that reads as a gate. The name says what the
+      # step is; this comment says what kind of step it is.
+      - name: Late flake pass (advisory)
         if: ${{ !cancelled() }}
         continue-on-error: true
-        name: Late flake pass
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ github.head_ref || github.ref_name }}

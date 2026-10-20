@@ -90,7 +90,7 @@ NOT_RUN_IN_STATIC: dict[str, Placement] = {
             "test-results/jvmTest`. It cannot be a gate line: the static job runs "
             "before any test has run, so the directory it reads does not exist."
         ),
-        tracked_by=".github/workflows/ci.yml#Late flake pass",
+        tracked_by=".github/workflows/ci.yml#Late flake pass (advisory)",
     ),
     "gates are alive": Placement(
         reason=(
