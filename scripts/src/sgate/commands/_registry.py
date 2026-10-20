@@ -621,7 +621,9 @@ _REGISTERED: tuple[GateSpec, ...] = (
     ),
     GateSpec(
         name="script conventions",
-        mode=GateMode.ADVISORY,
+        # Blocking: the corpus is green now that the rule reads the AST, so the
+        # gate can stop a change instead of only reporting it.
+        mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
@@ -703,8 +705,8 @@ GATE_CONTROLS: dict[str, Control] = {
         path='.github/workflows/ci.yml',
         edit=Edit(
             kind='replace',
-            old='          set -o pipefail\\n          ./gradlew --continue \\\\n',
-            new='          ./gradlew --continue \\\\n',
+            old='          set -o pipefail\n          ./gradlew --continue \\\n',
+            new='          ./gradlew --continue \\\n',
             count=1,
         ),
         why=(

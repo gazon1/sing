@@ -191,506 +191,55 @@ def check_wiring() -> list[str]:
 Control = Callable[[Path], None]
 
 
-def _replace(old: str, new: str, *, count: int = -1) -> Control:
-    """Substitute `old` → `new`, refusing when `old` is not in the file.
-
-    The refusal is the point. Four controls in this registry once matched
-    nothing after their target moved on (the test-runs floor, the Room schema
-    version, an unwired-backlog anchor, a README schema claim): `replace`
-    changed nothing, the gate read an untouched file, correctly passed, and the
-    harness reported a control that had proved nothing. A no-op control is
-    worse than no control — it is reported as a passing one.
-    """
-
-    def control(p: Path) -> None:
-        text = p.read_text(encoding="utf-8")
-        assert old in text, f"sabotage would be a no-op: {old[:60]!r} not in {p}"
-        p.write_text(text.replace(old, new, count), encoding="utf-8")
-
-    return control
 
 
-def _regex_sub(pattern: str, repl: str, *, count: int = 1, flags: int = 0) -> Control:
-    """`re.subn` with the match asserted, so a value that moved cannot no-op."""
-
-    def control(p: Path) -> None:
-        text = p.read_text(encoding="utf-8")
-        new, n = re.subn(pattern, repl, text, count=count, flags=flags)
-        assert n >= 1, f"sabotage would be a no-op: {pattern!r} matched nothing in {p}"
-        p.write_text(new, encoding="utf-8")
-
-    return control
 
 
-def _append(text: str) -> Control:
-    """Append text — the shape for "introduce the thing this gate hunts"."""
-
-    def control(p: Path) -> None:
-        p.write_text(p.read_text(encoding="utf-8") + text, encoding="utf-8")
-
-    return control
 
 
-def _drop_lines(needle: str) -> Control:
-    """Delete every line containing `needle`; at least one must exist."""
-
-    def control(p: Path) -> None:
-        lines = p.read_text(encoding="utf-8").splitlines()
-        kept = [ln for ln in lines if needle not in ln]
-        assert len(kept) < len(lines), f"sabotage would be a no-op: no line with {needle!r} in {p}"
-        p.write_text("\n".join(kept) + "\n", encoding="utf-8")
-
-    return control
 
 
 _BACKLOG_FIELD_RE = re.compile(r"(?i)^\s*Backlog:\s*[^\n]+", re.M)
 
-def _add_then_remove_backlog_field(p: Path) -> None:
-    """backlog-issue-refs sabotage: add a Backlog field to one OPEN issue, then remove it.
-
-    The snapshot has 94 OPEN issues and none carry a Backlog field — the gate is
-    already failing on a clean tree. A plain "remove Backlog field" sabotage fails
-    with "no OPEN issue has a Backlog field to remove".
-
-    The fix: the sabotage adds a Backlog field to the first OPEN issue that lacks
-    one. This changes the gate's verdict from "94 issues missing Backlog" to
-    "93 issues missing Backlog" — still failing, but measurably different.
-    A subsequent sabotage run (or restore) removes that same field, returning to
-    the 94-missing state. The control is the delta in the gate's error count.
-    """
-    import json as _json
-
-    data = _json.loads(p.read_text(encoding="utf-8"))
-    for item in data:
-        if item.get("state") != "OPEN":
-            continue
-        body = item.get("body") or ""
-        if _BACKLOG_FIELD_RE.search(body):
-            continue  # already has one — skip
-        # Add a Backlog field at the end of the body.
-        item["body"] = body.rstrip("\n") + "\n\nBacklog: gazon-sabotage-probe\n"
-        p.write_text(_json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        return
-    raise AssertionError("sabotage would be a no-op: no OPEN issue without a Backlog: field")
 
 
-def _age_directory(days: int) -> Control:
-    """Set a directory's mtime into the past — for gates that read staleness."""
-
-    def control(p: Path) -> None:
-        old = time.time() - days * 86400
-        os.utime(p, (old, old))
-
-    return control
 
 
 # Controls that fit no builder: they move git state or reshape a block of lines
 # rather than substitute one string. They are ordinary functions for the same
 # reason the builders exist — a control is read, parsed and debugged once.
-def _hooks_path_sabotage(p: Path) -> None:
-    """Set `core.hooksPath` and untrack the hooks; content alone cannot undo it."""
-    repo = p.parent.parent
-    subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=repo, check=True)
-    subprocess.run(["git", "rm", "-r", "--cached", "-q", ".githooks"], cwd=repo, check=True)
 
 
-def _hooks_path_restore(p: Path) -> None:
-    """Put the hooks back in the index — see `ScriptGate.sabotage_restore`."""
-    subprocess.run(["git", "add", "--", ".githooks"], cwd=p.parent.parent, check=True)
 
 
-def _strip_suppression_reason(p: Path) -> None:
-    """suppression-intent: remove the comment justification under `@file:Suppress`."""
-    lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
-    assert lines[0].startswith("@file:Suppress"), "unexpected file shape"
-    assert lines[1].lstrip().startswith("//"), "no reason line to strip"
-    out, dropped = [lines[0]], 0
-    for line in lines[1:]:
-        if line.lstrip().startswith("//"):
-            dropped += 1
-            continue
-        if dropped and not line.strip():
-            continue
-        out.append(line)
-    assert dropped >= 2, f"expected a multi-line reason, found {dropped}"
-    p.write_text("".join(out), encoding="utf-8")
 
 
-@dataclass(frozen=True)
-class ScriptGate:
-    """A script gate plus the single input change that must make it fail."""
-
-    name: str
-    cmd: list[str]
-    sabotage_path: str
-    sabotage: Control
-    why: str
-    # A directory target is restored by mtime, not by content: `check-openspec-stale`
-    # reads staleness from `stat().st_mtime`, so a content comparison would report
-    # a failed restore for a mutation that was correct.
-    target_is_dir: bool = False
-    # When True, this control is skipped on a dirty tree (partial test results
-    # on disk from a filtered --tests run). The sabotage raises the floor above
-    # any plausible count, so it can only fail on a tree with a full-suite XML.
-    sabotage_requires_clean_tree: bool = False
-    # True when the gate has a meaningful clean-tree invocation. When False, the
-    # clean-tree guard is waived — use for gates that are known to fail on a clean
-    # tree due to un-triaged real state (e.g. open entries tracking closed issues).
-    needs_clean_run: bool = True
-    # Extra restoration, run after the content is put back.
-    #
-    # The default restore is `write_text(original)` and that restores *content* only.
-    # A sabotage that also changes git state — `git rm --cached` is the one that
-    # mattered — therefore left the index describing a different tree than the files
-    # on disk, and the residue survived into the next run: `.githooks/pre-push` came
-    # back as "deleted in index, present untracked", which is exactly the condition
-    # check-hooks-path.py is supposed to report. The control was breaking the gate it
-    # was proving.
-    #
-    # So a sabotage that touches anything but file content must say how to put it
-    # back. Leaving this empty for such a sabotage is the bug this field exists for.
-    sabotage_restore: Control | None = None
 
 
-SCRIPT_GATES = [
-    ScriptGate(
-        name="detekt-registrations",
-        cmd=["./scripts/check-detekt-registrations.sh"],
-        sabotage_path="config/detekt/detekt.yml",
-        sabotage=_replace('no-runblocking:\n  NoRunBlocking:\n    active: true\n', ''),
-        why="a RuleSetId with no detekt.yml block never loads, so the rule never runs",
-    ),
-    ScriptGate(
-        name="baseline-ratchet",
-        cmd=[sys.executable, "scripts/check-baseline-ratchet.py"],
-        sabotage_path="config/detekt/baseline-shared.xml",
-        sabotage=_replace('</CurrentIssues>', '    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>'),
-        why="a baseline that can grow silently stops being a ratchet and becomes a sink",
-    ),
-    ScriptGate(
-        name="hooks-path",
-        cmd=[sys.executable, "scripts/check-hooks-path.py", "--quiet"],
-        # Untrack *every* hook, not one. The gate asks "does the configured hooks
-        # directory contain tracked files?", so removing a single hook while three
-        # others stay tracked is a state the gate is right to accept — and a control
-        # that expects it to fail proves nothing. The first version of this control
-        # emptied one file, which the gate correctly ignored.
-        sabotage_path=".githooks/pre-push",
-        # Set core.hooksPath as part of the sabotage: on a CI runner the config
-        # is unset, so the gate takes its "unset → advisory, exit 0" branch and
-        # passes no matter what — the control would prove nothing (and did, on
-        # the first CI run that reached it, 2026-10-11). Setting it to .githooks
-        # is what a correctly configured machine already has; the restore leaves
-        # it there, which is the value the gate itself recommends.
-        sabotage=_hooks_path_sabotage,
-        # Content restore alone cannot undo this one — see `sabotage_restore`.
-        sabotage_restore=_hooks_path_restore,
-        why=(
-            "hooks travel with the repository; local git config does not. A configured "
-            "hooks path with nothing tracked under it is a gate that reports success "
-            "because nothing ever asked it a question"
-        ),
-    ),
-    ScriptGate(
-        name="skill-drift",
-        cmd=[sys.executable, "scripts/check-skill-drift.py"],
-        # A wrong command name *inside* the generated block. Editing it by hand is
-        # exactly the mistake the gate exists to catch, and it is a content change
-        # the default restore puts back — no index games, no custom restore.
-        sabotage_path=".agents/skills/singularity-todo-decisions-workflow/SKILL.md",
-        sabotage=_replace('`singularity-adr validate`', '`singularity-adr verifai`', count=1),
-        why=(
-            "a skill that lists commands the tool does not have sends an agent to run "
-            "something that does not exist"
-        ),
-    ),
-    ScriptGate(
-        name="dead-settings",
-        cmd=[sys.executable, "scripts/check-dead-settings.py", "--quiet"],
-        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
-        # this entry exists so Part B proves the gate can actually fail.
-        #
-        # It used to remove a baseline entry, so the field it exempts became
-        # reportable. That was a good control while the baseline carried one —
-        # it exercised the whole chain, waiver to report — and it became a
-        # control that proved nothing twice: first when `Notifications.reminderDefault`
-        # got wired (#657) and the baseline no longer needed it, then when
-        # `Notifications.sound` stopped being dead because `PLUMBING` was
-        # narrowed to file kinds. Both times the match went stale and the
-        # control raised "sabotage would be a no-op".
-        #
-        # Then the weekend flags were wired and their waivers were removed, and
-        # the baseline became empty — which left the control matching a line
-        # that only existed in a *comment* and changing that, while the gate
-        # correctly stayed green. A control that edits a file without changing
-        # what the gate reads is not a control.
-        #
-        # So the sabotage now goes at the gate's own promise: a persisted
-        # setting that no feature reads. It adds a field to the settings model,
-        # and the gate must report it.
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
-        why="a persisted setting rendered in Settings and read by no feature is a " +
-            "control that looks like it works; every baseline line is a claim that " +
-            "needs its own justification",
-    ),
-    ScriptGate(
-        name="sync-allowlist-regenerated",
-        cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt",
-        sabotage=_replace(
-            '"aiSuppressedTagIds",',
-            '"aiSuppressedTagIds",\n        "sabotage_probe_field",',
-        ),
-        why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
-    ),
-    ScriptGate(
-        name="provenance",
-        cmd=[sys.executable, "scripts/check-provenance.py"],
-        # The registry, not a source file. Sabotaging a source file would prove the
-        # wrong direction: every PORTED file already carries a marker, so removing
-        # one would test nothing. Removing a *row* is the honest control — it
-        # leaves a file naming an upstream with no registry entry, which is the
-        # exact state the gate was written to reject.
-        sabotage_path="config/legal/provenance-registry.tsv",
-        sabotage=_drop_lines('QueryTokenizer'),
-        why="a GPL upstream named in production code with no registry row is a licence claim nobody is tracking",
-    ),
-    ScriptGate(
-        name="pro-licence-boundary",
-        cmd=[sys.executable, "scripts/check-pro-licence-boundary.py"],
-        # The vendor dependency, reintroduced into a free build file. That is the exact
-        # regression this gate exists to catch: `ru.ok.tracer` was a direct `implementation`
-        # dependency of `:shared` and `:androidApp` until 2026-10-05, so it is a change
-        # that has already happened once and can happen again by copy-paste.
-        sabotage_path="shared/build.gradle.kts",
-        sabotage=_append('\ndependencies { implementation("ru.ok.tracer:tracer-crash-report:1.4.0") }\n'),
-        why="proprietary code in an Apache-2.0 module makes the published licence a claim the project cannot honour",
-    ),
-    ScriptGate(
-        name="traceability-ratchet",
-        cmd=[sys.executable, "scripts/check-traceability-ratchet.py"],
-        # A spec, not the floor file. The floor is the gate's own configuration,
-        # so raising it is a legitimate edit that must not be read as a
-        # regression — the control has to make the *corpus* worse instead. This
-        # is the shape of the change the gate exists for: claiming one more
-        # target on a scenario that has no carrier for it. The `assert` is what
-        # stops the control silently becoming a no-op if the spec is ever
-        # reformatted — the failure this file was written for, and it already
-        # happened once to the test-runs control.
-        sabotage_path="scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml",
-        sabotage=_regex_sub(r'^targets: \[android\]$', 'targets: [android, desktop]', flags=re.M),
-        why="a scenario claiming a target nothing verifies is the one hole count that grows without anyone reading the diff",
-    ),
-    ScriptGate(
-        name="workflow-exit-status",
-        cmd=[sys.executable, "scripts/check-workflow-exit-status.py"],
-        # The defect this gate exists for, restored exactly: four CI steps piped their
-        # output into `tee`/`tail` and inherited that command's exit status, so a failing
-        # `./gradlew` — 109 detekt findings on main — reported success. The sabotage puts
-        # the pipe back on the step that runs every test and detekt task.
-        sabotage_path=".github/workflows/ci.yml",
-        sabotage=_replace(
-            "          set -o pipefail\n          ./gradlew --continue \\\n",
-            "          ./gradlew --continue \\\n",
-        ),
-        why=(
-            "a step whose status is the pipeline's last command cannot fail on its "
-            "producer; the JVM job stayed green through 109 detekt findings for that reason"
-        ),
-    ),
-    ScriptGate(
-        name="workflow-env-context",
-        cmd=[sys.executable, "scripts/check-workflow-env-context.py"],
-        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
-        # this entry exists so Part B proves the gate can actually fail.
-        sabotage_path=".github/workflows/e2e.yml",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
-        why=(
-            "the `env` context holds the variables a workflow defines, not the "
-            "runner's environment, so `${{ env.ANDROID_HOME }}` expands to the empty "
-            "string and a path built from it names nothing — silently, with no warning"
-        ),
-    ),
-    ScriptGate(
-        name="maestro-flow-catalogue",
-        cmd=[sys.executable, "scripts/check-maestro-flow-catalogue.py"],
-        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
-        # this entry exists so Part B proves the gate can actually fail.
-        sabotage_path="config/docs/maestro-flows.txt",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
-        why=(
-            "a flow removed from the tree without a word leaves the suite smaller "
-            "and the run green — the run reports the flows that are left, so the "
-            "one that is gone is only visible in a diff nobody reads"
-        ),
-    ),
-    ScriptGate(
-        name="ui-wait-budgets",
-        cmd=[sys.executable, "scripts/check-ui-wait-budgets.py"],
-        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
-        # this entry exists so Part B proves the gate can actually fail.
-        sabotage_path="config/docs/ui-wait-budgets.txt",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
-        why=(
-            "the instrumented suite and the Maestro flows wait for the same screen "
-            "from two runners that cannot share a constant, and they drifted apart "
-            "until the instrumented suite's 8 s made `android-device-tests` red on "
-            "every run of `main` — one written budget is what keeps them honest"
-        ),
-    ),
-    ScriptGate(
-        name="release-tags",
-        cmd=[sys.executable, "scripts/check-release-tags.py"],
-        # A tag that produced no release is the failure this gate was written after:
-        # `meta` proved the tag was on main with a green CI run, `publish` still did
-        # not run, and the run ended with a red X that nobody read as "no release
-        # exists". Three tags had already done it. Appending an unreleased tag to the
-        # snapshot reproduces exactly that state — recorded as neither released nor
-        # excused in `tags_without_release`.
-        sabotage_path="config/docs/releases-snapshot.json",
-        sabotage=_replace(
-            '    "v0.2.1-rc.1"\n  ],',
-            '    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],',
-        ),
-        why=(
-            "a tag whose pipeline ran to green `meta` and produced no release leaves "
-            "the version tagged but unshipped, and nothing in the pipeline says so"
-        ),
-    ),
-    ScriptGate(
-        name="room-schema-integrity",
-        cmd=[sys.executable, "scripts/check-room-schema-integrity.py"],
-        # The exact defect this gate was written after: `SyncColumns.server_version`
-        # was added to `sync_shadow`, the export moved to 37, and `SCHEMA_VERSION`
-        # stayed at 36. Room's identity-hash check then failed for every user with
-        # an existing database — an `IllegalStateException` at first query, invisible
-        # to a suite whose tests each create their own database. Sabotaging the
-        # annotation reproduces that state, so the control is the real bug rather
-        # than a convenient one.
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt",
-        # The value is matched by regex and the match is asserted, never replaced by
-        # a literal. This entry had `SCHEMA_VERSION = 37` hardcoded; the schema moved
-        # to 38, `replace` silently found nothing, the gate was handed an unmodified
-        # file and correctly passed — and the control reported "it cannot detect
-        # this", which reads like a broken gate rather than a broken control. A
-        # control that quietly stops sabotaging is worse than no control, because it
-        # is reported as a passing one. The `assert` makes the no-op loud instead.
-        sabotage=_regex_sub(r'const val SCHEMA_VERSION = \d+', 'const val SCHEMA_VERSION = 1'),
-        why="an entity change without a version bump passes every test and crashes every existing install on upgrade",
-    ),
-    ScriptGate(
-        name="dependency-usage",
-        cmd=[sys.executable, "scripts/check-dependency-usage.py", "--quiet"],
-        sabotage_path="scripts/dependency-usage-allowlist.txt",
-        # The gate runs against the repository, so the control can use the same
-        # invocation and the same target every time — no fabricated resolution,
-        # no Gradle, and no second input format to keep honest. Dropping one
-        # allowlist line turns that dependency into a finding the gate must
-        # report, which is exactly the moment the list stops matching reality.
-        sabotage=_drop_lines('kermit-koin'),
-        why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one",
-    ),
-    ScriptGate(
-        name="supabase-schema-integrity",
-        cmd=[sys.executable, "scripts/check-supabase-schema-integrity.py"],
-        # A migration, not a source file. The gate's subject is the agreement between a
-        # file's header and its body, so the control has to move the body: appending a
-        # function with no fingerprint is exactly what an edit to the schema looks like
-        # before anyone re-derives the md5s, and it is the failure the gate exists for.
-        #
-        # Corrupting a fingerprint's *value* would have proved nothing. The gate has no
-        # database, so it cannot know the correct md5; a control asserting a value it cannot
-        # verify would be asserting the gate's own limit rather than testing the rule.
-        sabotage_path="supabase/migrations/2026-10-07-sync_schema.sql",
-        sabotage=_append(
-            "\ncreate or replace function public.sync_control_probe(p_type text)\n"
-            "returns text as $$ select p_type $$ language sql;\n"
-        ),
-        why="a function added without a fingerprint makes the header understate the schema, and the "
-             "header is the part a reader trusts; the live half of #221 needs credentials and stays "
-             "manual, so this is the half that can be a gate",
-    ),
-    # doc-dead-refs: sabotage is in GATE_CONTROLS, filled by _prefer_registry_controls.
-    # Part J requires a ScriptGate entry here so the control is recognised as present.
-    #
-    # `--strict` in the command, because the gate itself runs strict (the registry
-    # passes it as a script argument). A control whose clean run is more lenient
-    # than the gate it proves would pass on a tree the gate rejects — the control
-    # would certify a state the build never accepts.
-    ScriptGate(
-        name="doc-dead-refs",
-        cmd=[sys.executable, "scripts/check-doc-dead-refs.py", "--strict"],
-        sabotage_path="README.md",
-        sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
-        why="a new dead reference must fail until baselined",
-    ),
-    # The two cluster gates. Their members keep their own entries below, each
-    # with its own control — a control proves that a check can fail, and one
-    # control for a cluster of six would prove only that something in it can
-    # fail. These two entries prove that the aggregate reports a member's
-    # failure rather than swallowing it.
-    ScriptGate(
-        name="ci-workflow-shape",
-        cmd=[sys.executable, "scripts/check-ci-workflow-shape.py"],
-        sabotage_path="shared/build.gradle.kts",
-        sabotage=_replace(
-            '    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n'
-            '        .withPropertyName("maestroFlows")\n'
-            '        .withPathSensitivity(PathSensitivity.RELATIVE)\n',
-            '',
-        ),
-        why="a cluster that swallowed a member's failure would be one green row over three red checks",
-    ),
-    ScriptGate(
-        name="detekt-governance",
-        cmd=[sys.executable, "scripts/check-detekt-governance.py"],
-        sabotage_path="config/detekt/baseline-shared.xml",
-        sabotage=_replace(
-            '</CurrentIssues>',
-            '    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>',
-            count=1,
-        ),
-        why="a cluster that swallowed a member's failure would be one green row over six red checks",
-    ),
-    # gate-registries: the gate that compares the two registries against each
-    # other. Its input is the shell registry, so the sabotage adds a gate line
-    # the Python registry does not know — the exact shape of drift the gate
-    # exists to report. A control that broke the Python side instead would
-    # prove the same property, but this one breaks the side the gate reads.
-    ScriptGate(
-        name="gate-registries",
-        cmd=[sys.executable, "scripts/check-gate-registries.py", "--strict"],
-        sabotage_path="scripts/ci/static-gates.sh",
-        sabotage=_replace(
-            'main() {\n',
-            'main() {\ngate blocking "phantom gate the registry does not know" '
-            'python3 scripts/check-nothing.py\n',
-        ),
-        why="a gate line the Python registry does not know is drift the gate must report",
-    ),
-    # doc-links: the lychee gate. The command is the wrapper script, so
-    # `_control_identity` resolves it to the same path the registry knows and
-    # Part J can join the two. The sabotage appends a *markdown link* to a file
-    # that does not exist, which is what this gate and only this gate looks at
-    # — `check-doc-dead-refs.py` matches backticked paths, so the same text
-    # would pass it. That is the point: the two gates cover different shapes of
-    # reference, and a control that only one of them can fail proves nothing
-    # about the other.
-    ScriptGate(
-        name="doc-links",
-        cmd=["./scripts/check-doc-links.sh"],
-        sabotage_path="docs/agents/domain.md",
-        sabotage=_append('\nSee [DefinitelyNotAFile](docs/decisions/DefinitelyNotAFile.md) for details.\n'),
-        why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
-    ),
-    # backlog-issue-refs: removed — the gate and its script are gone, and the
-    # snapshot it policed (94 OPEN issues, none with a Backlog field) was the
-    # failure state it detected, so no control could tell "clean run" from
-    # "sabotaged run": both exited 1. See the 2026-10-19 ADR on the three
-    # removed gates.
-]
 
+
+# ── The control machinery ──────────────────────────────────────────────────────
+#
+# The appliers, the gate records and the control tables live in
+# `scripts/src/sgate/gate_controls.py`. They used to live here, next to the
+# Parts, and a control was declared twice — as data in the registry and as a
+# hand-written twin in this file. The registry is the only place a control is
+# declared now; this file keeps what the registry cannot know: the command a
+# control runs, and the harness flags around it.
+#
+# The import is path-disciplined: `scripts/src` goes first, so the sgate this
+# gate reads is this checkout's, not whatever an editable install points at.
+_SRC = Path(__file__).resolve().parent / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from sgate.gate_controls import (  # noqa: E402
+    FIXTURE_GATES,
+    SCRIPT_GATES,
+    FixtureGate,
+    ScriptGate,
+    control_from_edit,
+)
 
 # ── Part F: every gate-shaped script is registered ─────────────────────────
 #
@@ -716,32 +265,6 @@ SCRIPT_GATES = [
 # against its own control (non-zero). An entry that was not measured is not
 # here.
 
-@dataclass(frozen=True)
-class FixtureGate:
-    """A gate whose input is synthesised rather than mutated.
-
-    `setup` writes whatever the gate reads into a temporary directory — a
-    directory of JUnit XML, a captured Gradle log, a Kover report — and
-    `cmd` is then run with `{tmp}` substituted, and must exit non-zero.
-    It is a function rather than source text for the same reason controls
-    are: written once, parsed once, at import.
-
-    `needs_clean_run` records whether the gate can be run at all without its
-    input. One of the three here cannot: `check-flaky-tests.py` requires
-    `--current`, so there is no invocation that means "the clean repository" to it. The clean-run
-    guard is not weakened for them — it is *inapplicable*, and saying so
-    explicitly is the point. A guard that is silently skipped for an unstated
-    reason is the same defect one level up: a check that cannot run, reported
-    as a check that passed.
-    """
-
-    name: str
-    cmd: list[str]
-    setup: Callable[[Path], None]
-    why: str
-    # True when the gate has a meaningful clean-tree invocation, i.e. the
-    # "already red would mask the sabotage" guard applies.
-    needs_clean_run: bool = True
 
 
 # ── Fixture inputs ──────────────────────────────────────────────────────────
@@ -749,101 +272,14 @@ class FixtureGate:
 # `'...\\n'` concatenation with every embedded quote doubled; as functions they
 # are the files they write.
 
-def _setup_flaky_tests(root: Path) -> None:
-    """One test failing now that passed in the previous run."""
-    suite = ('<testsuite name="{n}" tests="1" failures="{f}">'
-             '<testcase classname="A" name="{n}">{b}</testcase></testsuite>')
-    for sub, state in (("cur", "fail"), ("prev", "pass")):
-        d = root / sub
-        d.mkdir(parents=True, exist_ok=True)
-        body = '<failure message="boom"/>' if state == "fail" else ""
-        (d / "TEST-A.xml").write_text(
-            suite.format(n="one", f=1 if state == "fail" else 0, b=body)
-        )
-
-
-def _setup_measure_flake_rate(root: Path) -> None:
-    """Two runs that flip status plus an empty baseline: an unacknowledged flake.
-
-    run-01 passes, run-02 fails — a status flip (Flake A). An empty baseline
-    means the flip is unacknowledged, so the gate must report it and exit
-    non-zero. A regression that swallows the flip would exit 0 and this probe
-    would fail.
-    """
-    suite = ('<testsuite name="{n}" tests="1">'
-             '<testcase classname="A" name="{n}">{b}</testcase></testsuite>')
-    for sub, state in (("run-01", "pass"), ("run-02", "fail")):
-        d = root / sub
-        d.mkdir(parents=True, exist_ok=True)
-        body = '<failure message="boom"/>' if state == "fail" else ""
-        (d / "TEST-A.xml").write_text(suite.format(n="one", b=body))
-    (root / "empty-baseline.txt").write_text("", encoding="utf-8")
 
 
 
 
-FIXTURE_GATES = [
-    FixtureGate(
-        name="flaky-tests",
-        cmd=[sys.executable, "scripts/check-flaky-tests.py", "--current", "{tmp}/cur", "--previous", "{tmp}/prev"],
-        setup=_setup_flaky_tests,
-        why="a test that passed yesterday and fails today must be reported until it is acknowledged",
-        needs_clean_run=False,
-    ),
-    FixtureGate(
-        name="measure-flake-rate",
-        cmd=[
-            sys.executable,
-            "scripts/measure-flake-rate.py",
-            "--current", "{tmp}/run-01", "{tmp}/run-02",
-            "--runs", "2",
-            "--baseline", "{tmp}/empty-baseline.txt",
-            "--max-flaky-rate", "0.0",
-        ],
-        setup=_setup_measure_flake_rate,
-        why=(
-            "a status flip between two runs must be reported as an unacknowledged "
-            "flake until it is baselined — the same property check-flaky-tests.py "
-            "is probed for, but here it is the N-run aggregator's own gate logic "
-            "(rate ceiling + baseline acknowledgement) that must not be swallows"
-        ),
-        needs_clean_run=False,
-    ),
-    # The detekt-rule-coverage fixture that used to close this list was retired
-    # when the branch-coverage floor moved into detekt-rules/build.gradle.kts and
-    # the gate became `:detekt-rules:koverVerify` (ci.yml + check.sh). Its two
-    # halves live elsewhere now: the *declaration* is held by Part C's
-    # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
-    # control `detekt-rule-coverage-floor`, which raises the constant and
-    # requires the Gradle task to fail — see the note at the top of Part C.
-]
 
 
-def control_from_edit(edit) -> Control:
-    """Build a sabotage callable from a registry `Edit`.
 
-    The registry's edit kinds and this file's builders describe the same
-    mutations, so a control declared as data can be executed here without a
-    hand-copied twin. An unrecognised kind raises rather than falling back to
-    "no control": a control that silently disappeared is exactly what this file
-    exists to report, and it would report it as green.
-    """
-    kind = str(getattr(edit, "kind", ""))
-    if kind == "replace":
-        return _replace(edit.old, edit.new, count=getattr(edit, "count", -1))
-    if kind == "append":
-        return _append(edit.new)
-    if kind == "drop_lines":
-        return _drop_lines(edit.old)
-    if kind == "regex":
-        flags = re.MULTILINE if "MULTILINE" in str(getattr(edit, "flags", "")) else 0
-        return _regex_sub(edit.pattern, edit.repl, count=1, flags=flags)
-    if kind == "age_dir":
-        return _age_directory(edit.days)
-    raise ValueError(
-        f"registry control edit kind {kind!r} has no builder in this file; the "
-        f"control for {getattr(edit, 'path', '?')} would be silently dropped"
-    )
+
 
 
 def _prefer_registry_controls(gates: list[ScriptGate]) -> list[ScriptGate]:
@@ -994,7 +430,6 @@ SABOTAGE_ONLY_GATES = [
         # only needs to verify the gate CAN fail on a raised floor; it does not need
         # a clean full-run result.
         cmd=[sys.executable, "scripts/check-test-runs.py", "--require", "shared:jvmTest,desktopApp:test", "--max-age", "86400"],
-        sabotage_path="config/docs/test-runs-baseline.txt",
         # Rewrite the floor by regex, never by naming its current value. The first
         # version replaced the literal `shared:jvmTest 1788 0`, and the control
         # became a no-op the moment the floor moved to 1825 — `replace` found
@@ -1005,7 +440,6 @@ SABOTAGE_ONLY_GATES = [
         #
         # A control that quietly stops sabotaging is worse than no control: it is
         # reported as a passing control. `_regex_sub` asserts the match.
-        sabotage=_regex_sub(r'^(shared:jvmTest )\d+( \d+)$', r'\g<1>99999\g<2>', flags=re.M),
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
         sabotage_requires_clean_tree=True,
         # The clean run of this gate needs the JUnit XML a test run produces, so
@@ -1024,11 +458,9 @@ SABOTAGE_ONLY_GATES = [
             "--report-dir",
             "scripts/tests/fixtures/instrumented-report",
         ],
-        sabotage_path="config/docs/instrumented-test-floor.txt",
         # Rewrite the floor by regex, never by naming its current value: a
         # literal `tests 19` stops matching the moment the floor moves, and a
         # control that quietly stops sabotaging is reported as a passing one.
-        sabotage=_regex_sub(r'^tests \d+$', 'tests 99999', flags=re.M),
         why=(
             "the instrumented tier runs on a schedule, on pushes to main and on "
             "demand — a suite whose size nobody watches loses a class quietly, "
@@ -1038,41 +470,29 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="adr-references",
         cmd=[sys.executable, "scripts/check-adr-references.py"],
-        sabotage_path="README.md",
-        sabotage=_append('\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\n'),
         why="a prose reference to a dated-ADR slug carries no path, so a moved or deleted ADR leaves a dangling claim nothing else sees",
     ),
     ScriptGate(
         name="rule-intent",
         cmd=[sys.executable, "scripts/check-rule-intent.py"],
-        sabotage_path="config/detekt/baseline-shared.xml",
-        sabotage=_replace(
-            '</CurrentIssues>',
-            '    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>',
-            count=1,
-        ),
         why="a rule producing findings that nobody declared means it is running on detekt's defaults, unchosen",
     ),
     ScriptGate(
         name="openspec-stale",
         cmd=[sys.executable, "scripts/check-openspec-stale.py"],
-        sabotage_path="openspec/changes/detekt-rule-has-positive-control",
         # A directory, not a file, and the mutation is its mtime: the gate reads
         # staleness from `stat().st_mtime`, so no file content would move it.
-        sabotage=_age_directory(30),
         why="an active change nobody has returned to in three weeks is a decision deferred past the point of usefulness",
         target_is_dir=True,
     ),
     ScriptGate(
         name="suppression-intent",
         cmd=[sys.executable, "scripts/check-suppression-intent.py"],
-        sabotage_path="shared/src/jvmMain/kotlin/com/singularity/todo/feature/pomodoro/JvmPomodoroTimer.kt",
         # Strip the whole comment block from a file that has one under the
         # annotation. `JvmPomodoroTimer.kt` carries `@file:Suppress("NoRealDelayInTest")`
         # on line 1 with a 10-line comment justification (lines 2-11); the gate reads a
         # 4-line window, so stripping the first two comment lines is sufficient to leave
         # the suppression unjustified.
-        sabotage=_strip_suppression_reason,
         why="a file-level suppression with no recorded reason switches a rule off for every future call in that file",
     ),
     # Drop the selector from one Gradle invocation that follows the test run.
@@ -1100,19 +520,11 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="build-output-readers",
         cmd=[sys.executable, "scripts/check-build-output-readers.py"],
-        sabotage_path=".github/workflows/ci.yml",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why="a step that reads build output can be ordered after an invocation that rewrites it, and the numbers it reports are then from a run nobody looked at",
     ),
     ScriptGate(
         name="gradle-test-population",
         cmd=[sys.executable, "scripts/check-gradle-test-population.py"],
-        sabotage_path=".github/workflows/ci.yml",
-        sabotage=_replace(
-            "run: ./gradlew :koverVerify -Ptest.tags=fast,slow",
-            "run: ./gradlew :koverVerify",
-            count=1,
-        ),
         why="two Gradle invocations in one job can disagree about which tests \"the tests\" are, and the gate that reads build/test-results/ afterwards is then measuring a population nobody ran",
     ),
     # The waiver-premise control. It renames the CI step the one waived
@@ -1123,8 +535,6 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="waiver-references",
         cmd=[sys.executable, "scripts/check-waiver-references.py"],
-        sabotage_path=".github/workflows/ci.yml",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why="a waiver whose reference no longer resolves waives nothing: the compensating "
             "pass it was granted for can be gone and the waiver keeps waiving, which is "
             "how a permanently-red gate becomes noise nobody reads",
@@ -1138,28 +548,18 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="script-conventions",
         cmd=[sys.executable, "scripts/check-script-conventions.py"],
-        sabotage_path="scripts/check-gate-registries.py",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why="a gate script that imports argparse breaks the CLI contract every gate "
             "script is written against",
     ),
     ScriptGate(
         name="test-task-inputs",
         cmd=[sys.executable, "scripts/check-test-task-inputs.py"],
-        sabotage_path="shared/build.gradle.kts",
         # Remove the *covering input*, not the root property. The rule is
         # one-directional — a root declared but uncovered — so deleting the
         # property instead leaves nothing to check and the gate passes on a
         # tree that has lost the property entirely. The first attempt at this
         # control did exactly that and returned 0, which is the failure this
         # file exists to catch, in its own registry.
-        sabotage=_replace(
-            '    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n'
-            '        .withPropertyName("maestroFlows")\n'
-            '        .withPathSensitivity(PathSensitivity.RELATIVE)\n',
-            '',
-            count=1,
-        ),
         why="a test task reading a tree outside its module reports a stale verdict when that tree is not an input",
     ),
     # The one control in this file that runs Gradle, and the reason it must:
@@ -1181,12 +581,10 @@ SABOTAGE_ONLY_GATES = [
     ScriptGate(
         name="detekt-rule-coverage-floor",
         cmd=["./gw", "-q", ":detekt-rules:koverVerify"],
-        sabotage_path="detekt-rules/build.gradle.kts",
         # Raise the bound above anything the suite can reach. Rewritten by
         # pattern, never by the value it expects: the moment the floor moves,
         # a literal `str.replace` finds nothing and the control reports a pass
         # it did not earn. `_regex_sub` asserts the match.
-        sabotage=_regex_sub(r'^(val DETEKT_RULE_BRANCH_FLOOR = )\d+$', r'\g<1>100', flags=re.M),
         why="branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through",
         needs_clean_run=False,
     ),
