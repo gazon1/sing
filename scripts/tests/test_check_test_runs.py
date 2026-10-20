@@ -804,3 +804,118 @@ class RunManifestTest(unittest.TestCase):
             self._write(detail, "# header\n\ntask=jvmTest\n\npartial=false\nnot a pair\n")
             manifest = _module.read_run_manifest(detail)
             self.assertEqual({"task": "jvmTest", "partial": "false"}, manifest)
+
+
+class NoReportVersusBelowFloorTest(unittest.TestCase):
+    """Two facts, two verdicts, two exit codes.
+
+    "The source set produced no report" and "the report is below the floor" are
+    different investigations. The first sends the next person to run the tests;
+    the second sends them to investigate a suite that lost coverage. Reporting
+    the first as the second — or the second as the first — sends them the wrong
+    way, so the message and the exit code both have to say which one it is.
+
+    The boundary is the report, not the count. A report that exists and reports
+    zero tests is a run that HAPPENED and produced evidence that is short; it
+    is not an absence. That case used to be filed under "nothing ran", which
+    made its exit code 3 (nothing ran) and its message ("results directory
+    present but empty") describe a directory that was neither empty nor
+    reportless.
+    """
+
+    def setUp(self):
+        self._saved = (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            sys.argv,
+        )
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        ctr.ROOT = self.tmp
+        ctr.BASELINE = self.tmp / "baseline.txt"
+        ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        ctr.EXPECTED_CLASS_SOURCES = {}
+        sys.argv = ["check-test-runs.py", "--require", "shared:jvmTest"]
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        (
+            ctr.ROOT,
+            ctr.BASELINE,
+            ctr.SOURCE_SETS,
+            ctr.EXPECTED_CLASS_SOURCES,
+            sys.argv,
+        ) = self._saved
+
+    def _baseline(self, text: str) -> None:
+        ctr.BASELINE.write_text(text, encoding="utf-8")
+
+    def _results_dir(self) -> pathlib.Path:
+        d = self.tmp / "results" / "jvmTest"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _run(self) -> tuple[int, str]:
+        """The exit code and everything the gate said about it."""
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            rc = ctr.main()
+        return rc, stderr.getvalue()
+
+    def test_no_report_at_all_is_nothing_ran(self):
+        self._baseline("shared:jvmTest 50 0\n")
+        rc, message = self._run()
+        self.assertEqual(ctr.EXIT_NO_RUN, rc)
+        self.assertIn("Nothing ran", message)
+
+    def test_an_empty_results_directory_is_nothing_ran(self):
+        """A directory that holds no report is the same fact as a missing one."""
+        self._results_dir()
+        self._baseline("shared:jvmTest 50 0\n")
+        rc, message = self._run()
+        self.assertEqual(ctr.EXIT_NO_RUN, rc)
+        self.assertIn("Nothing ran", message)
+
+    def test_a_report_that_exists_and_reports_zero_tests_is_below_the_floor(self):
+        """The run happened, wrote a report, and the report is short.
+
+        Filing this under "nothing ran" sent the reader to re-run the tests
+        instead of investigating the suite, and it exited with the code that
+        means the opposite of what happened.
+        """
+        write_suite(self._results_dir(), "A", tests=0)
+        self._baseline("shared:jvmTest 50 0\n")
+        rc, message = self._run()
+        self.assertEqual(1, rc)
+        self.assertNotEqual(ctr.EXIT_NO_RUN, rc)
+        self.assertIn("below the recorded floor", message)
+        self.assertIn("the report exists", message)
+
+    def test_the_two_verdicts_say_different_things(self):
+        """The message is the part a human reads; it must not be shared."""
+        self._baseline("shared:jvmTest 50 0\n")
+        no_report_rc, no_report_message = self._run()
+
+        write_suite(self._results_dir(), "A", tests=0)
+        below_rc, below_message = self._run()
+
+        self.assertNotEqual(no_report_rc, below_rc)
+        self.assertNotEqual(no_report_message, below_message)
+        self.assertIn("Nothing ran", no_report_message)
+        self.assertIn("below the recorded floor", below_message)
+
+    def test_the_no_report_message_does_not_describe_a_count_against_the_floor(self):
+        """Nothing ran means no count was compared; saying '0 tests against a
+        floor of 50' describes a loss that did not happen."""
+        self._baseline("shared:jvmTest 50 0\n")
+        _, message = self._run()
+        self.assertNotIn("baseline 50 tests", message)
+        self.assertIn("no report", message)
+
+    def test_a_report_below_the_floor_keeps_the_regression_wording(self):
+        write_suite(self._results_dir(), "A", tests=3)
+        self._baseline("shared:jvmTest 50 0\n")
+        rc, message = self._run()
+        self.assertEqual(1, rc)
+        self.assertIn("baseline 50 tests", message)

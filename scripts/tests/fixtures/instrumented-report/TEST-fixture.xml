@@ -2,15 +2,21 @@
 <!--
   A fixture report for the instrumented test floor's positive control.
 
-  It has the shape of the real run — five classes, nineteen tests, none skipped
-  — so the control can run the gate against a report that MEETS the floor and
-  fail it by moving the floor, rather than by having no report at all.
+  It has the shape of the real run — seven classes, twenty-four tests, none
+  skipped — so the control can run the gate against a report that MEETS the
+  floor and fail it by moving the floor, rather than by having no report at all.
 
-  When the floor in config/docs/instrumented-test-floor.txt grows, this fixture
-  has to grow with it: a fixture below the floor makes the control pass for the
-  wrong reason, and a control that passes for the wrong reason proves nothing.
+  It must match the floor in `config/docs/instrumented-test-floor.txt`
+  EXACTLY, and that is sharper than it was when this fixture was written. The
+  floor ratchets: a report that delivers fewer classes or tests than the floor
+  records is a dropped floor, and a report that delivers more is a floor that
+  is behind the suite. Either one fails the gate on a clean tree, so a fixture
+  that is off by one class in either direction proves nothing and breaks the
+  control that reads it.
+
+  When the floor moves, this fixture has to move with it.
 -->
-<testsuite name="Fixture" tests="19" failures="0" errors="0" skipped="0">
+<testsuite name="Fixture" tests="24" failures="0" errors="0" skipped="0">
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_3"/>
@@ -27,7 +33,12 @@
   <testcase classname="com.singularity.todo.ui.CreateTaskFlowTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.CreateTaskFlowTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.CreateTaskFlowTest" name="fixture_case_3"/>
+  <testcase classname="com.singularity.todo.ui.FailureBundleDeliveryTest" name="fixture_case_1"/>
+  <testcase classname="com.singularity.todo.ui.FailureBundleDeliveryTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_3"/>
+  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_1"/>
+  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_2"/>
+  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_3"/>
 </testsuite>

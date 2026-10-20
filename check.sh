@@ -61,6 +61,7 @@ echo -e "${YELLOW}=== [2/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
 # packaging, so skipping it saves minutes rather than a minute, and it runs before
 # the long test steps so a broken androidMain costs seconds instead of ten minutes.
 # See docs/decisions/2026-10-07-android-maintenance-needs-a-ci-gate.md
+#
 ./gw :androidApp:compileDebugKotlin --quiet || {
     echo -e "${RED}androidApp:compileDebugKotlin FAILED${NC}"
     exit 1
@@ -231,15 +232,20 @@ if [[ "${SKIP_ADB:-0}" != "1" ]] && adb devices | grep -q "device$"; then
         echo -e "${GREEN}Android instrumentation completed${NC}"
         # The floor of the instrumented tier, checked where the report is. The
         # instrumentation itself is optional here — its failure is not this
-        # script's verdict — but a run that delivered fewer classes and tests
-        # than the tier is recorded to deliver is a finding, and the report is
-        # the only place that fact exists.
+        # script's verdict — but a run that does not match what the tier is
+        # recorded to deliver is a finding, and the report is the only place
+        # that fact exists.
+        #
+        # "Does not match" rather than "delivered fewer": the floor ratchets in
+        # both directions, so a run that delivered *more* than the floor is
+        # also a finding — the floor is behind the suite. The gate's own output
+        # says which of the two it was; this line must not contradict it.
         if [[ -d androidApp/build/outputs/androidTest-results/connected ]]; then
             python3 scripts/check-instrumented-test-floor.py || {
-                echo -e "${RED}the instrumented suite delivered fewer tests than its floor${NC}"
+                echo -e "${RED}the instrumented run and its floor disagree — see the gate's output above${NC}"
                 exit 1
             }
-            echo -e "${GREEN}instrumented test floor met${NC}"
+            echo -e "${GREEN}the instrumented run matches its floor${NC}"
         fi
     fi
 fi
