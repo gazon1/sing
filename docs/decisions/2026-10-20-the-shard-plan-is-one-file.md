@@ -28,9 +28,11 @@ shard 3 of 3 and shard 3 of 4 are different sets of flows. A reproduction
 that guessed wrong comes back green and says nothing about the shard that
 failed.
 
-The same guessing applies to the flow directory: the `smoke` suite runs
-`Maestro/flows/smoke`, the `full` suite runs `Maestro/flows`, and that
-mapping lived in `run-maestro-e2e.py`.
+The same guessing applies to *which flows a suite runs*: the smoke suite
+selects a subset of the tree and the full suite selects all of it, and that
+selection is the runner's business (`run-maestro-e2e.py` and the module
+behind it). The plan file therefore holds only the count, and asks the
+runner for the rest — see the consequences for what that cost.
 
 ## Idea
 
@@ -48,8 +50,8 @@ mapping lived in `run-maestro-e2e.py`.
 **B**, with the file `config/docs/e2e-shards.txt`:
 
 ```
-full 4 Maestro/flows
-smoke 1 Maestro/flows/smoke
+full 4
+smoke 1
 ```
 
 - The nightly's `plan` job reads the file to build the matrix, so the number
@@ -58,12 +60,12 @@ smoke 1 Maestro/flows/smoke
   the local runner has: `--suite full --shard 3` prints the flows that shard
   holds and the commands that reproduce it (build the debug APK, then run
   `run-maestro-e2e.py` with that shard and that count).
-- The script reproduces the runner's flow order — every `*.yaml` under the
-  suite's flow directory, sorted by name — and the runner's shard rule.
-  A test pins the script's order against the runner's own `collect_flows`,
-  and another pins the suite → flow-directory mapping against
-  `run-maestro-e2e.py`, because the two are one fact and a plan that
-  disagrees with the runner reproduces a shard that never ran.
+- **The script asks the runner for its flow list and its suite selection**
+  (`collect_flows`, `suite_selection`) instead of re-implementing them, and
+  applies the runner's shard rule. Only the count is written down twice —
+  in the plan file and in the workflow that reads it — so there is one place
+  where a value can still disagree, and a test checks that the workflow
+  really reads the file.
 
 The script uses the standard library only. The nightly's `plan` job runs
 before any Python tooling is installed — it decides the matrix, and the
@@ -79,10 +81,12 @@ need the venv the job is about to decide to create.
   the nightly uses is a statement about how long it may take and how many
   emulators it may hold. It belongs where it can be argued about, not inside
   a shell line in a workflow.
-- **The suite and its flows are one fact.** A plan that says "smoke, one
-  shard" without saying which flows that is leaves the reader guessing
-  again — and the flow directory is exactly the thing a local reproduction
-  has to get right, because the `smoke` directory is a strict subset.
+- **The suite and its flows are one fact, and the runner owns it.** Which
+  flows a suite runs is the runner's business — the smoke suite is selected
+  by tag, the full suite is every flow — so the plan script asks the runner
+  rather than repeating it. A plan that restated the selection would be a
+  second place for it to be wrong, and the disagreement would show up as a
+  green reproduction of a red shard.
 - **C would take away the decision.** Deriving the shard count from the flow
   list makes the nightly's parallelism a function of how many flows happen to
   exist. That is a different policy — "as parallel as the flow count
@@ -103,6 +107,11 @@ need the venv the job is about to decide to create.
   shifts everything after it. That was already true; what changes is that it
   is now visible — the plan prints the membership, and the nightly's own
   matrix says which shard it meant.
+- **The plan file lost a column.** It once carried each suite's flow
+  directory as well as its count. The runner moved the smoke suite's
+  selection from a directory to a tag, and a plan that kept the directory
+  would have been wrong in a way nothing noticed. The count is the only
+  thing the plan owns now.
 - **The plan file is an input to a workflow.** A malformed line fails the
   `plan` job loudly rather than quietly producing a matrix of one shard.
 

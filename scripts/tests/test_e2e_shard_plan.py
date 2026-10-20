@@ -5,12 +5,17 @@ The shard is `index % shards` over the runner's flow list, so a plan that
 disagrees with the runner about either the count or the order reproduces
 *different flows* and says nothing about the shard that failed. These tests
 pin both agreements.
+
+The plan script asks the runner for its flow list and its suite selection
+rather than re-implementing them, so most of these tests are about the
+*plan file* and the *workflow* — the two places where a value can still be
+written down twice.
 """
 from __future__ import annotations
 
 import importlib.util
 import pathlib
-import re
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -35,17 +40,16 @@ class TestPlanFile(unittest.TestCase):
         self.assertIn("smoke", suites)
 
     def test_every_suite_has_a_positive_shard_count(self):
-        for suite, (count, flow_dir) in plan.read_plan().items():
+        for suite, count in plan.read_plan().items():
             self.assertGreater(count, 0, suite)
-            self.assertTrue(flow_dir, suite)
-
-    def test_the_flow_directory_exists(self):
-        for suite, (_, flow_dir) in plan.read_plan().items():
-            self.assertTrue((ROOT / flow_dir).is_dir(), f"{suite}: {flow_dir}")
 
     def test_an_unreadable_plan_is_an_error_not_a_default(self):
         with self.assertRaises(ValueError):
             plan.read_plan(ROOT / "does-not-exist.txt")
+
+    def test_a_malformed_line_is_an_error(self):
+        with self.assertRaises(ValueError):
+            plan.read_plan(ROOT / "scripts" / "e2e-shard-plan.py")
 
 
 class TestThePlanAndTheRunnerAgree(unittest.TestCase):
@@ -58,42 +62,27 @@ class TestThePlanAndTheRunnerAgree(unittest.TestCase):
         self.assertIn("scripts/e2e-shard-plan.py", workflow)
         self.assertNotIn("shards='[1,2,3,4]'", workflow)
 
-    def test_the_suite_flow_directories_match_the_runner(self):
-        # scripts/run-maestro-e2e.py chooses the flow directory per suite. If
-        # the plan says one thing and the runner another, the shard this
-        # script lists is not the shard the nightly ran.
-        source = (ROOT / "scripts" / "run-maestro-e2e.py").read_text()
-        runner_dirs = {
-            match.rstrip('"')
-            for match in re.findall(r'Maestro/flows(?:/smoke)?"', source)
-        }
-        plan_dirs = {flow_dir for _, flow_dir in plan.read_plan().values()}
+    def test_the_script_asks_the_runner_for_its_flows(self):
+        # The selection and the order are the runner's facts. A plan that
+        # re-implemented them would be a second place for them to be wrong,
+        # and the disagreement would show up as a green reproduction of a red
+        # shard.
+        from emulator.maestro._flow import collect_flows, suite_selection
+
+        target, tags = suite_selection(ROOT / "Maestro" / "flows", "full")
         self.assertEqual(
-            plan_dirs,
-            runner_dirs,
-            "the plan and the runner name different flow directories",
+            [str(p) for p in plan.collect_flows(target)],
+            [str(p) for p in collect_flows(target)],
         )
-
-    def test_the_flow_order_is_the_runner_order(self):
-        # The shard is index % shards, so the order decides the membership.
-        sys_path = str(ROOT / "scripts" / "src")
-        import sys
-
-        if sys_path not in sys.path:
-            sys.path.insert(0, sys_path)
-        from emulator.maestro._flow import collect_flows
-
-        for _, flow_dir in plan.read_plan().values():
-            target = ROOT / flow_dir
-            self.assertEqual(
-                [str(p) for p in plan.collect_flows(target)],
-                [str(p) for p in collect_flows(target)],
-                flow_dir,
-            )
+        self.assertEqual(
+            suite_selection(ROOT / "Maestro" / "flows", "smoke")[1],
+            ["smoke"],
+            tags,
+        )
 
     def test_every_flow_belongs_to_exactly_one_shard(self):
         flows = plan.collect_flows(ROOT / "Maestro" / "flows")
-        shards = plan.read_plan()["full"][0]
+        shards = plan.read_plan()["full"]
         seen: list[pathlib.Path] = []
         for shard in range(1, shards + 1):
             seen.extend(plan.shard_flows(flows, shard, shards))
@@ -131,6 +120,12 @@ class TestTheCommandLine(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("Maestro/flows", out)
         self.assertIn("run-maestro-e2e.py", out)
+
+    def test_the_smoke_shard_marks_the_flows_the_suite_selects(self):
+        code, out, _ = self._run(["--suite", "smoke", "--shard", "1"])
+        self.assertEqual(code, 0)
+        self.assertIn("selects", out)
+        self.assertIn("smoke", out)
 
 
 if __name__ == "__main__":
