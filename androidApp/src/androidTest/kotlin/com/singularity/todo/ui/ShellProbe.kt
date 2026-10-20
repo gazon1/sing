@@ -104,7 +104,9 @@ internal const val TAB_TIMEOUT_MS = 10_000L
  *   screen that was there instead, so the failure names a cause rather than a symptom.
  */
 internal fun UiDevice.awaitShell(timeoutMs: Long = SHELL_TIMEOUT_MS): UiObject2 =
-    awaitObject(By.res(TODAY_TAB), "the app shell (bottom navigation)", timeoutMs)
+    step("awaitShell", TODAY_TAB) {
+        awaitObject(By.res(TODAY_TAB), "the app shell (bottom navigation)", timeoutMs)
+    }
 
 /**
  * Waits until an object with [by] is on screen and returns it.
@@ -125,6 +127,25 @@ internal fun UiDevice.awaitObject(
     by: BySelector,
     what: String,
     timeoutMs: Long = SHELL_TIMEOUT_MS,
+): UiObject2 = step("awaitObject", what) { findWithDeadline(by, what, timeoutMs) }
+
+/**
+ * The wait itself, without the step recording.
+ *
+ * The recording lives in the caller so that the lambda the step helper takes
+ * returns the object and not the loop — a `while (true)` as the last expression
+ * of a lambda infers `Unit`, and the wait would stop being typed as the object
+ * it returns.
+ *
+ * @param by how to find the object.
+ * @param what what the object is, in words — it goes into the failure message.
+ * @param timeoutMs how long the object is given to appear.
+ * @throws AssertionError when the object does not appear.
+ */
+private fun UiDevice.findWithDeadline(
+    by: BySelector,
+    what: String,
+    timeoutMs: Long,
 ): UiObject2 {
     val deadline = SystemClock.uptimeMillis() + timeoutMs
     while (true) {
@@ -166,7 +187,7 @@ internal fun UiDevice.diagnostics(): String = buildString {
  * to show the sign-in screen, and either of those is a different failure from "the
  * shell was slow".
  */
-private fun sessionDescription(): String =
+internal fun sessionDescription(): String =
     runCatching {
         val repository = GlobalContext.getOrNull()?.get<AuthRepository>()
             ?: return "no AuthRepository in the Koin graph"
@@ -204,7 +225,7 @@ private const val MAX_DUMP_LINES = 40
  * `UiDevice.dumpWindowHierarchy` writes the tree without needing the app to be idle,
  * which is what a failing wait needs: the app is busy by definition.
  */
-private fun UiDevice.dumpHierarchy(): String {
+internal fun UiDevice.dumpHierarchy(): String {
     val target =
         File(
             InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,

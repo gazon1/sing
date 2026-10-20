@@ -76,6 +76,16 @@ cleanup() {
     if [ -n "$TMP_ROOT" ]; then
         rm -rf "$TMP_ROOT"
     fi
+    # 141 is SIGPIPE: a pipeline in this hook was closed before it finished
+    # writing, and under `pipefail` the pipeline reports it. It is not a gate
+    # verdict — the gates print their own — so it is named here rather than left
+    # to be read as "the pre-push hook declined the push".
+    if [ "$rc" = "141" ]; then
+        echo "" >&2
+        echo "pre-push: exited with 141 (SIGPIPE) — a pipeline here was closed early." >&2
+        echo "This is a broken pipe, not a gate failure. If the push itself failed" >&2
+        echo "with 141 and no output above, the cause is the transport (SSH), not this hook." >&2
+    fi
     exit $rc
 }
 trap cleanup EXIT
@@ -202,6 +212,27 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "pre-push FAILED — unknown id: selector in a Maestro flow in the tree of $local_ref."
         echo "Add it to TestTags.kt or DYNAMIC_EXPANSIONS / ALLOWLIST, or push with --no-verify."
     fi
+
+    # The wait budgets: the instrumented suite and the Maestro flows wait for
+    # the same screen and cannot share a constant. The gate is what keeps the
+    # two copies of the number in step — and it is the gate that would have
+    # caught the 8-second shell budget that kept `android-device-tests` red.
+    #
+    # It is skipped rather than failed when its dependencies are missing: a
+    # gate that cannot run must not become a reason a push cannot happen, and
+    # CI runs it either way.
+    if ! python3 -c "import click" >/dev/null 2>&1; then
+        echo "   ui wait budgets gate: SKIPPED (click is not installed)"
+    elif (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
+        python3 "$REPO_ROOT/scripts/check-ui-wait-budgets.py"); then
+        echo "   ui wait budgets gate: OK"
+    else
+        echo "   ui wait budgets gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — the UI wait budgets disagree in the tree of $local_ref."
+        echo "Run python3 scripts/check-ui-wait-budgets.py to see where, or push with --no-verify."
+    fi
 done
 
 if [ "$GATES_FAILED" = "1" ]; then
@@ -229,8 +260,18 @@ echo ""
 # one invocation per module (not a combined task list — the flag only reaches the
 # last task of an invocation).
 #
-# `--rerun-tasks` forces re-analysis: without it Gradle is UP-TO-DATE and
-# corrects nothing.
+# `--rerun` forces re-analysis: without it Gradle is UP-TO-DATE and corrects
+# nothing. `--rerun` re-runs the task it is given and leaves its dependencies
+# alone, which is what makes this step affordable.
+#
+# `--rerun-tasks` was the flag here until 2026-10-20, and it is the reason the
+# hook cost 8-10 minutes instead of the two the comment above it claims:
+# `--rerun-tasks` re-runs the WHOLE task graph of the invocation, so every
+# Kotlin compilation of `:shared` and `:desktopApp` was re-done from scratch on
+# every push, only for detekt to re-analyse the sources that were compiled
+# anyway. `--rerun` re-runs detekt alone. Measured on this tree: the
+# `--rerun-tasks` invocation was still running after 18 minutes and was stopped;
+# the `--rerun` invocation finishes in a couple of minutes.
 #
 # Verdict is the DIFF, not the exit code: a correcting run that rewrote a planted
 # violation ended BUILD SUCCESSFUL / exit 0 — it fixed the file and had nothing
@@ -281,7 +322,7 @@ else
 
     for task in :shared:detekt :desktopApp:detekt; do
         ./gradlew "$task" \
-            --auto-correct --rerun-tasks --no-daemon --no-parallel --console=plain || true
+            --auto-correct --rerun --no-daemon --console=plain || true
     done
 
     AFTER="$(git status --porcelain)"
@@ -301,13 +342,18 @@ fi
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own
 # cheap pre-push already; the full Gradle suite belongs only in CI.
+#
+# Both paths below end with the same marker. A marker that appears only on one
+# path is a marker that a script reading the output has to know about, and the
+# one script that reads this output is the one that has to decide whether the
+# push may go ahead.
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-push [$CURRENT_BRANCH] — worktree detected ==="
     echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite runs in CI."
-    exit 0
+else
+    echo "=== Pre-push [$CURRENT_BRANCH] — full suite delegated to CI ==="
+    echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite (jvmTest, desktopApp:test,"
+    echo "kover, static-gates) runs in CI — no need to duplicate it here."
 fi
 
-echo "=== Pre-push [$CURRENT_BRANCH] — full suite delegated to CI ==="
-echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite (jvmTest, desktopApp:test,"
-echo "kover, static-gates) runs in CI — no need to duplicate it here."
 echo "=== Pre-push OK ==="

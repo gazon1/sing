@@ -12,9 +12,11 @@ import com.singularity.todo.BuildConfig
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.Session
+import org.junit.After
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.GlobalContext
@@ -42,11 +44,21 @@ import org.koin.core.context.GlobalContext
 @LargeTest
 class AppStartupTest {
 
+    /**
+     * Captures the failure bundle when a test in this class fails.
+     *
+     * The device handle is resolved lazily: the rule is built before the test
+     * runs, and the accessibility service is not bound until then.
+     */
+    @get:Rule
+    val diagnostics = FailureBundleRule { device }
+
     private lateinit var device: UiDevice
 
     @Before
     fun setup() {
         device = awaitUiDevice()
+        setStepRecorder(StepRecorder())
     }
 
     /**
@@ -68,6 +80,12 @@ class AppStartupTest {
                 "the build and the test task.",
             BuildConfig.TEST_AUTH_BYPASS,
         )
+    }
+
+    /** The recorder is per-test: the next test must not inherit this one's steps. */
+    @After
+    fun tearDown() {
+        clearStepRecorder()
     }
 
     /**

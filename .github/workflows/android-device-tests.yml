@@ -247,6 +247,23 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      # The failure bundle the instrumented suite leaves behind: screenshot,
+      # screen tree, step log and environment of the test that failed.
+      #
+      # It travels through the shell's directory on the device rather than the
+      # app's own storage, because AGP uninstalls the app under test when the
+      # run ends — an app's private directory is deleted with it, and the bundle
+      # with that. `run-android-ui-tests.py` pulls it into
+      # `androidApp/build/diagnostics/`.
+      - name: Upload failure diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-failure-diagnostics-${{ github.run_id }}
+          path: androidApp/build/diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
+
       # Logcat from the instrumentation run, written by run-android-ui-tests.py when
       # the tests fail or report zero executions. Contains the ANR and crash traces
       # that a test process which hangs cannot write to its own report.
