@@ -97,6 +97,17 @@ jobs:
       suite: ${{ steps.p.outputs.suite }}
       shards: ${{ steps.p.outputs.shards }}
     steps:
+      # The shard count comes from config/docs/e2e-shards.txt, so the job that
+      # builds the matrix has to be able to read that file — and a job that
+      # reads a file needs the checkout. It ran without one until the plan
+      # moved out of the workflow: the old plan was a literal in a shell line,
+      # and the new one is a file the repository owns.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            config/docs/e2e-shards.txt
+            scripts/e2e-shard-plan.py
+          sparse-checkout-cone-mode: false
       - id: p
         env:
           EVENT: ${{ github.event_name }}
