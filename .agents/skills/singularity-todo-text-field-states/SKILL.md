@@ -255,7 +255,61 @@ composables are created fresh each time they open (`if (showDialog) { … }`, or
 a nullable). A field that lives as long as the list does must not be seeded: the
 rename field of a saved search is the worked example, and it is anchored for that reason.
 
-## 9. Traps
+## 9. Who may rewrite this field?
+
+The shape says who *owns* a field's text. It does not say what happens when somebody
+*else* writes the value — a proposal applied to the note, a sync from another device, a
+server writing a GenUI surface. That is where the loss happens: the field owns the
+content it shows, so a rewrite it did not make reaches it only through the upstream's
+value, and the bridge's echo guard drops a rewrite that lands on a value the field
+*produced earlier* — it looks exactly like a lagging upstream.
+
+Three answers, and a field that is *bridged* must have one:
+
+- **none** — nothing outside the field writes its value. The upstream only holds what
+  the field produced.
+- **the value itself** — the upstream rewrites the value, and the rewrite is carried by
+  the value: the echo guard applies a value the field never produced. A rewrite that
+  lands on a value the field *did* produce is **not** carried here.
+- **the value and a revision token** — the upstream rewrites the value and the rewrite
+  can land on a value the field produced, so the field is told it is a rewrite: it
+  passes a `revision`, and the guard is lifted for that value.
+
+**The table is checked.** `TextFieldRewriteContractTest`
+(`shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`) compares it with the
+code: a file that owns a bridged field and is missing from this table fails the build,
+and a row that claims a revision but finds none in the file fails the build. Adding a
+bridged field means adding a row here.
+
+Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
+
+| File | Field | Upstream | Answer |
+|---|---|---|---|
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | none |
+| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | the value itself |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | none |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | the value and a revision token |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title, the note's body | the note itself (a proposal applied to it, a sync) | the value and a revision token |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | the value itself |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | the value itself |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | none |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | the value itself |
+| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | the value itself |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | none |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description | the task coordinator, which observes the task | the value itself |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title | the task coordinator, which observes the task | the value itself |
+
+The note's body is not a bridged field — it is a rich-text editor that holds its own
+content — and it takes the rewrite a different way: the editor's session is re-seeded
+from the draft when the draft's revision changes. The revision is the same idea as the
+token: the party that rewrote the content says so.
+
+**The rows that say "the value itself" carry the rarer half of the gap.** A rewrite
+that lands on a value the field produced is dropped there: the field keeps showing what
+it last held while the entity says something else, and the next keystroke overwrites
+the rewrite. Closing that is the revision token, one site at a time.
+
+## 10. Traps
 
 - **A field's text is not a parameter.** A caller that needs the value reads the field's
   state; it does not pass the value in and expect to get it back.
@@ -267,6 +321,10 @@ rename field of a saved search is the worked example, and it is anchored for tha
   need an explicit import.
 - **A field that is `enabled = false` cannot be typed into** — and a screen that disables a
   field while a request is in flight also has to decide what the field shows afterwards.
+- **A field that holds its own content has no upstream to pull from.** The note editor's
+  body lives inside the rich editor's state object, not in a string the screen can read
+  back. A rewrite of the note reaches it only when the session is *re-seeded* — and
+  without that, the next keystroke dispatches the old body over the new one.
 
 ## Related
 
