@@ -249,8 +249,7 @@ private fun WorkScheduleSettingsScreenShortDayPreview() = PreviewThemed(darkThem
                 dayEndMinutes = 900, // 15:00
                 lunchStartMinutes = 750, // 12:30
                 lunchEndMinutes = 780, // 13:00
-                weekendSat = true,
-                weekendSun = false,
+                workingDays = WorkingDays.DEFAULT,
             ),
             greeting = SettingsSection.Greeting(
                 morningEndHour = 10,
