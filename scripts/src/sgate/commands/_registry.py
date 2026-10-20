@@ -256,6 +256,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-gradle-test-population.py"),
     ),
     GateSpec(
+        name="waiver references resolve",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-waiver-references.py"),
+    ),
+    GateSpec(
         name="test-task external inputs declared",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -618,6 +624,16 @@ GATE_CONTROLS: dict[str, Control] = {
     'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.tags=fast,slow', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
     'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n        .withPropertyName("maestroFlows")\n        .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
     'detekt-rule-coverage-floor': Control(kind='sabotage', proves='gw', argv=('./gw', '-q', ':detekt-rules:koverVerify'), path='detekt-rules/build.gradle.kts', edit=Edit(kind='regex', pattern='^(val DETEKT_RULE_BRANCH_FLOOR = )\\d+$', repl='\\g<1>100', flags='MULTILINE'), why='branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through', needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Kover verify (detekt-rules)'),
+    # The waiver-premise control. It renames the CI step the one waived
+    # control's `tracked_by` points at, so the anchor names a step that no
+    # longer exists — the exact shape of the failure the gate exists for: the
+    # waiver keeps waiving while the compensating pass it was granted for has
+    # been renamed away.
+    #
+    # The edit is on the workflow rather than on the registry because that is
+    # the thing that rots: the registry's promise is a pointer, and a pointer
+    # whose target has been renamed is exactly what nothing used to notice.
+    'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
 }
 
 

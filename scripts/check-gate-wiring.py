@@ -1082,6 +1082,20 @@ SABOTAGE_ONLY_GATES = [
         ),
         why="two Gradle invocations in one job can disagree about which tests \"the tests\" are, and the gate that reads build/test-results/ afterwards is then measuring a population nobody ran",
     ),
+    # The waiver-premise control. It renames the CI step the one waived
+    # control's `tracked_by` points at, so the anchor names a step that no
+    # longer exists — the exact shape of the failure this gate exists for: the
+    # waiver keeps waiving while the compensating pass it was granted for has
+    # been renamed away.
+    ScriptGate(
+        name="waiver-references",
+        cmd=[sys.executable, "scripts/check-waiver-references.py"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why="a waiver whose reference no longer resolves waives nothing: the compensating "
+            "pass it was granted for can be gone and the waiver keeps waiving, which is "
+            "how a permanently-red gate becomes noise nobody reads",
+    ),
     ScriptGate(
         name="test-task-inputs",
         cmd=[sys.executable, "scripts/check-test-task-inputs.py"],
