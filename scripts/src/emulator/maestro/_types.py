@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from emulator._device import DeviceHealth
+from emulator._device import emulator_process_alive as _emulator_process_alive
+from emulator._device import probe_device_health as _probe_device_health
 from emulator._startup import Acquisition
 
 # 5 parents: _types.py at scripts/src/emulator/maestro/ → repo root (limpet/).
@@ -57,6 +60,21 @@ class DeviceDeps:
     cleanup_run_fixtures: Callable[[str, str, str, "DeviceDeps"], None]
     capture_artifacts: Callable[[str, str, Path, "DeviceDeps"], None]
     git_sha: Callable[["DeviceDeps"], str]
+
+    # The two probes below carry the real implementation as their default, so a
+    # bundle that does not care about them does not have to name them. They are
+    # here because the recovery path needs to tell a *slow* device from a *gone*
+    # one, and a bool cannot say that.
+    #
+    # * ``probe_device_health`` answers "gone" / "slow" / "alive". A loaded host
+    #   makes the adb round trip miss its deadline while the device is working,
+    #   and resetting the adb server for that hides the device from every other
+    #   client for the seconds it takes to come back.
+    # * ``emulator_process_alive`` asks the host, without adb, whether an
+    #   emulator process is running at all — which is what decides between
+    #   restarting the adb server and booting the AVD again.
+    probe_device_health: Callable[[str], DeviceHealth] = _probe_device_health
+    emulator_process_alive: Callable[[], bool] = _emulator_process_alive
 
 
 def _default_device_deps() -> DeviceDeps:

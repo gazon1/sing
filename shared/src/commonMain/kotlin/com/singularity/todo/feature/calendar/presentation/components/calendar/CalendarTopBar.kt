@@ -18,9 +18,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -64,6 +66,11 @@ fun CalendarTopBar(
             color = palette.textPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
+            // The title's wording is the app's; the node that holds it is the
+            // app's structure. A flow that asserts the string pins the app to a
+            // sentence, a flow that asserts the tag asks whether the calendar
+            // named the period at all.
+            modifier = Modifier.testTag(TestTags.CALENDAR_MONTH_TITLE),
         )
         // The "More" affordance that used to sit here was removed: it opened nothing
         // and there is no overflow menu behind it. See ADR

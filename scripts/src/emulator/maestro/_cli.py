@@ -11,6 +11,7 @@ import click
 from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
+from emulator.maestro._bridge import Bridge
 from emulator.maestro._fixtures import reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag
 from emulator.maestro._types import (
@@ -242,6 +243,18 @@ def main(
     # shards in exactly this shape.
     stale_run_id: str | None = None
 
+    # ── Host bridge ────────────────────────────────────────────────────────────
+    #
+    # A Maestro script cannot reach the host: the engine has no shell, no Java
+    # host access, and no `env` object. The flows that need to touch the device's
+    # shell — set a system property, damage the app's encrypted store — need a
+    # channel, and HTTP is the only one Maestro offers. The bridge is that
+    # channel: it runs a *device* command through adb, and only the commands in
+    # its whitelist. See `maestro._bridge`.
+    bridge = Bridge(serial)
+    bridge_url = bridge.start()
+    logger.info(f"Host bridge: {bridge_url}")
+
     for flow_path in flows:
         flow_name = flow_path.stem
         logger.info(f"\n=== {flow_name} ===")
@@ -267,6 +280,7 @@ def main(
             max_retries=maestro_max_retries,
             expected_sha=expected_sha or "",
             deps=deps,
+            bridge_url=bridge_url,
         )
 
         if ok:
@@ -276,6 +290,9 @@ def main(
             failed.append(flow_name)
             deps.capture_artifacts(serial, flow_name, junit_path / flow_name, deps)
             stale_run_id = run_id
+
+    # The bridge has served every flow; nothing may reach the host after this.
+    bridge.stop()
 
     # ── Every selected flow must have reported ────────────────────────────────
     #

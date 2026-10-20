@@ -830,6 +830,35 @@ object TestTags {
     /** The clickable trigger Row that opens the CalendarViewMode dropdown. */
     const val CALENDAR_VIEW_MODE_TRIGGER = "calendar_view_mode_trigger"
 
+    /**
+     * The view-mode the calendar is in, as a tag on the label of the trigger.
+     *
+     * The trigger shows the current mode as the app's own string ("Day",
+     * "Week"), so a flow that asserted that string asserted the app's copy.
+     * The dropdown items cannot stand in for it either: they exist only while
+     * the dropdown is expanded, so they never say which mode is selected.
+     */
+    fun calendarViewModeSelected(mode: String) = "calendar_view_mode_selected_${mode.lowercase()}"
+
+    /**
+     * The title of the period the calendar is showing ("October 2026").
+     *
+     * The wording of the title is the app's — it may be reworded, translated or
+     * reformatted without the calendar being wrong. Tagging the node lets a
+     * flow assert that the calendar named the period at all, without pinning
+     * the app to a sentence.
+     */
+    const val CALENDAR_MONTH_TITLE = "calendar_month_title"
+
+    /**
+     * A day cell of the calendar's day grid — the cell that holds one day.
+     *
+     * The month grid names its cells by date ([calendarDay]); the day grid has
+     * no such naming, so the cell itself is what a flow can address. The day a
+     * cell holds is tagged by date on the number inside it.
+     */
+    const val CALENDAR_DAY_CELL = "calendar_day_cell"
+
     // ─── Attachments (URL sheet) ──────────────────────────────────────────────
     //
     // Used in Maestro/flows/attachments/ — the URL attachment bottom sheet

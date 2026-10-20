@@ -5,12 +5,30 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.minus
+import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
  * Pure date arithmetic for the Calendar screen.
  * All functions are side-effect free and fully unit-testable.
  */
+
+/**
+ * The ISO local date of [date] — `2026-10-15`.
+ *
+ * The calendar's test tags name a day by its date, so every tag that names one
+ * has to spell the date the same way. The spelling is a contract with the
+ * Maestro flows, not a property of the date type, which is why it is spelled
+ * out here rather than inherited from `LocalDate.toString()`.
+ */
+fun isoLocalDate(date: LocalDate): String =
+    "${date.year}-${
+        date.month.number.toString()
+            .padStart(2, '0')
+    }-${
+        date.day.toString()
+            .padStart(2, '0')
+    }"
 
 /**
  * Returns the full 6-week grid for a month view, including trailing days from

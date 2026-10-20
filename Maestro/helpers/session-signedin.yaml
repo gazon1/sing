@@ -1,0 +1,25 @@
+# Puts the app into a signed-in session that is *persisted*, and waits for the shell.
+#
+# Usage: none — the flow wants a signed-in app.
+#
+# The session is written into the app's own encrypted store — the same store,
+# under the same keys, through the same write that a real login makes — so it
+# is really on the device. A session that only lived in the running process
+# would be gone with the process, and a flow that goes on to damage the store
+# would have nothing to damage.
+#
+# The app is stopped first, so the link cold-starts it: the link writes the
+# session and then brings the app up, and the shell that appears is what says
+# the write is done. Starting the app first and stopping it afterwards would
+# leave the write racing the stop.
+#
+# The link is answered by a debug-only activity: no release APK contains it.
+appId: com.singularity.todo
+name: session-signedin
+---
+- stopApp: com.singularity.todo
+- openLink: "todo-debug://seed?session=signedin"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000

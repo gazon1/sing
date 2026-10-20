@@ -27,13 +27,13 @@ appId: com.singularity.todo
 name: auth-signup-unconfirmed
 onFlowStart:
   - runScript:
-      name: ../../helpers/scripts/setprop.js
+      file: ../../helpers/scripts/setprop.js
       env:
         PROP: debug.stub_auth.unconfirmed_signup
         VALUE: "true"
 onFlowComplete:
   - runScript:
-      name: ../../helpers/scripts/setprop.js
+      file: ../../helpers/scripts/setprop.js
       env:
         PROP: debug.stub_auth.unconfirmed_signup
         VALUE: "false"

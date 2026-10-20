@@ -275,6 +275,8 @@ non-alphanumeric characters with `_`.
 ### Calendar
 | Constant | Value | Where |
 |---|---|---|
+| `CALENDAR_DAY_CELL` | `calendar_day_cell` | |
+| `CALENDAR_MONTH_TITLE` | `calendar_month_title` | |
 | `CALENDAR_VIEW_MODE_TRIGGER` | `calendar_view_mode_trigger` | |
 | `CALENDAR_WEEKDAY_MON` | `calendar_weekday_mon` | |
 | `CALENDAR_WEEKDAY_SUN` | `calendar_weekday_sun` | |
@@ -405,8 +407,11 @@ same change that adds or removes a tag.
 - Calendar: today button, prev/next, mini-calendar toggle. The day cells *do* have
   a tag — `calendarDay("2026-09-15")` expands to `calendar_day_2026_09_15` — but it
   is a Kotlin function, so a Maestro flow must hard-code the expanded form. The
-  month header and the mode control ("Day"/"4 days"/"Week"/"Month") are
-  `text:`-selected.
+  month header (`calendar_month_title`), the day cells of the day grid
+  (`calendar_day_cell`) and the selected view mode
+  (`calendarViewModeSelected("day")` expands to `calendar_view_mode_selected_day`)
+  are tagged as well; the mode's *label* is still the app's wording, so a flow
+  asserts the tag and not the word.
 - Sync: auto-switch, interval slider, sync-now button
 - Profile: delete button
 - Statistics: last-7-days chart

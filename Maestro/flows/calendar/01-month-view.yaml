@@ -1,10 +1,10 @@
 # Calendar: the Month view renders the current month with weekday columns.
 #
-# The month title is not asserted. It is a formatted string — "October 2026" —
-# whose wording, word order and month name belong to the app, and the app is
-# free to change them; a flow that asserts the title asserts the app's copy.
-# The day cell's testTag carries the same fact as data, and data cannot be
-# reworded.
+# The month title is asserted by the node that holds it, not by its wording.
+# The title is a formatted string — "October 2026" — whose wording, word order
+# and month name belong to the app, and the app is free to change them; a flow
+# that asserts the title asserts the app's copy. The day cell's testTag carries
+# the same fact as data, and data cannot be reworded.
 appId: com.singularity.todo
 name: calendar-month-view
 tags:
@@ -20,6 +20,11 @@ tags:
     file: ../../helpers/calendar-day-cell.yaml
     env:
       DAY_CELL: ${output.TODAY_CELL}
+# The view names the period it is showing. The tag is on the title node, so
+# the assertion survives a reworded month name: what is checked is that the
+# calendar named the period, not which words it used.
+- assertVisible:
+    id: calendar_month_title
 # Weekday columns, addressed by testTag so the flow survives translation.
 - assertVisible:
     id: calendar_weekday_mon

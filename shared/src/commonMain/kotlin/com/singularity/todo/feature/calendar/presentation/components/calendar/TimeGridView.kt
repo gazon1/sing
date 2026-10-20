@@ -24,10 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
+import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -105,7 +108,13 @@ fun TimeGridView(
 @Composable
 private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPalette, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.padding(vertical = 8.dp),
+        // The cell is tagged so a flow can address a day of the day grid
+        // without reading the app's date format; the day it holds is tagged by
+        // date on the number inside it, exactly as the month grid tags its
+        // cells.
+        modifier = modifier
+            .testTag(TestTags.CALENDAR_DAY_CELL)
+            .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.Start,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -122,6 +131,7 @@ private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPa
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag(TestTags.calendarDay(isoLocalDate(date))),
                     )
                 }
             } else {
@@ -130,6 +140,7 @@ private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPa
                     color = palette.textPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
+                    modifier = Modifier.testTag(TestTags.calendarDay(isoLocalDate(date))),
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))

@@ -29,16 +29,20 @@ tags:
     notVisible:
       id: calendar_weekday_mon
     timeout: 8000
-# The day header shows the day that was opened. It carries no testTag — the
-# day view's header cell is untagged — so the number is asserted as text.
-# The number is the date-format-agnostic part of the header: the rest of it
-# (the month name and the year) is the app's wording, and a flow must not
-# assert the app's wording.
-- extendedWaitUntil:
-    visible: "15"
-    timeout: 8000
+# The day view is showing the day that was opened. Both facts are carried by
+# tags: the cell that holds a day, and the day itself, tagged by date exactly
+# as the month grid tagged its cells. Asserting the number as text would have
+# asserted the app's date format instead of the day.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.DAY15_CELL}
+- assertVisible:
+    id: calendar_day_cell
 # The mode control followed the navigation into the single-day view. The
 # dropdown items (calendar_view_mode_day) exist only while the dropdown is
 # expanded, so they cannot say which mode is selected; the selected mode is
-# the label the control carries, and that label is the app's own string.
-- assertVisible: "Day"
+# the label the control carries, and the label is the app's own string — the
+# tag on it says which mode without saying the word.
+- assertVisible:
+    id: calendar_view_mode_selected_day

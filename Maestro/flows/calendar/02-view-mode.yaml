@@ -34,8 +34,10 @@ tags:
     timeout: 8000
 - assertVisible:
     id: calendar_view_mode_day
+# The four-day mode's tag is spelled from the mode's name, not from the label
+# the app shows: the label is "4 days", and the label is the app's wording.
 - assertVisible:
-    id: calendar_view_mode_4_days
+    id: calendar_view_mode_four_days
 - tapOn:
     id: calendar_view_mode_week
 # The dropdown closes after selection.  The flow is a smoke test — a crash

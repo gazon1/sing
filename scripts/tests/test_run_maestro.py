@@ -25,6 +25,7 @@ import emulator.maestro._provenance as _provenance
 import emulator.maestro._subprocess as _subprocess
 
 # DeviceDeps for the new testable signature of run_one_flow.
+from emulator._device import DeviceHealth
 from emulator._startup import Acquisition
 from emulator._types import EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
 
@@ -257,11 +258,91 @@ def _make_deps(
         cleanup_run_fixtures=fake_cleanup_run_fixtures,
         capture_artifacts=fake_capture_artifacts,
         git_sha=fake_git_sha,
+        # The health probes are faked rather than defaulted: the real ones talk
+        # to the adb on whichever host runs the tests, and a test must not
+        # depend on a device being attached.
+        probe_device_health=lambda s: DeviceHealth(
+            "alive" if alive[0] else "gone", "the test says so"
+        ),
+        emulator_process_alive=lambda: alive[0],
     )
 
 
 class RunMaestroIntegrationTest(unittest.TestCase):
     """Exercise run_one_flow via the new DeviceDeps parameter (no module patching)."""
+
+    def test_a_busy_host_retries_without_resetting_the_adb_server(self):
+        """A device-level signature while the device answers is a busy host.
+
+        Resetting the adb server would hide the device from every other client
+        for the seconds it takes to come back, so the recovery has to be a
+        plain retry.
+        """
+        fake = FakeMaestro([
+            FakeMaestroResult(1, stderr="Device server died"),
+            FakeMaestroResult(0, stdout="flow passed"),
+        ])
+        resets: list[str] = []
+        deps = _make_deps(fake)
+        deps = DeviceDeps(**{
+            **deps.__dict__,
+            "reset_adb_server": lambda: resets.append("reset"),
+            "probe_device_health": lambda s: DeviceHealth("alive", "it answered"),
+            "emulator_process_alive": lambda: True,
+        })
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
+            ok, _run_id = run_one_flow(
+                flow_path=flow,
+                serial="emulator-5554",
+                junit_dir=pathlib.Path(tempfile.mkdtemp()),
+                skip_install=True,
+                allow_stale=True,
+                max_retries=2,
+                expected_sha="",
+                deps=deps,
+            )
+
+        self.assertTrue(ok)
+        self.assertEqual(2, len(fake.calls), "the flow was retried once")
+        self.assertEqual([], resets, "a healthy device must not have its adb server reset")
+
+    def test_a_device_that_is_gone_boots_the_avd_again(self):
+        """No emulator process means there is nothing to reset — boot it again."""
+        fake = FakeMaestro([FakeMaestroResult(1, stderr="0 devices connected")])
+        resets: list[str] = []
+        acquired: list[str] = []
+        deps = _make_deps(fake)
+        deps = DeviceDeps(**{
+            **deps.__dict__,
+            "device_alive": lambda s: False,
+            "reset_adb_server": lambda: resets.append("reset"),
+            "probe_device_health": lambda s: DeviceHealth("gone", "no answer"),
+            "emulator_process_alive": lambda: False,
+            "acquire_device": lambda pin: (
+                acquired.append(pin)
+                or Acquisition("emulator-5554", EXIT_OK)
+            ),
+        })
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
+            ok, _run_id = run_one_flow(
+                flow_path=flow,
+                serial="emulator-5554",
+                junit_dir=pathlib.Path(tempfile.mkdtemp()),
+                skip_install=True,
+                allow_stale=True,
+                max_retries=2,
+                expected_sha="",
+                deps=deps,
+            )
+
+        self.assertFalse(ok)
+        self.assertTrue(acquired, "the AVD was booted again")
+        self.assertEqual({"emulator-5554"}, set(acquired))
+        self.assertEqual([], resets, "there was no emulator to reset the server for")
 
     def test_run_one_flow_passes_on_maestro_success(self):
         fake = FakeMaestro([FakeMaestroResult(0, stdout="flow passed")])

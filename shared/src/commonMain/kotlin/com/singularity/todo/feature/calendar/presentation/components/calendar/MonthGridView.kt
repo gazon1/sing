@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.YearMonth
+import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
 import com.singularity.todo.feature.calendar.domain.logic.pageForYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
@@ -42,7 +43,6 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.number
 
 /**
  * Swipeable month grid. Hosts a [HorizontalPager] of [MonthGridPage]s, one per
@@ -203,18 +203,7 @@ private fun MonthDayCell(
 
     Box(
         modifier = modifier.testTag(
-            TestTags.calendarDay(
-                "${date.year}-${
-                    date.month.number.toString()
-                        .padStart(
-                            2,
-                            '0',
-                        )
-                }-${
-                    date.day.toString()
-                        .padStart(2, '0')
-                }",
-            ),
+            TestTags.calendarDay(isoLocalDate(date)),
         )
             .border(width = 0.5.dp, color = palette.divider)
             .let { box ->

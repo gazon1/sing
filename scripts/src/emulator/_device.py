@@ -13,24 +13,81 @@ Two rules this module exists to enforce:
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import time
+from pathlib import Path
 from typing import Callable, NamedTuple
 
 # ── subprocess helpers ─────────────────────────────────────────────────────────
 
-def try_run(args: list[str], *, timeout: float = 5) -> subprocess.CompletedProcess | None:
-    """Run a command, return None on non-zero exit or timeout."""
+class CommandOutcome(NamedTuple):
+    """What one command produced, and — the part that matters — *why* it failed.
+
+    A timeout is not a failure. Under a loaded host a five-second adb call can
+    miss its deadline while the device is perfectly well, and a runner that
+    reads "no answer" as "the device is gone" then resets the adb server and
+    makes the device disappear for everyone for four seconds. Keeping the two
+    apart is what lets the runner retry a slow device instead of killing it.
+    """
+
+    ok: bool
+    stdout: str
+    stderr: str
+    code: int | None
+    timed_out: bool
+
+
+def try_run_detailed(args: list[str], *, timeout: float = 5) -> CommandOutcome:
+    """Run a command and report what happened, keeping a timeout distinguishable.
+
+    This is the seam the tests fake: it returns what happened rather than
+    whether the command succeeded, because "it did not answer in time" and
+    "it failed" are different facts and the runner acts on the difference.
+    """
     try:
-        return subprocess.run(
+        cp = subprocess.run(
             args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,
             text=True,
         )
-    except (subprocess.TimeoutExpired, OSError):
+    except subprocess.TimeoutExpired as exc:
+        return CommandOutcome(
+            False,
+            _as_text(exc.stdout),
+            _as_text(exc.stderr),
+            None,
+            True,
+        )
+    except OSError as exc:
+        return CommandOutcome(False, "", str(exc), None, False)
+    return CommandOutcome(
+        cp.returncode == 0,
+        cp.stdout.strip(),
+        cp.stderr.strip(),
+        cp.returncode,
+        False,
+    )
+
+
+def _as_text(value: object) -> str:
+    """TimeoutExpired carries bytes or None depending on how it was raised."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace").strip()
+    return str(value).strip()
+
+
+def try_run(args: list[str], *, timeout: float = 5) -> subprocess.CompletedProcess | None:
+    """Run a command, return None on non-zero exit or timeout."""
+    outcome = try_run_detailed(args, timeout=timeout)
+    if not outcome.ok or outcome.code is None:
         return None
+    return subprocess.CompletedProcess(args, outcome.code, outcome.stdout, outcome.stderr)
 
 
 def popen(args: list[str], stdout_fd: int | None = None) -> subprocess.Popen:
@@ -80,16 +137,47 @@ def list_avds() -> list[str] | None:
 
 # ── adb primitives ─────────────────────────────────────────────────────────────
 
-def adb(*args: str, timeout: float = 5) -> str | None:
+#: How many times a timed-out adb call is retried, and how long it waits first.
+#:
+#: The retry exists because the host, not the device, is usually what missed the
+#: deadline: a loaded machine queues the adb round trip behind everything else.
+#: The second attempt finds the queue shorter. A call that *failed* is not
+#: retried — a device that is gone will still be gone, and retrying only makes
+#: the runner slower to notice.
+ADB_TIMEOUT_RETRIES = 2
+ADB_RETRY_BACKOFF_SEC = 0.5
+
+
+def adb_outcome(
+    *args: str,
+    timeout: float = 5,
+    retries: int = ADB_TIMEOUT_RETRIES,
+) -> CommandOutcome:
+    """Run `adb <args>` and report the outcome, retrying a timeout."""
+    attempt = 0
+    while True:
+        outcome = try_run_detailed(["adb", *args], timeout=timeout)
+        if not outcome.timed_out or attempt >= retries:
+            return outcome
+        attempt += 1
+        time.sleep(ADB_RETRY_BACKOFF_SEC * attempt)
+
+
+def adb(*args: str, timeout: float = 5, retries: int = ADB_TIMEOUT_RETRIES) -> str | None:
     """Run `adb <args>` for a device-independent command; stdout on success, else None.
 
     Do not put a device serial in here.  Use :func:`adb_on`.
     """
-    cp = try_run(["adb", *args], timeout=timeout)
-    return cp.stdout.strip() if cp and cp.returncode == 0 else None
+    outcome = adb_outcome(*args, timeout=timeout, retries=retries)
+    return outcome.stdout if outcome.ok else None
 
 
-def adb_on(serial: str, *args: str, timeout: float = 5) -> str | None:
+def adb_on(
+    serial: str,
+    *args: str,
+    timeout: float = 5,
+    retries: int = ADB_TIMEOUT_RETRIES,
+) -> str | None:
     """Run `adb -s <serial> <args>`; stdout on success, None on failure or timeout.
 
     Raises ``ValueError`` on an empty serial rather than running `adb shell …`
@@ -100,7 +188,8 @@ def adb_on(serial: str, *args: str, timeout: float = 5) -> str | None:
         raise ValueError(
             "adb_on requires a serial; use adb() for device-independent commands"
         )
-    return adb("-s", serial, *args, timeout=timeout)
+    outcome = adb_outcome("-s", serial, *args, timeout=timeout, retries=retries)
+    return outcome.stdout if outcome.ok else None
 
 
 # ── readiness ──────────────────────────────────────────────────────────────────
@@ -172,7 +261,79 @@ def find_ready(pin: str) -> str | None:
 
 
 def device_alive(serial: str) -> bool:
-    """True when adb can reach the device (get-state == device), without full boot checks."""
+    """True when the device answers a shell round trip.
+
+    Not ``get-state``: after the host's gfxstream bug kills the render thread,
+    adb keeps reporting the serial as ``device`` for a while before it flips to
+    ``offline``, so a state check sees a healthy device that cannot serve a
+    single command (ADR 2026-09-29-emulator-crash-recovery-runner). The round
+    trip is the question that actually matters — can the device do work.
+    """
     if not serial:
         return False
-    return adb_on(serial, "get-state") == "device"
+    return probe_device_health(serial).state == "alive"
+
+
+class DeviceHealth(NamedTuple):
+    """Is the device gone, or merely slow?
+
+    The distinction is the whole point. A loaded host makes the adb round trip
+    miss its deadline while the device is fine; reading that as "gone" makes the
+    runner reset the adb server, and the reset makes the device disappear for
+    every other client as well.
+    """
+
+    state: str  # "alive" | "slow" | "gone"
+    detail: str
+
+
+def probe_device_health(serial: str, *, timeout: float = 15.0) -> DeviceHealth:
+    """Answer whether the device is gone, slow, or answering."""
+    if not serial:
+        return DeviceHealth("gone", "no serial was given")
+    outcome = adb_outcome(
+        "-s", serial, "shell", "echo", "ping",
+        timeout=timeout,
+        retries=ADB_TIMEOUT_RETRIES,
+    )
+    if outcome.ok:
+        return DeviceHealth("alive", "the device answered a shell round trip")
+    if outcome.timed_out:
+        return DeviceHealth(
+            "slow",
+            f"the round trip did not answer within {timeout}s — the device is "
+            "busy or the host is loaded, which is not the same as absent",
+        )
+    return DeviceHealth("gone", outcome.stderr or outcome.stdout or "the device did not answer")
+
+
+def emulator_process_alive(proc_root: Path | None = None) -> bool:
+    """Whether an emulator process is running on this host.
+
+    Args:
+        proc_root: Where to look for processes. Only the tests pass anything
+            other than the real ``/proc``.
+
+    Independent of adb on purpose. The adb server can be reset while the
+    emulator keeps running, and telling those two apart is the difference
+    between "retry the flow" and "relaunch the AVD".
+
+    The ``/proc`` exe link is the source of truth here, not ``pgrep``: a pattern
+    search matches the command line of the shell running the search, so it
+    reports a running emulator when there is none (ADR
+    2026-09-29-emulator-crash-recovery-runner).
+    """
+    try:
+        entries = list((proc_root or Path("/proc")).iterdir())
+    except OSError:
+        return False
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            exe = os.readlink(entry / "exe")
+        except OSError:
+            continue
+        if "qemu-system" in exe:
+            return True
+    return False
