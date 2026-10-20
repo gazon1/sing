@@ -6,14 +6,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
 import com.singularity.todo.MainActivity
-import org.junit.After
+import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,31 +30,13 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
-class NavigationSmokeTest {
-
-    /**
-     * Captures the failure bundle when a test in this class fails.
-     *
-     * The device handle is resolved lazily: the rule is built before the test
-     * runs, and the accessibility service is not bound until then.
-     */
-    @get:Rule
-    val diagnostics = FailureBundleRule { device }
-    private lateinit var device: UiDevice
+class NavigationSmokeTest : InstrumentedTestBase() {
 
     @Before
     fun setup() {
-        device = awaitUiDevice()
-        setStepRecorder(StepRecorder())
         // Unlock the lock screen so ActivityScenario can land on the app.
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // KEYCODE_MENU = unlock
-    }
-
-    /** The recorder is per-test: the next test must not inherit this one's steps. */
-    @After
-    fun tearDown() {
-        clearStepRecorder()
     }
 
     /**
@@ -113,11 +92,9 @@ class NavigationSmokeTest {
             )
 
         tabs.forEach { tabId ->
-            device
-                .awaitObject(By.res(tabId), "the $tabId tab", TAB_TIMEOUT_MS)
-                .click()
+            device.tapTag(tabId)
             // Wait for the tab to be re-selected after the tap.
-            device.wait(Until.findObject(By.res(tabId)), 3_000)
+            device.awaitTagOrNull(tabId, 3_000)
             // Verify the tab item is still present (navigation succeeded, tab is visible).
             assertNotNull(
                 "Tab $tabId should be reachable after tap",
@@ -146,34 +123,26 @@ class NavigationSmokeTest {
         device.awaitShell()
 
         // Inbox — agenda tab, FAB present.
-        device
-            .awaitObject(By.res("nav_tab_inbox"), "the Inbox tab", TAB_TIMEOUT_MS)
-            .click()
-        device.wait(Until.findObject(By.res("nav_tab_inbox")), 3_000)
+        device.tapTag("nav_tab_inbox")
+        device.awaitTagOrNull("nav_tab_inbox", 3_000)
         assertNotNull("FAB should be on Inbox tab", device.findObject(By.res("tasks_fab")))
 
         // Upcoming — not an agenda tab, no FAB.
-        device
-            .awaitObject(By.res("nav_tab_upcoming"), "the Upcoming tab", TAB_TIMEOUT_MS)
-            .click()
-        device.wait(Until.findObject(By.res("nav_tab_upcoming")), 3_000)
+        device.tapTag("nav_tab_upcoming")
+        device.awaitTagOrNull("nav_tab_upcoming", 3_000)
         assertNull(
             "FAB should NOT be on Upcoming tab",
             device.findObject(By.res("tasks_fab")),
         )
 
         // Plans — agenda tab, FAB present.
-        device
-            .awaitObject(By.res("nav_tab_plans"), "the Plans tab", TAB_TIMEOUT_MS)
-            .click()
-        device.wait(Until.findObject(By.res("nav_tab_plans")), 3_000)
+        device.tapTag("nav_tab_plans")
+        device.awaitTagOrNull("nav_tab_plans", 3_000)
         assertNotNull("FAB should be on Plans tab", device.findObject(By.res("tasks_fab")))
 
         // Pomodoro — not an agenda tab, no FAB.
-        device
-            .awaitObject(By.res("nav_tab_pomodoro"), "the Pomodoro tab", TAB_TIMEOUT_MS)
-            .click()
-        device.wait(Until.findObject(By.res("nav_tab_pomodoro")), 3_000)
+        device.tapTag("nav_tab_pomodoro")
+        device.awaitTagOrNull("nav_tab_pomodoro", 3_000)
         assertNull(
             "FAB should NOT be on Pomodoro tab",
             device.findObject(By.res("tasks_fab")),

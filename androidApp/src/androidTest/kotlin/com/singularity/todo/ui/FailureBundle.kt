@@ -126,13 +126,16 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
          * Every artifact is captured independently: a screenshot that cannot be
          * taken must not cost the tree, the steps and the environment.
          *
-         * @param device the device to capture from.
+         * @param device the device to capture from, or null when the test never
+         *   drove the UI. A null device costs the screenshot and the tree and
+         *   leaves the steps and the environment — the two artifacts that do not
+         *   need a screen.
          * @param testClassSimpleName the class the bundle belongs to.
          * @param attempt the retry number, 1-based.
          * @param steps the step recorder of the test that failed, if any.
          */
         fun capture(
-            device: UiDevice,
+            device: UiDevice?,
             testClassSimpleName: String,
             attempt: Int = 1,
             steps: StepRecorder? = null,
@@ -153,9 +156,10 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
 
             // The screen first: it is the artifact that cannot be reconstructed
             // later, and the one that answers "what was on screen".
-            runCatching { device.takeScreenshot(bundle.screenshotFile) }
-
-            runCatching { bundle.treeFile.writeText(device.dumpHierarchy()) }
+            if (device != null) {
+                runCatching { device.takeScreenshot(bundle.screenshotFile) }
+                runCatching { bundle.treeFile.writeText(device.dumpHierarchy()) }
+            }
 
             runCatching { bundle.stepsFile.writeText(steps?.format().orEmpty()) }
 
@@ -238,9 +242,16 @@ internal class FailureBundle(val testClassSimpleName: String, val attempt: Int, 
  * and the failure is exactly the case where the bundle is needed.
  *
  * @param device the device to capture from; resolved lazily, because the device
- *   handle is not available while the rule is constructed.
+ *   handle is not available while the rule is constructed. Null when the test
+ *   never drove the UI — the bundle is then captured without the screen.
+ * @param steps the recorder of the test that failed. It is taken as a provider
+ *   rather than read from the thread-local at failure time, because the
+ *   teardown clears the thread-local before the rule runs.
  */
-class FailureBundleRule(private val device: () -> UiDevice) : TestWatcher() {
+class FailureBundleRule(
+    private val device: () -> UiDevice?,
+    private val steps: () -> StepRecorder? = { stepRecorder() },
+) : TestWatcher() {
 
     override fun failed(e: Throwable, description: Description) {
         val testClass = description.className.substringAfterLast('.').ifEmpty { "UnknownTest" }
@@ -250,7 +261,7 @@ class FailureBundleRule(private val device: () -> UiDevice) : TestWatcher() {
                     device = device(),
                     testClassSimpleName = testClass,
                     attempt = 1,
-                    steps = stepRecorder(),
+                    steps = steps(),
                 )
             }.getOrNull() ?: return
         bundle.addSuppressedTo(e)

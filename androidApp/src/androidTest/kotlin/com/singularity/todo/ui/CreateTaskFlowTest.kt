@@ -5,15 +5,11 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
 import com.singularity.todo.MainActivity
-import org.junit.After
+import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -29,30 +25,12 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 @LargeTest
-class CreateTaskFlowTest {
-
-    /**
-     * Captures the failure bundle when a test in this class fails.
-     *
-     * The device handle is resolved lazily: the rule is built before the test
-     * runs, and the accessibility service is not bound until then.
-     */
-    @get:Rule
-    val diagnostics = FailureBundleRule { device }
-    private lateinit var device: UiDevice
+class CreateTaskFlowTest : InstrumentedTestBase() {
 
     @Before
     fun setup() {
-        device = awaitUiDevice()
-        setStepRecorder(StepRecorder())
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("input keyevent 82") // unlock
-    }
-
-    /** The recorder is per-test: the next test must not inherit this one's steps. */
-    @After
-    fun tearDown() {
-        clearStepRecorder()
     }
 
     /**
@@ -81,33 +59,18 @@ class CreateTaskFlowTest {
         navigateToToday()
 
         // Tap the FAB to open the task editor.
-        device
-            .awaitObject(By.res("tasks_fab"), "the add-task FAB", TAB_TIMEOUT_MS)
-            .click()
+        device.tapTag("tasks_fab")
 
-        // The title input must appear in the editor.
-        val titleInput =
-            device.awaitObject(
-                By.res("task_editor_title_input"),
-                "the task editor's title input",
-                TAB_TIMEOUT_MS,
-            )
-
-        // Type the task title.
-        titleInput.setText("Test task UiAutomator")
+        // The title input must appear in the editor, and the title is typed into
+        // it — the tap and the typing are recorded as the steps they are.
+        device.typeInto("task_editor_title_input", "Test task UiAutomator")
 
         // Tap Save.
-        device
-            .awaitObject(By.res("task_editor_save"), "the editor's save button", TAB_TIMEOUT_MS)
-            .click()
+        device.tapTag("task_editor_save")
 
         // Editor closes. Wait for the created task to appear in the list.
         // Slug: "Test task UiAutomator" → "test_task_uiautomator"
-        val taskItem =
-            device.wait(
-                Until.findObject(By.res("task_item_test_task_uiautomator")),
-                5_000,
-            )
+        val taskItem = device.awaitTagOrNull("task_item_test_task_uiautomator", 5_000)
         assertNotNull("Created task should appear in the list", taskItem)
 
         scenario.close()
@@ -127,30 +90,18 @@ class CreateTaskFlowTest {
         navigateToToday()
 
         // Open editor.
-        device
-            .awaitObject(By.res("tasks_fab"), "the add-task FAB", TAB_TIMEOUT_MS)
-            .click()
-        device.awaitObject(
-            By.res("task_editor_title_input"),
-            "the task editor's title input",
-            TAB_TIMEOUT_MS,
-        )
+        device.tapTag("tasks_fab")
+        device.awaitTag("task_editor_title_input", "the task editor's title input", TAB_TIMEOUT_MS)
 
         // Type a title.
-        device
-            .awaitObject(By.res("task_editor_title_input"), "the task editor's title input", TAB_TIMEOUT_MS)
-            .setText("Do not save this task")
+        device.typeInto("task_editor_title_input", "Do not save this task")
 
         // Press back to cancel.
-        device.pressBack()
+        device.tapBack()
 
         // The cancelled task should NOT appear in the list.
         // Slug: "Do not save this task" → "do_not_save_this_task"
-        val cancelledTask =
-            device.wait(
-                Until.findObject(By.res("task_item_do_not_save_this_task")),
-                2_000,
-            )
+        val cancelledTask = device.awaitTagOrNull("task_item_do_not_save_this_task", 2_000)
         assertNull(
             "Cancelled task should not appear in the list",
             cancelledTask,
@@ -173,12 +124,10 @@ class CreateTaskFlowTest {
         navigateToToday()
 
         // FAB opens the editor.
-        device
-            .awaitObject(By.res("tasks_fab"), "the add-task FAB", TAB_TIMEOUT_MS)
-            .click()
+        device.tapTag("tasks_fab")
 
-        val titleInput = device.awaitObject(
-            By.res("task_editor_title_input"),
+        val titleInput = device.awaitTag(
+            "task_editor_title_input",
             "the task editor's title input",
             TAB_TIMEOUT_MS,
         )
@@ -188,7 +137,7 @@ class CreateTaskFlowTest {
         assertNotNull("Title input should have text content", initialText)
 
         // After typing, the field contains the typed text.
-        titleInput.setText("Editor smoke test")
+        titleInput.typeText("Editor smoke test")
         assertNotNull(titleInput.text)
 
         scenario.close()
