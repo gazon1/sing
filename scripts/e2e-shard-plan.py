@@ -53,16 +53,30 @@ PLAN_FILE = ROOT / "config" / "docs" / "e2e-shards.txt"
 FLOWS_ROOT = ROOT / "Maestro" / "flows"
 APK_PATH = ROOT / "androidApp" / "build" / "outputs" / "apk" / "debug" / "androidApp-debug.apk"
 
-# The runner's own modules. They are the source of truth for which flows a
-# suite runs and in what order, so this script asks them rather than
-# re-implementing them.
-sys.path.insert(0, str(ROOT / "scripts" / "src"))
+# The runner's own modules are the source of truth for which flows a suite
+# runs and in what order, so this script asks them rather than re-implementing
+# them. They are imported lazily, in the branch that needs them: the nightly's
+# plan job runs before the tooling is installed, and it needs the shard *count*
+# — the plan file — and nothing else. Importing the runner's modules at module
+# level would have made that job fail on a missing third-party dependency, for
+# a listing nobody asked it for.
 
-from emulator.maestro._flow import (  # noqa: E402
-    collect_flows,
-    filter_flows_by_tag,
-    suite_selection,
-)
+
+def _runner_modules():
+    """The runner's flow discovery, or a clear error explaining what is missing."""
+    sys.path.insert(0, str(ROOT / "scripts" / "src"))
+    try:
+        from emulator.maestro._flow import (
+            collect_flows,
+            filter_flows_by_tag,
+            suite_selection,
+        )
+    except ImportError as exc:
+        raise ValueError(
+            "the runner's flow discovery could not be imported "
+            f"({exc}). Install the tooling first: pip install -e scripts/src"
+        ) from exc
+    return collect_flows, filter_flows_by_tag, suite_selection
 
 
 def read_plan(path: pathlib.Path = PLAN_FILE) -> dict[str, int]:
@@ -93,6 +107,16 @@ def read_plan(path: pathlib.Path = PLAN_FILE) -> dict[str, int]:
     if not plan:
         raise ValueError(f"{path}: the file names no suite")
     return plan
+
+
+def collect_flows(target: pathlib.Path = FLOWS_ROOT) -> list[pathlib.Path]:
+    """The runner's flow list, in the runner's order.
+
+    A thin re-export of the runner's own function, so a caller of this module
+    gets the runner's list rather than a second implementation of it.
+    """
+    collect, _, _ = _runner_modules()
+    return collect(target)
 
 
 def shard_flows(flows: list[pathlib.Path], shard: int, shards: int) -> list[pathlib.Path]:
@@ -178,6 +202,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    try:
+        collect_flows, filter_flows_by_tag, suite_selection = _runner_modules()
+    except ValueError as exc:
+        print(f"e2e shard plan: {exc}", file=sys.stderr)
+        return 1
     target, tags = suite_selection(FLOWS_ROOT, suite)
     flows = collect_flows(target)
     mine = shard_flows(flows, shard, shards)
