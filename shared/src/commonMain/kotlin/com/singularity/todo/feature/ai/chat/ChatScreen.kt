@@ -31,7 +31,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.ChatInputBar
 import com.singularity.todo.core.ui.components.MessageBubble
-import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed

@@ -51,8 +51,8 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet

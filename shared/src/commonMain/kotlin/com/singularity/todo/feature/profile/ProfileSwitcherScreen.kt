@@ -53,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.maxLengthTransformation
+import com.singularity.todo.core.ui.textfields.maxLengthTransformation
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed

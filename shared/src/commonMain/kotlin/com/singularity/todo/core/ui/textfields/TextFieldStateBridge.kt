@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.components
+package com.singularity.todo.core.ui.textfields
 
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState

@@ -37,7 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.components.ObserveTextFieldEdits
+import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import org.koin.compose.viewmodel.koinViewModel

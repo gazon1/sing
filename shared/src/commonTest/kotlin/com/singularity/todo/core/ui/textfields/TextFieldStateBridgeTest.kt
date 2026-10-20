@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.components
+package com.singularity.todo.core.ui.textfields
 
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test

@@ -41,8 +41,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
-import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.search.domain.SavedSearch

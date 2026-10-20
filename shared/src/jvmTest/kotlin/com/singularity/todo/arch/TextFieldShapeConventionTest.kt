@@ -34,14 +34,27 @@ import kotlin.test.assertTrue
  *
  * Three things are checked, and the first is the one that matters:
  *
- * 1. **Every field site is classified.** A file that calls one of the three helpers and
+ * 1. **Every field site is classified.** A file that uses one of the three helpers and
  *    is not in the registry fails the build. A new field is a new classification, and
  *    the classification is a decision somebody has to make on purpose.
  * 2. **The registry matches the code.** The shapes a file declares are the shapes its
- *    helpers implement. A file that claims *local* and calls the *bridged* helper fails —
+ *    imports prove. A file that claims *local* and imports the *bridged* helper fails —
  *    the claim is what the next reader trusts.
  * 3. **The skill matches the registry.** The inventory table lists every classified
  *    file, with the same shapes.
+ *
+ * ## Where the shapes come from
+ *
+ * The shapes are **derived from the code**, not read out of its text. A file that uses
+ * the bridged helper has to import it — the helper lives in
+ * `com.singularity.todo.core.ui.textfields`, and no other package can reach it
+ * without an import — so the import list is the compiler's own record of which shape
+ * the file uses.
+ *
+ * This used to be a text scan: the file's source was searched for the helper's name.
+ * That is the trick the rewrite contract got rid of, and it was wrong in the same way
+ * — a KDoc line naming the helper was enough to classify a file that owns no field,
+ * and a helper named in a comment could hide a field that does.
  *
  * ## Why the registry is not derived from the code
  *
@@ -54,11 +67,10 @@ import kotlin.test.assertTrue
  *
  * ## What it cannot check
  *
- * The scan is lexical. It sees the helper a file calls, not the field it belongs to: a
- * file with three fields of two shapes is classified as *both*, and the per-field
- * answer lives in the skill's table (the "Field" column). A field whose owner is wrong
- * in a way the helper cannot express — a bridged field whose upstream is not the
- * ViewModel — is not visible here.
+ * The derivation is per file, not per field: a file with three fields of two shapes is
+ * classified as *both*, and the per-field answer lives in the skill's table (the
+ * "Field" column). A field whose owner is wrong in a way the helper cannot express —
+ * a bridged field whose upstream is not the ViewModel — is not visible here.
  */
 @Tag("fast")
 class TextFieldShapeConventionTest {
@@ -184,9 +196,9 @@ class TextFieldShapeConventionTest {
     ) {
         /** The shapes as a set, for comparison with what the code uses. */
         val shapes: Set<String> = buildSet {
-            if (local) add("local")
-            if (bridged) add("bridged")
-            if (anchored) add("anchored")
+            if (local) add(FieldShape.LOCAL.label)
+            if (bridged) add(FieldShape.BRIDGED.label)
+            if (anchored) add(FieldShape.ANCHORED.label)
         }
 
         override fun toString(): String = shapes.sorted().joinToString("+")
@@ -195,30 +207,14 @@ class TextFieldShapeConventionTest {
     // ── the scan ───────────────────────────────────────────────────────────────
 
     /**
-     * The files that call one of the three helpers, and the helpers they call.
+     * The files that own a text field, and the shapes they own.
      *
-     * The two helper *definitions* are excluded: `TextFieldShapes.kt` and
-     * `TextFieldStateBridge.kt` call Compose's `rememberTextFieldState` because they
-     * are the helpers, not because they own a field.
+     * The shapes come from the files' imports — see [TextFieldShapeScan] for why an
+     * import and not a mention.
      */
-    private fun fieldSites(): Map<String, Set<String>> {
-        val root = SourceScan.commonMainRoot()
-        val helperFiles = setOf("core/ui/components/TextFieldShapes.kt", "core/ui/components/TextFieldStateBridge.kt")
-        return root.walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".kt") }
-            .mapNotNull { file ->
-                val relative = file.relativeTo(root).invariantSeparatorsPath
-                if (relative in helperFiles) return@mapNotNull null
-                val source = file.readText()
-                val shapes = buildSet {
-                    if (LOCAL_CALL in source) add("local")
-                    if (BRIDGED_CALL in source) add("bridged")
-                    if (ANCHORED_CALL in source) add("anchored")
-                }
-                if (shapes.isEmpty()) null else relative to shapes
-            }
-            .toMap()
-    }
+    private fun fieldSites(): Map<String, Set<String>> =
+        TextFieldShapeScan.shapes()
+            .mapValues { (_, shapes) -> shapes.map { shape -> shape.label }.toSet() }
 
     // ── the skill's inventory ───────────────────────────────────────────────────
 
@@ -254,11 +250,5 @@ class TextFieldShapeConventionTest {
                 if (shapes.isEmpty()) null else file.substringAfterLast('/') to shapes
             }
             .toList()
-    }
-
-    private companion object {
-        const val LOCAL_CALL = "rememberTextFieldState("
-        const val BRIDGED_CALL = "rememberBridgedTextFieldState("
-        const val ANCHORED_CALL = "rememberAnchoredTextFieldState("
     }
 }

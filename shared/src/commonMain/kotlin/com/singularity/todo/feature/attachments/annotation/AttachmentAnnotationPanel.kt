@@ -35,7 +35,7 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
 import com.singularity.todo.core.attachments.annotation.TextRange
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.IntentActions
-import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.viewmodel.koinViewModel

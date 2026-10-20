@@ -23,9 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.celebration.Celebration
-import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.TextSource
-import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.ui.textfields.TextSource
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing

@@ -40,8 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
