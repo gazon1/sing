@@ -274,11 +274,17 @@ rule is genuinely a different question over a different corpus and may stay sepa
 
 ### F8 — `emulator`/`maestro` re-export layers with no callers
 
-`scripts/src/emulator/__init__.py` exports 31 names; the only module outside the
-package that imports it at all is `scripts/tests/test_ensure_emulator.py`. Eleven
-exports have **zero external callers**: `cli`, `adb`, `adb_on`, `probe_device_ready`,
-`list_avds`, `Acquisition`, `acquire_device`, `ensure_device`, `Config`,
-`LOCK_TIMEOUT`.
+`scripts/src/emulator/__init__.py` exports 24 names. Measured by AST import
+analysis (`from emulator import X`, excluding the package's own modules), **7 have
+no caller outside the package**: `adb`, `adb_on`, `list_avds`, `probe_device_ready`,
+`_avd_is_running`, `ensure_device`, `Config`. The rest are reached by
+`scripts/tests/test_ensure_emulator.py` and `scripts/run-android-ui-tests.py`.
+
+Two of the seventeen that a first pass listed as unused are in fact used —
+`Acquisition` and `acquire_device` are imported from `emulator._startup` by
+`scripts/tests/test_ensure_emulator.py` and `scripts/tests/test_device_contracts.py`,
+and `cli` is a submodule name that a plain grep matches in unrelated files. The
+list above is the AST result, not a grep result.
 
 `scripts/src/emulator/maestro/_device.py:12-27` re-exports `adb`, `adb_on`,
 `device_alive` from `emulator._device`; its only importer (`maestro/_types.py:67`)
