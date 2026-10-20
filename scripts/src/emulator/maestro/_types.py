@@ -21,6 +21,12 @@ EXIT_PASS = 0
 EXIT_FAIL = 1
 
 
+def _junit_reports_device_failure(report: Path) -> bool:
+    """Late-bound import: `emulator.maestro._device` imports this module."""
+    from emulator.maestro._device import junit_reports_device_failure
+    return junit_reports_device_failure(report)
+
+
 @dataclass(frozen=True)
 class DeviceDeps:
     """Explicit device-layer dependencies for run_one_flow and CLI main.
@@ -75,6 +81,12 @@ class DeviceDeps:
     #   restarting the adb server and booting the AVD again.
     probe_device_health: Callable[[str], DeviceHealth] = _probe_device_health
     emulator_process_alive: Callable[[], bool] = _emulator_process_alive
+
+    # * ``junit_reports_device_failure`` reads the flow's own JUnit report and
+    #   says whether the device — not the flow — is what failed. Maestro writes
+    #   a dead device into the report, and a runner that reads only the
+    #   process's stderr counts that as a broken flow, which is not retried.
+    junit_reports_device_failure: Callable[[Path], bool] = _junit_reports_device_failure
 
 
 def _default_device_deps() -> DeviceDeps:

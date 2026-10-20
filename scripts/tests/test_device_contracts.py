@@ -45,6 +45,7 @@ _REAL_IMPLS = {
     "device_alive": _device.device_alive,
     "device_model": maestro_device.device_model,
     "maestro_saw_device_failure": maestro_device.maestro_saw_device_failure,
+    "junit_reports_device_failure": maestro_device.junit_reports_device_failure,
     "apk_sha_from_device": _provenance.apk_sha_from_device,
     "gradle_install_debug": maestro_device.gradle_install_debug,
     "acquire_device": _startup.acquire_device,

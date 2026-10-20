@@ -71,6 +71,11 @@ def run_one_flow(
 
     for attempt in range(max_retries + 1):
         run_id = f"r{int(time.time() * 1000) % 10**9}{attempt}"
+        # The report of an earlier attempt is not evidence about this one. A
+        # leftover file would make this attempt look like it failed the way the
+        # previous one did — and the previous one may have failed with a dead
+        # device, which is the difference between retrying and giving up.
+        junit_file.unlink(missing_ok=True)
         cmd = [
             "maestro", "test", str(flow_path),
             "--env", f"RUN_ID={run_id}",
@@ -97,7 +102,15 @@ def run_one_flow(
             return True, run_id
 
         stderr = cp.stderr if cp else ""
-        if not deps.maestro_saw_device_failure(stderr) and deps.device_alive(serial):
+        # A device that dies mid-flow is written into the flow's JUnit report,
+        # not into the process's stderr: the report's <failure> element carries
+        # Maestro's gRPC stack. Reading stderr alone counts a dead device as a
+        # broken flow, and a broken flow is never retried.
+        device_failed = (
+            deps.maestro_saw_device_failure(stderr)
+            or deps.junit_reports_device_failure(junit_file)
+        )
+        if not device_failed and deps.device_alive(serial):
             logger.error(stdout)
             return False, run_id
 
