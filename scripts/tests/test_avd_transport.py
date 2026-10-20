@@ -281,11 +281,24 @@ class AvdNameReachesTheEmulatorTest(unittest.TestCase):
             with self.subTest(consumer=consumer.name):
                 workflow = _load(consumer)
                 job = _consumer_job(workflow)
+                # The AVD name may be set on the job or on a step. A job-level
+                # `env` reaches every step of that job, so it carries the name
+                # just as well — and the device workflow sets it at job level
+                # precisely so that the two tiers cannot drift apart. Looking
+                # only at the steps would report a workflow that names the AVD
+                # correctly as one that never names it.
+                job_env = workflow["jobs"][job].get("env") or {}
                 found = [
                     s for s in _steps(workflow, job)
                     if "AVD" in (s.get("env") or {})
                 ]
-                self.assertTrue(found, f"{consumer.name} never sets AVD")
+                if "AVD" in job_env:
+                    self.assertEqual(
+                        "${{ needs.setup-avd.outputs.avd_name }}",
+                        job_env["AVD"],
+                    )
+                else:
+                    self.assertTrue(found, f"{consumer.name} never sets AVD")
                 for step in found:
                     self.assertEqual(
                         "${{ needs.setup-avd.outputs.avd_name }}",

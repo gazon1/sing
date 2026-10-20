@@ -62,7 +62,14 @@ echo -e "${YELLOW}=== [2/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
 # the long test steps so a broken androidMain costs seconds instead of ten minutes.
 # See docs/decisions/2026-10-07-android-maintenance-needs-a-ci-gate.md
 #
-./gw :androidApp:compileDebugKotlin --quiet || {
+# `compileDebugAndroidTestKotlin` comes along for the ride: the instrumented
+# source set is compiled by nothing else in the pull-request pipeline either,
+# and a broken instrumented test is otherwise discovered by the next nightly —
+# days later, and blamed on the nightly. CI names the same task
+# (`.github/workflows/ci.yml`, the free leg of the Android matrix), and
+# `scripts/check-gate-wiring.py`'s Gradle-task parity check is what keeps the
+# two surfaces from drifting apart.
+./gw :androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin --quiet || {
     echo -e "${RED}androidApp:compileDebugKotlin FAILED${NC}"
     exit 1
 }

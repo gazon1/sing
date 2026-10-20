@@ -5,16 +5,28 @@ name: Android device tests
 # recorded the consequence: 16 of 32 scenario-matrix cells are holes, and the android column
 # is `not-run` by normalisation rather than by measurement.
 #
-# Not on every pull request, and that is a decision rather than an omission. An emulator adds
-# roughly ten minutes and is the flakiest part of any Android CI, so it runs on a schedule,
-# on every push to main, on tags, and on demand. The cheap surfaces (static, JVM tests,
-# both android compile legs) gate every PR and run in minutes.
+# Two tiers, because "the emulator adds roughly ten minutes" and "the tier never runs
+# between two nightlies" are both true, and only the second one is a defect.
 #
-#   push to main   -> instrumented tests
-#   nightly cron   -> instrumented tests
-#   push v*        -> instrumented tests
-#   manual         -> instrumented tests
-#   PR labelled `run-device-tests` -> instrumented tests
+# The cheap surfaces (static, JVM tests, both android compile legs) gate every PR and run
+# in minutes. The device tier stays out of the gate — an emulator is the flakiest part of
+# any Android CI — but it now answers one question on every pull request, for free of
+# the merge decision: does the app still start on a device?
+#
+#   push to main   -> full instrumented suite
+#   nightly cron   -> full instrumented suite
+#   push v*        -> full instrumented suite
+#   manual         -> full instrumented suite
+#   PR labelled `run-device-tests` -> full instrumented suite
+#   PR opened / updated        -> smoke tier: one class, advisory, never blocks a merge
+#
+# The smoke tier is `AppStartupTest`: it asserts the bypass reached the build, that the
+# app is not on the sign-in screen, and that the shell's tags reach the accessibility
+# tree. Three tests, one activity launch each — cheap *after* the emulator is up, and
+# the emulator is the cost either way, which is why the smoke tier is advisory and the
+# full tier is the one a human asks for by adding a label.
+#
+# ADR `2026-10-20-android-instrumented-smoke-on-every-pr.md` records the trade-off.
 #
 # Maestro flows live in e2e.yml and are deliberately not merged in here: they need a
 # separate APK and a CLI install, and #150 settled that a failed nightly opens an issue
@@ -31,7 +43,10 @@ on:
     tags: ["v*"]
     # Run on every push to main (smoke), full on tags
   pull_request:
-    types: [labeled]
+    # `opened` and `synchronize` are the smoke tier; `labeled` is the full tier and
+    # only when the label is the one this workflow answers to. A PR that gets some
+    # other label must not start a second emulator fleet.
+    types: [opened, synchronize, ready_for_review, labeled]
     branches: [main]
   workflow_dispatch:
 
@@ -44,17 +59,18 @@ concurrency:
   # lacking the `run-device-tests` label, and cancelled the in-progress Maestro run:
   # neither emulator workflow ran. Naming the workflow keeps each fleet its own
   # group while still replacing a superseded run of itself on the same PR.
-  group: emulator-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  #
+  # `github.event.label.name` splits the two pull-request tiers apart. Without it a
+  # new push would land in the same group as the labelled run and cancel it — the
+  # authoritative run would die in favour of the advisory one, which is exactly the
+  # wrong way round. A labelled run and an automatic smoke run are different
+  # measurements, so they are different groups: each replaces only its own
+  # predecessor.
+  group: emulator-${{ github.workflow }}-${{ github.event.label.name || 'auto' }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
-
-env:
-  # Unified GPU mode for both e2e.yml and android-device-tests.yml.
-  # Set via repo variable EMULATOR_GPU_MODE (swiftshader_indirect or off).
-  # Defaults to swiftshader_indirect (instrumentation tests use compositor).
-  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'swiftshader_indirect' }}
 
 jobs:
   # Emits the build matrix in one place. Currently a single "free" APK, but when
@@ -63,13 +79,14 @@ jobs:
   plan:
     if: >-
       github.event_name != 'pull_request' ||
-      (contains(github.event.pull_request.labels.*.name, 'run-device-tests') &&
-       github.event.label.name == 'run-device-tests' &&
-       github.event.pull_request.base.ref == 'main')
+      (github.event.pull_request.base.ref == 'main' &&
+       (github.event.label.name == null || github.event.label.name == 'run-device-tests'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       flavors: ${{ steps.p.outputs.flavors }}
+      tier: ${{ steps.p.outputs.tier }}
+      smoke_class: ${{ steps.p.outputs.smoke_class }}
     steps:
       - id: p
         run: |
@@ -82,6 +99,30 @@ jobs:
               flavors='["free"]' ;;
           esac
           echo "flavors=$flavors" >> "$GITHUB_OUTPUT"
+
+          # The tier, decided here and nowhere else.
+          #
+          # The label is read from the pull request's own payload rather than from
+          # `github.event.label.name`: the event that *adds* the label carries it,
+          # but a push to an already-labelled pull request carries the label in the
+          # pull request payload and not in the event's own `label` key. The
+          # question is "does this pull request ask for the full suite", and the
+          # pull request's labels are the answer to that question.
+          tier=full
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            tier=smoke
+            if jq -e 'any(.pull_request.labels[]?; .name == "run-device-tests")' \
+                 "$GITHUB_EVENT_PATH" >/dev/null; then
+              tier=full
+            fi
+          fi
+          echo "tier=$tier" >> "$GITHUB_OUTPUT"
+
+          # The one class the smoke tier runs, named here so that the definition of
+          # the smoke lives in one place. A second copy of the class name in the
+          # step below would be a second place to change it, and the two would
+          # disagree the first time somebody widened the smoke.
+          echo "smoke_class=com.singularity.todo.ui.AppStartupTest" >> "$GITHUB_OUTPUT"
 
   # Job-level `uses:`, not a step: a reusable workflow is invoked from
   # `jobs.<id>.uses`, and a step-level one is resolved as a local action and
@@ -99,6 +140,35 @@ jobs:
     needs: [plan, setup-avd]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # The device settings both tiers share. They are job-level because the two
+    # tiers are two steps that must not drift apart: a smoke that booted a
+    # different AVD or a different GPU mode would be answering a different
+    # question from the full run, and the difference would be invisible.
+    #
+    # `vars` rather than `env` for the GPU mode: the env context is not
+    # available to a job-level `env` block, so `env.EMULATOR_GPU_MODE` would
+    # have expanded to an empty string and left the emulator with `-gpu` and no
+    # argument. The repository variable is the same value without the question.
+    env:
+      # The AVD the emulator module boots. It defaults to "Medium_Phone",
+      # an AVD this workflow never creates — so without this the module
+      # would have booted the right binary against the wrong AVD, and the
+      # failure would have looked like a boot problem rather than a
+      # misnamed one.
+      AVD: ${{ needs.setup-avd.outputs.avd_name }}
+      # Both workflows share EMULATOR_GPU_MODE via repo variable
+      # (default: swiftshader_indirect for instrumentation tests).
+      # ADR 2026-09-28-emulator-gfxstream-colorbuffer-segv records the crash
+      # that pinning `-gpu` invites; software rendering is the supported answer.
+      EMULATOR_EXTRA_FLAGS: >-
+        -no-window -gpu ${{ vars.EMULATOR_GPU_MODE || 'swiftshader_indirect' }} -no-audio
+        -prop persist.sys.locale=ru-RU
+      # The AVD was cold-created in the step above, so its boot budget is the
+      # image download's absence, not a warm snapshot's presence. 600s is the
+      # ceiling; `start_avd` returns EXIT_TIMEOUT the moment it is reached,
+      # rather than letting the job's own timeout kill the runner mid-boot and
+      # lose the emulator log.
+      EMULATOR_TIMEOUT: 600
 
     steps:
       - uses: actions/checkout@v7
@@ -209,28 +279,36 @@ jobs:
       # the shell, caused by a screen in front of it. Measured locally on
       # 2026-10-16: 3 of the 3 UI classes fail that way.
       #
-      # Both workflows share EMULATOR_GPU_MODE via repo variable
-      # (default: swiftshader_indirect for instrumentation tests).
-      # ADR 2026-09-28-emulator-gfxstream-colorbuffer-segv records the crash
-      # that pinning `-gpu` invites; software rendering is the supported answer.
-      - name: Instrumented tests
+      # The two steps below are the two tiers, and they are separate steps rather
+      # than one step with a conditional argument: the smoke is advisory and the
+      # full run is not, and that difference has to be visible in the step itself
+      # — in its name, and in whether it can fail the job.
+
+      # The smoke tier: one class, and it never blocks a merge.
+      #
+      # `continue-on-error: true` is what makes it advisory, and the name says so
+      # where a reader looks — Part D of scripts/check-gate-wiring.py requires a
+      # soft step to declare itself, in its name or in a comment on it.
+      #
+      # The class filter is the standard instrumentation-runner argument, so the
+      # same Gradle task runs and only the named class is instrumented. If a
+      # future AGP stopped honouring it, the smoke would quietly become the full
+      # suite: slower, still correct, and the floor check below would still
+      # notice that the tier grew.
+      - name: Instrumented smoke (advisory — one class, never blocks a merge)
+        if: needs.plan.outputs.tier == 'smoke'
+        continue-on-error: true
         env:
-          # The AVD the emulator module boots. It defaults to "Medium_Phone",
-          # an AVD this workflow never creates — so without this the module
-          # would have booted the right binary against the wrong AVD, and the
-          # failure would have looked like a boot problem rather than a
-          # misnamed one.
-          AVD: ${{ needs.setup-avd.outputs.avd_name }}
+          GRADLE_ARGS: >-
+            -PTEST_AUTH_BYPASS=true
+            -Pandroid.testInstrumentationRunnerArguments.class=${{ needs.plan.outputs.smoke_class }}
+        run: python3 scripts/run-android-ui-tests.py
+
+      # The full tier: the whole instrumented suite, and it fails the job.
+      - name: Instrumented tests
+        if: needs.plan.outputs.tier == 'full'
+        env:
           GRADLE_ARGS: -PTEST_AUTH_BYPASS=true
-          EMULATOR_EXTRA_FLAGS: >-
-            -no-window -gpu ${{ env.EMULATOR_GPU_MODE }} -no-audio
-            -prop persist.sys.locale=ru-RU
-          # The AVD was cold-created in the step above, so its boot budget is the
-          # image download's absence, not a warm snapshot's presence. 600s is the
-          # ceiling; `start_avd` returns EXIT_TIMEOUT the moment it is reached,
-          # rather than letting the job's own timeout kill the runner mid-boot and
-          # lose the emulator log.
-          EMULATOR_TIMEOUT: 600
         run: python3 scripts/run-android-ui-tests.py
 
       # The floor of the instrumented suite.
@@ -244,8 +322,12 @@ jobs:
       # It runs after the tests because it reads their report, and it runs even
       # when the tests failed, because a failed run is exactly the run whose
       # size is worth checking.
+      #
+      # Only in the full tier. The smoke tier ran one class on purpose, so its
+      # report is below the floor by construction, and asking the floor about it
+      # would report the smoke as a regression of the suite.
       - name: Check the instrumented suite's floor
-        if: ${{ !cancelled() }}
+        if: ${{ needs.plan.outputs.tier == 'full' && !cancelled() }}
         run: python3 scripts/check-instrumented-test-floor.py
 
       # Uploaded unconditionally, not `if: failure()`. A report that exists only when
