@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.compose.runtime.Stable
+import com.singularity.todo.core.ui.components.OwnedText
+import com.singularity.todo.core.ui.components.OwnedTextSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -115,4 +117,18 @@ data class ProjectDetailDraft(
         fun empty() = ProjectDetailDraft("", "", "", "")
     }
     val isDirty: Boolean get() = name != originalName || description != originalDescription
+
+    /**
+     * The name as the field's source.
+     *
+     * The ViewModel observes the project, so the project can be rewritten from outside the
+     * screen — a sync from another device, a rename made on another one — and the rewrite
+     * can land on a name the field itself produced. The draft counts the replacements, and
+     * the type says the count is there: a field that holds this source cannot be wired as
+     * if the name were a value nobody else writes.
+     */
+    val nameSource: OwnedTextSource get() = OwnedText(name, revision)
+
+    /** The description as the field's source; see [nameSource] for why the count is there. */
+    val descriptionSource: OwnedTextSource get() = OwnedText(description, revision)
 }

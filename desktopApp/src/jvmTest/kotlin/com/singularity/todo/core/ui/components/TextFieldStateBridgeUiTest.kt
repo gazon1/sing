@@ -42,6 +42,8 @@ import kotlin.test.Test
  * 7. An upstream that lags behind does not overwrite the field.
  * 8. The edit observer fires on edits, and not on the field's seed.
  * 9. An anchored field follows the value it is anchored to.
+ * 10. An upstream that *owns* the value rewrites it even when the value is one the
+ *     field produced — the case a static upstream cannot express.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -232,6 +234,28 @@ class TextFieldStateBridgeUiTest {
             }
         }
 
+    @Test
+    fun an_owned_upstream_rewrites_a_value_the_field_produced() = runIsolatedComposeTest {
+        val upstream = OwnedUpstream()
+        setContent { OwnedBridgeField(upstream) }
+
+        awaitTag(FIELD).performTextInput("abc")
+        waitForIdle()
+        awaitTag(FIELD).performTextReplacement("a")
+        waitForIdle()
+        assertTagTextEquals(FIELD, "a")
+
+        // The upstream replaces the field's text with "abc" — a value the field
+        // produced a moment ago and no longer holds. From the field's side that is
+        // indistinguishable from a lagging upstream, and the static guard drops it
+        // (see the test above). The owned source carries the count of the
+        // replacements, so the guard is lifted and the rewrite lands.
+        upstream.rewrite("abc")
+        waitForIdle()
+
+        assertTagTextEquals(FIELD, "abc")
+    }
+
     /**
      * The upstream a bridge talks to: a plain string plus a counter of the writes
      * the field made to it. The string is snapshot state, so a rewrite from the
@@ -242,9 +266,46 @@ class TextFieldStateBridgeUiTest {
 
         var pushes: Int = 0
 
+        /**
+         * The value as the field's source.
+         *
+         * The upstream only loads the value or clears it, so it never replaces the field's text
+         * with one the field produced — the static shape is the honest one here, and there is no
+         * counter to keep.
+         */
+        val source: StaticText get() = StaticText(value)
+
         /** Replaces the value from the outside, the way a ViewModel rewrite does. */
         fun rewrite(text: String) {
             value = text
+        }
+    }
+
+    /**
+     * An upstream that *owns* the value: it may replace the field's text with anything,
+     * including a value the field produced, and it counts the replacements.
+     *
+     * The count moves only for a replacement from the outside. The field's own push is
+     * the upstream taking the value, not the upstream rewriting it — the same rule the
+     * app's drafts follow.
+     */
+    private class OwnedUpstream(initial: String = "") {
+        var value: String by mutableStateOf(initial)
+
+        var revision: Long by mutableStateOf(0L)
+
+        /** The value as the field's source; the count of the replacements travels with it. */
+        val source: OwnedText get() = OwnedText(value, revision)
+
+        /** The field's own write: the upstream takes the value, and the count does not move. */
+        fun push(text: String) {
+            value = text
+        }
+
+        /** A replacement from the outside: the count moves, so the bridge knows it is a rewrite. */
+        fun rewrite(text: String) {
+            value = text
+            revision += 1
         }
     }
 
@@ -252,11 +313,24 @@ class TextFieldStateBridgeUiTest {
     @Composable
     private fun BridgeField(upstream: Upstream) {
         val state = rememberBridgedTextFieldState(
-            externalText = upstream.value,
+            source = upstream.source,
             onTextChanged = { newText ->
                 upstream.pushes++
                 upstream.rewrite(newText)
             },
+        )
+        OutlinedTextField(
+            state = state,
+            modifier = Modifier.testTag(FIELD),
+        )
+    }
+
+    /** A field bound to an [OwnedUpstream] through the shared bridge helper. */
+    @Composable
+    private fun OwnedBridgeField(upstream: OwnedUpstream) {
+        val state = rememberBridgedTextFieldState(
+            source = upstream.source,
+            onTextChanged = { newText -> upstream.push(newText) },
         )
         OutlinedTextField(
             state = state,

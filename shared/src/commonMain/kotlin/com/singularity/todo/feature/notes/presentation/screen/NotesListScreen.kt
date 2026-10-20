@@ -71,6 +71,7 @@ import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -84,6 +85,7 @@ import com.singularity.todo.feature.notes.NoteSortOrder
 import com.singularity.todo.feature.notes.NotesListState
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
+import com.singularity.todo.feature.notes.searchQuerySource
 import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.notes.components.NotesActions
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
@@ -223,7 +225,7 @@ fun NotesScreenContent(
                         onFilterChange = { actions.onSetFilter(it) },
                     )
                     NoteSearchField(
-                        query = state.searchQuery,
+                        querySource = state.searchQuerySource,
                         onQueryChange = { actions.onSearchQueryChange(it) },
                     )
                     QuickAddRow(onSubmit = onCreateNote)
@@ -340,9 +342,9 @@ private fun SortDropdownMenu(
  * rather than one per keystroke.
  */
 @Composable
-private fun NoteSearchField(query: String, onQueryChange: (String) -> Unit) {
+private fun NoteSearchField(querySource: StaticTextSource, onQueryChange: (String) -> Unit) {
     val queryState = rememberBridgedTextFieldState(
-        externalText = query,
+        source = querySource,
         onTextChanged = onQueryChange,
     )
     OutlinedTextField(

@@ -14,6 +14,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.components.StaticText
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -50,7 +51,25 @@ data class AnnotationDraft(
     val note: String = "",
     /** Set while editing an existing annotation; `null` means "create a new one". */
     val editing: AttachmentAnnotationId? = null,
-)
+) {
+    /**
+     * The start offset as the field's source.
+     *
+     * The draft is seeded when the editor opens and edited by the user's own keystrokes, so the
+     * value is replaced only with one the field never produced: the field's echo guard needs no
+     * lifting, and there is no counter to read.
+     */
+    val startSource: StaticText get() = StaticText(start)
+
+    /** The end offset as the field's source; see [startSource] for why no counter is needed. */
+    val endSource: StaticText get() = StaticText(end)
+
+    /** The quoted words as the field's source; see [startSource] for why no counter is needed. */
+    val quoteSource: StaticText get() = StaticText(quote)
+
+    /** The note as the field's source; see [startSource] for why no counter is needed. */
+    val noteSource: StaticText get() = StaticText(note)
+}
 
 sealed interface AttachmentAnnotationUiState {
     data object Loading : AttachmentAnnotationUiState

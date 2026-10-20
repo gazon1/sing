@@ -51,6 +51,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
+import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -125,8 +126,8 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
         ) {
             // ── Identity: name + description ──────────────────────────────
             IdentitySection(
-                name = state.name,
-                description = state.description,
+                nameSource = state.nameSource,
+                descriptionSource = state.descriptionSource,
                 errorMessage = state.errorMessage,
                 onNameChanged = { viewModel.onIntent(ProjectEditorIntent.NameChanged(it)) },
                 onDescriptionChanged = { viewModel.onIntent(ProjectEditorIntent.DescriptionChanged(it)) },
@@ -261,18 +262,18 @@ private fun EditorErrorDialog(message: String, onDismiss: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IdentitySection(
-    name: String,
-    description: String,
+    nameSource: StaticTextSource,
+    descriptionSource: StaticTextSource,
     errorMessage: String?,
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
 ) {
     val nameState = rememberBridgedTextFieldState(
-        externalText = name,
+        source = nameSource,
         onTextChanged = onNameChanged,
     )
     val descriptionState = rememberBridgedTextFieldState(
-        externalText = description,
+        source = descriptionSource,
         onTextChanged = onDescriptionChanged,
     )
 

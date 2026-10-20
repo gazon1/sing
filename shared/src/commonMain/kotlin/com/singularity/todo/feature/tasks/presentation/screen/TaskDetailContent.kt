@@ -158,13 +158,12 @@ fun TaskDetailContent(
 
                     TaskEditorContent(
                         taskId = ui.task.id.value,
-                        titleDraft = ui.titleDraft,
+                        titleSource = ui.titleSource,
                         onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
                         isCompleted = ui.task.isCompleted,
                         onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
-                        descriptionDraft = ui.descriptionDraft,
+                        descriptionSource = ui.descriptionSource,
                         onDescriptionChange = { coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it)) },
-                        revision = ui.revision,
                         priority = ui.task.priority,
                         onPrioritySelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
                         onPriorityClear = {

@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.state
 import androidx.compose.runtime.Immutable
+import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 
 enum class ProjectSortOrder { Name, Color }
@@ -63,3 +65,18 @@ sealed interface ProjectsUiState {
     data class Error(val message: String, override val searchQuery: String, override val sortOrder: ProjectSortOrder) :
         ProjectsUiState
 }
+
+/**
+ * The query as the search field's source.
+ *
+ * The ViewModel holds the query the user typed and hands it back unchanged — on the
+ * transient states too — so it never replaces the field's value with one the field never
+ * produced: the field's echo guard needs no lifting, and there is no counter to read.
+ *
+ * It is a *view* of the query rather than a piece of the state the machine carries: every
+ * variant already carries the query itself, as a required constructor parameter, and the
+ * source is what the field is handed. A property of the interface would say the variants
+ * have to carry the source too — and then the query and the source would be two values
+ * that could disagree.
+ */
+val ProjectsUiState.searchQuerySource: StaticTextSource get() = StaticText(searchQuery)

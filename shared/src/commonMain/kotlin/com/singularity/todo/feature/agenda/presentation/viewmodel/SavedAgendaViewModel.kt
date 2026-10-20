@@ -14,6 +14,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
@@ -83,6 +84,15 @@ data class Draft(
     val initialized: Boolean = false,
 ) {
     val isDirty: Boolean get() = name != originalName || sections != originalSections
+
+    /**
+     * The name as the field's source.
+     *
+     * The draft is seeded once, when the saved view is loaded, and afterwards holds what the user
+     * typed, so it never replaces the field's value with one the field never produced: the
+     * field's echo guard needs no lifting, and there is no counter to read.
+     */
+    val nameSource: StaticText get() = StaticText(name)
 
     companion object {
         fun empty() = Draft("", emptyList(), "", emptyList(), false)

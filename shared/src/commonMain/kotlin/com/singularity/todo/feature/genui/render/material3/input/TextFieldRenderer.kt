@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.OwnedText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.render.ComponentRegistry
@@ -47,9 +48,17 @@ internal fun ComponentRegistry.registerTextField(): Unit = register("text_field"
  *
  * **The rewrite token.** The surface knows which writes came from the server and which came from
  * the field, so it can say "this value is a rewrite": `ctx.serverRevision()` counts the server's
- * writes, and the counter is handed to the bridge as its revision token. A server rewrite then
- * wins over the keyboard — the same rule the value-based field had, and the same rule the
- * surface protocol never spelled out. `TextFieldStateBridgeTest` pins the guards.
+ * writes. The server is the owner of the value, so the counter belongs to the source the field
+ * is handed — an owned source, which says in its type that the server may replace the text with
+ * anything. A server rewrite then wins over the keyboard — the same rule the value-based field
+ * had, and the same rule the surface protocol never spelled out. `TextFieldStateBridgeTest` pins
+ * the guards.
+ *
+ * **This renderer builds the source, and that is the exception.** Everywhere else the owner
+ * builds it and the field passes it through; here the owner is a server the renderer does not
+ * own, and the renderer is the boundary where the server's value and the server's counter are
+ * read. The source it builds is still the server's — the count comes from the data context, not
+ * from the renderer.
  *
  * See ADR `2026-10-19-text-field-state-migration`.
  */
@@ -59,9 +68,8 @@ private fun BoundTextField(f: UiNode.TextField, ctx: DataContext, modifier: Modi
     val current: String = (bound as? JsonPrimitive)?.content ?: f.initial
     val serverRevision by ctx.serverRevision().collectAsStateWithLifecycle(initialValue = 0L)
     val state = rememberBridgedTextFieldState(
-        externalText = current,
+        source = OwnedText(current, serverRevision),
         onTextChanged = { newValue: String -> ctx.write(f.path, JsonPrimitive(newValue)) },
-        revision = serverRevision,
     )
     OutlinedTextField(
         state = state,

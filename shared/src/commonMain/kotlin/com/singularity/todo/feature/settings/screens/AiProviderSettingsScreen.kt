@@ -168,7 +168,7 @@ fun AiProviderSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val baseUrlState = rememberBridgedTextFieldState(
-                externalText = state.ai.baseUrl,
+                source = state.baseUrlSource,
                 onTextChanged = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(it)) },
             )
             OutlinedTextField(
@@ -185,7 +185,7 @@ fun AiProviderSettingsScreen(
             // Read-only anchor: the dropdown sets the model, the field only shows it.
             val modelState = rememberAnchoredTextFieldState(state.ai.model)
             val modelNameState = rememberBridgedTextFieldState(
-                externalText = state.ai.model,
+                source = state.modelSource,
                 onTextChanged = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
             )
             if (state.aiEphemeral.models.isNotEmpty()) {
@@ -247,7 +247,7 @@ fun AiProviderSettingsScreen(
         // ─── System Prompt ─────────────────────────────────────────────────────
         SettingsSection(title = "System Prompt") {
             val systemPromptState = rememberBridgedTextFieldState(
-                externalText = state.ai.systemPrompt,
+                source = state.systemPromptSource,
                 onTextChanged = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(it)) },
             )
             Text(

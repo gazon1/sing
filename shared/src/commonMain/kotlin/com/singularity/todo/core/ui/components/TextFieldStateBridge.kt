@@ -133,7 +133,7 @@ internal fun shouldFlushOnDispose(
  * read by the bridge's own coroutines, and a snapshot write per keystroke is work the
  * frame does not need.
  */
-private class BridgeHistory(initialText: String, initialRevision: Long) {
+private class BridgeHistory(initialText: String, initialRevision: Long?) {
 
     /** The last text the field held, seed included. */
     var lastEmitted: String = initialText
@@ -148,8 +148,11 @@ private class BridgeHistory(initialText: String, initialRevision: Long) {
      * token is remembered so the same declaration arriving twice is not read as two
      * rewrites. It starts at the token the field was created with, so the *first*
      * upstream value is never mistaken for a rewrite.
+     *
+     * `null` means the upstream never declared a rewrite — a [StaticTextSource]. There
+     * is no token to compare, and the guard stays exactly as it was.
      */
-    var lastRevision: Long = initialRevision
+    var lastRevision: Long? = initialRevision
 
     /** Records a text the field handed out, dropping the oldest when the bound is hit. */
     fun recordPush(text: String) {
@@ -181,28 +184,86 @@ private class BridgeHistory(initialText: String, initialRevision: Long) {
  * but the ViewModel's contract in this project is a single immutable UI state, and a mutable
  * buffer inside it would be a second source of truth for the same value.
  *
- * **The revision token.** The pull guard cannot tell a *lagging* upstream from an upstream that
- * *deliberately rewrites* the field to a value the field pushed earlier — from the field's side
- * both arrive as "a value I sent a moment ago". A lagging upstream must not win, so it does. An
- * upstream that knows it is rewriting can say so: it advances [revision], and the guard is lifted
- * for the value that arrives with the new token. The token is a counter, not a value: any change
- * to it means "the value that comes with it is a rewrite".
+ * ## The source says who may rewrite the field
  *
- * The default is `0`, and a caller that never rewrites never advances it — the guard stays
- * exactly as it was. A caller that *does* rewrite must advance it, or the rewrite is silently
- * dropped when it lands on a value the field pushed earlier.
+ * The upstream may replace the value in two ways, and the difference is behavioural: an
+ * upstream that only loads or clears the value cannot produce a value the field has produced,
+ * while an upstream that *owns* the value can. The second case needs the owner to say so — a
+ * rewrite that lands on a value the field pushed earlier is indistinguishable from a lagging
+ * upstream — and the way it says so is the revision counter the owner keeps.
  *
- * @param externalText the upstream (ViewModel) value.
+ * That is why the source is a **type** and not a parameter with a default. The two shapes are
+ * two overloads, so a field that holds an [OwnedTextSource] cannot be wired as if its value
+ * were static, and a field cannot freeze the counter: the counter is not a parameter, it is a
+ * property of the source, and the source is built by the component that owns the value.
+ *
+ * @param source the upstream's value and the authority over it. Built by the owner.
  * @param onTextChanged invoked with the field text whenever the user edits it.
- * @param revision the upstream's rewrite counter. Advance it when the upstream deliberately
- *   replaces the value; the bridge then applies that value even if the field pushed it before.
  * @return the [TextFieldState] to hand to the text field.
+ * @see TextSource for the two shapes and why the question is a type.
  */
 @Composable
 fun rememberBridgedTextFieldState(
+    source: OwnedTextSource,
+    onTextChanged: (String) -> Unit,
+): TextFieldState = rememberBridgedTextFieldState(source.text, onTextChanged, source.revision)
+
+/**
+ * Owns the text of a state-based text field and keeps a ViewModel-owned string in sync.
+ *
+ * The upstream replaces the value only with values the field never produced — it loads the
+ * value once, or clears it — so the echo guard needs no lifting and there is no counter to
+ * read.
+ *
+ * @param source the upstream's value. Built by the owner.
+ * @param onTextChanged invoked with the field text whenever the user edits it.
+ * @return the [TextFieldState] to hand to the text field.
+ * @see TextSource for the two shapes and why the question is a type.
+ */
+@Composable
+fun rememberBridgedTextFieldState(
+    source: StaticTextSource,
+    onTextChanged: (String) -> Unit,
+): TextFieldState = rememberBridgedTextFieldState(source.text, onTextChanged, null)
+
+/**
+ * Owns the text of a state-based text field whose upstream is not known to be one kind or the
+ * other.
+ *
+ * A component that serves two upstreams — the task editor serves the create draft and the
+ * detail draft — cannot say which kind of upstream it holds, and must not decide: the source
+ * carries the answer, and this overload reads it.
+ *
+ * The `when` is exhaustive because [TextSource] is sealed with exactly two permitted shapes.
+ * A third kind of source cannot be added without the bridge saying what it means — the answer
+ * is not a matter of taste.
+ *
+ * @param source the upstream's value and the authority over it. Built by the owner.
+ * @param onTextChanged invoked with the field text whenever the user edits it.
+ * @return the [TextFieldState] to hand to the text field.
+ */
+@Composable
+internal fun rememberBridgedTextFieldState(
+    source: TextSource,
+    onTextChanged: (String) -> Unit,
+): TextFieldState = when (source) {
+    is OwnedTextSource -> rememberBridgedTextFieldState(source, onTextChanged)
+    is StaticTextSource -> rememberBridgedTextFieldState(source, onTextChanged)
+}
+
+/**
+ * The bridge itself.
+ *
+ * @param externalText the upstream value.
+ * @param onTextChanged invoked with the field text whenever the user edits it.
+ * @param revision the owner's count of the replacements, or `null` when the upstream never
+ *   declares a rewrite.
+ */
+@Composable
+private fun rememberBridgedTextFieldState(
     externalText: String,
     onTextChanged: (String) -> Unit,
-    revision: Long = 0,
+    revision: Long?,
 ): TextFieldState {
     // Seeded from the upstream: a field that starts empty while the upstream holds a loaded value
     // would push that empty value back on its first emission and wipe what was loaded.
@@ -230,7 +291,7 @@ fun rememberBridgedTextFieldState(
     LaunchedEffect(externalText, revision) {
         // A new revision is the upstream declaring a rewrite. The token is consumed here,
         // so the same declaration arriving twice is not read as two rewrites.
-        val isRewrite = revision != history.lastRevision
+        val isRewrite = revision != null && revision != history.lastRevision
         if (isRewrite) {
             history.lastRevision = revision
         }

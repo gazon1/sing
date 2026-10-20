@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.attachments.Attachment
+import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.components.TextSource
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -20,8 +22,9 @@ import kotlinx.datetime.LocalTime
  * In Create mode, initialize from the create draft.
  *
  * @param taskId null in Create mode, non-null in View mode. Used by sheets to load sub-data (checklist, attachments).
- * @param titleDraft Current title text.
- * @param descriptionDraft Current description text.
+ * @param titleSource Current title, as the field's source. The owner builds it, and its type
+ *   says who may replace the title.
+ * @param descriptionSource Current description, as the field's source.
  * @param priority Current priority.
  * @param dueDate Current due date (null = not set).
  * @param dueTime Current due time (null = not set).
@@ -38,8 +41,8 @@ import kotlinx.datetime.LocalTime
  */
 data class TaskEditorModel(
     val taskId: TaskId? = null,
-    val titleDraft: String = "",
-    val descriptionDraft: String = "",
+    val titleSource: TextSource = StaticText(""),
+    val descriptionSource: TextSource = StaticText(""),
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: LocalDate? = null,
     val dueTime: LocalTime? = null,

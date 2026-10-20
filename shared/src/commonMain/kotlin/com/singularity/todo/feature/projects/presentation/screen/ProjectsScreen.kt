@@ -34,6 +34,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -47,6 +48,7 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsPreviewWra
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectsUiState
+import com.singularity.todo.feature.projects.presentation.state.searchQuerySource
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -57,7 +59,7 @@ fun ProjectsScreen() {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectsViewModel = koinViewModel()
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    val searchQuery = state.searchQuery
+    val searchQuerySource = state.searchQuerySource
     val sortOrder = state.sortOrder
 
     Scaffold(
@@ -65,7 +67,7 @@ fun ProjectsScreen() {
             Column {
                 TopAppBar(title = { Text("Projects") })
                 ProjectSearchAndSortRow(
-                    query = searchQuery,
+                    querySource = searchQuerySource,
                     sortOrder = sortOrder,
                     onQueryChange = { viewModel.onIntent(ProjectsIntent.SetSearchQuery(it)) },
                     onSortOrderChange = { viewModel.onIntent(ProjectsIntent.SetSortOrder(it)) },
@@ -100,13 +102,13 @@ fun ProjectsScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectSearchAndSortRow(
-    query: String,
+    querySource: StaticTextSource,
     sortOrder: ProjectSortOrder,
     onQueryChange: (String) -> Unit,
     onSortOrderChange: (ProjectSortOrder) -> Unit,
 ) {
     val queryState = rememberBridgedTextFieldState(
-        externalText = query,
+        source = querySource,
         onTextChanged = onQueryChange,
     )
     Column {

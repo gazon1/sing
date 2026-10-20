@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.components.StaticText
 
 /**
  * Re-exports [SettingsIntent] from [core.settings] so that existing importers
@@ -54,5 +55,26 @@ sealed interface SettingsUiState {
         // ── Error state ─────────────────────────────────────────────────────────
         /** Shown as a snackbar; cleared on next successful action. */
         val errorMessage: String? = null,
-    ) : SettingsUiState
+    ) : SettingsUiState {
+        /**
+         * The base URL as the field's source.
+         *
+         * The settings are loaded from disk, and the provider dropdown may replace the URL with
+         * that provider's default — a value the field never produced. So the value is never
+         * rewritten with one the field produced: the field's echo guard needs no lifting, and there
+         * is no counter to read.
+         */
+        val baseUrlSource: StaticText get() = StaticText(ai.baseUrl)
+
+        /**
+         * The model name as the field's source; see [baseUrlSource] for why no counter is needed.
+         */
+        val modelSource: StaticText get() = StaticText(ai.model)
+
+        /**
+         * The system prompt as the field's source; see [baseUrlSource] for why no counter is
+         * needed.
+         */
+        val systemPromptSource: StaticText get() = StaticText(ai.systemPrompt)
+    }
 }
