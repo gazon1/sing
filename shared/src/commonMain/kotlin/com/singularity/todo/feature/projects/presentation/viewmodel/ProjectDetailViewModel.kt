@@ -337,10 +337,10 @@ class ProjectDetailViewModel(
         // [UpdateProjectUseCase] inside its own launch, so neither debounce can write back
         // a stale snapshot. The draft learns that its edits are persisted from the
         // repository's own echo — see [ProjectDetailDraftState.seed].
-        debouncer.debounce(draftState.state.map { it.name }) { name ->
+        debouncer.debounce(draftState.state.map { it.name.value }) { name ->
             mutate { copy(name = name) }
         }
-        debouncer.debounce(draftState.state.map { it.description }) { desc ->
+        debouncer.debounce(draftState.state.map { it.description.value }) { desc ->
             mutate { copy(description = desc) }
         }
     }

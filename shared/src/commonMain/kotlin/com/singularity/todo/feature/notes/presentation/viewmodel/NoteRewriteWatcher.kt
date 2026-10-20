@@ -59,7 +59,7 @@ internal class NoteRewriteWatcher(private val repo: NotesRepository, private val
                     ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
                     ?: ""
                 // The echo of our own save, or a note that did not change.
-                if (draft.title == note.title && draft.html == html) return@collect
+                if (draft.title.value == note.title && draft.html == html) return@collect
                 // The user is typing: their text wins over the other writer's.
                 if (draft.isDirty) return@collect
                 onRewrite(note, html)

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.compose.runtime.Stable
 import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.ui.textfields.Revisioned
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,11 +36,16 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * ## The revision
  *
- * [ProjectDetailDraft.revision] counts *replacements*, never edits. A revision
- * that moved on every keystroke would be a second copy of the value. It is
- * what the bridged text field reads to tell a replacement from an echo — see
+ * The revision counts *replacements*, never edits. A revision that moved on
+ * every keystroke would be a second copy of the value. It is what the bridged
+ * text field reads to tell a replacement from an echo — see
  * `rememberBridgedTextFieldState` and the rewrite contract in
  * `.agents/skills/singularity-todo-text-field-states/SKILL.md`.
+ *
+ * The count lives *inside* the value, in a [Revisioned]: a draft that held the
+ * name and the count in two fields could replace the name and leave the count
+ * where it was, and the field would treat the replacement as an echo of its own
+ * last push. One object, one way to change it.
  */
 @Stable
 class ProjectDetailDraftState(initial: ProjectDetailDraft = ProjectDetailDraft.empty()) {
@@ -57,15 +63,15 @@ class ProjectDetailDraftState(initial: ProjectDetailDraft = ProjectDetailDraft.e
         val current = _state.value
         if (!current.initialized) {
             _state.value = ProjectDetailDraft(
-                name = name,
-                description = description,
+                name = Revisioned.initial(name),
+                description = Revisioned.initial(description),
                 originalName = name,
                 originalDescription = description,
                 initialized = true,
             )
             return
         }
-        if (current.name == name && current.description == description) {
+        if (current.name.value == name && current.description.value == description) {
             // The echo of our own save: the repository holds what the draft holds.
             // The baseline moves with it, so the draft is clean again — and a later
             // rewrite from outside is not refused as "the user is typing".
@@ -76,46 +82,49 @@ class ProjectDetailDraftState(initial: ProjectDetailDraft = ProjectDetailDraft.e
         if (current.isDirty) return
         // A rewrite from outside: take it, and say that it happened.
         _state.value = current.copy(
-            name = name,
-            description = description,
+            name = current.name.replacedBy(name),
+            description = current.description.replacedBy(description),
             originalName = name,
             originalDescription = description,
-            revision = current.revision + 1,
         )
     }
 
     fun setName(name: String) {
-        _state.value = _state.value.copy(name = name)
+        _state.value = _state.value.copy(name = _state.value.name.typed(name))
     }
     fun setDescription(description: String) {
-        _state.value = _state.value.copy(description = description)
+        _state.value = _state.value.copy(description = _state.value.description.typed(description))
     }
 }
 
 /**
  * The project's editable draft.
  *
- * @property name the name as the field shows it.
- * @property description the description as the field shows it.
+ * @property name the name as the field shows it, and the count of the times it was
+ *   replaced from outside.
+ * @property description the description as the field shows it, and the count of the
+ *   times it was replaced from outside.
  * @property originalName the name as the repository last accepted it.
  * @property originalDescription the description as the repository last accepted it.
  * @property initialized whether the draft has been seeded at all.
- * @property revision how many times the content was *replaced* from outside.
- *   It never moves for a keystroke, and it never moves for the echo of our own
- *   save.
  */
 data class ProjectDetailDraft(
-    val name: String,
-    val description: String,
+    val name: Revisioned<String>,
+    val description: Revisioned<String>,
     val originalName: String,
     val originalDescription: String,
     val initialized: Boolean = false,
-    val revision: Long = 0,
 ) {
     companion object {
-        fun empty() = ProjectDetailDraft("", "", "", "")
+        fun empty() = ProjectDetailDraft(
+            name = Revisioned.initial(""),
+            description = Revisioned.initial(""),
+            originalName = "",
+            originalDescription = "",
+        )
     }
-    val isDirty: Boolean get() = name != originalName || description != originalDescription
+    val isDirty: Boolean get() =
+        name.value != originalName || description.value != originalDescription
 
     /**
      * The name as the field's source.
@@ -126,8 +135,8 @@ data class ProjectDetailDraft(
      * the type says the count is there: a field that holds this source cannot be wired as
      * if the name were a value nobody else writes.
      */
-    val nameSource: OwnedText get() = OwnedText(name, revision)
+    val nameSource: OwnedText get() = OwnedText(name.value, name.revision)
 
     /** The description as the field's source; see [nameSource] for why the count is there. */
-    val descriptionSource: OwnedText get() = OwnedText(description, revision)
+    val descriptionSource: OwnedText get() = OwnedText(description.value, description.revision)
 }

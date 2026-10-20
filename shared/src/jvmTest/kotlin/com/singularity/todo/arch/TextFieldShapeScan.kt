@@ -68,9 +68,13 @@ internal fun KoFunctionDeclaration.isPreview(): Boolean =
  * StaticText` is a property whose first type is `NotesUiState`. So the declared
  * type is the answer when the property has no receiver, and the declaration's own
  * text — comments stripped — when it has one.
+ *
+ * The type is read as its *bare* name: a property of a generic type declares
+ * `Revisioned<String>`, and what matters is the `Revisioned` — the type arguments say
+ * what the value is, not what kind of thing it is.
  */
 internal fun KoPropertyDeclaration.declaresSourceOf(kind: String): Boolean {
-    if (receiverType == null) return type?.name == kind
+    if (receiverType == null) return type?.bareSourceType == kind
     val code = KotlinText.stripComments(text)
     return Regex("""\b$kind\b""").containsMatchIn(code)
 }

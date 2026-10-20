@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import androidx.compose.runtime.Stable
+import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.ui.textfields.Revisioned
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,7 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *   holds — moves the baseline, so the draft is clean again, and moves no
  *   revision.
  * - **A rewrite from outside** — the draft holds something else and holds no
- *   unsaved edits — is taken, and the [revision] moves so the field knows the
+ *   unsaved edits — is taken, and the revision moves so the field knows the
  *   new text is a *replacement* and not a keystroke.
  *
  * **The user's unsaved edits win.** A dirty draft is never re-seeded: the
@@ -35,11 +37,16 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * ## The revision
  *
- * [TaskDetailDraft.revision] counts *replacements*, never edits. A revision
- * that moved on every keystroke would be a second copy of the value. It is
- * what the bridged text field reads to tell a replacement from an echo — see
+ * The revision counts *replacements*, never edits. A revision that moved on
+ * every keystroke would be a second copy of the value. It is what the bridged
+ * text field reads to tell a replacement from an echo — see
  * `rememberBridgedTextFieldState` and the rewrite contract in
  * `.agents/skills/singularity-todo-text-field-states/SKILL.md`.
+ *
+ * The count lives *inside* the value, in a [Revisioned]: a draft that held the
+ * title and the count in two fields could replace the title and leave the
+ * count where it was, and the field would treat the replacement as an echo of
+ * its own last push. One object, one way to change it.
  */
 @Stable
 class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
@@ -59,15 +66,15 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
         val current = _state.value
         if (!current.initialized) {
             _state.value = TaskDetailDraft(
-                title = title,
-                description = description,
+                title = Revisioned.initial(title),
+                description = Revisioned.initial(description),
                 originalTitle = title,
                 originalDescription = description,
                 initialized = true,
             )
             return
         }
-        if (current.title == title && current.description == description) {
+        if (current.title.value == title && current.description.value == description) {
             // The echo of our own save: the repository holds what the draft holds.
             // The baseline moves with it, so the draft is clean again — and a later
             // rewrite from outside is not refused as "the user is typing".
@@ -78,44 +85,53 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
         if (current.isDirty) return
         // A rewrite from outside: take it, and say that it happened.
         _state.value = current.copy(
-            title = title,
-            description = description,
+            title = current.title.replacedBy(title),
+            description = current.description.replacedBy(description),
             originalTitle = title,
             originalDescription = description,
-            revision = current.revision + 1,
         )
     }
 
     fun setTitle(title: String) {
-        _state.value = _state.value.copy(title = title)
+        _state.value = _state.value.copy(title = _state.value.title.typed(title))
     }
     fun setDescription(description: String) {
-        _state.value = _state.value.copy(description = description)
+        _state.value = _state.value.copy(description = _state.value.description.typed(description))
     }
 }
 
 /**
  * The task's editable draft.
  *
- * @property title the title as the field shows it.
- * @property description the description as the field shows it.
+ * @property title the title as the field shows it, and the count of the times it
+ *   was replaced from outside.
+ * @property description the description as the field shows it, and the count of the
+ *   times it was replaced from outside.
  * @property originalTitle the title as the repository last accepted it.
  * @property originalDescription the description as the repository last accepted it.
  * @property initialized whether the draft has been seeded at all.
- * @property revision how many times the content was *replaced* from outside.
- *   It never moves for a keystroke, and it never moves for the echo of our own
- *   save.
  */
 data class TaskDetailDraft(
-    val title: String,
-    val description: String,
+    val title: Revisioned<String>,
+    val description: Revisioned<String>,
     val originalTitle: String,
     val originalDescription: String,
     val initialized: Boolean = false,
-    val revision: Long = 0,
 ) {
     companion object {
-        fun empty() = TaskDetailDraft("", "", "", "")
+        fun empty() = TaskDetailDraft(
+            title = Revisioned.initial(""),
+            description = Revisioned.initial(""),
+            originalTitle = "",
+            originalDescription = "",
+        )
     }
-    val isDirty: Boolean get() = title != originalTitle || description != originalDescription
+    val isDirty: Boolean get() =
+        title.value != originalTitle || description.value != originalDescription
+
+    /** The title as the field's source; see the rewrite contract. */
+    val titleSource: OwnedText get() = OwnedText(title.value, title.revision)
+
+    /** The description as the field's source; see the rewrite contract. */
+    val descriptionSource: OwnedText get() = OwnedText(description.value, description.revision)
 }

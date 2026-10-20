@@ -34,7 +34,7 @@ class TaskDraftSlotTest {
             taskFlow = source.state,
         ) {}
 
-        assertEquals("", slot.state.value.title)
+        assertEquals("", slot.state.value.title.value)
     }
 
     @Test
@@ -50,8 +50,8 @@ class TaskDraftSlotTest {
 
         slot.seed("Original", "Body")
 
-        assertEquals("Original", slot.state.value.title)
-        assertEquals("Body", slot.state.value.description)
+        assertEquals("Original", slot.state.value.title.value)
+        assertEquals("Body", slot.state.value.description.value)
     }
 
     @Test
@@ -70,7 +70,7 @@ class TaskDraftSlotTest {
         // A remote task update arriving mid-edit must not reset the text field.
         slot.seed("Changed remotely", "Changed remotely")
 
-        assertEquals("User edit", slot.state.value.title)
+        assertEquals("User edit", slot.state.value.title.value)
     }
 
     @Test
@@ -88,7 +88,7 @@ class TaskDraftSlotTest {
 
         slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Edited"))
 
-        assertEquals("Edited", slot.state.value.title)
+        assertEquals("Edited", slot.state.value.title.value)
     }
 
     @Test

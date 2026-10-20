@@ -64,7 +64,7 @@ class TaskDetailCoordinatorTest {
         assertNotNull(loaded, "expected the task to have loaded, got ${vm.stateFlow.value}")
         assertEquals("Original", loaded.ui.task.title)
         // The draft is seeded from the loaded task, so the editor shows the stored title.
-        assertEquals("Original", loaded.ui.titleDraft)
+        assertEquals("Original", loaded.ui.titleDraft.value)
     }
 
     @Test
@@ -128,7 +128,7 @@ class TaskDetailCoordinatorTest {
 
         val loaded = vm.stateFlow.value as? TaskDetailUiState.Loaded
         assertNotNull(loaded)
-        assertEquals("Edited", loaded.ui.titleDraft)
+        assertEquals("Edited", loaded.ui.titleDraft.value)
     }
 
     @Test

@@ -94,10 +94,11 @@ fun rememberEditorSession(
     // device. Without it the editor would keep the old text, and the next
     // keystroke would dispatch that old text over the new one.
     //
-    // The first revision is the load itself, which the session already has: the
-    // guard is there so the content is not set twice on the first composition.
-    LaunchedEffect(state.id, state.revision) {
-        if (state.revision == 0L) return@LaunchedEffect
+    // The count travels with the title, in a `Revisioned`: the first revision is the
+    // load itself, which the session already has, and the guard is there so the
+    // content is not set twice on the first composition.
+    LaunchedEffect(state.id, state.title.revision) {
+        if (state.title.revision == 0L) return@LaunchedEffect
         session.replaceContent(state.html)
     }
 
