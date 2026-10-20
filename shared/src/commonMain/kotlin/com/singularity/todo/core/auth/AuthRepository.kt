@@ -1,11 +1,16 @@
 package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.BoundedReadResult
+import com.singularity.todo.core.coroutines.boundedRead
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.log.Redaction
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +19,6 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The repository interface for authentication.
@@ -183,6 +187,32 @@ class SupabaseAuthRepository(
     private val _restoreFailures = Channel<Unit>(Channel.BUFFERED)
     override val restoreFailures: Flow<Unit> = _restoreFailures.receiveAsFlow()
 
+    /**
+     * The scope the restore runs in.
+     *
+     * A scope of its own, and deliberately not the scope [restoreSession] is called
+     * from — that separation is the whole bound (see [boundedRead]).
+     *
+     * It borrows the repository's scope for everything except the job: the dispatcher
+     * and the failure handler, so a failure in the restore is reported the way every
+     * other background failure in this app is reported. The job is its own, and that
+     * is what makes this a scope of its own:
+     *
+     * - The restore is not a child of the coroutine that waits for it, so the caller
+     *   can walk away from a restore that ignores cancellation.
+     * - The restore is not a child of the repository's scope either — that scope *is*
+     *   the caller's — so a restore the caller has given up on does not keep the
+     *   caller's scope from completing. A caller that has been released must not still
+     *   be carrying the work it released.
+     *
+     * The scope's lifetime is the repository's: it is a property of this class, it is
+     * never cancelled explicitly, and the repository is a process-lifetime singleton —
+     * the same bargain every other background scope in this app makes.
+     */
+    private val restoreScope: CoroutineScope = CoroutineScope(
+        scope.coroutineContext.minusKey(Job) + SupervisorJob(),
+    )
+
     init {
         scope.launch { restoreSession() }
     }
@@ -203,51 +233,87 @@ class SupabaseAuthRepository(
      * app they had already been let into — the symptom this whole path exists to
      * remove.
      *
-     * ## Timeout
+     * ## The deadline
      *
      * Before PR #720 the "no token" path was synchronous and instant. Now it
      * reads from [localOwnerStore] via DataStore, which can hang on a corrupted
-     * preferences file or a locked store. A timeout prevents an unreachable
+     * preferences file or a locked store. A deadline prevents an unreachable
      * storage from leaving the app behind a permanent [Session.Loading] spinner.
      *
-     * ## Why a timeout alone is not enough
+     * ## The deadline is a bound the caller can leave
+     *
+     * The deadline used to be a `withTimeoutOrNull` around the restore, in the
+     * caller's own coroutine. That is a *cooperative* deadline: it ends the wait
+     * only if the restore honours cancellation, and a restore blocked inside a
+     * driver call — a keychain read that never answers, a preferences file locked
+     * by another process — ignores cancellation completely. The bound was
+     * decoration, and the caller waited for the restore anyway.
+     *
+     * So the restore runs in a scope of its own ([restoreScope]) and the caller
+     * waits on a promise of its answer (see [boundedRead]). A promise can be given
+     * up on whether or not the work behind it finishes: at the deadline the caller
+     * is released, and the restore keeps running where it is.
+     *
+     * ## Why a deadline alone is not enough
      *
      * A hung store and a *throwing* store produce the same symptom from outside,
-     * and only one of them is a timeout. `EncryptedSharedPreferences` throws
+     * and only one of them is a deadline. `EncryptedSharedPreferences` throws
      * rather than blocks when its ciphertext does not match its key — the state
      * an uninstall/reinstall leaves behind, because Android's Auto Backup
      * restores `shared_prefs/` but cannot restore the Android Keystore key that
      * decrypts it. AndroidX documents the exclusion as mandatory, and the
      * exception surfaces as `GeneralSecurityException` / `KeyStoreException`.
      *
-     * `withTimeoutOrNull` returns null only for `TimeoutCancellationException`;
-     * any other throw passes straight through it. Without the catch below that
-     * throw escapes `restoreSession()`, the scope's `CoroutineExceptionHandler`
-     * reports it, the coroutine dies, and nothing ever assigns `_currentSession`
-     * — the spinner outlives the app's ability to start. This is the bug.
+     * A read that throws is a failed read, not a slow one, and the bound is not a
+     * licence to swallow it: it is caught below and answered the way a deadline
+     * is answered, because that is what the two mean to the user.
+     *
+     * ## What the caller leaves behind
+     *
+     * A restore that is still running when the deadline passed was not stopped,
+     * and it may yet fail. Nobody is left to handle that failure, so it is
+     * reported ([reportAbandonedRestoreFailure]) rather than dropped. It may also
+     * yet succeed, and then the session it restored is published: the deadline
+     * ended the waiting, not the restore.
      */
     private suspend fun restoreSession() {
         // 10 seconds is long enough for any legitimate storage operation (first
         // EncryptedSharedPreferences init, DataStore read, keychain access) and
         // short enough to not feel like a freeze when storage is truly unreachable.
-        val restored = runCatchingCancellable {
-            withTimeoutOrNull(RESTORE_SESSION_TIMEOUT) { doRestoreSession() }
+        val outcome = runCatchingCancellable {
+            restoreScope.boundedRead(
+                timeoutMs = RESTORE_SESSION_TIMEOUT,
+                onAbandonedFailure = ::reportAbandonedRestoreFailure,
+            ) { doRestoreSession() }
         }.getOrElse { failure ->
             log.e(failure) { "Session restore failed outright; falling back to the login screen" }
             null
         }
 
-        // Both "timed out" and "threw" arrive here as a null outcome, and both mean
-        // the same thing to the user: this install has no session it can prove, so
-        // the login screen is the honest answer and "Continue Offline" is one tap away.
-        if (restored == null) {
+        // A timeout arrives as `TimedOut`, a throw as `null`, and a completed
+        // restore as `Completed` — and the first two mean the same thing to the
+        // user: this install has no session it can prove, so the login screen is
+        // the honest answer and "Continue Offline" is one tap away.
+        if (outcome !is BoundedReadResult.Completed) {
             _currentSession.value = Session.SignedOut
             _restoreFailures.trySend(Unit)
         }
     }
 
     /**
-     * The actual session restore logic, extracted so [withTimeoutOrNull] wraps
+     * A restore that failed after the repository had given up on it.
+     *
+     * The repository stopped waiting at the deadline, but the restore kept running:
+     * nobody is left to handle a failure it produces now, so it is reported here
+     * rather than dropped on the floor. The same shape the remote-config port uses
+     * for a read it abandoned.
+     */
+    private fun reportAbandonedRestoreFailure(cause: Throwable) {
+        log.w(cause) { "Session restore failed after the repository had given up on it" }
+    }
+
+    /**
+     * The actual session restore logic, extracted so the deadline wraps
      * the whole operation without conflating the timeout concern with the logic.
      */
     private suspend fun doRestoreSession() {
