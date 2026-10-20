@@ -13,6 +13,7 @@ import tempfile
 import unittest
 import unittest.mock
 import urllib.parse
+import os
 
 import emulator.maestro
 import emulator.maestro._artifacts as _artifacts
@@ -42,6 +43,13 @@ from emulator.maestro import (
 from emulator.maestro._types import EXIT_FAIL, EXIT_PASS, DeviceDeps
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+# The CLI takes a device lock before it runs anything, and the lock is a real
+# file in the real lock directory. A test that drives the CLI must not take
+# the lock of the device a developer's run is using — and must not be refused
+# because one is in progress.
+_LOCK_DIR = tempfile.mkdtemp(prefix="maestro-lock-test-")
+os.environ["MAESTRO_LOCK_DIR"] = _LOCK_DIR
 
 
 # ── pure function tests ────────────────────────────────────────────────────────

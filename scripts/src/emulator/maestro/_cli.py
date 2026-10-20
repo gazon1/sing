@@ -14,6 +14,7 @@ from emulator._loguru import setup_logger
 from emulator.maestro._bridge import Bridge
 from emulator.maestro._fixtures import reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag
+from emulator.maestro._lock import DeviceLock, DeviceLocked
 from emulator.maestro._types import (
     EXIT_FAIL,
     EXIT_PASS,
@@ -147,6 +148,28 @@ def main(
     # (possibly empty) `serial` for install and flows would target nothing.
     serial = acq.serial
     logger.info(f"Device ready: {serial}")
+
+    # ── One run per device ────────────────────────────────────────────────────
+    #
+    # A run drives the device: it installs an APK, resets the session and starts
+    # a device server on the emulator. A second run on the same device does not
+    # queue behind the first — the two device servers kill each other and every
+    # flow fails within a second with `DeviceServerDiedException`, which reads
+    # like a broken suite and is really two runners sharing one emulator.
+    #
+    # The lock is released when this process exits; a lock whose owner was
+    # killed is taken over by the next run, so a crash cannot lock the device
+    # out of use.
+    lock = DeviceLock(serial)
+    try:
+        lock.acquire()
+    except DeviceLocked as exc:
+        logger.error(str(exc))
+        return ctx.exit(EXIT_FAIL)
+    # Released when the command returns — not when the process exits: the run
+    # is what holds the device, and a process that runs one suite after another
+    # must not lock itself out of the second one.
+    ctx.call_on_close(lock.release)
 
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
 
