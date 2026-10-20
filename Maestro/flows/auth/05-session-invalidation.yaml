@@ -3,10 +3,19 @@
 # Verifies that after signing out:
 #   1. The local data survives (local-first guarantee).
 #   2. The auth guard redirects to the login screen.
-#   3. Re-signing in restores access without data loss.
+#   3. A session restores access without data loss.
 #
-# The app uses DevAuthRepository in the test environment, so sign-out always
-# succeeds locally. A real server error during sign-out is tested separately.
+# The app uses a stubbed auth repository in the test environment, so sign-out
+# always succeeds locally. A real server error during sign-out is tested
+# separately.
+#
+# ## How the session is restored for step 3
+#
+# The stub answers a sign-in with a success but establishes no session, so a
+# form sign-in cannot bring the user back in this build. The session is
+# restored through the debug session link instead, which is what makes step 3
+# a statement about the data: the task seeded before the sign-out is still
+# there afterwards.
 appId: com.singularity.todo
 name: auth-session-invalidation
 tags:
@@ -14,16 +23,30 @@ tags:
   - auth
   - scenario:AUTH-SESSION-01
 ---
-# Start signed in — the repo is seeded to SignedIn by the test fixture.
-- launchApp:
-    appId: com.singularity.todo
-    clearState: false
+# Start signed in — the stub reports SignedIn from the first frame.
+- runFlow: ../../helpers/launch-clean.yaml
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
 
-# Navigate: hamburger menu → Settings → Account tab.
+# A task to lose, if losing it is what happens. The title carries the run id,
+# so the runner's fixture sweep removes it and a leftover from an earlier run
+# cannot stand in for it.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Signout%20task"
+- tapOn:
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_${RUN_ID}_signout_task
+    timeout: 8000
+
+# Navigate: hamburger menu → Settings → Account tab. The settings navigation
+# is a scrollable column and the Account tab is the last of its rows, so it
+# has to be scrolled into view before it can be tapped.
 - tapOn:
     id: nav_menu_button
 - waitForAnimationToEnd
@@ -36,14 +59,9 @@ tags:
 # Tapping "Profile & sync" opens Settings.
 - tapOn:
     id: menu_settings
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
+- runFlow: ../../helpers/settings-account-tab.yaml
 
-# Switch to the Account tab.
-- tapOn:
-    id: settings_tab_account
+# The sign-out button is on the Account tab.
 - extendedWaitUntil:
     visible:
       id: auth_sign_out_button
@@ -53,16 +71,24 @@ tags:
 - tapOn:
     id: auth_sign_out_button
 
-# After signing out the auth guard shows LoginScreen.
+# After signing out the auth guard shows LoginScreen: the app is not usable
+# while signed out, and that is the guard doing its job.
 - extendedWaitUntil:
     visible:
       id: auth_email_input
     timeout: 5000
 
-# Local tasks are still visible — the agenda tab is still there and
-# the user can see their data even though they are not authenticated.
+# The data outlived the sign-out: the task seeded before it is still there.
+- openLink: "todo-debug://seed?session=anonymous"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
 - tapOn:
-    id: nav_tab_today
-- waitForAnimationToEnd
+    id: nav_tab_inbox
+- extendedWaitUntil:
+    visible:
+      id: task_item_${RUN_ID}_signout_task
+    timeout: 8000
 
 # AUTH-SESSION-01 verified: signed out, data survived, auth guard active.

@@ -129,10 +129,28 @@ class MaestroHelpersInventoryTest(unittest.TestCase):
     """Verify the helpers/ directory is in the expected state."""
 
     def test_live_helpers_all_used(self):
-        live = ["launch-clean.yaml", "seed-task.yaml", "seed.yaml", "relaunch.yaml"]
+        live = [
+            "launch-clean.yaml",
+            "seed-task.yaml",
+            "seed.yaml",
+            "relaunch.yaml",
+            "calendar-day-cell.yaml",
+            "calendar-tap-day-cell.yaml",
+            "session-signedout.yaml",
+            "settings-account-tab.yaml",
+        ]
         for name in live:
             helper = ROOT / "Maestro/helpers" / name
             self.assertTrue(helper.exists(), f"{name} should exist")
+            used = [
+                flow
+                for flow in (ROOT / "Maestro/flows").rglob("*.yaml")
+                if name in flow.read_text(encoding="utf-8")
+            ]
+            self.assertTrue(
+                used,
+                f"{name} is a live helper and no flow uses it",
+            )
 
     def test_deprecated_helpers_are_stubs(self):
         deprecated = ["open-menu-item.yaml", "start-focus-task.yaml"]
@@ -829,6 +847,151 @@ class FailedFlowCleanupTest(unittest.TestCase):
         # before it.
         last = attempts[-1]
         self.assertEqual(cleanup_before[last], len(attempts) - 1)
+
+
+class SessionResetTest(unittest.TestCase):
+    """Every flow must start from the session the app starts with.
+
+    The E2E build keeps the session in the process: the auth repository is a
+    stub that reports ``Session.SignedIn`` from the first frame and holds the
+    session in memory. A flow that ends signed out therefore hands its session
+    to whatever runs next, and the flow after it lands on the sign-in screen
+    instead of the agenda — a failure that reads like a product defect and is
+    not one.
+
+    The reset is a fresh process — force-stop, then start — and it is a
+    different kind of fixture from the row sweep: the sweep removes the rows
+    a flow seeded, the reset restores the session. These tests assert the
+    property, not the implementation: the app is restarted before every flow,
+    so no flow decides the session of the flow after it.
+    """
+
+    def _deps(self, timeline):
+        cp = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+
+        def fake_try_run(cmd, **kw):
+            if cmd and cmd[0] == "maestro":
+                flow = pathlib.Path(cmd[2]).stem
+                timeline.append(("maestro", flow))
+                report = pathlib.Path(cmd[cmd.index("--output") + 1])
+                report.parent.mkdir(parents=True, exist_ok=True)
+                report.write_text(
+                    '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    f'<testsuite name="{flow}" tests="1" failures="0"/>\n'
+                )
+            return cp
+
+        def fake_adb_on(serial, *a, **kw):
+            timeline.append(("adb", " ".join(a)))
+            return ""
+
+        return DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: cp,
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=fake_adb_on,
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+    def _run_two_flows(self, tmp):
+        """Run the smoke flows through the CLI and return the timeline of what happened."""
+        # The flows have to live under the repository root: the CLI logs them
+        # relative to it.
+        flows = ROOT / "Maestro/flows/smoke"
+        timeline: list[tuple[str, str]] = []
+        deps = self._deps(timeline)
+
+        from click.testing import CliRunner
+
+        orig = _cli._default_device_deps
+        try:
+            _cli._default_device_deps = lambda: deps
+            result = CliRunner().invoke(
+                _cli.main,
+                [
+                    "--flow", str(flows),
+                    "--skip-install", "--allow-stale-apk",
+                    "--junit-dir", str(pathlib.Path(tmp) / "junit"),
+                ],
+            )
+        finally:
+            _cli._default_device_deps = orig
+        return timeline, result
+
+    def test_the_app_is_restarted_before_every_flow(self):
+        """A flow that ends signed out must not decide the next flow's session."""
+        with tempfile.TemporaryDirectory() as tmp:
+            timeline, result = self._run_two_flows(tmp)
+
+        self.assertEqual(result.exit_code, EXIT_PASS, f"output={result.output}")
+        maestro_at = [i for i, (kind, _) in enumerate(timeline) if kind == "maestro"]
+        self.assertGreaterEqual(len(maestro_at), 2, f"expected two flows, timeline={timeline}")
+        for index, position in enumerate(maestro_at):
+            window = timeline[maestro_at[index - 1] if index else 0:position]
+            calls = [value for kind, value in window if kind == "adb"]
+            self.assertTrue(
+                any("am force-stop" in call for call in calls),
+                f"the app was not stopped before the flow: {window}",
+            )
+            self.assertTrue(
+                any("am start" in call for call in calls),
+                f"the app was not started before the flow: {window}",
+            )
+
+    def test_the_reset_restarts_the_app_on_the_device_it_was_given(self):
+        """The reset is device-scoped: `adb -s <serial>`, not the default device."""
+        calls: list[str] = []
+        deps = DeviceDeps(
+            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+        with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
+            _fixtures.reset_session("emulator-5554", deps)
+        self.assertTrue(any("am force-stop" in call for call in calls), calls)
+        self.assertTrue(any("am start" in call for call in calls), calls)
+
+    def test_the_reset_does_nothing_on_a_dead_device(self):
+        calls: list[str] = []
+        deps = DeviceDeps(
+            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            device_alive=lambda s: False,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition(None, EXIT_NOT_READY),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+        with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
+            _fixtures.reset_session("emulator-5554", deps)
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

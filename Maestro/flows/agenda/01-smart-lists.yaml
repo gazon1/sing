@@ -14,6 +14,10 @@ tags:
 # Start from a clean-ish slate — use launch-clean (no Room clear available).
 - runFlow: ../../helpers/launch-clean.yaml
 
+# The day the date picker has to offer: the flow picks "today" in the picker,
+# and "today" is the day the device says it is.
+- runScript: ../../helpers/scripts/date.js
+
 # Seed an undated task via the DebugSeedActivity deep-link. `due=` is omitted, so
 # the task has no due date and Inbox buckets it under "No Date".
 #
@@ -97,13 +101,16 @@ tags:
 # testTag, so matching it ties the flow to library text. The OK/CANCEL/CLEAR tags
 # are no substitute here either: they sit at the bottom of a scrolling column and
 # can be below the fold before the sheet has been scrolled.
-# The "Today" cell contains "Today, Monday, October 12, 2026" — regex to match.
+# The "Today" cell is addressed by the day number inside its accessibility
+# description ("Today, Monday, October 12, 2026" in English, "Сегодня,
+# понедельник, 12 октября 2026 г." in Russian): the number is the part of it
+# the app does not write, so the tap does not depend on the device's language.
 - extendedWaitUntil:
     visible:
       id: dialog_date_picker_sheet
     timeout: 8000
 - tapOn:
-    text: "Today.*"
+    text: ".*[^0-9]${output.TODAY_DAY}[^0-9].*"
 
 # Confirm the date. The sheet body scrolls (SheetScaffold is scrollable), so the
 # actions row starts below the fold on a 1080x2400 phone — scroll it into reach

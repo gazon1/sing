@@ -1,7 +1,10 @@
 # Calendar: the Month view renders the current month with weekday columns.
 #
-# Day cells carry no testTag and no contentDescription — only their number as
-# text, which is what this asserts on.
+# The month title is not asserted. It is a formatted string — "October 2026" —
+# whose wording, word order and month name belong to the app, and the app is
+# free to change them; a flow that asserts the title asserts the app's copy.
+# The day cell's testTag carries the same fact as data, and data cannot be
+# reworded.
 appId: com.singularity.todo
 name: calendar-month-view
 tags:
@@ -12,22 +15,30 @@ tags:
 - runScript: ../../helpers/scripts/date.js
 - tapOn:
     id: nav_tab_calendar
-- extendedWaitUntil:
-    visible: ${output.monthTitle}
-    timeout: 8000
+# The grid is showing the current month: today's cell is one of its cells.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
 # Weekday columns, addressed by testTag so the flow survives translation.
 - assertVisible:
     id: calendar_weekday_mon
 - assertVisible:
     id: calendar_weekday_sun
-# A month's worth of numbered day cells, first and last of the grid.
-- assertVisible: "1"
-- assertVisible: ${output.lastDay}
+# The month runs from the 1st to the last day, and both are cells of the grid.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.FIRST_CELL}
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.LAST_CELL}
 # The view-mode dropdown shows the current mode only after it is opened.
 # The trigger carries a testTag; the month item inside only exists when expanded.
 - tapOn:
     id: calendar_view_mode_trigger
-- waitForAnimationToEnd:
-    timeout: 500
-- assertVisible:
-    id: calendar_view_mode_month
+- extendedWaitUntil:
+    visible:
+      id: calendar_view_mode_month
+    timeout: 8000

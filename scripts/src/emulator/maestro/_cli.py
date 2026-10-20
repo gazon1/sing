@@ -11,9 +11,9 @@ import click
 from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
+from emulator.maestro._fixtures import reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag
 from emulator.maestro._types import (
-    APP_ID,
     EXIT_FAIL,
     EXIT_PASS,
     GW,
@@ -253,11 +253,10 @@ def main(
             deps.cleanup_run_fixtures(serial, stale_run_id, maestro_cleanup, deps)
             stale_run_id = None
 
-        if deps.device_alive(serial):
-            deps.adb_on(serial, "shell", "am", "force-stop", APP_ID)
-            time.sleep(1)
-            deps.adb_on(serial, "shell", "am", "start", "-n", f"{APP_ID}/.MainActivity")
-            deps.wait_for_app_resumed(serial)
+        # The session is reset before the flow, not after it: a flow that ends
+        # signed out must not decide the session of the flow after it, and the
+        # reset is a different kind of fixture from the row sweep above.
+        reset_session(serial, deps)
 
         ok, run_id = run_one_flow(
             flow_path=flow_path,

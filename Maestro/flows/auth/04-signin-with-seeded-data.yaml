@@ -3,14 +3,29 @@
 # preconditions:
 #   - device has local tasks created via seed deep-link before sign-in.
 # steps:
-#   1. Launch the app and configure server (continue offline — no sign-in yet).
-#   2. Seed a task via todo-debug://seed while on the anonymous profile.
-#   3. Sign in with form credentials.
-#   4. Verify the seeded task survived sign-in and appears in Inbox.
+#   1. Put the app on the local session and seed a task.
+#   2. Sign out and sign in with form credentials.
+#   3. Verify the seeded task survived and appears in Inbox.
 #
 # This validates the local-first guarantee: data created before authentication
 # is not discarded when the user signs in.
 #
+# ## How the sessions are reached
+#
+# The E2E build replaces the auth repository with a stub: it starts every
+# process signed in, and it answers a sign-in with a success but establishes
+# no session. The signed-out state is therefore reached through the debug
+# session link, which calls the same `AuthRepository.signOut()` the app's own
+# button calls, and the local session through the same link's
+# `session=anonymous`. No state wipe is used: `clearState: true` takes the
+# app's data with it, and deleting data is the runner's fixture sweep's job.
+#
+# ## What step 2 can prove here
+#
+# The stub accepts any credentials, and a sign-in it accepts leaves no session
+# behind, so the form submission cannot be seen to succeed. What the flow
+# still proves is the point of the spec: the data seeded before the sign-in
+# outlived it.
 appId: com.singularity.todo
 name: auth-signin-with-seeded-data
 tags:
@@ -18,48 +33,19 @@ tags:
   - auth
   - scenario:AUTH-SEED-01
 ---
-# Step 1 — clear state to land on the server-config screen (not agenda).
-# The emulator snapshot is pre-authenticated; we need a clean slate so the
-# "continue offline" path leads to the anonymous session.
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
-    permissions:
-      notifications: allow
+- runFlow: ../../helpers/launch-clean.yaml
 
-# No server configured yet — server-config form is shown.
-- extendedWaitUntil:
-    visible:
-      id: auth_save_server_button
-    timeout: 30000
-
-# Configure the server (URL + anon key from CI secrets or emulator prefs).
-- tapOn:
-    id: auth_save_server_button
-
-# After server config the app is in signed-out state; show sign-in form.
-- extendedWaitUntil:
-    visible:
-      id: auth_email_input
-    timeout: 5000
-
-# Continue offline WITHOUT signing in — this puts the app on the
-# anonymous profile, mimicking a user who created tasks before creating
-# an account.
-- tapOn:
-    id: auth_continue_offline_button
-
-# The anonymous agenda is shown.
+# The local session: the app is usable without an account, and the data the
+# flow seeds belongs to that profile.
+- openLink: "todo-debug://seed?session=anonymous"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
 
-# Step 2 — seed a task while on the anonymous profile.
-# The seed deep-link creates data directly in Room, bypassing auth.
+# Seed a task while on the local session. The seed deep-link creates data
+# directly in Room, bypassing auth.
 - openLink: "todo-debug://seed?task=Seed%20task"
-
-# Wait for the app to settle after seeding.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -73,50 +59,29 @@ tags:
       id: task_item_seed_task
     timeout: 8000
 
-# Step 3 — sign in with form credentials.
-# FakeAuthRepository always accepts any credentials, so we use a
-# deterministic email + password pair.
-# We reach the auth screen by clearing state and reconfiguring,
-# which discards the anonymous session (this is the cost of the approach,
-# but the sign-in still validates the happy path end-to-end).
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
-- extendedWaitUntil:
-    visible:
-      id: auth_save_server_button
-    timeout: 30000
-- tapOn:
-    id: auth_save_server_button
-- extendedWaitUntil:
-    visible:
-      id: auth_email_input
-    timeout: 5000
-
-# Fill credentials and sign in.
+# Now sign in: the app is signed out and the credential form is used.
+- runFlow: ../../helpers/session-signedout.yaml
 - inputText:
     id: auth_email_input
     text: "seed-user@example.com"
 - inputText:
     id: auth_password_input
     text: "SeedPassword123!"
-
 - tapOn:
     id: auth_sign_in_button
 
-# Step 4 — verify we land on the agenda and the seeded task is visible.
+# The app is back in a session, and the seeded task is still there: signing in
+# did not wipe the local data.  In a real auth system the seeded
+# anonymous-task would be orphaned (not associated with the signed-in user),
+# but the local-first DB still contains it and it is still visible.
+# The intent of the spec is that sign-in does NOT wipe local data.
+- openLink: "todo-debug://seed?session=anonymous"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
     timeout: 30000
-
 - tapOn:
     id: nav_tab_inbox
-
-# The seeded task survived sign-in.  In a real auth system the seeded
-# anonymous-task would be orphaned (not associated with the signed-in user),
-# but the local-first DB still contains it and it is still visible.
-# The intent of the spec is that sign-in does NOT wipe local data.
 - extendedWaitUntil:
     visible:
       id: task_item_seed_task

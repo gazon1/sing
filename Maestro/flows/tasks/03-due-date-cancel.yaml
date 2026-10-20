@@ -27,8 +27,17 @@ tags:
     visible:
       id: dialog_date_picker_ok
     timeout: 8000
+# The Material3 date picker exposes its day cells only as a contentDescription
+# ("Tuesday, September 29, 2026"), and Maestro has no content-desc selector,
+# so the day is picked with a regex. The regex matches the day number as a
+# standalone number, because that is the one part of the description the app
+# does not write: the month name and the weekday are Material3's, and
+# Material3 writes them in the device's language ("Tuesday, September 29,
+# 2026" in English, "Вторник, 29 сентября 2026 г." in Russian). The 1st of the
+# month is the only day whose number stands on its own, so the match picks it
+# and nothing else, and it keeps the flow valid past the turn of the year.
 - tapOn:
-    text: ".* 1, 20[0-9][0-9]"
+    text: '.*[^0-9]1[^0-9].*'
 - tapOn:
     id: dialog_date_picker_cancel
 - extendedWaitUntil:

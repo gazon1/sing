@@ -1,0 +1,24 @@
+# Opens a calendar day by tapping its day cell.
+#
+# Usage:
+#   env:
+#     DAY_CELL: calendar_day_2026_10_15
+#
+# The cell is addressed by the testTag that carries its date, not by the day
+# number as text: the pager composes the month before and the month after the
+# one on screen, so the same number is on the screen more than once, and only
+# the tag says which day it is.
+#
+# The wait is spelled out here rather than delegated to calendar-day-cell.yaml:
+# a sub-flow that read ${DAY_CELL} out of the environment it was called with
+# would depend on the caller's variable reaching it, and a cell that is not
+# there is worth a clear failure of its own.
+appId: com.singularity.todo
+name: calendar-tap-day-cell
+---
+- extendedWaitUntil:
+    visible:
+      id: "${DAY_CELL}"
+    timeout: 8000
+- tapOn:
+    id: "${DAY_CELL}"

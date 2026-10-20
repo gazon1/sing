@@ -1,10 +1,14 @@
 # Task editor: set a due date from the attribute row.
 #
-# The Material3 date picker exposes day cells only as contentDescription
-# ("Tuesday, September 29, 2026"), and Maestro has no content-desc selector, so
-# the day is picked with a regex anchored on the day number and a year wildcard.
-# That keeps the flow valid past the turn of the year, and picks the 1st of the
-# month currently on screen.
+# The Material3 date picker exposes its day cells only as a contentDescription
+# ("Tuesday, September 29, 2026"), and Maestro has no content-desc selector,
+# so the day is picked with a regex. The regex matches the day number as a
+# standalone number, because that is the one part of the description the app
+# does not write: the month name and the weekday are Material3's, and
+# Material3 writes them in the device's language ("Tuesday, September 29,
+# 2026" in English, "Вторник, 29 сентября 2026 г." in Russian). The 1st of the
+# month is the only day whose number stands on its own, so the match picks it
+# and nothing else, and it keeps the flow valid past the turn of the year.
 appId: com.singularity.todo
 name: tasks-set-due-date
 tags:
@@ -40,11 +44,12 @@ tags:
 - waitForAnimationToEnd:
     timeout: 1000
 - tapOn:
-    text: ".* 1, 20[0-9][0-9]"
-# Tapping the day selects it; the OK button confirms. Use text — the testTag inside
-# ModalBottomSheet does not propagate to the Android accessibility tree (Popup context).
+    text: '.*[^0-9]1[^0-9].*'
+# Tapping the day selects it; the OK button confirms. The button is addressed by
+# the testTag the sheet puts on it — the sheet maps its test tags to resource ids,
+# so they reach the accessibility tree.
 - tapOn:
-    text: "OK"
+    id: dialog_date_picker_ok
 # The row switches from its placeholder to the ISO date.
 - extendedWaitUntil:
     visible: ".*-.*-01"

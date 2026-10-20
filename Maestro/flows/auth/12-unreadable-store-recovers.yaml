@@ -27,6 +27,15 @@
 # Deleting the keystore entry needs a helper inside the app's UID; overwriting the file does
 # not, and it reaches the same recovery. The difference is honest and does not change what is
 # being asserted: a store that cannot be decrypted must end at the login screen.
+#
+# ## How the signed-out app is reached
+#
+# The E2E build replaces the auth repository with a stub that starts every process
+# signed in, so the sign-in screen is not on the screen by default. The
+# signed-out state is reached through the debug session link, which calls the
+# same `AuthRepository.signOut()` the app's own "Sign out" button calls. No
+# state wipe is used: clearing the state would remove the very file this flow
+# goes on to damage.
 appId: com.singularity.todo
 name: auth-unreadable-store-recovers
 tags:
@@ -34,15 +43,11 @@ tags:
   - auth
   - AUTH-FIRSTRUN-05
 ---
-# First launch, so the encrypted store exists and holds something. `clearState: false`:
-# clearing would remove the very file this flow goes on to damage.
-- launchApp:
-    appId: com.singularity.todo
-    clearState: false
-- extendedWaitUntil:
-    visible:
-      id: auth_continue_offline_button
-    timeout: 30000
+# First launch, so the encrypted store exists and holds something. The launch
+# does not wipe the app's data: clearing would remove the very file this flow
+# goes on to damage.
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../helpers/session-signedout.yaml
 
 # The process has to be gone before the file is damaged, or Android serves the store from
 # the in-memory cache it parsed before the damage and nothing observes it.
@@ -51,17 +56,10 @@ tags:
 - runScript: ../../helpers/scripts/damage-store.js
 
 # A fresh process, reading a file it cannot parse.
-- launchApp:
-    appId: com.singularity.todo
-    clearState: false
+- runFlow: ../../helpers/relaunch.yaml
 
-# REQ-UA-015's budget plus slack for a cold start. This is the assertion the release that
-# shipped the spinner could not have made: the store is unreadable and the first screen
-# still arrives.
-- extendedWaitUntil:
-    visible:
-      id: auth_continue_offline_button
-    timeout: 30000
+# A signed-out app again: the login screen is what the app shows.
+- runFlow: ../../helpers/session-signedout.yaml
 
 - assertNotVisible:
     id: loading_indicator

@@ -1,8 +1,9 @@
 # Calendar: tapping a day in Month view opens that day's view.
 #
-# Day cells are addressed by their number as text; in a single month grid each
-# number appears once, so a full-string match is unambiguous. The date header is
-# what proves which day was opened.
+# The day cell is addressed by the testTag that carries its date. The day
+# number as text would not do: the pager composes the month before and the
+# month after the one on screen, so the same number is on the screen more
+# than once, and only the tag says which day it is.
 appId: com.singularity.todo
 name: calendar-tap-day
 tags:
@@ -13,16 +14,31 @@ tags:
 - runScript: ../../helpers/scripts/date.js
 - tapOn:
     id: nav_tab_calendar
+# The grid is showing the current month: today's cell is one of its cells.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
+# Open the 15th of the current month.
+- runFlow:
+    file: ../../helpers/calendar-tap-day-cell.yaml
+    env:
+      DAY_CELL: ${output.DAY15_CELL}
+# The month grid is gone: the app is showing a single day, not the month.
 - extendedWaitUntil:
-    visible: ${output.monthTitle}
+    notVisible:
+      id: calendar_weekday_mon
     timeout: 8000
-- tapOn:
-    text: "15"
+# The day header shows the day that was opened. It carries no testTag — the
+# day view's header cell is untagged — so the number is asserted as text.
+# The number is the date-format-agnostic part of the header: the rest of it
+# (the month name and the year) is the app's wording, and a flow must not
+# assert the app's wording.
 - extendedWaitUntil:
-    visible: ${output.day15Title}
+    visible: "15"
     timeout: 8000
-# The mode control followed the navigation into the single-day view.
-- assertVisible:
-    id: calendar_view_mode_day
-- assertNotVisible:
-    id: calendar_weekday_mon
+# The mode control followed the navigation into the single-day view. The
+# dropdown items (calendar_view_mode_day) exist only while the dropdown is
+# expanded, so they cannot say which mode is selected; the selected mode is
+# the label the control carries, and that label is the app's own string.
+- assertVisible: "Day"

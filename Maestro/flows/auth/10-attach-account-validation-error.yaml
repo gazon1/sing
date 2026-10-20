@@ -1,14 +1,14 @@
 # AUTH-FAIL-03: attach-account form validation shows errors before submission.
 #
-# preconditions: StubAuthRepository in Anonymous session.
+# preconditions: the app is in a local (anonymous) session.
 # steps:
 #   1. Navigate to Settings → Account tab.
 #   2. See the "Attach account" button (only visible for Anonymous sessions).
 #   3. Tap it, enter empty credentials, submit.
 #   4. Verify validation prevents submission.
 #
-# Note: StubAuthRepository always succeeds for all auth operations, so network
-# errors cannot be triggered through StubAuthRepository. This flow tests the
+# Note: the stubbed auth repository always succeeds for all auth operations,
+# so network errors cannot be triggered through it. This flow tests the
 # form validation guard (empty fields are rejected client-side).
 appId: com.singularity.todo
 name: auth-attach-account-validation-error
@@ -17,15 +17,17 @@ tags:
   - auth
   - AUTH-FAIL-03
 ---
-# Launch signed in as Anonymous (StubAuthRepository default state after sign-in).
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
-    permissions:
-      notifications: allow
+# Launch. The launch does not wipe the app's data: clearing the state would
+# take the app's rows with it, and deleting data is the runner's fixture
+# sweep's job, not a flow's.
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Enter a local session: the attach affordance exists only for
+# `Session.Anonymous`, and the E2E build starts `SignedIn`.
+- openLink: "todo-debug://seed?session=anonymous"
 
 # Wait for the agenda tabs to appear — the Anonymous session is not blocked
-# by the auth screen (StubAuthRepository.autoSignInAnonymously equivalent).
+# by the auth screen.
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -41,13 +43,10 @@ tags:
 - tapOn:
     id: menu_settings
 
-# Navigate to the Account settings tab.
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
+# Navigate to the Account settings tab. The settings navigation is a
+# scrollable column and the Account tab is the last of its rows, so it is
+# scrolled into view before it is tapped.
+- runFlow: ../../helpers/settings-account-tab.yaml
 
 # The "Attach account" button should be visible for Anonymous sessions.
 - extendedWaitUntil:

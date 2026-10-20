@@ -5,8 +5,39 @@ import time
 import urllib.parse
 from typing import TYPE_CHECKING
 
+from emulator.maestro._types import APP_ID
+
 if TYPE_CHECKING:  # pragma: no cover — import cycle guard, annotations only
     from emulator.maestro._types import DeviceDeps
+
+
+def reset_session(serial: str, deps: "DeviceDeps") -> None:
+    """Give the app a fresh process, and with it the session it starts with.
+
+    A session reset is a different kind of fixture from the row sweep in
+    :func:`cleanup_run_fixtures`, and it needs its own mechanism: the sweep
+    removes the *rows* a flow seeded, while this restores the *session* the
+    next flow runs under. The two cannot be folded into each other — a flow
+    that ends signed out leaves no rows behind and still hands the next flow
+    an app that is signed out.
+
+    In the E2E build the session lives in the process. The auth repository is
+    a stub that reports ``Session.SignedIn`` from the first frame and keeps
+    the session in memory, so a fresh process is a fresh session: force-
+    stopping the app and starting it again is the reset, and it is what stops
+    a flow that ends signed out from deciding the session of the flow after
+    it.
+
+    The flows that need a *signed-out* app ask for one themselves, through
+    the app's debug session link; this is the other half — the state every
+    other flow may assume.
+    """
+    if not deps.device_alive(serial):
+        return
+    deps.adb_on(serial, "shell", "am", "force-stop", APP_ID)
+    time.sleep(1)
+    deps.adb_on(serial, "shell", "am", "start", "-n", f"{APP_ID}/.MainActivity")
+    deps.wait_for_app_resumed(serial)
 
 
 def cleanup_run_fixtures(
