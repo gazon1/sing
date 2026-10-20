@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -316,7 +318,7 @@ private fun RegexpInputSheet(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var pattern by remember { mutableStateOf(initialPattern) }
+    val patternState = rememberTextFieldState(initialPattern)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -330,11 +332,10 @@ private fun RegexpInputSheet(
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = pattern,
-                    onValueChange = { pattern = it },
+                    state = patternState,
                     label = { Text("Pattern") },
                     placeholder = { Text("e.g. meeting|review") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                     // AlertDialog is its own Android window — the app-root
                     // testTagsAsResourceId never reaches it. Without this the tag
                     // is invisible to Maestro and the flow has to select by label.
@@ -348,8 +349,8 @@ private fun RegexpInputSheet(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(pattern) },
-                enabled = pattern.isNotBlank(),
+                onClick = { onConfirm(patternState.text.toString()) },
+                enabled = patternState.text.isNotBlank(),
             ) {
                 Text("Add section")
             }

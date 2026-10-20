@@ -79,6 +79,7 @@ import kotlinx.coroutines.flow.first
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.scope.Scope
 import org.koin.dsl.module
 import kotlin.time.Clock
 
@@ -359,19 +360,35 @@ fun coreModule(): org.koin.core.module.Module =
         // ─── Settings ────────────────────────────────────────────────────────
 
         // SettingsViewModel uses marker interface lookups — each contributor is
-        // registered individually in its own feature module and injected here via getOrNull.
+        // registered individually in its own feature module and injected here via
+        // getOptionalOrNull.
+        //
+        // `getOptionalOrNull`, not `getOrNull`: a contributor that *exists* but
+        // cannot be created is a broken binding, not an absent feature, and it
+        // used to take the settings screen down in composition. A missing
+        // contributor is the normal case and is not reported.
         viewModel {
             SettingsViewModel(
                 // No `scope =` here on purpose — see SyncViewModel above. The ViewModel derives
                 // its own from crashReporter; this used to override that with a graph-supplied
                 // one, which is the divergence NoDivergentScopeAndReporter exists to catch.
-                appearanceContributor = getOrNull<AppearanceContributor>(),
-                notificationsContributor = getOrNull<NotificationsContributor>(),
-                workScheduleContributor = getOrNull<WorkScheduleContributor>(),
-                greetingContributor = getOrNull<GreetingContributor>(),
-                aiContributor = getOrNull<AiContributor>(),
-                defaultAgendaViewContributor = getOrNull<DefaultAgendaViewContributor>(),
-                tasksContributor = getOrNull<TasksContributor>(),
+                appearanceContributor = getOptionalOrNull<AppearanceContributor> {
+                    reportBrokenContributor(it)
+                },
+                notificationsContributor = getOptionalOrNull<NotificationsContributor> {
+                    reportBrokenContributor(it)
+                },
+                workScheduleContributor = getOptionalOrNull<WorkScheduleContributor> {
+                    reportBrokenContributor(it)
+                },
+                greetingContributor = getOptionalOrNull<GreetingContributor> {
+                    reportBrokenContributor(it)
+                },
+                aiContributor = getOptionalOrNull<AiContributor> { reportBrokenContributor(it) },
+                defaultAgendaViewContributor = getOptionalOrNull<DefaultAgendaViewContributor> {
+                    reportBrokenContributor(it)
+                },
+                tasksContributor = getOptionalOrNull<TasksContributor> { reportBrokenContributor(it) },
                 savedAgendaViewsRepo = get(),
                 fileRevealer = get(),
                 logBundleExporter = get(),
@@ -429,3 +446,18 @@ fun coreModule(): org.koin.core.module.Module =
 
         viewModel { AttachmentsViewModel(repository = get(), crashReporter = get()) }
     }
+
+/**
+ * Reports a settings contributor that exists but cannot be created.
+ *
+ * A contributor is optional by design: the feature that owns it may not be in
+ * the graph, and the settings screen then shows one section less. A contributor
+ * that *is* in the graph and cannot be created is a defect — the same shape that
+ * took the note editor down — so it is reported instead of swallowed.
+ */
+private fun Scope.reportBrokenContributor(failure: Throwable) {
+    getOrNull<Logger>()?.w(
+        "A settings contributor exists but cannot be created — the settings screen continues without it",
+        failure,
+    )
+}

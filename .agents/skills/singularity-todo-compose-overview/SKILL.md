@@ -12,6 +12,7 @@ This is a **router skill** — it points to the right skill for your task. No di
 | Skill | When to use |
 |---|---|
 | `singularity-todo-shared-ui-components` | `SettingsSection`, `ResultDialog`, `Slot` API, `TaskEditorContent` |
+| `singularity-todo-text-field-states` | Text fields: local / bridged / anchored shapes, filtering, secrets |
 | `singularity-todo-pure-formatters` | Pure formatting helpers (dates, numbers, text) — no Compose dependency |
 | `singularity-todo-ui-event-vs-state` | One-shot events vs continuous state in ViewModels |
 | `singularity-todo-cross-feature-navigation` | Nav3 nested graphs, entry providers, route patterns |
@@ -31,6 +32,9 @@ Building a new screen?
 
 Need shared UI component?
   → singularity-todo-shared-ui-components
+
+Adding or changing a text field?
+  → singularity-todo-text-field-states
 
 Formatting without Compose?
   → singularity-todo-pure-formatters

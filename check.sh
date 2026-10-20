@@ -41,6 +41,17 @@ echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
 # command (sgate <name>), inline shell, or inline Python — running all gates
 # in the registry in parallel. One registry, one interface, is the only
 # arrangement where a gate cannot silently vanish between surfaces.
+#
+# The preflight comes first, and it is not ceremony: a gate that cannot run
+# looks exactly like a gate that has nothing to report. A missing `sgate`
+# install used to surface as the gate scripts' own unit tests failing with
+# ModuleNotFoundError, which reads like a broken test rather than a missing
+# install. The preflight names the tool and the command that installs it.
+bash scripts/ci/preflight-gate-tools.sh || {
+    echo -e "${RED}the gate tooling is not installed — see the message above${NC}"
+    exit 1
+}
+
 sgate run-all || {
     echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
     exit 1

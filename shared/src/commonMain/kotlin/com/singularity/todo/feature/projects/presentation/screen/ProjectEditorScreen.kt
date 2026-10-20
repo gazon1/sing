@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -41,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
@@ -48,6 +51,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
@@ -263,23 +267,30 @@ private fun IdentitySection(
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
 ) {
+    val nameState = rememberBridgedTextFieldState(
+        externalText = name,
+        onTextChanged = onNameChanged,
+    )
+    val descriptionState = rememberBridgedTextFieldState(
+        externalText = description,
+        onTextChanged = onDescriptionChanged,
+    )
+
     OutlinedTextField(
-        value = name,
-        onValueChange = onNameChanged,
+        state = nameState,
         label = { Text("Project name") },
         isError = errorMessage != null,
         supportingText = errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
     )
 
     OutlinedTextField(
-        value = description,
-        onValueChange = onDescriptionChanged,
+        state = descriptionState,
         label = { Text("Description (optional)") },
-        minLines = 3,
+        lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 3),
         modifier = Modifier
             .fillMaxWidth()
             .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),
@@ -311,6 +322,14 @@ private fun AppearanceSection(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(Color(color))
+                        // The swatch is a button that a screen reader has to be able to
+                        // name: it carries no text, and its only visual is a circle of
+                        // colour. "Blue" is the name of the thing, and "selected" says
+                        // which one is in use.
+                        .semantics {
+                            contentDescription = "Colour ${ProjectColorPalette.nameOf(color)}" +
+                                if (selectedColor == color) ", selected" else ""
+                        }
                         .then(
                             if (selectedColor == color) {
                                 Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
@@ -323,7 +342,7 @@ private fun AppearanceSection(
                     if (selectedColor == color) {
                         Icon(
                             Icons.Filled.Check,
-                            contentDescription = "Selected",
+                            contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(32.dp).padding(6.dp),
                         )

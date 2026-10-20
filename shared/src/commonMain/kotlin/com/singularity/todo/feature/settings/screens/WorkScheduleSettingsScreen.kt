@@ -24,13 +24,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.schedule.displayName
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
+import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.datetime.DayOfWeek
@@ -124,6 +125,8 @@ private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, 
     var showDialog by remember { mutableStateOf(false) }
     val hour = value / 60
     val minute = value % 60
+    // Read-only display of the formatted time; the picker and the slider change it.
+    val timeState = rememberAnchoredTextFieldState(formatter(value))
 
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(
@@ -133,8 +136,7 @@ private fun TimeSlider(label: String, value: Int, onValueChange: (Int) -> Unit, 
             Text(label, style = MaterialTheme.typography.bodyMedium)
         }
         OutlinedTextField(
-            value = formatter(value),
-            onValueChange = {},
+            state = timeState,
             readOnly = true,
             modifier = Modifier
                 .fillMaxWidth()
@@ -231,6 +233,27 @@ private fun WorkScheduleSettingsScreenDarkPreview() = PreviewThemed(darkTheme = 
                     DayOfWeek.SATURDAY,
                     DayOfWeek.SUNDAY,
                 ),
+            ),
+        ),
+        onIntent = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun WorkScheduleSettingsScreenShortDayPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
+    WorkScheduleSettingsScreen(
+        state = SettingsUiState.Content(
+            workSchedule = SettingsSection.WorkSchedule(
+                dayStartMinutes = 600, // 10:00
+                dayEndMinutes = 900, // 15:00
+                lunchStartMinutes = 750, // 12:30
+                lunchEndMinutes = 780, // 13:00
+                workingDays = WorkingDays.DEFAULT,
+            ),
+            greeting = SettingsSection.Greeting(
+                morningEndHour = 10,
+                afternoonEndHour = 16,
             ),
         ),
         onIntent = {},

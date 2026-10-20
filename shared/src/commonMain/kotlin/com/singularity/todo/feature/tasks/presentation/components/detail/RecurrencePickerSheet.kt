@@ -24,18 +24,26 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
+import com.singularity.todo.core.ui.components.dayOfMonthTransformation
+import com.singularity.todo.core.ui.components.recurrenceIntervalTransformation
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
@@ -47,6 +55,7 @@ import com.singularity.todo.feature.tasks.presentation.components.RecurrenceForm
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
@@ -499,18 +508,32 @@ private fun IntervalEditor(
         else -> emptyList()
     }
 
+    // The field owns the text; the amount is only committed when the text is a valid
+    // number. An invalid edit is rejected outright, so the text snaps back to the last
+    // valid value — exactly what the old onValueChange guard did.
+    //
+    // The text is anchored to the committed amount: the amount is the value the app
+    // keeps, and the field follows it when it changes — a rejected edit snaps back
+    // here, and so does an amount changed from outside the field.
+    val amountState = rememberAnchoredTextFieldState(amount.toString())
+    LaunchedEffect(amountState) {
+        snapshotFlow { amountState.text.toString() }
+            .distinctUntilChanged()
+            .collect { text ->
+                text.toIntOrNull()
+                    ?.let { v -> if (v > 0) onAmountChange(v) }
+            }
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
-            value = amount.toString(),
-            onValueChange = {
-                it.toIntOrNull()
-                    ?.let { v -> if (v > 0) onAmountChange(v) }
-            },
+            state = amountState,
             label = { Text("Every") },
             modifier = Modifier.width(80.dp),
+            inputTransformation = recurrenceIntervalTransformation(),
         )
         Spacer(Modifier.width(8.dp))
         Column {
@@ -559,18 +582,27 @@ private fun WeekdayEditor(selected: Set<Int>, onChange: (Set<Int>) -> Unit) {
 
 @Composable
 private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
+    // Same contract as the interval amount: the text snaps back when it is not a day
+    // of the month. Anchored to the committed day, for the same reason.
+    val dayState = rememberAnchoredTextFieldState(day.toString())
+    LaunchedEffect(dayState) {
+        snapshotFlow { dayState.text.toString() }
+            .distinctUntilChanged()
+            .collect { text ->
+                text.toIntOrNull()
+                    ?.let { d -> if (d in 1..31) onChange(d) }
+            }
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
-            value = day.toString(),
-            onValueChange = {
-                it.toIntOrNull()
-                    ?.let { d -> if (d in 1..31) onChange(d) }
-            },
+            state = dayState,
             label = { Text("Day of month") },
             modifier = Modifier.width(140.dp),
+            inputTransformation = dayOfMonthTransformation(),
         )
         Text(
             text = "(1–31)",
@@ -661,3 +693,30 @@ private fun RecurrenceSpec.intervalAmount(): Int = (this as? Interval)?.amount
 
 private fun RecurrenceSpec.intervalUnit(): DateTimeUnit.DateBased = (this as? Interval)?.unit
     ?: DateTimeUnit.WEEK
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun RecurrencePickerSheetPreview() = PreviewThemed(darkTheme = false) {
+    RecurrencePickerSheet(
+        currentSpec = null,
+        anchorDate = PreviewSamples.today,
+        onApply = { },
+        onDismiss = noopClick,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun RecurrencePickerSheetWeeklyPreview() = PreviewThemed(darkTheme = false) {
+    RecurrencePickerSheet(
+        currentSpec = Weekly(
+            base = RecurrenceBase.FROM_DUE,
+            weekdays = setOf(1, 3, 5),
+        ),
+        anchorDate = PreviewSamples.today,
+        onApply = { },
+        onDismiss = noopClick,
+    )
+}

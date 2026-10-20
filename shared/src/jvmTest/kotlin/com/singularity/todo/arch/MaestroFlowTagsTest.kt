@@ -1,8 +1,13 @@
 package com.singularity.todo.arch
 
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.TestTagsCatalog
+import com.singularity.todo.feature.profile.Profile
+import com.singularity.todo.test.fakes.FakeClock
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -235,8 +240,365 @@ class MaestroFlowTagsTest {
         )
     }
 
+    // ── Dynamic ids ───────────────────────────────────────────────────────────
+
+    /**
+     * A dynamic tag generator whose input is a *text the flow supplies*.
+     *
+     * The prefix is read off the generator rather than written down a second
+     * time: `TestTags.taskItem("probe")` is `task_item_probe`, so the prefix is
+     * whatever comes before the slug. A generator that changes its template
+     * changes this check with it, instead of leaving a second copy of the
+     * naming scheme behind to drift.
+     *
+     * @property appSideInputs inputs the app itself supplies, which a flow may
+     *   address without ever typing them — the default profile, for one.
+     */
+    private data class DynamicGenerator(
+        val name: String,
+        val appSideInputs: List<String> = emptyList(),
+        val produce: (String) -> String,
+    ) {
+        /** The literal prefix of every id this generator produces. */
+        val prefix: String = produce(PROBE).removeSuffix(PROBE)
+
+        private companion object {
+            /** A probe the slug rule leaves unchanged, so the prefix is what remains. */
+            const val PROBE = "probe"
+        }
+    }
+
+    /**
+     * The texts a flow supplies, split by where they came from.
+     *
+     * @property typed what the flow types into a field
+     * @property seeded what the flow seeds through the debug deep link
+     * @property helpers what the helper files it `runFlow:`s supply
+     */
+    private data class FlowTexts(val typed: List<String>, val seeded: List<String>, val helpers: List<String>) {
+        /** Every text the flow can put into the app. */
+        val all: List<String> get() = typed + seeded + helpers
+    }
+
+    /**
+     * Every dynamic id a flow addresses must be one the app can produce.
+     *
+     * The catalogue check above proves an id's *prefix* is a real generator. It
+     * cannot see the other half: a generator that takes a title produces
+     * `task_item_<slug of the title>`, so a flow that types "Buy milk" and
+     * asserts `task_item_buy_milk2` addresses a row that can never exist — and
+     * the flow fails on a device for a reason nobody can read off the YAML.
+     *
+     * The texts a flow supplies are:
+     * - what it types (`inputText:`, in both the inline and the mapping form);
+     * - what it seeds through the debug deep link (`todo-debug://seed?task=…`),
+     *   including the `QUERY` env the seed helper takes;
+     * - what the helper files it `runFlow:`s supply, transitively — a flow that
+     *   seeds "Buy milk" through `helpers/seed-task.yaml` may address
+     *   `task_item_buy_milk` without typing anything itself.
+     *
+     * The ids are produced by the app's own `TestTags` functions, so the slug
+     * rule is the app's and not a second copy of it living in this test.
+     */
+    @Test
+    fun `every dynamic id in a flow is one the app can produce`() {
+        val flowsRoot = workspaceRoot.resolve("Maestro/flows")
+        val violations = mutableListOf<String>()
+        var checked = 0
+
+        Files.walk(flowsRoot).use { stream ->
+            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+                .forEach { file ->
+                    val text = file.readText()
+                    val texts = textsFor(file)
+                    idPattern.findAll(text).forEach { match ->
+                        val id = match.groupValues[1].replace(RUN_ID, RUN_ID_PLACEHOLDER)
+                        // An id built from an expression this test cannot resolve is
+                        // not a verdict it is allowed to reach.
+                        val generator = if (id.contains('$')) null else generatorFor(id)
+                        if (generator != null) {
+                            checked++
+                            val candidates = texts.all + generator.appSideInputs
+                            if (candidates.none { generator.produce(it) == id }) {
+                                violations += violation(file, id, generator, texts)
+                            }
+                        }
+                    }
+                }
+        }
+
+        assertTrue(
+            checked >= 100,
+            "checked only $checked dynamic ids — the collector is likely broken " +
+                "(expected >= 100 on the current tree)",
+        )
+        assertTrue(
+            violations.isEmpty(),
+            "dynamic ids the app cannot produce (${violations.size}/$checked):\n" +
+                violations.joinToString("\n") { "  - $it" } +
+                "\n\nThe app builds these ids from the text the flow types or seeds, " +
+                "through TestTags.<generator>(text). An id outside that set addresses a " +
+                "row that can never exist — the flow fails on a device for a reason " +
+                "the YAML does not show.",
+        )
+    }
+
+    /** The generator whose prefix the id carries — the longest one, so the specific tag wins. */
+    private fun generatorFor(id: String): DynamicGenerator? =
+        TEXT_DERIVED_GENERATORS
+            .filter { id.startsWith(it.prefix) }
+            .maxByOrNull { it.prefix.length }
+
+    /**
+     * The texts a flow can put into the app, with the run id replaced by a
+     * placeholder so the two sides of the comparison line up.
+     */
+    private fun textsFor(flow: Path): FlowTexts {
+        val helpers = helperFiles(flow)
+        val own = textsIn(flow.readText())
+        val helperTexts = helpers.flatMap { textsIn(it.readText()).all }
+        return FlowTexts(
+            typed = own.typed.map { it.replace(RUN_ID, RUN_ID_PLACEHOLDER) },
+            seeded = own.seeded.map { it.replace(RUN_ID, RUN_ID_PLACEHOLDER) },
+            helpers = helperTexts.map { it.replace(RUN_ID, RUN_ID_PLACEHOLDER) },
+        )
+    }
+
+    /**
+     * The texts a single flow file supplies.
+     *
+     * Three sources, all of them things the app will hold as a title:
+     * - `inputText: "…"` and the mapping form `- inputText:` / `text: "…"`;
+     * - the debug deep link `todo-debug://seed?task=…`, whose parameters carry
+     *   URL-encoded titles;
+     * - the `QUERY` env the seed helper takes, which carries the same query.
+     */
+    private fun textsIn(text: String): FlowTexts = FlowTexts(
+        typed = inputTextsIn(text),
+        seeded = seedTitlesIn(text),
+        helpers = emptyList(),
+    )
+
+    /** The literals the file types into the app. */
+    private fun inputTextsIn(text: String): List<String> {
+        val lines = text.lines()
+        val typed = mutableListOf<String>()
+        for (index in lines.indices) {
+            val match = INPUT_TEXT.find(lines[index])
+            if (match != null) {
+                val inline = match.groupValues[1].trim()
+                val value = if (inline.isNotEmpty()) {
+                    inline
+                } else {
+                    // `- inputText:` with the value on the lines below it.
+                    val nested = lines.drop(index + 1)
+                        .takeWhile { !it.trimStart().startsWith("- ") }
+                        .firstOrNull { TEXT_KEY.containsMatchIn(it) }
+                    nested?.let { TEXT_KEY.find(it)?.groupValues?.get(1) }.orEmpty()
+                }
+                if (value.isNotEmpty()) {
+                    typed.add(unquote(value))
+                }
+            }
+        }
+        return typed
+    }
+
+    /** The titles the file seeds through the debug deep link. */
+    private fun seedTitlesIn(text: String): List<String> {
+        val titles = mutableListOf<String>()
+        SEED_LINK.findAll(text).forEach { match ->
+            // The link is `todo-debug://seed?<query>`; the query is what names
+            // the title, and the scheme in front of it is not part of it.
+            titles += queryTitles(match.groupValues[1].substringAfter('?', ""))
+        }
+        SEED_QUERY.findAll(text).forEach { match ->
+            titles += queryTitles(match.groupValues[1])
+        }
+        return titles
+    }
+
+    /**
+     * The titles a seed query names.
+     *
+     * The deep link seeds at most one kind of entity, and only these four
+     * parameters carry a title — `due`, `desc` and `cleanup` do not.
+     */
+    private fun queryTitles(query: String): List<String> =
+        query.split("&")
+            .mapNotNull { pair ->
+                val key = pair.substringBefore("=").trim()
+                if (key !in SEED_TITLE_KEYS) return@mapNotNull null
+                val raw = pair.substringAfter("=", "")
+                if (raw.isEmpty()) null else decode(raw)
+            }
+
+    /**
+     * URL-decodes a seeded title.
+     *
+     * A `%` that is not part of an escape makes the decoder throw, and a gate
+     * that throws on a malformed flow is a gate that reports nothing, so the
+     * value is left as it is when it cannot be decoded safely.
+     */
+    private fun decode(raw: String): String {
+        if (!raw.contains('%')) return raw
+        if (PERCENT_ESCAPE.findAll(raw).count() != raw.count { it == '%' }) return raw
+        return URLDecoder.decode(raw, StandardCharsets.UTF_8)
+    }
+
+    /**
+     * Strips the quotes and the trailing comment off a YAML scalar.
+     *
+     * The comment is only cut off an *unquoted* value: a quoted one may carry
+     * a `#` of its own ("Buy #1 milk"), and a `#` inside a quoted scalar is
+     * part of the text rather than the start of a comment.
+     */
+    private fun unquote(value: String): String {
+        val trimmed = value.trim()
+        if (trimmed.startsWith('"')) {
+            val end = trimmed.indexOf('"', 1)
+            if (end > 0) return trimmed.substring(1, end)
+        }
+        if (trimmed.startsWith('\'')) {
+            val end = trimmed.indexOf('\'', 1)
+            if (end > 0) return trimmed.substring(1, end)
+        }
+        return trimmed.substringBefore(" #").trim()
+    }
+
+    /**
+     * The helper files a flow pulls in, transitively.
+     *
+     * `helpers/seed-task.yaml` runs `helpers/seed.yaml` in turn, and it is
+     * `seed.yaml` that carries the seeded title — so the closure has to
+     * follow the chain rather than stop at the first hop.
+     */
+    private fun helperFiles(flow: Path): List<Path> {
+        val found = mutableListOf<Path>()
+        val seen = mutableSetOf<Path>()
+        val queue = ArrayDeque<Path>()
+        queue.addLast(flow)
+        while (queue.isNotEmpty()) {
+            val file = queue.removeFirst()
+            val dir = file.parent
+            if (dir != null) {
+                for (raw in runFlowTargets(file.readText())) {
+                    // A path the flow builds from a variable is not one this
+                    // test can resolve.
+                    val target = if (raw.startsWith("/") || raw.contains('$')) {
+                        null
+                    } else {
+                        dir.resolve(raw).normalize()
+                    }
+                    if (target != null && target.isRegularFile() && seen.add(target)) {
+                        // `add`, not `+=`: a Path is an Iterable<Path>, and `+=`
+                        // would read as "concatenate the path's elements".
+                        found.add(target)
+                        queue.addLast(target)
+                    }
+                }
+            }
+        }
+        return found
+    }
+
+    /** The files the flow runs, in both the shorthand and the `file:` form. */
+    private fun runFlowTargets(text: String): List<String> =
+        RUN_FLOW.findAll(text).map { it.groupValues[1] }.toList() +
+            RUN_FLOW_FILE.findAll(text).map { it.groupValues[1] }.toList()
+
+    /** The report line for one id the app cannot produce. */
+    private fun violation(
+        file: Path,
+        id: String,
+        generator: DynamicGenerator,
+        texts: FlowTexts,
+    ): String {
+        val typed = texts.typed.take(REPORTED_TEXTS).joinToString(", ") { "\"$it\"" }
+        val seeded = texts.seeded.take(REPORTED_TEXTS).joinToString(", ") { "\"$it\"" }
+        val helperTexts = texts.helpers.take(REPORTED_TEXTS).joinToString(", ") { "\"$it\"" }
+        val produced = (texts.all + generator.appSideInputs)
+            .take(REPORTED_TEXTS)
+            .joinToString(", ") { generator.produce(it) }
+        return "${workspaceRoot.relativize(file)}\n" +
+            "        id:                $id\n" +
+            "        texts it typed:    $typed\n" +
+            "        texts it seeded:   $seeded\n" +
+            "        texts its helpers: $helperTexts\n" +
+            "        the app produces:  $produced\n" +
+            "        generator:         TestTags.${generator.name}(text)"
+    }
+
     private companion object {
         val RUN_FLOW = Regex("""^\s*-?\s*runFlow:\s*(\S+)\s*$""", RegexOption.MULTILINE)
+
+        /** The `file:` key of a `runFlow:` that carries its path in a mapping. */
+        val RUN_FLOW_FILE = Regex("""^\s*file:\s*(\S+)\s*$""", RegexOption.MULTILINE)
+
+        /** `- inputText: "…"` — the value may be empty when the mapping form is used. */
+        val INPUT_TEXT = Regex("""^\s*-\s*inputText:\s*(.*)$""", RegexOption.MULTILINE)
+
+        /** The `text:` key of the mapping form of `inputText:`. */
+        val TEXT_KEY = Regex("""^\s*text:\s*(.+)$""", RegexOption.MULTILINE)
+
+        /** The debug deep link, whose query carries the seeded title. */
+        val SEED_LINK = Regex("""openLink:\s*"?([^"\n]*)"?""")
+
+        /** The `QUERY` env the seed helper takes — the same query, one hop up. */
+        val SEED_QUERY = Regex("""QUERY:\s*"?([^"\n]*)"?""")
+
+        /** A `%` that starts a valid percent-escape. */
+        val PERCENT_ESCAPE = Regex("""%[0-9A-Fa-f]{2}""")
+
+        /** The query parameters that name a title rather than a date or a flag. */
+        val SEED_TITLE_KEYS = setOf("task", "note", "project", "profile")
+
+        /** The run id the runner stamps into the flows, as it appears in the YAML. */
+        const val RUN_ID = "\${RUN_ID}"
+
+        /** What the run id becomes in the comparison, so both sides line up. */
+        const val RUN_ID_PLACEHOLDER = "runid"
+
+        /** How many texts the failure message lists. */
+        const val REPORTED_TEXTS = 5
+
+        /**
+         * The app creates this profile on first launch, so every flow can address
+         * it by name even though no flow types the name.
+         */
+        val DEFAULT_PROFILE_NAME: String = Profile.createDefault(FakeClock()).name
+
+        /**
+         * The dynamic generators whose input is a text a flow supplies.
+         *
+         * Only these are checked. A generator whose input is an app-side
+         * constant — `navTab("Today")`, `noteFilterChip("All")`,
+         * `settingsThemeMode("Dark")` — takes a label the flow never types, so
+         * there is no text in the flow to compare its id against; the catalogue
+         * check above covers those by prefix.
+         *
+         * `noteItem(id)` is absent for the same reason from the other side: the
+         * note's id is a generated ULID the flow never learns.
+         */
+        val TEXT_DERIVED_GENERATORS = listOf(
+            DynamicGenerator("noteItemByTitle") { TestTags.noteItemByTitle(it) },
+            DynamicGenerator("taskItem") { TestTags.taskItem(it) },
+            DynamicGenerator("taskCheckbox") { TestTags.taskCheckbox(it) },
+            DynamicGenerator("pomodoroTaskChip") { TestTags.pomodoroTaskChip(it) },
+            DynamicGenerator("projectCard") { TestTags.projectCard(it) },
+            DynamicGenerator("savedAgendaCard") { TestTags.savedAgendaCard(it) },
+            DynamicGenerator("subtaskItem") { TestTags.subtaskItem(it) },
+            DynamicGenerator("subtaskCheckbox") { TestTags.subtaskCheckbox(it) },
+            DynamicGenerator("subtaskDelete") { TestTags.subtaskDelete(it) },
+            DynamicGenerator("checklistItem") { TestTags.checklistItem("id", it) },
+            DynamicGenerator("checklistItemCheckbox") { TestTags.checklistItemCheckbox("id", it) },
+            DynamicGenerator("checklistItemDelete") { TestTags.checklistItemDelete("id", it) },
+            DynamicGenerator(
+                name = "profileItem",
+                appSideInputs = listOf(DEFAULT_PROFILE_NAME),
+                produce = { TestTags.profileItem(it) },
+            ),
+        )
 
         /**
          * A command is a key on a **top-level list item** — `- tapOn:`. Keys one

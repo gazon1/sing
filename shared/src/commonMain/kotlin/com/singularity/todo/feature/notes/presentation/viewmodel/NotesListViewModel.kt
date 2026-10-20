@@ -20,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -58,7 +59,11 @@ class NotesListViewModel(
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<NotesUiState, NotesIntent, NotesUiEvent>(
-        initialState = NotesUiState.Loading,
+        initialState = NotesUiState.Loading(
+            filter = NoteFilter.All,
+            sortOrder = NoteSortOrder.UpdatedDesc,
+            searchQuery = "",
+        ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
@@ -80,9 +85,12 @@ class NotesListViewModel(
         private const val RESTORE_FAILED = "notes.restore_failed"
     }
 
-    // [filter] and [sortOrder] are inputs to the collector below, not public surface:
-    // [NotesListState] already carries both, so the screen reads them from the state
-    // instead of collecting a second, independently-timed copy of the same value.
+    // [filterFlow] and [sortOrderFlow] are inputs to the collector below, not public
+    // surface: the state carries both, so the screen reads them from the state instead
+    // of collecting a second, independently-timed copy of the same value. Their current
+    // values are also what the error path hands back to the screen — the filter chip
+    // and the sort menu must not jump back to their defaults because a repository
+    // call failed.
     private val filterFlow = MutableStateFlow(NoteFilter.All)
 
     private val sortOrderFlow = MutableStateFlow(NoteSortOrder.UpdatedDesc)
@@ -90,6 +98,11 @@ class NotesListViewModel(
     /**
      * Raw keystrokes. Debounced before it reaches [filterFlow] so a fast typist
      * triggers one query, not one per character — see [SearchQueryChanged].
+     *
+     * Its current value is also what the error path hands back to the screen: the raw
+     * keystrokes are what the user still sees in the search field, while the applied
+     * query lags behind them by the debounce window. Handing back the applied query
+     * would wipe the characters the user had typed but the debounce had not yet run.
      */
     private val searchQueryFlow = MutableStateFlow("")
 
@@ -136,30 +149,49 @@ class NotesListViewModel(
                     }
                     flow.map { notes -> Triple(f, query, notes) }
                 }
-            combine(notesFlow, templatesFlow, dailyNotesFlow, sortOrderFlow) {
-                (filter, query, allNotes),
-                templates,
-                dailyNotes,
-                sortOrder,
-                ->
-                val sorted = sortNotes(allNotes, sortOrder)
-                val pinned = sorted.filter { it.isPinned }
-                val unpinned = sorted.filter { !it.isPinned }
-                NotesUiState.Content(
-                    NotesListState(
-                        pinned = pinned,
-                        unpinned = unpinned,
-                        templates = templates,
-                        dailyNotes = dailyNotes,
+            // Typed as [NotesUiState]: the error path below emits an `Error`, and an
+            // inferred type of `Content` would make that emission a type error.
+            val listStateFlow: Flow<NotesUiState> =
+                combine(notesFlow, templatesFlow, dailyNotesFlow, sortOrderFlow) {
+                    (filter, query, allNotes),
+                    templates,
+                    dailyNotes,
+                    sortOrder,
+                    ->
+                    val sorted = sortNotes(allNotes, sortOrder)
+                    val pinned = sorted.filter { it.isPinned }
+                    val unpinned = sorted.filter { !it.isPinned }
+                    NotesUiState.Content(
+                        list = NotesListState(
+                            pinned = pinned,
+                            unpinned = unpinned,
+                            templates = templates,
+                            dailyNotes = dailyNotes,
+                            selectedIds = _selectedIds.value,
+                            isSelectionMode = _isSelectionMode.value,
+                        ),
                         filter = filter,
                         sortOrder = sortOrder,
                         searchQuery = query,
-                        selectedIds = _selectedIds.value,
-                        isSelectionMode = _isSelectionMode.value,
-                    ),
-                )
-            }
-                .catch { emit(NotesUiState.Content(NotesListState())) }
+                    )
+                }
+            listStateFlow
+                .catch { cause ->
+                    // The failure carries the query, the filter and the sort order.
+                    // The screen keeps showing the search field and the filter chips
+                    // while it reports the error, and a state that reset them would
+                    // clear what the user had chosen — the query in particular, since
+                    // the field is bound to it and hands an empty string back as if
+                    // the user had cleared it.
+                    emit(
+                        NotesUiState.Error(
+                            message = cause.toMessage("Could not load notes"),
+                            filter = filterFlow.value,
+                            sortOrder = sortOrderFlow.value,
+                            searchQuery = searchQueryFlow.value,
+                        ),
+                    )
+                }
                 .collect { state -> setState(state) }
         }
     }
@@ -194,6 +226,10 @@ class NotesListViewModel(
 
     private fun setFilter(filter: NoteFilter) {
         filterFlow.value = filter
+        // The chip is bound to the state, not to the flow: mirror the choice into the
+        // state so it holds even when the list collector is not running — after a
+        // repository failure, say.
+        updateState { current -> current.withFilter(filter) }
     }
 
     private fun setSortOrder(order: NoteSortOrder) {
@@ -206,9 +242,14 @@ class NotesListViewModel(
             val unpinned = sorted.filter { !it.isPinned }
             setState(
                 current.copy(
-                    list = current.list.copy(pinned = pinned, unpinned = unpinned, sortOrder = order),
+                    list = current.list.copy(pinned = pinned, unpinned = unpinned),
+                    sortOrder = order,
                 ),
             )
+        } else {
+            // Nothing to re-sort, but the sort menu is bound to the state: the choice
+            // must show up in every variant, not only in a loaded list.
+            updateState { it.withSortOrder(order) }
         }
     }
 
@@ -399,3 +440,27 @@ class NotesListViewModel(
  * @param title  Short label for the snackbar.
  */
 data class PendingDelete(val noteId: NoteId, val title: String)
+
+/**
+ * Copies a new filter into every variant of the state.
+ *
+ * The filter chip is bound to the state, so the choice has to be written into the
+ * state itself: a variant that kept the old filter would show a chip that no longer
+ * matches what the list is filtered by.
+ */
+private fun NotesUiState.withFilter(filter: NoteFilter): NotesUiState = when (this) {
+    is NotesUiState.Content -> copy(filter = filter)
+    is NotesUiState.Error -> copy(filter = filter)
+    is NotesUiState.Loading -> copy(filter = filter)
+}
+
+/**
+ * Copies a new sort order into every variant of the state.
+ *
+ * @see withFilter
+ */
+private fun NotesUiState.withSortOrder(order: NoteSortOrder): NotesUiState = when (this) {
+    is NotesUiState.Content -> copy(sortOrder = order)
+    is NotesUiState.Error -> copy(sortOrder = order)
+    is NotesUiState.Loading -> copy(sortOrder = order)
+}

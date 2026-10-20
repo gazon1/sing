@@ -7,7 +7,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.notes.presentation.nav.PreviewNotesNavigator
 import com.singularity.todo.feature.notes.presentation.screen.SwipeableNoteCard
-import com.singularity.todo.test.helpers.assertTagExistsOnUnmergedTree
+import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -92,7 +92,7 @@ class NotesScreenTest {
             )
         }
 
-        assertTagExistsOnUnmergedTree(TestTags.noteItem("n1"))
+        assertTagExists(TestTags.noteItem("n1"))
     }
 
     @Test
@@ -112,7 +112,7 @@ class NotesScreenTest {
             )
         }
 
-        assertTagExistsOnUnmergedTree(TestTags.noteItem("n2"))
+        assertTagExists(TestTags.noteItem("n2"))
     }
 
     @Test
@@ -132,6 +132,39 @@ class NotesScreenTest {
             )
         }
 
-        assertTagExistsOnUnmergedTree(TestTags.noteItem("n3"))
+        assertTagExists(TestTags.noteItem("n3"))
+    }
+
+    /**
+     * The card is addressable by *both* of its identifiers in the merged tree.
+     *
+     * A Material3 Card is a Surface, and a Surface merges its descendants: a tag
+     * below the card exists in the unmerged tree only, where no end-to-end test can
+     * address it — the Maestro flows drive the app through the accessibility tree,
+     * which holds the merged nodes. The title tag therefore lives on the item's
+     * outer node, and the id tag on the card, which is the merged node itself.
+     *
+     * The title tag is the one an end-to-end test needs: it types the title, and it
+     * never learns the generated ULID.
+     */
+    @Test
+    fun note_card_is_addressable_by_id_and_by_title() = runIsolatedComposeTest {
+        val note = sampleNote("n1", "Meeting Notes", "Discuss **Q4 goals** with the team")
+
+        setContent {
+            SwipeableNoteCard(
+                note = note,
+                isSelected = false,
+                isSelectionMode = false,
+                navigator = PreviewNotesNavigator(),
+                onLongClick = {},
+                onDelete = {},
+                onTogglePin = {},
+                onToggleSelection = {},
+            )
+        }
+
+        assertTagExists(TestTags.noteItem("n1"))
+        assertTagExists(TestTags.noteItemByTitle("Meeting Notes"))
     }
 }

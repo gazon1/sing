@@ -45,7 +45,7 @@ tags:
       id: task_item_${RUN_ID}_parent_task
     timeout: 8000
 - tapOn:
-    id: task_item_parent_task
+    id: task_item_${RUN_ID}_parent_task
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -70,7 +70,7 @@ tags:
 
 # ── Toggle subtask completed state ───────────────────────────────
 - tapOn:
-    id: subtask_item_child_task_one
+    id: subtask_item_${RUN_ID}_child_task_one
 - extendedWaitUntil:
     visible:
       text: "✓ ${RUN_ID} Child task one"

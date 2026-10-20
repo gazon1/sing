@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -73,6 +75,10 @@ fun AttachAccountScreen(
     val navigator = LocalAppNavigator.current
     val settingsNavigator = LocalSettingsNavigator.current
     val form = rememberLoginFormState()
+    // The credentials live in the fields, not in the form state: the form keeps only the
+    // choice about the offline data.
+    val emailState = rememberTextFieldState()
+    val passwordState = rememberTextFieldState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
@@ -125,14 +131,12 @@ fun AttachAccountScreen(
             verticalArrangement = Arrangement.Top,
         ) {
             AttachAccountForm(
-                email = form.value.email,
-                password = form.value.password,
+                emailState = emailState,
+                passwordState = passwordState,
                 disposition = form.value.disposition,
                 isLoading = state is AuthUiState.Loading,
                 errorMessage = errorMessage,
                 message = message,
-                onEmailChange = { newEmail -> form.update { copy(email = newEmail) } },
-                onPasswordChange = { newPassword -> form.update { copy(password = newPassword) } },
                 onDispositionChange = { choice -> form.update { copy(disposition = choice) } },
                 onSubmit = {
                     // Unreachable while the choice is null — the button is disabled —
@@ -147,8 +151,8 @@ fun AttachAccountScreen(
                     message = null
                     viewModel.onIntent(
                         AuthIntent.AttachAccount(
-                            email = form.value.email.trim(),
-                            password = form.value.password,
+                            email = emailState.text.toString().trim(),
+                            password = passwordState.text.toString(),
                             disposition = choice,
                         ),
                     )
@@ -164,13 +168,11 @@ fun AttachAccountScreen(
 @Composable
 private fun AttachAccountScreenPreview() = PreviewThemed(darkTheme = false) {
     AttachAccountScreenContent(
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         disposition = LocalDataDisposition.Keep(ReassignCounts(tasks = 12, notes = 3), LocalDataSummary(12, 3)),
         isLoading = false,
         errorMessage = null,
-        onEmailChange = {},
-        onPasswordChange = {},
         onDispositionChange = {},
         onSubmit = {},
         onBack = {},
@@ -181,13 +183,11 @@ private fun AttachAccountScreenPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun AttachAccountScreenUnansweredPreview() = PreviewThemed(darkTheme = false) {
     AttachAccountScreenContent(
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         disposition = null,
         isLoading = false,
         errorMessage = null,
-        onEmailChange = {},
-        onPasswordChange = {},
         onDispositionChange = {},
         onSubmit = {},
         onBack = {},
@@ -196,14 +196,12 @@ private fun AttachAccountScreenUnansweredPreview() = PreviewThemed(darkTheme = f
 
 @Composable
 internal fun AttachAccountScreenContent(
-    email: String,
-    password: String,
+    emailState: TextFieldState,
+    passwordState: TextFieldState,
     disposition: LocalDataDisposition?,
     isLoading: Boolean,
     errorMessage: String?,
     message: String? = null,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
     onDispositionChange: (LocalDataDisposition) -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
@@ -237,14 +235,12 @@ internal fun AttachAccountScreenContent(
             verticalArrangement = Arrangement.Top,
         ) {
             AttachAccountForm(
-                email = email,
-                password = password,
+                emailState = emailState,
+                passwordState = passwordState,
                 disposition = disposition,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
                 message = message,
-                onEmailChange = onEmailChange,
-                onPasswordChange = onPasswordChange,
                 onDispositionChange = onDispositionChange,
                 onSubmit = onSubmit,
             )
@@ -268,14 +264,12 @@ internal fun AttachAccountScreenContent(
  */
 @Composable
 private fun AttachAccountForm(
-    email: String,
-    password: String,
+    emailState: TextFieldState,
+    passwordState: TextFieldState,
     disposition: LocalDataDisposition?,
     isLoading: Boolean,
     errorMessage: String?,
     message: String?,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
     onDispositionChange: (LocalDataDisposition) -> Unit,
     onSubmit: () -> Unit,
 ) {
@@ -301,13 +295,11 @@ private fun AttachAccountForm(
         passwordTag = TestTags.AUTH_ATTACH_PASSWORD_INPUT,
         submitTag = TestTags.AUTH_ATTACH_SUBMIT_BUTTON,
         submitLabel = "Attach Account",
-        email = email,
-        password = password,
+        emailState = emailState,
+        passwordState = passwordState,
         isLoading = isLoading,
         errorMessage = errorMessage,
         message = message,
-        onEmailChange = onEmailChange,
-        onPasswordChange = onPasswordChange,
         onSubmit = onSubmit,
         submitEnabled = disposition != null,
     )

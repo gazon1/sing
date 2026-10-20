@@ -219,6 +219,24 @@ tasks.withType<Test>().configureEach {
     // configuration error, not a pass — see also `TestTagCoverageTest`.
     failOnNoDiscoveredTests = true
 
+    // The test JVM is headless BY CONSTRUCTION, not by accident of the host.
+    //
+    // AppVersionGateScreenTest calls openStoreOnDesktop(), which reaches
+    // Desktop.getDesktop().browse(...). On a host where a display is reachable
+    // (DISPLAY=:0 here) that launches a REAL browser: Firefox starts, crashes
+    // with a minidump, and the Gradle test worker hangs forever — two full
+    // check.sh runs were lost to it, each sitting in :desktopApp:test for 30+
+    // minutes with no progress. The test is written to absorb HeadlessException,
+    // which is what a headless JVM does, so the headless path is the intended
+    // one; the hang was the environment leaking into the test.
+    //
+    // java.awt.headless=true makes Desktop.getDesktop() throw HeadlessException
+    // directly, so the test exercises the branch it was written for. This is a
+    // system property of the forked test JVM only — the `:desktopApp:run`
+    // application task is not a Test task and is unaffected (it still needs
+    // xvfb-run -a for its own window).
+    systemProperty("java.awt.headless", "true")
+
     useJUnitPlatform {
         // Desktop UI tests mount the whole production App(). The graph is built
         // per test from testPlatformModule() — FakeAppDatabase plus inert ports —

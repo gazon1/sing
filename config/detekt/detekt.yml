@@ -133,6 +133,14 @@ exceptions:
       - 'MalformedURLException'
       - 'NumberFormatException'
       - 'ParseException'
+      # Koin's two answers about a definition: "there is none" and "there is
+      # one, but it cannot be created". `getOptionalOrNull` (core/di) answers
+      # the first with `null` and reports the second to the caller — swallowing
+      # them there is the function's purpose, and the second one is not
+      # swallowed: it is logged and the feature degrades instead of the screen
+      # crashing.
+      - 'NoDefinitionFoundException'
+      - 'InstanceCreationException'
   TooGenericExceptionCaught:
     active: true
     excludes:
@@ -576,6 +584,33 @@ no-combine-side-effect:
 # MR-3: empty onClick = {} in composable previews
 no-empty-onclick-lambda:
   NoEmptyOnClickLambda:
+    active: true
+
+# Added 2026-10-19 with the state-based text field migration: the value-based
+# text field API (value: + onValueChange:) is gone from the app. The GenUI
+# renderer was the one documented exception and has been migrated since, so
+# nothing is exempt but the test sources (ADR
+# 2026-10-19-text-field-state-migration).
+no-value-based-text-field:
+  NoValueBasedTextField:
+    active: true
+
+# Added 2026-10-19 with the state-based text field migration: the other half
+# of the same decision. A TextFieldState is a mutable buffer and must live in
+# the composable that owns the field; the ViewModel keeps a plain String, and
+# a TextFieldState in a ViewModel or in a UI state is a second source of truth
+# (ADR 2026-10-19-text-field-state-migration).
+no-text-field-state-in-viewmodel:
+  NoTextFieldStateInViewModel:
+    active: true
+
+# Added 2026-10-19 with the state continuity work: a variant of a sealed
+# *UiState has to carry the properties the interface declares. A variant that
+# replaces one with a constant resets it, and the screen binds those
+# properties to its controls — the projects list's search field was cleared by
+# an unrelated failure because the failure state carried an empty query.
+no-dropped-ui-state-property:
+  NoDroppedUiStateProperty:
     active: true
 
 # Added 2026-10-05: these two rules were implemented and registered in

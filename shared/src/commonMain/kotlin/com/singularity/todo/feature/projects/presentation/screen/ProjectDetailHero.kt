@@ -31,9 +31,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -54,6 +59,17 @@ fun ProjectHeroSection(
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
+    // The state is created here, above the description field's visibility check: a state
+    // created inside the `if` would be thrown away the moment the field is re-composed.
+    val nameState = rememberBridgedTextFieldState(
+        externalText = nameDraft,
+        onTextChanged = actions::onUpdateName,
+    )
+    val descriptionState = rememberBridgedTextFieldState(
+        externalText = descriptionDraft,
+        onTextChanged = actions::onUpdateDescription,
+    )
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -78,8 +94,7 @@ fun ProjectHeroSection(
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 BasicTextField(
-                    value = nameDraft,
-                    onValueChange = { actions.onUpdateName(it) },
+                    state = nameState,
                     textStyle = MaterialTheme.typography.headlineSmall.copy(
                         color = MaterialTheme.colorScheme.onSurface,
                     ),
@@ -89,8 +104,7 @@ fun ProjectHeroSection(
                 if (descriptionDraft.isNotEmpty() || ui.project.description != null) {
                     Spacer(Modifier.height(4.dp))
                     BasicTextField(
-                        value = descriptionDraft,
-                        onValueChange = { actions.onUpdateDescription(it) },
+                        state = descriptionState,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
@@ -171,4 +185,49 @@ fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions, modi
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectHeroSectionPreview() = PreviewThemed(darkTheme = false) {
+    ProjectHeroSection(
+        ui = previewProjectDetailUi(),
+        lastEditedAt = PreviewSamples.now,
+        now = PreviewSamples.now,
+        nameDraft = "Website redesign",
+        descriptionDraft = "Ship the new landing page by the end of the sprint.",
+        actions = ProjectDetailActions.Empty,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ProjectMetaChipsRowPreview() = PreviewThemed(darkTheme = false) {
+    ProjectMetaChipsRow(
+        ui = previewProjectDetailUi(),
+        actions = ProjectDetailActions.Empty,
+    )
+}
+
+private fun previewProjectDetailUi(): ProjectDetailUi {
+    val project = PreviewSamples.project(
+        id = "p1",
+        name = "Website redesign",
+        color = 0xFF2196F3.toInt(),
+        description = "Ship the new landing page by the end of the sprint.",
+    ).copy(
+        dueDate = PreviewSamples.today,
+        parentId = ProjectId("p0"),
+        inheritedTagGroupIds = setOf(TagGroupId("tg1")),
+    )
+    return ProjectDetailUi(
+        project = project,
+        tasks = listOf(PreviewSamples.task(id = "t1", title = "Design the hero section")),
+        totalCount = 4,
+        completedCount = 1,
+        childProjects = listOf(PreviewSamples.project(id = "p2", name = "Landing copy")),
+        parent = PreviewSamples.project(id = "p0", name = "Marketing"),
+    )
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +31,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.ChatInputBar
 import com.singularity.todo.core.ui.components.MessageBubble
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -42,10 +44,38 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
+/**
+ * The chat screen.
+ *
+ * The Koin entry point: it resolves the ViewModel and hands it to [ChatScreenContent].
+ */
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier) {
     val vm: ChatViewModel = koinViewModel()
+    ChatScreenContent(vm = vm, modifier = modifier)
+}
+
+/**
+ * The chat screen, with the ViewModel handed in.
+ *
+ * The house pattern: the public screen is a thin Koin wrapper and the content takes the
+ * ViewModel as a parameter, so a preview — or a test — can drive the screen with a
+ * ViewModel it constructed itself, without a Koin context and without a model provider.
+ */
+@Composable
+fun ChatScreenContent(
+    vm: ChatViewModel,
+    modifier: Modifier = Modifier,
+) {
     val state by vm.stateFlow.collectAsStateWithLifecycle()
+
+    // The field owns its text; the ViewModel keeps the last value so the chat can still be
+    // restored and the send action can read it. Sending clears the ViewModel's copy, and the
+    // bridge pulls that empty value back into the field.
+    val inputState = rememberBridgedTextFieldState(
+        externalText = state.input,
+        onTextChanged = { vm.onIntent(ChatViewModel.Intent.InputChanged(it)) },
+    )
 
     Scaffold(
         modifier = modifier,
@@ -67,8 +97,7 @@ fun ChatScreen(modifier: Modifier = Modifier) {
             )
             HorizontalDivider()
             ChatInputBar(
-                value = state.input,
-                onValueChange = { vm.onIntent(ChatViewModel.Intent.InputChanged(it)) },
+                state = inputState,
                 onSend = { vm.onIntent(ChatViewModel.Intent.Send) },
                 enabled = !state.isLoading,
             )
@@ -193,8 +222,7 @@ private fun ChatScreenLightPreview() = PreviewThemed(darkTheme = false, useSurfa
             )
             HorizontalDivider()
             ChatInputBar(
-                value = "",
-                onValueChange = {},
+                state = rememberTextFieldState(),
                 onSend = {},
                 enabled = true,
             )
@@ -228,11 +256,26 @@ private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSur
             )
             HorizontalDivider()
             ChatInputBar(
-                value = "",
-                onValueChange = {},
+                state = rememberTextFieldState(),
                 onSend = {},
                 enabled = false,
             )
         }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChatMessagesListDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        ChatMessagesList(
+            messages = listOf(
+                ChatMessage("m1", ChatRole.User, "Draft the release notes"),
+                ChatMessage("m2", ChatRole.Assistant, "Here is a first pass at the release notes."),
+            ),
+            isLoading = false,
+            onSurfaceAction = { _, _ -> },
+            modifier = Modifier.weight(1f),
+        )
     }
 }

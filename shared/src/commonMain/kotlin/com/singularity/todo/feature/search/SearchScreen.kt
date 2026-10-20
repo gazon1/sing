@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -40,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -48,13 +50,13 @@ import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
-import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
 import com.singularity.todo.feature.search.presentation.nav.SearchNavigator
+import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
-import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,16 +147,19 @@ private fun SearchInputBar(
     query: String,
     onQueryChange: (String) -> Unit,
 ) {
+    val queryState = rememberBridgedTextFieldState(
+        externalText = query,
+        onTextChanged = onQueryChange,
+    )
     OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
+        state = queryState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .testTag(TestTags.SEARCH_INPUT),
         placeholder = { Text("Search tasks, notes, projects...") },
         leadingIcon = { Icon(Icons.Filled.Search, null) },
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
     )
 }
 

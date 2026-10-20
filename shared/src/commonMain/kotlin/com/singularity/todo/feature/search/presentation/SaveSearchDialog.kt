@@ -2,16 +2,16 @@ package com.singularity.todo.feature.search.presentation
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 
 /**
  * Dialog for naming and saving the current search.
@@ -22,8 +22,7 @@ import androidx.compose.ui.Modifier
  */
 @Composable
 fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var name by remember { mutableStateOf(initialName) }
-    val trimmed = name.trim()
+    val nameState = rememberTextFieldState(initialName)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -31,18 +30,17 @@ fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String
         text = {
             Column {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
+                    state = nameState,
                     label = { Text("Search name") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(trimmed) },
-                enabled = trimmed.isNotBlank(),
+                onClick = { onSave(nameState.text.toString().trim()) },
+                enabled = nameState.text.toString().trim().isNotBlank(),
             ) {
                 Text("Save")
             }
@@ -60,25 +58,23 @@ fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String
  */
 @Composable
 fun RenameSearchDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
-    var name by remember { mutableStateOf(currentName) }
-    val trimmed = name.trim()
+    val nameState = rememberTextFieldState(currentName)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Rename Search") },
         text = {
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
+                state = nameState,
                 label = { Text("Search name") },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
             TextButton(
-                onClick = { onRename(trimmed) },
-                enabled = trimmed.isNotBlank(),
+                onClick = { onRename(nameState.text.toString().trim()) },
+                enabled = nameState.text.toString().trim().isNotBlank(),
             ) {
                 Text("Rename")
             }
@@ -88,5 +84,27 @@ fun RenameSearchDialog(currentName: String, onDismiss: () -> Unit, onRename: (St
                 Text("Cancel")
             }
         },
+    )
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SaveSearchDialogPreview() = PreviewThemed(darkTheme = false) {
+    SaveSearchDialog(
+        initialName = "overdue tasks",
+        onDismiss = noopClick,
+        onSave = { },
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun RenameSearchDialogPreview() = PreviewThemed(darkTheme = true) {
+    RenameSearchDialog(
+        currentName = "overdue tasks",
+        onDismiss = noopClick,
+        onRename = { },
     )
 }

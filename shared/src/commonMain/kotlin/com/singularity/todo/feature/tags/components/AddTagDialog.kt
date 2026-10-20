@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
@@ -24,13 +26,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 
 /**
@@ -56,7 +59,7 @@ fun AddTagDialog(
     initialColor: Int = 0,
     confirmLabel: String = "Create",
 ) {
-    var name by remember { mutableStateOf(initialName) }
+    val nameState = rememberTextFieldState(initialName)
     var selectedColor by remember {
         mutableIntStateOf(if (initialColor != 0) initialColor else ProjectColorPalette.all.first())
     }
@@ -67,10 +70,9 @@ fun AddTagDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
+                    state = nameState,
                     label = { Text("Name") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -113,8 +115,8 @@ fun AddTagDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(name.trim(), selectedColor) },
-                enabled = name.isNotBlank(),
+                onClick = { onConfirm(nameState.text.toString().trim(), selectedColor) },
+                enabled = nameState.text.isNotBlank(),
             ) {
                 Text(confirmLabel)
             }
@@ -124,5 +126,29 @@ fun AddTagDialog(
                 Text("Cancel")
             }
         },
+    )
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AddTagDialogCreatePreview() = PreviewThemed(darkTheme = false) {
+    AddTagDialog(
+        onConfirm = { _, _ -> },
+        onDismiss = noopClick,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AddTagDialogRenamePreview() = PreviewThemed(darkTheme = true) {
+    AddTagDialog(
+        onConfirm = { _, _ -> },
+        onDismiss = noopClick,
+        title = "Rename Tag",
+        initialName = "work",
+        initialColor = 0xFFE91E63.toInt(),
+        confirmLabel = "Save",
     )
 }

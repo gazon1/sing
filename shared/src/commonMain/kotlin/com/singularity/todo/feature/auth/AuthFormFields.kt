@@ -5,15 +5,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
@@ -31,8 +35,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  * @param passwordTag         Test tag for the password text field.
  * @param submitTag           Test tag for the submit button (also used for [ButtonSpinner]).
  * @param submitLabel         Label shown on the submit button (e.g. "Sign In", "Attach Account").
- * @param email              Current email value.
- * @param password           Current password value.
+ * @param emailState         State of the email field. The field owns its text.
+ * @param passwordState      State of the password field. The field owns its text.
  * @param isLoading          Whether to show the loading spinner instead of the button.
  * @param isFormEnabled      Deprecated. The form is no longer shown during
  *                           [AuthUiState.AwaitingEmailConfirmation] — that state renders
@@ -41,8 +45,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  *                           release. Do not pass it; the component defaults to enabled.
  * @param errorMessage       Non-null error message to display, or null to show nothing.
  * @param message            Non-null neutral (non-error) message to display, or null.
- * @param onEmailChange      Called when the email field changes.
- * @param onPasswordChange   Called when the password field changes.
  * @param onSubmit           Called when the submit button is clicked.
  */
 @Composable
@@ -51,13 +53,11 @@ fun AuthFormFields(
     passwordTag: String,
     submitTag: String,
     submitLabel: String,
-    email: String,
-    password: String,
+    emailState: TextFieldState,
+    passwordState: TextFieldState,
     isLoading: Boolean,
     errorMessage: String?,
     message: String? = null,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
     /**
      * Extra condition for the submit button, beyond both fields being filled.
@@ -71,28 +71,25 @@ fun AuthFormFields(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
-            value = email,
-            onValueChange = onEmailChange,
+            state = emailState,
             label = { Text("Email") },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(emailTag),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = password,
-            onValueChange = onPasswordChange,
+        OutlinedSecureTextField(
+            state = passwordState,
             label = { Text("Password") },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(passwordTag),
-            visualTransformation = PasswordVisualTransformation(),
+            textObfuscationMode = TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true,
         )
 
         if (errorMessage != null) {
@@ -129,7 +126,9 @@ fun AuthFormFields(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(submitTag),
-                enabled = email.isNotBlank() && password.isNotBlank() && submitEnabled,
+                enabled = emailState.text.isNotBlank() &&
+                    passwordState.text.isNotBlank() &&
+                    submitEnabled,
             ) {
                 Text(submitLabel)
             }
@@ -147,13 +146,11 @@ private fun AuthFormFieldsPreview() = PreviewThemed(darkTheme = false) {
         passwordTag = "auth_password",
         submitTag = "auth_submit",
         submitLabel = "Sign In",
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = false,
         errorMessage = null,
         message = null,
-        onEmailChange = {},
-        onPasswordChange = {},
         onSubmit = {},
     )
 }
@@ -166,13 +163,11 @@ private fun AuthFormFieldsWithMessagePreview() = PreviewThemed(darkTheme = false
         passwordTag = "auth_password",
         submitTag = "auth_submit",
         submitLabel = "Sign In",
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = false,
         errorMessage = null,
         message = "Account created. Check your email to confirm the address.",
-        onEmailChange = {},
-        onPasswordChange = {},
         onSubmit = {},
     )
 }
@@ -185,13 +180,11 @@ private fun AuthFormFieldsLoadingPreview() = PreviewThemed(darkTheme = false) {
         passwordTag = "auth_password",
         submitTag = "auth_submit",
         submitLabel = "Sign In",
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = true,
         errorMessage = null,
         message = null,
-        onEmailChange = {},
-        onPasswordChange = {},
         onSubmit = {},
     )
 }
@@ -204,13 +197,45 @@ private fun AuthFormFieldsDisabledPreview() = PreviewThemed(darkTheme = false) {
         passwordTag = "auth_password",
         submitTag = "auth_submit",
         submitLabel = "Sign In",
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = false,
         errorMessage = null,
         message = null,
-        onEmailChange = {},
-        onPasswordChange = {},
+        onSubmit = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AuthFormFieldsErrorPreview() = PreviewThemed(darkTheme = false) {
+    AuthFormFields(
+        emailTag = "auth_email",
+        passwordTag = "auth_password",
+        submitTag = "auth_submit",
+        submitLabel = "Sign In",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("wrong-password"),
+        isLoading = false,
+        errorMessage = "Invalid email or password.",
+        message = null,
+        onSubmit = {},
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AuthFormFieldsDarkPreview() = PreviewThemed(darkTheme = true) {
+    AuthFormFields(
+        emailTag = "auth_email",
+        passwordTag = "auth_password",
+        submitTag = "auth_submit",
+        submitLabel = "Sign In",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
+        isLoading = false,
+        errorMessage = null,
+        message = null,
         onSubmit = {},
     )
 }

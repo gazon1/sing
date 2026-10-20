@@ -150,7 +150,14 @@ actual fun aiToolsModule(): Module = module {
     factory { ImproveNoteUseCase(tool = get<ImproveNoteTool>()) }
     factoryOf(::SummarizeNoteUseCase)
     factoryOf(::ExtractActionsUseCase)
-    factoryOf(::RewriteNoteUseCase)
+    // Explicit lambda, not `factoryOf(::RewriteNoteUseCase)`: the use case takes the
+    // `TypedTool` *interface*, and `factoryOf` resolves a constructor parameter by its
+    // declared type — which erases to the raw `TypedTool`, for which nothing is bound.
+    // The definition therefore threw `NoDefinitionFoundException` every time the note
+    // editor was opened, and `getOrNull` does not swallow that: it swallows a missing
+    // *definition*, not a definition that fails to be created. Same shape as
+    // `ImproveNoteUseCase` above.
+    factory { RewriteNoteUseCase(tool = get<RewriteNoteTool>()) }
     factoryOf(::SuggestTagsUseCase)
     factoryOf(::ProjectReviewUseCase)
 

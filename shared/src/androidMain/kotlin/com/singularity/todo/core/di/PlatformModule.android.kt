@@ -64,6 +64,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.AlarmManagerReminderScheduler
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -103,6 +104,15 @@ actual fun platformModule(): Module = module {
         // `todo.db.lck`. Pass the absolute path under the app's databases dir.
         val context = get<Context>()
         val dbPath = context.getDatabasePath("todo.db").absolutePath
+        // SQLite creates the *file*, not the directory around it: a missing parent
+        // is SQLITE_CANTOPEN (error 14), not a created-on-demand directory. The
+        // framework's own database API creates the databases dir as a side effect;
+        // the bundled driver has no such side effect, so the directory is created
+        // here. On a device the directory usually exists already and this is a
+        // no-op; where it does not — a fresh install on some OEM builds, a cleared
+        // data directory, a Robolectric test — it is the difference between a
+        // database and a crash at start.
+        File(dbPath).parentFile?.mkdirs()
         AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
 

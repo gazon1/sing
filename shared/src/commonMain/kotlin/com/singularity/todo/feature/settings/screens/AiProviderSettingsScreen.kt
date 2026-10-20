@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -21,24 +24,30 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.SettingsUiState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,8 +59,18 @@ fun AiProviderSettingsScreen(
     // Local-only field for the API key — never enters UI state. The value is sent to
     // the ViewModel via SettingsIntent.UpdateAiApiKey as the user types, and lives in
     // SecureStorage on the VM side.
-    var apiKeyField by remember { mutableStateOf("") }
+    val apiKeyState = rememberTextFieldState()
     var passwordVisible by remember { mutableStateOf(false) }
+
+    // The key is sent to the ViewModel as the user types. The first emission is the
+    // field's initial empty value, which is not an edit — pushing it would clear the
+    // key already in secure storage.
+    LaunchedEffect(apiKeyState) {
+        snapshotFlow { apiKeyState.text.toString() }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect { onIntent(SettingsIntent.Ai.UpdateApiKey(it)) }
+    }
 
     Column(
         modifier = modifier
@@ -69,6 +88,7 @@ fun AiProviderSettingsScreen(
 
             var expanded by remember { mutableStateOf(false) }
             val currentProvider = state.ai.provider.id
+            val providerState = rememberAnchoredTextFieldState(currentProvider)
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -76,8 +96,7 @@ fun AiProviderSettingsScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 OutlinedTextField(
-                    value = currentProvider,
-                    onValueChange = {},
+                    state = providerState,
                     readOnly = true,
                     label = { Text("Provider") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -120,19 +139,14 @@ fun AiProviderSettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = apiKeyField,
-                onValueChange = {
-                    apiKeyField = it
-                    onIntent(SettingsIntent.Ai.UpdateApiKey(it))
-                },
+            OutlinedSecureTextField(
+                state = apiKeyState,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("OpenAI API Key") },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) {
-                    androidx.compose.ui.text.input.VisualTransformation.None
+                textObfuscationMode = if (passwordVisible) {
+                    TextObfuscationMode.Visible
                 } else {
-                    PasswordVisualTransformation()
+                    TextObfuscationMode.Hidden
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
@@ -153,18 +167,27 @@ fun AiProviderSettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val baseUrlState = rememberBridgedTextFieldState(
+                externalText = state.ai.baseUrl,
+                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(it)) },
+            )
             OutlinedTextField(
-                value = state.ai.baseUrl,
-                onValueChange = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(it)) },
+                state = baseUrlState,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("https://...") },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
         }
 
         // ─── Model ──────────────────────────────────────────────────────────────
         SettingsSection(title = "Model") {
+            // Read-only anchor: the dropdown sets the model, the field only shows it.
+            val modelState = rememberAnchoredTextFieldState(state.ai.model)
+            val modelNameState = rememberBridgedTextFieldState(
+                externalText = state.ai.model,
+                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
+            )
             if (state.aiEphemeral.models.isNotEmpty()) {
                 var modelExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
@@ -173,8 +196,7 @@ fun AiProviderSettingsScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 ) {
                     OutlinedTextField(
-                        value = state.ai.model,
-                        onValueChange = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
+                        state = modelState,
                         readOnly = true,
                         label = { Text("Model") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
@@ -199,11 +221,10 @@ fun AiProviderSettingsScreen(
                 }
             } else {
                 OutlinedTextField(
-                    value = state.ai.model,
-                    onValueChange = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
+                    state = modelNameState,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     label = { Text("Model name") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                 )
             }
             if (state.aiEphemeral.fetchModelsError != null) {
@@ -225,18 +246,23 @@ fun AiProviderSettingsScreen(
 
         // ─── System Prompt ─────────────────────────────────────────────────────
         SettingsSection(title = "System Prompt") {
+            val systemPromptState = rememberBridgedTextFieldState(
+                externalText = state.ai.systemPrompt,
+                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(it)) },
+            )
             Text(
                 "Sent to the model on every request. Edit to specialise the assistant.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
-                value = state.ai.systemPrompt,
-                onValueChange = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(it)) },
+                state = systemPromptState,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 label = { Text("System prompt") },
-                minLines = 3,
-                maxLines = 6,
+                lineLimits = TextFieldLineLimits.MultiLine(
+                    minHeightInLines = 3,
+                    maxHeightInLines = 6,
+                ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
         }

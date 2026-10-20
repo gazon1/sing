@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
@@ -29,6 +31,8 @@ import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.components.sheet.SheetActions
 import com.singularity.todo.core.ui.components.sheet.SheetScaffold
 import com.singularity.todo.core.ui.components.sheet.TimePickerSheet
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -70,7 +74,7 @@ fun TimeEntryEditorSheet(
     var endedDate by mutableStateOf(defaultEnd.date)
     var endedTime by mutableStateOf(defaultEnd.time)
     var kind by mutableStateOf(TimeEntryKind.Work)
-    var note by mutableStateOf("")
+    val noteState = rememberTextFieldState()
 
     // Picker state: null = no picker, "startDate" | "startTime" | "endDate" | "endTime"
     var activePicker by mutableStateOf<String?>(null)
@@ -127,7 +131,7 @@ fun TimeEntryEditorSheet(
                             val endedAtMs = endDt.toInstant(
                                 kotlinx.datetime.TimeZone.currentSystemDefault(),
                             ).toEpochMilliseconds()
-                            onSave(startedAtMs, endedAtMs, kind, note.ifBlank { null })
+                            onSave(startedAtMs, endedAtMs, kind, noteState.text.toString().ifBlank { null })
                         }
                     },
                     onClear = onDismiss,
@@ -196,11 +200,10 @@ fun TimeEntryEditorSheet(
 
                     // Note
                     OutlinedTextField(
-                        value = note,
-                        onValueChange = { note = it },
+                        state = noteState,
                         label = { Text("Note (optional)") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
+                        lineLimits = TextFieldLineLimits.SingleLine,
                     )
                 }
             }
@@ -267,4 +270,17 @@ private fun TimeRow(time: LocalTime?, label: String, modifier: Modifier = Modifi
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TimeEntryEditorSheetPreview() = PreviewThemed(darkTheme = false) {
+    TimeEntryEditorSheet(
+        taskStartedAtMs = 1_757_000_000_000L,
+        now = kotlinx.datetime.Instant.fromEpochMilliseconds(1_757_000_000_000L),
+        onSave = { _, _, _, _ -> },
+        onDismiss = noopClick,
+    )
 }

@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -22,16 +25,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -47,24 +48,13 @@ fun ChecklistEditorSheet(
     onDelete: (ChecklistItemId) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var newItemText by remember { mutableStateOf("") }
-
     TaskEditorSheetHost(
         title = "Checklist",
         onClose = onDismiss,
         testTag = TestTags.CHECKLIST_SHEET,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            ChecklistAddRow(
-                text = newItemText,
-                onTextChange = { newItemText = it },
-                onAdd = {
-                    if (newItemText.isNotBlank()) {
-                        onAdd(newItemText.trim())
-                        newItemText = ""
-                    }
-                },
-            )
+            ChecklistAddRow(onAdd = onAdd)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -93,28 +83,30 @@ fun ChecklistEditorSheet(
 }
 
 @Composable
-private fun ChecklistAddRow(
-    text: String,
-    onTextChange: (String) -> Unit,
-    onAdd: () -> Unit,
-) {
+private fun ChecklistAddRow(onAdd: (String) -> Unit) {
+    val textState = rememberTextFieldState()
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
-            value = text,
-            onValueChange = onTextChange,
+            state = textState,
             modifier = Modifier
                 .weight(1f)
                 .testTag(TestTags.CHECKLIST_ADD_INPUT),
             placeholder = { Text("Add item...") },
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
         Spacer(modifier = Modifier.width(8.dp))
         FilledTonalButton(
-            onClick = onAdd,
-            enabled = text.isNotBlank(),
+            onClick = {
+                val text = textState.text.toString()
+                if (text.isNotBlank()) {
+                    onAdd(text.trim())
+                    textState.clearText()
+                }
+            },
+            enabled = textState.text.isNotBlank(),
             modifier = Modifier.testTag(TestTags.CHECKLIST_ADD_BUTTON),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Add")
@@ -165,4 +157,45 @@ private fun ChecklistItemRow(
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChecklistEditorSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
+    ChecklistEditorSheet(
+        taskId = TaskId("t1"),
+        items = emptyList(),
+        onAdd = { },
+        onToggle = { },
+        onDelete = { },
+        onDismiss = noopClick,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun ChecklistEditorSheetWithItemsPreview() = PreviewThemed(darkTheme = false) {
+    ChecklistEditorSheet(
+        taskId = TaskId("t1"),
+        items = listOf(
+            ChecklistItem(
+                id = ChecklistItemId.fromString("cli_1"),
+                taskId = "t1",
+                title = "Draft the outline",
+                isCompleted = true,
+            ),
+            ChecklistItem(
+                id = ChecklistItemId.fromString("cli_2"),
+                taskId = "t1",
+                title = "Send it to the reviewer",
+                isCompleted = false,
+            ),
+        ),
+        onAdd = { },
+        onToggle = { },
+        onDelete = { },
+        onDismiss = noopClick,
+    )
 }

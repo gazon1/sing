@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -33,11 +35,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -217,9 +217,8 @@ private fun ProjectDetailQuickAddInput(
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
-    var text by rememberSaveable { mutableStateOf("") }
+    val textState = rememberTextFieldState()
     val popup = rememberOverlayState<QuickAddSheet>()
-    var query by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
 
     Box(modifier = modifier.fillMaxWidth()) {
@@ -229,38 +228,32 @@ private fun ProjectDetailQuickAddInput(
             }
             Spacer(Modifier.width(4.dp))
             OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
+                state = textState,
                 placeholder = { Text("Add a task...") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(TestTags.PROJECT_DETAIL_QUICK_ADD),
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (text.isNotBlank()) {
-                            actions.onCreateTask(text)
-                            text = ""
-                            focus.clearFocus()
-                        }
-                    },
-                ),
+                onKeyboardAction = {
+                    val text = textState.text.toString()
+                    if (text.isNotBlank()) {
+                        actions.onCreateTask(text)
+                        textState.clearText()
+                        focus.clearFocus()
+                    }
+                },
             )
         }
         if (popup.sheet == QuickAddSheet.Picker) {
             AddExistingTaskPopup(
                 tasks = availableTasks,
-                query = query,
-                onQueryChange = { query = it },
                 onPick = { taskId ->
                     actions.onMoveTaskToProject(taskId)
                     popup.dismissAll()
-                    query = ""
                 },
                 onDismiss = {
                     popup.dismissAll()
-                    query = ""
                 },
             )
         }
@@ -271,16 +264,18 @@ private fun ProjectDetailQuickAddInput(
 @Composable
 private fun AddExistingTaskPopup(
     tasks: List<Task>,
-    query: String,
-    onQueryChange: (String) -> Unit,
     onPick: (TaskId) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val filtered = remember(tasks, query) {
-        if (query.isBlank()) {
-            tasks.take(10)
-        } else {
-            tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+    val queryState = rememberTextFieldState()
+    val filtered by remember(tasks) {
+        derivedStateOf {
+            val query = queryState.text.toString()
+            if (query.isBlank()) {
+                tasks.take(10)
+            } else {
+                tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+            }
         }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {
@@ -293,11 +288,10 @@ private fun AddExistingTaskPopup(
             Text("Add existing task", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
+                state = queryState,
                 placeholder = { Text("Search tasks...") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             )
             Spacer(Modifier.height(8.dp))

@@ -79,8 +79,42 @@ of the Python venv: `actionlint` and `yamllint` (inline in the registry) and
 `lychee` (behind `scripts/check-doc-links.sh`). CI installs them pinned through
 `.github/actions/setup-python-tools`; locally they must be on `PATH`, and a
 missing one is a **loud failure, not a skip** — a gate that cannot run looks
-exactly like a gate that has nothing to report. To get lychee:
-`uv pip install 'lychee-bin==0.24.2'`.
+exactly like a gate that has nothing to report.
+
+Locally the whole gate toolchain comes from **one uv bootstrap**, the same
+shape CI uses:
+
+```bash
+bash scripts/ci/setup-local-tools.sh                      # uv venv + the pinned tools
+export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"     # the venv's bin is the fix
+bash scripts/ci/preflight-gate-tools.sh                   # what is still missing
+```
+
+`scripts/ci/setup-local-tools.sh` creates `$HOME/.venvs/singularity-todo` (override with
+`SINGULARITY_TOOLS_VENV`), installs the local `scripts/src` package **editable**
+plus `junitparser` into it, and installs the pinned `lychee-bin==0.24.2`,
+`yamllint==1.38.0`, `shellcheck-py==0.11.0.1` and the `actionlint` v1.7.7
+release binary.
+
+Two details that are not negotiable:
+
+- **The local package must be *installed*, not merely on `PYTHONPATH`.** The
+  gate scripts' own unit tests run the scripts with a minimal environment
+  (`env={'PATH': ...}`), so a package reachable only through `PYTHONPATH` is
+  invisible to them and they fail with `ModuleNotFoundError` — which reads like
+  a broken test rather than a missing install. R2.3 of
+  `scripts/check-script-conventions.py` forbids the manual `PYTHONPATH`
+  workaround for the same reason.
+- **uv, not `pip`.** CI moved to uv, and four earlier local recipes each failed
+  on their own terms (`pip install` under a uv-managed interpreter,
+  `uv pip install --system` on an externally managed interpreter,
+  `--break-system-packages` on a permission error, `--prefix "$HOME/.local"`
+  installing something the interpreter could not import). A venv on `PATH`
+  answers all four.
+
+`check.sh` runs `scripts/ci/preflight-gate-tools.sh` before the gate suite, so a missing
+tool is named — with the fix command — instead of surfacing as a traceback from
+inside a gate.
 
 **Three workflows, one required check.**
 

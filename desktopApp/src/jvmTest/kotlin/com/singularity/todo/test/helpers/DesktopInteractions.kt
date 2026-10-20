@@ -4,6 +4,7 @@ import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -52,6 +53,16 @@ fun DesktopComposeUiTest.typeIntoTag(tag: String, value: String) {
 }
 
 /**
+ * Waits for the input with [tag], then clears its text.
+ *
+ * The counterpart of [typeIntoTag] for a field that has to end up empty.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clearTag(tag: String) {
+    awaitTag(tag).performTextClearance()
+}
+
+/**
  * Waits for the input with [tag], clears it, then types [value].
  * Use for fields that arrive with seeded content.
  */
@@ -59,6 +70,17 @@ fun DesktopComposeUiTest.typeIntoTag(tag: String, value: String) {
 fun DesktopComposeUiTest.clearAndTypeIntoTag(tag: String, value: String) {
     awaitTag(tag).performTextClearance()
     onNodeWithTag(tag).performTextInput(value)
+}
+
+/**
+ * Waits for the input with [tag], then fires its IME action.
+ *
+ * A field that submits on the keyboard's "Done" key is driven through this, not through
+ * a click on a button that does not exist on that screen.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.submitTag(tag: String) {
+    awaitTag(tag).performImeAction()
 }
 
 /**

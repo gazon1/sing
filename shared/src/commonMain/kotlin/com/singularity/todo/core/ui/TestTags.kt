@@ -471,6 +471,10 @@ object TestTags {
 
     /** "No projects yet" empty state title on the projects list screen. */
     const val PROJECTS_LIST_EMPTY = "projects_list_empty"
+
+    /** The name filter on the projects list screen (placeholder: "Search projects"). */
+    const val PROJECTS_SEARCH_INPUT = "projects_search_input"
+
     const val PROJECT_EDITOR_NAME_INPUT = "project_editor_name_input"
     const val PROJECT_EDITOR_DESCRIPTION_INPUT = "project_editor_description_input"
     const val PROJECT_EDITOR_SAVE = "project_editor_save"
@@ -802,6 +806,9 @@ object TestTags {
 
     // ─── AI ─────────────────────────────────────────────────────────────────
     fun genUi(name: String) = "genui_${slug(name)}"
+
+    /** The message field of the AI chat screen. */
+    const val CHAT_INPUT = "chat_input"
 
     // ─── Calendar ──────────────────────────────────────────────────────────
 

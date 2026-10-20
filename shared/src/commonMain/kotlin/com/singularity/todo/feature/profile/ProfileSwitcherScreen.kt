@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -44,15 +46,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.maxLengthTransformation
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.theme.ProfileIdentityColors
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -273,8 +278,8 @@ private fun CreateProfileDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String, emoji: String, colorIdx: Int) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var emoji by remember { mutableStateOf("🤖") }
+    val nameState = rememberTextFieldState()
+    val emojiState = rememberTextFieldState("🤖")
     var colorIdx by remember { mutableIntStateOf(1) }
 
     AlertDialog(
@@ -284,20 +289,22 @@ private fun CreateProfileDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
+                    state = nameState,
                     label = { Text("Name") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag(TestTags.PROFILE_CREATE_NAME_INPUT)
                         .mapTestTagsAsResourceIds(),
                 )
                 OutlinedTextField(
-                    value = emoji,
-                    onValueChange = { if (it.length <= 2) emoji = it },
+                    state = emojiState,
                     label = { Text("Emoji") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    // The whole edit is rejected when the result would be longer than
+                    // two characters, exactly as the old onValueChange guard did —
+                    // truncation would silently change what a paste produces.
+                    inputTransformation = maxLengthTransformation(maxLength = 2),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -307,6 +314,13 @@ private fun CreateProfileDialog(
                                 .size(28.dp)
                                 .clip(CircleShape)
                                 .background(color)
+                                // A circle of colour is a button a screen reader has to be
+                                // able to name — it carries no text, and the check inside
+                                // is decorative.
+                                .semantics {
+                                    contentDescription = "Colour ${ProfileIdentityColors.nameOf(color)}" +
+                                        if (idx == colorIdx) ", selected" else ""
+                                }
                                 .clickable { colorIdx = idx },
                             contentAlignment = Alignment.Center,
                         ) {
@@ -325,8 +339,10 @@ private fun CreateProfileDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(name, emoji, colorIdx) },
-                enabled = name.isNotBlank(),
+                onClick = {
+                    onCreate(nameState.text.toString(), emojiState.text.toString(), colorIdx)
+                },
+                enabled = nameState.text.isNotBlank(),
                 // A dialog is its own Android window: the app-root
                 // testTagsAsResourceId does not reach it, so an unexposed tag is
                 // invisible to Maestro. See Modifier.mapTestTagsAsResourceIds.
@@ -350,6 +366,17 @@ private fun ProfileSwitcherScreenPreview() = PreviewThemed {
     val fakeProfileRepo = PreviewProfileRepository
     val vm = ProfileSwitcherViewModel(
         profileRepository = fakeProfileRepo,
+        clock = com.singularity.todo.test.fakes.FakeClock(),
+    )
+    ProfileSwitcherContent(viewModel = vm)
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Suppress("VIEW_MODEL_IN_COMPOSABLE", "ViewModelConstructorInComposable")
+@Composable
+private fun ProfileSwitcherScreenDarkPreview() = PreviewThemed(darkTheme = true) {
+    val vm = ProfileSwitcherViewModel(
+        profileRepository = PreviewProfileRepository,
         clock = com.singularity.todo.test.fakes.FakeClock(),
     )
     ProfileSwitcherContent(viewModel = vm)

@@ -7,16 +7,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,7 +29,15 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.attachments.annotation.AnchorResolution
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotation
+import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
+import com.singularity.todo.core.attachments.annotation.TextRange
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.IntentActions
+import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -210,6 +219,24 @@ private fun AnnotationEditorForm(
     modifier: Modifier = Modifier,
 ) {
     val isEditing = draft.editing != null
+    // The states are created above the quote field's visibility check: a state created
+    // inside the `if` would be thrown away on the first recomposition.
+    val startState = rememberBridgedTextFieldState(
+        externalText = draft.start,
+        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftStartChanged(it)) },
+    )
+    val endState = rememberBridgedTextFieldState(
+        externalText = draft.end,
+        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftEndChanged(it)) },
+    )
+    val quoteState = rememberBridgedTextFieldState(
+        externalText = draft.quote,
+        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftQuoteChanged(it)) },
+    )
+    val noteState = rememberBridgedTextFieldState(
+        externalText = draft.note,
+        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftNoteChanged(it)) },
+    )
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = if (isEditing) "Edit annotation" else "New annotation",
@@ -217,33 +244,29 @@ private fun AnnotationEditorForm(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = draft.start,
-                onValueChange = { onIntent(AttachmentAnnotationIntent.DraftStartChanged(it)) },
+                state = startState,
                 label = { Text("Start") },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 enabled = !isEditing,
                 modifier = Modifier.weight(1f),
             )
             OutlinedTextField(
-                value = draft.end,
-                onValueChange = { onIntent(AttachmentAnnotationIntent.DraftEndChanged(it)) },
+                state = endState,
                 label = { Text("End") },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 enabled = !isEditing,
                 modifier = Modifier.weight(1f),
             )
         }
         if (!isEditing) {
             OutlinedTextField(
-                value = draft.quote,
-                onValueChange = { onIntent(AttachmentAnnotationIntent.DraftQuoteChanged(it)) },
+                state = quoteState,
                 label = { Text("Selected text") },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
         OutlinedTextField(
-            value = draft.note,
-            onValueChange = { onIntent(AttachmentAnnotationIntent.DraftNoteChanged(it)) },
+            state = noteState,
             label = { Text("Note") },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -265,4 +288,43 @@ private fun AnnotationEditorForm(
 private fun annotationCountLabel(state: AttachmentAnnotationUiState): String {
     val count = (state as? AttachmentAnnotationUiState.Content)?.annotations?.size ?: return "…"
     return if (count == 0) "Notes" else "Notes ($count)"
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AnnotationSheetContentPreview() = PreviewThemed(darkTheme = false) {
+    val attachmentId = AttachmentId.fromString("att_1")
+    val fresh = AttachmentAnnotation(
+        id = AttachmentAnnotationId.fromString("ann_1"),
+        range = TextRange(
+            attachmentId = attachmentId,
+            start = 0,
+            end = 5,
+            quote = "Hello",
+        ),
+        note = "Greeting to reword",
+        userId = UserId.anonymous,
+        createdAt = PreviewSamples.now,
+        updatedAt = PreviewSamples.now,
+    )
+    AnnotationSheetContent(
+        state = AttachmentAnnotationUiState.Content(
+            annotations = listOf(
+                ResolvedAnnotation(fresh, AnchorResolution.Exact(start = 0, end = 5)),
+                ResolvedAnnotation(
+                    annotation = fresh.copy(
+                        id = AttachmentAnnotationId.fromString("ann_2"),
+                        range = fresh.range.copy(quote = "Goodbye", start = 6, end = 13),
+                    ),
+                    resolution = AnchorResolution.Stale,
+                ),
+            ),
+            documentText = "Hello world",
+            sheetOpen = true,
+            draft = null,
+        ),
+        onIntent = IntentActions<AttachmentAnnotationIntent> { },
+    )
 }

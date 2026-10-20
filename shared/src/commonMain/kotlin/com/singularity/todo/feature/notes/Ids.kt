@@ -152,6 +152,20 @@ sealed interface EditorState {
         val isDirty: Boolean = false,
         /** True until the note is persisted for the first time (create-on-first-save). */
         val isNew: Boolean = false,
+        /**
+         * Counts how many times the note was rewritten from *outside* this editor.
+         *
+         * The editor owns the content it shows, so a rewrite it did not make — a
+         * proposal applied to the note, a sync from another device — reaches the
+         * screen only through this counter. A field that sees it change knows the
+         * content it holds was replaced rather than typed, and takes the new
+         * content instead of treating it as an echo of its own last push.
+         *
+         * It advances only when the editor re-seeds itself from the note, never
+         * when the user types: a keystroke is the editor's own change and needs
+         * no announcement.
+         */
+        val revision: Long = 0,
     ) : EditorState
 }
 
@@ -207,15 +221,18 @@ enum class NoteSortOrder {
     TitleDesc,
 }
 
-/** List-specific state for notes. */
+/**
+ * List-specific state for notes.
+ *
+ * What the list *holds*. What the list is *filtered by* lives on [NotesUiState]:
+ * the filter, the sort order and the search query describe the view, not the
+ * notes, and they have to survive a state that holds no notes at all.
+ */
 data class NotesListState(
     val pinned: List<Note> = emptyList(),
     val unpinned: List<Note> = emptyList(),
     val templates: List<Note> = emptyList(),
     val dailyNotes: List<Note> = emptyList(),
-    val filter: NoteFilter = NoteFilter.All,
-    val sortOrder: NoteSortOrder = NoteSortOrder.UpdatedDesc,
-    val searchQuery: String = "",
     val selectedIds: Set<NoteId> = emptySet(),
     val isSelectionMode: Boolean = false,
 ) {
@@ -228,9 +245,60 @@ data class NotesListState(
  * There is no separate `Empty` variant: an empty list is `Content` whose
  * [NotesListState.isEmpty] is true. A dedicated variant lost `filter` / `sortOrder`,
  * so selecting a filter that matched nothing silently reset the filter chip to "All".
+ *
+ * ## Why the filter, the sort order and the query live on the interface
+ *
+ * They describe *what the list is filtered by*, not *what the list holds*, and a list
+ * that holds nothing is still filtered: a search that matched no note is a different
+ * screen from a list that has never had a note in it.
+ *
+ * That distinction is not cosmetic. The search field is bound to [searchQuery], and the
+ * ViewModel reads the query it is given back out of the state: a state that dropped the
+ * query would make the screen pass an empty string to the field, the field would hand
+ * that empty string back to the ViewModel as if the user had cleared it, and the list
+ * would never come back. The same held for the error path — a repository failure that
+ * emitted an empty list state silently cleared the query, the chip and the sort order.
+ *
+ * Every variant declares the three as constructor parameters *without* defaults, so the
+ * compiler — not a reviewer — forces every construction site to say what the user had
+ * chosen.
  */
 sealed interface NotesUiState {
-    data object Loading : NotesUiState
-    data class Content(val list: NotesListState) : NotesUiState
-    data class Error(val message: String) : NotesUiState
+    /** The filter the list is filtered by. */
+    val filter: NoteFilter
+
+    /** The order the list is sorted in. */
+    val sortOrder: NoteSortOrder
+
+    /** The query the list is filtered by. Empty when nothing is filtered. */
+    val searchQuery: String
+
+    /** The list has not arrived yet. Carries the filter, the order and the query so far. */
+    data class Loading(
+        override val filter: NoteFilter,
+        override val sortOrder: NoteSortOrder,
+        override val searchQuery: String,
+    ) : NotesUiState
+
+    /** The list is here. */
+    data class Content(
+        val list: NotesListState,
+        override val filter: NoteFilter,
+        override val sortOrder: NoteSortOrder,
+        override val searchQuery: String,
+    ) : NotesUiState
+
+    /**
+     * The list could not be loaded.
+     *
+     * The filter, the sort order and the query travel with the failure: the screen
+     * still shows the search field and the filter chips, and a state that reset them
+     * would clear what the user had chosen.
+     */
+    data class Error(
+        val message: String,
+        override val filter: NoteFilter,
+        override val sortOrder: NoteSortOrder,
+        override val searchQuery: String,
+    ) : NotesUiState
 }

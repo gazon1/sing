@@ -618,6 +618,22 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "maestro.root",
         layout.projectDirectory.dir("../Maestro").asFile.absolutePath,
     )
+    // The text-field inventory in the skill, read by `TextFieldShapeConventionTest`.
+    //
+    // That test answers "is every text field in the app classified?" — and the
+    // classification is published in two places: the registry in the test, and the
+    // inventory table in the skill a developer reads before adding a field. The test
+    // compares the two, so the skill is an input of the test and has to be declared:
+    // edit the inventory, leave :shared:jvmTest UP-TO-DATE, and the gate re-reports a
+    // verdict about a table it never re-read — the same failure mode as the Maestro
+    // flows above.
+    inputs.dir(rootProject.layout.projectDirectory.dir(".agents/skills"))
+        .withPropertyName("agentSkills")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty(
+        "skills.root",
+        rootProject.layout.projectDirectory.dir(".agents/skills").asFile.absolutePath,
+    )
     // The Desktop packaging script, read by `JvmReminderSchedulerLauncherPathTest`.
     //
     // That test pins `/opt/singularity-todo/bin/singularity-todo` — the path a

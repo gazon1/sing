@@ -83,6 +83,15 @@ than falling back to visible text.
 `menuItem()` is keyed by the **visible label**, not the destination title, so
 `Profile & sync` and `Settings` do not collide.
 
+**Put the tag on a node that survives the merge.** A Material3 `Card` is a
+`Surface`, and a Surface **merges its descendants**: a tag below the card
+exists in the unmerged semantics tree only, where the accessibility tree — and
+therefore Maestro — cannot see it. A card that needs two identifiers (an id
+*and* a title) puts the id on the card, which is the merged node and keeps it,
+and the title on the item's outer node. The note row is the worked example:
+`note_item_<id>` on the card, `note_item_by_title_<slug>` on the swipeable box
+around it.
+
 ### Before converting a `text:` selector to an `id:`
 
 Three traps, each of which turns a passing flow red:
@@ -381,6 +390,12 @@ by a flow failing on it:
   back and the task reappears in Inbox.
 - The task detail keeps the shell FAB visible; detect a push by the editor
   appearing, not by the FAB disappearing.
+- **Notes: tapping a row opens the note's *preview*, not its editor.** The
+  editor is reached from the preview's Edit action (`note_action_edit`). The
+  one exception is the quick-add row: it creates the note and opens the
+  editor directly (`NavigateToEditor`), so a flow that types a title into the
+  quick-add lands in the editor, not in the preview. The editor autosaves —
+  saving does not pop it; `back` does.
 
 ## When a flow fails
 

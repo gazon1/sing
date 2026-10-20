@@ -56,7 +56,11 @@ fun TaskEditorPrioritySheet(selected: TaskPriority, onSelect: (TaskPriority) -> 
                 )
                 RadioButton(
                     selected = priority == selected,
-                    onClick = { onSelect(priority) },
+                    // The row above is the button: it carries the label, the tag and
+                    // the action. A radio button *inside* it would be a second
+                    // focusable with no name of its own — the screen reader would
+                    // announce an unlabelled radio and then the labelled row.
+                    onClick = null,
                 )
             }
         }

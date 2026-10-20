@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -15,7 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -29,12 +32,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.ObserveTextFieldEdits
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import org.koin.compose.viewmodel.koinViewModel
@@ -50,7 +53,7 @@ fun ChangePasswordScreen(
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val settingsNavigator = LocalSettingsNavigator.current
 
-    var password by remember { mutableStateOf("") }
+    val passwordState = rememberTextFieldState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     CollectEvents(viewModel.events) { event ->
@@ -99,16 +102,15 @@ fun ChangePasswordScreen(
             verticalArrangement = Arrangement.Top,
         ) {
             ChangePasswordForm(
-                password = password,
+                passwordState = passwordState,
                 isLoading = state is ChangePasswordUiState.Loading,
                 errorMessage = errorMessage,
-                onPasswordChange = {
-                    password = it
+                onFieldEdited = {
                     errorMessage = null
                 },
                 onSubmit = {
                     errorMessage = null
-                    viewModel.onIntent(ChangePasswordIntent.Submit(password))
+                    viewModel.onIntent(ChangePasswordIntent.Submit(passwordState.text.toString()))
                 },
             )
         }
@@ -120,10 +122,10 @@ fun ChangePasswordScreen(
 @Composable
 private fun ChangePasswordScreenPreview() = PreviewThemed(darkTheme = false) {
     ChangePasswordScreenContent(
-        password = "NewPassword123!",
+        passwordState = rememberTextFieldState("NewPassword123!"),
         isLoading = false,
         errorMessage = null,
-        onPasswordChange = {},
+        onFieldEdited = {},
         onSubmit = {},
         onBack = {},
     )
@@ -131,10 +133,10 @@ private fun ChangePasswordScreenPreview() = PreviewThemed(darkTheme = false) {
 
 @Composable
 internal fun ChangePasswordScreenContent(
-    password: String,
+    passwordState: TextFieldState,
     isLoading: Boolean,
     errorMessage: String?,
-    onPasswordChange: (String) -> Unit,
+    onFieldEdited: () -> Unit,
     onSubmit: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -167,10 +169,10 @@ internal fun ChangePasswordScreenContent(
             verticalArrangement = Arrangement.Top,
         ) {
             ChangePasswordForm(
-                password = password,
+                passwordState = passwordState,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
-                onPasswordChange = onPasswordChange,
+                onFieldEdited = onFieldEdited,
                 onSubmit = onSubmit,
             )
         }
@@ -186,12 +188,16 @@ internal fun ChangePasswordScreenContent(
  */
 @Composable
 private fun ChangePasswordForm(
-    password: String,
+    passwordState: TextFieldState,
     isLoading: Boolean,
     errorMessage: String?,
-    onPasswordChange: (String) -> Unit,
+    onFieldEdited: () -> Unit,
     onSubmit: () -> Unit,
 ) {
+    // The field owns its text, so "the user typed something" is observed rather than reported.
+    // Typing clears the stale error, the way the value-based `onValueChange` did.
+    ObserveTextFieldEdits(passwordState) { onFieldEdited() }
+
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
@@ -203,16 +209,14 @@ private fun ChangePasswordForm(
     Spacer(modifier = Modifier.height(32.dp))
 
     // Password field
-    OutlinedTextField(
-        value = password,
-        onValueChange = onPasswordChange,
+    OutlinedSecureTextField(
+        state = passwordState,
         label = { Text("New Password") },
         modifier = Modifier
             .fillMaxWidth()
             .testTag(PASSWORD_TAG),
-        visualTransformation = PasswordVisualTransformation(),
+        textObfuscationMode = TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        singleLine = true,
         isError = errorMessage != null,
     )
 
@@ -240,7 +244,7 @@ private fun ChangePasswordForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(SUBMIT_TAG),
-            enabled = password.isNotBlank(),
+            enabled = passwordState.text.isNotBlank(),
         ) {
             Text("Change Password")
         }

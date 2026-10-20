@@ -89,6 +89,30 @@ class HarnessConventionTest {
     }
 
     @Test
+    fun `raw root lookups are only in test helpers`() {
+        val violations = testSources
+            .mapNotNull { file ->
+                val body = file.readLines().filterNot { line ->
+                    val t = line.trimStart()
+                    t.startsWith("import ") || t.startsWith("//") ||
+                        t.startsWith("*") || t.startsWith("/*")
+                }.joinToString("\n")
+                val calls = RAW_ROOT_PATTERN.findAll(body).toList()
+                if (calls.isEmpty()) null else "${file.name}: ${calls.size} raw onRoot call(s)"
+            }
+
+        if (violations.isEmpty()) return
+        fail(
+            "Test files with raw onRoot() calls:\n" +
+                violations.joinToString("\n") { "  - $it" } +
+                "\n\n`onRoot` asserts there is exactly one semantics root, and a Popup " +
+                "or a Dialog opens a second one — the call then throws instead of " +
+                "telling you what is on screen. Use `semanticsTree()` and " +
+                "`semanticsRoots()` from test/helpers, which handle every root.",
+        )
+    }
+
+    @Test
     fun `exempted files actually contain raw selectors`() {
         val stale = EXEMPT_RAW_TAGS.filter { (fileName, _) ->
             val file = testSources.find { it.name == fileName }
@@ -335,6 +359,15 @@ class HarnessConventionTest {
         )
 
         /**
+         * Matches a raw root lookup: `onRoot(`.
+         *
+         * `onRoot` is the one selector that lies about the scene: it asserts
+         * there is exactly one root, and a Popup or a Dialog opens a second one.
+         * The helpers in test/helpers walk every root instead.
+         */
+        val RAW_ROOT_PATTERN = Regex("""onRoot\(""")
+
+        /**
          * Matches a raw one-shot display assertion. The helpers' own terminal
          * asserts live in test/helpers, which the scan root already excludes.
          */
@@ -365,6 +398,10 @@ class HarnessConventionTest {
             "SheetReachabilityTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
             // Same: FAB is always visible, not subject to scroll-off-screen in the drawer.
             "TaskRecurrenceScenarioTest.kt" to "FAB_ADD_TASK is not a drawer item; always visible",
+            // The Send button belongs to the chat input bar, which is pinned to the bottom of
+            // the screen. It is not a drawer item, and it has no scrollable parent at all —
+            // the scroll-aware helper would fail on it.
+            "ChatInputFieldTest.kt" to "the chat Send button is not a drawer item and has no scrollable parent",
         )
 
         /**

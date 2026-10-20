@@ -33,6 +33,20 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_SRC = ROOT / "scripts" / "src"
 GRADLEW = ROOT / "gradlew"
 
+# `scripts/src` on sys.path so `emulator.maestro._flow` resolves. The suite
+# selection lives there rather than here, so the runner and the CLI cannot
+# disagree about what "smoke" means. When this file is loaded by a test
+# harness (importlib.util.spec_from_file_location), sys.path[0] is
+# `scripts/tests` and the sibling package is invisible; the real file's
+# location is authoritative.
+_added = str(SCRIPTS_SRC) not in sys.path
+if _added:
+    sys.path.insert(0, str(SCRIPTS_SRC))
+from emulator.maestro._flow import suite_selection  # noqa: E402
+
+if _added:
+    sys.path.remove(str(SCRIPTS_SRC))
+
 # Exit codes matching emulator module
 EXIT_PASS = 0
 EXIT_FAIL = 1
@@ -208,11 +222,15 @@ def run_maestro(
     if shard is not None and shards is not None:
         argv.extend(["--shard", str(shard), "--shards", str(shards)])
 
-    # Flow selection by suite
-    if suite == "smoke":
-        argv.extend(["--flow", str(ROOT / "Maestro/flows/smoke")])
-    else:
-        argv.extend(["--flow", str(ROOT / "Maestro/flows")])
+    # Flow selection by suite. The smoke suite is selected by *tag*: every flow
+    # that declares `smoke` is part of it, wherever the flow lives. Selecting
+    # the directory instead made the tag on a flow outside that directory a
+    # lie — `Maestro/flows/notes/create-note.yaml` declares `smoke` and ran
+    # in the nightly full suite only.
+    flow_target, tags = suite_selection(ROOT / "Maestro/flows", suite)
+    argv.extend(["--flow", str(flow_target)])
+    if tags:
+        argv.extend(["--tags", ",".join(tags)])
 
     # MAESTRO_CONFIG for the config.yaml location
     env = {

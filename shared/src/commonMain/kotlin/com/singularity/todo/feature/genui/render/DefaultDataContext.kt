@@ -76,6 +76,17 @@ class DefaultDataContext(
     fun value(path: UiPath): Flow<JsonElement?> = controller.value(surfaceId, path)
 
     /**
+     * The number of server-driven writes to this surface's data model.
+     *
+     * A bound field uses it as the bridge's *rewrite token*: the counter changes when the
+     * server replaced a value, and the bridge then applies that value even when it
+     * equals something the field pushed earlier. Without it, a server rewrite to a value
+     * the field had already sent is dropped as an echo — which is the right call for a
+     * lagging model and the wrong one for a deliberate rewrite.
+     */
+    fun serverRevision(): Flow<Long> = controller.serverRevision(surfaceId)
+
+    /**
      * Writes a value and announces it.
      *
      * The write happens here rather than in the callback so that a field reflects its own edit

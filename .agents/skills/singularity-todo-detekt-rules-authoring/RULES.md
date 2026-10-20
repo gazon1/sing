@@ -15,6 +15,7 @@
 | `NoDirectClockSystem` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | Bans direct references to `Clock.System` in commonMain production code. | `NoDirectClockSystemRuleTest` | **no** |
 | `NoDirectDispatchers` | `NoDirectDispatchersRule.kt` | `no-direct-dispatchers` | Bans direct references to `Dispatchers.IO`, `Dispatchers.Default` and | `NoDirectDispatchersRuleTest` | yes |
 | `NoDivergentScopeAndReporter` | `NoDivergentScopeAndReporterRule.kt` | `no-unreported-failure-path` | A component whose two failure paths are chosen independently can send them to two different | `NoDivergentScopeAndReporterRuleTest` | yes |
+| `NoDroppedUiStateProperty` | `NoDroppedUiStatePropertyRule.kt` | `no-dropped-ui-state-property` | Bans a variant of a sealed `*UiState` that does not carry the properties of the | `NoDroppedUiStatePropertyRuleTest` | yes |
 | `NoEmptyOnClickLambda` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | Bans empty lambda placeholders passed as event handlers in composable calls, | `NoEmptyOnClickLambdaRuleTest` | yes |
 | `NoFactoryViewModel` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | Bans registering ViewModels in Koin via the per-injection `factory { }` / `factoryOf(::...)` | `NoFactoryViewModelRuleTest` | yes |
 | `NoOpUpdateState` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | Bans `updateState { it }` — a reducer that returns its input unchanged. | `NoOpUpdateStateRuleTest` | yes |
@@ -25,8 +26,10 @@
 | `NoStateIn` | `NoStateInRule.kt` | `no-state-in` | Bans `.stateIn(...)` calls in production code. | `NoStateInRuleTest` | yes |
 | `NoStaticProfileAwareCurrentUser` | `NoStaticProfileAwareCurrentUserRule.kt` | `no-static-profile-aware-current-user` | Flags any reference to `ProfileAwareCurrentUser` through its static companion | `RuleFiresSmokeTest (shared)` | yes |
 | `NoSwallowedCancellation` | `NoSwallowedCancellation.kt` | `no-swallowed-cancellation` | Bans `catch (e: Throwable)` / `catch (e: Exception)` inside `suspend` functions | `NoSwallowedCancellationTest` | yes |
+| `NoTextFieldStateInViewModel` | `NoTextFieldStateInViewModelRule.kt` | `no-text-field-state-in-viewmodel` | Bans a `TextFieldState` stored in a ViewModel or in a UI state class. | `NoTextFieldStateInViewModelRuleTest` | yes |
 | `NoUnreportedFailurePath` | `NoUnreportedFailurePathRule.kt` | `no-unreported-failure-path` | A ViewModel that can fail but never passes a `CrashReportingPort` sends its failures | `NoUnreportedFailurePathRuleTest` | yes |
 | `NoUnwiredReporterInBinding` | `NoUnwiredReporterInBindingRule.kt` | `no-unreported-failure-path` | Flags a Koin `viewModel { … }` binding that constructs a ViewModel without passing it a | `NoUnwiredReporterInBindingRuleTest` | yes |
+| `NoValueBasedTextField` | `NoValueBasedTextFieldRule.kt` | `no-value-based-text-field` | Bans the value-based text field API — `value:` plus `onValueChange:` — on Compose text fields. | `NoValueBasedTextFieldRuleTest` | yes |
 | `NoViewModelScopeInProduction` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | Bans direct usage of `viewModelScope.launch`, `viewModelScope.async`, | `NoViewModelScopeInProductionRuleTest` | yes |
 | `NonTaggedMaestroElements` | `NonTaggedMaestroElements.kt` | `non-tagged-maestro-elements` | Bans two anti-patterns that silently break Maestro UI test coverage: | `NonTaggedMaestroElementsRuleTest` | **no** |
 | `PassThroughUseCase` | `PassThroughUseCaseRule.kt` | `pass-through-use-case` | Flags methods inside `*UseCase` classes that are pure pass-throughs to a Repository. | `PassThroughUseCaseRuleTest` | yes |
@@ -37,6 +40,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**29 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**32 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -20,8 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.TaskField
 
 /**
  * Pending AI proposals for a task, as a stack of cards.
@@ -63,7 +75,9 @@ private fun ProposalCard(
     onDismiss: () -> Unit,
 ) {
     var rejectingItemId by mutableStateOf<ProposalItemId?>(null)
-    var rejectionText by mutableStateOf("")
+    // The state lives here, not in the row: the row is only composed while the user is
+    // rejecting, so a state created there would be thrown away on the first keystroke.
+    val rejectionState = rememberTextFieldState()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -99,19 +113,18 @@ private fun ProposalCard(
                 ProposalItemRow(
                     item = item,
                     isRejecting = rejectingItemId == item.id,
-                    rejectionText = if (rejectingItemId == item.id) rejectionText else "",
+                    rejectionState = rejectionState,
                     onConfirm = { onConfirm(item.id) },
                     onStartReject = { rejectingItemId = item.id },
                     onSendReject = {
-                        onReject(item.id, rejectionText.takeIf { it.isNotBlank() })
+                        onReject(item.id, rejectionState.text.toString().takeIf { it.isNotBlank() })
                         rejectingItemId = null
-                        rejectionText = ""
+                        rejectionState.clearText()
                     },
                     onCancelReject = {
                         rejectingItemId = null
-                        rejectionText = ""
+                        rejectionState.clearText()
                     },
-                    onRejectionTextChange = { rejectionText = it },
                 )
             }
         }
@@ -122,12 +135,11 @@ private fun ProposalCard(
 private fun ProposalItemRow(
     item: ProposalItem,
     isRejecting: Boolean,
-    rejectionText: String,
+    rejectionState: TextFieldState,
     onConfirm: () -> Unit,
     onStartReject: () -> Unit,
     onSendReject: () -> Unit,
     onCancelReject: () -> Unit,
-    onRejectionTextChange: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -153,12 +165,57 @@ private fun ProposalItemRow(
         }
         if (isRejecting) {
             OutlinedTextField(
-                value = rejectionText,
-                onValueChange = onRejectionTextChange,
+                state = rejectionState,
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Reason (optional)") },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
             )
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun TaskDetailProposalSectionPreview() = PreviewThemed(darkTheme = false) {
+    val proposalId = ProposalId.fromString("prop_1")
+    TaskDetailProposalSection(
+        proposals = listOf(
+            AiProposal(
+                id = proposalId,
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = "t1",
+                userId = UserId.anonymous,
+                source = ProposalSource.Detail,
+                status = ProposalStatus.Pending,
+                createdAt = PreviewSamples.now,
+                updatedAt = PreviewSamples.now,
+                items = listOf(
+                    ProposalItem(
+                        id = ProposalItemId.fromString("pi_1"),
+                        proposalId = proposalId,
+                        kind = ProposalItemKind.SetTaskField(TaskField.Priority, "High"),
+                        targetId = "t1",
+                        humanSummary = "Set the priority to High",
+                        status = ProposalItemStatus.Pending,
+                        fingerprint = "set-priority-high",
+                    ),
+                    ProposalItem(
+                        id = ProposalItemId.fromString("pi_2"),
+                        proposalId = proposalId,
+                        kind = ProposalItemKind.AddSubtasks(listOf("Draft the outline")),
+                        targetId = "t1",
+                        humanSummary = "Add the subtask “Draft the outline”",
+                        status = ProposalItemStatus.Pending,
+                        fingerprint = "add-subtask-outline",
+                    ),
+                ),
+            ),
+        ),
+        onConfirm = { },
+        onReject = { _, _ -> },
+        onConfirmAll = { },
+        onDismiss = { },
+    )
 }

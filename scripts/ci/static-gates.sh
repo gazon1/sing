@@ -178,6 +178,11 @@ gate blocking "gradle invocations keep one test population" sgate gradle_test_po
 # re-ran: the traceability step failed this way on run 38933517902, and the flake
 # step would have done it silently while being continue-on-error.
 gate blocking "build-output readers precede the invocations that rewrite them" sgate build_output_readers
+# A waiver whose premise is prose rots silently. The one control waived from the
+# clean-run guard promises that both surfaces run `:detekt-rules:koverVerify` a
+# step later; rename the CI step or drop the task from it and the promise is
+# false while the waiver keeps waiving. This checks the promise, not the pass.
+gate blocking "waiver references resolve" sgate waiver_references_resolve
 gate blocking "declared dependencies are used" sgate declared_dependencies_are_used
 gate blocking "room schema integrity" sgate room_schema_integrity
 # A gate that dies instead of reporting is indistinguishable from a gate that

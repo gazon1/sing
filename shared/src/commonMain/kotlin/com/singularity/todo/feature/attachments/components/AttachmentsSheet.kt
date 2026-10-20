@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
@@ -27,8 +30,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +38,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.attachments.AttachmentType
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.preview.PreviewSamples
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 
@@ -60,8 +66,8 @@ fun AttachmentsSheet(
     onDelete: (AttachmentId) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var urlText by remember { mutableStateOf("") }
-    var titleText by remember { mutableStateOf("") }
+    val urlState = rememberTextFieldState()
+    val titleState = rememberTextFieldState()
 
     TaskEditorSheetHost(
         title = "Attachments",
@@ -74,20 +80,18 @@ fun AttachmentsSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
-                    value = urlText,
-                    onValueChange = { urlText = it },
+                    state = urlState,
                     modifier = Modifier.weight(1f).testTag(TestTags.ATTACHMENTS_URL_INPUT),
                     placeholder = { Text("URL") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                     leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 OutlinedTextField(
-                    value = titleText,
-                    onValueChange = { titleText = it },
+                    state = titleState,
                     modifier = Modifier.weight(0.6f).testTag(TestTags.ATTACHMENTS_TITLE_INPUT),
                     placeholder = { Text("Title (opt)") },
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                 )
             }
 
@@ -110,13 +114,14 @@ fun AttachmentsSheet(
                 }
                 FilledTonalButton(
                     onClick = {
-                        if (urlText.isNotBlank()) {
-                            onAddUrl(urlText.trim(), titleText.ifBlank { null })
-                            urlText = ""
-                            titleText = ""
+                        val url = urlState.text.toString()
+                        if (url.isNotBlank()) {
+                            onAddUrl(url.trim(), titleState.text.toString().ifBlank { null })
+                            urlState.clearText()
+                            titleState.clearText()
                         }
                     },
-                    enabled = urlText.isNotBlank(),
+                    enabled = urlState.text.isNotBlank(),
                     modifier = Modifier.testTag(TestTags.ATTACHMENTS_ADD_URL_BUTTON),
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
@@ -188,4 +193,54 @@ fun AttachmentsSheet(
             }
         }
     }
+}
+
+// ===== Preview =====
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AttachmentsSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
+    AttachmentsSheet(
+        taskId = TaskId("t1"),
+        attachments = emptyList(),
+        onAddUrl = { _, _ -> },
+        onAttachFile = noopClick,
+        onDelete = { },
+        onDismiss = noopClick,
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AttachmentsSheetWithItemsPreview() = PreviewThemed(darkTheme = false) {
+    AttachmentsSheet(
+        taskId = TaskId("t1"),
+        attachments = listOf(
+            Attachment(
+                id = AttachmentId.fromString("att_1"),
+                taskId = TaskId("t1"),
+                userId = UserId.anonymous,
+                type = AttachmentType.Url,
+                url = "https://example.com/spec",
+                title = "Project spec",
+                createdAt = PreviewSamples.now,
+                updatedAt = PreviewSamples.now,
+            ),
+            Attachment(
+                id = AttachmentId.fromString("att_2"),
+                taskId = TaskId("t1"),
+                userId = UserId.anonymous,
+                type = AttachmentType.File,
+                title = "report.pdf",
+                fileSizeBytes = 12_345L,
+                mimeType = "application/pdf",
+                createdAt = PreviewSamples.now,
+                updatedAt = PreviewSamples.now,
+            ),
+        ),
+        onAddUrl = { _, _ -> },
+        onAttachFile = noopClick,
+        onDelete = { },
+        onDismiss = noopClick,
+    )
 }

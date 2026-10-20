@@ -1,11 +1,22 @@
 # Notes: edit a note's body and see it survive a round trip.
 #
-# Quick-add lands on the note's preview, not its editor — the editor is reached
-# via the "Edit" action there. The editor autosaves, so what this asserts is
-# that the body is still there when the note is reopened.
+# The note is created through the quick-add row. The quick-add's event is
+# `NavigateToEditor`, so the editor opens right after the note is created —
+# there is no preview in between.
+#
+# The editor autosaves, so what this asserts is that the body is still there
+# after the app is restarted and the note is opened again.
+#
+# Opening a note from the list opens its *preview*, not its editor: the editor
+# is reached from the preview's Edit action. The body is therefore asserted in
+# the preview, where it is rendered read-only.
+#
+# The title carries ${RUN_ID} so the runner's per-attempt sweep can find
+# exactly this run's row and remove it.
 appId: com.singularity.todo
 name: notes-edit-body
 tags:
+  - smoke
   - regression
   - notes
 ---
@@ -25,24 +36,21 @@ tags:
     timeout: 5000
 - tapOn:
     id: notes_quick_add_input
-- inputText: "Meeting notes"
+- inputText: "${RUN_ID} Meeting notes"
 - pressKey: Enter
-# Quick-add's destination is not stable: it lands on the preview with an empty
-# note, or straight in the editor. Tapping "Edit" is a no-op in the second case,
-# so it is optional and the editor is the thing waited on.
-- tapOn:
-    id: note_action_edit
-    optional: true
+# The quick-add creates the note and opens its editor.
 - extendedWaitUntil:
     visible:
-      id: note_editor_body
+      id: note_editor_title_input
     timeout: 5000
 - tapOn:
     id: note_editor_body
 - inputText: "Discuss roadmap"
 - hideKeyboard
+# The editor autosaves; saving does not leave the editor.
 - tapOn:
     id: note_editor_save
+- back
 # Reload to verify the body survives a full process restart.
 - runFlow: ../../helpers/relaunch.yaml
 - tapOn:
@@ -58,17 +66,22 @@ tags:
     visible:
       id: notes_quick_add_input
     timeout: 5000
+# The row is addressed by the title the flow typed: the id is a generated
+# ULID, which the flow never learns. The title-based tag sits on the item's
+# outer node — a Material3 Card merges its descendants, so a tag inside the
+# card would be invisible to the accessibility tree this flow drives.
+- scrollUntilVisible:
+    element:
+      id: note_item_by_title_${RUN_ID}_meeting_notes
+    direction: DOWN
+    timeout: 8000
 - tapOn:
-    id: note_item_by_title_meeting_notes
+    id: note_item_by_title_${RUN_ID}_meeting_notes
+# The preview is where the body is rendered.
 - extendedWaitUntil:
     visible:
-      id: note_editor_body
-    timeout: 5000
-- back
-# Back to the preview, where the body is rendered.
-- extendedWaitUntil:
-    visible:
-      id: note_editor_body
-    timeout: 5000
+      id: note_action_edit
+    timeout: 8000
 - assertVisible:
-    id: note_item_by_title_meeting_notes
+    text: "Discuss roadmap"
+- back

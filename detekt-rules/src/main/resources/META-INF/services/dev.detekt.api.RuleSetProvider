@@ -20,3 +20,6 @@ com.singularity.todo.detekt.AppErrorCodeProvider
 com.singularity.todo.detekt.NoCoroutineLaunchInInitProvider
 com.singularity.todo.detekt.NoPopupWithoutResourceIdMappingProvider
 com.singularity.todo.detekt.NonTaggedMaestroElementsProvider
+com.singularity.todo.detekt.NoValueBasedTextFieldProvider
+com.singularity.todo.detekt.NoTextFieldStateInViewModelProvider
+com.singularity.todo.detekt.NoDroppedUiStatePropertyProvider

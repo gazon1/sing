@@ -4,6 +4,10 @@
 # also covers MenuBottomSheet -> menu_notes. There is no FAB on the notes list;
 # a note is created through the quick-add row, which submits on the IME "Done"
 # action.
+#
+# The title carries ${RUN_ID} so the runner's per-attempt sweep can find
+# exactly this run's row and remove it. The row is addressed by its title,
+# because the id is a generated ULID that the flow never learns.
 appId: com.singularity.todo
 name: notes-create-note
 tags:
@@ -28,7 +32,7 @@ tags:
     timeout: 5000
 - tapOn:
     id: notes_quick_add_input
-- inputText: "Meeting notes"
+- inputText: "${RUN_ID} Meeting notes"
 # Quick-add submits on the IME "Done" action, which creates the note AND opens
 # it in the editor — it does not return to the list. Saving from there is what
 # makes the row appear.
@@ -44,6 +48,6 @@ tags:
 - back
 - extendedWaitUntil:
     visible:
-      id: note_item_by_title_meeting_notes
+      id: note_item_by_title_${RUN_ID}_meeting_notes
     timeout: 8000
 - takeScreenshot: notes/create-note

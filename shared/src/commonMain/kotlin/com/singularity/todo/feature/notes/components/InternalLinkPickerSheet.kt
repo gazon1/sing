@@ -10,7 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Note
@@ -31,17 +32,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkResult
+import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.preview.noopClick
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -57,9 +61,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * Usage in NoteEditorScreen:
  * ```kotlin
- * val queryFlow = remember { MutableStateFlow("") }
  * InternalLinkPickerSheet(
- *     queryFlow = queryFlow,
  *     onSearch = { q ->
  *         val notes = noteRepo.searchNotes(q).first()
  *         val tasks = taskRepo.searchTasks(q).first()
@@ -71,8 +73,6 @@ import kotlin.time.Duration.Companion.milliseconds
  * )
  * ```
  *
- * @param queryFlow Flow of the current search query. The sheet writes to it
- *                  via an OutlinedTextField; callers can also push initial state.
  * @param onSearch Called when the query debounces. Returns merged results.
  * @param onSelected Called with the chosen [LinkResult]. Caller handles URL
  *                   insertion and sheet dismissal.
@@ -81,12 +81,12 @@ import kotlin.time.Duration.Companion.milliseconds
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
 fun InternalLinkPickerSheet(
-    queryFlow: kotlinx.coroutines.flow.MutableStateFlow<String>,
     onSearch: suspend (String) -> List<LinkResult>,
     onSelected: (LinkResult) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Expanded)
+    val queryState = rememberTextFieldState()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -96,15 +96,14 @@ fun InternalLinkPickerSheet(
             // Search field
             val focusManager = LocalFocusManager.current
             OutlinedTextField(
-                value = queryFlow.collectAsStateWithLifecycle().value,
-                onValueChange = { queryFlow.value = it },
+                state = queryState,
                 placeholder = { Text("Search notes and tasks...") },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null)
                 },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                onKeyboardAction = { focusManager.clearFocus() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
@@ -121,13 +120,14 @@ fun InternalLinkPickerSheet(
                 var isLoading by remember { mutableStateOf(false) }
                 var shownResults by remember { mutableStateOf<List<LinkResult>>(emptyList()) }
 
-                // Debounced search
-                LaunchedEffect(queryFlow) {
-                    queryFlow
+                // Debounced search. collectLatest, not collect: a slow search must not
+                // overwrite the results of a newer one.
+                LaunchedEffect(queryState) {
+                    snapshotFlow { queryState.text.toString() }
                         .debounce(300.milliseconds)
                         .distinctUntilChanged()
                         .filter { it.isNotBlank() }
-                        .collect { q ->
+                        .collectLatest { q ->
                             isLoading = true
                             shownResults = onSearch(q)
                             isLoading = false
@@ -141,7 +141,7 @@ fun InternalLinkPickerSheet(
                         )
                     }
 
-                    queryFlow.collectAsStateWithLifecycle().value.isBlank() -> {
+                    queryState.text.isBlank() -> {
                         Text(
                             "Type to search notes and tasks",
                             style = MaterialTheme.typography.bodyMedium,
@@ -215,5 +215,23 @@ private fun LinkResultItem(result: LinkResult, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+// ===== Preview =====
+
+// The search field is created inside the sheet, so a preview always renders the
+// "type to search" state — the results list only appears after the debounce.
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun InternalLinkPickerSheetPreview() = PreviewThemed(darkTheme = false) {
+    val results = listOf(
+        LinkResult("n1", "Ideas", LinkKind.Note),
+        LinkResult("t1", "Buy groceries", LinkKind.Task),
+    )
+    InternalLinkPickerSheet(
+        onSearch = { results },
+        onSelected = { },
+        onDismiss = noopClick,
     )
 }

@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +37,10 @@ import org.koin.compose.viewmodel.koinViewModel
 fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val form = rememberLoginFormState()
+    // The credentials live in the fields, not in the form state: the form keeps only the
+    // choices that are not text.
+    val emailState = rememberTextFieldState()
+    val passwordState = rememberTextFieldState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Kept apart from `errorMessage` so a neutral "your account was created, go check
@@ -113,18 +120,18 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
                 passwordTag = TestTags.AUTH_PASSWORD_INPUT,
                 submitTag = TestTags.AUTH_SIGN_IN_BUTTON,
                 submitLabel = if (form.value.isSignUp) "Sign Up" else "Sign In",
-                email = form.value.email,
-                password = form.value.password,
+                emailState = emailState,
+                passwordState = passwordState,
                 isLoading = state is AuthUiState.Loading,
                 errorMessage = errorMessage,
                 message = message,
-                onEmailChange = { newEmail -> form.update { copy(email = newEmail) } },
-                onPasswordChange = { newPassword -> form.update { copy(password = newPassword) } },
                 onSubmit = {
+                    val email = emailState.text.toString()
+                    val password = passwordState.text.toString()
                     if (form.value.isSignUp) {
-                        viewModel.onIntent(AuthIntent.SignUp(form.value.email, form.value.password))
+                        viewModel.onIntent(AuthIntent.SignUp(email, password))
                     } else {
-                        viewModel.onIntent(AuthIntent.SignIn(form.value.email, form.value.password))
+                        viewModel.onIntent(AuthIntent.SignIn(email, password))
                     }
                 },
             )
@@ -184,7 +191,8 @@ private fun ServerConfigForm(
     onSave: (String, String) -> Unit,
     onContinueOffline: () -> Unit,
 ) {
-    val form = rememberServerConfigFormState()
+    val urlState = rememberTextFieldState()
+    val anonKeyState = rememberTextFieldState()
 
     Column(
         modifier = Modifier
@@ -204,25 +212,23 @@ private fun ServerConfigForm(
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = form.value.url,
-            onValueChange = { form.update { copy(url = it) } },
+            state = urlState,
             label = { Text("Project URL") },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TestTags.AUTH_SERVER_URL_INPUT),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = form.value.anonKey,
-            onValueChange = { form.update { copy(anonKey = it) } },
+            state = anonKeyState,
             label = { Text("Anon key (publishable)") },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TestTags.AUTH_SERVER_KEY_INPUT),
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
 
         if (errorMessage != null) {
@@ -238,7 +244,7 @@ private fun ServerConfigForm(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { onSave(form.value.url, form.value.anonKey) },
+            onClick = { onSave(urlState.text.toString(), anonKeyState.text.toString()) },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(TestTags.AUTH_SAVE_SERVER_BUTTON),
@@ -265,13 +271,11 @@ private fun ServerConfigForm(
 @Composable
 private fun LoginScreenFormPreview() = PreviewThemed(darkTheme = false) {
     LoginScreenFormContent(
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = false,
         errorMessage = null,
         isSignUp = false,
-        onEmailChange = {},
-        onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
     )
@@ -281,13 +285,11 @@ private fun LoginScreenFormPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun LoginScreenLoadingPreview() = PreviewThemed(darkTheme = false) {
     LoginScreenFormContent(
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = true,
         errorMessage = null,
         isSignUp = false,
-        onEmailChange = {},
-        onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
     )
@@ -297,13 +299,11 @@ private fun LoginScreenLoadingPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun LoginScreenDarkPreview() = PreviewThemed(darkTheme = true) {
     LoginScreenFormContent(
-        email = "",
-        password = "",
+        emailState = rememberTextFieldState(),
+        passwordState = rememberTextFieldState(),
         isLoading = false,
         errorMessage = "Invalid email or password",
         isSignUp = true,
-        onEmailChange = {},
-        onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
     )
@@ -313,14 +313,12 @@ private fun LoginScreenDarkPreview() = PreviewThemed(darkTheme = true) {
 @Composable
 private fun LoginScreenMessagePreview() = PreviewThemed(darkTheme = false) {
     LoginScreenFormContent(
-        email = "user@example.com",
-        password = "password",
+        emailState = rememberTextFieldState("user@example.com"),
+        passwordState = rememberTextFieldState("password"),
         isLoading = false,
         errorMessage = null,
         message = "Account created. Check your email to confirm the address.",
         isSignUp = true,
-        onEmailChange = {},
-        onPasswordChange = {},
         onSignIn = {},
         onToggleMode = {},
     )
@@ -332,14 +330,12 @@ private fun LoginScreenMessagePreview() = PreviewThemed(darkTheme = false) {
  */
 @Composable
 private fun LoginScreenFormContent(
-    email: String,
-    password: String,
+    emailState: TextFieldState,
+    passwordState: TextFieldState,
     isLoading: Boolean,
     errorMessage: String?,
     message: String? = null,
     isSignUp: Boolean,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onToggleMode: () -> Unit,
 ) {
@@ -357,13 +353,11 @@ private fun LoginScreenFormContent(
             passwordTag = TestTags.AUTH_PASSWORD_INPUT,
             submitTag = TestTags.AUTH_SIGN_IN_BUTTON,
             submitLabel = if (isSignUp) "Sign Up" else "Sign In",
-            email = email,
-            password = password,
+            emailState = emailState,
+            passwordState = passwordState,
             isLoading = isLoading,
             errorMessage = errorMessage,
             message = message,
-            onEmailChange = onEmailChange,
-            onPasswordChange = onPasswordChange,
             onSubmit = onSignIn,
         )
         Spacer(modifier = Modifier.height(8.dp))
