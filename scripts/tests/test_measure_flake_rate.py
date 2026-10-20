@@ -13,10 +13,12 @@ the defect this script exists to avoid:
 """
 
 import importlib.util
+import json
 import pathlib
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 _scripts_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "scripts"
 _spec = importlib.util.spec_from_file_location(
@@ -157,6 +159,125 @@ class TestBaselineAck(unittest.TestCase):
             ack = mfr._load_acknowledged(baseline)
             self.assertTrue(mfr._is_acknowledged("com.example.Flammy::case", ack))
             self.assertFalse(mfr._is_acknowledged("com.example.Sound::case", ack))
+
+
+class TestVerdict(unittest.TestCase):
+    """The verdict is what the caller reads, and it has to be honest.
+
+    The nightly's issue step used to fire on `failure()`, and the script exits
+    non-zero for two different things: a finding ("the rate exceeded the
+    ceiling") and a broken measurement ("the tests did not run"). On the six
+    nights of 2026-10-15 … 2026-10-20 the measuring script could not import
+    its own tooling, and the nightly published "found an unacknowledged flake"
+    every one of them — a verdict it had not measured.
+
+    So the verdict carries the distinction the exit code cannot.
+    """
+
+    def _run(self, args, tmp):
+        """Call the script's main with argv, and return (exit code, verdict)."""
+        verdict_path = pathlib.Path(tmp) / "verdict.json"
+        argv = ["measure-flake-rate.py", *args, "--verdict-file", str(verdict_path)]
+        with unittest.mock.patch.object(sys, "argv", argv):
+            code = mfr.main()
+        verdict = json.loads(verdict_path.read_text(encoding="utf-8")) if verdict_path.exists() else None
+        return code, verdict
+
+    def test_a_stable_suite_is_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            for i in (1, 2):
+                write_run(
+                    root / f"run{i}",
+                    [("com.example.Sound", "case", BODIES["pass"])],
+                )
+            code, verdict = self._run(
+                ["--current", str(root / "run1"), str(root / "run2"), "--runs", "2"],
+                tmp,
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(verdict["state"], "clean")
+        self.assertEqual(verdict["unacknowledged"], [])
+
+    def test_an_unacknowledged_flake_is_found_and_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_run(root / "run1", [("com.example.Flammy", "case", BODIES["pass"])])
+            write_run(
+                root / "run2",
+                [("com.example.Flammy", "case", '<flakyFailure message="boom"/>')],
+            )
+            code, verdict = self._run(
+                ["--current", str(root / "run1"), str(root / "run2"), "--runs", "2"],
+                tmp,
+            )
+        self.assertEqual(code, 1)
+        self.assertEqual(verdict["state"], "found")
+        self.assertEqual(verdict["unacknowledged"], ["com.example.Flammy::case"])
+        self.assertIn("exceeds ceiling", verdict["reason"])
+
+    def test_an_acknowledged_flake_is_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            baseline = root / "baseline.txt"
+            baseline.write_text(
+                "com.example.Flammy  # understood nondeterminism\n", encoding="utf-8"
+            )
+            write_run(root / "run1", [("com.example.Flammy", "case", BODIES["pass"])])
+            write_run(
+                root / "run2",
+                [("com.example.Flammy", "case", '<flakyFailure message="boom"/>')],
+            )
+            code, verdict = self._run(
+                [
+                    "--current", str(root / "run1"), str(root / "run2"),
+                    "--runs", "2",
+                    "--baseline", str(baseline),
+                ],
+                tmp,
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(verdict["state"], "clean")
+        self.assertEqual(verdict["acknowledged"], ["com.example.Flammy::case"])
+
+    def test_no_results_is_broken_not_clean(self):
+        """Nothing measured is not a measurement that found nothing."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "run1").mkdir()
+            code, verdict = self._run(
+                ["--current", str(root / "run1"), "--runs", "1"], tmp
+            )
+        self.assertEqual(code, 1)
+        self.assertEqual(verdict["state"], "broken")
+        self.assertIn("no JUnit XML", verdict["reason"])
+
+    def test_a_test_that_did_not_run_is_broken(self):
+        """A test that never executed cannot be measured as non-flaky."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_run(
+                root / "run1",
+                [("com.example.Sound", "case", BODIES["pass"]), ("com.example.Gone", "case", BODIES["pass"])],
+            )
+            write_run(root / "run2", [("com.example.Sound", "case", BODIES["pass"])])
+            code, verdict = self._run(
+                ["--current", str(root / "run1"), str(root / "run2"), "--runs", "2"],
+                tmp,
+            )
+        self.assertEqual(code, 1)
+        self.assertEqual(verdict["state"], "broken")
+        self.assertIn("com.example.Gone::case", verdict["missing"])
+
+    def test_the_verdict_is_written_even_when_nothing_is_asked_for(self):
+        """No --verdict-file means no file, and no error."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_run(root / "run1", [("com.example.Sound", "case", BODIES["pass"])])
+            argv = ["measure-flake-rate.py", "--current", str(root / "run1"), "--runs", "1"]
+            with unittest.mock.patch.object(sys, "argv", argv):
+                code = mfr.main()
+        self.assertEqual(code, 0)
 
 
 if __name__ == "__main__":

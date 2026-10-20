@@ -174,6 +174,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The measuring script imports the gate package, and the gate package
+      # imports loguru. Without this step the import fails with
+      # `ModuleNotFoundError: No module named 'loguru'` — and the workflow
+      # below turns any failure of the measurement into "an unacknowledged
+      # flake was found", so six nights in a row (2026-10-15 … 2026-10-20) it
+      # published that finding while measuring nothing at all. The issue said
+      # "found an unacknowledged flake"; the run said "could not start".
+      #
+      # Only the package itself is installed here: this job runs one script
+      # and needs no linter, and the linters are the expensive part of the
+      # tooling.
+      - name: Set up gate tooling
+        uses: ./.github/actions/setup-python-tools
+        with:
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+          with-link-lint: 'false'
+
       # Download every attempt's JUnit XML into attempt-<n>/, so the N directories
       # are in execution order and consecutive-run flips (Flake A) are computed
       # against the right predecessor.
@@ -188,8 +206,17 @@ jobs:
       # spaces today, but "$ATTEMPTS" as a single word would pass the whole
       # newline-joined list as one argument the moment they did. mapfile keeps
       # one dir per array element and stays correct under IFS surprises.
+      #
+      # The verdict file is what the issue steps below read. The script exits
+      # non-zero both for a finding ("the rate exceeded the ceiling") and for
+      # a broken measurement ("the tests did not run"), so the exit code alone
+      # cannot say which happened — and the issue has to say which, because an
+      # issue that claims a flake was found when nothing was measured sends
+      # the reader looking for a flaky test that does not exist.
       - name: Measure flake rate
+        id: measure
         run: |
+          set -uo pipefail
           mapfile -t ATTEMPTS < <(find attempts -mindepth 1 -maxdepth 1 -type d | sort)
           COUNT=${#ATTEMPTS[@]}
           echo "aggregating $COUNT attempt directories"
@@ -198,17 +225,85 @@ jobs:
             --runs "$COUNT" \
             --baseline config/docs/flaky-baseline.txt \
             --max-flaky-rate 0.0 \
-            --summary "$GITHUB_STEP_SUMMARY"
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --verdict-file flake-verdict.json
+          code=$?
+          set -e
+          verdict=broken
+          if [[ -f flake-verdict.json ]]; then
+            verdict=$(python3 -c "import json,sys;print(json.load(open('flake-verdict.json'))['state'])")
+          fi
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [[ "$verdict" == "clean" ]]; then
+            echo "flake rate measured, nothing unacknowledged above the ceiling"
+            exit 0
+          fi
+          echo "flake rate verdict: $verdict (exit $code)"
+          exit "$code"
 
       # Nobody reads a red cron run. Open an issue instead, so a measured
       # unacknowledged flake has somewhere to land other than a scrollback
       # buffer (the same call e2e.yml's nightly-alert and ci.yml already make).
+      #
+      # The condition reads the verdict, not `failure()`. `failure()` was the
+      # bug: it fires for a crashed measurement too, and the issue it opened
+      # said "found an unacknowledged flake" on the six nights the measuring
+      # script could not even start. A measurement that did not run gets its
+      # own issue, below, with its own title.
       - name: Open issue on unacknowledged flake
-        if: ${{ failure() && github.event_name == 'schedule' }}
+        if: ${{ always() && github.event_name == 'schedule' && steps.measure.outputs.verdict == 'found' }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # The ids, not just a link. The previous body was the run URL alone,
+          # so the reader had to open the run and dig through the summary to
+          # learn which test to look at — which is the work the issue exists
+          # to save.
+          ids=$(python3 -c "import json;print('\n'.join(json.load(open('flake-verdict.json'))['unacknowledged']))")
+          {
+            echo "The nightly flake-rate measurement found **unacknowledged** flaky tests."
+            echo
+            echo "Unacknowledged (not in \`config/docs/flaky-baseline.txt\`):"
+            echo
+            echo '```'
+            echo "$ids"
+            echo '```'
+            echo
+            echo "Either the nondeterminism is understood — acknowledge it in \`config/docs/flaky-baseline.txt\` with the reason — or it is a real failure, and the fix belongs in the code, not the file."
+            echo
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > flake-issue-body.md
           gh issue create \
             --title "Nightly flake-rate measurement found an unacknowledged flake ($(date -u +%F))" \
-            --body "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            --body-file flake-issue-body.md
+
+      # A measurement that did not run is a different fact, and it gets a
+      # different issue. The previous condition was `failure()`, which fires
+      # for both — so on the six nights the measuring script could not import
+      # its own tooling, the nightly published "found an unacknowledged flake"
+      # six times over, and the reader went looking for a flaky test that had
+      # never been measured.
+      #
+      # This issue says what actually happened, so the reader knows to fix the
+      # measurement rather than hunt a ghost.
+      - name: Open issue when the measurement did not run
+        if: ${{ always() && github.event_name == 'schedule' && steps.measure.outputs.verdict == 'broken' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          reason=$(python3 -c "import json;print(json.load(open('flake-verdict.json'))['reason'])" 2>/dev/null || echo "the measuring script did not produce a verdict")
+          {
+            echo "The nightly flake-rate measurement **did not complete**."
+            echo
+            echo "Reason: $reason"
+            echo
+            echo "No flake rate was measured, so this run says nothing about the suite's flakiness. The measurement has to run before its verdict means anything."
+            echo
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > flake-issue-body.md
+          gh issue create \
+            --title "Nightly flake-rate measurement did not run ($(date -u +%F))" \
+            --body-file flake-issue-body.md
