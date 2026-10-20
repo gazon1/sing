@@ -111,12 +111,29 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
 echo -e "${YELLOW}=== [6/$TOTAL] executed test counts ===${NC}"
+# Two verdicts, two exit codes, two messages (check-test-runs.py documents the
+# boundary): 3 = "no JUnit report at all", so nothing ran and no floor was
+# compared; 1 = "a report exists and is below the floor", so the suite ran and
+# lost coverage. One message for both sent the reader to re-run the tests when
+# the suite had actually lost coverage.
+set +e
 python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
-    --max-age 21600 || {
-    echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
-    exit 1
-}
-echo -e "${GREEN}test run floors met${NC}"
+    --max-age 21600
+TEST_RUNS_EXIT=$?
+set -e
+case "$TEST_RUNS_EXIT" in
+    0)
+        echo -e "${GREEN}test run floors met${NC}"
+        ;;
+    3)
+        echo -e "${RED}no JUnit report found — nothing ran, so no floor was compared${NC}"
+        exit 3
+        ;;
+    *)
+        echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
+        exit 1
+        ;;
+esac
 
 # NOT in the registry either, and for a related reason. Part A asks whether every
 # configured Gradle check task is named by a gate. Part B proves each registered
