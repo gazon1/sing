@@ -3,6 +3,9 @@ package com.singularity.todo.test.helpers
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import com.singularity.todo.core.observability.ToolCallEvent
+import com.singularity.todo.core.observability.ToolCallLog
+import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.work.BackgroundWorkScheduler
@@ -88,6 +91,12 @@ fun testPlatformModule(): Module = module {
     // a real database, because that is the only place the property can be observed. See
     // `FakeUnitOfWork` for the same note in Kotlin.
     single<UnitOfWork> { FakeUnitOfWork() }
+
+    // The tool-call records, in memory. The real platform module writes them to the
+    // application's own data directory; a test has no business writing files, and a
+    // missing binding would leave the in-app agent silently unobserved.
+    single<ToolCallLog> { InMemoryToolCallLog() }
+    single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
     single { get<AppDatabase>().taskDao() }
     single { get<AppDatabase>().noteDao() }
     single { get<AppDatabase>().projectDao() }
@@ -287,4 +296,13 @@ class InertSyncPeriodicTrigger : SyncPeriodicTrigger {
     override fun start(interval: kotlin.time.Duration) = Unit
 
     override fun stop() = Unit
+}
+
+/** A [ToolCallLog] that keeps the records in memory. */
+class InMemoryToolCallLog : ToolCallLog {
+    val events = mutableListOf<ToolCallEvent>()
+
+    override fun record(event: ToolCallEvent) {
+        events += event
+    }
 }

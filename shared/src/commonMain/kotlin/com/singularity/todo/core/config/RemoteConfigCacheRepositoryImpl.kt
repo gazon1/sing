@@ -195,7 +195,14 @@ internal class RemoteConfigCacheRepositoryImpl(
     }
 
     companion object {
-        /** TTL for the remote config cache. 6 hours in milliseconds. */
-        const val TTL_MILLIS = 6 * 60 * 60 * 1_000L
+        /**
+         * TTL for the remote config cache.
+         *
+         * The number lives on the port ([RemoteConfigPort.CACHE_TTL_MILLIS]) because a
+         * caller outside this module has to be able to say "what I am acting on is
+         * stale" — and it can only do that against the same deadline the cache expires
+         * on.
+         */
+        const val TTL_MILLIS = RemoteConfigPort.CACHE_TTL_MILLIS
     }
 }

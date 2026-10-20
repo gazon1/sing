@@ -8,9 +8,12 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.ai.RecordingTool
 import com.singularity.todo.core.ai.filterTools
 import com.singularity.todo.core.ai.resolveModelWithFlags
 import com.singularity.todo.core.ai.toolId
+import com.singularity.todo.core.observability.ToolCallRecorder
+import com.singularity.todo.core.observability.ToolCallSource
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.di.PromptExecutorPort
 import com.singularity.todo.core.llm.OpenAiConfig
@@ -55,6 +58,7 @@ class KoogAgentService(
     private val streamingExecutor: PromptExecutorPort,
     allTools: List<Tool<*, *>>,
     private val remoteConfigPort: RemoteConfigPort,
+    private val toolCallRecorder: ToolCallRecorder? = null,
 ) : TextGenPort {
 
     // Filter tools based on current RemoteConfig flags. Read at construction so this
@@ -70,7 +74,28 @@ class KoogAgentService(
         }
     }
 
-    private val agentTools: ToolRegistry = ToolRegistry.builder().tools(tools).build()
+    /**
+     * The tools the agent may call, each wrapped so that its use is recorded.
+     *
+     * The wrapper is transparent — the agent sees the same name, the same description
+     * and the same arguments — so recording costs the agent nothing and tells the
+     * report which tools the in-app agent actually reaches for. The MCP server measures
+     * at its own dispatch boundary instead; the two records share one event schema, so
+     * the report reads both.
+     */
+    private val agentTools: ToolRegistry = ToolRegistry.builder()
+        .tools(tools.map { tool -> tool.asRecorded() })
+        .build()
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Tool<*, *>.asRecorded(): Tool<*, *> {
+        val recorder = toolCallRecorder ?: return this
+        return RecordingTool(
+            delegate = this as Tool<Any, Any>,
+            recorder = recorder,
+            source = ToolCallSource.IN_APP,
+        )
+    }
 
     private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> {
         val flags = remoteConfigPort.observe().value.modelFlags

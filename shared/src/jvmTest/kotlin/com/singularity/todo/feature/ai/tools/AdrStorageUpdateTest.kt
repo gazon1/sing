@@ -43,6 +43,7 @@ class AdrStorageUpdateTest {
     private class FakeHost(private val workingDir: String, private val homeDir: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = workingDir
         override fun homeDirectory(): String = homeDir
+        override fun applicationDataDirectory(): String = homeDir + "/.singularity-todo"
     }
 
     private fun tempDir(): File = createTempDirectory("adr-update").toFile().also { temporaries += it }

@@ -4,6 +4,11 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.kotlinx.KotlinxSerializer
+import com.singularity.todo.core.ai.filterTools
+import com.singularity.todo.core.observability.ToolCallContext
+import com.singularity.todo.core.observability.ToolCallError
+import com.singularity.todo.core.observability.ToolCallRecorder
+import com.singularity.todo.core.observability.ToolCallSource
 import com.singularity.todo.mcp.errors.ErrorMapper
 import com.singularity.todo.mcp.errors.McpToolError
 import com.singularity.todo.mcp.schema.KoogJsonSchemaBuilder
@@ -19,7 +24,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import org.koin.core.context.GlobalContext
 
 /**
  * Bridges Koog [SimpleTool] instances to the MCP [Server] tool registry.
@@ -33,12 +37,55 @@ import org.koin.core.context.GlobalContext
  * Per-call pipeline: decode kotlinx [JsonElement] → Koog [JSONElement] via
  * [toKoog], decode into typed args, execute under `runBlocking`, then forward the result
  * as both `text` content and (when parseable) `structuredContent`.
+ *
+ * ## The kill switch
+ *
+ * A tool whose remote-config flag is `false` is **never registered**: it does not appear
+ * in `tools/list` and it cannot be called. That is the point — a disabled tool that is
+ * still in the schema costs the agent context and invites a call that must fail.
+ *
+ * The in-app agent reads these flags too, and the switch is applied by the same rule in
+ * both places — [com.singularity.todo.core.ai.filterTools]. Until 2026-10-20 neither
+ * applied it: the tool ID the rule keys on could not be resolved, so a flag never
+ * matched a tool. The rule was fixed at its owner; see ADR
+ * `2026-10-20-the-kill-switch-was-never-applied`.
+ *
+ * The flags are **global**: the remote-config cache is a single row, so a disabled tool
+ * is disabled for every profile and every consumer of that database. They are an
+ * *operational* control — a way to take a broken tool out of the loop — and not a
+ * safety boundary: when the configuration cannot be read, the policy is fail-open and
+ * every tool is enabled. [snapshot] reports which of those two happened.
  */
-class ToolRegistrar(private val server: Server) {
+class ToolRegistrar(
+    private val server: Server,
+    private val tools: List<Tool<*, *>>,
+    private val toolFlags: Map<String, Boolean> = emptyMap(),
+    private val configurationStatus: ConfigurationStatus = ConfigurationStatus.UNAVAILABLE,
+    private val configurationFetchedAtEpochMillis: Long? = null,
+    private val recorder: ToolCallRecorder? = null,
+    private val sessionContext: () -> ToolCallContext = { ToolCallContext() },
+) {
 
-    private val koin = GlobalContext.get()
-    @Suppress("UNCHECKED_CAST")
-    private val tools: List<Tool<*, *>> = koin.get()
+    /**
+     * The tool list is handed in, not fetched from a global context.
+     *
+     * The registrar used to reach into the global Koin context itself, which made the
+     * only test of the kill switch depend on global state — and a test that starts and
+     * stops a global container races with every other test in the same JVM. Resolving
+     * the list at the edge (the server entry point) keeps this class a pure function of
+     * its arguments, which is what the test wants to assert about.
+     */
+    private val enabledTools: List<Tool<*, *>> = filterTools(tools, toolFlags)
+    private val disabledTools: List<Tool<*, *>> = tools.filterNot { it in enabledTools }
+
+    /**
+     * What the toolbox looks like right now, and why.
+     *
+     * Built once, here, because this is the only place that knows both halves: the
+     * catalogue says which tools are *declared*, and the filtering says which are
+     * *exposed*. Everything that reports on the toolbox reads this one object.
+     */
+    val snapshot: ToolsetSnapshot = buildSnapshot()
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -49,7 +96,40 @@ class ToolRegistrar(private val server: Server) {
     private val serializer = KotlinxSerializer(json)
 
     fun registerAll() {
-        tools.forEach { registerOne(it) }
+        enabledTools.forEach { registerOne(it) }
+    }
+
+    private fun buildSnapshot(): ToolsetSnapshot {
+        val registered = enabledTools.map { describe(it) }
+        val disabled = disabledTools.map { describe(it) }
+        return ToolsetSnapshot(
+            identity = ToolboxIdentity(
+                buildVersion = ToolboxIdentityFactory.buildVersion(),
+                checkout = ToolboxIdentityFactory.checkout(),
+                catalogFingerprint = ToolboxIdentityFactory.catalogFingerprint(),
+                activeToolsetFingerprint = ToolboxIdentityFactory.activeToolsetFingerprint(registered),
+            ),
+            registered = registered,
+            disabled = disabled,
+            configurationStatus = configurationStatus,
+            configurationFetchedAtEpochMillis = configurationFetchedAtEpochMillis,
+        )
+    }
+
+    private fun describe(tool: Tool<*, *>): ToolboxToolEntry {
+        val descriptor = tool.descriptor
+        val entry = McpToolCatalog.byName(descriptor.name)
+        val annotations = entry?.annotations
+        return ToolboxToolEntry(
+            name = descriptor.name,
+            description = descriptor.description,
+            domain = entry?.domain ?: "unknown",
+            readOnly = annotations?.readOnlyHint ?: false,
+            destructive = annotations?.destructiveHint ?: false,
+            idempotent = annotations?.idempotentHint ?: false,
+            requiredParameters = descriptor.requiredParameters.map { it.name },
+            optionalParameters = descriptor.optionalParameters.map { it.name },
+        )
     }
 
     private fun registerOne(tool: Tool<*, *>) {
@@ -85,7 +165,38 @@ class ToolRegistrar(private val server: Server) {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun handleToolCall(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
+    private suspend fun handleToolCall(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
+        // The measurement happens here, at the dispatch boundary, because this is the
+        // only place that knows the call's arguments, its outcome and its error kind.
+        // A decorator would have to wrap every tool to reach the same place, and it
+        // would break the `SimpleTool` cast the decoder below relies on.
+        val recorder = recorder
+        if (recorder == null) return dispatch(tool, request)
+        return recorder.timed(
+            tool = tool.descriptor.name,
+            source = ToolCallSource.MCP,
+            context = sessionContext(),
+            classify = ::classifyFailure,
+        ) { dispatch(tool, request) }
+    }
+
+    /**
+     * The error *code* of a failure, and whether the caller can act on it.
+     *
+     * A code, never the message: an exception message can carry arguments, paths and
+     * server responses, and a record outlives the session it describes.
+     */
+    private fun classifyFailure(error: Throwable): ToolCallError = when (error) {
+        is McpToolError.Validation -> ToolCallError("validation", business = true)
+        is McpToolError.NotFound -> ToolCallError("not_found", business = true)
+        is McpToolError.Conflict -> ToolCallError("conflict", business = true)
+        is McpToolError.Unauthorized -> ToolCallError("unauthorized", business = true)
+        is McpToolError.Internal -> ToolCallError("internal", business = false)
+        else -> ToolCallError("internal", business = false)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun dispatch(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
         val koogArgs: JSONObject = request.arguments?.let { args ->
             JSONObject(args.mapValues { (_, v) -> v.toKoog() })
         } ?: JSONObject(emptyMap())
@@ -94,7 +205,7 @@ class ToolRegistrar(private val server: Server) {
             val koogTool = tool as SimpleTool<Any>
             val args: Any = koogTool.decodeArgs(koogArgs, serializer)
 
-            val resultString: String = runBlocking { koogTool.execute(args) }
+            val resultString: String = koogTool.execute(args)
 
             val structuredContent = runCatching {
                 json.parseToJsonElement(resultString).jsonObject

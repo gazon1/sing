@@ -30,6 +30,9 @@ import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.platform.AndroidHostEnvironment
+import com.singularity.todo.core.observability.AndroidFileToolCallLog
+import com.singularity.todo.core.observability.ToolCallLog
+import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.haptics.AndroidHaptic
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -222,6 +225,17 @@ actual fun platformModule(): Module = module {
     single<FileSystem> { AndroidFileSystem(get()) }
 
     single<HostEnvironmentPort> { AndroidHostEnvironment(get()) }
+
+    // The tool-call records, in the app's private storage. The platform already keeps
+    // that directory away from other applications, so there is nothing to lock down
+    // here that the platform has not already done.
+    single<ToolCallLog> {
+        AndroidFileToolCallLog(
+            directory = get<HostEnvironmentPort>().applicationDataDirectory() + "/tool-calls",
+        ).also { it.purgeExpired() }
+    }
+
+    single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
 
     single<FileRevealer> { AndroidFileRevealer(get()) }
     single<FileOpener> { AndroidFileOpener(get()) }

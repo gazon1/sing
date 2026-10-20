@@ -25,6 +25,9 @@ import com.singularity.todo.core.log.LogBundleExporter
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.JvmCrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
+import com.singularity.todo.core.observability.JvmFileToolCallLog
+import com.singularity.todo.core.observability.ToolCallLog
+import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.platform.haptics.Haptic
@@ -169,6 +172,18 @@ actual fun platformModule(): Module = module {
     single<FileSystem> { JvmFileSystem() }
 
     single<HostEnvironmentPort> { JvmHostEnvironment() }
+
+    // The tool-call records. The same writer serves the desktop app and the MCP server,
+    // which is why it lives in the platform module rather than in one of them: two
+    // writers would be two formats, and a report that reads one of them would miss
+    // half of what happened.
+    single<ToolCallLog> {
+        JvmFileToolCallLog(
+            directory = get<HostEnvironmentPort>().applicationDataDirectory() + "/tool-calls",
+        ).also { it.purgeExpired() }
+    }
+
+    single { ToolCallRecorder(log = get(), nowEpochMillis = { System.currentTimeMillis() }) }
 
     single<FileRevealer> { JvmFileRevealer() }
     single<FileOpener> { JvmFileOpener() }

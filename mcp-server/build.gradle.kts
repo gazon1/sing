@@ -21,8 +21,29 @@ kotlin {
     }
 }
 
+/**
+ * The version this server reports in the MCP handshake.
+ *
+ * Read from the same property as the desktop app rather than from a literal: the
+ * handshake field is what a client shows when something behaves unexpectedly, and a
+ * literal there is a version nobody can check against the checkout. Two version
+ * properties is how a 0.2.1 package ended up reporting 0.1.0 forever.
+ */
+val appVersion = (project.findProperty("desktopAppVersion") as String?) ?: "0.1.0"
+
 application {
     mainClass.set("com.singularity.todo.mcp.MainKt")
+    // The same Gradle property the desktop launcher and the Android build use, so there
+    // is one version source: the release pipeline sets `desktopAppVersion`, and a client
+    // that connects to the MCP server is told the same version the desktop launcher
+    // prints.
+    applicationDefaultJvmArgs = listOf("-Dsingularity.version=$appVersion")
+}
+
+// `applicationDefaultJvmArgs` reaches the installed distribution's start scripts; the
+// `run` task is a separate JavaExec and needs the same property.
+tasks.named<JavaExec>("run") {
+    jvmArgs("-Dsingularity.version=$appVersion")
 }
 
 /**

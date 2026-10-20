@@ -57,6 +57,12 @@ SURFACE_KT = ROOT / ("adr-cli/src/main/kotlin/com/singularity/todo/adr/cli"
                      "/AdrSurface.kt")
 CATALOG_KT = ROOT / ("shared/src/commonMain/kotlin/com/singularity/todo/mcp"
                      "/McpToolCatalog.kt")
+# The tool classes own their descriptions. The catalogue used to carry a second copy of
+# every description and the two drifted apart in 32 of 39 tools -- including five where
+# the catalogue described a different capability than the tool implements. The server
+# builds its schema from the class constant, so the class is the fact; the docs read it
+# from there too, and the duplication is gone rather than policed.
+TOOLS_DIR = ROOT / ("shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/tools")
 
 BEGIN = "<!-- BEGIN GENERATED: adr-tools -->"
 END = "<!-- END GENERATED: adr-tools -->"
@@ -99,7 +105,7 @@ SKILLS = DOCUMENTS
 # Rule 4: a trailing comma before `)` is accepted and stripped by `\s*,?\s*`.
 #   Rationale: Kotlin trailing commas are legal and common in the codebase.
 CALL_RE = re.compile(
-    r'^\s*(?P<ctor>AdrCommandSpec|AdrFlagSpec)\(\s*'
+    r'^\s*(?P<ctor>AdrCommandSpec|AdrFlagSpec|AdrMcpToolSpec)\(\s*'
     r'"(?P<a>[^"]*)"\s*,\s*'
     r'"(?P<b>[^"]*)"\s*'
     r'(?:,\s*"(?P<c>[^"]*)"\s*)?\)\s*,?\s*$'
@@ -168,45 +174,144 @@ def _parse_block(lines: list[str], ctor: str, path: pathlib.Path) -> list[tuple[
     return out
 
 
+STRING_LITERAL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+NAME_CONST_RE = re.compile(r'const val NAME\s*=\s*"([^"]+)"')
+DESCRIPTION_CONST_RE = re.compile(r'const val DESCRIPTION\s*=')
+
+
+def _description_after(text: str, pos: int, path: pathlib.Path) -> str:
+    """The DESCRIPTION constant that follows offset `pos` in `text`.
+
+    Kotlin string concatenation is one sentence to a reader, so the expression is
+    collected across lines: a line contributes its string literals and the expression
+    continues while the line ends with `+`. The first line after `=` may be empty --
+    `const val DESCRIPTION =` is often followed by the literal on the next row -- so
+    blank lines are skipped before collection starts.
+    """
+    m = DESCRIPTION_CONST_RE.search(text, pos)
+    if not m:
+        raise ParseError(f'{path.name}: a tool NAME constant has no DESCRIPTION constant after it')
+    lines = text[m.end():].split('\n')
+    idx = 0
+    while idx < len(lines) and not lines[idx].strip():
+        idx += 1
+    literals: list[str] = []
+    while idx < len(lines):
+        line = lines[idx]
+        stripped = line.strip()
+        if stripped.startswith('//') or stripped.startswith('*') or stripped.startswith('/*'):
+            break
+        found = STRING_LITERAL_RE.findall(line)
+        if not found:
+            break
+        literals.extend(found)
+        if not line.rstrip().endswith('+'):
+            break
+        idx += 1
+    if not literals:
+        raise ParseError(f'{path.name}: DESCRIPTION constant at offset {m.end()} has no string literal')
+    return ''.join(literals).replace('\\"', '"')
+
+
+def tool_descriptions() -> dict[str, str]:
+    """`name` -> description for every Koog tool class in [TOOLS_DIR].
+
+    Read from the same constants the MCP server puts into its tool schema, so a
+    description in a document cannot disagree with what an agent is told when it
+    calls the tool.
+    """
+    return {name: desc for name, desc in tool_classes().values()}
+
+
+CLASS_RE = re.compile(r'^\s*class\s+(\w+)\s*[:(]', re.MULTILINE)
+
+
+def tool_classes() -> dict[str, tuple[str, str]]:
+    """`class name` -> (tool NAME constant, description) for every tool class.
+
+    A file may hold several tool classes -- `AdrTools.kt` holds five -- so the owner
+    of a NAME constant is the last class declaration before it, not the file name.
+    """
+    out: dict[str, tuple[str, str]] = {}
+    for kt in sorted(TOOLS_DIR.glob('*.kt')):
+        text = kt.read_text(encoding='utf-8')
+        classes = [(m.start(), m.group(1)) for m in CLASS_RE.finditer(text)]
+        for m in NAME_CONST_RE.finditer(text):
+            owner = None
+            for pos, class_name in classes:
+                if pos >= m.start():
+                    break
+                owner = class_name
+            if owner is None:
+                raise ParseError(f'{kt.name}: a NAME constant is declared outside any class')
+            entry = (m.group(1), _description_after(text, m.end(), kt))
+            if owner in out and out[owner] != entry:
+                raise ParseError(
+                    f'{kt.name}: class {owner} declares two different tools -- the toolbox has a '
+                    'name collision'
+                )
+            out[owner] = entry
+    if not out:
+        raise ParseError(f'{TOOLS_DIR}: no tool classes found -- the source shape changed')
+    return out
+
+
+def catalog_entries() -> list[tuple[str, str, str]]:
+    """(name, toolClass, domain) for every entry in the MCP catalogue."""
+    text = CATALOG_KT.read_text(encoding='utf-8')
+    start = text.index('val catalog: List<ToolEntry>')
+    block = text[start:]
+    entries: list[tuple[str, str, str]] = []
+    for chunk in block.split('ToolEntry(')[1:]:
+        found = []
+        for field in ('name', 'toolClass', 'domain'):
+            m = re.search(rf'^\s*{field}\s*=\s*"([^"]+)"', chunk, re.MULTILINE)
+            if not m:
+                raise ParseError(f'{CATALOG_KT.name}: a ToolEntry has no {field}')
+            found.append(m.group(1))
+        entries.append((found[0], found[1], found[2]))
+    if not entries:
+        raise ParseError(f'{CATALOG_KT.name}: no ToolEntry declarations found -- the catalog shape '
+                         'changed and this renderer has to follow it')
+    return entries
+
+
+def mcp_tool_mapping() -> list[tuple[str, str]]:
+    """(CLI command, MCP tool) for every ADR command that has an MCP face."""
+    text = SURFACE_KT.read_text(encoding='utf-8')
+    start = text.index('val mcpTools: List<AdrMcpToolSpec>')
+    end = text.index('fun usageLines()', start)
+    rows = _parse_block(text[start:end].splitlines(), 'AdrMcpToolSpec', SURFACE_KT)
+    return [(command, tool) for command, tool, _ in rows]
+
+
 def mcp_adr_tools() -> list[tuple[str, str]]:
     """(name, description) for every MCP tool in the `adr` domain.
 
-    Read from the catalog the MCP server itself serves, so a tool's description in a
-    skill cannot disagree with what an agent is actually told when it calls it.
+    The names come from the catalogue the MCP server serves; the descriptions come
+    from the tool classes themselves (see [tool_descriptions]).
 
-    Parsed by splitting on `ToolEntry(` and reading one chunk at a time, not by
-    matching `name = ... .*? description = ...` across the file. That single regex
-    was tried and it is wrong in a way that does not announce itself: a description
-    built by string concatenation pushes the `annotations` line onto another row, the
-    lazy match cannot close there, and the pattern walks on to the *next* entry's
-    description. The result rendered `write_adr` with `list_adrs`'s description —
-    plausible, confident, and off by one tool.
+    The domain is read from the entries rather than from a slice of the file between two
+    section markers: a marker-based slice silently swallowed the tools of whatever
+    section happened to be declared next, and the "ADR tools" block then listed a tool
+    that was not in the ADR domain at all.
     """
-    text = CATALOG_KT.read_text(encoding='utf-8')
-    start = text.index('// ── ADR ─')
-    end = text.index('// ── AI Write Tools ─', start)
-    block = text[start:end]
-
-    tools: list[tuple[str, str]] = []
-    for chunk in block.split('ToolEntry(')[1:]:
-        name = re.search(r'^\s*name\s*=\s*"([^"]+)"', chunk, re.MULTILINE)
-        if not name:
-            raise ParseError(f'{CATALOG_KT.name}: ToolEntry without a name')
-        desc = re.search(
-            r'^\s*description\s*=\s*(?P<body>.*?)(?=^\s*annotations\s*=)',
-            chunk,
-            re.MULTILINE | re.DOTALL,
-        )
-        if not desc:
-            raise ParseError(f'{CATALOG_KT.name}: tool {name.group(1)!r} has no description')
-        # Kotlin string concatenation across lines is one sentence to a reader.
-        literals = re.findall(r'"((?:[^"\\]|\\.)*)"', desc.group('body'))
-        tools.append((name.group(1), ''.join(literals).replace('\\"', '"')))
-    if not tools:
+    names = [name for name, _, domain in catalog_entries() if domain == 'adr']
+    if not names:
         raise ParseError(
-            f'{CATALOG_KT.name}: no `adr`-domain ToolEntry declarations found — the catalog '
+            f'{CATALOG_KT.name}: no `adr`-domain ToolEntry declarations found -- the catalog '
             'shape changed and this renderer has to follow it'
         )
+
+    descriptions = tool_descriptions()
+    tools: list[tuple[str, str]] = []
+    for name in names:
+        if name not in descriptions:
+            raise ParseError(
+                f'{CATALOG_KT.name}: tool {name!r} is declared in the catalogue but no tool '
+                'class declares that NAME -- the catalogue and the toolbox have drifted'
+            )
+        tools.append((name, descriptions[name]))
     return tools
 
 

@@ -130,11 +130,14 @@ Every write tool must verify the resource belongs to the current user before mut
 override suspend fun execute(args: <Tool>Input): String {
     // Load the resource to check ownership
     val existing = repo.watchById(args.id).first()
-        ?: return McpToolError.NotFound("task", args.id).format(isError = true)
 
-    // Authorization check
-    if (existing.userId != currentUser.userId) {
-        return McpToolError.Unauthorized("task:${args.id}").format(isError = true)
+    // Authorization check — an actionable failure goes in the OUTPUT, not in an
+    // exception: `McpToolError` lives in `:mcp-server` and is not on this classpath.
+    if (existing == null || existing.userId != currentUser.userId) {
+        return Json.encodeToString(
+            <Tool>Output.serializer(),
+            <Tool>Output(error = "no task '${args.id}' for this user"),
+        )
     }
 
     // Proceed with mutation...
@@ -143,7 +146,10 @@ override suspend fun execute(args: <Tool>Input): String {
 private val currentUser: CurrentUser  // injected
 ```
 
-**Rule:** authorization errors return `isError = true` with actionable text — **never** throw or return HTTP-style codes. The LLM reads the message and self-corrects.
+**Rule:** an authorization failure is reported with actionable text — **never** an
+HTTP-style code, and never an exception from a tool in `:shared`. The LLM reads the
+message and self-corrects. See [Two-Tier Error Mapping](#two-tier-error-mapping) for
+where the two tiers actually live.
 
 ## Dry-Run for Destructive Operations
 
@@ -171,53 +177,101 @@ data class DeleteTaskOutput(
 
 ## Two-Tier Error Mapping
 
-```kotlin
-// Every tool execute() returns either:
-//  1. Success → JSON string of Output
-//  2. isError=true → JSON string with actionable text
-//  3. Internal error → throw McpInternalException → JSON-RPC -32603
+**Where the two tiers live matters, and this used to be wrong here.**
 
-override suspend fun execute(args: <Tool>Input): String {
-    return runCatching {
-        doExecute(args)
-    }.fold(
-        onSuccess = { it.toJson() },
-        onFailure = { error ->
-            when (error) {
-                is ValidationException -> McpToolError.Validation(field, error.message).format(isError = true)
-                is NotFoundException -> McpToolError.NotFound(resource, id).format(isError = true)
-                is UnauthorizedException -> McpToolError.Unauthorized(resource).format(isError = true)
-                else -> throw error  // re-throw for JSON-RPC -32603
-            }
-        }
-    )
+`McpToolError` is declared in **`:mcp-server`**, not in `:shared`. A tool in
+`:shared` cannot throw it — the class is not on its classpath — so a tool that tries
+raises `unresolved reference` and does not compile. The two tiers are therefore split
+across the boundary:
+
+- **In the tool (`:shared`)** — a failure the caller can act on is reported in the
+  *output*, as an `error` field. The tool returns a JSON string; it does not throw a
+  transport-level error.
+- **At the boundary (`:mcp-server`)** — the registrar catches what the tool threw and
+  maps it: a business failure to `isError = true` with actionable text, anything else to
+  JSON-RPC `-32603`.
+
+```kotlin
+// In :shared — the tool reports the failure the caller can act on.
+@Serializable
+data class DeleteTaskOutput(
+    val wouldDelete: List<String>,
+    val dryRunSkipped: Boolean = false,
+    val cached: Boolean = false,
+    val error: String? = null,       // the actionable failure, in the output
+)
+
+class DeleteTaskTool(private val repo: TaskRepository) :
+    SimpleTool<DeleteTaskInput>(TypeToken.of(DeleteTaskInput::class.java), NAME, DESCRIPTION) {
+    override suspend fun execute(args: DeleteTaskInput): String {
+        val result = runCatchingCancellable { repo.delete(args.id) }
+        return Json.encodeToString(
+            DeleteTaskOutput.serializer(),
+            DeleteTaskOutput(
+                wouldDelete = listOf(args.id),
+                dryRunSkipped = args.dryRun,
+                error = result.exceptionOrNull()?.message,
+            ),
+        )
+    }
 }
 ```
+
+```kotlin
+// In :mcp-server — the boundary decides what a failure means.
+try {
+    val result = tool.execute(args)
+    CallToolResult(content = listOf(TextContent(result)), isError = false)
+} catch (e: McpToolError) {
+    ErrorMapper.toResult(e)          // business → isError = true
+} catch (e: Exception) {
+    ErrorMapper.toResult(McpToolError.Internal(e.message ?: "unknown", e))  // → -32603
+}
+```
+
+**Rule:** a tool in `:shared` never imports `McpToolError`. It reports an actionable
+failure in its output; the boundary turns that into `isError = true`. The LLM reads the
+message and self-corrects; internals are logged server-side.
 
 ## Tool Annotation Convention
 
 Every write tool must have the correct annotation in `ToolAnnotations.kt`:
 
+The annotation is looked up by the tool's **name** — the `NAME` constant, which is also
+the name the client calls. A key that does not match a tool name is an annotation nothing
+reads, so the keys below are the tool names.
+
 | Tool | Annotation |
 |---|---|
-| `tasks.create` | `idempotentHint = true` |
-| `tasks.update` | `idempotentHint = true` |
-| `tasks.complete` | `idempotentHint = true` |
-| `tasks.delete` | `destructiveHint = true` |
-| `tasks.restore` | `destructiveHint = true` (restore from trash) |
-| `tasks.pin` | none |
-| `tasks.set_priority` | none |
-| `tasks.set_due_date` | none |
-| `tasks.move_to_project` | none |
-| `projects.create` | `idempotentHint = true` |
-| `projects.delete` | `destructiveHint = true` |
-| `notes.create` | `idempotentHint = true` |
-| `notes.archive` | `destructiveHint = true` |
-| `notes.pin` | none |
-| `tags.create` | `idempotentHint = true` |
-| `tags.assign` | none |
-| `adr.write` | `openWorldHint = true` (creates external file) |
+| `create_task` | `idempotentHint = true` |
+| `update_task` | `idempotentHint = true` |
+| `delete_task` | `destructiveHint = true` |
+| `list_tasks` | `readOnlyHint = true` |
+| `get_task` | `readOnlyHint = true` |
+| `search_tasks` | `readOnlyHint = true` |
+| `list_linked_tasks` | `readOnlyHint = true` |
+| `create_project` | `idempotentHint = true` |
+| `update_project` | `idempotentHint = true` |
+| `delete_project` | `destructiveHint = true` |
+| `list_projects` | `readOnlyHint = true` |
+| `get_project` | `readOnlyHint = true` |
+| `create_note` | `idempotentHint = true` |
+| `update_note` | `idempotentHint = true` |
+| `delete_note` | `destructiveHint = true` |
+| `get_note` | `readOnlyHint = true` |
+| `create_tag` | `idempotentHint = true` |
+| `delete_tag` | `destructiveHint = true` |
+| `write_adr` | `openWorldHint = true` (creates a file outside the database) |
+| `update_adr` | `openWorldHint = true` (rewrites a file) |
+| `list_adrs` | `readOnlyHint = true` |
+| `read_adr` | `readOnlyHint = true` |
+| `list_open_deferred` | `readOnlyHint = true` |
+| `search_decisions` | `readOnlyHint = true` |
+| `search_docs` | `readOnlyHint = true` |
 | `decompose_and_create` | none |
+
+The table is generated from `McpToolCatalog.kt`, and the drift gate checks the `adr`
+domain of it against the tool classes — so a row that stops being true is caught.
 
 ## Pagination for List Tools
 
@@ -262,27 +316,37 @@ If a tool's input schema changes (new field, renamed field, changed type):
 
 ## Complete Tool List
 
-| Tool | Input | Authorization | Dry-run default |
+The **names** below are the names the client calls — the `NAME` constant of each tool
+class, and the key the annotations are looked up by. They are owned by
+`McpToolCatalog.kt`, and the drift gate checks the catalogue against the tool classes.
+
+A list of tools that do not exist is worse than no list: an agent reads it and calls
+`tasks.pin`, and the call fails. This table was one, and it is corrected here — the
+tools `tasks.pin`, `tasks.restore`, `tasks.complete`, `tasks.set_priority`,
+`tasks.set_due_date`, `tasks.move_to_project`, `notes.archive` and `notes.pin` were
+listed and **do not exist**.
+
+| Tool | Input | Authorization | Destructive |
 |---|---|---|---|
-| `tasks.create` | title, description?, priority?, projectId?, tagIds?, dueDate? | N/A (new) | `false` |
-| `tasks.update` | taskId, title?, description?, priority?, projectId?, dueDate? | `task.userId == currentUser` | `false` |
-| `tasks.complete` | taskId, completed: Boolean | `task.userId == currentUser` | `false` |
-| `tasks.delete` | taskId | `task.userId == currentUser` | `true` |
-| `tasks.restore` | taskId | `task.userId == currentUser` | `true` |
-| `tasks.pin` | taskId, pinned: Boolean | `task.userId == currentUser` | `false` |
-| `tasks.set_priority` | taskId, priority: Int (0-4) | `task.userId == currentUser` | `false` |
-| `tasks.set_due_date` | taskId, dueDate: String? (ISO-8601) | `task.userId == currentUser` | `false` |
-| `tasks.move_to_project` | taskId, projectId: String? | `task.userId == currentUser` | `false` |
-| `projects.create` | name, description?, color?, icon? | N/A (new) | `false` |
-| `projects.delete` | projectId | `project.userId == currentUser` | `true` |
-| `notes.create` | title, bodyMarkdown, color?, folder? | N/A (new) | `false` |
-| `notes.archive` | noteId | `note.userId == currentUser` | `true` |
-| `notes.pin` | noteId, pinned: Boolean | `note.userId == currentUser` | `false` |
-| `tags.create` | name, color? | N/A (new) | `false` |
-| `tags.assign` | taskId, tagId | `task.userId == currentUser` | `false` |
-| `adr.write` | title, slug, context, decision, rationale, consequences?, createNote: Boolean | N/A | `false` |
-| `decompose_and_create` | taskId | `task.userId == currentUser` | `false` |
-| `checklist.complete_item` | itemId, completed: Boolean | `item.userId == currentUser` | `false` |
+| `create_task` | title, description?, priority?, kind?, projectId?, parentTaskId?, tagIds? | N/A (new) | no |
+| `update_task` | taskId, title?, description?, priority?, kind?, projectId?, tagIds?, dueDate?, dueTime?, someday? | `task.userId == currentUser` | no |
+| `delete_task` | taskId, reason? | `task.userId == currentUser` | **yes** — a proposal that needs confirmation |
+| `create_project` | name, color? | N/A (new) | no |
+| `update_project` | projectId, name?, color?, icon?, description? | `project.userId == currentUser` | no |
+| `delete_project` | projectId, reason? | `project.userId == currentUser` | **yes** — a proposal that needs confirmation |
+| `create_note` | title, bodyMarkdown, isFolder?, parentNoteId? | N/A (new) | no |
+| `update_note` | noteId, title?, bodyMarkdown?, bodyHtml? | `note.userId == currentUser` | no |
+| `delete_note` | noteId, reason? | `note.userId == currentUser` | **yes** — a proposal that needs confirmation |
+| `create_tag` | name, color? | N/A (new) | no |
+| `delete_tag` | tagId, reason? | `tag.userId == currentUser` | **yes** — a proposal that needs confirmation |
+| `write_adr` | slug, title, tags?, body | N/A (creates a file) | no — but it **fails** if the slug exists |
+| `update_adr` | slug, status, supersededBy? | N/A (rewrites a file) | no — the body is never touched |
+| `decompose_and_create` | title, description?, priority?, projectId?, tagIds? | N/A (new) | no |
+
+**On "dry-run".** There is no `dryRun` field in these tools, and the four `delete_*`
+tools do not delete: they create a **proposal** that the user confirms. A tool
+description that says "permanently deletes" is wrong, and the catalogue used to say
+exactly that.
 
 ## Common Mistakes
 
@@ -290,11 +354,14 @@ If a tool's input schema changes (new field, renamed field, changed type):
 // ❌ WRONG — no authorization check before update
 repo.update(task.copy(title = args.title))
 
-// ✅ CORRECT — verify ownership
+// ✅ CORRECT — verify ownership, and report it in the output
 val task = repo.watchById(TaskId(args.taskId)).first()
-    ?: return McpToolError.NotFound("task", args.taskId).format(isError = true)
-if (task.userId != currentUser.userId) 
-    return McpToolError.Unauthorized("task:${args.taskId}").format(isError = true)
+if (task == null || task.userId != currentUser.userId) {
+    return Json.encodeToString(
+        <Tool>Output.serializer(),
+        <Tool>Output(error = "no task '${args.taskId}' for this user"),
+    )
+}
 
 // ❌ WRONG — hardcoded dryRun=false for delete
 val dryRun = false
@@ -302,11 +369,14 @@ val dryRun = false
 // ✅ CORRECT — destructive tools default to dryRun=true
 val dryRun = args.dryRun
 
-// ❌ WRONG — returning raw exception message
+// ❌ WRONG — returning the raw exception message: it can carry arguments and paths
 return Result.failure(RuntimeException("SQL exception: $e")).toString()
 
-// ✅ CORRECT — actionable error text
-return McpToolError.Internal("Database error during create", e).format(isError = true)
+// ✅ CORRECT — a short, actionable message in the output
+return Json.encodeToString(
+    <Tool>Output.serializer(),
+    <Tool>Output(error = "could not create the task, try again"),
+)
 
 // ❌ WRONG — no pagination on list tools
 return allItems.map { it.toSummary() }.toJson()

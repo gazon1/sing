@@ -72,6 +72,9 @@ sourceSets {
             implementation(libs.junit.jupiter)
             implementation(libs.junit.jupiter.params)
             testImplementation(libs.kotlinx.coroutines.debug)
+            // The toolbox-wiring test resolves the real Koin tool list, whose type
+            // is Koog's. Without it the test cannot name what it is checking.
+            testImplementation(libs.koog.agents)
             // Allure test reporting — generates JSON results for CI integration
             implementation(libs.allure.kotlin.junit5)
         }

@@ -42,8 +42,28 @@ class RenderTest(unittest.TestCase):
         names = [n for n, _ in renderer.mcp_adr_tools()]
         self.assertEqual(
             names,
-            ['write_adr', 'list_adrs', 'update_adr', 'read_adr', 'list_open_deferred'],
+            [
+                'write_adr',
+                'list_adrs',
+                'update_adr',
+                'read_adr',
+                'list_open_deferred',
+                'search_decisions',
+            ],
         )
+
+    def test_the_adr_domain_is_read_by_domain_not_by_a_slice_of_the_file(self):
+        """The slice swallowed whatever section was declared next.
+
+        `search_docs` is in the `docs` domain and is declared right after the ADR
+        section, so a renderer that cut the file between the "ADR" and "AI Write Tools"
+        markers listed it as an ADR tool. The domain is a property of the entry, and
+        reading it from the entry is the only way the list stays right when a section is
+        added in the middle.
+        """
+        adr_names = {n for n, _, domain in renderer.catalog_entries() if domain == 'adr'}
+        self.assertNotIn('search_docs', adr_names)
+        self.assertIn('search_docs', [n for n, _, _ in renderer.catalog_entries()])
 
     def test_a_description_belongs_to_its_own_tool(self):
         """The off-by-one this parser originally had.
@@ -53,17 +73,22 @@ class RenderTest(unittest.TestCase):
         `name = ... .*? description = ...` therefore fails to close and walks on to the
         *next* entry — rendering `write_adr` with `list_adrs`'s description. Plausible,
         confident, and wrong.
+
+        The texts asserted here are the ones the tool classes declare, because the
+        tool class is where the description lives. The catalogue used to carry a second
+        copy, and the two copies drifted apart in 32 of 39 tools — so asserting the
+        catalogue's wording would have pinned a lie.
         """
         descriptions = dict(renderer.mcp_adr_tools())
-        self.assertIn('Creates a NEW ADR', descriptions['write_adr'])
-        self.assertIn('Lists all ADR filenames', descriptions['list_adrs'])
-        self.assertIn('Reads the content of an ADR', descriptions['read_adr'])
+        self.assertIn('Create a NEW Architecture Decision Record', descriptions['write_adr'])
+        self.assertIn('List all Architecture Decision Records', descriptions['list_adrs'])
+        self.assertIn('Read a specific ADR by its slug', descriptions['read_adr'])
         self.assertNotEqual(descriptions['write_adr'], descriptions['list_adrs'])
 
     def test_a_concatenated_description_is_read_whole(self):
         """Not just its first string literal."""
         descriptions = dict(renderer.mcp_adr_tools())
-        self.assertIn('do not invent a', descriptions['write_adr'])
+        self.assertIn('it leaves the predecessor unlinked', descriptions['write_adr'])
 
     def test_flags_have_summaries(self):
         """`AdrFlagSpec` has two arguments; reading three renders "--json — None"."""
@@ -195,6 +220,118 @@ class DriftGateTest(unittest.TestCase):
         skill.write_text(text[:start] + text[end:], encoding='utf-8')
         self.assertIsNone(renderer.current_block(skill))
         self.assertIn(skill, self._gate())
+
+
+class ToolboxParityTest(unittest.TestCase):
+    """The declared toolbox and the implemented toolbox must be the same toolbox.
+
+    The catalogue, the tool classes and the CLI are three declarations of one surface.
+    Nothing diffs them against each other, so a tool can be added to one and forgotten
+    in another, and every side keeps working — the client asks for a tool that is not
+    registered, or a command reaches a corpus nobody can read over MCP.
+
+    Each test below breaks one of the three and asserts the gate reports it. A check
+    that has never been seen to fire is indistinguishable from a check that is not wired.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = pathlib.Path(self._tmp.name)
+        # The gate loads its own instance of the renderer, so the paths to patch are
+        # the gate's -- patching this module's copy would leave the gate reading the
+        # repository and every case below would pass for the wrong reason.
+        self._saved = (drift.renderer.CATALOG_KT, drift.renderer.SURFACE_KT,
+                       drift.renderer.TOOLS_DIR)
+
+    def tearDown(self):
+        (drift.renderer.CATALOG_KT, drift.renderer.SURFACE_KT,
+         drift.renderer.TOOLS_DIR) = self._saved
+
+    def _copy_tree(self, source: pathlib.Path) -> pathlib.Path:
+        target = self.tmp / source.name
+        shutil.copytree(source, target)
+        return target
+
+    def _copy_file(self, source: pathlib.Path) -> pathlib.Path:
+        target = self.tmp / source.name
+        shutil.copy(source, target)
+        return target
+
+    def test_the_committed_surface_has_no_problems(self):
+        self.assertEqual(drift.toolbox_problems(), [])
+
+    def test_a_catalogue_tool_without_a_class_is_reported(self):
+        """The client asks for a tool the code does not implement."""
+        tools = self._copy_tree(drift.renderer.TOOLS_DIR)
+        drift.renderer.TOOLS_DIR = tools
+        target = tools / 'ListTasksTool.kt'
+        target.write_text(
+            target.read_text(encoding='utf-8').replace('const val NAME = "list_tasks"',
+                                                       'const val NAME = "list_tasks_renamed"'),
+            encoding='utf-8',
+        )
+        problems = drift.toolbox_problems()
+        self.assertTrue(any('list_tasks' in p for p in problems), problems)
+
+    def test_a_tool_class_missing_from_the_catalogue_is_reported(self):
+        """A tool nobody wired up, and nobody will look for either."""
+        catalog = self._copy_file(drift.renderer.CATALOG_KT)
+        drift.renderer.CATALOG_KT = catalog
+        text = catalog.read_text(encoding='utf-8')
+        start = text.index('ToolEntry(\n            name = "list_tasks",')
+        end = text.index('),', start) + len('),')
+        catalog.write_text(text[:start] + text[end:], encoding='utf-8')
+        problems = drift.toolbox_problems()
+        self.assertTrue(any('list_tasks' in p for p in problems), problems)
+
+    def test_a_catalogue_entry_pointing_at_the_wrong_class_is_reported(self):
+        """The name is right and the implementation is not — the worst shape, because
+        the name check passes."""
+        catalog = self._copy_file(drift.renderer.CATALOG_KT)
+        drift.renderer.CATALOG_KT = catalog
+        text = catalog.read_text(encoding='utf-8')
+        catalog.write_text(
+            text.replace('toolClass = "ListTasksTool"', 'toolClass = "GetTaskTool"', 1),
+            encoding='utf-8',
+        )
+        problems = drift.toolbox_problems()
+        self.assertTrue(any('ListTasksTool' in p or 'GetTaskTool' in p for p in problems), problems)
+
+    def test_an_adr_tool_without_a_cli_command_is_reported(self):
+        """A tool an agent can call over MCP and nobody can reach from a terminal."""
+        surface = self._copy_file(drift.renderer.SURFACE_KT)
+        drift.renderer.SURFACE_KT = surface
+        text = surface.read_text(encoding='utf-8')
+        surface.write_text(
+            text.replace('        AdrMcpToolSpec("update", "update_adr"),\n', '', 1),
+            encoding='utf-8',
+        )
+        problems = drift.toolbox_problems()
+        self.assertTrue(any('update_adr' in p for p in problems), problems)
+
+    def test_a_cli_mapping_pointing_at_an_unknown_tool_is_reported(self):
+        surface = self._copy_file(drift.renderer.SURFACE_KT)
+        drift.renderer.SURFACE_KT = surface
+        text = surface.read_text(encoding='utf-8')
+        surface.write_text(
+            text.replace('AdrMcpToolSpec("read", "read_adr")',
+                         'AdrMcpToolSpec("read", "read_adf")', 1),
+            encoding='utf-8',
+        )
+        problems = drift.toolbox_problems()
+        self.assertTrue(any('read_adf' in p for p in problems), problems)
+
+    def test_a_duplicate_catalogue_name_is_reported(self):
+        catalog = self._copy_file(drift.renderer.CATALOG_KT)
+        drift.renderer.CATALOG_KT = catalog
+        text = catalog.read_text(encoding='utf-8')
+        catalog.write_text(
+            text.replace('name = "list_tasks"', 'name = "list_adrs"', 1),
+            encoding='utf-8',
+        )
+        problems = drift.toolbox_problems()
+        self.assertTrue(any('more than once' in p for p in problems), problems)
 
 
 class TargetSetTest(unittest.TestCase):

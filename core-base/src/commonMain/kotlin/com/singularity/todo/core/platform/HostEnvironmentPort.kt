@@ -33,4 +33,19 @@ interface HostEnvironmentPort {
 
     /** The current user's home directory, or an empty string if unknown. */
     fun homeDirectory(): String
+
+    /**
+     * The directory this application keeps its own data in.
+     *
+     * Not the home directory: the home directory belongs to the *user* and holds things
+     * a user would look for, while this one holds things the application writes and
+     * nobody else should. On the JVM it is `~/.singularity-todo` — the same directory
+     * the database lives in — and on Android it is a directory inside the app's private
+     * storage, which the platform already keeps away from other applications.
+     *
+     * A caller that writes here must not assume the directory exists: it is created on
+     * demand, and a failure to create it is a failure to write, not a reason to write
+     * somewhere else.
+     */
+    fun applicationDataDirectory(): String
 }

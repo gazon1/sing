@@ -291,9 +291,7 @@
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
     <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
-    <ID>SwallowedException:AiToolFilters.kt:e: Throwable</ID>
     <ID>SwallowedException:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
-    <ID>TooGenericExceptionCaught:AiToolFilters.kt:e: Throwable</ID>
     <ID>TooGenericExceptionCaught:BackupImporter.kt:BackupImporter$e: Exception</ID>
     <ID>TooGenericExceptionCaught:CalendarSyncViewModel.kt:CalendarSyncViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:CalendarSyncWorker.kt:CalendarSyncWorker$e: Exception</ID>

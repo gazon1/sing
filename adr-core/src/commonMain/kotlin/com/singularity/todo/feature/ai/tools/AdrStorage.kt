@@ -108,6 +108,47 @@ class AdrStorage(
     private val corpus: AdrCorpusConfig = AdrCorpusConfig.loadOrDefault(projectRoot)
 
     /**
+     * The search over the project's knowledge.
+     *
+     * Built here so that it sees the *resolved* decisions directory and the *resolved*
+     * corpus rules — the same ones `listAdrs` and the status gate use. A search with its
+     * own idea of where the decisions are would answer a different question than the
+     * one the corpus describes.
+     */
+    private val search: CorpusSearch = CorpusSearch(
+        projectRoot = projectRoot,
+        decisionsDir = decisionsDir,
+        corpus = corpus,
+        readAdr = { path -> readAdrAt(Path(path)) },
+    )
+
+    /**
+     * Search the decisions and the deferred backlog.
+     *
+     * The structured question: "what did we decide, and is it still open?" Each hit
+     * carries the status and the tags, so the answer can be read without opening the
+     * document.
+     */
+    fun searchAdrs(
+        query: String,
+        limit: Int = CorpusSearch.DEFAULT_LIMIT,
+        kind: SearchKind = SearchKind.ALL,
+    ): SearchEnvelope = search.searchDecisions(query, limit, kind)
+
+    /**
+     * Search the documents, the skills and the specifications — and the decisions when
+     * the scope covers them.
+     *
+     * The scattered question: "where is the rule about X?" The answer is a path and a
+     * snippet, not a decision with a status.
+     */
+    fun searchDocs(
+        query: String,
+        scope: SearchScope = SearchScope.ALL,
+        limit: Int = CorpusSearch.DEFAULT_LIMIT,
+    ): SearchEnvelope = search.searchDocuments(query, scope, limit)
+
+    /**
      * The working directory and every ancestor up to the filesystem root.
      *
      * The walk has to *terminate at the root*. `"".substringBeforeLast('/', "")` is `""`
@@ -218,8 +259,22 @@ class AdrStorage(
         )
     }.getOrNull()
 
+    /**
+     * The decisions — and only the decisions.
+     *
+     * `corpus.discover` walks the whole corpus, which includes the `deferred/`
+     * backlog: those files live under `docs/decisions/`, and the walk does not know
+     * that a backlog entry is not a decision. The rule that says so is
+     * [AdrCorpusConfig.isDecision], and it was declared but never applied here — so
+     * `list_adrs` answered with the backlog in it, and the two tools that exist to
+     * tell them apart (`list_adrs` and `list_open_deferred`) overlapped.
+     *
+     * A rule that is written down and not applied is the same defect as a rule that is
+     * written down twice.
+     */
     fun listAdrs(): List<AdrSummary> =
         corpus.discover(decisionsDir, corpus.discoverMaxDepth)
+            .filter { corpus.isDecision(it) }
             .mapNotNull { readAdrAt(Path(it)) }
             .map { AdrSummary(it.slug, it.title, it.date, it.tags, it.status) }
             .sortedByDescending { it.date }
@@ -509,17 +564,22 @@ class AdrStorage(
      * passed nothing through, which is why the backlog looked empty to every caller.
      */
     fun listOpenDeferred(): List<AdrSummary> {
-        // Filter by *location* as well as status. The name says deferred, and until
-        // #520 it happened to agree because listAdrs() only walked the corpus root —
-        // every top-level ADR was invisible to it, so the status test was applied to
-        // the backlog alone. Once discovery became recursive the same filter started
-        // admitting every `open` decision in the corpus, and `adr list-open` reported
-        // 41 entries of which almost none were backlog.
-        val backlog = corpus.deferred(decisionsDir).toSet()
-        return listAdrs().filter { summary ->
-            summary.slug in backlog &&
-                corpus.normalizeStatus(summary.status) in OPEN_DEFERRED_STATES
-        }
+        // The backlog is read from *its own* directory, not filtered out of the
+        // decisions. It used to be the other way round: `listAdrs()` walked the whole
+        // corpus — including `deferred/` — and this method filtered that list down to
+        // the backlog. That worked only because the decisions listing included the
+        // backlog in the first place, and it had already gone wrong once: when
+        // discovery became recursive, the filter started admitting every `open`
+        // decision in the corpus, and `adr list-open` reported 41 entries of which
+        // almost none were backlog (#520).
+        //
+        // The two listings now read the two parts of the corpus, and the rule that
+        // says a backlog entry is not a decision is applied where the decisions are
+        // listed.
+        return corpus.deferred(decisionsDir)
+            .mapNotNull { slug -> readAdrAt(Path(decisionsDir, corpus.deferredDir, "$slug.md")) }
+            .filter { corpus.normalizeStatus(it.status) in OPEN_DEFERRED_STATES }
+            .map { AdrSummary(it.slug, it.title, it.date, it.tags, it.status) }
     }
 
     /**
