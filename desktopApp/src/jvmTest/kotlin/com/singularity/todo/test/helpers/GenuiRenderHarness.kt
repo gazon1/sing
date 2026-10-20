@@ -18,6 +18,7 @@ import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
 import com.singularity.todo.feature.genui.core.A2uiValidator
 import com.singularity.todo.feature.genui.parser.A2uiParser
+import com.singularity.todo.feature.genui.parser.UiEvent
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.DefaultDataContext
 import com.singularity.todo.feature.genui.render.GenuiSurface
@@ -28,6 +29,7 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
 import com.singularity.todo.test.fakes.FakeClock
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.time.Instant
 
 /**
@@ -144,6 +146,24 @@ class GenuiRenderScope(
         controller.snapshot(GenuiSurfaceId)?.dataModel?.get(UiPath.parse(path))
 
     /**
+     * The **server** writes a value into the surface's data model.
+     *
+     * This is the server's write, not the field's: it is the path the count of the
+     * server's rewrites moves along. A field that cannot tell a server write from its
+     * own drops a rewrite that lands on a value it had already sent — the value looks
+     * like an echo of the field's own last push, and the echo guard does its job.
+     */
+    fun serverWrites(path: String, value: String) {
+        controller.apply(
+            UiEvent.UpdateData(
+                surfaceId = GenuiSurfaceId,
+                path = UiPath.parse(path),
+                value = JsonPrimitive(value),
+            ),
+        )
+    }
+
+    /**
      * Lets the composition settle.
      *
      * A text field writes to the data model through a coroutine — the field's text is
@@ -153,6 +173,18 @@ class GenuiRenderScope(
      */
     fun settle() {
         ui.waitForIdle()
+    }
+
+    /**
+     * Asserts the text the field tagged [name] holds.
+     *
+     * The field's value lives in its `EditableText`, not in its plain text: a labelled
+     * field's plain text is the label, so the value has to be read where the field keeps
+     * it. The tag is the one the renderer publishes, so the node is the field and not its
+     * decoration.
+     */
+    fun assertFieldText(name: String, expected: String) {
+        ui.assertTagTextEquals(TestTags.genUi(name), expected)
     }
 
     /**

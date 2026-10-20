@@ -65,9 +65,8 @@ import kotlin.test.assertTrue
  *    a counter that never moves says "this is a rewrite" about nothing.
  * 4. **A field site does not build its own source.** The answer is the owner's to
  *    give; a site that constructs the source itself is answering a question it
- *    cannot know the answer to. The GenUI renderer is the one documented
- *    exception: the owner there is a server, and the renderer is the boundary
- *    where the server's value and the server's counter are read.
+ *    cannot know the answer to. There is no exception: the GenUI renderer's owner
+ *    is the data context, which builds the source and hands it out whole.
  * 5. **The bridge takes no revision argument.** The counter is the source's
  *    property, not something a call site can write down.
  *
@@ -140,16 +139,13 @@ class TextFieldRewriteContractTest {
     fun `the owner a row names declares a source of that kind`() {
         val wrong = registry.mapNotNull { row ->
             val kind = row.kind.sourceType
-            // A row that builds its own source — the GenUI renderer, whose owner is a
-            // server — has no property to declare: the source is constructed where the
-            // server's value and the server's count are read. It still has to name the
-            // type, or the construction would not compile.
-            val declared = if (row.buildsSource) {
-                TextFieldShapeScan.imports(row.owner).contains(SOURCE_IMPORT + kind)
-            } else {
-                TextFieldShapeScan.properties(row.owner).any { property ->
-                    property.declaresSourceOf(kind)
-                }
+            // The owner builds the source: it keeps it in a property, or it hands it
+            // out from a function. The GenUI data context does the latter — it builds
+            // the source of a bound field and gives it to the renderer whole.
+            val declared = TextFieldShapeScan.properties(row.owner).any { property ->
+                property.declaresSourceOf(kind)
+            } || TextFieldShapeScan.functions(row.owner).any { function ->
+                function.returnsSourceOf(kind)
             }
             if (declared) return@mapNotNull null
             "$row.site -> ${row.owner} declares no $kind source"
@@ -213,7 +209,7 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `a field site does not build its own source`() {
-        val built = registry.filterNot { it.buildsSource }.mapNotNull { row ->
+        val built = registry.mapNotNull { row ->
             val constructed = TextFieldShapeScan.functions(row.site)
                 .filterNot { function -> function.isPreview() }
                 .mapNotNull { function ->
@@ -293,16 +289,7 @@ class TextFieldRewriteContractTest {
         val owner: String,
         val counter: String = "",
         val advances: String = "",
-    ) {
-        /**
-         * Whether the site builds the source itself.
-         *
-         * The GenUI renderer does: its owner is a server the renderer does not own,
-         * and the renderer is the boundary where the server's value and the server's
-         * count are read. A row says so by naming the site itself as the owner.
-         */
-        val buildsSource: Boolean get() = owner == site
-    }
+    )
 
     /**
      * The rewrite contract of every file that owns a bridged text field, as the skill
@@ -369,9 +356,6 @@ class TextFieldRewriteContractTest {
 
         /** The name of the bridged helper — the function the bridge exposes. */
         const val BRIDGED_HELPER = "rememberBridgedTextFieldState"
-
-        /** Where the two kinds of source live. */
-        const val SOURCE_IMPORT = "com.singularity.todo.core.ui.textfields."
 
         /** A source that is constructed. */
         val CONSTRUCTION = Regex("""(?:StaticText|OwnedText)\(""")

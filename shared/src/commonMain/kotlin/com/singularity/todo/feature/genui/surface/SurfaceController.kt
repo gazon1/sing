@@ -45,6 +45,16 @@ class SurfaceController {
         _serverRevisions.map { it[surfaceId] ?: 0L }
 
     /**
+     * The number of server-driven data writes to [surfaceId], as it is right now.
+     *
+     * The flow above is the observation; this is the *reading*. A caller that has to hand
+     * a field a source needs the count that goes with the value it is holding, and a flow
+     * cannot be read synchronously.
+     */
+    fun currentServerRevision(surfaceId: SurfaceId): Long =
+        _serverRevisions.value[surfaceId] ?: 0L
+
+    /**
      * Applies a single [UiEvent] to the current state.
      * All other overloads delegate to this one.
      */

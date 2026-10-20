@@ -102,6 +102,33 @@ class GenuiCatalogRenderTest {
     }
 
     /**
+     * A server rewrite wins over the field's own text — even when the value is one the field sent.
+     *
+     * This is the case the *owned* source exists for. The field pushed `seedx` a moment ago, so a
+     * rewrite that lands on `seedx` looks exactly like a lagging model: the echo guard does its job
+     * and drops it, and the field keeps the text the user typed since. The count of the server's
+     * writes is what says "this is a rewrite", and it travels with the source the field is handed.
+     *
+     * A field that held a *static* source would fail this test — which is the point of the two
+     * kinds being two types.
+     */
+    @Test
+    fun aServerRewriteReplacesAValueTheFieldHadSent() = runGenuiRenderTest(ADD_TASK_FORM) {
+        node("textfield_What_needs_doing?").performTextClearance()
+        node("textfield_What_needs_doing?").performTextInput("seedx")
+        settle()
+        node("textfield_What_needs_doing?").performTextInput("y")
+        settle()
+        assertFieldText("textfield_What_needs_doing?", "seedxy")
+
+        // The server rewrites the field to a value the field itself sent.
+        serverWrites("/draft/title", "seedx")
+        settle()
+
+        assertFieldText("textfield_What_needs_doing?", "seedx")
+    }
+
+    /**
      * A surface draws before its data arrives.
      *
      * The components are created first and the data follows, always — a surface that refused to
