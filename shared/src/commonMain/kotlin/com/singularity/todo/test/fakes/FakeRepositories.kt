@@ -45,7 +45,6 @@ import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.OpenOutcome
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.files.MapFileSystem
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.log.LogBundleExporter
@@ -394,7 +393,7 @@ class FakeBackupRepository : BackupRepository {
 }
 
 // ─── FileSystem (in-memory) — already exists as MapFileSystem ─────────────────
-// Use: MapFileSystem() from com.singularity.todo.core.files.MapFileSystem
+// Use: MapFileSystem() from com.singularity.todo.test.fakes.MapFileSystem
 
 // ─── TaskRepository ───────────────────────────────────────────────────────────
 

@@ -109,7 +109,7 @@ triage list) and therefore has no status to resolve.
  */
 interface FileSystem {
     /**
-     * Reads entire file into memory. Throws `NoSuchFileException` if not found.
+     * Reads entire file into memory. A missing path raises the platform's exception.
      */
     suspend fun readBytes(path: String): ByteArray
 }
