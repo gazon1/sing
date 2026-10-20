@@ -34,7 +34,7 @@ tags:
     element:
       id: menu_aichat
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - assertVisible:
     id: menu_statistics
 - assertVisible:
@@ -45,7 +45,7 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - assertVisible:
     id: menu_search
 - assertVisible:

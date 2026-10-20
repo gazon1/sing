@@ -23,7 +23,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: calendar_view_mode_month
-    timeout: 5000
+    timeout: 8000
 - extendedWaitUntil:
     visible:
       id: calendar_view_mode_week

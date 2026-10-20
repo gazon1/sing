@@ -45,7 +45,7 @@ tags:
     visible:
       id: task_checkbox_buy_milk
       checked: true
-    timeout: 5000
+    timeout: 8000
 
 # Long-press again to re-open the context menu.
 - longPressOn:

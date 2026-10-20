@@ -1,0 +1,155 @@
+# The Maestro elements that are waited for, and the kind each one belongs to:
+# `<maestro id> <kind>` per line, sorted by id.
+#
+# This file is the promise that every element a flow waits for has a budget:
+# `scripts/check-ui-wait-budgets.py` holds every wait to the budget of the kind
+# its element belongs to, and an element that is not listed here is a finding —
+# an element nobody budgeted is a budget nobody keeps in step.
+#
+# The kinds are the ones `config/docs/ui-wait-budgets.txt` prices. A kind says
+# what the wait is for, not where the element lives: a menu item and a saved
+# view's card are both `item`, because both are rows in a list that may be
+# animated or re-ordered.
+#
+# Ids are written the way the flow writes them, minus the quotes. A templated id
+# (`task_item_${RUN_ID}_buy_milk`) is one id and is listed under the template:
+# the runner substitutes the value, the shape of the element does not change.
+#
+# Sorted by id, one mapping per line, no blank lines.
+agenda_save_current_button button
+agenda_saved_views_button button
+agenda_section_blocked item
+agenda_section_no_date item
+agenda_section_not_touched_in_a_while item
+agenda_section_overdue item
+agenda_section_today item
+attachments_add_file_row item
+attachments_url_input field
+auth_attach_account_button button
+auth_attach_email_input field
+auth_continue_offline_button boot
+auth_email_input field
+auth_error_text network
+auth_loading network
+auth_message_text network
+auth_save_server_button boot
+auth_sign_out_button button
+backup_create_button button
+backup_restore_button button
+calendar_sync_google_connect_button button
+calendar_sync_system_enable_switch button
+calendar_sync_system_unavailable text
+calendar_view_mode_month button
+calendar_view_mode_week button
+checklist_item_milk item
+checklist_sheet dialog
+dialog_date_picker_ok dialog
+dialog_date_picker_sheet dialog
+dialog_title_delete_view dialog
+first_run_section item
+health_bucket_blocked item
+health_bucket_overdue item
+health_bucket_stagnant item
+menu_aichat menu
+menu_archive menu
+menu_notes menu
+menu_profiles menu
+menu_quick_search menu
+menu_search menu
+menu_settings menu
+menu_sheet menu
+menu_statistics menu
+nav_tab_inbox tab
+nav_tab_today shell
+note_editor_body field
+note_editor_title_input field
+note_item_by_title_alpha item
+note_item_by_title_meeting_notes item
+notes_quick_add_input field
+overflow_archive menu
+overflow_delete menu
+overflow_restore menu
+pomodoro_focus_chip button
+pomodoro_phase_label text
+pomodoro_play_button button
+profile_create_button button
+profile_create_name_input field
+profile_item_personal item
+profile_item_work item
+project_card_project_alpha item
+project_detail_quick_add field
+project_editor_name_input field
+recurrence_option_daily dialog
+result_dialog dialog
+saved_agenda_card_${RUN_ID}_copy_source item
+saved_agenda_card_${RUN_ID}_journey_renamed item
+saved_agenda_card_${RUN_ID}_journey_view item
+saved_agenda_card_${RUN_ID}_persistent_view item
+saved_agenda_create_fab button
+saved_agenda_empty_title text
+saved_agenda_menu_copy_to_profile menu
+saved_agenda_menu_delete menu
+saved_agenda_menu_edit menu
+saved_agenda_name_input field
+saved_agenda_save_button button
+search_empty_placeholder text
+search_empty_results text
+search_filter_has_description_switch button
+search_filter_pinned_switch button
+search_input field
+settings_content_sync item
+settings_notifications_enabled_switch button
+settings_tab_account tab
+settings_tab_backup tab
+settings_tab_interface tab
+settings_tab_notifications tab
+snackbar_action button
+subtask_item_${RUN_ID}_child_task_one item
+subtasks_section item
+sync_interval_row item
+task_checkbox_buy_milk item
+task_context_menu_sheet dialog
+task_detail_pin_button button
+task_detail_title text
+task_editor_due_date_row_label text
+task_editor_due_row item
+task_editor_priority_row item
+task_editor_recurrence_row item
+task_editor_title_input field
+task_item_${RUN_ID}_anonymous_task item
+task_item_${RUN_ID}_attachtesttask2026 item
+task_item_${RUN_ID}_backuproundtriptask item
+task_item_${RUN_ID}_buy_milk item
+task_item_${RUN_ID}_clearsearchtask2026 item
+task_item_${RUN_ID}_deleteattachtask2026 item
+task_item_${RUN_ID}_emptyurltask2026 item
+task_item_${RUN_ID}_full_task_with_all_fields item
+task_item_${RUN_ID}_grocery_run item
+task_item_${RUN_ID}_offline_task item
+task_item_${RUN_ID}_overdue_task item
+task_item_${RUN_ID}_parent_task item
+task_item_${RUN_ID}_persistencetask2026 item
+task_item_${RUN_ID}_pinnedtask2026 item
+task_item_${RUN_ID}_rendertesttask2026 item
+task_item_${RUN_ID}_sdnodate item
+task_item_${RUN_ID}_task_from_inbox_tab item
+task_item_${RUN_ID}_task_from_today_tab item
+task_item_${RUN_ID}_tasknodesc2026 item
+task_item_${RUN_ID}_taskwithdesc2026 item
+task_item_${RUN_ID}_uniquesearchabletask2026 item
+task_item_${RUN_ID}_unpinnedtask2026 item
+task_item_${RUN_ID}_water_the_plants item
+task_item_${RUN_ID}_worktask item
+task_item_buy_milk item
+task_item_pokupki item
+task_item_renameme item
+task_item_return_to_inbox item
+task_item_return_to_today item
+task_item_savedalpha2026 item
+task_item_seed_task item
+task_item_write_spec item
+task_item_купить_молоко item
+tasks_fab button
+time_tracking_start button
+time_tracking_stop button
+top_bar_back_button button

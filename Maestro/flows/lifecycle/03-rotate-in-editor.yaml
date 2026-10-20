@@ -11,7 +11,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
-    timeout: 8000
+    timeout: 5000
 - setOrientation: LANDSCAPE_LEFT
 # Use extendedWaitUntil to detect when the editor has re-rendered after rotation.
 # extendedWaitUntil polls the accessibility tree rather than waiting for a global
@@ -20,7 +20,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
-    timeout: 15000
+    timeout: 5000
 # Still the editor, and the title survived the configuration change.
 # NOTE: asserted as text because the editor is still open across the rotation
 # and no task row is mounted; `task_item_buy_milk` only applies once it closes.
@@ -30,4 +30,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
-    timeout: 15000
+    timeout: 5000

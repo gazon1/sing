@@ -35,7 +35,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
-    timeout: 5000
+    timeout: 10000
 - extendedWaitUntil:
     notVisible:
       id: task_item_buy_milk

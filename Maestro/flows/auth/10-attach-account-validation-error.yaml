@@ -53,7 +53,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_attach_account_button
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: auth_attach_account_button
 
@@ -61,7 +61,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_attach_email_input
-    timeout: 10000
+    timeout: 5000
 
 # Submit with empty fields — the submit button should be disabled
 # (validation prevents submission when both fields are empty).
@@ -100,6 +100,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_error_text
-    timeout: 15000
+    timeout: 20000
 - assertVisible:
     id: auth_error_text

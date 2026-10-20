@@ -51,7 +51,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: search_filter_has_description_switch
-    timeout: 5000
+    timeout: 8000
 
 # Toggle has-description filter on.
 - tapOn:
@@ -62,9 +62,9 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_${RUN_ID}_taskwithdesc2026
-    timeout: 5000
+    timeout: 8000
 # Task without description should be hidden.
 - extendedWaitUntil:
     notVisible:
       id: task_item_${RUN_ID}_tasknodesc2026
-    timeout: 5000
+    timeout: 8000

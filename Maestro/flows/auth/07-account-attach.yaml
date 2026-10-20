@@ -65,7 +65,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_attach_account_button
-    timeout: 10000
+    timeout: 8000
 
 # Navigate to the attach screen.
 - tapOn:
@@ -75,7 +75,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_attach_email_input
-    timeout: 10000
+    timeout: 5000
 - assertVisible:
     id: auth_attach_password_input
 - assertVisible:

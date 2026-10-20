@@ -35,7 +35,7 @@ tags:
     element:
       id: task_item_return_to_today
     direction: DOWN
-    timeout: 15000
+    timeout: 8000
 # Open the seeded task — this opens TaskDetailScreen. Navigating back
 # (auto-save on every change) returns to the Today tab with the task visible.
 - tapOn:
@@ -53,7 +53,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_return_to_today
-    timeout: 10000
+    timeout: 8000
 
 # ── Case 2: Inbox → FAB → save → task appears in Inbox ────────────────
 # Seed a no-date task (lands in Inbox). Open it from Inbox and save —
@@ -69,7 +69,7 @@ tags:
     element:
       id: task_item_return_to_inbox
     direction: DOWN
-    timeout: 15000
+    timeout: 8000
 # Open the seeded task from Inbox; navigating back auto-saves and returns
 # to the Inbox tab.
 - tapOn:
@@ -85,4 +85,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_return_to_inbox
-    timeout: 10000
+    timeout: 8000

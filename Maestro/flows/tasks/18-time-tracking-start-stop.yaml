@@ -33,7 +33,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: time_tracking_stop
-    timeout: 5000
+    timeout: 8000
 
 # Stop the timer. The section returns to Idle (START chip visible again).
 - tapOn:
@@ -41,7 +41,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: time_tracking_start
-    timeout: 5000
+    timeout: 8000
 
 # The section re-rendered as Loaded without crashing — verified by the chip
 # being back in its idle state (extendedWaitUntil succeeded above).

@@ -31,7 +31,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_save_server_button
-    timeout: 15000
+    timeout: 30000
 
 # Configure the server (URL + anon key from CI secrets or emulator prefs).
 - tapOn:
@@ -41,7 +41,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_email_input
-    timeout: 15000
+    timeout: 5000
 
 # Continue offline WITHOUT signing in — this puts the app on the
 # anonymous profile, mimicking a user who created tasks before creating
@@ -85,13 +85,13 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_save_server_button
-    timeout: 15000
+    timeout: 30000
 - tapOn:
     id: auth_save_server_button
 - extendedWaitUntil:
     visible:
       id: auth_email_input
-    timeout: 15000
+    timeout: 5000
 
 # Fill credentials and sign in.
 - inputText:
@@ -120,4 +120,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_seed_task
-    timeout: 10000
+    timeout: 8000

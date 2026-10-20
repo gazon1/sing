@@ -30,19 +30,19 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_save_server_button
-    timeout: 15000
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: auth_save_server_button
     direction: DOWN
-    timeout: 5000
+    timeout: 30000
 - tapOn:
     id: auth_save_server_button
 
 - extendedWaitUntil:
     visible:
       id: auth_email_input
-    timeout: 15000
+    timeout: 5000
 
 # Enter credentials and submit while in airplane mode.
 - inputText:

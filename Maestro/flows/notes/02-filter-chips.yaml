@@ -15,13 +15,13 @@ tags:
     element:
       id: menu_notes
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_notes
 - extendedWaitUntil:
     visible:
       id: notes_quick_add_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: notes_quick_add_input
 - inputText: "${RUN_ID} Alpha"
@@ -29,14 +29,14 @@ tags:
 - extendedWaitUntil:
     visible:
       id: note_editor_title_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: note_editor_save
 - back
 - extendedWaitUntil:
     visible:
       id: notes_quick_add_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: notes_quick_add_input
 - inputText: "${RUN_ID} Beta"
@@ -44,7 +44,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: note_editor_title_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: note_editor_save
 - back
@@ -61,18 +61,18 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: note_item_by_title_alpha
-    timeout: 5000
+    timeout: 8000
 # Archived: neither is archived.
 - tapOn:
     id: note_filter_chip_archived
 - extendedWaitUntil:
     notVisible:
       id: note_item_by_title_alpha
-    timeout: 5000
+    timeout: 8000
 # Back to All restores them.
 - tapOn:
     id: note_filter_chip_all
 - extendedWaitUntil:
     visible:
       id: note_item_by_title_alpha
-    timeout: 5000
+    timeout: 8000

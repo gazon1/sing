@@ -38,7 +38,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
-    timeout: 3000
+    timeout: 5000
 
 # Navigate back — task should still exist with its original title.
 - back

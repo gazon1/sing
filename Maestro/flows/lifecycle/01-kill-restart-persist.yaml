@@ -21,4 +21,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_buy_milk
-    timeout: 10000
+    timeout: 8000

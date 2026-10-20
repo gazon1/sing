@@ -16,7 +16,7 @@ tags:
     element:
       id: menu_archive
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_archive
 - extendedWaitUntil:

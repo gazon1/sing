@@ -36,13 +36,13 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 5000
+    timeout: 10000
 # scrollUntilVisible scrolls the nav-rail container upward to expose settings_tab_backup.
 # Unlike hardcoded swipe coordinates, this is viewport-relative and works on any screen size.
 - scrollUntilVisible:
@@ -55,7 +55,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: backup_create_button
-    timeout: 5000
+    timeout: 8000
 
 # 3. Create a backup. The dialog is system-owned so no testTag on its confirm.
 #
@@ -67,7 +67,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: result_dialog
-    timeout: 15000
+    timeout: 8000
 
 # 4. Clear app data (wiping all tasks), then relaunch.
 #
@@ -90,7 +90,7 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: task_item_${RUN_ID}_backuproundtriptask
-    timeout: 5000
+    timeout: 8000
 
 # 6. Restore from backup.
 - tapOn:
@@ -103,13 +103,13 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 5000
+    timeout: 10000
 # Same adaptive scroll for the second Settings→Backup navigation (after restore).
 - scrollUntilVisible:
     element:
@@ -121,7 +121,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: backup_restore_button
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: backup_restore_button
 - extendedWaitUntil:

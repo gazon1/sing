@@ -18,7 +18,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: nav_tab_inbox
-    timeout: 5000
+    timeout: 10000
 
 # 2. Open the Profiles screen and create a second profile.
 - tapOn:
@@ -31,13 +31,13 @@ tags:
     element:
       id: menu_profiles
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_profiles
 - extendedWaitUntil:
     visible:
       id: profile_create_button
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: profile_create_button
 - extendedWaitUntil:
@@ -50,7 +50,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: profile_item_work
-    timeout: 5000
+    timeout: 8000
 
 # 3. Switch to the Work profile, then seed a task while it is active.
 #
@@ -69,13 +69,13 @@ tags:
     element:
       id: menu_profiles
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_profiles
 - extendedWaitUntil:
     visible:
       id: profile_item_work
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: profile_item_work
 - extendedWaitUntil:
@@ -105,13 +105,13 @@ tags:
     element:
       id: menu_profiles
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_profiles
 - extendedWaitUntil:
     visible:
       id: profile_item_personal
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: profile_item_personal
 - extendedWaitUntil:

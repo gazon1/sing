@@ -22,14 +22,14 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 # Open Settings.
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 8000
+    timeout: 10000
 
 # Navigate to Sync tab.
 - tapOn:
@@ -59,7 +59,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: sync_interval_row
-    timeout: 5000
+    timeout: 8000
 
 # Dismiss the picker by tapping outside or pressing back.
 - back
@@ -71,13 +71,13 @@ tags:
     element:
       id: menu_settings
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_settings
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface
-    timeout: 8000
+    timeout: 10000
 - tapOn:
     id: settings_tab_sync
 - extendedWaitUntil:

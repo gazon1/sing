@@ -28,7 +28,7 @@ tags:
     element:
       id: menu_statistics
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_statistics
 
@@ -40,7 +40,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: health_bucket_stagnant
-    timeout: 15000
+    timeout: 8000
 
 # Drill down into STAGNANT.
 - tapOn:
@@ -51,6 +51,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda_section_not_touched_in_a_while
-    timeout: 15000
+    timeout: 8000
 - assertVisible:
     id: agenda_section_not_touched_in_a_while

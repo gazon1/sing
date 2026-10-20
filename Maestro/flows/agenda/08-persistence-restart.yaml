@@ -24,7 +24,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: saved_agenda_name_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: saved_agenda_name_input
 - eraseText
@@ -35,7 +35,7 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: saved_agenda_name_input
-    timeout: 8000
+    timeout: 5000
 - extendedWaitUntil:
     visible:
       id: saved_agenda_card_${RUN_ID}_persistent_view

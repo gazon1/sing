@@ -25,7 +25,7 @@ tags:
     element:
       id: menu_quick_search
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_quick_search
 - extendedWaitUntil:
@@ -49,4 +49,4 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: task_item_${RUN_ID}_uniquesearchabletask2026
-    timeout: 5000
+    timeout: 8000

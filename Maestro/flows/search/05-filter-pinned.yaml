@@ -28,13 +28,13 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_detail_title
-    timeout: 5000
+    timeout: 8000
 # Scroll and pin it.
 - scrollUntilVisible:
     element:
       id: task_detail_pin_button
     direction: DOWN
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: task_detail_pin_button
 - navigateBack
@@ -72,7 +72,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: search_filter_pinned_switch
-    timeout: 5000
+    timeout: 8000
 
 # Toggle pinned filter on.
 - tapOn:
@@ -84,8 +84,8 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_${RUN_ID}_pinnedtask2026
-    timeout: 5000
+    timeout: 8000
 - extendedWaitUntil:
     notVisible:
       id: task_item_${RUN_ID}_unpinnedtask2026
-    timeout: 5000
+    timeout: 8000

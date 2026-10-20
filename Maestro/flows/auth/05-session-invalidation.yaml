@@ -47,7 +47,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_sign_out_button
-    timeout: 10000
+    timeout: 8000
 
 # Sign out. The local data stays intact (local-first).
 - tapOn:
@@ -57,7 +57,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_email_input
-    timeout: 10000
+    timeout: 5000
 
 # Local tasks are still visible — the agenda tab is still there and
 # the user can see their data even though they are not authenticated.

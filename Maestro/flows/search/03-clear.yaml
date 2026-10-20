@@ -46,10 +46,10 @@ tags:
 - extendedWaitUntil:
     visible:
       id: search_empty_placeholder
-    timeout: 5000
+    timeout: 8000
 
 # Results must be gone.
 - extendedWaitUntil:
     notVisible:
       id: task_item_${RUN_ID}_clearsearchtask2026
-    timeout: 5000
+    timeout: 8000

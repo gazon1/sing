@@ -26,10 +26,10 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_${RUN_ID}_offline_task
-    timeout: 10000
+    timeout: 8000
 # Back online: the task is still there.
 - setAirplaneMode: disabled
 - extendedWaitUntil:
     visible:
       id: task_item_${RUN_ID}_offline_task
-    timeout: 10000
+    timeout: 8000

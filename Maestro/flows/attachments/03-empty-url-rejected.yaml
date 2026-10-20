@@ -19,7 +19,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: task_item_${RUN_ID}_emptyurltask2026
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: task_item_emptyurltask2026
 - extendedWaitUntil:
@@ -32,7 +32,7 @@ tags:
     element:
       id: attachments_add_file_row
     direction: DOWN
-    timeout: 5000
+    timeout: 8000
 - tapOn:
     id: attachments_add_file_row
 - extendedWaitUntil:

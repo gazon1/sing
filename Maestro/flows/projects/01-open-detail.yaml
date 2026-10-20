@@ -17,7 +17,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: project_editor_name_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: project_editor_name_input
 - inputText: "Project Alpha"

@@ -16,13 +16,13 @@ tags:
     element:
       id: menu_notes
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_notes
 - extendedWaitUntil:
     visible:
       id: notes_quick_add_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: notes_quick_add_input
 - inputText: "Meeting notes"
@@ -36,7 +36,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: note_editor_body
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: note_editor_body
 - inputText: "Discuss roadmap"
@@ -51,24 +51,24 @@ tags:
     element:
       id: menu_notes
     direction: DOWN
-    timeout: 10000
+    timeout: 5000
 - tapOn:
     id: menu_notes
 - extendedWaitUntil:
     visible:
       id: notes_quick_add_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: note_item_by_title_meeting_notes
 - extendedWaitUntil:
     visible:
       id: note_editor_body
-    timeout: 8000
+    timeout: 5000
 - back
 # Back to the preview, where the body is rendered.
 - extendedWaitUntil:
     visible:
       id: note_editor_body
-    timeout: 8000
+    timeout: 5000
 - assertVisible:
     id: note_item_by_title_meeting_notes

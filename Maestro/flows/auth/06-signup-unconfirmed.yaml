@@ -57,7 +57,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_sign_out_button
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: auth_sign_out_button
 
@@ -65,20 +65,20 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_email_input
-    timeout: 10000
+    timeout: 5000
 
 # Configure server so the sign-in/sign-up form is reachable.
 - scrollUntilVisible:
     element:
       id: auth_save_server_button
     direction: DOWN
-    timeout: 5000
+    timeout: 30000
 - tapOn:
     id: auth_save_server_button
 - extendedWaitUntil:
     visible:
       id: auth_email_input
-    timeout: 15000
+    timeout: 5000
 
 # Toggle from "Sign In" to "Sign Up" mode.
 - tapOn:
@@ -102,7 +102,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: auth_message_text
-    timeout: 10000
+    timeout: 20000
 
 # Verify the auth guard keeps the user on the auth screen in the
 # AwaitingEmailConfirmation state — the user should NOT be navigated

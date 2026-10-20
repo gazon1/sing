@@ -47,7 +47,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: agenda_section_today
-    timeout: 5000
+    timeout: 8000
 
 # Open composer via FAB
 - tapOn:
@@ -84,7 +84,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: first_run_section
-    timeout: 5000
+    timeout: 8000
 - tapOn: "Add checklist"
 
 # ── ChecklistEditorSheet: add an item ─────────────────────────────
@@ -92,7 +92,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: checklist_sheet
-    timeout: 5000
+    timeout: 8000
 
 # Type the first item. testTag(TestTags.CHECKLIST_ADD_INPUT) now
 # replaces the placeholder-text selector.
@@ -109,6 +109,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: checklist_item_milk
-    timeout: 5000
+    timeout: 8000
 - assertVisible:
     id: checklist_item_milk
