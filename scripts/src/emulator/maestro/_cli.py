@@ -40,6 +40,51 @@ GREEN  = lambda s: _col("0;32", s)
 YELLOW = lambda s: _col("0;33", s)
 
 
+def _install_debug(serial: str, deps: DeviceDeps) -> str | None:
+    """Install the debug APK, and survive a device that dies under the install.
+
+    The install is the one step where a dying device ends the whole run: the
+    per-flow recovery has not started yet, and a device that vanished mid
+    install takes the whole suite with it. On this host the emulator is
+    restarted by the system often enough that this is a real occurrence, not a
+    hypothetical one.
+
+    So a failed install is read the way a failed flow is read: the device is
+    asked whether it is there. A device that answers means the *build* failed
+    and retrying will not help; a device that does not answer means the AVD
+    is rebooted and the install is tried again.
+
+    Returns:
+        The serial the APK was installed on, or None when the install could not
+        be completed.
+    """
+    for attempt in range(2):
+        cp = deps.gradle_install_debug(serial)
+        if cp.returncode == 0:
+            return serial
+        health = deps.probe_device_health(serial)
+        if health.state == "alive":
+            logger.error(
+                f"installDebug failed (rc={cp.returncode}) and the device "
+                f"answers ({health.detail}) — the build failed, not the device"
+            )
+            return None
+        logger.warning(
+            f"installDebug failed (rc={cp.returncode}): {health.detail} — "
+            f"rebooting the AVD (attempt {attempt + 1})..."
+        )
+        acquired = deps.acquire_device(serial)
+        if not acquired:
+            logger.error(
+                f"could not recover {serial}: "
+                f"{_EXIT_REASON.get(acquired.exit_code, 'unknown')}"
+            )
+            return None
+        serial = acquired.serial
+    logger.error("installDebug failed twice; the device is not usable")
+    return None
+
+
 def _report_is_fresh(report: Path, started_at: float) -> bool:
     """True when `report` exists and was written after the run started.
 
@@ -184,9 +229,8 @@ def main(
         logger.info("Skipping install (--skip-install)")
     else:
         logger.info("=== Installing debug APK ===")
-        cp = deps.gradle_install_debug(serial)
-        if cp.returncode != 0:
-            logger.error(f"installDebug failed (rc={cp.returncode})")
+        serial = _install_debug(serial, deps)
+        if serial is None:
             return ctx.exit(EXIT_FAIL)
 
     # ── APK provenance ─────────────────────────────────────────────────────────

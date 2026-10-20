@@ -24,6 +24,7 @@ import unittest.mock
 from emulator._device import DeviceHealth
 from emulator._startup import Acquisition
 from emulator._types import EXIT_OK
+from emulator.maestro import _cli
 from emulator.maestro._device import (
     gradle_install_debug,
     junit_reports_device_failure,
@@ -231,6 +232,71 @@ class RunnerReadsTheReportTest(unittest.TestCase):
             )
 
         self.assertFalse(ok)
+
+
+class InstallRecoveryTest(unittest.TestCase):
+    """A device that dies under the install must not end the whole run."""
+
+    def _deps(self, *, alive: bool, install_results: list[int]):
+        calls: list[str] = []
+        installed: list[str] = []
+
+        def fake_install(serial):
+            calls.append(serial)
+            rc = install_results[len(calls) - 1]
+            cp = unittest.mock.Mock()
+            cp.returncode = rc
+            cp.stdout = ""
+            cp.stderr = ""
+            return cp
+
+        acquired: list[str] = []
+
+        def fake_acquire(pin):
+            acquired.append(pin)
+            return Acquisition("emulator-5554", EXIT_OK)
+
+        noop = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+        deps = DeviceDeps(
+            try_run=lambda cmd, **kw: noop,
+            device_alive=lambda s: alive,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=fake_install,
+            acquire_device=fake_acquire,
+            adb=lambda *a, **kw: "",
+            adb_on=lambda s, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, t=20: True,
+            cleanup_run_fixtures=lambda *a, **kw: None,
+            capture_artifacts=lambda *a, **kw: None,
+            git_sha=lambda deps: "abc123def456",
+            probe_device_health=lambda s: DeviceHealth(
+                "alive" if alive else "gone", "the test says so"
+            ),
+            emulator_process_alive=lambda: False,
+        )
+        return deps, calls, acquired
+
+    def test_a_device_that_died_under_the_install_is_rebooted_and_retried(self):
+        deps, calls, acquired = self._deps(alive=False, install_results=[1, 0])
+        serial = _cli._install_debug("emulator-5554", deps)
+        self.assertEqual(serial, "emulator-5554")
+        self.assertEqual(calls, ["emulator-5554", "emulator-5554"])
+        self.assertEqual(acquired, ["emulator-5554"], "the AVD was not rebooted")
+
+    def test_a_build_failure_is_not_retried(self):
+        """The device answers: the build failed, and a retry cannot fix that."""
+        deps, calls, acquired = self._deps(alive=True, install_results=[1])
+        self.assertIsNone(_cli._install_debug("emulator-5554", deps))
+        self.assertEqual(calls, ["emulator-5554"], "a failing build was retried")
+        self.assertEqual(acquired, [])
+
+    def test_a_successful_install_is_not_retried(self):
+        deps, calls, acquired = self._deps(alive=True, install_results=[0])
+        self.assertEqual(_cli._install_debug("emulator-5554", deps), "emulator-5554")
+        self.assertEqual(calls, ["emulator-5554"])
 
 
 if __name__ == "__main__":
