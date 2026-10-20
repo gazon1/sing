@@ -1,14 +1,21 @@
 package com.singularity.todo.mcp
 
+import ai.koog.agents.core.tools.Tool
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
+import com.singularity.todo.core.observability.ToolCallContext
+import com.singularity.todo.core.observability.ToolCallRecorder
+import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.ai.tools.AdrStorage
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
+import io.modelcontextprotocol.kotlin.sdk.server.ServerSession
 import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
 import io.modelcontextprotocol.kotlin.sdk.types.Implementation
 import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
@@ -26,6 +33,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.io.File
 import java.io.OutputStreamWriter
+import kotlin.time.Clock
 
 private val log = Logger.withTag("Main")
 
@@ -46,7 +54,7 @@ private val log = Logger.withTag("Main")
  *   External Agent ──MCP/stdio──► :mcp-server JVM process
  *                                       │
  *                                       ├─ startKoin { platformModule() + domainModule() }
- *                                       ├─ ToolRegistrar(server).registerAll()
+ *                                       ├─ ToolRegistrar(server, tools).registerAll()
  *                                       ├─ Server.createSession(transport)
  *                                       └─ runBlocking { done.join() } — holds JVM up
  *                                          until the client closes stdin (EOF).
@@ -64,9 +72,20 @@ fun main(args: Array<String>): Unit = runBlocking {
     // under the AI Agent's UUID instead of Personal's.
     bootstrapProfiles(profileId)
 
+    // The remote configuration is read once, here, and the answer is handed to the
+    // registrar. Reading it per tool call would let the exposed toolbox change under a
+    // running client; reading it once means the toolbox a client sees is the toolbox the
+    // server announced.
+    val toolConfiguration = readToolConfiguration()
+    log.i {
+        "Tool configuration: ${toolConfiguration.status}, " +
+            "${toolConfiguration.flags.count { it.value == false }} tool(s) disabled"
+    }
+
     log.i { "singularity-todo MCP server started" }
 
-    val server = buildServer()
+    val sessionContext = SessionContextHolder()
+    val server = buildServer(toolConfiguration, sessionContext)
     installShutdownHook(server)
 
     val transport = StdioServerTransport(
@@ -75,6 +94,10 @@ fun main(args: Array<String>): Unit = runBlocking {
     )
 
     val session = server.createSession(transport)
+    // The session is known immediately; the client's name is not — it arrives with the
+    // `initialize` request, which the client sends after this point. The holder reads it
+    // when a call is made, which is the only moment it is worth having.
+    sessionContext.session = session
     val done = Job()
     session.onClose { done.complete() }
     done.join()
@@ -217,11 +240,55 @@ private fun retromigrateRowsToAgentScope(profileId: String, localUserId: String,
     }
 }
 
-private fun buildServer(): Server {
+/**
+ * The remote-config flags that decide which tools are exposed, and how they were read.
+ *
+ * Read through the existing port, which is bounded and absorbs its own failures: a
+ * timeout yields the last known good snapshot, and with no cached snapshot at all the
+ * defaults are returned — which enable every tool.
+ *
+ * The policy is **fail-open**: a tool that an operator switched off is exposed again
+ * when the configuration cannot be read. That is a deliberate choice — the flags are an
+ * operational control for a broken tool, not a safety boundary — and it is why the
+ * status travels with the flags all the way to `describe_toolbox`, so an operator can
+ * see that the switch was *not* applied rather than assume it was.
+ */
+private suspend fun readToolConfiguration(): ToolConfiguration = try {
+    val snapshot = GlobalContext.get().get<RemoteConfigPort>().snapshot()
+    ToolConfiguration(
+        flags = snapshot.mcpToolFlags,
+        status = ToolsetSnapshot.statusOf(snapshot, Clock.System.now().toEpochMilliseconds()),
+        fetchedAtEpochMillis = snapshot.fetchedAtEpochMillis.takeIf { it > 0L },
+    )
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Throwable) {
+    log.w { "Remote configuration unavailable, every tool is enabled: ${e.message}" }
+    ToolConfiguration(
+        flags = emptyMap(),
+        status = ConfigurationStatus.ERROR,
+        fetchedAtEpochMillis = null,
+    )
+}
+
+/** The flags that decide the exposed toolbox, and where they came from. */
+data class ToolConfiguration(
+    val flags: Map<String, Boolean>,
+    val status: ConfigurationStatus,
+    val fetchedAtEpochMillis: Long?,
+)
+
+private fun buildServer(
+    configuration: ToolConfiguration,
+    sessionContext: SessionContextHolder,
+): Server {
     val server = Server(
         serverInfo = Implementation(
             name = "singularity-todo",
-            version = "0.1.0",
+            // The real application version, from the canonical source the desktop app
+            // and the Android build both use. A literal here would tell a client it had
+            // connected to a version nobody could check against the checkout.
+            version = appVersion().name,
             title = null,
             websiteUrl = null,
             icons = emptyList(),
@@ -229,12 +296,67 @@ private fun buildServer(): Server {
         options = ServerOptions(
             capabilities = ServerCapabilities(
                 tools = ServerCapabilities.Tools(listChanged = true),
+                resources = ServerCapabilities.Resources(listChanged = true),
             ),
         ),
-        instructions = "Singularity Todo MCP server. Use tools to read/write tasks, notes, projects, tags, and ADR entries.",
+        instructions = "Singularity Todo MCP server. Use tools to read/write tasks, notes, " +
+            "projects, tags, and ADR entries. Call describe_toolbox to see which tools this " +
+            "server is exposing and why.",
     )
-    ToolRegistrar(server).registerAll()
+    val registrar = ToolRegistrar(
+        server = server,
+        tools = GlobalContext.get().get<List<Tool<*, *>>>(),
+        toolFlags = configuration.flags,
+        configurationStatus = configuration.status,
+        configurationFetchedAtEpochMillis = configuration.fetchedAtEpochMillis,
+        recorder = GlobalContext.get().getOrNull<ToolCallRecorder>(),
+        sessionContext = { sessionContext.current() },
+    )
+    registrar.registerAll()
+    ToolboxTool(registrar.snapshot).register(server)
+    ToolboxResources(
+        snapshot = registrar.snapshot,
+        storage = GlobalContext.get().getOrNull<AdrStorage>(),
+    ).register(server)
+    RegistrySnapshot.write(registrar.snapshot)
+    log.i {
+        "Toolbox: ${registrar.snapshot.registered.size} tool(s) registered, " +
+            "${registrar.snapshot.disabled.size} disabled, " +
+            "fingerprint ${registrar.snapshot.identity.activeToolsetFingerprint}"
+    }
     return server
+}
+
+/**
+ * Writes what the toolbox looked like at startup, next to the call records.
+ *
+ * The report needs two things to say "this tool was registered and never called": the
+ * records of what happened, and a record of what the toolbox *was*. Without the second,
+ * the difference between "never registered" and "never called" is invisible — and the
+ * first is not a defect at all.
+ *
+ * Best-effort: a server that cannot write its registry still serves its tools.
+ */
+
+/**
+ * Who is connected, and in which session.
+ *
+ * Late-bound, because the session is created *after* the tools are registered, and the
+ * tool calls it describes happen after that. A holder rather than a constructor
+ * argument, for the same reason the registrar takes a supplier: the value is not known
+ * when the thing that needs it is built.
+ */
+private class SessionContextHolder {
+    @Volatile
+    var session: ServerSession? = null
+
+    fun current(): ToolCallContext {
+        val session = this.session
+        return ToolCallContext(
+            sessionId = session?.sessionId,
+            client = session?.clientVersion?.let { "${it.name}@${it.version}" },
+        )
+    }
 }
 
 private fun installShutdownHook(server: Server) {

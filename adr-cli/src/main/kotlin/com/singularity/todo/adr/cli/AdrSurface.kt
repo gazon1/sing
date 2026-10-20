@@ -6,6 +6,9 @@ data class AdrCommandSpec(val name: String, val usage: String, val summary: Stri
 // A flag: as typed, and what it changes.
 data class AdrFlagSpec(val flag: String, val summary: String)
 
+// A CLI command and the MCP tool it is the command line face of.
+data class AdrMcpToolSpec(val command: String, val tool: String)
+
 /**
  * The ADR tool surface, declared once.
  *
@@ -35,9 +38,10 @@ data class AdrFlagSpec(val flag: String, val summary: String)
  * cannot read instead of skipping it. A parser that shrugs is how a "single source of
  * truth" quietly becomes two sources again.
  *
- * The MCP tools are the mirror image: they are already one declarative list in
- * `McpToolCatalog.kt`, so the renderer reads the descriptions from there and a tool's
- * description reaches the skill without anyone restating it.
+ * The MCP tools are the mirror image: their descriptions live on the tool classes
+ * themselves, because the server builds its schema from those constants — so the
+ * renderer reads them from there and a tool's description reaches the skill without
+ * anyone restating it. The catalogue names them; the classes describe them.
  */
 object AdrSurface {
 
@@ -56,6 +60,7 @@ object AdrSurface {
         AdrCommandSpec("list", "list", "every decision in the corpus"),
         AdrCommandSpec("list-open", "list-open", "deferred backlog entries still open"),
         AdrCommandSpec("read", "read <slug>", "one decision, with its body"),
+        AdrCommandSpec("search", "search <query>", "find decisions by title, tags or body"),
         AdrCommandSpec("update", "update <slug> <status> [by]", "change status, never the body (#509)"),
         AdrCommandSpec("stale", "stale [--days N] [--status S]", "what the gate will reject next (#521)"),
         AdrCommandSpec("prune", "prune [--keep slug]", "uncited decisions, never deleted (#525)"),
@@ -72,6 +77,27 @@ object AdrSurface {
 
     /** Commands whose result is safe to consume from a script. */
     val jsonCommands: List<String> = commands.map { it.name }
+
+    /**
+     * Which MCP tool each ADR command is the command line face of.
+     *
+     * The CLI and the MCP server are two interfaces to the same corpus, and the
+     * mapping between them used to live nowhere: a tool could lose its terminal
+     * face, or a command could lose its tool face, and both sides kept working.
+     * Declared here, it is checked by `scripts/check-skill-drift.py` against the
+     * `adr` domain of `McpToolCatalog.kt`.
+     *
+     * **One declaration per line**, for the same reason the commands are one per
+     * line: the renderer refuses a declaration it cannot read rather than skipping it.
+     */
+    val mcpTools: List<AdrMcpToolSpec> = listOf(
+        AdrMcpToolSpec("new", "write_adr"),
+        AdrMcpToolSpec("list", "list_adrs"),
+        AdrMcpToolSpec("list-open", "list_open_deferred"),
+        AdrMcpToolSpec("read", "read_adr"),
+        AdrMcpToolSpec("update", "update_adr"),
+        AdrMcpToolSpec("search", "search_decisions"),
+    )
 
     /** One `help` line per command, padded to a common column. */
     fun usageLines(): List<String> {

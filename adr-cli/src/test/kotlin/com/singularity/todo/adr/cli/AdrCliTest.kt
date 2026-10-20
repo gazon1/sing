@@ -45,6 +45,7 @@ class AdrCliTest {
     private class FixedHost(private val workingDir: String, private val homeDir: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = workingDir
         override fun homeDirectory(): String = homeDir
+        override fun applicationDataDirectory(): String = homeDir + "/.singularity-todo"
     }
 
     private val out = StringBuilder()

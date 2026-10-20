@@ -97,5 +97,17 @@ interface RemoteConfigPort {
          * config server are fixed in opposite places.
          */
         const val READ_TIMEOUT_CODE = "config.read_timeout"
+
+        /**
+         * How long a cached configuration stays fresh, in milliseconds.
+         *
+         * This is the one number: the cache implementation expires on it, and a caller
+         * that wants to say "the configuration I am acting on is stale" compares against
+         * it rather than inventing a second deadline. A caller that cannot see the
+         * cache at all must say so separately — an old configuration and no
+         * configuration are different facts, and a tool that reports both as "the
+         * defaults" cannot tell an operator which one they are in.
+         */
+        const val CACHE_TTL_MILLIS = 6 * 60 * 60 * 1_000L
     }
 }

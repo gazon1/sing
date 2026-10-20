@@ -54,7 +54,7 @@ Author one **when a change touches that module** — not before.
 | `feature/pomodoro` | `pomodoro/timer-model` | `2026-09-22-pomodoro-hybrid-timer` |
 | `feature/attachments` | `attachments/storage-and-linking` | — |
 | `feature/search`, `feature/tags` | — | — |
-| `:mcp-server` tool surface | `mcp/write-tool-surface` | `singularity-todo-cli-tool-surface` skill |
+| `:mcp-server` tool surface | `mcp/write-tool-surface` | the open `agent-toolbox-surface` change (2026-10-20) — it ships the discovery, search and observability contract; the write-tool surface itself is still uncovered |
 
 ## Backfill candidates (audited separately)
 

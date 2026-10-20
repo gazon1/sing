@@ -141,6 +141,8 @@ class AdrCli(
 
             "read" -> read(args)
 
+            "search" -> search(args)
+
             "update" -> update(args)
 
             "stale" -> stale(args)
@@ -210,6 +212,65 @@ class AdrCli(
             out.appendLine("No open deferred entries.")
         } else {
             entries.forEach { out.appendLine("${it.slug}  ${it.date}  ${it.title}") }
+        }
+    }
+
+    /**
+     * `adr search <query>`.
+     *
+     * The same search the `search_decisions` MCP tool performs, over the same corpus
+     * rules — one implementation, two front doors. The JSON output is the *same
+     * envelope*, so a script that reads the CLI and an agent that reads the tool parse
+     * one shape rather than two that look alike.
+     *
+     * The three answers stay apart: a blank query is a usage error, an empty result is
+     * "nothing matched", and `available = false` is "there was no corpus to search".
+     */
+    private fun search(args: ParsedArgs): Int {
+        val query = args.positionals.joinToString(" ").trim()
+        if (query.isEmpty()) {
+            err.appendLine("adr search: needs a query")
+            return ExitCode.USAGE
+        }
+        val envelope = try {
+            storage.search.searchDecisions(query)
+        } catch (e: CliFailure) {
+            err.appendLine("adr: ${e.message}")
+            return ExitCode.ERROR
+        } catch (e: IllegalArgumentException) {
+            err.appendLine("adr: ${e.message}")
+            return ExitCode.ERROR
+        }
+        // The three answers stay apart, and each has its own exit code: a usage error is
+        // not a failure of the corpus, and an empty result is not a failure of anything.
+        return when {
+            args.json -> {
+                emit(envelope)
+                ExitCode.OK
+            }
+
+            envelope.error != null -> {
+                err.appendLine("adr search: ${envelope.error}")
+                ExitCode.USAGE
+            }
+
+            !envelope.available -> {
+                err.appendLine("adr search: the corpus was not searched")
+                envelope.warnings.forEach { err.appendLine("  $it") }
+                ExitCode.ERROR
+            }
+
+            envelope.hits.isEmpty() -> {
+                out.appendLine("No decision matches '$query'.")
+                ExitCode.OK
+            }
+
+            else -> {
+                envelope.hits.forEach { hit ->
+                    out.appendLine("${hit.slug}  ${hit.date}  ${hit.status}  ${hit.title}")
+                }
+                ExitCode.OK
+            }
         }
     }
 

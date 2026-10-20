@@ -39,6 +39,8 @@ import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.PickTimeTool
 import com.singularity.todo.feature.ai.tools.ProjectReviewTool
 import com.singularity.todo.feature.ai.tools.ReadAdrTool
+import com.singularity.todo.feature.ai.tools.SearchDecisionsTool
+import com.singularity.todo.feature.ai.tools.SearchDocsTool
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.RewriteNoteTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
@@ -107,6 +109,10 @@ actual fun aiToolsModule(): Module = module {
             streamingExecutor = get(),
             allTools = get(),
             remoteConfigPort = get(),
+            // The recorder is optional so that a graph without a platform module — the
+            // shared test harness — still resolves. In the application the platform
+            // module binds it, and the in-app agent records every tool it calls.
+            toolCallRecorder = getOrNull(),
         )
         UsageRecordingTextGen(
             delegate = delegate,
@@ -203,6 +209,8 @@ actual fun aiToolsModule(): Module = module {
     factory { ReadAdrTool(get()) }
     factory { WriteAdrTool(get()) }
     factory { UpdateAdrTool(get()) }
+    factory { SearchDecisionsTool(get()) }
+    factory { SearchDocsTool(get()) }
     factory { ListOpenDeferredTool(get()) }
 
     // ─── AI tools list for KoogAgentService ───
@@ -246,6 +254,8 @@ actual fun aiToolsModule(): Module = module {
             get<ReadAdrTool>(),
             get<WriteAdrTool>(),
             get<UpdateAdrTool>(),
+            get<SearchDecisionsTool>(),
+            get<SearchDocsTool>(),
             get<ListOpenDeferredTool>(),
             get<DecomposeAndCreateTool>(),
         )

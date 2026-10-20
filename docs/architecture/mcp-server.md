@@ -136,13 +136,9 @@ import io.modelcontextprotocol.kotlin.sdk.types.ToolExecution
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import org.koin.core.context.GlobalContext
 
-class ToolRegistrar(private val server: Server) {
+class ToolRegistrar(private val server: Server, private val tools: List<Tool<*, *>>) {
 
-    private val koin = GlobalContext.get()
-    @Suppress("UNCHECKED_CAST")
-    private val tools: List<Tool<*, *>> = koin.get()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val serializer = KotlinxSerializer(json)
 
@@ -195,6 +191,71 @@ class ToolRegistrar(private val server: Server) {
 - The result `String` is already JSON-encoded by the existing Koog tool (see `singularity-todo-ai-tool`). Forward it as-is inside `TextContent`.
 - `structuredContent` — attempt to parse the result; fall back to `null` if the tool did not return valid JSON.
 
+## The Agent-Facing Surface
+
+Beyond the domain tools, the server exposes the surface an agent needs to know *what it is
+connected to*, *what it may read* and *what it did*.
+
+### `describe_toolbox` — what is exposed, and why
+
+A transport-level tool (not a Koog tool, not in the catalogue, not in Koin): only the
+registrar knows both halves — the catalogue says which tools are *declared*, and the
+filtering says which are *exposed*.
+
+It reports five separate values, because they answer different questions:
+
+| Value | Source | Question it answers |
+|---|---|---|
+| `buildVersion` | `core/version/appVersion()` | which release am I? |
+| `checkout` | `git rev-parse --short=12 HEAD` | which revision? (`unknown` outside a checkout) |
+| `catalogFingerprint` | the catalogue | which *declared* tool definitions? |
+| `activeToolsetFingerprint` | the registered tools | which tools are exposed *right now*? |
+| `configurationStatus` | the startup snapshot | was the kill switch applied at all? |
+
+The response carries no absolute path, no secret and no remote-config content, and the
+disabled-tool list is bounded.
+
+### The kill switch
+
+A tool whose remote-config flag is `false` is **never registered**: it is absent from
+`tools/list` and cannot be called. The in-app agent reads the same flags, and both apply
+the same rule, `core/ai/filterTools`.
+
+Until 2026-10-20 the switch did nothing anywhere: the tool ID the rule keys on could not
+be resolved, so no flag ever matched a tool. The rule was fixed at its owner and the ID
+is pinned by a test — see ADR `2026-10-20-the-kill-switch-was-never-applied`.
+
+The policy is **fail-open** and says so: when the configuration cannot be read, every tool
+is enabled — including one an operator meant to disable. `configurationStatus` reports
+`current`, `cached`, `stale` or `unavailable`, so the difference between "no flag" and "no
+configuration" is visible. The flags are **global**: the remote-config cache is one row.
+
+### Searching the knowledge
+
+`search_decisions` answers "what did we decide, and is it still open?"; `search_docs`
+answers "where is the rule about X?" across the architecture documents, the skills and the
+specifications. Both go through the corpus rules in `config/docs/adr-corpus.json` — the
+archive is unreachable, the backlog is marked as backlog, and an empty result is
+distinguishable from a corpus that was not searched at all.
+
+`singularity-adr search` is the same search from a terminal, over the same storage.
+
+### Resources
+
+Read-only documents, for the clients that speak them:
+`singularity://toolbox`, `singularity://decisions`, `singularity://decision/{slug}`. A slug
+is resolved through the corpus rules, never by concatenating it into a path. Client support
+for resources varies — the tools are the portable path.
+
+### Tool-call records
+
+Every completed call leaves one versioned, payload-free record: the tool, the outcome, an
+error **code**, the duration, the session and the client. No arguments, no result, no
+exception text. The measurement happens at the dispatch boundary here, and through a
+decorator in the in-app agent; one event schema, two instrumentation points.
+
+The report is local: `python3 scripts/mcp-toolbox-usage.py`.
+
 ## Two-Tier Error Model
 
 From MCP spec 2025-06-18: **protocol errors** → JSON-RPC `error` object (`-32602` invalid params, `-32603` internal). **Business errors** → `isError: true` in a successful result with actionable text.
@@ -243,40 +304,40 @@ Rule: **never** expose stack traces or internal paths in `Validation/NotFound/Co
 From MCP spec 2025-06-18, tool annotations are **hints** (untrusted by spec) but clients like Claude Code show warnings:
 
 ```kotlin
-// mcp-server/src/main/kotlin/com/singularity/todo/mcp/ToolAnnotations.kt
+// shared/src/commonMain/kotlin/com/singularity/todo/mcp/ToolAnnotations.kt
 package com.singularity.todo.mcp
 
 data class ToolAnnotations(
-    val readOnlyHint: Boolean = false,      // ✅ get_task, list_tasks, search_tasks
-    val destructiveHint: Boolean = false,    // ✅ delete_task, restore_task (trash)
-    val idempotentHint: Boolean = false,    // ✅ create_task (same input = same output)
-    val openWorldHint: Boolean = false,     // ✅ write_adr (creates external file)
-)
-
-val TOOL_ANNOTATIONS = mapOf(
-    "tasks.create" to ToolAnnotations(idempotentHint = true),
-    "tasks.update" to ToolAnnotations(idempotentHint = true),
-    "tasks.complete" to ToolAnnotations(idempotentHint = true),
-    "tasks.delete" to ToolAnnotations(destructiveHint = true),
-    "tasks.restore" to ToolAnnotations(),
-    "tasks.list" to ToolAnnotations(readOnlyHint = true),
-    "tasks.get" to ToolAnnotations(readOnlyHint = true),
-    "tasks.search" to ToolAnnotations(readOnlyHint = true),
-    "projects.list" to ToolAnnotations(readOnlyHint = true),
-    "projects.get" to ToolAnnotations(readOnlyHint = true),
-    "notes.create" to ToolAnnotations(idempotentHint = true),
-    "notes.list" to ToolAnnotations(readOnlyHint = true),
-    "notes.get" to ToolAnnotations(readOnlyHint = true),
-    "tags.create" to ToolAnnotations(idempotentHint = true),
-    "tags.assign" to ToolAnnotations(),
-    "write_adr" to ToolAnnotations(openWorldHint = true),
-    "list_adrs" to ToolAnnotations(readOnlyHint = true),
-    "read_adr" to ToolAnnotations(readOnlyHint = true),
-    "update_adr" to ToolAnnotations(openWorldHint = true),
-    "list_open_deferred" to ToolAnnotations(readOnlyHint = true),
-    "decompose_and_create" to ToolAnnotations(),
+    val readOnlyHint: Boolean = false,      // get_task, list_tasks, search_tasks
+    val destructiveHint: Boolean = false,    // delete_task (a proposal, not a delete)
+    val idempotentHint: Boolean = false,    // create_task (same input = same output)
+    val openWorldHint: Boolean = false,     // write_adr (creates a file)
 )
 ```
+
+**The annotations live in the catalogue, one entry per tool** — not in a map of their own:
+
+```kotlin
+// shared/src/commonMain/kotlin/com/singularity/todo/mcp/McpToolCatalog.kt
+ToolEntry(
+    name = "create_task",
+    toolClass = "CreateTaskTool",
+    domain = "tasks",
+    annotations = ToolAnnotations(idempotentHint = true),
+),
+```
+
+The registrar looks them up by the tool's **name** — the `NAME` constant, which is also the
+name the client calls — so a key that does not match a tool name is an annotation nothing
+reads.
+
+This section used to show a `TOOL_ANNOTATIONS` map that no longer existed anywhere, keyed
+by names like `tasks.create` that no tool uses, and listing tools the toolbox does not have
+(`tasks.complete`, `tasks.restore`, `tags.assign`, `notes.list`). An agent reading it would
+have called tools that do not exist — the same defect the catalogue carried, one level down.
+
+The catalogue's `adr` domain is checked against the tool classes by
+`scripts/check-skill-drift.py`, so a row that stops being true is caught by the build.
 
 ## Pagination
 
@@ -414,13 +475,22 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | File | Purpose |
 |---|---|
 | `mcp-server/build.gradle.kts` | Gradle module, `application` plugin, `kotlin-sdk:0.15.0` dependency |
-| `mcp-server/src/main/kotlin/.../mcp/Main.kt` | Entry point, Koin bootstrap, server start, shutdown hook |
-| `mcp-server/src/main/kotlin/.../mcp/ToolRegistrar.kt` | Koog→MCP adapter, registers all `Tool<*, *>` beans |
+| `mcp-server/src/main/kotlin/.../mcp/Main.kt` | Entry point, Koin bootstrap, configuration read, server start, shutdown hook |
+| `mcp-server/src/main/kotlin/.../mcp/ToolRegistrar.kt` | Koog→MCP adapter, the kill switch, the dispatch measurement |
+| `mcp-server/src/main/kotlin/.../mcp/ToolsetSnapshot.kt` | The one snapshot: registered, disabled, identity, configuration status |
+| `mcp-server/src/main/kotlin/.../mcp/ToolboxTool.kt` | `describe_toolbox` — what is exposed, and why |
+| `mcp-server/src/main/kotlin/.../mcp/ToolboxResources.kt` | the read-only resources: toolbox, decisions, one decision |
 | `mcp-server/src/main/kotlin/.../mcp/errors/McpToolError.kt` | Sealed Validation/NotFound/Conflict/Unauthorized/Internal |
 | `mcp-server/src/main/kotlin/.../mcp/errors/ErrorMapper.kt` | McpToolError → CallToolResult or throw |
-| `mcp-server/src/main/kotlin/.../mcp/ToolAnnotations.kt` | readOnly/destructive/idempotent/openWorld hints map |
+| `mcp-server/src/main/kotlin/.../mcp/ToolAnnotations.kt` | readOnly/destructive/idempotent/openWorld hints |
 | `mcp-server/src/main/kotlin/.../mcp/pagination/CursorCodec.kt` | base64(opaque cursor) encode/decode |
-| `mcp-server/src/test/kotlin/.../mcp/ChannelTransportTest.kt` | End-to-end protocol test via ChannelTransport |
+| `shared/src/commonMain/kotlin/.../mcp/McpToolCatalog.kt` | the declared surface: name, class, domain, annotations |
+| `shared/src/commonMain/kotlin/.../core/observability/ToolCallLog.kt` | the tool-call event, its port and the recorder |
+| `shared/src/commonMain/kotlin/.../core/ai/RecordingTool.kt` | the in-app decorator that records a call |
+| `adr-core/src/commonMain/kotlin/.../tools/AdrSearch.kt` | the search engine, the scopes and the envelope |
+| `scripts/mcp-toolbox-usage.py` | the local report over the call records |
+| `mcp-server/src/test/kotlin/.../mcp/McpServerEndToEndTest.kt` | End-to-end protocol test via the stdio transport |
+| `mcp-server/src/test/kotlin/.../mcp/ToolRegistrarTest.kt` | the kill switch, at the place it is applied |
 
 ## Related Skills
 
@@ -446,6 +516,7 @@ machine-readable output; exit code `2` means the command line was wrong,
 | `singularity-adr list` | every decision in the corpus |
 | `singularity-adr list-open` | deferred backlog entries still open |
 | `singularity-adr read <slug>` | one decision, with its body |
+| `singularity-adr search <query>` | find decisions by title, tags or body |
 | `singularity-adr update <slug> <status> [by]` | change status, never the body (#509) |
 | `singularity-adr stale [--days N] [--status S]` | what the gate will reject next (#521) |
 | `singularity-adr prune [--keep slug]` | uncited decisions, never deleted (#525) |
@@ -465,11 +536,12 @@ below are the same strings the server sends, so they cannot drift.
 
 | Tool | What it does |
 |---|---|
-| `write_adr` | Creates a NEW ADR. Fails if the slug exists - a decision is never overwritten. To close or revise one, use update_adr; to replace one, write a new ADR naming the old in `supersedes:` and then mark the old one superseded (do not invent a '-v2' slug). |
-| `list_adrs` | Lists all ADR filenames |
-| `update_adr` | Changes an existing ADR's status frontmatter; the body is never modified. status is one of accepted, deferred, superseded, open. status=superseded requires supersededBy naming an existing slug. |
-| `read_adr` | Reads the content of an ADR by filename |
-| `list_open_deferred` | Lists deferred backlog entries with OPEN or PARTIAL status |
+| `write_adr` | Create a NEW Architecture Decision Record (ADR) as a Markdown file. Fails if the slug already exists — a decision is never overwritten. To close or revise an existing decision use update_adr, which changes its status and records the supersedes/superseded-by link. To say something new that replaces an old decision, write a new ADR naming the old one in its `supersedes:` frontmatter field, then call update_adr on the old one with status=superseded — do NOT invent a '-v2' slug, it leaves the predecessor unlinked. |
+| `list_adrs` | List all Architecture Decision Records sorted by date (newest first). |
+| `update_adr` | Change an existing ADR's status frontmatter; the body is never modified. status must be one of: accepted, deferred, superseded, open. status=superseded additionally requires supersededBy, naming an existing slug (a markdown link is accepted). Use this to close a decision once it is settled, and to mark one as replaced after writing its successor — the replacement is a separate write_adr call, not a new '-v2' slug of this one. |
+| `read_adr` | Read a specific ADR by its slug (e.g. 2026-09-05-koin-suspend-bridge). |
+| `list_open_deferred` | List all deferred backlog entries with OPEN or PARTIAL status. |
+| `search_decisions` | Search the decision records by title, tags or body text, newest first. Returns each match with its status, tags, date and a snippet, so an open or superseded decision is visible without reading the file. Use read_adr for the full text of a hit. An empty result means nothing matched; check the 'available' field — false means there was no corpus to search, not that nothing matched. |
 
 #### Before you push
 

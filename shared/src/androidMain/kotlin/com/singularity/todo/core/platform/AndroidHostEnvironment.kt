@@ -25,4 +25,14 @@ class AndroidHostEnvironment(context: Context) : HostEnvironmentPort {
     override fun workingDirectory(): String = dataDirectory
 
     override fun homeDirectory(): String = dataDirectory
+
+    /**
+     * A directory inside the app's private storage.
+     *
+     * The platform already keeps `filesDir` away from other applications and from the
+     * user's file browser, so it is the right place for anything the application
+     * writes on the user's behalf — including the tool-call records, which reveal
+     * activity even though they contain no payloads.
+     */
+    override fun applicationDataDirectory(): String = "$dataDirectory/singularity-todo"
 }

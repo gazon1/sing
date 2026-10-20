@@ -7,7 +7,7 @@ description: How the AI agent should use the Singularity Todo MCP server to trac
 
 ## When to use this
 
-You are connected to a Singularity Todo MCP server (30+ tools, stdio transport).
+You are connected to a Singularity Todo MCP server (40+ tools, stdio transport).
 Use it to **track the work you are doing on this codebase** — not as a passive
 note, but as a real plan that persists across turns.
 
@@ -32,7 +32,8 @@ Task lifecycle:
 - `search_tasks(query, userId?, limit?)` — full-text by title.
 - `get_task(taskId)` — single record (uses field name `taskId`, not `id`).
 - `update_task(taskId, …)` — patch; null keeps field, `""` clears `dueDate`.
-- `delete_task(taskId)` — destructive.
+- `delete_task(taskId, reason?)` — creates a **proposal** to archive the task; the
+  user confirms it. It does not delete anything on its own.
 
 Projects + tags:
 - `create_project(name, color?, icon?, description?, colorHex?)` — pass
@@ -63,6 +64,26 @@ ADRs (decisions log):
 - `read_adr(slug)`, `list_adrs()` — list all ADRs; `read_adr` gets one.
 - `list_open_deferred()` — lists deferred backlog entries with OPEN/PARTIAL
   status, from `docs/decisions/deferred/` directory (T2 split layout).
+- `search_decisions(query, limit?, kind?)` — **find** decisions by title, tags or body
+  text. Every hit carries its status, so a decision that is still open is visible
+  without opening the file. This is the tool that replaces grepping the repository.
+- `search_docs(query, limit?, scope?)` — find the *written* knowledge: the architecture
+  documents, the skills, the capability specifications and the decisions. `scope` is one
+  of `decisions`, `architecture`, `skills`, `specs`, `all`.
+
+Reading the project's knowledge (prefer the tools over a shell):
+- `search_decisions` / `search_docs` for "what did we decide about X?" and "where is the
+  rule about X?" — both answer with a path and a snippet.
+- An empty result means *nothing matched*. Check the `available` field: `false` means
+  there was no corpus to search, which is a different answer.
+
+Describing the toolbox itself:
+- `describe_toolbox()` — which tools this server exposes, which are switched off by the
+  remote configuration, which build and checkout it is, and whether the configuration was
+  actually applied. Call it when a tool you expected is missing.
+- The read-only documents are also served as MCP resources: `singularity://toolbox`,
+  `singularity://decisions`, `singularity://decision/{slug}`. Client support for
+  resources varies; the tools above are the portable path.
 
 ## Standard workflows
 

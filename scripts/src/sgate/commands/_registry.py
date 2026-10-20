@@ -416,7 +416,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-gate-liveness.py"),
     ),
     GateSpec(
-        name="skills describe the tools that exist",
+        name="the toolbox surface is declared once",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-skill-drift.py"),
@@ -893,7 +893,7 @@ GATE_EXEMPTIONS: dict[str, Control] = {
             'registered gate actually runs — and three successive targets did not. '
             'check-kiwi-inventory-ratchet.py went with the retired Kiwi stand; '
             'check-backlog-issue-refs.py went with the removed backlog-issue-refs gate; '
-            'check-skill-drift.py is not the script `sgate skills_describe_the_tools_that_exist` '
+            'check-skill-drift.py is not the script `sgate the_toolbox_surface_is_declared_once` '
             'executes, so the injected raise never ran. All three passed a deliberately sabotaged '
             'input, i.e. they certified nothing. Measured 2026-10-19: corrupting '
             'check-backlog-issue-refs.py left the liveness gate green '

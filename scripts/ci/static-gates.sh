@@ -381,7 +381,7 @@ gate blocking "ui wait budgets are consistent" sgate ui_wait_budgets_are_consist
 # executed: a gate that runs on no one reports success forever. Part H of
 # check-gate-wiring.py is what finally said so, once it stopped resolving
 # `run-all` against the Python mirror instead of this registry.
-gate blocking "skills describe the tools that exist" python3 scripts/check-skill-drift.py
+gate blocking "the toolbox surface is declared once" python3 scripts/check-skill-drift.py
 
 # Workflow semantics. actionlint reads a workflow as YAML plus GitHub's expression
 # language; neither knows that in POSIX a pipeline's status is the *last* command's.

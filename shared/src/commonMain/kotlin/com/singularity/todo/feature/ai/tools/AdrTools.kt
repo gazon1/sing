@@ -160,3 +160,55 @@ class ListOpenDeferredTool(private val storage: AdrStorage) :
         const val DESCRIPTION = "List all deferred backlog entries with OPEN or PARTIAL status."
     }
 }
+
+@Serializable
+data class SearchDecisionsInput(
+    val query: String,
+    val limit: Int = 20,
+    /** "decision", "deferred" or "all". */
+    val kind: String = "all",
+)
+
+/**
+ * The `search_decisions` MCP tool — the read-side answer to "what did we decide?".
+ *
+ * The corpus was previously reachable only through a shell: `list_adrs` names the
+ * decisions, and reading one needs its exact slug, so an agent asking "what did we
+ * decide about the sync conflict?" had to grep the repository instead. This tool is
+ * that grep, as an API the agent already has.
+ *
+ * The answer carries the status of every hit, so a decision that is still open is
+ * visible without opening the document.
+ */
+class SearchDecisionsTool(private val storage: AdrStorage) :
+    SimpleTool<SearchDecisionsInput>(
+        TypeToken.of(SearchDecisionsInput::class.java),
+        NAME,
+        DESCRIPTION,
+    ) {
+    override suspend fun execute(args: SearchDecisionsInput): String {
+        val envelope = storage.search.searchDecisions(args.query, args.limit, SearchKind.from(args.kind))
+        return Json.encodeToString(SearchEnvelope.serializer(), envelope)
+    }
+
+    companion object {
+        const val NAME = "search_decisions"
+
+        /**
+         * Says what it searches and what it cannot do.
+         *
+         * The `available` field is the part an agent needs to read: an empty list means
+         * "nothing matched", and `available: false` means "nothing was searched" — the
+         * corpus is not there. Those are different answers, and an agent that cannot
+         * tell them apart will report "no decision mentions this" when the truth is
+         * that there is no corpus to search.
+         */
+        const val DESCRIPTION =
+            "Search the decision records by title, tags or body text, newest first. " +
+                "Returns each match with its status, tags, date and a snippet, so an " +
+                "open or superseded decision is visible without reading the file. " +
+                "Use read_adr for the full text of a hit. An empty result means nothing " +
+                "matched; check the 'available' field — false means there was no corpus " +
+                "to search, not that nothing matched."
+    }
+}

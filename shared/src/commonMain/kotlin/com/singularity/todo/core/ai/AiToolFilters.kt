@@ -10,16 +10,30 @@ import com.singularity.todo.core.llm.resolveModel
  *
  * Each tool class defines `NAME` as a `const val` in its companion object.
  * This function uses reflection to read it — a single place to centralise the mapping.
+ *
+ * The constant is looked up in **two** places. The Kotlin compiler compiles a `const val`
+ * in a companion object as a static field of the **containing class**, not of the
+ * companion — so the class is where it is found, for a file-level class and for a nested
+ * one alike. The companion is still searched first, because it costs nothing and a
+ * constant can live there when the class is not Kotlin's own.
+ *
+ * The two lookups are separate on purpose. An earlier version chained them with `?:`,
+ * which does not work: `getDeclaredField` **throws** when the class has no such field,
+ * so the lookup ended before the fallback could run, the enclosing `catch` turned the
+ * throw into `null`, and every tool lost its ID. A tool with no ID has no flag key, so
+ * the kill switch matched nothing at all.
  */
-fun Any.toolId(): String? = try {
+fun Any.toolId(): String? {
     val clazz = this::class.java
-    // Try companion object first (Kotlin)
     val companion = clazz.declaredClasses.find { it.simpleName == "Companion" }
-    companion?.getDeclaredField("NAME")?.apply { isAccessible = true }?.get(null) as? String
-        // Fall back to static field (Java/Kotlin interop)
-        ?: clazz.getDeclaredField("NAME").apply { isAccessible = true }.get(null) as? String
-} catch (e: Throwable) {
-    null
+
+    val fromCompanion = companion
+        ?.let { holder -> runCatching { holder.getDeclaredField("NAME") }.getOrNull() }
+        ?.let { field -> runCatching { field.apply { isAccessible = true }.get(null) as? String }.getOrNull() }
+    val fromClass = runCatching { clazz.getDeclaredField("NAME") }.getOrNull()
+        ?.let { field -> runCatching { field.apply { isAccessible = true }.get(null) as? String }.getOrNull() }
+
+    return fromCompanion ?: fromClass
 }
 
 /**

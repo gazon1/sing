@@ -35,6 +35,7 @@ class AdrStorageResolutionTest {
     private class AbsentHost(private val root: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = "$root/working"
         override fun homeDirectory(): String = "$root/home"
+        override fun applicationDataDirectory(): String = root + "/.singularity-todo"
     }
 
     private fun absentStorage() = AdrStorage(

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""check-skill-drift.py — a skill must not describe tools it no longer has (#526).
+"""check-skill-drift.py — the declared toolbox must be the implemented toolbox (#526).
 
 Why
 ---
-The class of defect this closes is not "a wrong sentence in a doc". It is: **a skill
-is a hand-written description of code that nobody diffs against it.** The skill is
-edited rarely, the code is edited daily, so the document is always the stale one, and
-it is always plausible — it reads like documentation, not like a bug.
+The class of defect this closes is not "a wrong sentence in a doc". It is: **a hand-written
+description of code that nobody diffs against it.** The description is edited rarely, the code
+is edited daily, so the description is always the stale one, and it is always plausible — it
+reads like documentation, not like a bug.
 
 Found in a single session:
 
@@ -20,29 +20,43 @@ Found in a single session:
 Each one is fixed by hand and true again for a while. That is the wrong fix: the next
 subcommand lands and the document is wrong again, and nobody notices for months.
 
+The same class of defect was found in the toolbox itself, one level down. The catalogue
+carried a second copy of every tool description, and the two copies drifted apart in 32 of 39
+tools — including five where the catalogue described a *different capability* than the tool
+implements, and four where it promised a permanent delete while the tool creates a proposal
+that needs confirmation. The catalogue no longer holds descriptions at all: the tool class
+owns that text, because the server builds its schema from it.
+
 What this gate does
 -------------------
-The "ADR tools" section of the two ADR skills is **generated** from the tool surface
-(`AdrSurface.kt` for the CLI, the `adr` domain of `McpToolCatalog.kt` for MCP) and
-this gate re-renders it and fails on any difference. Hand-written prose outside the
-markers is never touched — that is the author's, not the generator's.
+Three checks over the same tool surface, one of them the reason this script exists:
+
+1. The "ADR tools" section of the two ADR documents is **generated** from the tool surface
+   (`AdrSurface.kt` for the CLI, the tool classes for the MCP tools) and this gate re-renders
+   it and fails on any difference. Hand-written prose outside the markers is never touched —
+   that is the author's, not the generator's.
+2. The **catalogue** and the **tool classes** declare the same set of tools, and the class
+   each entry points at is the class that declares that name. A tool in one and not the other
+   is a tool the client cannot call, or one nobody checked.
+3. Every `adr`-domain tool has a **CLI command** mapped to it, and every mapping points at a
+   tool that exists. The CLI and the MCP server are two faces of the same corpus; a tool that
+   lost its terminal face keeps working, which is exactly why nobody noticed.
 
     python3 scripts/check-skill-drift.py           # check
     python3 scripts/render-adr-tools-section.py    # regenerate
 
 The renderer is a separate script rather than a function here on purpose: writing the
-skills and checking them must be the *same* code path, or the second one becomes a
+documents and checking them must be the *same* code path, or the second one becomes a
 second implementation of the first — which is the failure this whole toolchain exists
 to prevent (see `2026-10-10-adr-file-local-rules-live-in-the-writer`).
 
 The positive control
 --------------------
 `sabotage` is the generated block with one entry removed; the gate must report drift
-when the skill holds it. Proved by `scripts/tests/test_render_adr_tools_section.py`,
-which asserts that a hand-edited skill fails and a regenerated one passes.
+when the document holds it. Proved by `scripts/tests/test_render_adr_tools_section.py`,
+which asserts that a hand-edited document fails and a regenerated one passes. The
+toolbox-parity checks have their own cases in the same file.
 """
-
-from __future__ import annotations
 
 from __future__ import annotations
 
@@ -65,11 +79,61 @@ renderer = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(renderer)
 
 
+def toolbox_problems() -> list[str]:
+    """Where the declared toolbox and the implemented toolbox disagree.
+
+    Every problem is one an agent would hit: a tool the client cannot call, a tool
+    nobody can reach from a terminal, a name that points at the wrong class.
+    """
+    problems: list[str] = []
+    entries = renderer.catalog_entries()
+    classes = renderer.tool_classes()
+
+    catalogue_names = [name for name, _, _ in entries]
+    for name in sorted({n for n in catalogue_names if catalogue_names.count(n) > 1}):
+        problems.append(f'the catalogue declares {name!r} more than once')
+
+    class_names = {name for name, _ in classes.values()}
+    for name, tool_class, domain in entries:
+        if name not in class_names:
+            problems.append(
+                f'the catalogue declares {name!r} ({domain}) but no tool class declares that NAME'
+            )
+        elif tool_class not in classes:
+            problems.append(f'the catalogue points {name!r} at {tool_class}, which is not a tool class')
+        elif classes[tool_class][0] != name:
+            problems.append(
+                f'the catalogue says {name!r} is {tool_class}, but that class declares '
+                f'{classes[tool_class][0]!r}'
+            )
+
+    for tool_class, (name, _) in classes.items():
+        if name not in catalogue_names:
+            problems.append(f'{tool_class} declares the tool {name!r}, which the catalogue omits')
+
+    adr_tools = {name for name, _, domain in entries if domain == 'adr'}
+    commands = {name for name, _, _ in renderer.commands()}
+    mapped: dict[str, str] = {}
+    for command, tool in renderer.mcp_tool_mapping():
+        if command not in commands:
+            problems.append(f'the CLI mapping names {command!r}, which is not a declared command')
+        if tool not in adr_tools:
+            problems.append(f'the CLI mapping points {command!r} at {tool!r}, which is not an adr-domain tool')
+        if tool in mapped:
+            problems.append(f'both {mapped[tool]!r} and {command!r} map to the tool {tool!r}')
+        mapped[tool] = command
+    for tool in sorted(adr_tools - set(mapped)):
+        problems.append(f'the adr-domain tool {tool!r} has no CLI command mapped to it')
+
+    return problems
+
+
 @click.command()
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     try:
         expected = renderer.render()
+        problems = toolbox_problems()
     except renderer.ParseError as exc:
         click.echo(f'check-skill-drift: {exc}', err=True)
         click.echo('check-skill-drift: the renderer could not read the tool surface, so nothing '
@@ -103,15 +167,23 @@ def cli(ctx: click.Context) -> None:
             click.echo(f'  the skill says: {_first_difference(current, expected)}')
         click.echo(f'  fix with: python3 scripts/render-adr-tools-section.py')
 
-    if drifted or missing:
+    for problem in problems:
+        click.echo(f'ERROR: {problem}')
+
+    if drifted or missing or problems:
         click.echo('')
         click.echo('A skill that lists tools the code no longer has is worse than no skill: an')
         click.echo('agent reads it and calls something that does not exist, or trusts a promise')
         click.echo('about a tool whose behaviour has changed.')
+        if problems:
+            click.echo('A catalogue that names tools the code does not implement is the same')
+            click.echo('failure one level down: the client asks for a tool and gets an error, or')
+            click.echo('the documentation promises a tool nobody wired up.')
         raise ctx.exit(1)
 
-    click.echo(f'check-skill-drift: OK — {len(renderer.SKILLS)} skill(s) match the ADR tool surface '
-          f'({len(renderer.commands())} command(s), {len(renderer.mcp_adr_tools())} MCP tool(s))')
+    click.echo(f'check-skill-drift: OK — {len(renderer.SKILLS)} document(s) match the ADR tool surface '
+          f'({len(renderer.commands())} command(s), {len(renderer.mcp_adr_tools())} MCP tool(s)), '
+          f'{len(renderer.catalog_entries())} catalogue entr(y/ies) match the tool classes')
     raise ctx.exit(0)
 
 

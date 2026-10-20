@@ -18,6 +18,16 @@ class JvmHostEnvironment : HostEnvironmentPort {
 
     override fun homeDirectory(): String = property("user.home")
 
+    /**
+     * `~/.singularity-todo` — the same directory the application database lives in.
+     *
+     * A subdirectory of the home directory rather than the home directory itself: the
+     * home directory belongs to the user, and an application that scatters its files
+     * there is a guest that forgot to introduce itself.
+     */
+    override fun applicationDataDirectory(): String =
+        property("user.home") + "/.singularity-todo"
+
     private fun property(key: String): String =
         System.getProperty(key)?.takeIf { it.isNotBlank() } ?: System.getProperty("user.home").orEmpty()
 }

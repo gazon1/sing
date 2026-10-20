@@ -99,10 +99,26 @@ data class AdrCorpusConfig(
             ?: emptyList()
     }
 
-    fun isArchived(path: String): Boolean = path.contains("/$archiveDir/")
+    /**
+     * Whether the path is the archive directory, or something inside it.
+     *
+     * The directory itself has to count, and it did not: the walk asks this question
+     * about a *directory*, whose path ends with the directory name and carries no
+     * trailing slash — so `contains("/archive/")` was false for it, the walk descended
+     * into the archive, and the archived records came back as decisions.
+     *
+     * The Python reader never had the problem: it globs the top level of the corpus
+     * root and therefore never descends at all. Two readers of one corpus, one of them
+     * silently wider than the other, is the defect this whole change is about.
+     */
+    fun isArchived(path: String): Boolean = isDirectoryNamed(path, archiveDir)
 
     /** `docs/decisions/<deferredDir>/` — backlog, deliberately NOT decisions. */
-    fun isDeferred(path: String): Boolean = path.contains("/$deferredDir/")
+    fun isDeferred(path: String): Boolean = isDirectoryNamed(path, deferredDir)
+
+    /** The directory itself, or anything inside it. */
+    private fun isDirectoryNamed(path: String, name: String): Boolean =
+        path.contains("/$name/") || path.endsWith("/$name")
 
     fun isIgnored(path: String): Boolean = path.substringAfterLast('/') in ignoredFiles
 
@@ -120,8 +136,15 @@ data class AdrCorpusConfig(
         return dir.listDirectoryEntries().flatMap { entry ->
             val path = entry.toString()
             when {
+                // The archive and the backlog are not decisions, and neither is anything
+                // under them. The walk skipped the archive only by accident — the check
+                // was written for a path *inside* it.
                 entry.isDirectory() ->
-                    if (isArchived(path)) emptyList() else walk(entry, depth + 1, maxDepth)
+                    if (isArchived(path) || isDeferred(path)) {
+                        emptyList()
+                    } else {
+                        walk(entry, depth + 1, maxDepth)
+                    }
 
                 isIgnored(path) -> emptyList()
 
@@ -131,7 +154,8 @@ data class AdrCorpusConfig(
     }
 
     fun isDecision(path: String): Boolean =
-        !isDeferred(path) && !isIgnored(path) && decisionPattern.containsMatchIn(path.substringAfterLast('/'))
+        !isDeferred(path) && !isArchived(path) && !isIgnored(path) &&
+            decisionPattern.containsMatchIn(path.substringAfterLast('/'))
 
     /**
      * Fold case and strip brackets. `OPEN` and `open` must answer the same question
