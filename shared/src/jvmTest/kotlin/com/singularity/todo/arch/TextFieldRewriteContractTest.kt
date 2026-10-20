@@ -166,8 +166,13 @@ class TextFieldRewriteContractTest {
         val missing = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
             val counter = row.counter
             if (counter.isEmpty()) return@mapNotNull "$row.site -> names no counter file"
+            // The count either travels with the value — a `Revisioned`, which carries the
+            // value and the count of its replacements in one object — or it is a plain
+            // count of the upstream's writes, the way the GenUI surface counts the
+            // server's writes. Both are counters; only the first is a value's own.
             val declared = TextFieldShapeScan.properties(counter).any { property ->
-                property.name.contains("revision", ignoreCase = true)
+                property.type?.bareSourceType == REVISIONED ||
+                    property.name.contains("revision", ignoreCase = true)
             }
             if (declared) return@mapNotNull null
             "$row.site -> $counter declares no revision"
@@ -189,8 +194,13 @@ class TextFieldRewriteContractTest {
         val frozen = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
             val advancer = row.advances
             if (advancer.isEmpty()) return@mapNotNull "$row.site -> names no file that advances the counter"
+            // A `Revisioned`'s count moves only through `replacedBy` — that is the whole
+            // point of the type — so the file that advances it says so by calling it. A
+            // plain count is incremented instead: that is the GenUI surface's count of
+            // the server's writes.
             val advances = TextFieldShapeScan.declarationTexts(advancer).any { text ->
-                ADVANCE.containsMatchIn(KotlinText.stripComments(text))
+                val code = KotlinText.stripComments(text)
+                code.contains(REPLACED_BY) || ADVANCE.containsMatchIn(code)
             }
             if (advances) return@mapNotNull null
             "$row.site -> $advancer never advances the counter"
@@ -362,5 +372,11 @@ class TextFieldRewriteContractTest {
 
         /** A counter that advances. */
         val ADVANCE = Regex("""revision[^\n]*\+\s*1""", RegexOption.IGNORE_CASE)
+
+        /** The type that carries a value and the count of its replacements. */
+        const val REVISIONED = "Revisioned"
+
+        /** The only way a `Revisioned`'s count moves. */
+        const val REPLACED_BY = "replacedBy("
     }
 }

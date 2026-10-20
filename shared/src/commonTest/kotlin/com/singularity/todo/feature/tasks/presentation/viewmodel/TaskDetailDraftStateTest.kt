@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import com.singularity.todo.core.ui.textfields.Revisioned
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,14 +19,33 @@ class TaskDetailDraftStateTest {
 
     private fun newState(initial: TaskDetailDraft = TaskDetailDraft.empty()) = TaskDetailDraftState(initial)
 
+    /**
+     * A draft that already holds a value.
+     *
+     * The value and its count travel together, in a [Revisioned], so a draft that is
+     * built here says what it holds without saying how many times it was replaced.
+     */
+    private fun draft(
+        title: String,
+        description: String,
+        originalTitle: String = title,
+        originalDescription: String = description,
+    ) = TaskDetailDraft(
+        title = Revisioned.initial(title),
+        description = Revisioned.initial(description),
+        originalTitle = originalTitle,
+        originalDescription = originalDescription,
+        initialized = true,
+    )
+
     // ─── seed ─────────────────────────────────────────────────────────────────
 
     @Test
     fun `seed sets title and description`() {
         val s = newState()
         s.seed("Buy milk", "Semi-fat")
-        assertEquals("Buy milk", s.current.title)
-        assertEquals("Semi-fat", s.current.description)
+        assertEquals("Buy milk", s.current.title.value)
+        assertEquals("Semi-fat", s.current.description.value)
         assertEquals("Buy milk", s.current.originalTitle)
         assertEquals("Semi-fat", s.current.originalDescription)
         assertTrue(s.current.initialized)
@@ -36,8 +56,8 @@ class TaskDetailDraftStateTest {
         val s = newState()
         s.seed("Buy milk", "Semi-fat")
         s.seed("Buy oat milk", "Semi-fat")
-        assertEquals("Buy oat milk", s.current.title)
-        assertEquals(1L, s.current.revision)
+        assertEquals("Buy oat milk", s.current.title.value)
+        assertEquals(1L, s.current.title.revision)
     }
 
     @Test
@@ -46,8 +66,8 @@ class TaskDetailDraftStateTest {
         s.seed("Buy milk", "Semi-fat")
         s.setTitle("Mine")
         s.seed("Buy oat milk", "Semi-fat")
-        assertEquals("Mine", s.current.title)
-        assertEquals(0L, s.current.revision)
+        assertEquals("Mine", s.current.title.value)
+        assertEquals(0L, s.current.title.revision)
     }
 
     @Test
@@ -55,7 +75,7 @@ class TaskDetailDraftStateTest {
         val s = newState()
         s.seed("Buy milk", "Semi-fat")
         s.seed("Buy milk", "Semi-fat")
-        assertEquals(0L, s.current.revision)
+        assertEquals(0L, s.current.title.revision)
     }
 
     @Test
@@ -65,9 +85,9 @@ class TaskDetailDraftStateTest {
         s.setTitle("Mine")
         s.seed("Mine", "Semi-fat")
         s.seed("Buy oat milk", "Semi-fat")
-        assertEquals(1L, s.current.revision)
+        assertEquals(1L, s.current.title.revision)
         s.seed("Buy almond milk", "Semi-fat")
-        assertEquals(2L, s.current.revision)
+        assertEquals(2L, s.current.title.revision)
     }
 
     // ─── the echo of the save ─────────────────────────────────────────────────
@@ -80,7 +100,7 @@ class TaskDetailDraftStateTest {
         assertTrue(s.current.isDirty)
         s.seed("Mine", "Semi-fat")
         assertFalse(s.current.isDirty)
-        assertEquals(0L, s.current.revision)
+        assertEquals(0L, s.current.title.revision)
     }
 
     @Test
@@ -90,8 +110,8 @@ class TaskDetailDraftStateTest {
         s.setTitle("Mine")
         s.seed("Mine", "Semi-fat")
         s.seed("Buy oat milk", "Semi-fat")
-        assertEquals("Buy oat milk", s.current.title)
-        assertEquals(1L, s.current.revision)
+        assertEquals("Buy oat milk", s.current.title.value)
+        assertEquals(1L, s.current.title.revision)
     }
 
     @Test
@@ -103,44 +123,44 @@ class TaskDetailDraftStateTest {
         s.seed("Mine", "Semi-fat")
         assertTrue(s.current.isDirty)
         s.seed("Buy oat milk", "Semi-fat")
-        assertEquals("Mine and more", s.current.title)
+        assertEquals("Mine and more", s.current.title.value)
     }
 
     // ─── setTitle / setDescription ────────────────────────────────────────────
 
     @Test
     fun `setTitle updates the title`() {
-        val s = newState(TaskDetailDraft("init", "desc", "init", "desc", true))
+        val s = newState(draft("init", "desc"))
         s.setTitle("Updated")
-        assertEquals("Updated", s.current.title)
-        assertEquals("desc", s.current.description)
+        assertEquals("Updated", s.current.title.value)
+        assertEquals("desc", s.current.description.value)
     }
 
     @Test
     fun `setDescription updates the description`() {
-        val s = newState(TaskDetailDraft("title", "init", "title", "init", true))
+        val s = newState(draft("title", "init"))
         s.setDescription("Updated desc")
-        assertEquals("title", s.current.title)
-        assertEquals("Updated desc", s.current.description)
+        assertEquals("title", s.current.title.value)
+        assertEquals("Updated desc", s.current.description.value)
     }
 
     // ─── isDirty ───────────────────────────────────────────────────────────────
 
     @Test
     fun `isDirty is false when nothing changed`() {
-        val s = newState(TaskDetailDraft("title", "desc", "title", "desc", true))
+        val s = newState(draft("title", "desc"))
         assertFalse(s.current.isDirty)
     }
 
     @Test
     fun `isDirty is true when the title changed`() {
-        val s = newState(TaskDetailDraft("edited", "desc", "original", "desc", true))
+        val s = newState(draft("edited", "desc", originalTitle = "original"))
         assertTrue(s.current.isDirty)
     }
 
     @Test
     fun `isDirty is true when the description changed`() {
-        val s = newState(TaskDetailDraft("title", "edited", "title", "original", true))
+        val s = newState(draft("title", "edited", originalDescription = "original"))
         assertTrue(s.current.isDirty)
     }
 }

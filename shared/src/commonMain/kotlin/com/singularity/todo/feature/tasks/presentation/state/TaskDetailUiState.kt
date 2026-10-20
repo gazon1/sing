@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.ui.textfields.Revisioned
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -17,18 +18,17 @@ import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
  */
 data class TaskDetailUi(
     val task: Task,
-    /** Draft title owned by VM — prevents mirror-state in Composable. */
-    val titleDraft: String = task.title,
-    /** Draft description owned by VM — prevents mirror-state in Composable. */
-    val descriptionDraft: String = task.description ?: "",
     /**
-     * The draft's revision counter.
+     * The draft title owned by VM — prevents mirror-state in Composable.
      *
-     * It moves when the task was rewritten from outside, and that is what tells the
-     * bridged text fields that the new text is a *replacement* rather than the echo of
-     * a keystroke the field itself produced. It never moves for a keystroke.
+     * It carries the count of the times the task was rewritten from outside, and that
+     * is what tells the bridged text fields that the new text is a *replacement* rather
+     * than the echo of a keystroke the field itself produced. The count never moves for
+     * a keystroke.
      */
-    val revision: Long = 0,
+    val titleDraft: Revisioned<String> = Revisioned.initial(task.title),
+    /** Draft description owned by VM — prevents mirror-state in Composable. */
+    val descriptionDraft: Revisioned<String> = Revisioned.initial(task.description ?: ""),
     val project: Project? = null,
     val tags: List<Tag> = emptyList(),
     val checklist: List<ChecklistItem> = emptyList(),
@@ -60,13 +60,14 @@ data class TaskDetailUi(
      * replacements, and the type says the count is there: a field that holds this
      * source cannot be wired as if the title were a value nobody else writes.
      */
-    val titleSource: OwnedText get() = OwnedText(titleDraft, revision)
+    val titleSource: OwnedText get() = OwnedText(titleDraft.value, titleDraft.revision)
 
     /**
      * The description as the field's source; see [titleSource] for why the count is
      * there.
      */
-    val descriptionSource: OwnedText get() = OwnedText(descriptionDraft, revision)
+    val descriptionSource: OwnedText get() =
+        OwnedText(descriptionDraft.value, descriptionDraft.revision)
 }
 
 /**

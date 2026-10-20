@@ -6,6 +6,7 @@ import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.ui.textfields.Revisioned
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
@@ -149,25 +150,11 @@ sealed interface EditorState {
     data object Empty : EditorState
     data class Editing(
         val id: String,
-        val title: String,
+        val title: Revisioned<String>,
         val html: String,
         val isDirty: Boolean = false,
         /** True until the note is persisted for the first time (create-on-first-save). */
         val isNew: Boolean = false,
-        /**
-         * Counts how many times the note was rewritten from *outside* this editor.
-         *
-         * The editor owns the content it shows, so a rewrite it did not make — a
-         * proposal applied to the note, a sync from another device — reaches the
-         * screen only through this counter. A field that sees it change knows the
-         * content it holds was replaced rather than typed, and takes the new
-         * content instead of treating it as an echo of its own last push.
-         *
-         * It advances only when the editor re-seeds itself from the note, never
-         * when the user types: a keystroke is the editor's own change and needs
-         * no announcement.
-         */
-        val revision: Long = 0,
     ) : EditorState {
         /**
          * The title as the field's source.
@@ -177,8 +164,25 @@ sealed interface EditorState {
          * counts the replacements and the field reads the count. The type says so: a
          * field that holds this source cannot be wired as if the title were a value
          * nobody else writes.
+         *
+         * The count travels with the title, in a [Revisioned]: an editor that held the
+         * title and the count in two places could replace the title and leave the count
+         * where it was, and the field would take the replacement for an echo of its own
+         * last push.
          */
-        val titleSource: OwnedText get() = OwnedText(title, revision)
+        val titleSource: OwnedText get() = OwnedText(title.value, title.revision)
+
+        /**
+         * The user typed a new title.
+         *
+         * A keystroke is the editor's own change, so the count of the title's
+         * replacements does not move: the title is not a rewrite, and the field must
+         * not take it for one.
+         */
+        fun withTitle(newTitle: String): Editing = copy(
+            title = title.typed(newTitle),
+            isDirty = true,
+        )
     }
 }
 

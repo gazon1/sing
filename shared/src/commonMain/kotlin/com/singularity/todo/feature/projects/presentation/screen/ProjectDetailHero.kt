@@ -49,9 +49,11 @@ import kotlin.time.Instant
  *
  * Exposed as public to support preview providers and unit tests without a VM.
  *
- * @param revision the draft's revision counter. It moves when the project was rewritten
- *   from outside, and that is what tells the bridged fields that the new text is a
- *   *replacement* rather than the echo of a keystroke the field itself produced.
+ * @param nameSource the name as the field's source — the value and the count of the
+ *   times the project was rewritten from outside. The count travels with the value:
+ *   it is what tells the field that the new text is a *replacement* rather than the
+ *   echo of a keystroke the field itself produced.
+ * @param descriptionSource the description, in the same shape.
  */
 @OptIn(ExperimentalTime::class)
 @Composable

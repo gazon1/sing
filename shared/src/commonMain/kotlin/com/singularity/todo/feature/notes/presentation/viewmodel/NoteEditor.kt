@@ -11,6 +11,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
+import com.singularity.todo.core.ui.textfields.Revisioned
 import com.singularity.todo.feature.notes.EditorState.Editing
 import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.LinkKind
@@ -91,7 +92,13 @@ internal class NoteEditor(
     autosaveCtx: AutosaveContext = AutosaveContext(repo, currentUser, log, scope),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
         crashReporter = crashReporter,
-        initialDraft = Editing(id = "", title = "", html = "", isDirty = false, isNew = true),
+        initialDraft = Editing(
+            id = "",
+            title = Revisioned.initial(""),
+            html = "",
+            isDirty = false,
+            isNew = true,
+        ),
         // The lambda body is stored (not executed) during default parameter evaluation.
         // It captures autosaveCtx from the constructor parameter scope — no 'this' access.
         autosave = { draft ->
@@ -101,7 +108,7 @@ internal class NoteEditor(
                     // New note: create it first so we get a proper createdAt + full row.
                     autosaveCtx.repo.createWithContent(
                         id = noteId,
-                        title = draft.title,
+                        title = draft.title.value,
                         bodyMarkdown = "",
                         bodyHtml = draft.html,
                     )
@@ -110,7 +117,7 @@ internal class NoteEditor(
                     // (isPinned, color, sortOrder, taskId, outgoingLinks, serverVersion, etc.).
                     autosaveCtx.repo.updateContent(
                         id = noteId,
-                        title = draft.title,
+                        title = draft.title.value,
                         bodyMarkdown = "",
                         bodyHtml = draft.html,
                     )
@@ -163,7 +170,7 @@ internal class NoteEditor(
             // content the user has since changed.
             val opened = Editing(
                 id = note.id.value,
-                title = note.title,
+                title = Revisioned.initial(note.title),
                 html = html,
                 isDirty = false,
                 isNew = false,
@@ -177,11 +184,10 @@ internal class NoteEditor(
             rewriteWatcher.start(NoteId.fromString(noteId), { draft }) { note, html ->
                 cachedNote = note
                 val reseeded = draft.copy(
-                    title = note.title,
+                    title = draft.title.replacedBy(note.title),
                     html = html,
                     isDirty = false,
                     isNew = false,
-                    revision = draft.revision + 1,
                 )
                 open(reseeded)
                 updateDraft { reseeded }
@@ -205,7 +211,7 @@ internal class NoteEditor(
         )
         val draft = Editing(
             id = id.value,
-            title = "",
+            title = Revisioned.initial(""),
             html = "",
             isDirty = false,
             isNew = true,
@@ -250,14 +256,14 @@ internal class NoteEditor(
         if (draft.isNew) {
             autosaveContext.repo.createWithContent(
                 id = noteId,
-                title = draft.title,
+                title = draft.title.value,
                 bodyMarkdown = "",
                 bodyHtml = draft.html,
             ).getOrThrow()
         } else {
             autosaveContext.repo.updateContent(
                 id = noteId,
-                title = draft.title,
+                title = draft.title.value,
                 bodyMarkdown = "",
                 bodyHtml = draft.html,
             ).getOrThrow()
@@ -305,7 +311,7 @@ internal class NoteEditor(
         when (intent) {
             is NotesEditorIntent.OpenNote -> openEditor(intent.noteId)
             is NotesEditorIntent.CreateNote -> createNote()
-            is NotesEditorIntent.EditTitle -> updateDraft { it.copy(title = intent.title, isDirty = true) }
+            is NotesEditorIntent.EditTitle -> updateDraft { it.withTitle(intent.title) }
             is NotesEditorIntent.EditBody -> updateDraft { it.copy(html = intent.html, isDirty = true) }
             NotesEditorIntent.SaveNow -> save()
             NotesEditorIntent.Close -> closeEditor()
@@ -347,7 +353,7 @@ internal class NoteEditor(
         val userId = currentUser.scopedUserId.value
         val now = clock.now()
 
-        val result = ai.run(action, current.title, current.html).getOrNull()
+        val result = ai.run(action, current.title.value, current.html).getOrNull()
         val (kind, summary) = when (action) {
             NoteAiAction.Summarize -> {
                 val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
@@ -419,7 +425,7 @@ internal class NoteEditor(
         launchDraftEffect(
             key = "ai-$action",
             operation = { current: Editing ->
-                ai.run(action, current.title, current.html)
+                ai.run(action, current.title.value, current.html)
                     .getOrThrow()
             },
             onResult = { _, _ -> null },

@@ -10,6 +10,7 @@ import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import com.singularity.todo.core.ui.textfields.Revisioned
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -73,7 +74,7 @@ class NoteRewriteWatcherTest {
         val original = makeNote()
         repo.seed(original)
         val reports = mutableListOf<Pair<Note, String>>()
-        val draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Hello world</p>")
+        val draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = "<p>Hello world</p>")
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
@@ -96,7 +97,12 @@ class NoteRewriteWatcherTest {
         repo.seed(original)
         val reports = mutableListOf<Pair<Note, String>>()
         // The user is typing: their text is not saved yet.
-        val draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Mine</p>", isDirty = true)
+        val draft = Editing(
+            id = noteId.value,
+            title = Revisioned.initial("Test Note"),
+            html = "<p>Mine</p>",
+            isDirty = true,
+        )
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
@@ -112,7 +118,7 @@ class NoteRewriteWatcherTest {
     fun `the echo of the editor's own save is not reported`() = runTest {
         val repo = FakeNotesRepository()
         val reports = mutableListOf<Pair<Note, String>>()
-        val draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Hello world</p>")
+        val draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = "<p>Hello world</p>")
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
@@ -131,7 +137,7 @@ class NoteRewriteWatcherTest {
         repo.seed(makeNote())
         val reports = mutableListOf<Pair<Note, String>>()
         // The draft belongs to another note than the one the repository emits.
-        val draft = Editing(id = "note-2", title = "Test Note", html = "<p>Hello world</p>")
+        val draft = Editing(id = "note-2", title = Revisioned.initial("Test Note"), html = "<p>Hello world</p>")
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
@@ -152,7 +158,7 @@ class NoteRewriteWatcherTest {
         val reports = mutableListOf<Pair<Note, String>>()
         // The editor already shows the converted markdown — so the note's own emission
         // is the echo of what the editor holds, and only a later rewrite is a rewrite.
-        val draft = Editing(id = noteId.value, title = "Test Note", html = expectedHtml)
+        val draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = expectedHtml)
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
@@ -176,7 +182,7 @@ class NoteRewriteWatcherTest {
         val repo = FakeNotesRepository()
         repo.seed(makeNote(bodyHtml = null, bodyMarkdown = null))
         val reports = mutableListOf<Pair<Note, String>>()
-        val draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Hello world</p>")
+        val draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = "<p>Hello world</p>")
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
@@ -190,14 +196,14 @@ class NoteRewriteWatcherTest {
     fun `the draft is read live, not snapshotted when the watch starts`() = runTest {
         val repo = FakeNotesRepository()
         val reports = mutableListOf<Pair<Note, String>>()
-        var draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Mine</p>")
+        var draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = "<p>Mine</p>")
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }
         runCurrent()
 
         // The editor has meanwhile taken the rewrite's content into its own draft.
-        draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Theirs</p>")
+        draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = "<p>Theirs</p>")
         repo.seed(makeNote(bodyHtml = "<p>Theirs</p>"))
         runCurrent()
 
@@ -214,7 +220,7 @@ class NoteRewriteWatcherTest {
         val original = makeNote()
         repo.seed(original)
         val reports = mutableListOf<Pair<Note, String>>()
-        val draft = Editing(id = noteId.value, title = "Test Note", html = "<p>Hello world</p>")
+        val draft = Editing(id = noteId.value, title = Revisioned.initial("Test Note"), html = "<p>Hello world</p>")
 
         val watcher = NoteRewriteWatcher(repo, backgroundScope)
         watcher.start(noteId, { draft }) { rewrittenNote, html -> reports += rewrittenNote to html }

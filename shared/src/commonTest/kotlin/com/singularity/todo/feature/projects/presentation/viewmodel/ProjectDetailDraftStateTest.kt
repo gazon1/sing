@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
+import com.singularity.todo.core.ui.textfields.Revisioned
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,14 +12,33 @@ class ProjectDetailDraftStateTest {
 
     private fun newState(initial: ProjectDetailDraft = ProjectDetailDraft.empty()) = ProjectDetailDraftState(initial)
 
+    /**
+     * A draft that already holds a value.
+     *
+     * The value and its count travel together, in a [Revisioned], so a draft that is
+     * built here says what it holds without saying how many times it was replaced.
+     */
+    private fun draft(
+        name: String,
+        description: String,
+        originalName: String = name,
+        originalDescription: String = description,
+    ) = ProjectDetailDraft(
+        name = Revisioned.initial(name),
+        description = Revisioned.initial(description),
+        originalName = originalName,
+        originalDescription = originalDescription,
+        initialized = true,
+    )
+
     // ─── seed ─────────────────────────────────────────────────────────────────
 
     @Test
     fun `seed sets name and description`() {
         val s = newState()
         s.seed("My Project", "A short description")
-        assertEquals("My Project", s.current.name)
-        assertEquals("A short description", s.current.description)
+        assertEquals("My Project", s.current.name.value)
+        assertEquals("A short description", s.current.description.value)
         assertEquals("My Project", s.current.originalName)
         assertEquals("A short description", s.current.originalDescription)
         assertTrue(s.current.initialized)
@@ -29,9 +49,9 @@ class ProjectDetailDraftStateTest {
         val s = newState()
         s.seed("First", "Desc")
         s.seed("Second", "Other")
-        assertEquals("Second", s.current.name)
-        assertEquals("Other", s.current.description)
-        assertEquals(1L, s.current.revision)
+        assertEquals("Second", s.current.name.value)
+        assertEquals("Other", s.current.description.value)
+        assertEquals(1L, s.current.name.revision)
     }
 
     @Test
@@ -40,9 +60,9 @@ class ProjectDetailDraftStateTest {
         s.seed("First", "Desc")
         s.setName("Mine")
         s.seed("Second", "Other")
-        assertEquals("Mine", s.current.name)
-        assertEquals("Desc", s.current.description)
-        assertEquals(0L, s.current.revision)
+        assertEquals("Mine", s.current.name.value)
+        assertEquals("Desc", s.current.description.value)
+        assertEquals(0L, s.current.name.revision)
     }
 
     @Test
@@ -50,7 +70,7 @@ class ProjectDetailDraftStateTest {
         val s = newState()
         s.seed("First", "Desc")
         s.seed("First", "Desc")
-        assertEquals(0L, s.current.revision)
+        assertEquals(0L, s.current.name.revision)
     }
 
     @Test
@@ -60,9 +80,9 @@ class ProjectDetailDraftStateTest {
         s.setName("Mine")
         s.seed("Mine", "Desc")
         s.seed("Second", "Desc")
-        assertEquals(1L, s.current.revision)
+        assertEquals(1L, s.current.name.revision)
         s.seed("Third", "Desc")
-        assertEquals(2L, s.current.revision)
+        assertEquals(2L, s.current.name.revision)
     }
 
     // ─── the echo of the save ─────────────────────────────────────────────────
@@ -75,7 +95,7 @@ class ProjectDetailDraftStateTest {
         assertTrue(s.current.isDirty)
         s.seed("Mine", "Desc")
         assertFalse(s.current.isDirty)
-        assertEquals(0L, s.current.revision)
+        assertEquals(0L, s.current.name.revision)
     }
 
     @Test
@@ -85,8 +105,8 @@ class ProjectDetailDraftStateTest {
         s.setName("Mine")
         s.seed("Mine", "Desc")
         s.seed("Second", "Desc")
-        assertEquals("Second", s.current.name)
-        assertEquals(1L, s.current.revision)
+        assertEquals("Second", s.current.name.value)
+        assertEquals(1L, s.current.name.revision)
     }
 
     @Test
@@ -98,44 +118,44 @@ class ProjectDetailDraftStateTest {
         s.seed("Mine", "Desc")
         assertTrue(s.current.isDirty)
         s.seed("Second", "Desc")
-        assertEquals("Mine and more", s.current.name)
+        assertEquals("Mine and more", s.current.name.value)
     }
 
     // ─── setName / setDescription ─────────────────────────────────────────────
 
     @Test
     fun `setName updates name`() {
-        val s = newState(ProjectDetailDraft("init", "desc", "init", "desc", true))
+        val s = newState(draft("init", "desc"))
         s.setName("Updated")
-        assertEquals("Updated", s.current.name)
-        assertEquals("desc", s.current.description)
+        assertEquals("Updated", s.current.name.value)
+        assertEquals("desc", s.current.description.value)
     }
 
     @Test
     fun `setDescription updates description`() {
-        val s = newState(ProjectDetailDraft("title", "init", "title", "init", true))
+        val s = newState(draft("title", "init"))
         s.setDescription("Updated desc")
-        assertEquals("title", s.current.name)
-        assertEquals("Updated desc", s.current.description)
+        assertEquals("title", s.current.name.value)
+        assertEquals("Updated desc", s.current.description.value)
     }
 
     // ─── isDirty ───────────────────────────────────────────────────────────────
 
     @Test
     fun `isDirty is false when nothing changed`() {
-        val s = newState(ProjectDetailDraft("title", "desc", "title", "desc", true))
+        val s = newState(draft("title", "desc"))
         assertFalse(s.current.isDirty)
     }
 
     @Test
     fun `isDirty is true when name changed`() {
-        val s = newState(ProjectDetailDraft("edited", "desc", "original", "desc", true))
+        val s = newState(draft("edited", "desc", originalName = "original"))
         assertTrue(s.current.isDirty)
     }
 
     @Test
     fun `isDirty is true when description changed`() {
-        val s = newState(ProjectDetailDraft("title", "edited", "title", "original", true))
+        val s = newState(draft("title", "edited", originalDescription = "original"))
         assertTrue(s.current.isDirty)
     }
 }

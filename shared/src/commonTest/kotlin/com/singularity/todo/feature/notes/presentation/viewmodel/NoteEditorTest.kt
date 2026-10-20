@@ -123,7 +123,7 @@ class NoteEditorTest {
         val state = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(state)
         assertEquals(testNote.id.value, state.id)
-        assertEquals("Test Note", state.title)
+        assertEquals("Test Note", state.title.value)
         assertEquals("<p>Hello world</p>", state.html)
         assertFalse(state.isDirty)
         assertFalse(state.isNew)
@@ -344,10 +344,10 @@ class NoteEditorTest {
 
         val state = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(state)
-        assertEquals("Rewritten", state.title)
+        assertEquals("Rewritten", state.title.value)
         assertEquals("<p>Rewritten body</p>", state.html)
         // The revision is how the fields learn the content was replaced, not typed.
-        assertEquals(1L, state.revision)
+        assertEquals(1L, state.title.revision)
         assertFalse(state.isDirty)
     }
 
@@ -372,7 +372,7 @@ class NoteEditorTest {
         assertIs<EditorState.Editing>(state)
         assertEquals("<p>Mine</p>", state.html)
         // No revision: nothing was replaced, so no field is told otherwise.
-        assertEquals(0L, state.revision)
+        assertEquals(0L, state.title.revision)
         assertTrue(state.isDirty)
     }
 
@@ -396,6 +396,6 @@ class NoteEditorTest {
         assertFalse(state.isDirty)
         // The autosave's echo of our own content is not a rewrite: the editor did
         // not learn anything it did not already know.
-        assertEquals(0L, state.revision)
+        assertEquals(0L, state.title.revision)
     }
 }

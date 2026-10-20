@@ -366,10 +366,27 @@ count in an owned source: the party that rewrote the content says so.
 **The counter columns name the files that own the number.** A count that is passed as a
 literal can never move, so the field would never learn that it is a rewrite — and a
 frozen count is worse than none, because it looks like the contract is honoured. The
-count is the draft's own revision: it moves when the entity was *replaced* from outside,
-and it never moves for a keystroke or for the echo of the field's own save. The
-**Counter** column names the file that declares it, the **Advances** column the file that
-moves it.
+count moves when the entity was *replaced* from outside, and it never moves for a
+keystroke or for the echo of the field's own save. The **Counter** column names the file
+that declares it, the **Advances** column the file that moves it.
+
+**There are two kinds of counter, and they are not the same thing.**
+
+- **A count that travels with a value.** The drafts hold their text in a
+  `Revisioned<String>`: the value and the count of the times it was replaced from outside
+  live in one object, and the count moves *only* through `Revisioned.replacedBy`. A draft
+  that held the text and the count in two places could replace the text and leave the
+  count where it was — and the field would take the replacement for an echo of its own
+  last push, and keep the text the user typed. That is the lie the type exists to prevent,
+  and it is silent: nothing fails, the field just stops listening.
+- **A count of the upstream's writes.** A GenUI surface counts the *server's writes*, and
+  a server write may not change the value at all — so the count is a property of the
+  surface, not of a value, and it is a plain number the controller increments. The data
+  context builds the source out of the value and that number.
+
+The first travels with the value; the second is the surface's own. What they share is
+the rule: the count moves when the content was *replaced* from outside, and never for a
+keystroke.
 
 **A file may appear twice.** The task title and the task description are served by two
 upstreams — the create draft and the detail draft — and the two are different kinds of

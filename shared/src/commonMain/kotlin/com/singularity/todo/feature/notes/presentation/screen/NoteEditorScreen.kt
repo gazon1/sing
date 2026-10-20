@@ -34,6 +34,7 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.textfields.Revisioned
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator
@@ -289,7 +290,7 @@ private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, 
             editorState = DraftUiStateCompat(
                 draft = EditorState.Editing(
                     id = "n1",
-                    title = "Meeting Notes",
+                    title = Revisioned.initial("Meeting Notes"),
                     html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
                     isDirty = false,
                 ),
@@ -315,7 +316,7 @@ private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, use
             editorState = DraftUiStateCompat(
                 draft = EditorState.Editing(
                     id = "n2",
-                    title = "Draft",
+                    title = Revisioned.initial("Draft"),
                     html = "<p>Work in progress...</p>",
                     isDirty = true,
                 ),
