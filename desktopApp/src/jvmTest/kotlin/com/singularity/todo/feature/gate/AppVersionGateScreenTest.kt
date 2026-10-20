@@ -39,9 +39,13 @@ class AppVersionGateScreenTest {
 
     @Test
     fun `openStoreOnDesktop absorbs HeadlessException thrown by DesktopgetDesktop in headless environments`() {
-        // This test is meaningful ONLY in a headless environment — on a machine
-        // with a display, Desktop.getDesktop() succeeds and this test does nothing.
-        // The test is still correct in both cases:
+        // This test is meaningful ONLY in a headless environment — and the test
+        // JVM is headless by construction now: desktopApp/build.gradle.kts sets
+        // `java.awt.headless=true` on every forked Test JVM. Before that, a host
+        // with a reachable display made Desktop.getDesktop() succeed, which
+        // launched a REAL browser from the test: Firefox started, crashed with a
+        // minidump, and the Gradle test worker hung forever (two full check.sh
+        // runs were lost to it). The test is still correct in either case:
         //   - headed:  browse() is called and either succeeds or throws a different exception
         //              (both are absorbed by catch (e: Throwable))
         //   - headless: browse() throws HeadlessException which catch (e: Throwable) absorbs
