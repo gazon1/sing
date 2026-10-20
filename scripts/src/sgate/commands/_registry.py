@@ -516,6 +516,19 @@ _REGISTERED: tuple[GateSpec, ...] = (
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-instrumented-test-floor.py"),
+        parity=Parity(
+            scope="local",
+            why=(
+                "the gate reads the instrumented run's report, and the report exists "
+                "only where the emulator ran: in CI that is the device-tests workflow, "
+                "and locally it is the optional adb step of check.sh. It cannot live "
+                "in the shared registry — the static CI job has no build output at all, "
+                "so a gate there would fail on every run for want of a report. The CI "
+                "invocation is therefore not visible to the parity check, which reads "
+                "ci.yml and the shared registry only, and the scope says local because "
+                "local is the only surface the check can see."
+            ),
+        ),
     ),
     GateSpec(
         name="script conventions",
