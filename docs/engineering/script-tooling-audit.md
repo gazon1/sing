@@ -488,6 +488,32 @@ it consolidates code.
 Steps 3–4 are independent and can ship separately. Steps 5–7 change what the gates
 measure, so each needs its own before/after measurement.
 
+### The next round, concretely
+
+Three changes, in this order, each with its own measurement:
+
+1. **F9 — the adapters read the contract instead of the prose.** Two of the five
+   producers already emit `{"passed", "blocking_errors"}`; the adapters rebuild those
+   two fields from a regex over the output text. Switching them to `--json` is
+   mechanical and removes a class of "the script's wording changed" failure. The
+   other three move onto `GatePayload`, so the honest-pass rule (parser verdict AND
+   exit code) applies to them too.
+2. **F5 + F6 + F7 — one implementation of each question.** Point the two Kotlin
+   strippers at `scanners/source_text.py`; give the two Maestro header readers one
+   implementation; use `workflow_gradle.iter_invocations` in the third caller. Each
+   needs a before/after corpus measurement, because all three change what a gate
+   *sees* — and one of them (`check-dependency-usage.py`) currently under-reports,
+   so the count of findings may go up before it goes down.
+3. **F8 + F12 — delete what nothing calls.** Seven dead `emulator` exports, the
+   `maestro/_device.py` aliases, `AdbCall` (~90 lines), and either a `just` recipe
+   for `measure-baseline-composition.py` or the file itself. No behaviour change;
+   the 1194 tests are the check.
+
+F10 and F11 stay out of that round. They are the ones that remove duplication
+rather than relocate it, and every gate name and mode moves when they land — that
+wants its own change record and its own before/after count of both registries.
+
+
 ### Sizing the remaining work
 
 Measured on 2026-10-20, so the next round starts from numbers rather than from a
