@@ -88,18 +88,29 @@ runs:
       run: |
         set -euo pipefail
         VENV="$HOME/ci-venv"
+        # The pins live in one file, shared with the local install path
+        # (scripts/ci/setup-local-tools.sh reads the same file): a version
+        # written out twice is a version that can drift, and the drift shows up
+        # as a local/CI disagreement rather than as a version bump.
+        #
+        # A composite action's run: steps execute in the checked-out repository
+        # — the step at the bottom of this action already reads repo files by
+        # relative path — so the pins file is one `source` away.
+        source config/toolchain-versions.env
         # Pinned, not @latest: a lint that passes on one version and fails on
         # the next is a gate whose floor moved without anyone deciding it.
         if [[ "${{ inputs.with-yaml-lint }}" == 'true' ]]; then
-          VIRTUAL_ENV="$VENV" uv pip install "yamllint==1.38.0"
+          VIRTUAL_ENV="$VENV" uv pip install "yamllint==$YAMLLINT_VERSION"
         fi
         if [[ "${{ inputs.with-action-lint }}" == 'true' ]]; then
           # shellcheck comes from the venv like everything else, and actionlint
           # gets an explicit path to it below — actionlint silently DISABLES
           # its shellcheck integration when the binary is not found, so the
           # gate's verdict otherwise depends on what the image happens to have.
-          VIRTUAL_ENV="$VENV" uv pip install "shellcheck-py==0.11.0.1"
-          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+          VIRTUAL_ENV="$VENV" uv pip install "shellcheck-py==$SHELLCHECK_PY_VERSION"
+          # The asset version is the release tag without its leading "v", so the
+          # URL and the file it downloads cannot name different releases.
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" \
             | tar -xz -C "$VENV/bin" actionlint
           "$VENV/bin/actionlint" --version
           "$VENV/bin/shellcheck" --version | head -1
@@ -111,12 +122,14 @@ runs:
       run: |
         set -euo pipefail
         VENV="$HOME/ci-venv"
+        # The same pins file the linters above read — see the comment there.
+        source config/toolchain-versions.env
         # lychee-bin is the PyPI wheel of the upstream Rust binary — the same
         # shape as shellcheck-py above, and the reason the gate does not depend
         # on cargo or on a GitHub Action that only exists in CI. Pinned, for the
         # same reason the others are: a lint that passes on one version and
         # fails on the next is a gate whose floor moved without anyone deciding.
-        VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==0.24.2"
+        VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==$LYCHEE_BIN_VERSION"
         "$VENV/bin/lychee" --version
 
     - name: Verify both gate registries load

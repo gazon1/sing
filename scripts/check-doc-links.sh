@@ -42,7 +42,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 if ! command -v lychee >/dev/null 2>&1; then
   echo "lychee is not on PATH; the documentation link check would cover nothing and say nothing" >&2
-  echo "install it with: uv pip install 'lychee-bin==0.24.2'" >&2
+  # The version comes from the pins file, like every other install of it: a
+  # second copy of a pin is a pin that can drift.
+  # shellcheck source=../config/toolchain-versions.env
+  . "$(dirname "${BASH_SOURCE[0]}")/../config/toolchain-versions.env"
+  echo "install it with: uv pip install 'lychee-bin==${LYCHEE_BIN_VERSION}'" >&2
   exit 1
 fi
 
