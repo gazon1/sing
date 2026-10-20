@@ -1,7 +1,9 @@
 # Calendar: switch the view mode between the four available modes.
 #
-# The mode control is labelled with the *current* mode ("Month"); tapping it
-# opens the four-way switcher.
+# The mode control shows the *current* mode; tapping it opens the four-way
+# switcher. The control is addressed by its testTag and not by the mode name
+# it happens to display: the name is the app's copy, and the copy is not what
+# this flow is about.
 appId: com.singularity.todo
 name: calendar-view-mode
 tags:
@@ -12,14 +14,16 @@ tags:
 - runScript: ../../helpers/scripts/date.js
 - tapOn:
     id: nav_tab_calendar
-- extendedWaitUntil:
-    visible: ${output.monthTitle}
-    timeout: 8000
-# The view-mode selector button shows the current mode text ("Month").
-# Tap it to open the dropdown — the dropdown items (calendar_view_mode_*) only
-# exist in the hierarchy when the dropdown is expanded.
+# The grid is showing the current month: today's cell is one of its cells.
+- runFlow:
+    file: ../../helpers/calendar-day-cell.yaml
+    env:
+      DAY_CELL: ${output.TODAY_CELL}
+# The view-mode selector button shows the current mode. Tap it to open the
+# dropdown — the dropdown items (calendar_view_mode_*) only exist in the
+# hierarchy when the dropdown is expanded.
 - tapOn:
-    text: "Month"
+    id: calendar_view_mode_trigger
 - extendedWaitUntil:
     visible:
       id: calendar_view_mode_month

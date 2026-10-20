@@ -360,11 +360,44 @@ jobs:
       # --gradle-log build.log: exempts any source set whose test task went UP-TO-DATE
       # or FROM-CACHED from the freshness check. With --no-build-cache above, tasks
       # should never be cached in CI, but the flag is also a backstop for local runs.
+      # Every invocation's exit code is kept and every target is measured,
+      # because the two verdicts are different investigations (check-test-runs.py
+      # documents them): exit 3 = "no report at all", so no floor was compared and
+      # the reader must find out why nothing ran; exit 1 = "a report exists and
+      # is below the floor", so the suite ran and lost coverage. The step used to
+      # stop at the first non-zero code, so a missing report for one target hid
+      # the other two verdicts: the reader saw one failure and never learned
+      # whether the rest of the suite had run.
+      #
+      # A below-floor report outranks a missing one when both happen: it is a
+      # regression of a measurement that happened, and the missing report is
+      # printed next to it anyway.
       - name: Executed test counts
         run: |
-          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log
-          python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log
-          python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED" --gradle-log build.log
+          jvm=0
+          host=0
+          mcp=0
+          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
+          python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log || host=$?
+          python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED" --gradle-log build.log || mcp=$?
+          echo "test-run verdicts — jvm/desktop: $jvm, android-host: $host, mcp-server: $mcp"
+          failed=0
+          missing=0
+          for code in "$jvm" "$host" "$mcp"; do
+            case "$code" in
+              0) ;;
+              3) missing=1 ;;
+              *) failed=1 ;;
+            esac
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::a test source set produced a report below its floor (or failed outright)"
+            exit 1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::a test source set produced no JUnit report at all — nothing ran, so no floor was compared"
+            exit 3
+          fi
 
       # desktop only, deliberately. The android target's results come from
       # :androidApp:connectedDebugAndroidTest, which no CI job runs, and

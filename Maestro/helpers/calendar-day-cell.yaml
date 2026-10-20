@@ -1,0 +1,22 @@
+# Waits for a calendar day cell to be on the screen.
+#
+# Usage:
+#   env:
+#     DAY_CELL: calendar_day_2026_10_20
+#
+# The cell's testTag carries its date, so the id is computed by
+# helpers/scripts/date.js and handed over as an environment variable. A flow
+# that named the cell itself would have to write a date down, and the selector
+# gate rejects an id it cannot expand.
+#
+# The wait is on the cell, not on the month title. The title is a formatted
+# string — its wording, its word order and its month name belong to the app —
+# while the cell's tag is the cell's identity, and it does not move when the
+# device's locale does.
+appId: com.singularity.todo
+name: calendar-day-cell
+---
+- extendedWaitUntil:
+    visible:
+      id: "${DAY_CELL}"
+    timeout: 8000

@@ -712,11 +712,179 @@ _KOIN_VIEWMODEL_PARAM_TYPE = re.compile(
     r"(\w+)\s*:\s*(\w+ViewModel)\s*=",
 )
 
+# ── The type behind a bare `get()` ─────────────────────────────────────────
+#
+# `single<AuthRepository> { SupabaseAuthRepository(gateway = get(), …) }` injects
+# AuthGateway without ever naming it: Koin's `get()` takes its type from the
+# parameter it fills. A scan that only recognises `get<Name>()` therefore calls
+# every such binding an orphan, and the only available fix was an allowlist of
+# thirty-odd names — a list of claims, each audited by hand, each free to rot
+# the next time a constructor gains a parameter.
+#
+# This resolves the missing fact instead of claiming it. Every class's
+# constructor parameters are indexed, and the type behind a `get()` is read off
+# the parameter it fills: by name when the argument is named, by position when
+# it is not. A constructor reference (`viewModelOf(::MyViewModel)`) is the same
+# fact written differently — Koin fills that constructor's parameters from the
+# graph — so its parameter types count as consumed too.
+
+_CLASS_DECL = re.compile(
+    r"\b(?:class|interface|object)\s+(\w+)\s*(?:<[^<>()]*>)?\s*\(",
+)
+_PARAM_DECL = re.compile(r"(\w+)\s*:\s*([A-Za-z_][\w.]*)")
+_GET_CALL = re.compile(r"\bget(?:<([\w.]+)>)?\s*\(\s*\)")
+_CONSTRUCTOR_REF = re.compile(r"::(\w+)")
+
+#: The `get` family. A `get(` inside a `get()` argument must not be mistaken
+#: for the enclosing call, or the resolution walks to the wrong parameter.
+_GET_FAMILY = frozenset(
+    {"get", "getOrNull", "getAll", "getOrNull", "inject", "koinInject", "koinGet"}
+)
+
+
+def _balanced_body(text: str, open_paren: int) -> str | None:
+    """The text between the parentheses at `open_paren` and their match."""
+    depth = 0
+    for i in range(open_paren, len(text)):
+        ch = text[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return text[open_paren + 1 : i]
+    return None
+
+
+def _constructor_index(
+    code: dict[pathlib.Path, str],
+) -> dict[str, list[tuple[str, str]]]:
+    """Class name → its constructor parameters, as (name, type) pairs."""
+    index: dict[str, list[tuple[str, str]]] = {}
+    for path, text in code.items():
+        if _is_test_source(path):
+            continue
+        stripped = strip_comments_and_strings(text)
+        for match in _CLASS_DECL.finditer(stripped):
+            name = match.group(1)
+            body = _balanced_body(stripped, match.end() - 1)
+            if body is None:
+                continue
+            params = [
+                (m.group(1), m.group(2)) for m in _PARAM_DECL.finditer(body)
+            ]
+            if params:
+                index.setdefault(name, params)
+    return index
+
+
+def _enclosing_call(text: str, pos: int) -> tuple[str, int] | None:
+    """The innermost call whose argument list still contains `pos`.
+
+    Returns (callee name, index of its opening parenthesis).
+
+    "Innermost" is load-bearing. The last call *spelled* before the argument is
+    not the one that contains it: `SupabaseAuthRepository(log = Logger.withTag(…),
+    gateway = get(), …)` spells `withTag(` last, and resolving the argument
+    against that call looks up a type that does not exist — so the binding it
+    should have resolved stayed unresolved and the gate kept reporting it.
+    """
+    best: tuple[str, int] | None = None
+    for match in re.finditer(r"(\w+)\s*\(", text[:pos]):
+        name = match.group(1)
+        if name in _GET_FAMILY:
+            continue
+        open_paren = match.end() - 1
+        depth = 0
+        for i in range(open_paren, pos):
+            ch = text[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+        if depth <= 0:
+            continue
+        if best is None or open_paren > best[1]:
+            best = (name, open_paren)
+    return best
+
+
+def _argument_slot(text: str, open_paren: int, pos: int) -> tuple[int, str | None]:
+    """Which argument of the call at `open_paren` the text at `pos` is.
+
+    Returns (zero-based position, argument name or None). The name is read at
+    depth zero only: a default value like `foo(bar = 1)` must not rename the
+    argument that contains it.
+    """
+    depth = 0
+    index = 0
+    named: str | None = None
+    i = open_paren + 1
+    while i < pos:
+        ch = text[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif depth == 0:
+            if ch == ",":
+                index += 1
+                named = None
+            elif ch == "=" and i > open_paren + 1:
+                before = text[open_paren + 1 : i]
+                name_match = re.search(r"(\w+)\s*$", before)
+                if name_match:
+                    named = name_match.group(1)
+        i += 1
+    return index, named
+
+
+def _injected_by_constructor(
+    code: dict[pathlib.Path, str],
+    index: dict[str, list[tuple[str, str]]],
+) -> set[str]:
+    """The types a production `get()` fills, resolved through the constructor."""
+    injected: set[str] = set()
+
+    for path, text in code.items():
+        if _is_test_source(path):
+            continue
+        stripped = strip_comments_and_strings(text)
+
+        # A constructor reference: Koin fills that constructor's parameters.
+        for match in _CONSTRUCTOR_REF.finditer(stripped):
+            params = index.get(match.group(1))
+            if params:
+                injected.update(type_name for _, type_name in params)
+
+        for match in _GET_CALL.finditer(stripped):
+            explicit = match.group(1)
+            if explicit:
+                injected.add(explicit.split(".")[-1])
+                continue
+            call = _enclosing_call(stripped, match.start())
+            if call is None:
+                continue
+            callee, open_paren = call
+            params = index.get(callee)
+            if not params:
+                continue
+            position, name = _argument_slot(stripped, open_paren, match.start())
+            if name is not None:
+                for param_name, type_name in params:
+                    if param_name == name:
+                        injected.add(type_name)
+                        break
+            elif position < len(params):
+                injected.add(params[position][1])
+
+    return injected
+
 
 def _precompute_orphan_binding(
     code: dict[pathlib.Path, str],
-) -> tuple[set[str], set[str], dict[pathlib.Path, set[str]]]:
-    """Returns (bound_names, all_consumed, per_file_consumed)."""
+) -> tuple[set[str], set[str], dict[pathlib.Path, set[str]], set[str]]:
+    """Returns (bound_names, all_consumed, per_file_consumed, injected_by_constructor)."""
     bound_names: set[str] = set()
     bound_fqcns: set[str] = set()
     all_consumed: set[str] = set()
@@ -760,16 +928,19 @@ def _precompute_orphan_binding(
                 all_consumed.add(vm_name)
                 per_file_consumed[path].add(vm_name)
 
-    return bound_names | bound_fqcns, all_consumed, per_file_consumed
+    index = _constructor_index(code)
+    injected = _injected_by_constructor(code, index)
+
+    return bound_names | bound_fqcns, all_consumed, per_file_consumed, injected
 
 
 def _check_orphan_binding(
     code: dict[pathlib.Path, str],
     _corpus: str,
-    pre: tuple[set[str], set[str], dict[pathlib.Path, set[str]]],
+    pre: tuple[set[str], set[str], dict[pathlib.Path, set[str]], set[str]],
 ) -> list[tuple[str, str]]:
     findings: list[tuple[str, str]] = []
-    bound, consumed, per_file_consumed = pre
+    bound, consumed, per_file_consumed, injected = pre
     # Allowlist: intentional orphans declared as known-dead or stubbed-for-future-use.
     # Each entry here is a class name that was audited and intentionally left unwired.
     DECLARED_INTENT: set[str] = {
@@ -850,7 +1021,12 @@ def _check_orphan_binding(
         for m in _KOIN_BINDING.finditer(text):
             kind, fqcn = m.group(1), m.group(2)
             simple = fqcn.split(".")[-1]
-            if simple in bound and simple not in consumed and simple not in DECLARED_INTENT:
+            if (
+                simple in bound
+                and simple not in consumed
+                and simple not in injected
+                and simple not in DECLARED_INTENT
+            ):
                 # Cross-file check: the binding file must NOT have any consumer for this name.
                 # If the only "consumed" entry is in the same file as the binding,
                 # it's a false positive from the binding itself.

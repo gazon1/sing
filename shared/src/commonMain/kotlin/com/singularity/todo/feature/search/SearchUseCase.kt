@@ -24,7 +24,17 @@ data class SearchResults(
     val notes: List<Note>,
     val projects: List<Project>,
     val tags: List<Tag>,
-)
+) {
+    /**
+     * True when the search matched nothing at all.
+     *
+     * This is the difference between "the screen has nothing to show" and "the
+     * screen has results": an empty result set is the no-results state, not a
+     * blank screen.
+     */
+    val isEmpty: Boolean
+        get() = tasks.isEmpty() && notes.isEmpty() && projects.isEmpty() && tags.isEmpty()
+}
 
 class SearchUseCase(
     private val taskRepo: TaskRepository,

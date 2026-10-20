@@ -1,0 +1,22 @@
+# Puts the app into a signed-out session and waits for the sign-in screen.
+#
+# Usage: none — the flow wants a signed-out app.
+#
+# Why a helper and not a state wipe. The E2E build replaces the auth
+# repository with a stub that starts every process in `Session.SignedIn`, so
+# the sign-in screen is not on the screen by default; and `clearState: true`
+# takes the app's data with it, which is the runner's fixture sweep's job and
+# not a flow's. The debug deep link `session=signedout` calls
+# `AuthRepository.signOut()` — the same call the app's own "Sign out" button
+# makes — so the flow drives the path a user takes.
+#
+# The E2E build has a Supabase project compiled in, so the signed-out state
+# shows the credential form, not the server-config form.
+appId: com.singularity.todo
+name: session-signedout
+---
+- openLink: "todo-debug://seed?session=signedout"
+- extendedWaitUntil:
+    visible:
+      id: auth_continue_offline_button
+    timeout: 30000

@@ -202,7 +202,7 @@ gate blocking "gates are alive" sgate gates_are_alive  # no-self-probe
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).
 gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree
-gate advisory "unwired surfaces" sgate unwired_surfaces
+gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 
 # Workflow + YAML lint, two real tools over the corpus the gates above only
@@ -357,8 +357,9 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 #     req id uniqueness                exit 1   rebase compiles               exit 1
 #     test runs                        exit 1
 #
-# They are the repo's knowingly-red corpus, in the same shape as the advisory
-# `script conventions` entry below. Each carries `needs_clean_run=False` or a
+# They are the repo's knowingly-red corpus, in the same shape as the
+# `script conventions` entry below was before the Click migration landed.
+# Each carries `needs_clean_run=False` or a
 # documented exemption in `GATE_CONTROLS` for exactly this reason. `manifest-verify`
 # now reports a registry entry with no gate line in this direction too, so the two
 # lists cannot drift apart unnoticed again — which is how all eleven went missing.
@@ -390,12 +391,15 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # implements the same rule locally, where an upstream ref genuinely exists, and does so
 # on the ref about to be rebased onto rather than on a tracking branch CI never has.
 
-# Gate-script conventions. Advisory because the corpus is knowingly red: every
-# legacy check-*.py still uses argparse (R2.1), and migrating 35 scripts is a
-# separate sweep. Registered rather than deleted so the debt is visible and
-# Part H of check-gate-wiring.py stops reporting check-script-conventions.py
-# as an unreachable gate — a script nobody invokes reports success forever.
-gate advisory "script conventions" sgate conventions
+# Gate-script conventions. Blocking now that the corpus is green: the last three
+# argparse holdouts are migrated, and the check finds the argparse import by
+# parsing the module rather than by looking for a substring — which is how it
+# used to report itself as a violation while the corpus was already clean.
+#
+# It was advisory for as long as it was red on a clean tree, and a control
+# cannot tell "caught the mutation" from "still failing the known violations".
+# That is the whole reason it had no positive control; it has one now.
+gate blocking "script conventions" sgate conventions
 
 # ─── Collect all results and report ─────────────────────────────────────────
 collect_and_report

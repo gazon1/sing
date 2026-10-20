@@ -5,29 +5,35 @@
 #   2. The user is NOT taken into the application as a signed-in user.
 #   3. The outcome is NOT presented as a failure.
 #
-# The StubAuthRepository in the test APK is configured to return Session.SignedOut
-# after sign-up when the system property `debug.stub_auth.unconfirmed_signup` is set.
-# Set it before running this flow:
-#   adb shell setprop debug.stub_auth.unconfirmed_signup true
-# Clear it after the flow:
-#   adb shell setprop debug.stub_auth.unconfirmed_signup false
+# The stubbed auth repository in the test APK is configured to return
+# Session.SignedOut after sign-up when the system property
+# `debug.stub_auth.unconfirmed_signup` is set. The property is set before the
+# flow and cleared after it, so the flow does not depend on somebody having
+# set it by hand and no other flow inherits it.
 #
-# The Maestro helpers/scripts/setprop.js can be used from a CI script to automate
-# this before/after the flow run.
-#
-# preconditions: StubAuthRepository signed in (emulator snapshot), server configured.
+# preconditions: the app is signed out.
 # steps:
-#   1. Sign out to reach the auth screen.
-#   2. Toggle to sign-up mode.
-#   3. Enter valid credentials and submit.
-#   4. Verify the "check your mail" message is shown.
-#   5. Verify the user stays on the auth screen (auth guard active).
+#   1. Toggle to sign-up mode.
+#   2. Enter valid credentials and submit.
+#   3. Verify the "check your mail" message is shown.
+#   4. Verify the user stays on the auth screen (auth guard active).
+#
+# The signed-out state is reached through the debug session link, which calls
+# the same `AuthRepository.signOut()` the app's own "Sign out" button calls.
+# No state wipe is used: `clearState: true` takes the app's data with it, and
+# deleting data is the runner's fixture sweep's job, not a flow's.
 #
 appId: com.singularity.todo
 name: auth-signup-unconfirmed
+onFlowStart:
+  - runScript:
+      name: ../../helpers/scripts/setprop.js
+      env:
+        PROP: debug.stub_auth.unconfirmed_signup
+        VALUE: "true"
 onFlowComplete:
   - runScript:
-      name: helpers/scripts/setprop.js
+      name: ../../helpers/scripts/setprop.js
       env:
         PROP: debug.stub_auth.unconfirmed_signup
         VALUE: "false"
@@ -36,58 +42,19 @@ tags:
   - auth
   - scenario:AUTH-SIGNUP-02
 ---
-# The emulator snapshot already has a session. Sign out first so we can
-# trigger the sign-up flow from the auth screen.
-- tapOn:
-    id: nav_menu_button
-- waitForAnimationToEnd
-- scrollUntilVisible:
-    element:
-      id: menu_sheet
-    direction: DOWN
-    timeout: 5000
-- tapOn:
-    id: menu_settings
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
-- extendedWaitUntil:
-    visible:
-      id: auth_sign_out_button
-    timeout: 8000
-- tapOn:
-    id: auth_sign_out_button
+- runFlow: ../../helpers/launch-clean.yaml
 
-# After signing out the auth guard redirects to LoginScreen.
-- extendedWaitUntil:
-    visible:
-      id: auth_email_input
-    timeout: 5000
-
-# Configure server so the sign-in/sign-up form is reachable.
-- scrollUntilVisible:
-    element:
-      id: auth_save_server_button
-    direction: DOWN
-    timeout: 30000
-- tapOn:
-    id: auth_save_server_button
-- extendedWaitUntil:
-    visible:
-      id: auth_email_input
-    timeout: 5000
+# A signed-out app: the sign-in screen is what the app shows.
+- runFlow: ../../helpers/session-signedout.yaml
 
 # Toggle from "Sign In" to "Sign Up" mode.
 - tapOn:
     id: auth_toggle_mode_button
 
 # Enter valid credentials and submit.
-# StubAuthRepository, when started with debug.stub_auth.unconfirmed_signup=true,
-# will return Session.SignedOut after this call — simulating a Supabase sign-up
-# with email confirmation required.
+# The stub, with debug.stub_auth.unconfirmed_signup=true, leaves the session
+# signed out after this call — simulating a Supabase sign-up with email
+# confirmation required.
 - inputText:
     id: auth_email_input
     text: "newuser@example.com"
@@ -97,20 +64,22 @@ tags:
 - tapOn:
     id: auth_sign_in_button
 
-# Wait for the "check your mail" message — AUTH-SIGNUP-02 expects this
-# neutral message, NOT an error.
+# Wait for the "Check your email" screen — AUTH-SIGNUP-02 expects this
+# neutral message, NOT an error. The headline is the tagged part of the
+# confirmation screen: the message under it is untagged, and the form's own
+# message slot is not on the screen once the form is replaced.
 - extendedWaitUntil:
     visible:
-      id: auth_message_text
+      id: auth_confirmation_headline
     timeout: 20000
 
 # Verify the auth guard keeps the user on the auth screen in the
 # AwaitingEmailConfirmation state — the user should NOT be navigated
 # to the agenda/home. The form fields are replaced by ConfirmationPendingContent.
 - assertVisible:
-    id: auth_confirmation_headline
-- assertVisible:
     id: auth_confirmation_email
+- assertNotVisible:
+    id: auth_error_text
 
 # AUTH-SIGNUP-02 verified: account created, check mail shown, user stayed
 # on the auth screen and was not let in as signed-in.

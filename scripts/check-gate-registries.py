@@ -54,6 +54,7 @@ CLEAN = 0
 VALIDATION_FAILURE = 1
 IO_ERROR = 2
 
+import click
 
 class RegistryUnavailable(RuntimeError):
     """A registry could not be read — an infrastructure failure, not a verdict."""

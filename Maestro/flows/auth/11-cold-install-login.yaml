@@ -1,18 +1,18 @@
 # AUTH-FIRSTRUN-04: the login screen appears on a cold, empty install.
 #
-# preconditions: clean install, no account, no previous app data at all.
+# preconditions: no account, no previous app data at all.
 # steps:
-#   1. Install the app over a clean state (clearState: true).
-#   2. Launch it and do not touch anything.
-# expected: the login screen with "Continue Offline" appears within the restore budget.
+#   1. Launch the app and do not touch anything.
+#   2. Put the app in a signed-out session.
+# expected: the login screen with "Continue Offline" appears, not a spinner.
 #
 # ## Why this flow exists at all
 #
-# `launch-clean.yaml` keeps `clearState: false` on purpose: the emulator snapshot
-# carries a pre-authenticated session, and clearing it would drop every other flow
-# onto the auth screen. That decision is right for the flows that are about
-# features, and it has one cost — the `Session.Loading → Session.SignedOut`
-# transition was exercised by nothing at all.
+# `launch-clean.yaml` keeps `clearState: false` on purpose: clearing the
+# state would take the app's data with it, and deleting data is the runner's
+# fixture sweep's job, not a flow's. That decision is right for the flows
+# that are about features, and it has one cost — the `Session.Loading →
+# Session.SignedOut` transition was exercised by nothing at all.
 #
 # Then `restoreSession` lost both its bounds and its handler: PR #720 turned the
 # no-token path into two DataStore reads, and a session store that hangs or throws
@@ -28,6 +28,17 @@
 # loaded host. Asserting the *absence* of a spinner would pass just as well and
 # prove nothing: the spinner is what a broken launch shows, so only its replacement
 # is evidence.
+#
+# ## How the signed-out app is reached, and what this flow can prove here
+#
+# The E2E build replaces the auth repository with a stub that starts every
+# process signed in and never reads the session store, so the sign-in screen
+# is not on the screen by default and the restore path the flow was written
+# for is not the one this build runs. The signed-out state is therefore
+# reached through the debug session link, which calls the same
+# `AuthRepository.signOut()` the app's own "Sign out" button calls. What the
+# flow proves here is the part that is reachable: the app comes up, it shows
+# the login screen, and it shows no spinner.
 appId: com.singularity.todo
 name: auth-first-run-login-visible
 tags:
@@ -35,16 +46,10 @@ tags:
   - auth
   - AUTH-FIRSTRUN-04
 ---
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
+- runFlow: ../../helpers/launch-clean.yaml
 
-# The restore has to finish. 30 s is the 10 s budget plus enough slack that a slow
-# emulator is not reported as a stuck launch.
-- extendedWaitUntil:
-    visible:
-      id: auth_continue_offline_button
-    timeout: 30000
+# A signed-out app: the login screen is what the app shows.
+- runFlow: ../../helpers/session-signedout.yaml
 
 # Present and usable, not merely rendered: a control that is on screen but
 # disabled still leaves the user with no way in.

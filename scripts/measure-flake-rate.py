@@ -96,6 +96,7 @@ verdict still comes from Gradle, this only annotates it.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import sys
 
@@ -222,6 +223,21 @@ def _is_acknowledged(ident: str, acknowledged: dict[str, str]) -> bool:
     return ident.split("::", 1)[0] in acknowledged
 
 
+def _write_verdict(path: str, verdict: dict) -> None:
+    """Write the measurement's verdict where the caller can read it.
+
+    A caller that sees only an exit code cannot tell a finding from a broken
+    measurement — this script exits 1 for both. The verdict is the difference
+    between "a test flaked" and "nothing was measured", and a caller that
+    conflates them publishes a verdict it did not measure.
+    """
+    if not path:
+        return
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(verdict, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -249,6 +265,19 @@ def main() -> int:
         help="ceiling on (unacknowledged flaky tests) / (total tests); default 0.0",
     )
     parser.add_argument("--summary", default="", help="append a markdown section here")
+    parser.add_argument(
+        "--verdict-file",
+        default="",
+        help=(
+            "write a machine-readable verdict here: the measurement's state "
+            "(clean/found/broken), the rate, and the ids involved. The caller "
+            "needs it because a non-zero exit is ambiguous on its own — the "
+            "script exits 1 both for 'the rate exceeded the ceiling' (a "
+            "finding) and for 'the measurement could not be completed' (a "
+            "broken measurement), and a caller that reports both as the same "
+            "thing publishes a verdict it did not measure"
+        ),
+    )
     args = parser.parse_args()
 
     runs = [pathlib.Path(d) for d in args.current]
@@ -260,6 +289,19 @@ def main() -> int:
     result = measure(runs, attempts)
     tests = result["tests"]
     if not tests:
+        _write_verdict(
+            args.verdict_file,
+            {
+                "state": "broken",
+                "rate": 0.0,
+                "total": 0,
+                "flaky": 0,
+                "unacknowledged": [],
+                "acknowledged": [],
+                "missing": [],
+                "reason": "no JUnit XML found in any run directory",
+            },
+        )
         print("no JUnit XML found in any run directory — run the tests first", file=sys.stderr)
         return 1
 
@@ -315,7 +357,35 @@ def main() -> int:
             fh.write("\n## Flake rate (per-test over repeated runs)\n\n")
             fh.write("\n".join(lines) + "\n")
 
+    # The verdict, written before the exit, and the reason the caller cannot
+    # read the exit code alone.
+    #
+    # This script exits 1 for two different things: the rate exceeded the
+    # ceiling (a finding about a test) and the measurement could not be
+    # completed (a finding about the measurement). A caller that reads only
+    # the exit code cannot tell them apart — and one that does not tell them
+    # apart publishes "a test flaked" on the night the measurement broke.
+    # That is not a hypothetical: the nightly opened six such issues in a row
+    # (2026-10-15 … 2026-10-20) while its measuring script died on an import
+    # it never had the tooling for.
+    verdict = {
+        "state": "clean",
+        "rate": round(rate, 6),
+        "total": total,
+        "flaky": len(flaky_tests),
+        "unacknowledged": sorted(unacknowledged),
+        "acknowledged": sorted(known),
+        "missing": sorted(missing),
+        "reason": "",
+    }
+
     if missing:
+        verdict["state"] = "broken"
+        verdict["reason"] = (
+            f"{len(missing)} test(s) ran in fewer than {attempts} runs — a test "
+            "that did not execute cannot be measured as non-flaky"
+        )
+        _write_verdict(args.verdict_file, verdict)
         print(
             f"\n{len(missing)} test(s) ran in fewer than {attempts} runs — a test that "
             "did not execute cannot be measured as non-flaky.",
@@ -324,6 +394,12 @@ def main() -> int:
         return 1
 
     if rate > args.max_flaky_rate:
+        verdict["state"] = "found"
+        verdict["reason"] = (
+            f"unacknowledged flake rate {rate:.4f} exceeds ceiling "
+            f"{args.max_flaky_rate}"
+        )
+        _write_verdict(args.verdict_file, verdict)
         print(
             f"\nUnacknowledged flake rate {rate:.4f} exceeds ceiling "
             f"{args.max_flaky_rate}.\n"
@@ -333,6 +409,8 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    _write_verdict(args.verdict_file, verdict)
     return 0
 
 

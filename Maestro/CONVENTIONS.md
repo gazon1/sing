@@ -85,15 +85,40 @@ The `note_editor_title_input` testTag uses `testTag(TestTags.taskAction(label))`
 
 ## Helpers
 
-Six helpers exist in `Maestro/helpers/`. Use them — do not duplicate their logic.
+Ten helper files exist in `Maestro/helpers/` — eight live, two deprecated
+stubs. Use them — do not duplicate their logic.
 
 | Helper | When to use |
 |---|---|
 | `launch-clean.yaml` | Any flow needing a fresh app state |
 | `seed.yaml` | Any flow needing a pre-created task/note/project via deep-link |
+| `seed-task.yaml` | Any flow needing one task titled "Buy milk" |
 | `relaunch.yaml` | Flows testing persistence (state survives process restart) |
-| `start-focus-task.yaml` | Pomodoro flows needing a focused task |
-| `open-menu-item.yaml` | Flows navigating via the menu sheet |
+| `start-focus-task.yaml` | Pomodoro flows needing a focused task (deprecated) |
+| `open-menu-item.yaml` | Flows navigating via the menu sheet (deprecated) |
+| `session-signedout.yaml` | Flows needing a signed-out app — the auth screen |
+| `settings-account-tab.yaml` | Flows needing the Account tab in Settings (it is the last of twelve rows and starts below the fold) |
+| `calendar-day-cell.yaml` | Flows waiting for a calendar day cell by its date tag |
+| `calendar-tap-day-cell.yaml` | Flows opening a calendar day by its date tag |
+
+### Sessions
+
+A flow does not inherit a session from the flow before it, and it does not
+leave one behind for the flow after it: the runner restarts the app before
+every flow, and the E2E build keeps the session in the process. A flow that
+needs a *signed-out* app says so itself, with the `session-signedout.yaml`
+helper — never with `clearState: true`, which takes the app's data with it.
+
+### Dates and locale
+
+A flow must not assert a date the app *formats*. The month title
+("October 2026") and the day title ("October 15, 2026") are the app's
+wording, in the app's word order, in the app's language; the Material3 date
+picker writes the month name and the weekday in the *device's* language. A
+flow asserts the date as data instead: the calendar day cells carry it in
+their testTag (`calendar_day_2026_10_15`), and a day in the Material3 picker
+is addressed by the day number inside its accessibility description, never by
+the month name next to it.
 
 ### Helper threshold
 

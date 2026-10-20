@@ -16,6 +16,7 @@
 # the runner substitutes the value, the shape of the element does not change.
 #
 # Sorted by id, one mapping per line, no blank lines.
+${DAY_CELL} item
 agenda_save_current_button button
 agenda_saved_views_button button
 agenda_section_blocked item
@@ -27,6 +28,7 @@ attachments_add_file_row item
 attachments_url_input field
 auth_attach_account_button button
 auth_attach_email_input field
+auth_confirmation_headline network
 auth_continue_offline_button boot
 auth_email_input field
 auth_error_text network
@@ -41,6 +43,7 @@ calendar_sync_system_enable_switch button
 calendar_sync_system_unavailable text
 calendar_view_mode_month button
 calendar_view_mode_week button
+calendar_weekday_mon text
 checklist_item_milk item
 checklist_sheet dialog
 dialog_date_picker_ok dialog
@@ -135,6 +138,7 @@ task_item_${RUN_ID}_rendertesttask2026 item
 task_item_${RUN_ID}_return_to_inbox item
 task_item_${RUN_ID}_return_to_today item
 task_item_${RUN_ID}_sdnodate item
+task_item_${RUN_ID}_signout_task item
 task_item_${RUN_ID}_task_from_inbox_tab item
 task_item_${RUN_ID}_task_from_today_tab item
 task_item_${RUN_ID}_tasknodesc2026 item

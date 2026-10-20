@@ -1,0 +1,21 @@
+# e2e shard plan — how many shards each suite is split into.
+#
+# One file, two readers: the nightly's `plan` job reads it to build its matrix,
+# and `scripts/e2e-shard-plan.py` reads it to tell somebody which flows a red
+# shard holds and how to run that shard locally. The number used to live only
+# in the workflow, so a local reproduction had to guess it — and a guess of 3
+# against a nightly that used 4 runs different flows, because the shard is
+# `index % shards`.
+#
+# Only the count belongs here. *Which* flows a suite runs is the runner's
+# business — the smoke suite is selected by tag, the full suite is every flow
+# — and the runner is the single source of that fact. A plan that repeated the
+# selection would be a second place for it to be wrong.
+#
+# Rewrite with: edit this file. A change here changes the nightly's matrix,
+# so it is a deliberate act, not a side effect of adding a flow.
+#
+# Format: <suite> <shard count>
+
+full 4
+smoke 1

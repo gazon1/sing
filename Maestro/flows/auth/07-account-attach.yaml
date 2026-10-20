@@ -23,13 +23,11 @@ tags:
   - auth
   - AUTH-ATTACH-01
 ---
-# Launch. The auth guard lets a local session through to the agenda (no auth
-# screen shown).
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
-    permissions:
-      notifications: allow
+# Launch. The auth guard lets a session through to the agenda (no auth screen
+# shown). The launch does not wipe the app's data: clearing the state would
+# take the app's rows with it, and deleting data is the runner's fixture
+# sweep's job, not a flow's.
+- runFlow: ../../helpers/launch-clean.yaml
 
 # Enter a local session. The attach affordance exists only for
 # `Session.Anonymous`, and the E2E build starts `SignedIn`.
@@ -53,13 +51,10 @@ tags:
 - tapOn:
     id: menu_settings
 
-# Switch to the Account tab.
-- extendedWaitUntil:
-    visible:
-      id: settings_tab_account
-    timeout: 10000
-- tapOn:
-    id: settings_tab_account
+# Switch to the Account tab. The settings navigation is a scrollable column
+# and the Account tab is the last of its rows, so it is scrolled into view
+# before it is tapped.
+- runFlow: ../../helpers/settings-account-tab.yaml
 
 # The "Attach account" button is only shown for Session.Anonymous.
 - extendedWaitUntil:
@@ -81,7 +76,7 @@ tags:
 - assertVisible:
     id: auth_attach_submit_button
 
-# Enter credentials — StubAuthRepository.migrateAnonymousTo succeeds immediately.
+# Enter credentials — the stubbed repository succeeds immediately.
 - inputText:
     id: auth_attach_email_input
     text: "alice@example.com"

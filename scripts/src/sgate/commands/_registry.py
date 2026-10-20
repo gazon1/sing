@@ -324,7 +324,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
     ),
     GateSpec(
         name="unwired surfaces",
-        mode=GateMode.ADVISORY,
+        mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/find-unwired-surfaces.py"),
         script_args=("--quiet",),
@@ -636,6 +636,22 @@ GATE_CONTROLS: dict[str, Control] = {
     # whose target has been renamed is exactly what nothing used to notice.
     'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
     'script-conventions': Control(kind='sabotage', proves='scripts/check-script-conventions.py', argv=('{python}', 'scripts/check-script-conventions.py'), path='scripts/check-gate-registries.py', edit=Edit(kind='append', new='\nimport argparse\n'), why='a gate script that imports argparse breaks the CLI contract every gate script is written against. The detector that used to find it was a substring search, so it reported the file that *documented* the rule instead of the file that broke it, and the rule was never enforced: the gate was red on a clean tree for a reason nobody could act on, and the exemption that said so was the reason it stayed red.'),
+    'unwired-surfaces': Control(
+        kind='sabotage',
+        proves='scripts/find-unwired-surfaces.py',
+        argv=('{python}', 'scripts/find-unwired-surfaces.py', '--quiet'),
+        path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt',
+        edit=Edit(
+            kind='append',
+            new='\n// SABOTAGE PROBE — a binding nothing injects.\nsingle<SabotageProbePort> { SabotageProbePort() }\n',
+        ),
+        why=(
+            "a binding nothing injects is a no-op at runtime, and the gate is the only "
+            "thing that notices: the binding compiles, the graph verifies, and the "
+            "feature is never reached. The probe adds exactly that binding to a real "
+            "DI module, so the report has to name it"
+        ),
+    ),
 }
 
 
@@ -650,7 +666,6 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-rebase-compiles.py': Control(kind='exempt', proves='scripts/check-rebase-compiles.py', tracked_by='.github/workflows/ci.yml#Post-rebase DI compile', reason='GATE_PARITY: needs a Gradle compile run with rebased DI files, so lives in the CI tests job after the rebase step and is not in the static-gates.sh registry; sabotage control is the rebase step'),
     'scripts/build-version-catalog-gate.py': Control(kind='exempt', proves='scripts/build-version-catalog-gate.py', tracked_by='scripts/tests/test_sgate_gates.py', reason='auto-generator: the gate proves version catalog is clean by checking for undeclared literals; the sabotage is removing the generated catalog file and asserting the gate fails — but the generator is the gate, so `test_version_catalog_gate_self_repairs` is the real control'),
     'scripts/tests': Control(kind='exempt', proves='scripts/tests', tracked_by='scripts/tests/test_sgate_gates.py', reason='meta-gate: `python3 -m unittest discover` is the gate; corrupting a test file would be the sabotage, but the unittest runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
-    'scripts/find-unwired-surfaces.py': Control(kind='exempt', proves='scripts/find-unwired-surfaces.py', tracked_by='scripts/tests/test_find_unwired_surfaces.py', reason="Part J cross-check itself is the control: the --registry-cross flag verifies this gate has no sabotage control and documents the exemption; the script's own test is scripts/tests/test_find_unwired_surfaces.py"),
     'scripts/check-gate-liveness.py': Control(
         kind='exempt',
         proves='scripts/tests/test_check_gate_liveness.py',

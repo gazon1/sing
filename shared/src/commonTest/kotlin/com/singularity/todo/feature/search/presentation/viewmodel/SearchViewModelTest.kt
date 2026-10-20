@@ -3,18 +3,26 @@ package com.singularity.todo.feature.search.presentation.viewmodel
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.search.SearchContent
 import com.singularity.todo.feature.search.SearchIntent
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
+import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
+import com.singularity.todo.feature.search.query.ProjectLookup
+import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SingularityQueryParser
 import com.singularity.todo.feature.search.query.SortOrder
+import com.singularity.todo.feature.search.query.TagLookup
+import com.singularity.todo.feature.search.query.TagLookupResult
+import com.singularity.todo.feature.search.searchContent
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -24,11 +32,14 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.TEST_TZ
+import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -98,6 +109,48 @@ class SearchViewModelTest {
                     projectRepo = fakeProjectsRepo,
                     tagRepo = fakeTagsRepo,
                     queryResolver = stubResolver,
+                ),
+            savedSearchRepo = fakeSavedSearchRepo,
+            taskRepo = fakeTaskRepo,
+            parseQuery = { input -> SingularityQueryParser(input).parse() },
+            clock = FakeClock(NOW),
+            scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
+        )
+    }
+
+    /**
+     * A VM wired the way production is: the real resolver and the real use case
+     * over the fake repositories.
+     *
+     * The stub resolver above can never return a task, so it cannot say what the
+     * screen shows for a text query. These tests are the ones that hold the
+     * search screen to its three states: the idle prompt, the no-results state
+     * and the results.
+     */
+    private fun TestScope.createVmWithRealSearch(): SearchViewModel {
+        fakeTaskRepo.seed(
+            Task(
+                id = TaskId("t-milk"),
+                title = "Buy milk",
+                createdAt = NOW,
+                updatedAt = NOW,
+                userId = TestUsers.DEFAULT,
+            ),
+        )
+        return SearchViewModel(
+            searchUseCase =
+                SearchUseCase(
+                    taskRepo = fakeTaskRepo,
+                    noteRepo = fakeNotesRepo,
+                    projectRepo = fakeProjectsRepo,
+                    tagRepo = fakeTagsRepo,
+                    queryResolver =
+                        DefaultSearchQueryResolver(
+                            tagLookup = NO_TAGS,
+                            projectLookup = NO_PROJECTS,
+                            clock = FakeClock(NOW),
+                            timeZone = TEST_TZ,
+                        ),
                 ),
             savedSearchRepo = fakeSavedSearchRepo,
             taskRepo = fakeTaskRepo,
@@ -339,10 +392,60 @@ class SearchViewModelTest {
             // The assertion is simply "did not throw".
         }
 
+    // ─── The three states of the search screen ──────────────────────────────────
+
+    @Test
+    fun `an empty query leaves the screen on the idle prompt`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals(SearchContent.IdlePrompt, searchContent(state.query, state.results))
+        }
+
+    @Test
+    fun `a query that matches nothing puts the screen on the no-results state`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("zzzznomatchzzzz999999"))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals(SearchContent.NoResults, searchContent(state.query, state.results))
+        }
+
+    @Test
+    fun `a query that matches puts the screen on the results state`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("milk"))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            val state = vm.stateFlow.value
+            assertEquals(SearchContent.Results, searchContent(state.query, state.results))
+            assertEquals(listOf("Buy milk"), state.results.tasks.map { it.title })
+        }
+
     // ─── Fake helpers ─────────────────────────────────────────────────────────
 
     private companion object {
         val NOW: Instant = Instant.fromEpochMilliseconds(1_760_000_000_000)
+
+        /** No tag and no project exist in these tests, so every lookup misses. */
+        val NO_TAGS = object : TagLookup {
+            override suspend fun findByName(userId: String, name: String): TagLookupResult? = null
+        }
+
+        val NO_PROJECTS = object : ProjectLookup {
+            override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
+        }
 
         /**
          * In-memory [SavedSearchRepository] for [SearchViewModel] tests.

@@ -1157,6 +1157,40 @@ SABOTAGE_ONLY_GATES = [
         why="branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through",
         needs_clean_run=False,
     ),
+    # The two gates that were advisory because their corpus was red.
+    #
+    # "script conventions" was advisory while 35 gate scripts still used argparse:
+    # a control could not tell "caught the mutation" from "still failing the known
+    # violations". The corpus is migrated, the gate is green, and the two controls
+    # below are what it takes to make a gate blocking — one that can fail.
+    #
+    # "unwired surfaces" was advisory with a floor above zero and an exemption
+    # instead of a control. The three findings it held were false positives: the
+    # detector could not see what a bare `get()` fills, so a binding injected
+    # through a constructor parameter looked unwired. The detector resolves that
+    # now, the floor is zero, and the control below plants exactly the shape the
+    # gate exists to catch.
+    ScriptGate(
+        name="script-conventions",
+        cmd=[sys.executable, "scripts/check-script-conventions.py"],
+        sabotage_path="scripts/check-workflow-exit-status.py",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "R2.1 says gate scripts use Click, and the check has to catch the "
+            "regression that breaks it: a gate script that reaches for argparse again"
+        ),
+    ),
+    ScriptGate(
+        name="unwired-surfaces",
+        cmd=[sys.executable, "scripts/find-unwired-surfaces.py", "--quiet"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a binding nothing injects is a no-op at runtime, and the gate is the only "
+            "thing that notices: the binding compiles, the graph verifies, and the "
+            "feature is never reached"
+        ),
+    ),
 ]
 
 

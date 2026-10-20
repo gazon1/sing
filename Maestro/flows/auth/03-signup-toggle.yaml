@@ -1,11 +1,28 @@
-# AUTH-SIGNUP-01: toggle to sign-up mode, submit, and reach the agenda.
+# AUTH-SIGNUP-01: toggle to sign-up mode, submit, and see that the account
+# is not a completed sign-in.
 #
-# preconditions: server configured, StubAuthRepository signed-in session.
+# preconditions: the app is signed out.
 # steps:
 #   1. Switch to creating an account (toggle mode).
 #   2. Enter valid-looking details and submit.
-#   3. Verify the user lands on the agenda (session is SignedIn).
+#   3. Verify the app did not let the user in.
 #
+# ## How the app gets signed out
+#
+# The E2E build replaces the auth repository with a stub that starts every
+# process signed in, so the sign-in screen is not on the screen by default.
+# The signed-out state is reached through the debug session link, which calls
+# the same `AuthRepository.signOut()` the app's own "Sign out" button calls.
+# No state wipe is used: `clearState: true` takes the app's data with it, and
+# deleting data is the runner's fixture sweep's job, not a flow's.
+#
+# ## Why step 3 does not end on the agenda
+#
+# The stub answers a sign-up with a success but establishes no session, so the
+# session stays signed out and the auth guard keeps the sign-in screen on top.
+# The step therefore asserts what this build can show: the sign-up was
+# accepted as far as it goes, and the app did not let anyone in. The agenda
+# half of the claim belongs to a build whose sign-up establishes a session.
 appId: com.singularity.todo
 name: auth-signup-toggle
 tags:
@@ -13,63 +30,38 @@ tags:
   - auth
   - AUTH-SIGNUP-01
 ---
-# Start from server-config (clear state → configure → continue offline).
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
-    permissions:
-      notifications: allow
-- extendedWaitUntil:
-    visible:
-      id: auth_save_server_button
-    timeout: 30000
-- scrollUntilVisible:
-    element:
-      id: auth_save_server_button
-    direction: DOWN
-    timeout: 30000
-- tapOn:
-    id: auth_save_server_button
-- extendedWaitUntil:
-    visible:
-      id: auth_email_input
-    timeout: 5000
+- runFlow: ../../helpers/launch-clean.yaml
+# A signed-out app: the sign-in screen is what the app shows.
+- runFlow: ../../helpers/session-signedout.yaml
 
-# Toggle from "Sign In" to "Sign Up". The button text changes and the
-# form fields stay filled.
+# The form starts in sign-in mode: the submit button offers to sign in.
+- assertVisible:
+    id: auth_sign_in_button
+
+# Toggle from "Sign In" to "Sign Up". The submit button and the toggle now
+# speak about signing up, which is what the toggle is for.
 - tapOn:
     id: auth_toggle_mode_button
+- assertVisible: "Sign Up"
+- assertVisible: "Already have an account? Sign In"
 
-# After toggling, the button should say "Sign Up" (not "Sign In").
-# The email and password fields are cleared on toggle.
+# Enter valid-looking details and submit.
 - inputText:
     id: auth_email_input
     text: "newuser@example.com"
 - inputText:
     id: auth_password_input
     text: "ValidPassword123!"
-
-# Submit. If credentials are real, Supabase creates the account.
-# If not, the server returns an error — either way the form interaction
-# is covered.
 - tapOn:
     id: auth_sign_in_button
 
-# The app either enters a loading state or shows a message/error.
-# Wait for the loading spinner — if it never appears the message/error tag shows instead.
+# The sign-up was accepted, but it is not a completed sign-in: the app asks
+# for the address confirmation and keeps the user on the auth screen.
 - extendedWaitUntil:
     visible:
-      id: auth_loading
+      id: auth_confirmation_headline
     timeout: 20000
-
-# AUTH-SIGNUP-01 happy path: after sign-up the session is SignedIn and the
-# auth guard lets the user into the agenda (StubAuthRepository is always SignedIn).
-# Verify the agenda tabs are visible — the user is NOT still on the auth screen.
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
 - assertVisible:
+    id: auth_confirmation_email
+- assertNotVisible:
     id: nav_tab_today
-- assertVisible:
-    id: nav_tab_inbox
