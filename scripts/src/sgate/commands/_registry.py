@@ -621,7 +621,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
     ),
     GateSpec(
         name="script conventions",
-        mode=GateMode.ADVISORY,
+        mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
