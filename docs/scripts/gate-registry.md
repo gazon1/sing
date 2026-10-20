@@ -18,7 +18,7 @@ the docstring of the script each gate runs.
 | room schema integrity | blocking | check-room-schema-integrity.py — prove the declared schema, the exported
 sche... | — | — |
 | gates are alive | blocking | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
-| skills describe the tools that exist | blocking | check-skill-drift.py — a skill must not describe tools it no longer has (#526). | — | — |
+| the toolbox surface is declared once | blocking | check-skill-drift.py — the declared toolbox must be the implemented toolbox (... | — | — |
 | workflow env context resolves | blocking | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
 | maestro flow catalogue is current | blocking | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
 | ui wait budgets are consistent | blocking | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
