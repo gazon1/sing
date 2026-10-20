@@ -185,7 +185,7 @@ main() {
 #
 # This was a warning until 2026-10-20, because the drift predated it. The
 # drift is paid: the shell file and _registry.py now carry the same names.
-gate blocking "gate registries agree" python3 scripts/check-gate-registries.py
+gate blocking "gate registries agree" python3 scripts/check-gate-registries.py --strict
 # Build hygiene
 gate blocking "version catalog has no literals" sgate version_catalog_has_no_literals
 # The shape of the CI workflow's Gradle block: one gate for three checks.

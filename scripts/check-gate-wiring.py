@@ -653,20 +653,6 @@ SCRIPT_GATES = [
         ),
         why="a cluster that swallowed a member's failure would be one green row over six red checks",
     ),
-    # script-conventions: the rule that gate scripts use Click. The probe adds
-    # the import the rule looks for, to a script that no other control touches.
-    #
-    # The rule itself was a text search for "import argparse", and the checker
-    # that held the rule contained the string — so the gate reported itself as a
-    # violation on every run and could only ever fail that way. The rule now
-    # reads the AST, and this control proves the new rule can fail.
-    ScriptGate(
-        name="script-conventions",
-        cmd=[sys.executable, "scripts/check-script-conventions.py"],
-        sabotage_path="scripts/check-adr-references.py",
-        sabotage=_append('\nimport argparse  # control probe: R2.1 must report this\n'),
-        why="a gate script that reaches for argparse instead of Click is the rule this gate exists to enforce",
-    ),
     # gate-registries: the gate that compares the two registries against each
     # other. Its input is the shell registry, so the sabotage adds a gate line
     # the Python registry does not know — the exact shape of drift the gate
@@ -674,7 +660,7 @@ SCRIPT_GATES = [
     # prove the same property, but this one breaks the side the gate reads.
     ScriptGate(
         name="gate-registries",
-        cmd=[sys.executable, "scripts/check-gate-registries.py"],
+        cmd=[sys.executable, "scripts/check-gate-registries.py", "--strict"],
         sabotage_path="scripts/ci/static-gates.sh",
         sabotage=_replace(
             'main() {\n',
@@ -1022,6 +1008,11 @@ SABOTAGE_ONLY_GATES = [
         sabotage=_regex_sub(r'^(shared:jvmTest )\d+( \d+)$', r'\g<1>99999\g<2>', flags=re.M),
         why="a test source set that ran fewer tests than its recorded floor means coverage was lost",
         sabotage_requires_clean_tree=True,
+        # The clean run of this gate needs the JUnit XML a test run produces, so
+        # it cannot be green on a tree where no test has run — locally, before
+        # any Gradle invocation. The registry carries the same waiver, and
+        # check-waiver-references.py is what says the two copies agree.
+        needs_clean_run=False,
     ),
     ScriptGate(
         name="instrumented-test-floor",

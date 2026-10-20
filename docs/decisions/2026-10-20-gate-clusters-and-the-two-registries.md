@@ -44,6 +44,23 @@ Measured, 2026-10-20, sequential: 121 s for the static registry, of which 70 s
 was the unit tests and 13 s the `unwired surfaces` advisory. `check-gate-wiring.py`
 alone was 72 s.
 
+**Main moved while this was being written.** A parallel change landed the same
+week: the rule "gate scripts use Click" was rewritten to read the AST, the
+control that proves it was added, every waiver was given a pointer that resolves,
+and a `check-waiver-references.py` gate was written to say so. This branch was
+rebased onto it and took the stronger version of each — the AST rule, the
+control, the waiver mechanism — because they are the same decisions, arrived at
+twice.
+
+The merge is also what exposed the copy that rotted. The registry's
+`rule-intent` control named a `detekt.yml` pattern that has not been in the
+file since the rules were reorganised; the twin in `check-gate-wiring.py` was
+the copy that ran, so the stale one never fired and nothing said so. Part J's
+twin comparison covered only `SCRIPT_GATES` and not `SABOTAGE_ONLY_GATES`. It
+covers both now — and `check-waiver-references.py`, which landed with the merge,
+is the gate that says a waiver in the registry and a waiver in the twin are the
+same waiver.
+
 ## Idea
 
 One registry per fact, one gate per subject, and the expensive checks in the
@@ -88,8 +105,9 @@ control of its own, because the aggregate is a gate too.
 **`script conventions` is green.** The rule that gate scripts use Click was a
 text search for `import argparse`, and the checker that held the rule contained
 the string it looked for — so the gate reported itself as a violation on every
-run and could only ever fail that way. The rule reads the AST now. The gate
-has a positive control (the probe adds the import the rule looks for), and its
+run and could only ever fail that way. The rule reads the AST now — the version
+that landed on `main` in parallel, which this branch took. The gate has a
+positive control (the probe adds the import the rule looks for), and its
 exemption is gone.
 
 **The unwired surfaces are zero.** Three findings: two were the static scan's
