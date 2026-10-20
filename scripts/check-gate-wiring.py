@@ -191,31 +191,12 @@ def check_wiring() -> list[str]:
 Control = Callable[[Path], None]
 
 
-
-
-
-
-
-
-
-
 _BACKLOG_FIELD_RE = re.compile(r"(?i)^\s*Backlog:\s*[^\n]+", re.M)
-
-
-
 
 
 # Controls that fit no builder: they move git state or reshape a block of lines
 # rather than substitute one string. They are ordinary functions for the same
 # reason the builders exist — a control is read, parsed and debugged once.
-
-
-
-
-
-
-
-
 
 
 # ── The control machinery ──────────────────────────────────────────────────────
@@ -286,20 +267,10 @@ control_from_edit = _controls.control_from_edit
 # here.
 
 
-
 # ── Fixture inputs ──────────────────────────────────────────────────────────
 # One function per synthesised input. As source strings these were pages of
 # `'...\\n'` concatenation with every embedded quote doubled; as functions they
 # are the files they write.
-
-
-
-
-
-
-
-
-
 
 
 def _prefer_registry_controls(gates: list[ScriptGate]) -> list[ScriptGate]:
@@ -436,7 +407,6 @@ def _populate_derived_tables() -> None:
 
 
 _populate_derived_tables()
-
 
 
 # Gates whose control mutates a committed file. Kept beside FIXTURE_GATES so the
@@ -803,7 +773,6 @@ def check_escape_hatches() -> list[str]:
                     f"commit invocation, never in the standing one."
                 )
     return errors
-
 
 
 def check_can_fail() -> list[str]:
