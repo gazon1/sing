@@ -19,64 +19,82 @@ that case; this script is what notices before any gate runs.
 Both halves are needed. The emptiness check catches a registry that lost its
 contents, which is the failure that a zero exit code could hide. The agreement
 check catches drift, which is a separate and currently *real* condition: the
-shell registry holds 29 entries and the Python one holds 39, with 16 present
-only in Python. Drift is reported as a warning rather than an error, because it
-predates this script and failing on it would block every run on someone else's
-debt; the count and the diff go to the log where they get read.
+two registries do not name the same gates today — some are present only in
+Python, some only in the shell registry. Drift is reported as a warning rather
+than an error, because it predates this script and failing on it would block
+every run on someone else's debt; the count and the diff go to the log where
+they get read.
+
+CLI shape (R2/R3): Click, not argparse; ``--check`` reports without a
+non-zero exit; ``--json`` puts the verdict on stdout as machine-readable
+JSON; violations go to stdout with the file they name, and only the failure
+summary goes to stderr; the exit codes are distinct per failure mode
+(0 = both load and agree, 1 = a violation, 2 = the registries could not be
+read at all).
+
+ADR: docs/decisions/2026-10-06-ci-single-gate-registry-and-leaf-split.md
+ADR: docs/decisions/2026-10-14-sgate-exit-code-architecture.md
 
 Run standalone::
 
-    python3 scripts/check-gate-registries.py
+    python3 scripts/check-gate-registries.py [--strict] [--check] [--json]
 
 Exit 0 when both load. Exit 1 when either is empty, or when the two disagree
-under --strict.
+under --strict. Exit 2 when a registry could not be read.
 """
 from __future__ import annotations
 
-import argparse
-import sys
+import json
+
+import click
+from sgate.commands.base import run
+from sgate.repo import STATIC_GATES_SH
+
+CLEAN = 0
+VALIDATION_FAILURE = 1
+IO_ERROR = 2
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="also fail when the two registries disagree (drift is a warning by default)",
-    )
-    args = parser.parse_args(argv)
+class RegistryUnavailable(RuntimeError):
+    """A registry could not be read — an infrastructure failure, not a verdict."""
 
-    from sgate.commands._registry import GATES
-    from sgate.commands.run_all import _load_static_gates
-    from sgate.gates import load_gates
 
+def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
+    """
+    Return `(violations, warnings, summary)` for the two gate registries.
+
+    A violation is something a caller must act on: an empty registry, or —
+    under ``strict`` — the two registries naming different gates. Drift without
+    ``strict`` is a warning: it predates this script, and failing on it would
+    block every run on someone else's debt.
+    """
     try:
+        from sgate.commands._registry import GATES
+        from sgate.commands.run_all import _load_static_gates
+        from sgate.gates import load_gates
+
         static_gates = _load_static_gates()
         registry_gates = load_gates()
     except Exception as exc:  # noqa: BLE001 — any failure here means "not loadable"
-        print(f"ERROR: the gate registries did not load: {exc}", file=sys.stderr)
-        return 1
+        raise RegistryUnavailable(f"the gate registries did not load: {exc}") from exc
+
+    violations: list[str] = []
+    warnings: list[str] = []
 
     if not static_gates:
-        print(
-            "ERROR: scripts/ci/static-gates.sh declared zero gates. "
-            "`sgate run-all` would evaluate nothing at all, which is not a pass.",
-            file=sys.stderr,
+        violations.append(
+            f"{STATIC_GATES_SH} declared zero gates. `sgate run-all` would evaluate "
+            "nothing at all, which is not a pass."
         )
-        return 1
     if not registry_gates or not GATES:
-        print(
-            "ERROR: the Python gate registry is empty.",
-            file=sys.stderr,
-        )
-        return 1
+        violations.append("the Python gate registry (sgate.commands._registry.GATES) is empty.")
 
     static_names = {name for _, name, _ in static_gates}
     registry_names = {spec.name for spec in GATES}
     only_static = sorted(static_names - registry_names)
     only_registry = sorted(registry_names - static_names)
 
-    print(
+    summary = (
         f"gate registries: {len(static_gates)} gates in static-gates.sh, "
         f"{len(registry_gates)} in the Python registry"
     )
@@ -89,13 +107,66 @@ def main(argv: list[str] | None = None) -> int:
             "`sgate run-all` evaluates the first, `sgate <name>` the second, "
             "so which surface a caller uses decides which gates run."
         )
-        if args.strict:
-            print(f"ERROR: {message}", file=sys.stderr)
-            return 1
-        print(f"::warning ::{message}")
+        if strict:
+            violations.append(message)
+        else:
+            warnings.append(message)
 
-    return 0
+    return violations, warnings, summary
+
+
+@click.command()
+@click.option(
+    "--strict",
+    is_flag=True,
+    help="also fail when the two registries disagree (drift is a warning by default)",
+)
+@click.option("--check", is_flag=True, help="Dry-run: report without a non-zero exit.")
+@click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
+@click.pass_context
+def cli(ctx: click.Context, strict: bool, check: bool, emit_json: bool) -> None:
+    """Both gate registries load, and the two agree on what exists."""
+    try:
+        violations, warnings, summary = evaluate(strict=strict)
+    except RegistryUnavailable as exc:
+        if emit_json:
+            click.echo(json.dumps(
+                {"passed": False, "blocking_errors": [str(exc)], "warnings": []},
+                ensure_ascii=False,
+            ))
+        else:
+            click.echo(f"check_gate_registries: ERROR — {exc}", err=True)
+        raise ctx.exit(IO_ERROR)
+
+    if emit_json:
+        click.echo(json.dumps(
+            {
+                "passed": not violations,
+                "blocking_errors": violations,
+                "warnings": warnings,
+                "summary": summary,
+            },
+            ensure_ascii=False,
+        ))
+        raise ctx.exit(CLEAN if (not violations or check) else VALIDATION_FAILURE)
+
+    click.echo(summary)
+    for warning in warnings:
+        click.echo(f"::warning ::{warning}")
+
+    if violations:
+        for violation in violations:
+            click.echo(f"check_gate_registries: {violation}")
+        click.echo(
+            "check_gate_registries: FAIL — a gate registry is empty, or the two "
+            "registries name different gates",
+            err=True,
+        )
+        raise ctx.exit(CLEAN if check else VALIDATION_FAILURE)
+
+    click.echo("check_gate_registries: OK — both gate registries load and agree")
+    raise ctx.exit(CLEAN)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run(cli))

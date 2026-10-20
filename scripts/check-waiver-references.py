@@ -45,6 +45,17 @@ What this gate asserts
    waiver; `scripts/check-gate-wiring.py` carries the hand-written twin that
    actually runs. If one copy waives the clean-run guard and the other does
    not, the guard is applied inconsistently — and neither copy notices.
+5. **Every exemption names the thing that does the proving.** A gate that is
+   exempt from having a positive control says, in prose, what proves it
+   instead — "its self-tests pin each part". Prose is not a pointer: it
+   rots silently when the file is renamed, moved, or deleted. The
+   exemption's `tracked_by` names that file, and this gate checks that it
+   resolves.
+6. **Every declared asymmetry names where it is visible.** A gate that runs
+   on one surface only declares *which* surface, and a reason. The reason
+   is prose; the `tracked_by` is the pointer — the file (and the step in it)
+   where the other invocation lives. Without it, the asymmetry is a claim
+   that no reader can check and no rename can break.
 
 It does **not** add the clean-run Gradle pass the waiver was granted to avoid.
 That pass costs a full configuration cycle on every run of the wiring gate, on
@@ -292,7 +303,65 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
     # (4) The two copies of the controls must agree about which are waived.
     violations.extend(_waived_set_disagreements(controls))
 
+    # (5) Every exemption names the thing that does the proving, and it resolves.
+    violations.extend(
+        _exemption_reference_problems(getattr(registry, "GATE_EXEMPTIONS", {}))
+    )
+
+    # (6) Every declared asymmetry names where it is visible, and it resolves.
+    violations.extend(_parity_reference_problems(registry))
+
     return violations, notes, listing
+
+
+def _exemption_reference_problems(exemptions: dict) -> list[str]:
+    """Every exemption points at the file that does the proving, and it resolves.
+
+    An exemption is a waiver: the gate is allowed to have no positive control
+    because something else proves it. The registry says what — in prose, in the
+    reason. Prose rots silently. The pointer does not: a renamed or deleted
+    proving file is a finding here, not a sentence nobody re-reads.
+    """
+    problems: list[str] = []
+    for name, control in sorted(exemptions.items()):
+        reference = control.tracked_by
+        if not reference:
+            problems.append(
+                f"{name}: the exemption names no proving file — a gate exempt from "
+                "having a positive control must say what does the proving, and a "
+                "reference is the only form of that answer a machine can check"
+            )
+            continue
+        _, _, ref_problems = resolve_reference(reference)
+        problems.extend(f"{name}: {problem}" for problem in ref_problems)
+    return problems
+
+
+def _parity_reference_problems(registry: object) -> list[str]:
+    """Every declared asymmetry points at where it is visible, and it resolves.
+
+    A gate that runs on one surface only is a claim about the other surface.
+    The claim used to be prose; the `tracked_by` is the pointer. The anchor
+    names the step that holds the other invocation, so renaming that step
+    breaks the declaration instead of quietly contradicting it.
+    """
+    problems: list[str] = []
+    for spec in getattr(registry, "GATES", ()):
+        parity = getattr(spec, "parity", None)
+        if parity is None or parity.scope == "both":
+            continue
+        name = spec.name
+        reference = parity.tracked_by
+        if not reference:
+            problems.append(
+                f"{name}: the gate is declared {parity.scope}-only and names no "
+                "reference — an asymmetry nobody can go and look at is a claim, and "
+                "a claim that cannot be checked is what the parity check replaces"
+            )
+            continue
+        _, _, ref_problems = resolve_reference(reference)
+        problems.extend(f"{name}: {problem}" for problem in ref_problems)
+    return problems
 
 
 def _premise_problems(

@@ -1096,6 +1096,20 @@ SABOTAGE_ONLY_GATES = [
             "pass it was granted for can be gone and the waiver keeps waiving, which is "
             "how a permanently-red gate becomes noise nobody reads",
     ),
+    # The gate that was red on a clean tree, until its detector stopped
+    # reporting the file that documented the rule instead of the file that broke
+    # it. The sabotage is the mutation the rule is about: an `import argparse`
+    # in a gate script. Appending it is enough — the rule is "no gate script
+    # imports argparse", and the appended import is that violation, in the
+    # smallest form that cannot be mistaken for something else.
+    ScriptGate(
+        name="script-conventions",
+        cmd=[sys.executable, "scripts/check-script-conventions.py"],
+        sabotage_path="scripts/check-gate-registries.py",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why="a gate script that imports argparse breaks the CLI contract every gate "
+            "script is written against",
+    ),
     ScriptGate(
         name="test-task-inputs",
         cmd=[sys.executable, "scripts/check-test-task-inputs.py"],
