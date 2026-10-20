@@ -82,7 +82,8 @@ tags:
 
 # After 3 seconds, if the button was truly disabled, we should still be
 # on the attach account screen (no error, no navigation).
-- waitForAnimations: 2000
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible:
     id: auth_attach_email_input
 

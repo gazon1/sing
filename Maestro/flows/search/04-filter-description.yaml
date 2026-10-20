@@ -11,8 +11,11 @@ tags:
   - scenario:SEARCH-04
 ---
 # Seed two tasks: one with description, one without.
-- openLink: "todo-debug://seed?task=${RUN_ID}_TaskWithDesc2026&desc=HasDescription"
-- openLink: "todo-debug://seed?task=${RUN_ID}_TaskNoDesc2026"
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=${RUN_ID}_TaskWithDesc2026&desc=HasDescription&due=today"
+- openLink: "todo-debug://seed?task=${RUN_ID}_TaskNoDesc2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -45,9 +48,9 @@ tags:
       id: task_item_${RUN_ID}_tasknodesc2026
     timeout: 8000
 
-# Open filter sheet via the Tune icon in the top bar (no testTag — use desc).
+# Open filter sheet via the Tune icon in the top bar (no testTag — use its label).
 - tapOn:
-    iconDescription: "Filter"
+    text: "Filter"
 - extendedWaitUntil:
     visible:
       id: search_filter_has_description_switch

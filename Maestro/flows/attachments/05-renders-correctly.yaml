@@ -6,7 +6,10 @@ tags:
   - scenario:ATTACH-05
 ---
 # Seed a task and add an attachment.
-- openLink: "todo-debug://seed?task=${RUN_ID}_RenderTestTask2026"
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=${RUN_ID}_RenderTestTask2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -51,9 +54,9 @@ tags:
     timeout: 5000
 - assertVisible: "https://example.com/render-test"
 
-# The delete button is present via contentDescription.
+# The delete button is present via its accessibility label.
 - assertVisible:
-    contentDescription: "Delete"
+    text: "Delete"
 
 # No "open" affordance should be present for URL attachments (URL has no file behind it).
 # The attachment card in the section has link icon (not image/file icon).

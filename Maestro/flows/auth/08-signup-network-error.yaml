@@ -6,10 +6,9 @@
 #   2. Attempt to sign up.
 #   3. Verify the error message is shown.
 #
-# Note: this flow requires `exec` access to `adb` to toggle airplane mode.
-# The `exec` command runs on the workstation, not the device, so ADB must
-# be in PATH. In CI, this requires a rooted emulator or `--no-security`
-# flag on the emulator start command.
+# Airplane mode is set with Maestro's own `setAirplaneMode` command, which
+# needs no shell and no workstation access — the earlier `exec` form of this
+# flow could not even be parsed, because `exec` is not a Maestro command.
 #
 # For StubAuthRepository (test builds): network errors are not reachable;
 # use this flow with the real `SupabaseAuthRepository` to test failure axes.
@@ -22,12 +21,12 @@ tags:
   - manual
 ---
 # Enable airplane mode — blocks all network, forcing a timeout on sign-up.
-# `adb shell` is used because Maestro's `exec` runs on the workstation.
-- exec:
-    command: adb shell settings put global airplane_mode_on 1 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true
+- setAirplaneMode:
+    value: enabled
 
 # Give the OS a moment to apply airplane mode.
-- waitForAnimations: 1500
+- waitForAnimationToEnd:
+    timeout: 1500
 
 # Launch and clear any cached session state.
 - launchApp:
@@ -78,5 +77,5 @@ tags:
     id: auth_error_text
 
 # Cleanup: restore network for subsequent flows.
-- exec:
-    command: adb shell settings put global airplane_mode_on 0 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false
+- setAirplaneMode:
+    value: disabled

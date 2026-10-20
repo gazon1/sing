@@ -39,6 +39,21 @@ setup_logger(is_ci=False)
 logger = _logger
 
 
+def _log_failure(stdout: str, stderr: str) -> None:
+    """Log why a flow failed, from both streams.
+
+    Maestro reports a flow that could not even be *parsed* on stderr and
+    nothing on stdout — "Unknown Property: contentDescription at …" is the
+    whole story of that flow, and without stderr the runner printed an empty
+    line and left the reader with a flow that failed and no reason. Logging
+    stdout alone hid the class of failure that has nothing to do with the
+    app.
+    """
+    for label, text in (("stdout", stdout), ("stderr", stderr)):
+        if text and text.strip():
+            logger.error(f"--- maestro {label} ---\n{text}")
+
+
 def run_one_flow(
     flow_path: Path,
     serial: str,
@@ -111,11 +126,11 @@ def run_one_flow(
             or deps.junit_reports_device_failure(junit_file)
         )
         if not device_failed and deps.device_alive(serial):
-            logger.error(stdout)
+            _log_failure(stdout, stderr)
             return False, run_id
 
         if attempt >= max_retries:
-            logger.error(stdout)
+            _log_failure(stdout, stderr)
             return False, run_id
 
         # A device-level signature is not the same as a dead device. Under a
