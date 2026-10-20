@@ -231,9 +231,27 @@ def main(
     # never executed still looks like it passed.
     run_started_at = time.time()
 
+    # The run id of a flow that failed, whose fixtures are still on the device.
+    #
+    # A failing flow keeps its fixtures so that the failure can be triaged
+    # against the data that caused it — but "until the next flow starts" is
+    # long enough. Leaving them there for the rest of the shard makes every
+    # later flow that asserts an empty list fail on the previous flow's data,
+    # and a suite whose failures cascade is a suite that reports one defect
+    # as forty. The nightly run of 2026-10-20 failed 43 flows across all four
+    # shards in exactly this shape.
+    stale_run_id: str | None = None
+
     for flow_path in flows:
         flow_name = flow_path.stem
         logger.info(f"\n=== {flow_name} ===")
+
+        # The previous flow's leftovers go before this flow starts, not after
+        # the failure is captured: the artifacts (screenshot, screen tree,
+        # logcat) are what triage reads, and they are captured below.
+        if stale_run_id:
+            deps.cleanup_run_fixtures(serial, stale_run_id, maestro_cleanup, deps)
+            stale_run_id = None
 
         if deps.device_alive(serial):
             deps.adb_on(serial, "shell", "am", "force-stop", APP_ID)
@@ -258,6 +276,7 @@ def main(
         else:
             failed.append(flow_name)
             deps.capture_artifacts(serial, flow_name, junit_path / flow_name, deps)
+            stale_run_id = run_id
 
     # ── Every selected flow must have reported ────────────────────────────────
     #
