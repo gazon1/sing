@@ -79,6 +79,13 @@ jobs:
 
   # Decides suite and shard count in one place, so the matrix is arithmetic rather
   # than four hand-maintained job entries.
+  #
+  # The shard count comes from config/docs/e2e-shards.txt, not from a literal
+  # here. It used to be written in this job, and a local reproduction of a red
+  # shard had to guess it — a guess of 3 against a nightly that used 4 runs
+  # different flows, because the shard is `index % shards`. The same file tells
+  # `scripts/e2e-shard-plan.py` which flows a shard holds, so the nightly and
+  # the reproduction cannot drift apart.
   plan:
     if: >-
       github.event_name != 'pull_request' ||
@@ -98,11 +105,9 @@ jobs:
           suite=smoke
           [ "$EVENT" = schedule ] && suite=full
           [ "$EVENT" = workflow_dispatch ] && suite=$INPUT_SUITE
-          shards='[1]'
-          [ "$suite" = full ] && shards='[1,2,3,4]'
+          shards=$(python3 scripts/e2e-shard-plan.py --suite "$suite" --matrix)
           echo "suite=$suite" >> "$GITHUB_OUTPUT"
           echo "shards=$shards" >> "$GITHUB_OUTPUT"
-
   # The one place the debug APK the shards install is assembled. ci.yml's
   # `android` free leg used to assemble the same APK for the same commit — one
   # APK, built twice, in two workflows, on two runners, each with its own

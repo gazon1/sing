@@ -1,0 +1,20 @@
+# e2e shard plan — how many shards each suite is split into, and which flows it runs.
+#
+# One file, two readers: the nightly's `plan` job reads it to build its matrix,
+# and `scripts/e2e-shard-plan.py` reads it to tell somebody which flows a red
+# shard holds and how to run that shard locally. The number used to live only
+# in the workflow, so a local reproduction had to guess it — and a guess of 3
+# against a nightly that used 4 runs different flows, because the shard is
+# `index % shards`.
+#
+# The flow directory is here for the same reason: the suite and the flows it
+# runs are one fact, and a plan that says "smoke, 1 shard" without saying which
+# flows that is leaves the reader guessing again.
+#
+# Rewrite with: edit this file. A change here changes the nightly's matrix,
+# so it is a deliberate act, not a side effect of adding a flow.
+#
+# Format: <suite> <shard count> <flow directory>
+
+full 4 Maestro/flows
+smoke 1 Maestro/flows/smoke
