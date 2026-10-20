@@ -66,18 +66,18 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: note_item_by_title_${RUN_ID}_alpha
-    timeout: 5000
+    timeout: 8000
 # Archived: neither is archived.
 - tapOn:
     id: note_filter_chip_archived
 - extendedWaitUntil:
     notVisible:
       id: note_item_by_title_${RUN_ID}_alpha
-    timeout: 5000
+    timeout: 8000
 # Back to All restores them.
 - tapOn:
     id: note_filter_chip_all
 - extendedWaitUntil:
     visible:
       id: note_item_by_title_${RUN_ID}_alpha
-    timeout: 5000
+    timeout: 8000

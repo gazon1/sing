@@ -57,7 +57,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "task_item_${RUN_ID}_return_to_today"
-    timeout: 10000
+    timeout: 8000
 
 # ── Case 2: Inbox → FAB → save → task appears in Inbox ────────────────
 # Seed a no-date task (lands in Inbox). Open it from Inbox and save —
@@ -92,4 +92,4 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "task_item_${RUN_ID}_return_to_inbox"
-    timeout: 10000
+    timeout: 8000

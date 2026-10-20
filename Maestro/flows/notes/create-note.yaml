@@ -49,5 +49,5 @@ tags:
 - extendedWaitUntil:
     visible:
       id: note_item_by_title_${RUN_ID}_meeting_notes
-    timeout: 5000
+    timeout: 8000
 - takeScreenshot: notes/create-note

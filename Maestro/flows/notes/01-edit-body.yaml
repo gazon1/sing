@@ -42,7 +42,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: note_editor_title_input
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: note_editor_body
 - inputText: "Discuss roadmap"
@@ -65,7 +65,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: notes_quick_add_input
-    timeout: 8000
+    timeout: 5000
 # The row is addressed by the title the flow typed: the id is a generated
 # ULID, which the flow never learns. The title-based tag sits on the item's
 # outer node — a Material3 Card merges its descendants, so a tag inside the
@@ -74,7 +74,7 @@ tags:
     element:
       id: note_item_by_title_${RUN_ID}_meeting_notes
     direction: DOWN
-    timeout: 10000
+    timeout: 8000
 - tapOn:
     id: note_item_by_title_${RUN_ID}_meeting_notes
 # The preview is where the body is rendered.
