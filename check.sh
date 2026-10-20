@@ -142,6 +142,30 @@ GATE_WIRING_GRADLE=1 python3 scripts/check-gate-wiring.py || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [7b/$TOTAL] gate scripts' own unit tests ===${NC}"
+# The regression tests for the machinery above: the wiring gate, the liveness
+# probe, the controls. They are not a line of the static registry any more —
+# CI runs them in the `tests` job, next to the Gradle run they would otherwise
+# compete with — but a local loop that skipped them would not rehearse what CI
+# runs, and the local loop is the one a developer can iterate on.
+python3 -m unittest discover -s scripts/tests || {
+    echo -e "${RED}gate script unit tests FAILED${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}=== [7c/$TOTAL] gates are alive ===${NC}"
+# The probe that runs every registered gate once and reports the ones that die.
+# It is in the `tests` job in CI for the same reason as 7b: it is a second pass
+# over the gate corpus, and it belongs where there is slack.
+#
+# It probes the gates named in scripts/ci/static-gates.sh, and it is not one of
+# them: a probe that probed itself would launch every gate, and every gate would
+# launch the probe.
+python3 scripts/check-gate-liveness.py || {
+    echo -e "${RED}a gate died when it was probed${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [8/$TOTAL] detekt rule unit tests ===${NC}"
 # A custom rule that cannot fire is indistinguishable from a rule that has
 # nothing to match. These tests are the only evidence either way.

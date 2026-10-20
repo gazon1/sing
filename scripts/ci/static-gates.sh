@@ -150,6 +150,28 @@ traceability() {
 }
 export -f traceability
 
+# The actionlint gate, as a named function.
+#
+# It is a function, not an inline `bash -c` snippet, because the Python registry
+# has to name it too: a gate the CLI cannot dispatch is a gate that only one
+# surface can run, and the two registries then disagree about what exists.
+# `run_all` resolves a command token that names a function defined in this file
+# by sourcing the file and calling it — the same way it resolves `traceability`.
+github_workflows_valid() {
+  command -v shellcheck >/dev/null || {
+    echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2
+    exit 1
+  }
+  actionlint -shellcheck="$(command -v shellcheck)" .github/workflows/*.yml
+}
+export -f github_workflows_valid
+
+# The yamllint gate, as a named function, for the same reason.
+yaml_is_structurally_valid() {
+  git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml
+}
+export -f yaml_is_structurally_valid
+
 # ─── Registry ────────────────────────────────────────────────────────────────
 # All gate calls are INSIDE main() so that sourcing this file (to call one of the
 # helper functions: digest_no_double_suffix, adr_dry_run,
@@ -157,27 +179,31 @@ export -f traceability
 # The `|| [[ $? == 0 ]]` guard at the end of this file ensures main() is NOT called
 # when sourced — only when the script runs as a command.
 main() {
+# The two gate registries against each other, first: everything below is
+# dispatched through one of them, and a gate that exists in one and not the
+# other is a gate that runs on no one — or one that runs without a name.
+#
+# This was a warning until 2026-10-20, because the drift predated it. The
+# drift is paid: the shell file and _registry.py now carry the same names.
+gate blocking "gate registries agree" python3 scripts/check-gate-registries.py
 # Build hygiene
 gate blocking "version catalog has no literals" sgate version_catalog_has_no_literals
-# -v: a failure prints its name the moment it happens, and a run that dies
-# without an epilogue (CI, 2026-10-11) still shows the last test it reached —
-# dots-only output ends mid-stream with no way to tell where.
-# The sentinel proves whether the interpreter reached normal termination;
-# unittest's epilogue goes to stderr while script print()s sit in the
-# block-buffered stdout, so the file's last lines can be stale stdout alone.
-gate blocking "gate scripts' own unit tests" bash -c 'python3 -m unittest discover -s scripts/tests -v; rc=$?; echo "__unittest_rc=$rc"; exit $rc'
-gate blocking "test-task external inputs declared" sgate test_task_external_inputs_declared
-# One population per job. Measured 2026-10-16 (run 38933517902): a later Gradle
-# invocation re-ran :desktopApp:test *without* -Ptest.tags, whose Gradle default is
-# excludeTags("slow"), so the @Tag("slow") scenario classes were skipped rather than
-# executed and the traceability step reported a target that had in fact been measured
-# as producing nothing. Parity is the property that survives either up-to-date outcome.
-gate blocking "gradle invocations keep one test population" sgate gradle_test_population
-# The other half of the same boundary. A gate that reads build output and runs
-# after a second Gradle invocation may be reading a directory that invocation
-# re-ran: the traceability step failed this way on run 38933517902, and the flake
-# step would have done it silently while being continue-on-error.
-gate blocking "build-output readers precede the invocations that rewrite them" sgate build_output_readers
+# The shape of the CI workflow's Gradle block: one gate for three checks.
+#
+#   - a test task whose inputs are declared;
+#   - one test population per job (measured 2026-10-16, run 38933517902: a later
+#     Gradle invocation re-ran :desktopApp:test *without* -Ptest.tags, whose
+#     Gradle default is excludeTags("slow"), so the @Tag("slow") scenario classes
+#     were skipped rather than executed and the traceability step reported a
+#     target that had in fact been measured as producing nothing);
+#   - a reader of build output runs after the invocation that rewrites it (the
+#     traceability step failed that way on the same run, and the flake step would
+#     have done it silently while being continue-on-error).
+#
+# One file, three properties, one CI row. Each check keeps its own script, unit
+# tests and positive control; the wrapper runs all three and reports every
+# failure, not the first.
+gate blocking "ci workflow shape is declared" python3 scripts/check-ci-workflow-shape.py
 # A waiver whose premise is prose rots silently. The one control waived from the
 # clean-run guard promises that both surfaces run `:detekt-rules:koverVerify` a
 # step later; rename the CI step or drop the task from it and the promise is
@@ -189,12 +215,19 @@ gate blocking "room schema integrity" sgate room_schema_integrity
 # passes, for every consumer that reads only the exit code. This found a real
 # one on its first run: check-kiwi-inventory-ratchet.py crashed with
 # "NoneType has no attribute loader" and had been dead since #430 (#529).
-# A gate that probes all registered gates must not probe itself — doing so would
-# launch 37 gates, one of which launches 37 more, and the first version of this
-# gate died of its own timeout (#529). The `# no-self-probe` comment marks gates
-# that must not be probed; the filter is applied in check-gate-liveness.py, not
-# in the filename heuristic that previously lived there (#534).
-gate blocking "gates are alive" sgate gates_are_alive  # no-self-probe
+#
+# "Gates are alive" — the probe that runs every gate here once and reports the
+# ones that die — is NOT in this registry any more. It was, and it cost this
+# job a second full pass over the gate corpus: 63 seconds to prove that gates
+# do not crash, on a job whose other gates take 13 seconds together. It now
+# runs in the `tests` job of ci.yml, where the Gradle step has already
+# warmed everything and 63 seconds lands in slack nobody waits on.
+#
+# Two things follow from it no longer being here. It probes the gates named in
+# this file, so it no longer probes itself — a probe that probed itself would
+# launch every gate, and every gate would launch the probe (#529). And the
+# `# no-self-probe` marker it used to carry is gone with the line; the filter
+# stays in check-gate-liveness.py for the gates that still need it (#534).
 # A skill is a hand-written description of code nobody diffs against it, so it is
 # always the stale one and always reads like documentation rather than like a bug.
 # The "ADR tools" section is generated from AdrSurface.kt and McpToolCatalog.kt;
@@ -226,8 +259,8 @@ gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # `command -v` turns that invisibility into a message. One line, because the
 # registry parser is a single-line regex: a gate command split across lines is
 # read as a command ending in an unterminated quote.
-gate blocking "GitHub workflows are valid" bash -c 'command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH; actionlint would silently skip its shellcheck pass and lint less than CI does" >&2; exit 1; }; actionlint -shellcheck="$(command -v shellcheck)" .github/workflows/*.yml'
-gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '*.yaml' | xargs -0 -r yamllint -c .yamllint.yml"
+gate blocking "GitHub workflows are valid" github_workflows_valid
+gate blocking "YAML is structurally valid" yaml_is_structurally_valid
 
 # Markdown links resolve. The gate is scripts/check-doc-links.sh, which wraps
 # lychee; the reasoning for the flags it passes lives in that script's header.
@@ -251,7 +284,21 @@ gate blocking "YAML is structurally valid" bash -c "git ls-files -z -- '*.yml' '
 # a gate that cannot run looks exactly like a gate that has nothing to report.
 # CI installs it pinned (config/toolchain-versions.env holds the version; the
 # PyPI wheel of the upstream Rust binary) through .github/actions/setup-python-tools.
-gate blocking "documentation links resolve" sgate doc_links
+gate blocking "doc links" sgate doc_links
+
+# The other reference shape: a path inside backticks, and a dated ADR slug
+# cited without its `.md`. It was registered in the Python registry with a
+# positive control and a green run, and no gate line anywhere invoked it —
+# `check-gate-wiring.py` counted it as "wired" because a *comment* in this
+# file named the script, and a prose mention is not an invocation. A gate that
+# runs on no one reports success forever.
+#
+# The script resolves against the repository root and falls back to matching on
+# basename alone, so a path written one directory too high is reported as
+# "drift" — a warning under the default flags, a failure under `--strict`.
+# `--strict` is the flag CI uses: drift is a reference pointing at the wrong
+# place, and a warning does not stop anything.
+gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
 
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
@@ -267,13 +314,20 @@ gate blocking "documentation links resolve" sgate doc_links
 # them at its own time. So the meta-gate stays where the results are: after the tests,
 # in check.sh and in ci.yml's `tests` job.
 
-# Lint-rule governance
-gate blocking "detekt rules config is current" sgate detekt_rules_config_is_current --check
-gate blocking "detekt rule inventory is current" sgate detekt_rule_inventory_is_current --check
-gate blocking "detekt rule registry" ./scripts/check-detekt-registrations.sh
-gate blocking "detekt baseline ratchet" sgate detekt_baseline_ratchet
-gate blocking "lint rules are declared decisions" sgate lint_rules_are_declared_decisions
-gate blocking "file-level suppressions explain themselves" sgate file_level_suppressions_explain_themselves
+# Lint-rule governance: one gate for six checks over one subject.
+#
+#   - the generated detekt.yml is current;
+#   - the generated rule table is current;
+#   - every rule has a registration;
+#   - the baseline does not grow silently;
+#   - a lint rule states the decision it implements;
+#   - a suppression says why it is there.
+#
+# Six CI rows for one subject became one. Each check keeps its own script, its
+# own unit tests and its own positive control — a control proves that a check
+# can fail, and one control for six checks would prove only that something in
+# them can fail.
+gate blocking "detekt governance is consistent" python3 scripts/check-detekt-governance.py
 # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here:
 # it is the Gradle task `:detekt-rules:koverVerify`, named by ci.yml's
@@ -313,7 +367,6 @@ gate blocking "ui wait budgets are consistent" sgate ui_wait_budgets_are_consist
 # executed: a gate that runs on no one reports success forever. Part H of
 # check-gate-wiring.py is what finally said so, once it stopped resolving
 # `run-all` against the Python mirror instead of this registry.
-gate blocking "log interpolation allowlist" python3 scripts/check-log-interpolation-allowlist.py
 gate blocking "skills describe the tools that exist" python3 scripts/check-skill-drift.py
 
 # Workflow semantics. actionlint reads a workflow as YAML plus GitHub's expression
@@ -347,15 +400,13 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 
 # ─── Deliberately NOT here ─────────────────────────────────────────────────────
 #
-# Twelve more gates are registered in `_registry.py`, each with a positive control,
-# and each used to be absent from this file. Four of them are above and pass; the
-# remaining eight are not runnable in CI, so registering them would trade "a gate
-# that never runs" for "CI red for a reason unrelated to this change":
+# Four more gates are registered in `_registry.py`, each with a positive control,
+# and each used to be absent from this file. They are not runnable in CI, so
+# registering them would trade "a gate that never runs" for "CI red for a reason
+# unrelated to this change":
 #
-#     doc dead refs                    exit 1   doc sizes are within budget   exit 1
-#     flaky tests are acknowledged     exit 1   backlog issue refs            exit 1
-#     req id uniqueness                exit 1   rebase compiles               exit 1
-#     test runs                        exit 1
+#     doc dead refs                    exit 1   flaky tests are acknowledged   exit 1
+#     rebase compiles                  exit 1   test runs                      exit 1
 #
 # They are the repo's knowingly-red corpus, in the same shape as the advisory
 # `script conventions` entry below. Each carries `needs_clean_run=False` or a
@@ -363,15 +414,12 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # now reports a registry entry with no gate line in this direction too, so the two
 # lists cannot drift apart unnoticed again — which is how all eleven went missing.
 #
-# "gate honesty" is the eighth and the odd one out: it is green on a clean tree,
-# and it is excluded because it cannot *finish*. Each probe is a full
-# `:shared:detekt` run (~1.5 min) in a throwaway worktree, so the script costs
-# minutes and blows the 300s budget the gate runner gives every gate — and, being
-# a `python3` invocation rather than an `sgate` one, the liveness probe classified
-# it as cheap and ran it anyway, which is how it took down "gates are alive" too.
-# Its own module docstring says it is a `just` recipe and not part of `check.sh`:
-# the person who needs it is the one about to regenerate a baseline or trust a
-# green lint run, and they need it then, not on every commit. Run it by hand.
+# The `doc sizes are within budget`, `req id uniqueness`, `backlog issue refs` and
+# `gate honesty` entries that used to stand here are gone: the first three gates
+# were removed on 2026-10-19 and 2026-10-15, and the fourth — the one that planted
+# a detekt violation in a throwaway worktree to prove the lint gate could fail —
+# was removed on 2026-10-20, with its script, its prune helper and its `just`
+# recipe. See the ADR of 2026-10-20.
 
 # AppTracer
 

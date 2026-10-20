@@ -85,6 +85,25 @@ def _load_static_gates() -> list[tuple[str, str, str]]:
     return gates
 
 
+def _static_gate_functions(static_sh: str) -> set[str]:
+    """The bash functions static-gates.sh defines, by name.
+
+    A gate line whose command is one of these names a function, not a binary:
+    the runner sources the registry and calls the function. Reading the names
+    from the file keeps the two in step — a function defined here and routed
+    there cannot drift apart, and a name that is routed but not defined fails
+    loudly instead of silently doing nothing.
+    """
+    try:
+        content = Path(static_sh).read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    return {
+        match.group(1)
+        for match in re.finditer(r"^([a-z_][a-z0-9_]*)\s*\(\)\s*\{", content, re.MULTILINE)
+    }
+
+
 def _slug(name: str) -> str:
     """Convert display name to slug (matches static-gates.sh convention)."""
     slug = name.lower()
@@ -157,18 +176,17 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             result = subprocess.run(cmd, capture_output=True, timeout=300,
                                    cwd=repo_root)
 
-        elif head in ("traceability", "digest_and_sizes"):
-            # Bash function defined in static-gates.sh
+        elif head in _static_gate_functions(static_sh):
+            # A bash function defined in static-gates.sh.
             #
-            # `adr_dry_run` and `digest_no_double_suffix` were removed from this
-            # list on 2026-10-16 together with the gates that called them. Keeping
-            # them would have meant two paths resolving a name whose gate no
-            # longer exists -- and `digest_and_sizes` is the dangling reference
-            # found during that work: it is STILL in this tuple and is defined
-            # nowhere in static-gates.sh, so a gate routed here would fail with
-            # 'command not found'. Left in place here deliberately rather than
-            # silently deleted, because whether it should be reintroduced as a
-            # real function is a decision for whoever owns the digest budget.
+            # The list is read from the file rather than hardcoded here. The
+            # hardcoded tuple ("traceability", "digest_and_sizes") carried a
+            # name that is defined nowhere — a gate routed to it would have
+            # failed with "command not found", and the comment said so. Two
+            # gates now need the same treatment (the actionlint and the
+            # yamllint gate), and a list that has to be edited in two places
+            # is a list that will be edited in one.
+            #
             # Source the file (with STATIC_GATES_SOURCED=1 so main() is skipped),
             # then call only the requested function. shlex already stripped the
             # registry's quoting, so re-quote for the -c string.

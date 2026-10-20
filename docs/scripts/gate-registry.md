@@ -8,57 +8,26 @@ Generated from `sgate/commands/*.py` docstrings.
 |------|------|---------|------------|-----|
 | Gate | Mode | Purpose | Exit Codes | ADR |
 |------|------|---------|------------|-----|
-| -generate-shims | unknown | Generate all 45 gate shim modules from the static-gates.sh registry. | — | — |
-| adr-corpus-rules-are-shared | unknown | sgate.commands.adr_corpus_rules_are_shared — shim for: ADR corpus rules are s... | — | — |
-| adr-frontmatter-drift | unknown | sgate.commands.adr_frontmatter_drift — shim for: ADR frontmatter drift. | — | — |
-| adr-references-are-valid | unknown | sgate.commands.adr_references_are_valid — shim for: ADR references are valid. | — | — |
+| -gate-runner | unknown | sgate.commands._gate_runner — decorators for gate command execution. | — | — |
+| -parsers | unknown | sgate.commands._parsers — shared output-parser helpers for backlog gates. | — | — |
+| -registry | unknown | sgate.commands._registry — single source of truth for gate metadata. | — | — |
+| -runner | unknown | sgate.commands._runner — shared gate execution logic. | — | — |
+| adr-references-are-valid | blocking | sgate.commands.adr_references — custom gate: ADR references are valid. | — | — |
 | adr-status-policy | unknown | sgate.commands.adr_status_policy — shim for: ADR status policy. | — | — |
-| apptracer-upload-policy-encoded | blocking | sgate.commands.apptracer_upload_policy_encoded — shim for: apptracer upload p... | — | — |
-| backlog-issue-refs | advisory | sgate.commands.backlog_issue_refs — shim for: backlog-issue-refs. | — | — |
+| build-output-readers | unknown | sgate.commands.build_output_readers — native Click for: build-output readers ... | — | — |
 | check-benchmarks | unknown | sgate.commands.check_benchmarks — performance regression checker for gates. | — | — |
-| closed-adrs-keep-their-body | unknown | sgate.commands.closed_adrs_keep_their_body — shim for: closed ADRs keep their... | — | — |
 | conventions | unknown | sgate.commands.conventions — shim for check-script-conventions.py. | — | — |
-| coverage-holes-did-not-grow | blocking | sgate.commands.coverage_holes_did_not_grow — shim for: coverage holes did not... | — | — |
-| coverage-matrix-current | blocking | sgate.commands.coverage_matrix_current — shim for: coverage matrix current. | — | — |
-| decisions-digest-within-budget | blocking | sgate.commands.decisions_digest_within_budget — shim for: decisions digest wi... | — | — |
-| declared-dependencies-are-used | blocking | sgate.commands.declared_dependencies_are_used — shim for: declared dependenci... | — | — |
-| detekt-baseline-ratchet | blocking | sgate.commands.detekt_baseline_ratchet — shim for: detekt baseline ratchet. | — | — |
-| detekt-rule-inventory-is-current | blocking | sgate.commands.detekt_rule_inventory_is_current — shim for: detekt rule inven... | — | — |
-| detekt-rule-registry | blocking | sgate.commands.detekt_rule_registry — shim for: detekt rule registry. | — | — |
-| detekt-rules-config-is-current | blocking | sgate.commands.detekt_rules_config_is_current — shim for: detekt rules config... | — | — |
-| digest-has-no-double-suffix | blocking | sgate.commands.digest_has_no_double_suffix — shim for: digest has no double s... | — | — |
-| file-level-suppressions-explain-themselves | blocking | sgate.commands.file_level_suppressions_explain_themselves — shim for: file-le... | — | — |
-| gate-scripts-own-unit-tests | unknown | sgate.commands.gate_scripts_own_unit_tests — shim for: gate scripts' own unit... | — | — |
-| gates-are-alive | blocking | sgate.commands.gates_are_alive — shim for: gates are alive. | — | — |
-| git-hooks-path-is-per-worktree | advisory | sgate.commands.git_hooks_path_is_per_worktree — shim for: git hooks path is p... | — | — |
-| kiwi-availability | unknown | sgate.commands.kiwi_availability — hard gate: Kiwi TCMS must be available. | — | — |
-| kiwi-inventory-did-not-regress | advisory | sgate.commands.kiwi_inventory_did_not_regress — shim for: kiwi inventory did ... | — | — |
-| light-adr-modules-stay-light | unknown | sgate.commands.light_adr_modules_stay_light — shim for: light ADR modules sta... | — | — |
-| lint-rules-are-declared-decisions | blocking | sgate.commands.lint_rules_are_declared_decisions — shim for: lint rules are d... | — | — |
-| maestro-selectors-valid | blocking | sgate.commands.maestro_selectors_valid — shim for: maestro selectors valid. | — | — |
-| manifest-verify | unknown | sgate.commands.manifest_verify — verify every registry gate has an sgate comm... | — | — |
-| no-dead-doc-refs | advisory | sgate.commands.no_dead_doc_refs — shim for: no dead doc refs. | — | — |
-| no-dead-skill-symbols | blocking | sgate.commands.no_dead_skill_symbols — shim for: no dead skill symbols. | — | — |
-| publication-hygiene | advisory | sgate.commands.publication_hygiene — shim for: publication hygiene. | — | — |
-| publication-hygiene-self-test | blocking | sgate.commands.publication_hygiene_self_test — shim for: publication hygiene ... | — | — |
-| readme-claims | unknown | sgate.commands.readme_claims — shim for: README claims. | — | — |
-| readme-claims-self-test | unknown | sgate.commands.readme_claims_self_test — shim for: README claims self-test. | — | — |
+| decisions-digest-within-budget | unknown | sgate.commands.decisions_digest_within_budget — custom gate: DIGEST.md within... | — | — |
+| gradle-test-population | unknown | sgate.commands.gradle_test_population — native Click for: gradle invocations ... | — | — |
+| info | unknown | sgate.commands.info — sgate info: show detailed gate info. | — | — |
+| light-adr-modules-stay-light | unknown | sgate.commands.adr_module_boundary — custom gate: light ADR modules must stay... | — | — |
 | render-registry | unknown | sgate.commands.render_registry — generate docs/scripts/gate-registry.md from ... | — | — |
-| requirement-identifiers-are-unique | advisory | sgate.commands.requirement_identifiers_are_unique — shim for: requirement ide... | — | — |
-| room-schema-integrity | blocking | sgate.commands.room_schema_integrity — shim for: room schema integrity. | — | — |
-| scenario-specs-valid | blocking | sgate.commands.scenario_specs_valid — shim for: scenario specs valid. | — | — |
-| settings-read-by-a-feature | blocking | sgate.commands.settings_read_by_a_feature — shim for: settings read by a feat... | — | — |
-| skill-frontmatter | blocking | sgate.commands.skill_frontmatter — shim for: skill frontmatter. | — | — |
-| skills-catalog-current | advisory | sgate.commands.skills_catalog_current — shim for: skills catalog current. | — | — |
-| skills-describe-the-tools-that-exist | blocking | sgate.commands.skills_describe_the_tools_that_exist — shim for: skills descri... | — | — |
-| spec-kit-issue-registry-current | advisory | sgate.commands.spec_kit_issue_registry_current — shim for: spec-kit issue reg... | — | — |
+| room-schema-integrity | blocking | sgate.commands.room_schema_integrity — native Click for: room schema integrity. | — | — |
+| run-all | unknown | sgate.commands.run_all — sgate run-all: run all gates in parallel. | — | — |
+| settings-read-by-a-feature | blocking | sgate.commands.dead_settings — custom gate: persisted settings with no consumer. | — | — |
 | suite-docs | unknown | sgate.commands.suite_docs — run all documentation gates concurrently. | — | — |
 | suite-lint | unknown | sgate.commands.suite_lint — run all lint-rule governance gates concurrently. | — | — |
-| supabase-schema-is-self-consistent | blocking | sgate.commands.supabase_schema_is_self_consistent — shim for: supabase schema... | — | — |
-| sync-allowlist-seed-matches-contract | blocking | sgate.commands.sync_allowlist_seed_matches_contract — shim for: sync allowlis... | — | — |
-| test-task-external-inputs-declared | blocking | sgate.commands.test_task_external_inputs_declared — shim for: test-task exter... | — | — |
-| unwired-backlog-refs | blocking | sgate.commands.unwired_backlog_refs — shim for: unwired backlog refs. | — | — |
-| unwired-surfaces | advisory | sgate.commands.unwired_surfaces — shim for: unwired surfaces. | — | — |
-| version-catalog-has-no-literals | blocking | sgate.commands.version_catalog_has_no_literals — shim for: version catalog ha... | — | — |
+| test-task-external-inputs-declared | blocking | sgate.commands.test_task_external_inputs_declared — native Click for: test-ta... | — | — |
+| unwired-backlog-refs | unknown | sgate.commands.unwired_backlog_refs — shim for: unwired-backlog-refs. | — | — |
 | wiring | unknown | sgate.commands.wiring — shim for check-gate-wiring.py Part A. | — | — |
-| yaml-has-no-duplicate-keys | unknown | sgate.commands.yaml_has_no_duplicate_keys — shim for: YAML has no duplicate k... | — | — |
+| yaml-has-no-duplicate-keys | unknown | sgate.commands.yaml_has_no_duplicate_keys — native Click for: YAML has no dup... | — | — |

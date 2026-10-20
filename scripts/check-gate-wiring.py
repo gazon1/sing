@@ -625,21 +625,63 @@ SCRIPT_GATES = [
         sabotage=_append('\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'),
         why="a new dead reference must fail until baselined",
     ),
-    # log-interpolation: the executable twin of the registry control. It plants
-    # a log call that interpolates a type the allowlist does not carry, and the
-    # gate must report it. The plant does not compile — it is restored right
-    # after, and nothing compiles during the control.
+    # The two cluster gates. Their members keep their own entries below, each
+    # with its own control — a control proves that a check can fail, and one
+    # control for a cluster of six would prove only that something in it can
+    # fail. These two entries prove that the aggregate reports a member's
+    # failure rather than swallowing it.
     ScriptGate(
-        name="log-interpolation",
-        cmd=[sys.executable, "scripts/check-log-interpolation-allowlist.py"],
-        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/config/RemoteConfigCacheRepositoryImpl.kt",
-        sabotage=_append(
-            '\n\n// TEMPORARY probe planted by the log-interpolation control.\n'
-            'private fun logInterpolationControlProbe() {\n'
-            '    log.i { "planted=$Task" }\n'
-            '}\n'
+        name="ci-workflow-shape",
+        cmd=[sys.executable, "scripts/check-ci-workflow-shape.py"],
+        sabotage_path="shared/build.gradle.kts",
+        sabotage=_replace(
+            '    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n'
+            '        .withPropertyName("maestroFlows")\n'
+            '        .withPathSensitivity(PathSensitivity.RELATIVE)\n',
+            '',
         ),
-        why="a log call that interpolates a type nobody allowlisted must be reported, or the allowlist is a list nobody reads",
+        why="a cluster that swallowed a member's failure would be one green row over three red checks",
+    ),
+    ScriptGate(
+        name="detekt-governance",
+        cmd=[sys.executable, "scripts/check-detekt-governance.py"],
+        sabotage_path="config/detekt/baseline-shared.xml",
+        sabotage=_replace(
+            '</CurrentIssues>',
+            '    <ID>TotallyMadeUpRule:Probe.kt:1</ID>\n  </CurrentIssues>',
+            count=1,
+        ),
+        why="a cluster that swallowed a member's failure would be one green row over six red checks",
+    ),
+    # script-conventions: the rule that gate scripts use Click. The probe adds
+    # the import the rule looks for, to a script that no other control touches.
+    #
+    # The rule itself was a text search for "import argparse", and the checker
+    # that held the rule contained the string — so the gate reported itself as a
+    # violation on every run and could only ever fail that way. The rule now
+    # reads the AST, and this control proves the new rule can fail.
+    ScriptGate(
+        name="script-conventions",
+        cmd=[sys.executable, "scripts/check-script-conventions.py"],
+        sabotage_path="scripts/check-adr-references.py",
+        sabotage=_append('\nimport argparse  # control probe: R2.1 must report this\n'),
+        why="a gate script that reaches for argparse instead of Click is the rule this gate exists to enforce",
+    ),
+    # gate-registries: the gate that compares the two registries against each
+    # other. Its input is the shell registry, so the sabotage adds a gate line
+    # the Python registry does not know — the exact shape of drift the gate
+    # exists to report. A control that broke the Python side instead would
+    # prove the same property, but this one breaks the side the gate reads.
+    ScriptGate(
+        name="gate-registries",
+        cmd=[sys.executable, "scripts/check-gate-registries.py"],
+        sabotage_path="scripts/ci/static-gates.sh",
+        sabotage=_replace(
+            'main() {\n',
+            'main() {\ngate blocking "phantom gate the registry does not know" '
+            'python3 scripts/check-nothing.py\n',
+        ),
+        why="a gate line the Python registry does not know is drift the gate must report",
     ),
     # doc-links: the lychee gate. The command is the wrapper script, so
     # `_control_identity` resolves it to the same path the registry knows and
@@ -1963,13 +2005,12 @@ def _sgate_backing_scripts() -> dict[str, list[str]]:
     cmd_dir = ROOT / "scripts" / "src" / "sgate" / "commands"
     if not cmd_dir.is_dir():
         return out
-    # Keyed by the *registered command name*, not the module filename. Five modules
-    # rename themselves — `check_benchmarks.py` registers `check-benchmarks`,
-    # `manifest_verify.py` registers `manifest-verify`, and `run_all.py` registers
-    # `run-all` — so a surface writing `sgate manifest-verify` matched no module and
-    # fell through to the catch-all, which marked every registry script reachable
-    # because one unresolvable name existed anywhere. The name a surface writes is
-    # the identity that has to resolve.
+    # Keyed by the *registered command name*, not the module filename. Some modules
+    # rename themselves — `check_benchmarks.py` registers `check-benchmarks`, and
+    # `run_all.py` registers `run-all` — so a surface writing `sgate check-benchmarks`
+    # matched no module and fell through to the catch-all, which marked every
+    # registry script reachable because one unresolvable name existed anywhere.
+    # The name a surface writes is the identity that has to resolve.
     # Both spellings appear in the shims:
     #   repo_root / "scripts/check-x.py"          (one literal)
     #   repo_root / "scripts" / "check-x.py"      (two literals)
@@ -2147,10 +2188,10 @@ def sgate_backing_scripts() -> dict[str, list[str]]:
 def registered_gate_scripts() -> dict[str, list[str]]:
     """Gate script path -> the files that invoke it.
 
-    `just` recipes are included, not just `check.sh` and CI: three gates
-    (`check-adr-references`, `check-gate-honesty`, `check-kiwi-gaps`)
-    are reachable only through a recipe, and a registry that
-    looked only at `check.sh` would not see them at all.
+    `just` recipes are included, not just `check.sh` and CI: a gate that is
+    reachable only through a recipe would not be seen by a registry that looked
+    only at `check.sh` and the workflows, and a gate nobody can reach is a gate
+    that reports success forever.
 
     `sgate <name>` invocations count too, resolved through the command module
     to the underlying scripts/check-*. The sgate migration moved most registry
@@ -2166,6 +2207,13 @@ def registered_gate_scripts() -> dict[str, list[str]]:
         except (OSError, UnicodeDecodeError):
             continue
         site = str(surface.relative_to(ROOT))
+        # A comment is prose, and prose mentions commands. Without this, the
+        # report said `scripts/check-doc-dead-refs.py` was invoked by
+        # scripts/ci/static-gates.sh — the file named it in a comment explaining
+        # what it was for, and the gate it described ran nowhere. The reachability
+        # scan has always dropped comment lines; this one did not, so the two
+        # halves of the same file disagreed about what runs.
+        text = _strip_comments(text)
         # `python3 scripts/x.py`, `./scripts/x.sh`, `python3 ./scripts/x.py`.
         # The `./` is optional *and* the `python3 ` prefix is optional, but the
         # two cannot be collapsed into one another: an earlier version wrote
@@ -2422,7 +2470,13 @@ def check_script_gates_vs_registry() -> list[str]:
     #
     # The comparison is on the two things that make a control a control: the
     # file it changes, and the command it runs afterwards.
-    for sg in SCRIPT_GATES:
+    # The comparison covers SABOTAGE_ONLY_GATES too, not only SCRIPT_GATES. It
+    # covered one list, and the copy it did not cover was the one that rotted:
+    # the registry's `rule-intent` control named a detekt.yml pattern that has
+    # not been in the file since the rules were reorganised, so the copy that ran
+    # would have raised "the sabotage matched nothing" — and the copy that
+    # rotted was never the one that ran, so nothing said so.
+    for sg in (*SCRIPT_GATES, *SABOTAGE_ONLY_GATES):
         control = _registry.GATE_CONTROLS.get(sg.name)
         if control is None or control.kind != "sabotage":
             continue
@@ -2793,35 +2847,37 @@ _WIRED_BY_NOBODY = (
 )
 
 REACHABILITY_EXCLUSIONS: dict[str, str] = {
-    "scripts/check-adr-references.py": (
-        "Its own unit tests pin the behaviour (GATE_EXEMPTIONS says so), and the "
-        "control exists, but nothing in check.sh, the registry or any recipe runs it. "
-        + _WIRED_BY_NOBODY
-    ),
-    "scripts/check-doc-dead-refs.py": (
-        "Reachable-looking: `check-detekt-registrations.sh` names it — in a comment, "
-        "explaining what the dead-reference check is for. A prose mention is not an "
-        "invocation, which is why the gate-to-gate scan requires command position. "
-        + _WIRED_BY_NOBODY
-    ),
 }
 
 
 def check_reachability_exclusions_are_live() -> list[str]:
-    """Every exclusion must still describe a file that exists.
+    """Every exclusion must still describe a file that exists — and still be needed.
 
     An exemption whose subject was deleted is a hole wearing a reason: Part H can
     never report that script again, and nothing is left to look at. Checked
     separately from `check_gate_reachability` so a fixture that rebinds ROOT is
     not judged against this repository's files.
+
+    The other direction is the same defect wearing the other face: an exemption
+    for a script that *is* reachable. `scripts/check-adr-references.py` sat in
+    this list while `static-gates.sh` ran it, and the entry claimed the script
+    was wired to nothing — a false statement in the file that exists to make
+    false statements about wiring visible.
     """
     errors: list[str] = []
+    reachable = reachable_gate_scripts()
     for excluded in REACHABILITY_EXCLUSIONS:
         if not (ROOT / excluded).is_file():
             errors.append(
                 f"{excluded} is listed in REACHABILITY_EXCLUSIONS but no longer exists. "
                 f"Remove the entry: the exemption list is a record of a decision still "
                 f"open, not a place where deletions go to hide."
+            )
+        elif excluded in reachable:
+            errors.append(
+                f"{excluded} is listed in REACHABILITY_EXCLUSIONS but is reachable from "
+                "a surface. The exemption is stale: remove it, so the next person who "
+                "unwires the script is told about it."
             )
     return errors
 

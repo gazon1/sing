@@ -109,9 +109,9 @@ SLOW_NAMES = {
 #: those would skip three cheap gates as "heavyweight" and silently weaken this
 #: gate, which is the same failure as the one this filter just had.
 #:
-#: `gw` is the repo's Gradle wrapper (see `gw`): `check-gate-honesty.py` runs it
-#: as `[str(worktree / "gw"), ":shared:detekt", ...]`, so a marker that only knew
-#: `./gradlew` did not recognise the heaviest gate in the registry.
+#: `gw` is the repo's Gradle wrapper (see `gw`): a gate that runs it as
+#: `[str(worktree / "gw"), ":shared:detekt", ...]` must be recognised as heavy,
+#: so a marker that only knew `./gradlew` does not miss the heaviest gates.
 GRADLE_MARKERS = (
     re.compile(r"""\[\s*[^,\]]*["'][^"']*gradlew["']"""),
     re.compile(r"""\[\s*[^,\]]*["']gw["']"""),
@@ -210,10 +210,10 @@ def direct_script_resolves_to_gradle(cmd: str) -> bool:
 
     `resolves_to_gradle` only follows `sgate <name>` through the registry, so a
     gate written as `python3 scripts/check-something.py` was invisible to it —
-    and was probed as if it were cheap. That is how "gate honesty" came to be
-    probed: it plants a detekt violation in a throwaway worktree, so each probe
-    is a full `:shared:detekt` run, and the probe outlived the budget the gate
-    runner gives the whole liveness check.
+    and was probed as if it were cheap. That is how the removed "gate honesty"
+    gate came to be probed: it planted a detekt violation in a throwaway
+    worktree, so each probe was a full `:shared:detekt` run, and the probe
+    outlived the budget the gate runner gives the whole liveness check.
 
     The same trap is one registration away, so the check reads the script the
     command names rather than trusting the command's shape.
@@ -269,6 +269,24 @@ def is_registry_function(cmd: str) -> bool:
     )
 
 
+def _static_gate_functions() -> set[str]:
+    """The bash functions static-gates.sh defines, by name.
+
+    A gate line whose command is one of these names a function, not a binary:
+    the runner sources the registry and calls the function. The names are read
+    from the file so the two stay in step.
+    """
+    static_sh = ROOT / "scripts" / "ci" / "static-gates.sh"
+    try:
+        content = static_sh.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    return {
+        match.group(1)
+        for match in re.finditer(r"^([a-z_][a-z0-9_]*)\s*\(\)\s*\{", content, re.MULTILINE)
+    }
+
+
 def probe(name: str, cmd: str, budget: int = PROBE_TIMEOUT) -> tuple[str, str]:
     """Run one gate. Returns (verdict, detail).
 
@@ -295,6 +313,20 @@ def probe(name: str, cmd: str, budget: int = PROBE_TIMEOUT) -> tuple[str, str]:
         candidate = token.lstrip('-')
         if candidate.endswith('.py') and not (ROOT / candidate).is_file():
             return 'unrunnable', f'{candidate} does not exist'
+
+    # A gate whose command names a bash function of static-gates.sh is run the
+    # way `sgate run-all` runs it: source the registry, then call the function.
+    # Without this the two lint gates — actionlint and yamllint — read as
+    # "unrunnable: command not found", which is a verdict about the probe and
+    # not about the gate.
+    if argv[0] in _static_gate_functions():
+        static_sh = ROOT / "scripts" / "ci" / "static-gates.sh"
+        func_call = shlex.join(argv)
+        argv = [
+            "bash",
+            "-c",
+            f"STATIC_GATES_SOURCED=1 . {shlex.quote(str(static_sh))} && {func_call}",
+        ]
 
     try:
         proc = subprocess.run(

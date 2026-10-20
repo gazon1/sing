@@ -17,7 +17,6 @@ mod desktop  '.just/desktop'
 mod tests    '.just/tests'
 mod scripts  '.just/scripts'
 mod traceability '.just/traceability'
-mod wt       '.just/worktree'
 
 set shell := ["bash", "-uc"]
 set unstable
@@ -71,9 +70,6 @@ alias gate   := tests::gate
 # ----- Lint shortcuts -----
 alias lint       := tests::lint
 alias detekt-fix := tests::detekt-fix
-# The name is the point: `honesty` reads as "is this gate lying to me?" at the moment
-# someone is about to believe a green one. Slow on purpose — see the recipe.
-alias honesty    := tests::gate-honesty
 
 # ----- Docs shortcuts -----
 alias docs-audit  := tests::docs-audit
@@ -112,12 +108,6 @@ alias trace-carrier  := traceability::trace-carrier
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench
 alias rd     := scripts::refresh-decisions
-
-# ----- Worktree shortcuts -----
-# Long form stays `just wt new <name>`; the bare aliases are for the two verbs
-# used constantly enough to be worth two keystrokes.
-alias wt-new  := wt::new
-alias wt-code := wt::code
 
 # ==============================================================================
 # 🔧 Setup

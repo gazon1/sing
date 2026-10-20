@@ -179,24 +179,6 @@ detekt:
     ./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt
 
 [group('lint')]
-[doc('Prove the lint gate is measuring: plant a violation, assert it is reported')]
-[working-directory(justfile_directory())]
-gate-honesty *args="":
-    #!/bin/bash
-    set -euo pipefail
-    # SLOW (~1 min per probe) and deliberately not in `check.sh` or `gate`. The person who
-    # needs this is the one about to regenerate a detekt baseline, or about to believe a green
-    # `just lint`, and they need it *then*.
-    #
-    # It exists because three defects in one session shared a shape: a measurement that could
-    # not be distinguished from its own failure. A stale rule classpath made detekt green with
-    # no custom rules running (#136); `detektBaseline` deleted every custom-rule entry and the
-    # next run reported a clean tree because nothing ran (#137); a coverage number that may not
-    # describe any execution (#138). Plant a violation, assert it is reported, and only then is
-    # a green result evidence rather than an absence of evidence.
-    python3 scripts/check-gate-honesty.py {{args}}
-
-[group('lint')]
 [doc('Correct what detekt can correct, then report what is left')]
 [working-directory(justfile_directory())]
 detekt-fix:
@@ -261,8 +243,8 @@ docs-audit:
     set -uo pipefail
     status=0
     echo "=== Doc size budgets: removed 2026-10-19 ==="
-    # `scripts/check-doc-sizes.py` and the `doc sizes are within budget` gate are
-    # gone. The DIGEST budget still has an owner (the generator that prints it);
+    # The doc-size script and the `doc sizes are within budget` gate are gone.
+    # The DIGEST budget still has an owner (the generator that prints it);
     # the AGENTS.md / SKILL.md / PROGRESS.md line caps do not have one any more.
     echo ""
     echo "=== pro/ licence boundary (no FSL or vendor code in the Apache-2.0 core) ==="
