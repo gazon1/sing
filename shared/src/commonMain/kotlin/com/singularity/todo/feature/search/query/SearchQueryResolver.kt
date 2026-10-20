@@ -56,6 +56,13 @@ data class ProjectLookupResult(val id: String, val userId: String, val name: Str
  * `HasText` condition on tasks, and a resolver that translated it for notes only
  * left the task list unfiltered.
  *
+ * This resolver is also the owner of the free-text rule. It collects the free-text
+ * terms of the query into a [FreeTextRule] — the terms, their polarity, and whether
+ * the query makes them alternatives — and hands that one object to the use case, so
+ * tasks, notes, projects and tags are all matched by the same rule. The rule used
+ * to be per kind: tasks were matched per term, the other kinds against the joined
+ * phrase.
+ *
  * @param clock and [timeZone] are required, with no default. A `due:` condition is
  *   resolved against *today*, so a resolver that read the system clock would make
  *   every date search a function of the day the suite happened to run — which is
@@ -82,6 +89,24 @@ class DefaultSearchQueryResolver(
         val ctx = ResolveContext(userId)
         resolveCondition(condition, ctx)
 
+        // The free-text rule is assembled after the walk, because whether the terms
+        // are alternatives (an `OR` somewhere in the query) is only known then.
+        val freeTextRule = ctx.freeTextRule()
+        if (!freeTextRule.isEmpty) {
+            // A free-text word is a condition on tasks, not only on notes, projects
+            // and tags. The resolver used to translate it into nothing for tasks,
+            // so the task flow came back unfiltered and the search screen listed
+            // every task for a query that matched nothing. `today` is part of the
+            // shared [TaskDomain.matchesFilter] signature and plays no part in a
+            // text filter.
+            val today = todayAt(clock, timeZone.current())
+            ctx.addPostFilter { task ->
+                freeTextRule.selects { term ->
+                    TaskDomain.matchesFilter(task, TaskFilter.Search(term), today)
+                }
+            }
+        }
+
         val taskFilter = buildTaskFilter(ctx)
         val dateRange = ctx.dateRange
         val postFilter = buildPostFilter(ctx)
@@ -97,6 +122,7 @@ class DefaultSearchQueryResolver(
             sortDescending = query.sortDescending,
             options = query.options,
             freeText = ctx.freeText.takeIf { it.isNotBlank() },
+            freeTextRule = freeTextRule,
             needsPostFilter = ctx.needsPostFilter,
             postFilter = postFilter,
             isOrPostFilter = ctx.isOrPostFilter,
@@ -107,6 +133,7 @@ class DefaultSearchQueryResolver(
 
     private class ResolveContext(val userId: String) {
         var freeText: String = ""
+        val freeTextTerms: MutableList<FreeTextRule.Term> = mutableListOf()
         val unknownTagNames: MutableSet<String> = mutableSetOf()
         val unknownProjectNames: MutableSet<String> = mutableSetOf()
         val resolvedTagIds: MutableSet<String> = mutableSetOf()
@@ -122,10 +149,21 @@ class DefaultSearchQueryResolver(
         /** Nesting depth of Not conditions — used to negate post-filters correctly. */
         var negationDepth: Int = 0
 
-        fun addText(t: String) {
+        fun addText(t: String, negated: Boolean) {
             if (freeText.isNotBlank()) freeText += " "
             freeText += t
+            freeTextTerms += FreeTextRule.Term(text = t, negated = negated)
         }
+
+        /**
+         * The free-text rule this query states.
+         *
+         * The terms are alternatives when the query contains an `OR` — the same
+         * connective the task post-filter uses to combine its predicates, so tasks
+         * and the other kinds are combined the same way.
+         */
+        fun freeTextRule(): FreeTextRule =
+            FreeTextRule(terms = freeTextTerms.toList(), combinesWithOr = isOrPostFilter)
 
         fun addPostFilter(p: (Task) -> Boolean) {
             // If inside a Not, negate the predicate before adding
@@ -143,17 +181,11 @@ class DefaultSearchQueryResolver(
     private suspend fun resolveCondition(c: Condition, ctx: ResolveContext) {
         when (c) {
             is Condition.HasText -> {
-                ctx.addText(c.text)
-                // A free-text word is a condition on tasks, not only on notes, projects
-                // and tags. The resolver used to translate it into nothing for tasks,
-                // so the task flow came back unfiltered and the search screen listed
-                // every task for a query that matched nothing. `today` is part of the
-                // shared [TaskDomain.matchesFilter] signature and plays no part in a
-                // text filter.
-                val today = todayAt(clock, timeZone.current())
-                ctx.addPostFilter { task ->
-                    TaskDomain.matchesFilter(task, TaskFilter.Search(c.text), today)
-                }
+                // The word is free text, and the free-text rule is built from all of
+                // them once the walk is over. The task predicate comes from the same
+                // rule (see `resolve`), so a task and a note are matched by the same
+                // terms — the polarity is the query's `NOT`, applied to the term.
+                ctx.addText(c.text, negated = ctx.negationDepth > 0)
             }
 
             is Condition.HasStatus -> handleHasStatus(c, ctx)

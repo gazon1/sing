@@ -118,6 +118,7 @@ accordingly.
 **G5 — a word that matches no condition rule is free text.** The word becomes a
 `HasText` condition. There is no error for an unrecognised `word:value` form; it is simply
 searched for as text. A search box that rejects input is a search box users stop using.
+§6 says what a `HasText` condition matches.
 
 **G6 — a quoted string is always free text**, whatever it looks like (§1 R2).
 
@@ -183,22 +184,107 @@ the same as "today". It is the one interval that cannot be expressed as a day co
 **D4 — an unparseable interval is not a parse error.** The word falls through to free text
 (§3 G5), so `due:soon` searches for the text `due:soon`.
 
-## 6. Conformance
+## 6. Free-text matching
 
-An implementation conforms if it satisfies §1–§5 and passes the behavioural suite in
-`shared/src/commonTest/kotlin/com/singularity/todo/feature/search/query/` — 134 tests
-across seven classes, each carrying `@Tag`.
+§3 G5 turns a word that matches no condition rule into a `HasText` condition, and
+§3 G6 does the same for a quoted string. This section states what a `HasText`
+condition matches. It is the rule every kind of record — task, note, project, tag
+— is measured against.
+
+**F1 — the free text of a query is a list of terms.** One term is one `HasText`
+condition. A quoted string is one term, however many words it holds: `"quarterly
+report"` is a single term and has to occur as written.
+
+**F2 — every term has to match.** A record matches the free text of a query iff
+every term of that free text occurs in the record's searchable text (F3).
+Matching is case-insensitive.
+
+**F3 — the searchable text of a record is the kind's own.**
+
+| Kind | Searchable text |
+|---|---|
+| Task | title or description |
+| Note | title |
+| Project | name |
+| Tag | name |
+
+The rule does not change what is searchable. Each kind keeps its own surface, so
+the task list and the search screen cannot drift apart on what "contains" means.
+
+**F4 — the terms are combined by the query's connective.** A query that contains
+an `OR` makes its terms alternatives: any of them may match. A query without one
+requires every term (F2). A term under `NOT` must *not* match.
+
+**F5 — a query with no free text selects no note, project or tag.** The structured
+terms of a query are filters over tasks; they do not select the other kinds, and
+a query with no free text has no free-text part to match.
+
+### 6.1 Why a conjunction, and not the alternatives
+
+The two alternatives were a disjunction (any term may match) and the joined
+phrase (the whole free text has to occur as one substring). Both contradict §3 G2.
+Juxtaposition is a conjunction, so `hello world` is
+`AND(HasText("hello"), HasText("world"))` in the AST; a disjunction would make
+`hello world` mean something different from `hello AND world`, and G2 says the
+explicit operator "changes nothing". The joined phrase is not a reading of the AST
+at all — it is a different grammar wearing the same syntax, and `a b` would mean
+something no operator can express.
+
+A conjunction is also what the product wants. This is a task manager: the user
+types into a search box to narrow a list they are looking at. A conjunction
+narrows — two words that both occur are a strong signal, and a record that
+carries one of them is a candidate to refine rather than an answer. A disjunction
+widens the list on every keystroke, and a phrase search answers a question the
+user did not ask.
+
+### 6.2 A worked example
+
+The query `quarterly report` states two terms, `quarterly` and `report`. Under F2
+a record has to carry both.
+
+| Record | Task | Note | Project | Tag |
+|---|---|---|---|---|
+| "Write the quarterly report" | match | match | — | — |
+| "Quarterly review" | no — no `report` | no | — | — |
+| "Report" | no — no `quarterly` | no | — | — |
+| "Report" (a project named `Report`) | — | — | no — no `quarterly` | — |
+| "Report" (a tag named `Report`) | — | — | — | no — no `quarterly` |
+
+The second word alone is not enough, and the first word alone is not enough
+either. That is F2, and it is the same answer for every kind.
+
+A note is searched by its title (F3), so a note titled "Report" whose *body*
+contains "quarterly" is not a match either — the other word has to be in the
+searchable text, wherever that is for the kind in question.
+
+The rule used to be per kind: tasks were matched per term, and notes, projects
+and tags against the joined phrase `quarterly report`. A task titled "Quarterly"
+was therefore found while a note titled "Report" whose body contained "quarterly"
+was not — the answer depended on which kind of thing the user was looking for.
+One rule, one owner: the resolver builds it, and every kind is matched by it.
+
+## 7. Conformance
+
+An implementation conforms if it satisfies §1–§6 and passes the behavioural suite in
+`shared/src/commonTest/kotlin/com/singularity/todo/feature/search/query/` — 146 tests
+across eight classes, each carrying `@Tag`. The rule of §6 is also asserted per kind —
+task, note, project, tag — in
+`shared/src/commonTest/kotlin/com/singularity/todo/feature/search/SearchFreeTextRuleTest.kt`,
+because a rule that only holds for one kind of record is not a rule.
 
 The suite is organised by the sections above rather than by implementation unit, so a
 failure names a rule and not a class. Where a rule is easy to get subtly wrong — R1, R3,
-G1, G2, G3, C1, D1 — it has its own named test.
+G1, G2, G3, C1, D1, F2 — it has its own named test.
 
-## 7. Deliberate non-goals
+## 8. Deliberate non-goals
 
 - **No implicit `AND` after a closing parenthesis is not supported** in the sense that
   `(a) b` parses as `AND(a, b)` — which is G2, and is intentional.
 - **No quoted prefix syntax.** `"due:today"` is free text, not a due condition (§3 G6).
   The rule is uniform rather than clever, and a user who wants to search for the literal
   string gets exactly that.
+- **No phrase matching of the free text.** The free text of a query is a list of terms,
+  and every term has to match (§6 F2). The joined phrase is not a second way to read
+  the same query — a user who wants a phrase writes it as one quoted term.
 - **No user-defined functions or nesting beyond parentheses.** A grammar that grows
   nesting grows the space of queries the resolver cannot push down to SQL.

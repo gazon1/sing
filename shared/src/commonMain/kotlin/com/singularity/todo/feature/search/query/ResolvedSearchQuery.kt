@@ -12,7 +12,8 @@ import kotlinx.datetime.LocalDate
  * - Explicit date range (when [TaskFilter.ByDateRange] is used)
  * - Tag and project IDs resolved from names
  * - Unknown names that need post-filtering
- * - Free text for [com.singularity.todo.feature.notes.data.NotesRepository.search]
+ * - The free text of the query, joined into one string
+ * - The free-text rule ([freeTextRule]) every kind of record is matched against
  * - Sort and pagination options
  * - A post-filter predicate for conditions that can't be expressed in SQL
  */
@@ -32,8 +33,23 @@ data class ResolvedSearchQuery(
     val sortOrder: SortOrder = SortOrder.DUE,
     val sortDescending: Boolean = false,
     val options: Options = Options(),
-    /** Free-text string to pass to [com.singularity.todo.feature.notes.data.NotesRepository.search]. */
+    /**
+     * The free text of the query, joined into one string.
+     *
+     * This is the human-readable form of the same terms [freeTextRule] holds. It is
+     * not what records are matched against — the rule is — and it is not a phrase
+     * that has to occur as a whole.
+     */
     val freeText: String? = null,
+    /**
+     * The free-text rule of this query — the terms, their polarity, and whether they
+     * are alternatives.
+     *
+     * The one rule every kind of record is matched against. The resolver builds it;
+     * the use case applies it to notes, projects and tags, and the task post-filter
+     * applies it to tasks. See [FreeTextRule].
+     */
+    val freeTextRule: FreeTextRule = FreeTextRule(),
     /**
      * True if any condition requires in-memory post-filtering
      * (e.g. negated conditions, OR trees, pinned, archived, has:description).

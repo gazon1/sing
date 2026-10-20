@@ -91,6 +91,23 @@ class SearchTextQueryTest {
     }
 
     @Test
+    fun `a multi word query matches a task that carries every word`() = runTest {
+        // The description holds both words, so the task matches the rule.
+        val results = search("quarterly numbers")
+
+        assertEquals(listOf("Write report"), results.tasks.map { it.title })
+    }
+
+    @Test
+    fun `a multi word query does not match a task that carries only one word`() = runTest {
+        // "Buy milk" carries the first word and "Write report" the second. Neither
+        // carries both, so neither is a match.
+        val results = search("milk report")
+
+        assertTrue(results.tasks.isEmpty(), "a task with only one of the two words must not match")
+    }
+
+    @Test
     fun `a structured query is not filtered by text`() = runTest {
         // A query with no free text keeps its old meaning: the condition alone
         // decides, and no task is dropped for failing to contain the query string.
