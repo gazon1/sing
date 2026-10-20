@@ -330,6 +330,26 @@ jobs:
         if: ${{ needs.plan.outputs.tier == 'full' && !cancelled() }}
         run: python3 scripts/check-instrumented-test-floor.py
 
+      # What the tier actually did, in words, where the reviewer is looking.
+      #
+      # The step above is a Gradle transcript, and the question a reviewer has
+      # — did the app work on a device? — is somewhere inside it. The smoke tier
+      # is advisory, so its verdict never blocks a merge; an advisory verdict
+      # that nobody can read is the same as no verdict at all.
+      #
+      # Four verdicts, and the difference between them is the point: passed,
+      # failed (with the failing test names), did not run, and could not read.
+      # A red X that means "nothing happened" reads like "the app is broken",
+      # and telling those two apart is the whole value of this step.
+      #
+      # It never fails the job: a reporter that crashes the pipeline is a
+      # reporter nobody trusts to report.
+      - name: Summarise the instrumented run (advisory)
+        if: ${{ !cancelled() }}
+        run: |
+          python3 scripts/instrumented-run-summary.py \
+            --tier "${{ needs.plan.outputs.tier }}" >> "$GITHUB_STEP_SUMMARY"
+
       # Uploaded unconditionally, not `if: failure()`. A report that exists only when
       # something broke cannot answer "did NavigationFlowInstrumentedTest pass on abc1234",
       # which is the question a nightly run gets asked the next morning.
