@@ -1,6 +1,8 @@
 package com.singularity.todo.core.config
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.coroutines.BoundedReadResult
+import com.singularity.todo.core.coroutines.boundedRead
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.error.AppError
@@ -12,8 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Clock
 
 /**
@@ -35,7 +35,7 @@ import kotlin.time.Clock
  * ## The bound lives here, not in the caller
  *
  * Both public reads are bounded by [RemoteConfigPort.READ_TIMEOUT_MS], and the bound is
- * enforced *around the I/O*, not around the caller's coroutine — see [readWithinDeadline].
+ * enforced *around the I/O*, not around the caller's coroutine — see [boundedRead].
  * The read runs in a scope of its own, so a read that ignores cancellation (a blocking
  * driver call) cannot hold the caller past the deadline: the caller waits on a promise of
  * the result, and a promise can be given up on whether or not the work behind it finishes.
@@ -69,31 +69,46 @@ internal class RemoteConfigCacheRepositoryImpl(
     override fun observe(): StateFlow<RemoteConfigSnapshot> = _snapshot.asStateFlow()
 
     override suspend fun snapshot(): RemoteConfigSnapshot {
-        val read = readWithinDeadline { readCachedSnapshot() }
-        if (read == null) {
-            // The read is still running; it may yet succeed and `observe()` will publish
-            // what it produced. Only the waiting ended.
-            log.w { "Remote config read did not finish within $readTimeoutMs ms, serving the last known good snapshot" }
-            return lastKnownGood()
+        val outcome = readScope.boundedRead(
+            timeoutMs = readTimeoutMs,
+            onAbandonedFailure = ::logAbandonedReadFailure,
+        ) { readCachedSnapshot() }
+        return when (outcome) {
+            is BoundedReadResult.Completed -> outcome.value
+
+            BoundedReadResult.TimedOut -> {
+                // The read is still running; it may yet succeed and `observe()` will publish
+                // what it produced. Only the waiting ended.
+                log.w {
+                    "Remote config read did not finish within $readTimeoutMs ms, " +
+                        "serving the last known good snapshot"
+                }
+                lastKnownGood()
+            }
         }
-        return read
     }
 
     override suspend fun refresh(): Result<RemoteConfigSnapshot> {
-        val read = readWithinDeadline { refreshInternal() }
-        if (read == null) {
-            log.w { "Remote config refresh did not finish within $readTimeoutMs ms" }
-            // A failure, not a silent success: this method's contract is a Result, and a
-            // caller that handles a failed refresh already handles this one. The code says
-            // "timed out" so it is not filed next to "the config server is down".
-            return Result.failure(
-                AppError.Network(
-                    message = "Remote config refresh timed out after $readTimeoutMs ms",
-                    code = RemoteConfigPort.READ_TIMEOUT_CODE,
-                ),
-            )
+        val outcome = readScope.boundedRead(
+            timeoutMs = readTimeoutMs,
+            onAbandonedFailure = ::logAbandonedReadFailure,
+        ) { refreshInternal() }
+        return when (outcome) {
+            is BoundedReadResult.Completed -> outcome.value
+
+            BoundedReadResult.TimedOut -> {
+                log.w { "Remote config refresh did not finish within $readTimeoutMs ms" }
+                // A failure, not a silent success: this method's contract is a Result, and a
+                // caller that handles a failed refresh already handles this one. The code says
+                // "timed out" so it is not filed next to "the config server is down".
+                Result.failure(
+                    AppError.Network(
+                        message = "Remote config refresh timed out after $readTimeoutMs ms",
+                        code = RemoteConfigPort.READ_TIMEOUT_CODE,
+                    ),
+                )
+            }
         }
-        return read
     }
 
     /**
@@ -146,34 +161,13 @@ internal class RemoteConfigCacheRepositoryImpl(
     }
 
     /**
-     * Runs [read] under a deadline that the read cannot outlast.
+     * A read that failed after the port had already given up on it.
      *
-     * The read runs in [readScope] — a scope of its own, not the caller's — and the
-     * caller waits for the result with [withTimeoutOrNull]. That separation is the whole
-     * point: a deadline can only end a *cooperative* read, so a read that ignores
-     * cancellation (a blocking driver call) would still hold the caller past the deadline
-     * if it ran in the caller's own coroutine. Here the caller waits on a promise of the
-     * result, and a promise can be given up on whether or not the work behind it ever
-     * finishes.
-     *
-     * A read that misses the deadline is left running: it may still succeed, and
-     * [observe] publishes whatever it produced. Only the waiting ends.
-     *
-     * @return the value [read] produced, or null if the deadline was missed.
+     * The port stopped waiting, but the read kept running: nobody is left to handle a
+     * failure it produces now, so it is logged here rather than dropped.
      */
-    private suspend fun <T : Any> readWithinDeadline(read: suspend () -> T): T? {
-        val pending = readScope.async { read() }
-        val completed = withTimeoutOrNull(readTimeoutMs) { pending.await() }
-        if (completed == null) {
-            // The caller stopped waiting; the read did not. If it fails now, nobody is
-            // left to handle the failure, so it is logged rather than dropped.
-            pending.invokeOnCompletion { cause ->
-                if (cause != null && cause !is CancellationException) {
-                    log.w(cause) { "Remote config read failed after the caller had given up on it" }
-                }
-            }
-        }
-        return completed
+    private fun logAbandonedReadFailure(cause: Throwable) {
+        log.w(cause) { "Remote config read failed after the caller had given up on it" }
     }
 
     /**
