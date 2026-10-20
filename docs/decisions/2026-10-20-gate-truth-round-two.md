@@ -47,6 +47,13 @@ check. Where that is not possible, the statement should be derivable.
 **A control is declared once.** The registry holds it; the harness executes it.
 `scripts/src/sgate/gate_controls.py` holds the appliers, the gate records and
 the tables; `check-gate-wiring.py` is 563 lines shorter and imports them. The
+reachability scan moves to `scripts/src/sgate/gate_reachability.py`, because two
+callers ask the same question — the wiring gate over every surface, the
+registry checker over the gate lines — and the delegation walk was written
+twice, free to disagree about what "reachable" means. Both modules are loaded
+by path, not as `sgate.<name>`: `sgate` is installed as an editable package, and
+a sibling worktree can be what is installed, so a module loaded by path is
+always this checkout's. The
 twins keep what the registry cannot know — the command a control runs and the
 harness flags around it. The appliers learned the two edit kinds the registry
 could already express but nothing executed: `hooks_path` and

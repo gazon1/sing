@@ -59,12 +59,23 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import sys
 
 import click
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run
 from sgate.repo import STATIC_GATES_SH
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+#: The registry this gate reads must be *this* checkout's. `sgate` is installed
+#: as an editable package, and a sibling worktree can be what is installed — so
+#: the local `scripts/src` goes first, and the resolved package is checked
+#: against this repository before anything is read from it. A gate that compared
+#: this checkout's shell registry with another checkout's Python registry would
+#: report drift that does not exist, and hide drift that does.
+_SRC = ROOT / "scripts" / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 #: The registry, resolved once per run so `sgate <name>` can be traced to a script.
 _REGISTRY_BY_NAME: dict[str, object] = {}
@@ -78,51 +89,14 @@ class RegistryUnavailable(RuntimeError):
 def _covered_scripts(shell_gates: list[tuple[str, str, str]]) -> set[str]:
     """The gate scripts the shell registry actually runs.
 
-    Three steps, in order:
-
-    1. a script named in a gate command is run by that gate;
-    2. ``sgate <name>`` runs whatever the registry says that name is — so the
-       command resolves through the registry to a script;
-    3. a script that a covered script runs is itself covered. This is the
-       delegation case: a cluster gate names its members in its own source, and
-       the members are run by the cluster.
-
-    The question this answers is "does this gate run?", not "is this name
-    mentioned?". The two are different, and the difference is how a registry
-    entry ended up describing a gate that no surface executed.
+    The scan lives in `sgate.gate_reachability`, which `check-gate-wiring.py`
+    uses for the same question over every surface: a script named in a gate
+    command, `sgate <name>` resolved through the registry, and the delegation a
+    gate script performs on another.
     """
-    covered: set[str] = set()
-    for _mode, _name, command in shell_gates:
-        for match in re.finditer(
-            r"(?:^|[\s'\"])((?:scripts/)?(?:check|gen)[-_][\w.-]+\.(?:py|sh))", command
-        ):
-            covered.add(match.group(1))
-        tokens = command.split()
-        if tokens and tokens[0] == "sgate" and len(tokens) > 1:
-            spec = _REGISTRY_BY_NAME.get(tokens[1])
-            script = getattr(spec, "script", None)
-            if script:
-                covered.add(str(script))
+    from sgate import gate_reachability
 
-    frontier = list(covered)
-    for _ in range(2):
-        found: set[str] = set()
-        for script in frontier:
-            path = ROOT / script
-            if not path.is_file():
-                continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            for match in re.finditer(
-                r"scripts/(?:check|gen)[-_][\w.-]+\.(?:py|sh)", text
-            ):
-                found.add(match.group(0))
-        new = found - covered
-        covered |= new
-        frontier = sorted(new)
-    return covered
+    return gate_reachability.covered_scripts(ROOT, shell_gates, _REGISTRY_BY_NAME)
 
 
 def _module_classification_problems() -> list[str]:

@@ -227,19 +227,39 @@ _BACKLOG_FIELD_RE = re.compile(r"(?i)^\s*Backlog:\s*[^\n]+", re.M)
 # declared now; this file keeps what the registry cannot know: the command a
 # control runs, and the harness flags around it.
 #
-# The import is path-disciplined: `scripts/src` goes first, so the sgate this
-# gate reads is this checkout's, not whatever an editable install points at.
+# The modules are loaded by path, not imported as `sgate.<name>`: `sgate` is
+# installed as an editable package, and a sibling worktree can be what is
+# installed — on this host `import sgate` resolved into `…/sprat/scripts/src/sgate`
+# while the gate under test was `…/noddy`. A module loaded by path is always
+# this checkout's, and the registry it reads is checked separately.
 _SRC = Path(__file__).resolve().parent / "src"
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
 
-from sgate.gate_controls import (  # noqa: E402
-    FIXTURE_GATES,
-    SCRIPT_GATES,
-    FixtureGate,
-    ScriptGate,
-    control_from_edit,
-)
+
+def _load_local_module(name: str):
+    """Load `scripts/src/sgate/<name>.py` from *this* checkout, by path."""
+    import importlib.util
+
+    path = _SRC / "sgate" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"_local_{name}", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    # Registered before it runs: a dataclass asks `sys.modules` for its own
+    # module's namespace while it is being created, and a module that was never
+    # registered has no namespace to ask for.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_controls = _load_local_module("gate_controls")
+reachability = _load_local_module("gate_reachability")
+
+FIXTURE_GATES = _controls.FIXTURE_GATES
+SCRIPT_GATES = _controls.SCRIPT_GATES
+FixtureGate = _controls.FixtureGate
+ScriptGate = _controls.ScriptGate
+control_from_edit = _controls.control_from_edit
 
 # ── Part F: every gate-shaped script is registered ─────────────────────────
 #
@@ -2043,85 +2063,24 @@ def gate_candidate_scripts() -> list[str]:
 
 
 def reachable_gate_scripts() -> set[str]:
-    """Gate scripts named by a surface, plus everything those shims delegate to."""
-    invoked: set[str] = set()
-    global _UNRESOLVED_SGATE_INVOCATIONS
-    _UNRESOLVED_SGATE_INVOCATIONS = []
-    pattern = re.compile(
-        r"(?:^|[\s'\"(=|])(?:python3\s+)?(?:\./)?"
-        r"(scripts/check[-_][\w.-]+\.(?:py|sh))"
-    )
-    backing = sgate_backing_scripts()
-    for surface in _REACH_SURFACES:
-        try:
-            text = surface.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        # Comments are prose, and prose mentions commands. `.github/actions/
-        # setup-repo-tools/action.yml` says "…sgate and its parsers…" in a comment,
-        # which the invocation regex reads as a command called `and`.
-        text = "\n".join(
-            "" if line.lstrip().startswith("#") else line for line in text.splitlines()
-        )
-        for match in pattern.finditer(text):
-            invoked.add(match.group(1))
-        # `sgate <name>` is an invocation of whatever script that command runs.
-        # Without this the sgate migration made 20+ real gates look orphaned.
-        for match in _SGATE_INVOCATION.finditer(text):
-            cmd = match.group(1)
-            scripts = backing.get(cmd)
-            if scripts is None and cmd in _module_backed_gate_commands():
-                # `python3 -m traceability validate` and friends: a registered gate
-                # whose implementation is a module rather than a script. It runs
-                # something, backs no `scripts/check-*` file, and is not a typo — so
-                # it is resolved, and saying otherwise sent every surface that runs
-                # it to the "names no sgate command" report.
-                continue
-            if scripts is None and cmd == "run-all":
-                # The driver: it runs every registered gate, and only those.
-                scripts = _registered_gate_scripts()
-            if scripts:
-                for script in scripts:
-                    invoked.add(script)
-            elif cmd not in _NON_GATE_SGATE_COMMANDS:
-                # Loud rather than broad. A name that resolves to nothing is either a
-                # command that runs no check script (info, render-registry) or a typo,
-                # and the difference matters: the old behaviour answered both by
-                # marking all 32 registry scripts reachable.
-                _UNRESOLVED_SGATE_INVOCATIONS.append(
-                    f"{surface.relative_to(ROOT)}: sgate {cmd}"
-                )
+    """Gate scripts named by a surface, plus everything those shims delegate to.
 
-    # Follow delegation. Bounded, because a cycle must terminate: two shims that
-    # exec each other would otherwise loop forever, and a gate that hangs is not a
-    # better outcome than a gate that is wrongly reported.
-    frontier = list(invoked)
-    for _ in range(3):
-        found: set[str] = set()
-        for rel in frontier:
-            path = ROOT / rel
-            try:
-                body = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            for match in _SHIM_DELEGATION.finditer(body):
-                for candidate in (f"scripts/{match.group(1)}",):
-                    if (ROOT / candidate).is_file() and candidate not in invoked:
-                        found.add(candidate)
-            # A gate that runs another gate reaches it. `check-detekt-registrations.sh`
-            # invokes `check-doc-dead-refs.py` by path, and that is the only thing
-            # running it — so scanning surfaces alone reported it as an orphan while
-            # it executed on every run. The loop is bounded by the same frontier, so
-            # a gate-to-gate cycle still terminates.
-            for match in _GATE_TO_GATE_CALL.finditer(body):
-                candidate = match.group(1)
-                if (ROOT / candidate).is_file() and candidate not in invoked:
-                    found.add(candidate)
-        if not found:
-            break
-        invoked |= found
-        frontier = sorted(found)
-    return invoked
+    The scan itself lives in `sgate.gate_reachability`: the same question is
+    asked by `scripts/check-gate-registries.py` over the gate lines alone, and
+    the two copies of the delegation walk were free to disagree about what
+    "reachable" means.
+    """
+    global _UNRESOLVED_SGATE_INVOCATIONS
+    scripts, unresolved = reachability.reachable_gate_scripts(
+        ROOT,
+        list(_REACH_SURFACES),
+        sgate_backing_scripts(),
+        module_backed=_module_backed_gate_commands,
+        non_gate_commands=_NON_GATE_SGATE_COMMANDS,
+        run_all_scripts=_registered_gate_scripts,
+    )
+    _UNRESOLVED_SGATE_INVOCATIONS = unresolved
+    return scripts
 
 
 # ── Part I: a Gradle task named by one surface is named by neither, in effect ──
