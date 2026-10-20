@@ -311,6 +311,10 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
     # (6) Every declared asymmetry names where it is visible, and it resolves.
     violations.extend(_parity_reference_problems(registry))
 
+    # (7) Every gate kept out of the static registry names where it runs, and
+    #     the pointer resolves.
+    violations.extend(_placement_reference_problems(registry))
+
     return violations, notes, listing
 
 
@@ -330,6 +334,31 @@ def _exemption_reference_problems(exemptions: dict) -> list[str]:
                 f"{name}: the exemption names no proving file — a gate exempt from "
                 "having a positive control must say what does the proving, and a "
                 "reference is the only form of that answer a machine can check"
+            )
+            continue
+        _, _, ref_problems = resolve_reference(reference)
+        problems.extend(f"{name}: {problem}" for problem in ref_problems)
+    return problems
+
+
+def _placement_reference_problems(registry: object) -> list[str]:
+    """Every gate kept out of the static registry names where it runs, and it resolves.
+
+    `NOT_RUN_IN_STATIC` is the list of gates `sgate run-all` does not dispatch:
+    they run somewhere else — a CI job that has the input they need. The reason
+    says where; the `tracked_by` is the pointer that says it in a way that can be
+    checked. A renamed step breaks the declaration here, instead of leaving a
+    sentence that still reads exactly as it did.
+    """
+    problems: list[str] = []
+    placements = getattr(registry, "NOT_RUN_IN_STATIC", {})
+    for name, placement in sorted(placements.items()):
+        reference = getattr(placement, "tracked_by", "")
+        if not reference:
+            problems.append(
+                f"{name}: the gate is not a line in static-gates.sh and names no "
+                "reference — a placement nobody can go and look at is a claim, and a "
+                "claim that cannot be checked is what the reference replaces"
             )
             continue
         _, _, ref_problems = resolve_reference(reference)

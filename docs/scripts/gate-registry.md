@@ -28,6 +28,5 @@ Generated from `sgate/commands/*.py` docstrings.
 | suite-docs | unknown | sgate.commands.suite_docs — run all documentation gates concurrently. | — | — |
 | suite-lint | unknown | sgate.commands.suite_lint — run all lint-rule governance gates concurrently. | — | — |
 | test-task-external-inputs-declared | blocking | sgate.commands.test_task_external_inputs_declared — native Click for: test-ta... | — | — |
-| unwired-backlog-refs | unknown | sgate.commands.unwired_backlog_refs — shim for: unwired-backlog-refs. | — | — |
 | wiring | unknown | sgate.commands.wiring — shim for check-gate-wiring.py Part A. | — | — |
 | yaml-has-no-duplicate-keys | unknown | sgate.commands.yaml_has_no_duplicate_keys — native Click for: YAML has no dup... | — | — |
