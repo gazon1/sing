@@ -402,6 +402,8 @@ class HarnessConventionTest {
             // the screen. It is not a drawer item, and it has no scrollable parent at all —
             // the scroll-aware helper would fail on it.
             "ChatInputFieldTest.kt" to "the chat Send button is not a drawer item and has no scrollable parent",
+            // Same: HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items.
+            "ShellTestTagReachabilityTest.kt" to "HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items",
         )
 
         /**
