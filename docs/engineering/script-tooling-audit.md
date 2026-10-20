@@ -41,36 +41,41 @@ Two heaviest gates carry **57 % of all gate time**: `declared dependencies are u
 
 ## Inventory
 
-72 files in `scripts/` (21 374 lines) plus 4 packages under `scripts/src/`
-(6 918 lines). Two of the files are shell; the rest are Python.
+72 files in `scripts/` (21 598 lines): 61 Python and 11 shell. Plus 4 packages under
+`scripts/src/` (6 918 lines).
 
 ### Packages
 
 | Package | Files | Lines | Role |
 |---|---|---|---|
-| `sgate` | 22 | ~3 400 | The gate CLI: registry, dispatch, controls, reachability |
-| `traceability` | 16 | ~3 000 | Scenario model, normalisation, rendering, JUnit mapping |
-| `emulator` (+ `emulator.maestro`) | 21 | ~2 300 | Device acquisition, startup locking, Maestro execution |
-| `scanners` | 3 | ~700 | Kotlin source scanning (`source_text`, `test_classes`) |
+| `sgate` | 34 | 5 416 | The gate CLI: registry, dispatch, controls, reachability |
+| `traceability` | 13 | 3 991 | Scenario model, normalisation, rendering, JUnit mapping |
+| `emulator` (+ `emulator.maestro`) | 19 | 2 260 | Device acquisition, startup locking, Maestro execution |
+| `scanners` | 3 | 702 | Kotlin source scanning (`source_text`, `test_classes`) |
+
+70 files and 12 597 lines in the four packages, counted with `__pycache__` excluded
+(the `sgate` figure includes its 24 command modules).
 
 Entry points installed by `scripts/src/pyproject.toml`: `sgate`, `ensure-emulator`,
 `run-maestro`. All five runtime dependencies (`click`, `loguru`, `rich`, `pyyaml`,
 `pydantic`) are in use.
 
-### The 43 gate scripts
+### The 38 gate-shaped scripts
 
-`scripts/check-*.py` plus `find-unwired-surfaces.py` and
-`measure-flake-rate.py` are gates: each has an entry in `_registry.GATES`, and each
-script is the thing a control sabotages to prove the gate can fail.
+`scripts/check-*.py`, `find-unwired-surfaces.py` and `measure-flake-rate.py` — 38 files
+in all. Most are gates: each has an entry in `_registry.GATES`, and each script is
+the thing a control sabotages to prove the gate can fail. (`check-gate-wiring.py` is
+the exception — it is a gate that is not in `GATES`, for the reason the ADR records.)
 
-### The 24 non-gate scripts
+### The 34 other files
+
+23 Python scripts and 11 shell scripts. The Python ones:
 
 | Script | Role |
 |---|---|
 | `adr_corpus.py` | ADR frontmatter reader, imported by 3 scripts |
 | `docs_tree.py` | Docs-tree walker, imported by the digest refresher |
 | `scanning.py` | Import shim for `scanners` |
-| `check-gate-wiring.py` | The wiring gate (see below — it is a gate, but not in `GATES`) |
 | `check_adr_status.py`, `check-openspec-stale.py` | ADR/spec policy gates |
 | `normalize-adr-frontmatter.py` | ADR frontmatter normaliser |
 | `refresh-decisions-digest.py` | Digest generator |
@@ -83,6 +88,9 @@ script is the thing a control sabotages to prove the gate can fail.
 | `junit-annotations.py`, `kover-markdown-table.py`, `instrumented-run-summary.py`, `step-duration-report.py` | Report renderers |
 | `measure-baseline-composition.py` | Detekt baseline report |
 | `print-source-tree.py` | Source-tree printer |
+
+The 11 shell scripts are `scripts/ci/*.sh` (5), `scripts/release/*.sh` (3) and
+`scripts/*.sh` (3).
 
 ### CLI conventions
 
