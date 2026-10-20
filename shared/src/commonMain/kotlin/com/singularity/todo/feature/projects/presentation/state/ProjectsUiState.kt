@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 
 enum class ProjectSortOrder { Name, Color }
@@ -79,4 +78,4 @@ sealed interface ProjectsUiState {
  * have to carry the source too — and then the query and the source would be two values
  * that could disagree.
  */
-val ProjectsUiState.searchQuerySource: StaticTextSource get() = StaticText(searchQuery)
+val ProjectsUiState.searchQuerySource: StaticText get() = StaticText(searchQuery)

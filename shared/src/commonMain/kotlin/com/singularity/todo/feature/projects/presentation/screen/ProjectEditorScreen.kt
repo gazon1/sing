@@ -51,7 +51,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.ui.components.StaticTextSource
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -262,8 +262,8 @@ private fun EditorErrorDialog(message: String, onDismiss: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IdentitySection(
-    nameSource: StaticTextSource,
-    descriptionSource: StaticTextSource,
+    nameSource: StaticText,
+    descriptionSource: StaticText,
     errorMessage: String?,
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,

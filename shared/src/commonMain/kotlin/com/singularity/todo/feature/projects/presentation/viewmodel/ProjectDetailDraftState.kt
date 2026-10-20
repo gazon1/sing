@@ -2,7 +2,6 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.compose.runtime.Stable
 import com.singularity.todo.core.ui.components.OwnedText
-import com.singularity.todo.core.ui.components.OwnedTextSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -127,8 +126,8 @@ data class ProjectDetailDraft(
      * the type says the count is there: a field that holds this source cannot be wired as
      * if the name were a value nobody else writes.
      */
-    val nameSource: OwnedTextSource get() = OwnedText(name, revision)
+    val nameSource: OwnedText get() = OwnedText(name, revision)
 
     /** The description as the field's source; see [nameSource] for why the count is there. */
-    val descriptionSource: OwnedTextSource get() = OwnedText(description, revision)
+    val descriptionSource: OwnedText get() = OwnedText(description, revision)
 }

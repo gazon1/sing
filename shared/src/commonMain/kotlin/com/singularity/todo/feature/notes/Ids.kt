@@ -7,7 +7,6 @@ import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.core.ui.components.OwnedText
 import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -330,4 +329,4 @@ sealed interface NotesUiState {
  * have to carry the source too — and then the query and the source would be two values
  * that could disagree.
  */
-val NotesUiState.searchQuerySource: StaticTextSource get() = StaticText(searchQuery)
+val NotesUiState.searchQuerySource: StaticText get() = StaticText(searchQuery)

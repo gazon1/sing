@@ -149,7 +149,7 @@ private class BridgeHistory(initialText: String, initialRevision: Long?) {
      * rewrites. It starts at the token the field was created with, so the *first*
      * upstream value is never mistaken for a rewrite.
      *
-     * `null` means the upstream never declared a rewrite — a [StaticTextSource]. There
+     * `null` means the upstream never declared a rewrite — a [StaticText]. There
      * is no token to compare, and the guard stays exactly as it was.
      */
     var lastRevision: Long? = initialRevision
@@ -193,9 +193,10 @@ private class BridgeHistory(initialText: String, initialRevision: Long?) {
  * upstream — and the way it says so is the revision counter the owner keeps.
  *
  * That is why the source is a **type** and not a parameter with a default. The two shapes are
- * two overloads, so a field that holds an [OwnedTextSource] cannot be wired as if its value
- * were static, and a field cannot freeze the counter: the counter is not a parameter, it is a
- * property of the source, and the source is built by the component that owns the value.
+ * two overloads, so a field that holds an [OwnedText] cannot be wired as if its value
+ * were static, and a field that passes a source through cannot freeze the counter: the
+ * counter is not a parameter it can write down. Writing one down means *building* the
+ * source, and building the source at the field is what the contract forbids.
  *
  * @param source the upstream's value and the authority over it. Built by the owner.
  * @param onTextChanged invoked with the field text whenever the user edits it.
@@ -204,7 +205,7 @@ private class BridgeHistory(initialText: String, initialRevision: Long?) {
  */
 @Composable
 fun rememberBridgedTextFieldState(
-    source: OwnedTextSource,
+    source: OwnedText,
     onTextChanged: (String) -> Unit,
 ): TextFieldState = rememberBridgedTextFieldState(source.text, onTextChanged, source.revision)
 
@@ -222,7 +223,7 @@ fun rememberBridgedTextFieldState(
  */
 @Composable
 fun rememberBridgedTextFieldState(
-    source: StaticTextSource,
+    source: StaticText,
     onTextChanged: (String) -> Unit,
 ): TextFieldState = rememberBridgedTextFieldState(source.text, onTextChanged, null)
 
@@ -247,8 +248,8 @@ internal fun rememberBridgedTextFieldState(
     source: TextSource,
     onTextChanged: (String) -> Unit,
 ): TextFieldState = when (source) {
-    is OwnedTextSource -> rememberBridgedTextFieldState(source, onTextChanged)
-    is StaticTextSource -> rememberBridgedTextFieldState(source, onTextChanged)
+    is OwnedText -> rememberBridgedTextFieldState(source, onTextChanged)
+    is StaticText -> rememberBridgedTextFieldState(source, onTextChanged)
 }
 
 /**

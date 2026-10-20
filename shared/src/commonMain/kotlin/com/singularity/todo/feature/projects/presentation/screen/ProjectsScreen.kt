@@ -34,7 +34,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.components.StaticTextSource
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -102,7 +102,7 @@ fun ProjectsScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProjectSearchAndSortRow(
-    querySource: StaticTextSource,
+    querySource: StaticText,
     sortOrder: ProjectSortOrder,
     onQueryChange: (String) -> Unit,
     onSortOrderChange: (ProjectSortOrder) -> Unit,

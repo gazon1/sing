@@ -134,7 +134,8 @@ class TextFieldRewriteContractTest {
     @Test
     fun `an owned row names a counter that is declared`() {
         val missing = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
-            val counter = row.counter.ifEmpty { return@mapNotNull null }
+            val counter = row.counter
+            if (counter.isEmpty()) return@mapNotNull "$row.site -> names no counter file"
             if (sourceOf(counter).contains("revision", ignoreCase = true)) return@mapNotNull null
             "$row.site -> $counter declares no revision"
         }.sorted()
@@ -153,7 +154,8 @@ class TextFieldRewriteContractTest {
     @Test
     fun `an owned row names a counter that advances`() {
         val frozen = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
-            val advancer = row.advances.ifEmpty { return@mapNotNull null }
+            val advancer = row.advances
+            if (advancer.isEmpty()) return@mapNotNull "$row.site -> names no file that advances the counter"
             if (sourceOf(advancer).contains(ADVANCE)) return@mapNotNull null
             "$row.site -> $advancer never advances the counter"
         }.sorted()
@@ -217,8 +219,11 @@ class TextFieldRewriteContractTest {
         val table = skillRewriteTable()
         val missing = registry.mapNotNull { row ->
             val name = row.site.substringAfterLast('/')
-            val found = table.any { it.first == name && it.second == row.kind.sourceType && it.third == row.counter }
-            if (found) null else "$row.site -> ${row.kind.sourceType} -> ${row.counter}"
+            val found = table.any {
+                it.site == name && it.source == row.kind.sourceType &&
+                    it.counter == row.counter && it.advances == row.advances
+            }
+            if (found) null else "$row.site -> ${row.kind.sourceType} -> ${row.counter} -> ${row.advances}"
         }.sorted()
 
         assertTrue(
@@ -227,7 +232,7 @@ class TextFieldRewriteContractTest {
                 "SKILL.md does not list these files with their contract:\n" +
                 missing.joinToString("\n") { "  - $it" } +
                 "\n\nThe table has one row per file: " +
-                "| File | Field | Upstream | Source | Counter |.",
+                "| File | Field | Upstream | Source | Counter | Advances |.",
         )
     }
 
@@ -466,12 +471,14 @@ class TextFieldRewriteContractTest {
      * The production part of a file — everything before its first preview.
      *
      * A preview is a fixture: it may build a source, because it is standing in
-     * for an owner rather than being one.
+     * for an owner rather than being one. The marker is the *annotation* on its
+     * own line, not the word: a file whose header comment mentions `@Preview`
+     * must not be cut there, or the check would never see the rest of it.
      */
     private fun productionSourceOf(path: String): String {
         val source = sourceOf(path)
-        val preview = source.indexOfAny(listOf("@Preview", "@androidx.compose.ui.tooling.preview.Preview"))
-        return if (preview < 0) source else source.substring(0, preview)
+        val preview = PREVIEW_MARKER.find(source) ?: return source
+        return source.substring(0, preview.range.first)
     }
 
     // ── the skill's rewrite table ──────────────────────────────────────────────
@@ -481,15 +488,9 @@ class TextFieldRewriteContractTest {
      *
      * A file may declare both — the notes' state declares the editor's owned title
      * and the list's static query — so this is the *set*, not the single kind.
-     *
-     * The declared type may be the interface (`StaticTextSource`) or the concrete
-     * class (`StaticText`); both name the same kind, so the interface's name is
-     * normalised to the class's.
      */
     private fun String.sourceDeclarations(): Set<String> =
-        SOURCE_DECLARATION.findAll(this)
-            .map { it.groupValues[1].removeSuffix("Source") }
-            .toSet()
+        SOURCE_DECLARATION.findAll(this).map { it.groupValues[1] }.toSet()
 
     /**
      * The `source = …` arguments of the bridge calls in a file.
@@ -498,15 +499,26 @@ class TextFieldRewriteContractTest {
         SOURCE_ARGUMENT.findAll(this).map { it.groupValues[1].trim() }.toList()
 
     /**
-     * The rewrite table of the text-field skill, as (file, source, counter) triples.
+     * One row of the skill's rewrite table.
      *
-     * The table is a Markdown table of `| File | Field | Upstream | Source | Counter |`
-     * rows; the file cell holds a backticked path, the source cell holds the kind of
-     * source the code uses, and the counter cell holds the file that declares the
-     * revision (or `-`). A row that does not parse is ignored — the table is prose
-     * with a shape, and the test reads the rows it understands.
+     * @property site the file, without its path.
+     * @property source the kind of source the code uses.
+     * @property counter the file that declares the revision, empty for a static row.
+     * @property advances the file that advances the revision, empty for a static row.
      */
-    private fun skillRewriteTable(): List<Triple<String, String, String>> {
+    private data class Published(val site: String, val source: String, val counter: String, val advances: String)
+
+    /**
+     * The rewrite table of the text-field skill.
+     *
+     * The table is a Markdown table of
+     * `| File | Field | Upstream | Source | Counter | Advances |` rows; the file cell
+     * holds a backticked path, the source cell holds the kind of source the code uses,
+     * and the counter and advances cells hold the files that declare and advance the
+     * revision (or `-`). A row that does not parse is ignored — the table is prose with
+     * a shape, and the test reads the rows it understands.
+     */
+    private fun skillRewriteTable(): List<Published> {
         val skill = File(
             System.getProperty("skills.root")
                 ?: error("skills.root system property is not set — see shared/build.gradle.kts"),
@@ -518,18 +530,25 @@ class TextFieldRewriteContractTest {
             .filter { it.trimStart().startsWith("|") }
             .map { it.trim().trim('|') }
             .map { it.split("|").map { cell -> cell.trim() } }
-            .filter { cells -> cells.size >= 5 }
+            .filter { cells -> cells.size >= 6 }
             .mapNotNull { cells ->
                 val file = cells[0].removeSurrounding("`").trim()
                 if (!file.endsWith(".kt")) return@mapNotNull null
                 val source = cells[3].removeSurrounding("`").trim()
                 if (source !in Kind.entries.map { kind -> kind.sourceType }) return@mapNotNull null
-                val counter = cells[4].removeSurrounding("`").trim()
-                val counterPath = if (counter == "-" || counter.isEmpty()) "" else counter
-                Triple(file.substringAfterLast('/'), source, counterPath)
+                Published(
+                    site = file.substringAfterLast('/'),
+                    source = source,
+                    counter = cells[4].removeSurrounding("`").trim().pathOrEmpty(),
+                    advances = cells[5].removeSurrounding("`").trim().pathOrEmpty(),
+                )
             }
             .toList()
     }
+
+    /** A cell that holds a path, or nothing. */
+    private fun String.pathOrEmpty(): String =
+        if (this == "-" || isEmpty()) "" else this
 
     private companion object {
         const val BRIDGED_CALL = "rememberBridgedTextFieldState("
@@ -544,10 +563,20 @@ class TextFieldRewriteContractTest {
         /** The `source = …` argument of a bridge call. */
         val SOURCE_ARGUMENT = Regex("""source\s*=\s*([^\n]+)""")
 
-        /** A declaration of a source property, with the type it declares. */
-        val SOURCE_DECLARATION = Regex(
-            """val\s+[\w.]+\s*:\s*(OwnedTextSource|OwnedText|StaticTextSource|StaticText)\b""",
+        /**
+         * The annotation that opens a preview.
+         *
+         * It has to be the annotation on its own line: the word `@Preview` also
+         * appears in prose, and cutting a file at a mention of it would hide
+         * everything after the mention from the checks.
+         */
+        val PREVIEW_MARKER = Regex(
+            """^\s*@(?:Preview|androidx\.compose\.ui\.tooling\.preview\.Preview)\s*$""",
+            RegexOption.MULTILINE,
         )
+
+        /** A declaration of a source property, with the type it declares. */
+        val SOURCE_DECLARATION = Regex("""val\s+[\w.]+\s*:\s*(OwnedText|StaticText)\b""")
 
         /** A counter that advances. */
         val ADVANCE = Regex("""revision[^\n]*\+\s*1""", RegexOption.IGNORE_CASE)

@@ -32,7 +32,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.OwnedText
-import com.singularity.todo.core.ui.components.OwnedTextSource
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -60,8 +59,8 @@ fun ProjectHeroSection(
     ui: ProjectDetailUi,
     lastEditedAt: Instant?,
     now: Instant,
-    nameSource: OwnedTextSource,
-    descriptionSource: OwnedTextSource,
+    nameSource: OwnedText,
+    descriptionSource: OwnedText,
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {

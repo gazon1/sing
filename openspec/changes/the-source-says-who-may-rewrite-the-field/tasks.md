@@ -6,9 +6,10 @@
 
 ## Phase 1 — The types
 
-- [x] `TextSource` is sealed, with `StaticTextSource` and `OwnedTextSource` as
-      its two permitted shapes
-- [x] `StaticText` and `OwnedText` are the two concrete sources
+- [x] `TextSource` is sealed, with `StaticText` and `OwnedText` as its two
+      permitted shapes — a value is one kind or the other, never both
+- [x] The hierarchy is `@Immutable`, so the state that holds a source stays
+      stable for Compose
 - [x] The count of replacements is a property of the owned source, not a
       parameter
 
@@ -50,8 +51,11 @@
 - [x] The check fails when the count is not declared, or never advances
 - [x] The check fails when a field site builds its own source
 - [x] The check fails when the bridge's public API takes a count
-- [x] The skill's rewrite table carries the kind of source, and the check
-      compares it with the registry
+- [x] The check fails when an owned row names no counter, or no file that
+      advances it
+- [x] The skill's rewrite table carries the kind of source, the counter and
+      the file that advances it, and the check compares all three with the
+      registry
 
 ## Phase 6 — The behaviour is pinned
 

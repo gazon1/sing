@@ -306,34 +306,41 @@ a bridged field means adding a row here.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
-| File | Field | Upstream | Source | Counter |
-|---|---|---|---|---|
-| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | - |
-| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | - |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | - |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/surface/SurfaceController.kt` |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` |
-| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | - |
-| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | - |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | - |
-| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | - |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | - |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (create) | the create draft, which seeds it once | `StaticText` | - |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (create) | the create draft, which seeds it once | `StaticText` | - |
+| File | Field | Upstream | Source | Counter | Advances |
+|---|---|---|---|---|---|
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | - | - |
+| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | - | - |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | - | - |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | - | - |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | - | - |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | - | - |
+| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | - | - |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | - | - |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (create) | the create draft, which seeds it once | `StaticText` | - | - |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (create) | the create draft, which seeds it once | `StaticText` | - | - |
+
+The **Counter** column names the file that declares the count; the **Advances** column
+names the file that moves it. They are often the same file, and they are not always: the
+note's editor counts its revisions in the state and moves them in the ViewModel, because
+the state is what the field is handed and the ViewModel is what replaces the note.
 
 The note's body is not a bridged field — it is a rich-text editor that holds its own
 content — and it takes the rewrite a different way: the editor's session is re-seeded
 from the draft when the draft's revision changes. The revision is the same idea as the
 count in an owned source: the party that rewrote the content says so.
 
-**The counter column names the file that owns the number.** A count that is passed as a
+**The counter columns name the files that own the number.** A count that is passed as a
 literal can never move, so the field would never learn that it is a rewrite — and a
 frozen count is worse than none, because it looks like the contract is honoured. The
-counter is the draft's own revision: it moves when the entity was *replaced* from outside,
-and it never moves for a keystroke or for the echo of the field's own save.
+count is the draft's own revision: it moves when the entity was *replaced* from outside,
+and it never moves for a keystroke or for the echo of the field's own save. The
+**Counter** column names the file that declares it, the **Advances** column the file that
+moves it.
 
 **A file may appear twice.** The task title and the task description are served by two
 upstreams — the create draft and the detail draft — and the two are different kinds of

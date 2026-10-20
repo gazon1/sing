@@ -47,14 +47,19 @@ The bridge takes a **source**, and the source's type says who may replace the
 value.
 
 ```kotlin
+@Immutable
 sealed interface TextSource { val text: String }
 
-sealed interface StaticTextSource : TextSource
-sealed interface OwnedTextSource : TextSource { val revision: Long }
+@Immutable
+data class StaticText(override val text: String) : TextSource
 
-data class StaticText(override val text: String) : StaticTextSource
-data class OwnedText(override val text: String, override val revision: Long) : OwnedTextSource
+@Immutable
+data class OwnedText(override val text: String, val revision: Long) : TextSource
 ```
+
+The hierarchy is closed: `TextSource` is sealed and has exactly two permitted shapes, so a
+value is one kind or the other and never both, and a third kind cannot be added without the
+bridge saying what it means.
 
 - **A static source** says the upstream replaces the value only with one the field
   never produced: it loads the value once, or it clears it. The echo guard is
@@ -68,8 +73,10 @@ Three properties follow from the shape, and each of them closes one of the failu
 modes above:
 
 - **The counter is not a parameter.** `rememberBridgedTextFieldState` has no
-  `revision` argument, public or defaulted. A call site cannot freeze a counter,
-  because there is nothing to freeze: the count is a property of the source.
+  `revision` argument, public or defaulted. A field that passes a source through
+  cannot freeze a counter, because the counter is not a parameter it can write
+  down: writing one down means *building* the source, and building the source at
+  the field is what the contract forbids.
 - **The question cannot be left out.** The source is required, and its type says
   what it means. A field that forgets the authority does not compile.
 - **The kind is the type.** The two sources are unrelated types, and the bridge has

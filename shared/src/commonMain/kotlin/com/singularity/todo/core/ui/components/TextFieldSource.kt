@@ -39,24 +39,24 @@ import androidx.compose.runtime.Immutable
  * A type removes all three. The counter is not a parameter any more: it is a
  * property of the source, and the source is built by the component that owns
  * the value — the only component that knows the answer. A field that receives
- * an [OwnedTextSource] cannot be wired as if the value were static: the two
- * are different types, and the bridge has an overload for each. A field cannot
- * freeze the counter, because the counter is not something a field can write
- * down.
+ * an [OwnedText] cannot be wired as if the value were static: the two are
+ * different types, and the bridge has an overload for each. A field that
+ * passes a source through cannot freeze the counter, because the counter is
+ * not something it can write down — writing one down means *building* the
+ * source, and building the source at the field is what the contract forbids.
+ *
+ * The hierarchy is closed. [TextSource] is sealed and has exactly two
+ * permitted shapes, so a value is one kind or the other and never both, and a
+ * third kind cannot be added without the bridge saying what it means.
  *
  * The remaining question — *which* upstream owns this value — stays prose,
  * because it is a fact about the world and not about the types. It lives in the
  * rewrite table of `.agents/skills/singularity-todo-text-field-states/SKILL.md`,
  * and the source shape in that table is the type the code uses.
  *
- * ## How a field gets its source
- *
- * The owner builds the source; the field passes it through. A field never
- * builds one for itself: that would be the field answering a question it
- * cannot know the answer to.
- *
  * @see rememberBridgedTextFieldState
  */
+@Immutable
 sealed interface TextSource {
 
     /** The text the field shows. */
@@ -64,47 +64,26 @@ sealed interface TextSource {
 }
 
 /**
- * A value that the upstream replaces only with values the field never produced.
- *
- * The upstream loads the value once, or clears it. Either way the field cannot
- * have produced the new text, so the bridge's echo guard — which exists to
- * recognise a *lagging* upstream — has nothing to recognise and stays as it
- * is.
- */
-sealed interface StaticTextSource : TextSource
-
-/**
- * A value the upstream owns: it may replace the text with anything.
- *
- * The owner counts the replacements. The count is what tells the field that the
- * value it is handed is a *rewrite* rather than the echo of a value the field
- * pushed earlier.
- */
-sealed interface OwnedTextSource : TextSource {
-
-    /**
-     * Counts the replacements of the value.
-     *
-     * It advances when the owner *replaces* the content, and never for a
-     * keystroke or for the echo of the owner's own save. Any change to it means
-     * "the value that comes with it is a rewrite".
-     */
-    val revision: Long
-}
-
-/**
  * A static source: a value the upstream loads once, or clears.
+ *
+ * The upstream replaces the value only with values the field never produced,
+ * so the bridge's echo guard — which exists to recognise a *lagging* upstream —
+ * has nothing to recognise and stays as it is.
  *
  * @param text the text the field shows.
  */
 @Immutable
-data class StaticText(override val text: String) : StaticTextSource
+data class StaticText(override val text: String) : TextSource
 
 /**
  * An owned source: a value the upstream may replace with anything.
  *
  * @param text the text the field shows.
  * @param revision the count of the replacements of the value.
+ *
+ * The count advances when the owner *replaces* the content, and never for a
+ * keystroke or for the echo of the owner's own save. Any change to it means
+ * "the value that comes with it is a rewrite".
  */
 @Immutable
-data class OwnedText(override val text: String, override val revision: Long) : OwnedTextSource
+data class OwnedText(override val text: String, val revision: Long) : TextSource

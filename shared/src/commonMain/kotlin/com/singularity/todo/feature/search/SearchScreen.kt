@@ -41,7 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
-import com.singularity.todo.core.ui.components.StaticTextSource
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.Search
@@ -150,7 +150,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchInputBar(
-    querySource: StaticTextSource,
+    querySource: StaticText,
     onQueryChange: (String) -> Unit,
 ) {
     val queryState = rememberBridgedTextFieldState(

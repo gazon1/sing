@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.ui.components.OwnedText
-import com.singularity.todo.core.ui.components.OwnedTextSource
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -61,13 +60,13 @@ data class TaskDetailUi(
      * replacements, and the type says the count is there: a field that holds this
      * source cannot be wired as if the title were a value nobody else writes.
      */
-    val titleSource: OwnedTextSource get() = OwnedText(titleDraft, revision)
+    val titleSource: OwnedText get() = OwnedText(titleDraft, revision)
 
     /**
      * The description as the field's source; see [titleSource] for why the count is
      * there.
      */
-    val descriptionSource: OwnedTextSource get() = OwnedText(descriptionDraft, revision)
+    val descriptionSource: OwnedText get() = OwnedText(descriptionDraft, revision)
 }
 
 /**

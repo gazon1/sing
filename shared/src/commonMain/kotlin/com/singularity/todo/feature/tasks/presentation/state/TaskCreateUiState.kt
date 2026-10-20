@@ -2,7 +2,6 @@ package com.singularity.todo.feature.tasks.presentation.state
 
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.StaticTextSource
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
@@ -57,10 +56,10 @@ data class TaskDraft(
      * lands on a value the field never produced, the field's echo guard needs no
      * lifting, and there is no counter to read.
      */
-    val titleSource: StaticTextSource get() = StaticText(title)
+    val titleSource: StaticText get() = StaticText(title)
 
     /** The description as the field's source; see [titleSource] for why no counter is read. */
-    val descriptionSource: StaticTextSource get() = StaticText(description)
+    val descriptionSource: StaticText get() = StaticText(description)
 }
 
 /**

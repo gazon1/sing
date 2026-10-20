@@ -71,7 +71,7 @@ import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
-import com.singularity.todo.core.ui.components.StaticTextSource
+import com.singularity.todo.core.ui.components.StaticText
 import com.singularity.todo.core.ui.components.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -342,7 +342,7 @@ private fun SortDropdownMenu(
  * rather than one per keystroke.
  */
 @Composable
-private fun NoteSearchField(querySource: StaticTextSource, onQueryChange: (String) -> Unit) {
+private fun NoteSearchField(querySource: StaticText, onQueryChange: (String) -> Unit) {
     val queryState = rememberBridgedTextFieldState(
         source = querySource,
         onTextChanged = onQueryChange,
