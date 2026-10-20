@@ -91,6 +91,13 @@ for days: the UI tests waited for the shell and the app never got there
 - A timed-out read is cancelled. A read that ignores cancellation — a blocking driver
   call — still delays the gate past the deadline, because the deadline can only end a
   cooperative read.
+  - **Superseded the same day, by the port's own bound.** The limit above is real for
+    the gate's deadline, and it is the reason the bound was moved into the port
+    (`RemoteConfigPort.READ_TIMEOUT_MS`): the port runs the read in a scope of its own
+    and the caller waits on a promise, which can be given up on whether or not the work
+    behind it finishes. The gate's deadline is now the *outer* of two layers, and both
+    use the same number. See `openspec/specs/version-gate/spec.md`, REQ-3, and
+    `openspec/changes/android-test-hardening/`.
 - The timeout is a constructor parameter rather than a constant, so a test injects a
   small one instead of waiting five seconds, and the production value stays a single
   named constant.
