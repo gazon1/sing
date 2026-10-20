@@ -224,7 +224,7 @@ for i in "${!PUSH_REFS[@]}"; do
     if ! python3 -c "import click" >/dev/null 2>&1; then
         echo "   ui wait budgets gate: SKIPPED (click is not installed)"
     elif (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
-        python3 "$REPO_ROOT/scripts/check-ui-wait-budgets.py"); then
+        python3 "$REPO_ROOT/scripts/check-ui-wait-budgets.py" --root "$tree"); then
         echo "   ui wait budgets gate: OK"
     else
         echo "   ui wait budgets gate: FAILED"
