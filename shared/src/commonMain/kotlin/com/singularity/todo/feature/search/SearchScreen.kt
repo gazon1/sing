@@ -125,13 +125,18 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 )
             }
 
-            if (state.query.isBlank()) {
-                EmptyState(
+            when (val content = searchContent(state.query, state.results)) {
+                SearchContent.IdlePrompt -> EmptyState(
                     title = "Enter a search query",
                     testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,
                 )
-            } else {
-                SearchResultsList(
+
+                SearchContent.NoResults -> EmptyState(
+                    title = "No results found",
+                    testTag = TestTags.SEARCH_EMPTY_RESULTS,
+                )
+
+                SearchContent.Results -> SearchResultsList(
                     results = state.results,
                     navigator = navigator,
                     onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
@@ -209,15 +214,6 @@ private fun SearchResultsList(
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
 ) {
-    val hasAny = results.tasks.isNotEmpty() || results.notes.isNotEmpty() ||
-        results.projects.isNotEmpty() || results.tags.isNotEmpty()
-    if (!hasAny) {
-        EmptyState(
-            title = "No results found",
-            testTag = TestTags.SEARCH_EMPTY_RESULTS,
-        )
-        return
-    }
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

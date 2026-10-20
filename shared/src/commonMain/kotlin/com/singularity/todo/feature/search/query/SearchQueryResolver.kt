@@ -3,6 +3,7 @@ package com.singularity.todo.feature.search.query
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
@@ -49,6 +50,11 @@ data class ProjectLookupResult(val id: String, val userId: String, val name: Str
 /**
  * Default implementation that looks up names via [TagLookup]/[ProjectLookup]
  * and builds [TaskFilter] variants for the task repository.
+ *
+ * Every condition the task repository cannot express becomes an in-memory
+ * post-filter, free text included: a word that matches no condition rule is a
+ * `HasText` condition on tasks, and a resolver that translated it for notes only
+ * left the task list unfiltered.
  *
  * @param clock and [timeZone] are required, with no default. A `due:` condition is
  *   resolved against *today*, so a resolver that read the system clock would make
@@ -136,7 +142,19 @@ class DefaultSearchQueryResolver(
 
     private suspend fun resolveCondition(c: Condition, ctx: ResolveContext) {
         when (c) {
-            is Condition.HasText -> ctx.addText(c.text)
+            is Condition.HasText -> {
+                ctx.addText(c.text)
+                // A free-text word is a condition on tasks, not only on notes, projects
+                // and tags. The resolver used to translate it into nothing for tasks,
+                // so the task flow came back unfiltered and the search screen listed
+                // every task for a query that matched nothing. `today` is part of the
+                // shared [TaskDomain.matchesFilter] signature and plays no part in a
+                // text filter.
+                val today = todayAt(clock, timeZone.current())
+                ctx.addPostFilter { task ->
+                    TaskDomain.matchesFilter(task, TaskFilter.Search(c.text), today)
+                }
+            }
 
             is Condition.HasStatus -> handleHasStatus(c, ctx)
 
