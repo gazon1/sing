@@ -104,6 +104,23 @@ jobs:
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
 
+      # The gate-tooling preflight: every tool the gate suite shells out to
+      # (sgate, junitparser, lychee, yamllint, actionlint, shellcheck) must be
+      # present, and the preflight names the fix when one is not.
+      #
+      # It ran only in check.sh, so a CI job whose tool install silently
+      # degraded discovered the missing tool as a gate traceback — a
+      # ModuleNotFoundError in the gate scripts' own tests, "lychee: command
+      # not found" in the link gate — a symptom three steps away from the
+      # cause. Here it is a named step that fails the job before any gate runs.
+      #
+      # AFTER the install, never before: a preflight that checks for tools
+      # before they are installed can only ever fail. It is the gate-tooling
+      # preflight; the step below is a different preflight (the repo-tools
+      # environment check), and the two names say which is which.
+      - name: Preflight gate tooling
+        run: bash scripts/ci/preflight-gate-tools.sh
+
       # Path-gated preflight: only validate tools when the PR touches CI tooling.
       # Skipped for pure app-code PRs (shared/**, androidApp/**, desktopApp/**).
       #

@@ -40,7 +40,9 @@ import kotlin.test.assertTrue
  *    answer to "who may rewrite this?", and the answer is a decision somebody has
  *    to make on purpose.
  * 2. **The registry is true of the code.** A row that claims the field carries a
- *    revision must find one in the file. The claim is what the next reader trusts.
+ *    revision must find one in the file, the revision must be able to *move*, and
+ *    the file that owns the counter must declare it. The claim is what the next
+ *    reader trusts.
  * 3. **The skill matches the registry.**
  *
  * ## What it cannot check
@@ -50,6 +52,11 @@ import kotlin.test.assertTrue
  * the skill's table (the "Field" column). Whether a rewrite can land on a value
  * the field produced is a property of the *upstream*, not of the file, and the
  * table states it rather than deriving it.
+ *
+ * The lexical scan can also not tell whether the counter actually *moves* at
+ * runtime — only that the field is not handed a frozen constant. That the
+ * counter advances is the draft state's own contract, proved in
+ * `TaskDetailDraftStateTest` and `ProjectDetailDraftStateTest`.
  */
 @Tag("fast")
 class TextFieldRewriteContractTest {
@@ -90,11 +97,52 @@ class TextFieldRewriteContractTest {
     }
 
     @Test
+    fun `a field that claims a revision carries one that can move`() {
+        val frozen = registry.filterValues { it.answer == Answer.VALUE_AND_TOKEN }
+            .filter { (path, _) ->
+                revisionArguments(sourceOf(path)).any { argument -> argument.isConstant() }
+            }
+            .keys.sorted()
+
+        assertTrue(
+            frozen.isEmpty(),
+            "These fields are registered as carrying a rewrite onto a value the field " +
+                "produced, but the revision they pass is a constant — a token that never " +
+                "moves cannot say anything:\n" +
+                frozen.joinToString("\n") { "  - $it" } +
+                "\n\nPass the upstream's counter, not a literal. A frozen revision is " +
+                "worse than no revision: it looks like the contract is honoured.",
+        )
+    }
+
+    @Test
+    fun `the counter a field claims is declared by the file the registry names`() {
+        val missing = registry.filterValues { it.answer == Answer.VALUE_AND_TOKEN }
+            .filter { (path, contract) ->
+                contract.counter.isEmpty() ||
+                    !sourceOf(contract.counter).contains("revision")
+            }
+            .map { (path, contract) -> "$path -> ${contract.counter.ifEmpty { "<none>" }}" }
+            .sorted()
+
+        assertTrue(
+            missing.isEmpty(),
+            "These fields claim a revision token, but the file that owns the counter " +
+                "does not declare one:\n" +
+                missing.joinToString("\n") { "  - $it" } +
+                "\n\nName the file that declares the counter in the registry's Counter " +
+                "column, and in the rewrite table in " +
+                ".agents/skills/singularity-todo-text-field-states/SKILL.md.",
+        )
+    }
+
+    @Test
     fun `the skill's rewrite table lists every registered field site`() {
         val table = skillRewriteTable()
         val missing = registry.keys.filter { path ->
             val name = path.substringAfterLast('/')
-            table.none { it.first == name && it.second == registry.getValue(path).answer }
+            val contract = registry.getValue(path)
+            table.none { it.first == name && it.second == contract.answer && it.third == contract.counter }
         }.sorted()
 
         assertTrue(
@@ -102,7 +150,8 @@ class TextFieldRewriteContractTest {
             "The rewrite table in .agents/skills/singularity-todo-text-field-states/" +
                 "SKILL.md does not list these files with their contract:\n" +
                 missing.joinToString("\n") { "  - $it" } +
-                "\n\nThe table has one row per file: | File | Field | Upstream | Answer |.",
+                "\n\nThe table has one row per file: " +
+                "| File | Field | Upstream | Answer | Counter |.",
         )
     }
 
@@ -167,6 +216,7 @@ class TextFieldRewriteContractTest {
             fields = "the surface's text field",
             upstream = "the surface's server, through the data context",
             answer = Answer.VALUE_AND_TOKEN,
+            counter = "feature/genui/render/material3/input/TextFieldRenderer.kt",
         ),
         // The note's title and body. A proposal applied to the note, a sync from
         // another device — either rewrites the note under the editor, and the
@@ -176,6 +226,7 @@ class TextFieldRewriteContractTest {
             fields = "the note's title, the note's body",
             upstream = "the note itself (a proposal applied to it, a sync)",
             answer = Answer.VALUE_AND_TOKEN,
+            counter = "feature/notes/Ids.kt",
         ),
         // The notes query. The ViewModel clears it.
         "feature/notes/presentation/screen/NotesListScreen.kt" to Contract(
@@ -184,11 +235,14 @@ class TextFieldRewriteContractTest {
             answer = Answer.VALUE,
         ),
         // The project's name and description. The ViewModel observes the project,
-        // so a synced value reaches the field as a value it never produced.
+        // so a synced value reaches the field as a value it never produced — and a
+        // rewrite can land on a name the field did produce, so the draft's counter
+        // is passed.
         "feature/projects/presentation/screen/ProjectDetailHero.kt" to Contract(
             fields = "the project's name, the project's description",
             upstream = "the project ViewModel, which observes the project",
-            answer = Answer.VALUE,
+            answer = Answer.VALUE_AND_TOKEN,
+            counter = "feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt",
         ),
         // The project editor's drafts. The editor holds what the user typed.
         "feature/projects/presentation/screen/ProjectEditorScreen.kt" to Contract(
@@ -216,17 +270,21 @@ class TextFieldRewriteContractTest {
             answer = Answer.NONE,
         ),
         // The task's description. The coordinator observes the task, so a synced
-        // value reaches the field as a value it never produced.
+        // value reaches the field as a value it never produced — and a rewrite
+        // can land on a description the field did produce, so the draft's counter
+        // is passed.
         "feature/tasks/presentation/components/detail/TaskDescriptionField.kt" to Contract(
             fields = "the task's description",
             upstream = "the task coordinator, which observes the task",
-            answer = Answer.VALUE,
+            answer = Answer.VALUE_AND_TOKEN,
+            counter = "feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt",
         ),
         // The task's title. The coordinator observes the task.
         "feature/tasks/presentation/components/detail/TaskTitleRow.kt" to Contract(
             fields = "the task's title",
             upstream = "the task coordinator, which observes the task",
-            answer = Answer.VALUE,
+            answer = Answer.VALUE_AND_TOKEN,
+            counter = "feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt",
         ),
     )
 
@@ -236,8 +294,11 @@ class TextFieldRewriteContractTest {
      * @property fields the fields the file owns that the contract is about.
      * @property upstream who may write the value.
      * @property answer what carries the rewrite.
+     * @property counter the file that declares the revision counter, relative to
+     *   `commonMain/kotlin/com/singularity/todo/`. Empty when the answer carries no
+     *   token.
      */
-    private data class Contract(val fields: String, val upstream: String, val answer: Answer)
+    private data class Contract(val fields: String, val upstream: String, val answer: Answer, val counter: String = "")
 
     // ── the scan ───────────────────────────────────────────────────────────────
 
@@ -271,14 +332,15 @@ class TextFieldRewriteContractTest {
     // ── the skill's rewrite table ──────────────────────────────────────────────
 
     /**
-     * The rewrite table of the text-field skill, as (file, answer) pairs.
+     * The rewrite table of the text-field skill, as (file, answer, counter) triples.
      *
-     * The table is a Markdown table of `| File | Field | Upstream | Answer |` rows;
-     * the file cell holds a backticked path and the answer cell holds the answer's
-     * name. A row that does not parse is ignored — the table is prose with a shape,
-     * and the test reads the rows it understands.
+     * The table is a Markdown table of `| File | Field | Upstream | Answer | Counter |`
+     * rows; the file cell holds a backticked path, the answer cell holds the answer's
+     * name, and the counter cell holds the file that declares the revision (or `-`).
+     * A row that does not parse is ignored — the table is prose with a shape, and the
+     * test reads the rows it understands.
      */
-    private fun skillRewriteTable(): List<Pair<String, Answer>> {
+    private fun skillRewriteTable(): List<Triple<String, Answer, String>> {
         val skill = File(
             System.getProperty("skills.root")
                 ?: error("skills.root system property is not set — see shared/build.gradle.kts"),
@@ -291,17 +353,38 @@ class TextFieldRewriteContractTest {
             .filter { it.trimStart().startsWith("|") }
             .map { it.trim().trim('|') }
             .map { it.split("|").map { cell -> cell.trim() } }
-            .filter { cells -> cells.size >= 4 }
+            .filter { cells -> cells.size >= 5 }
             .mapNotNull { cells ->
                 val file = cells[0].removeSurrounding("`").trim()
                 if (!file.endsWith(".kt")) return@mapNotNull null
                 val answer = answers[cells[3].removeSurrounding("`").trim()] ?: return@mapNotNull null
-                file.substringAfterLast('/') to answer
+                val counter = cells[4].removeSurrounding("`").trim()
+                val counterPath = if (counter == "-" || counter.isEmpty()) "" else counter
+                Triple(file.substringAfterLast('/'), answer, counterPath)
             }
             .toList()
     }
 
+    /**
+     * The expressions a file passes as the bridge's `revision`.
+     *
+     * A file may hold several bridged fields; each `revision = …` is one of them.
+     */
+    private fun revisionArguments(source: String): List<String> =
+        REVISION_ASSIGNMENT.findAll(source)
+            .map { it.groupValues[1].trim() }
+            .toList()
+
+    /**
+     * Whether a revision argument is a frozen constant.
+     *
+     * A literal can never move, so it can never say "this is a rewrite".
+     */
+    private fun String.isConstant(): Boolean = CONSTANT.matches(this)
+
     private companion object {
         const val BRIDGED_CALL = "rememberBridgedTextFieldState("
+        val REVISION_ASSIGNMENT = Regex("""revision\s*=\s*([^,\n)]+)""")
+        val CONSTANT = Regex("""\d+L?""")
     }
 }

@@ -221,6 +221,12 @@ class Parity:
     #: Why the asymmetry is correct. An empty reason is rejected by the gate,
     #: not by the dataclass, so that the error names the gate.
     why: str = ""
+    #: Where the asymmetry is visible: a repo-relative path, optionally with an
+    #: `#anchor` naming the step or the text inside it. Required when `scope` is
+    #: not `both` — an asymmetry nobody can go and look at is a claim, and a
+    #: claim that cannot be checked is the thing the parity gate exists to
+    #: replace.
+    tracked_by: str = ""
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,5 @@
 #
 # Symbol | File | Reason | BacklogRef
 
-MapFileSystem | shared/src/commonMain/kotlin/com/singularity/todo/core/files/FileSystem.kt | test double (InMemoryFileSystem replacement) living in production commonMain source; not dead code — accepted test infrastructure | deferred/test-doubles-in-commonmain-source.md:test-doubles-in-commonmain-source
-FakeSecureStorage | shared/src/commonMain/kotlin/com/singularity/todo/core/security/FakeSecureStorage.kt | test double living in production commonMain source; not dead code — accepted test infrastructure | deferred/test-doubles-in-commonmain-source.md:test-doubles-in-commonmain-source
 FakeDraftStore | shared/src/commonMain/kotlin/com/singularity/todo/core/draft/FakeDraftStore.kt | test double living in production commonMain source; not dead code — accepted test infrastructure | deferred/test-doubles-in-commonmain-source.md:test-doubles-in-commonmain-source
 ReminderTile | shared/src/commonMain/kotlin/com/singularity/todo/feature/reminders/ReminderTile.kt | finished row composable with two previews and no production caller; detector 1 stopped counting @Preview bodies as call sites on 2026-10-07 | deferred/reminder-tile-is-only-reachable-from-its-own-preview.md:reminder-tile-is-only-reachable-from-its-own-preview

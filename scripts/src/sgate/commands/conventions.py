@@ -42,6 +42,8 @@ def conventions(check: bool, json: bool) -> None:
     parts = [sys.executable, str(script)]
     if check:
         parts.append("--check")
+    if json:
+        parts.append("--json")
 
     try:
         result = subprocess.run(parts, capture_output=True)

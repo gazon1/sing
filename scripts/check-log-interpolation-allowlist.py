@@ -51,7 +51,6 @@ Exit codes: 0 = no unexpected interpolations, 1 = findings, 2 = error.
 """
 from __future__ import annotations
 
-import argparse
 import re
 import sys
 from pathlib import Path
@@ -289,7 +288,12 @@ def scan_workspace() -> list[tuple[str, str, int, str]]:
 
 @click.command()
 @click.option("--quiet", is_flag=True, help="Suppress informational output")
-@click.option("--sabotage", is_flag=True, help=argparse.SUPPRESS)  # for CI control testing
+# `hidden=True` is Click's own "do not show this option in --help". It used to
+# be `help=argparse.SUPPRESS`, which is argparse's spelling of the same thing —
+# and the only reason this file imported argparse at all, which made the
+# "use Click, not argparse" rule (R2.1) report a file that had no argparse left
+# in it.
+@click.option("--sabotage", is_flag=True, hidden=True, help="Plant a probe (CI control testing).")
 def cli(quiet: bool, sabotage: bool) -> None:
     """Check log interpolations against the allowlist of safe types."""
     # Allowlist is embedded as a constant. When --sabotage is passed (injected by

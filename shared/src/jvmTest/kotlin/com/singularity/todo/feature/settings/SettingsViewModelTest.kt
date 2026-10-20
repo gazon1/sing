@@ -13,7 +13,6 @@ import com.singularity.todo.core.schedule.GreetingSettingsStore
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsStore
-import com.singularity.todo.core.security.FakeSecureStorage
 import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.tasks.TasksSettingsContributor
 import com.singularity.todo.core.tasks.TasksSettingsStore
@@ -30,6 +29,7 @@ import com.singularity.todo.test.fakes.FakeFileRevealer
 import com.singularity.todo.test.fakes.FakeFileSharePort
 import com.singularity.todo.test.fakes.FakeLogBundleExporter
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
+import com.singularity.todo.test.fakes.FakeSecureStorage
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import kotlinx.coroutines.CoroutineScope

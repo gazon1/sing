@@ -1,5 +1,6 @@
-package com.singularity.todo.core.security
+package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.security.SecureStoragePort
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

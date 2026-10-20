@@ -150,6 +150,8 @@ startKoin { modules(sharedModule(jvmDatabase, settings, null, attachmentsDir, ba
 
 ## MapFileSystem for Mock-Free Tests
 
+`MapFileSystem` lives in `test/fakes/` — the same home as the other test doubles.
+
 ```kotlin
 val fs = MapFileSystem()
 val codec = JvmBackupCodec()

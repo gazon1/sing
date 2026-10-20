@@ -6,7 +6,7 @@ import com.singularity.todo.core.llm.ApiKey
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.llm.SettingsReader
-import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.test.fakes.FakeSecureStorage
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag

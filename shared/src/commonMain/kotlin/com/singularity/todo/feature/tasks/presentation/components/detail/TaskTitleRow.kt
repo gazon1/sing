@@ -37,6 +37,10 @@ import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColo
  * passed `{}`, which rendered a completion checkbox — the screen's most prominent
  * control — that did nothing when pressed. There is no task to complete before it
  * exists, so the honest rendering is no checkbox, not a dead one.
+ *
+ * @param revision the draft's revision counter. It moves when the task was rewritten from
+ *   outside, and that is what tells the bridged field that the new title is a
+ *   *replacement* rather than the echo of a keystroke the field itself produced.
  */
 @Composable
 fun TaskTitleRow(
@@ -45,11 +49,13 @@ fun TaskTitleRow(
     isCompleted: Boolean,
     onTitleChange: (String) -> Unit,
     onCheckToggle: (() -> Unit)?,
+    revision: Long = 0,
     modifier: Modifier = Modifier,
 ) {
     val titleState = rememberBridgedTextFieldState(
         externalText = title,
         onTextChanged = onTitleChange,
+        revision = revision,
     )
 
     Row(

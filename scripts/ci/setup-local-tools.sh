@@ -34,6 +34,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VENV="${SINGULARITY_TOOLS_VENV:-$HOME/.venvs/singularity-todo}"
 
+# The version pins live in one file, shared with the CI install path, so a local
+# run and a CI run of the same gate install the same versions. The pins are not
+# repeated here: a version written out twice is a version that can drift, and
+# the drift shows up as a local/CI disagreement rather than as a version bump.
+PINS_FILE="$ROOT/config/toolchain-versions.env"
+if [ ! -f "$PINS_FILE" ]; then
+    echo "missing the toolchain pins file: $PINS_FILE" >&2
+    exit 1
+fi
+# shellcheck disable=SC1090,SC1091  # $PINS_FILE is a runtime path; it names config/toolchain-versions.env
+source "$PINS_FILE"
+
 if ! command -v uv >/dev/null 2>&1; then
     cat >&2 <<'MSG'
 uv is required and is not on PATH.
@@ -41,7 +53,8 @@ uv is required and is not on PATH.
 Install it:  https://docs.astral.sh/uv/getting-started/installation/
 
 The gate suite is installed with uv on purpose: it is the same tool CI uses, and
-the versions below are the ones CI pins.
+the versions are the ones CI pins — both read them from
+config/toolchain-versions.env, the single source for the pins.
 MSG
     exit 1
 fi
@@ -53,14 +66,18 @@ echo "==> installing the gate suite (the local package, editable) and junitparse
 VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src" junitparser
 
 echo "==> installing the pinned linters and the link checker"
-VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==0.24.2" "yamllint==1.38.0" "shellcheck-py==0.11.0.1"
+VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==$LYCHEE_BIN_VERSION" "yamllint==$YAMLLINT_VERSION" "shellcheck-py==$SHELLCHECK_PY_VERSION"
 
 # actionlint has no Python distribution: CI downloads the pinned release binary.
 # A download failure here is reported and the script continues — the preflight
 # is what fails loudly, and it names what is missing. Nothing is skipped
 # silently.
+#
+# The release tag and the asset version come from the same pin, so the two
+# cannot name different releases.
 echo "==> installing the pinned actionlint"
-if curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+ACTIONLINT_ASSET_VERSION="${ACTIONLINT_VERSION#v}"
+if curl -fsSL "https://github.com/rhysd/actionlint/releases/download/$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_ASSET_VERSION}_linux_amd64.tar.gz" \
     | tar -xz -C "$VENV/bin" actionlint; then
     echo "    actionlint installed"
 else

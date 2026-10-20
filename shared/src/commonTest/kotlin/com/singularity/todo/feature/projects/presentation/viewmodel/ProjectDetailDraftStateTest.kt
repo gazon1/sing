@@ -25,12 +25,80 @@ class ProjectDetailDraftStateTest {
     }
 
     @Test
-    fun `seed is idempotent — second call is ignored`() {
+    fun `seed on a clean draft takes the rewrite from outside and moves the revision`() {
         val s = newState()
         s.seed("First", "Desc")
         s.seed("Second", "Other")
-        assertEquals("First", s.current.name)
+        assertEquals("Second", s.current.name)
+        assertEquals("Other", s.current.description)
+        assertEquals(1L, s.current.revision)
+    }
+
+    @Test
+    fun `seed on a dirty draft keeps the user's text and does not move the revision`() {
+        val s = newState()
+        s.seed("First", "Desc")
+        s.setName("Mine")
+        s.seed("Second", "Other")
+        assertEquals("Mine", s.current.name)
         assertEquals("Desc", s.current.description)
+        assertEquals(0L, s.current.revision)
+    }
+
+    @Test
+    fun `seed with the text the draft already holds changes nothing`() {
+        val s = newState()
+        s.seed("First", "Desc")
+        s.seed("First", "Desc")
+        assertEquals(0L, s.current.revision)
+    }
+
+    @Test
+    fun `the revision counts replacements, not edits`() {
+        val s = newState()
+        s.seed("First", "Desc")
+        s.setName("Mine")
+        s.seed("Mine", "Desc")
+        s.seed("Second", "Desc")
+        assertEquals(1L, s.current.revision)
+        s.seed("Third", "Desc")
+        assertEquals(2L, s.current.revision)
+    }
+
+    // ─── the echo of the save ─────────────────────────────────────────────────
+
+    @Test
+    fun `the echo of the save moves the baseline so the draft is clean`() {
+        val s = newState()
+        s.seed("First", "Desc")
+        s.setName("Mine")
+        assertTrue(s.current.isDirty)
+        s.seed("Mine", "Desc")
+        assertFalse(s.current.isDirty)
+        assertEquals(0L, s.current.revision)
+    }
+
+    @Test
+    fun `a later rewrite lands once the save was echoed`() {
+        val s = newState()
+        s.seed("First", "Desc")
+        s.setName("Mine")
+        s.seed("Mine", "Desc")
+        s.seed("Second", "Desc")
+        assertEquals("Second", s.current.name)
+        assertEquals(1L, s.current.revision)
+    }
+
+    @Test
+    fun `the echo of a stale write does not clean a newer edit`() {
+        val s = newState()
+        s.seed("First", "Desc")
+        s.setName("Mine")
+        s.setName("Mine and more")
+        s.seed("Mine", "Desc")
+        assertTrue(s.current.isDirty)
+        s.seed("Second", "Desc")
+        assertEquals("Mine and more", s.current.name)
     }
 
     // ─── setName / setDescription ─────────────────────────────────────────────

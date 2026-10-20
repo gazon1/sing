@@ -4,7 +4,7 @@ package com.singularity.todo.core.log
 
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.files.FileSystem
-import com.singularity.todo.core.files.MapFileSystem
+import com.singularity.todo.test.fakes.MapFileSystem
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test

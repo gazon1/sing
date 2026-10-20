@@ -18,12 +18,22 @@ import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColo
 /**
  * Многострочное поле описания. Реальный текстовый ввод вместо статичного
  * Text — в оригинале это выглядело как кнопка, а не поле ввода.
+ *
+ * @param revision the draft's revision counter. It moves when the task was rewritten from
+ *   outside, and that is what tells the bridged field that the new description is a
+ *   *replacement* rather than the echo of a keystroke the field itself produced.
  */
 @Composable
-fun TaskDescriptionField(description: String, onDescriptionChange: (String) -> Unit, modifier: Modifier = Modifier) {
+fun TaskDescriptionField(
+    description: String,
+    onDescriptionChange: (String) -> Unit,
+    revision: Long = 0,
+    modifier: Modifier = Modifier,
+) {
     val descriptionState = rememberBridgedTextFieldState(
         externalText = description,
         onTextChanged = onDescriptionChange,
+        revision = revision,
     )
     BasicTextField(
         state = descriptionState,

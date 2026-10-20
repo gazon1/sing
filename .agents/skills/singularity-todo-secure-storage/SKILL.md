@@ -19,7 +19,7 @@ SecureStoragePort (interface — commonMain)
     ├── AndroidSecureStorage (androidMain)
     │       └── EncryptedSharedPreferences (security-crypto)
     │
-    └── FakeSecureStorage (commonMain — tests)
+    └── FakeSecureStorage (commonMain — test/fakes)
             └── In-memory MutableMap with Mutex
 ```
 
@@ -170,5 +170,5 @@ No mocks — `FakeSecureStorage` is the test double.
 | `shared/src/commonMain/.../core/security/SecureStoragePort.kt` | Interface |
 | `shared/src/jvmMain/.../core/security/JvmSecureStorage.kt` | secret-tool + AES-GCM fallback |
 | `shared/src/androidMain/.../core/security/AndroidSecureStorage.kt` | EncryptedSharedPreferences |
-| `shared/src/commonMain/.../core/security/FakeSecureStorage.kt` | In-memory test double |
+| `shared/src/commonMain/.../test/fakes/FakeSecureStorage.kt` | In-memory test double |
 | `shared/src/commonMain/.../feature/settings/SettingsViewModel.kt` | Calls `secureStorage.write/delete` for AI keys |

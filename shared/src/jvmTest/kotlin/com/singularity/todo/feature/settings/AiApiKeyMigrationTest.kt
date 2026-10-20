@@ -7,7 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.llm.OpenAiConfig
-import com.singularity.todo.core.security.FakeSecureStorage
+import com.singularity.todo.test.fakes.FakeSecureStorage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag

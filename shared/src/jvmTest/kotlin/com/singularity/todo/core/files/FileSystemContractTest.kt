@@ -2,6 +2,7 @@
 
 package com.singularity.todo.core.files
 
+import com.singularity.todo.test.fakes.MapFileSystem
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
