@@ -53,6 +53,7 @@ def gate_fail(
     message: Optional[str] = None,
     *,
     to_stderr: bool = False,
+    annotate: bool = True,
 ) -> None:
     """Emit one gate violation.
 
@@ -62,6 +63,11 @@ def gate_fail(
     Args:
         to_stderr: If True, write human output to stderr instead of stdout.
                    Use in --json mode to keep stdout clean for JSON output.
+        annotate: If True (default), emit the GitHub Actions annotation in CI.
+                  The annotation goes to **stdout** — that is where Actions
+                  reads it from — so a caller whose stdout is a JSON contract
+                  must turn it off. The exit code is what fails the build; the
+                  annotation is a convenience on top of it.
     """
     if message is None:
         parts = []
@@ -86,7 +92,7 @@ def gate_fail(
     stream.flush()
 
     # CI annotation
-    if is_ci():
+    if annotate and is_ci():
         github_msg = f"[{gate_name}] {rule_label}: {message}"
         _github_error(file, line, github_msg, level="error")
 
@@ -97,10 +103,14 @@ def gate_warn(
     line: Optional[int] = None,
     *,
     to_stderr: bool = False,
+    annotate: bool = True,
 ) -> None:
     """Emit a non-blocking warning.
 
     In CI mode also emits a GitHub Actions ::warning annotation.
+
+    ``annotate=False`` keeps the annotation off stdout for callers whose
+    stdout carries a JSON contract; see :func:`gate_fail`.
     """
     if file and line is not None:
         out_line = f"{file}:{line}: warning: {message}"
@@ -113,5 +123,5 @@ def gate_warn(
     stream.write(out_line + "\n")
     stream.flush()
 
-    if is_ci():
+    if annotate and is_ci():
         _github_error(file, line, message, level="warning")

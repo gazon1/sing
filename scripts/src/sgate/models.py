@@ -41,6 +41,15 @@ class GatePayload(BaseModel):
         """True only if the parser passed AND the underlying command exited 0."""
         return self.passed and returncode == 0
 
+    def honest_payload(self, returncode: int) -> "GatePayload":
+        """This payload with ``passed`` corrected to the honest value.
+
+        A payload that says ``passed: true`` about a command that exited
+        non-zero is a green gate on a failed script. This is the one place
+        that correction is made, so every emitter agrees on it.
+        """
+        return self.model_copy(update={"passed": self.honest_pass(returncode)})
+
     def emit_and_exit(self, returncode: int, *, emit_json: bool) -> NoReturn:
         """Exit honestly; under ``--json`` print the typed payload first.
 
@@ -50,7 +59,7 @@ class GatePayload(BaseModel):
         """
         honest = self.honest_pass(returncode)
         if emit_json:
-            print(self.model_copy(update={"passed": honest}).model_dump_json(indent=2))
+            print(self.honest_payload(returncode).model_dump_json(indent=2))
         raise SystemExit(0 if honest else (returncode if returncode != 0 else 1))
 
 

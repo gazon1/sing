@@ -1,54 +1,18 @@
 """sgate.commands.build_output_readers — native Click for: build-output readers precede the invocations that rewrite them."""
 from __future__ import annotations
 
-import json
-import re
 import sys
 from typing import ClassVar
 
 import click
 
 import sgate
-from sgate.commands._runner import Result, run, run_capture
+from sgate.commands._runner import run_gate_command, run_json_contract
 from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
 from sgate.log import logger
 from sgate.output import gate_fail
 
 KIWI_REQUIRED: ClassVar[bool] = False
-
-# Pattern: "check_build_output_readers: OK — every test-capable Gradle invocation …"
-_OK_RE = re.compile(r"check_build_output_readers:\s+OK\b")
-
-
-def _parse_build_output_readers(stdout: str | bytes, stderr: str | bytes) -> dict:
-    """Parse check-build-output-readers.py output.
-
-    Returns:
-        {
-          "passed": bool,
-          "blocking_errors": list[str],
-          "warnings": list[str],
-        }
-    """
-    if isinstance(stdout, bytes):
-        stdout = stdout.decode("utf-8", errors="replace")
-    if isinstance(stderr, bytes):
-        stderr = stderr.decode("utf-8", errors="replace")
-
-    warnings: list[str] = []
-    blocking_errors: list[str] = []
-    for line in (stdout + "\n" + stderr).splitlines():
-        stripped = line.strip()
-        if stripped.startswith("check_build_output_readers: note:"):
-            warnings.append(stripped)
-        elif stripped.startswith("check_build_output_readers:"):
-            blocking_errors.append(stripped)
-
-    return {
-        "passed": bool(_OK_RE.search(stdout)),
-        "blocking_errors": blocking_errors,
-        "warnings": warnings,
-    }
 
 
 @click.command("build_output_readers")
@@ -79,14 +43,18 @@ def build_output_readers(check: bool, emit_json: bool) -> None:
     py_cmd = [sys.executable, str(script)]
     try:
         if emit_json:
-            result: Result = run_capture(py_cmd, gate_name)
-            parsed = _parse_build_output_readers(result.stdout, result.stderr)
-            if result.returncode != 0 and not parsed["blocking_errors"]:
-                gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
-            print(json.dumps(parsed, ensure_ascii=False))
-            raise SystemExit(0 if parsed["passed"] else 1)
+            # The producer speaks JSON; the verdict is read, not re-derived from
+            # the wording of its output.
+            payload, returncode = run_json_contract(py_cmd + ["--json"], gate_name)
+            if check:
+                # Dry run: report the verdict, do not fail the run. The verdict
+                # is the honest one, so a producer that exited non-zero cannot
+                # be read as "passed" out of a check-mode report.
+                print(payload.honest_payload(returncode).model_dump_json(indent=2))
+                raise SystemExit(0)
+            payload.emit_and_exit(returncode, emit_json=True)
         else:
-            run(py_cmd, gate_name)
+            run_gate_command(py_cmd, gate_name, check=check)
     except SystemExit:
         raise
     except Exception:

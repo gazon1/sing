@@ -1,78 +1,26 @@
 """sgate.commands.room_schema_integrity — native Click for: room schema integrity."""
 from __future__ import annotations
 
-import json
-import re
 import sys
 from typing import ClassVar
 
 import click
 
 import sgate
-from sgate.commands._runner import Result, run, run_capture
+from sgate.commands._runner import run_gate_command, run_json_contract
 from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
 from sgate.log import logger
+from sgate.models import GatePayload
 from sgate.output import gate_fail
 
-# Kiwi-dependent gate (skips if Kiwi TCMS is unavailable)
 KIWI_REQUIRED: ClassVar[bool] = False
 
-# Pattern: "Room schema integrity: SCHEMA_VERSION N, M exported schemas, chain continuous"
-_SCHEMA_OK_RE = re.compile(
-    r"Room schema integrity:\s+SCHEMA_VERSION\s+(?P<version>\d+),\s+"
-    r"(?P<exported>\d+)\s+exported schemas,\s+chain continuous"
-)
-# Pattern: "  - path/to/file.kt: missing entity TableName"
-_ENTITY_RE = re.compile(r"^\s*-\s+(.+?):\s+missing entity\s+(.+)$")
 
+class RoomSchemaPayload(GatePayload):
+    """Typed payload for room schema integrity."""
 
-def _parse_room_schema(stdout: str | bytes, stderr: str | bytes) -> dict:
-    """Parse check-room-schema-integrity.py output.
-
-    Returns:
-        {
-          "passed": bool,
-          "schema_version": int | None,
-          "exported_count": int | None,
-          "blocking_errors": list[str],
-          "warnings": list[str],
-        }
-    """
-    if isinstance(stdout, bytes):
-        stdout = stdout.decode("utf-8", errors="replace")
-    if isinstance(stderr, bytes):
-        stderr = stderr.decode("utf-8", errors="replace")
-
-    blocking_errors: list[str] = []
-    warnings: list[str] = []
     schema_version: int | None = None
-    exported_count: int | None = None
-
-    combined = stdout + "\n" + stderr
-
-    # Check for clean pass
-    m = _SCHEMA_OK_RE.search(combined)
-    if m:
-        schema_version = int(m.group("version"))
-        exported_count = int(m.group("exported"))
-
-    # Look for ERROR lines
-    for line in combined.splitlines():
-        if line.startswith("ERROR:"):
-            blocking_errors.append(line)
-        elif "ERROR" in line and not blocking_errors:
-            # e.g. "some error message" without ERROR: prefix
-            blocking_errors.append(line.strip())
-
-    passed = schema_version is not None and len(blocking_errors) == 0
-
-    return {
-        "passed": passed,
-        "schema_version": schema_version,
-        "exported_count": exported_count,
-        "blocking_errors": blocking_errors,
-        "warnings": warnings,
-    }
+    exported_schemas: int | None = None
 
 
 @click.command("room_schema_integrity")
@@ -104,14 +52,20 @@ def room_schema_integrity(check: bool, emit_json: bool) -> None:
     py_cmd = [sys.executable, str(script)]
     try:
         if emit_json:
-            result: Result = run_capture(py_cmd, gate_name)
-            parsed = _parse_room_schema(result.stdout, result.stderr)
-            if result.returncode != 0 and not parsed["blocking_errors"]:
-                gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}")
-            print(json.dumps(parsed, ensure_ascii=False))
-            raise SystemExit(0 if parsed["passed"] else 1)
+            # The producer speaks JSON; the verdict is read, not re-derived from
+            # the wording of its output.
+            payload, returncode = run_json_contract(
+                py_cmd + ["--json"], gate_name, payload_class=RoomSchemaPayload
+            )
+            if check:
+                # Dry run: report the verdict, do not fail the run. The verdict
+                # is the honest one, so a producer that exited non-zero cannot
+                # be read as "passed" out of a check-mode report.
+                print(payload.honest_payload(returncode).model_dump_json(indent=2))
+                raise SystemExit(0)
+            payload.emit_and_exit(returncode, emit_json=True)
         else:
-            run(py_cmd, gate_name)
+            run_gate_command(py_cmd, gate_name, check=check)
     except SystemExit:
         raise
     except Exception:
