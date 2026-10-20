@@ -1,0 +1,146 @@
+package com.singularity.todo.mcp
+
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.io.File
+
+/**
+ * The tool surface, exported from the **compiled** declarations.
+ *
+ * ## Why this exists
+ *
+ * The catalogue, the tool classes and the documentation are three declarations of one
+ * surface, and the gate that keeps them together reads the *source text* of two of
+ * them. A regex that misreads a class does not fail — it reads less, and the gate
+ * reports a surface that is smaller than the code. That is the shape of defect this
+ * whole change is about: a check that passes on a tree it did not really read.
+ *
+ * So the surface is exported from the classes themselves, by a program that loads them,
+ * and the export is committed. The gate then compares what it parsed with what the
+ * compiler saw: parsed == exported == compiled. A parser that misreads a class cannot
+ * hide, because the export says what the class really declares.
+ *
+ * ## The format
+ *
+ * JSON, sorted by name, one object per tool:
+ *
+ * ```json
+ * {
+ *   "version": 1,
+ *   "tools": [
+ *     {
+ *       "name": "list_tasks",
+ *       "toolClass": "ListTasksTool",
+ *       "domain": "tasks",
+ *       "description": "…",
+ *       "readOnly": false,
+ *       "destructive": false,
+ *       "idempotent": true
+ *     }
+ *   ]
+ * }
+ * ```
+ *
+ * The description is read from the tool class, because that is where it lives: the
+ * catalogue no longer carries a copy of it.
+ */
+object ToolSurfaceExport {
+
+    /** The version of the format. Bumped when the shape changes. */
+    const val VERSION = 1
+
+    /** The package the tool classes live in. */
+    const val TOOL_PACKAGE = "com.singularity.todo.feature.ai.tools"
+
+    private val json = Json { prettyPrint = true }
+
+    /**
+     * The surface as the compiled code declares it.
+     *
+     * @throws IllegalStateException when a catalogue entry names a class that is not
+     *   there, or a class that does not declare the name the catalogue gave it. A
+     *   surface that cannot be read must not be exported as a smaller one.
+     */
+    fun surface(): JsonObject = buildJsonObject {
+        put("version", VERSION)
+        put(
+            "tools",
+            buildJsonArray {
+                McpToolCatalog.catalog
+                    .sortedBy { it.name }
+                    .forEach { entry ->
+                        add(toolJson(entry))
+                    }
+            },
+        )
+    }
+
+    private fun toolJson(entry: McpToolCatalog.ToolEntry): JsonObject {
+        val clazz = loadClass(entry.toolClass)
+        val declaredName = constant(clazz, "NAME")
+        require(declaredName == entry.name) {
+            "the catalogue says ${entry.name} is ${entry.toolClass}, but that class declares " +
+                "$declaredName"
+        }
+        val description = constant(clazz, "DESCRIPTION")
+        val annotations = entry.annotations
+        return buildJsonObject {
+            put("name", entry.name)
+            put("toolClass", entry.toolClass)
+            put("domain", entry.domain)
+            put("description", description)
+            put("readOnly", annotations.readOnlyHint)
+            put("destructive", annotations.destructiveHint)
+            put("idempotent", annotations.idempotentHint)
+        }
+    }
+
+    private fun loadClass(simpleName: String): Class<*> = try {
+        Class.forName("$TOOL_PACKAGE.$simpleName")
+    } catch (e: ClassNotFoundException) {
+        error(
+            "the catalogue names the tool class $simpleName, and there is no such class: " +
+                "${e.message}",
+        )
+    }
+
+    /**
+     * A `const val` of the tool class.
+     *
+     * The Kotlin compiler compiles a `const val` in a companion object as a static field
+     * of the containing class, so that is where the constant is read from.
+     */
+    private fun constant(clazz: Class<*>, name: String): String {
+        val field = clazz.declaredFields.firstOrNull { it.name == name }
+            ?: error("${clazz.simpleName} does not declare a $name constant")
+        field.isAccessible = true
+        return field.get(null) as? String
+            ?: error("${clazz.simpleName}.$name is not a string")
+    }
+
+    /**
+     * Writes the surface to [target].
+     *
+     * The file is written whole, and a trailing newline keeps it readable in a diff.
+     */
+    fun writeTo(target: File) {
+        target.parentFile?.mkdirs()
+        target.writeText(json.encodeToString(JsonObject.serializer(), surface()) + "\n")
+    }
+}
+
+/**
+ * Writes the tool surface to the path given as the first argument.
+ *
+ * The entry point of the `:shared:exportToolSurface` task, and of nothing else: the
+ * file it writes is checked by a test, so a hand-edit of it is reported rather than
+ * believed.
+ */
+fun main(args: Array<String>) {
+    val target = File(args.firstOrNull() ?: "config/docs/tool-surface.json")
+    ToolSurfaceExport.writeTo(target)
+    println("Wrote the tool surface to ${target.absolutePath}")
+}

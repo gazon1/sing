@@ -977,3 +977,36 @@ tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// exportToolSurface — the tool surface, exported from the compiled declarations
+// ---------------------------------------------------------------------------
+//
+// The drift gate reads the tool surface out of the Kotlin *sources*, because a gate
+// that runs a compiler is a gate nobody runs. This task is the other half: it reads
+// the same surface out of the *compiled* classes and writes it to
+// `config/docs/tool-surface.json`, and a test says the committed file is current. The
+// gate then compares what it parsed with what the compiler saw — parsed == exported ==
+// compiled — so a parser that misreads a class cannot pass unnoticed.
+//
+// The file is generated, and it is generated from the code: there is no second copy of
+// a description anywhere, only a projection of the one that exists.
+
+val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
+    description = "Exports the declared MCP tool surface to config/docs/tool-surface.json"
+    group = "documentation"
+    // The compiled JVM classes and the JVM runtime classpath, named the way the
+    // module names them. The KMP target objects are awkward to reach from a build
+    // script, and the class directories are what the task actually runs against.
+    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+    val target = rootProject.layout.projectDirectory.file("config/docs/tool-surface.json")
+    mainClass.set("com.singularity.todo.mcp.ToolSurfaceExportKt")
+    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+    args(target.asFile.absolutePath)
+    inputs.files(jvmClasses)
+    outputs.file(target)
+    dependsOn("compileKotlinJvm")
+    doFirst {
+        target.asFile.parentFile.mkdirs()
+    }
+}

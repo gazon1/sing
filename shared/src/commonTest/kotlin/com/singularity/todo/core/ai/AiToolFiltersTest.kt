@@ -20,17 +20,22 @@ private class FileLevelTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), N
 }
 
 /**
- * The kill switch, at the level of the rule it is written in.
+ * The kill switch, and the name it keys on.
  *
- * A tool is switched off by a flag keyed by its ID — the `NAME` constant of the tool
- * class. If the ID cannot be read, the flag cannot match, and the tool stays exposed
- * while the operator believes it is off. That failure is silent, so it is pinned here.
+ * The switch matches a flag against the tool's name. The name is read from the tool's
+ * descriptor — the name the tool is registered under, the name the catalogue declares,
+ * the name the agent calls — and *that* the name equals the class's `NAME` constant is
+ * an invariant, not a coincidence.
  *
- * Both shapes of tool class are covered, because the shape is invisible in the source of
- * the tool — `const val NAME` in a companion reads the same either way, and only the
- * bytecode differs. An earlier version looked for the constant in one place only, raised
- * out of the lookup when it was not there, and returned `null`: every tool lost its ID,
- * and with it the kill switch.
+ * It was a coincidence once, and the switch was inert because of it: the name used to be
+ * read out of the bytecode, where the Kotlin compiler puts a `const val` in a companion
+ * object on the **containing class** — so the lookup raised `NoSuchFieldException`, the
+ * enclosing `catch` turned it into `null`, and a tool with no name has no flag key. No
+ * flag ever matched a tool (ADR 2026-10-20-the-kill-switch-was-never-applied).
+ *
+ * Both shapes of tool class are covered here, because the shape is invisible in the
+ * source of the tool: `const val NAME` in a companion reads the same either way, and
+ * only the bytecode differs.
  */
 @Tag("fast")
 class AiToolFiltersTest {
@@ -46,13 +51,13 @@ class AiToolFiltersTest {
     }
 
     @Test
-    fun `the id of a file-level tool is its NAME constant`() {
-        assertEquals(FileLevelTool.NAME, FileLevelTool().toolId())
+    fun `the name of a file-level tool is its NAME constant`() {
+        assertEquals(FileLevelTool.NAME, FileLevelTool().descriptor.name)
     }
 
     @Test
-    fun `the id of a nested tool is its NAME constant`() {
-        assertEquals(NestedTool.NAME, NestedTool().toolId())
+    fun `the name of a nested tool is its NAME constant`() {
+        assertEquals(NestedTool.NAME, NestedTool().descriptor.name)
     }
 
     @Test
@@ -70,7 +75,7 @@ class AiToolFiltersTest {
 
         val enabled = filterTools(tools, mapOf(NestedTool.NAME to false))
 
-        assertEquals(listOf(FileLevelTool.NAME), enabled.map { it.toolId() })
+        assertEquals(listOf(FileLevelTool.NAME), enabled.map { it.descriptor.name })
     }
 
     @Test
@@ -80,5 +85,14 @@ class AiToolFiltersTest {
         val enabled = filterTools(tools, mapOf(FileLevelTool.NAME to false, NestedTool.NAME to false))
 
         assertTrue(enabled.isEmpty(), "both tools were switched off, so none may stay exposed")
+    }
+
+    @Test
+    fun `a flag for a tool that does not exist changes nothing`() {
+        val tools = listOf(FileLevelTool(), NestedTool())
+
+        val enabled = filterTools(tools, mapOf("no_such_tool" to false))
+
+        assertEquals(2, enabled.size, "a flag that matches no tool must not remove another one")
     }
 }

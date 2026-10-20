@@ -61,12 +61,24 @@ toolbox-parity checks have their own cases in the same file.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
 
 import click
 from sgate.commands.base import run
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# The tool surface, exported from the compiled classes by `:shared:exportToolSurface`.
+#
+# The checks below read the surface out of the Kotlin *sources*, because a gate that
+# runs a compiler is a gate nobody runs. This file is the other half: the same surface,
+# as the compiler saw it. Comparing the two says that the parser read the code
+# faithfully — a regex that misreads a class cannot pass unnoticed, because the export
+# says what the class really declares.
+#
+# The file is generated, not written by hand: a test in `:shared` says it is current.
+TOOL_SURFACE_JSON = ROOT / 'config/docs/tool-surface.json'
 
 # The renderer is loaded by path, not by name: its filename carries hyphens to match
 # every other script in `scripts/`, which `import` will not accept. The module *is*
@@ -77,6 +89,65 @@ _spec = importlib.util.spec_from_file_location('render_adr_tools_section', _REND
 assert _spec and _spec.loader
 renderer = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(renderer)
+
+
+def exported_surface() -> dict:
+    """The tool surface as the compiled classes declare it.
+
+    Returns an empty mapping when the export is missing or unreadable — the caller
+    reports that as a problem rather than pretending the surface is empty.
+    """
+    if not TOOL_SURFACE_JSON.is_file():
+        return {}
+    try:
+        data = json.loads(TOOL_SURFACE_JSON.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    tools = data.get('tools')
+    if not isinstance(tools, list):
+        return {}
+    return {tool.get('name'): tool for tool in tools if isinstance(tool, dict)}
+
+
+def surface_problems() -> list[str]:
+    """Where what the gate read differs from what the compiler saw.
+
+    The three facts that have to line up: the code declares the surface, the export is
+    that surface written down, and the gate's parser is that surface read back out of
+    the sources. This is the check on the third link.
+    """
+    problems: list[str] = []
+    exported = exported_surface()
+    if not exported:
+        problems.append(
+            'the tool surface has not been exported — run ./gradlew :shared:exportToolSurface'
+        )
+        return problems
+
+    entries = renderer.catalog_entries()
+    classes = renderer.tool_classes()
+    parsed: dict[str, str] = {}
+    for name, tool_class, _domain in entries:
+        parsed[name] = classes.get(tool_class, (name, ''))[1]
+
+    for name in sorted(set(exported) - set(parsed)):
+        problems.append(
+            f'the export declares the tool {name!r}, and the sources do not — the export is '
+            f'out of date, or the sources are'
+        )
+    for name in sorted(set(parsed) - set(exported)):
+        problems.append(
+            f'the sources declare the tool {name!r}, and the export does not — the export is '
+            f'out of date'
+        )
+    for name in sorted(set(parsed) & set(exported)):
+        if parsed[name] != exported[name].get('description', ''):
+            problems.append(
+                f'the sources read the description of {name!r} as {parsed[name]!r}, and the '
+                f'export says {exported[name].get("description", "")!r} — the gate is reading '
+                f'the source wrongly'
+            )
+    return problems
 
 
 def toolbox_problems() -> list[str]:
@@ -124,6 +195,8 @@ def toolbox_problems() -> list[str]:
         mapped[tool] = command
     for tool in sorted(adr_tools - set(mapped)):
         problems.append(f'the adr-domain tool {tool!r} has no CLI command mapped to it')
+
+    problems.extend(surface_problems())
 
     return problems
 

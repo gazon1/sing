@@ -110,4 +110,32 @@ class ToolRegistrarTest {
             "a registrar built without a configuration must say so rather than look current",
         )
     }
+
+    @Test
+    fun `a flag that names no tool is reported, not dropped`() {
+        val registrar = ToolRegistrar(server(), tools(), toolFlags = mapOf("no_such_tool" to false))
+
+        assertEquals(
+            listOf("no_such_tool"),
+            registrar.snapshot.unmatchedFlags,
+            "a flag that switched nothing off must be visible: the operator who set it " +
+                "believes the tool is off, and it is not",
+        )
+        assertEquals(
+            2,
+            registrar.snapshot.registered.size,
+            "an unmatched flag must not remove a tool that has no flag of its own",
+        )
+    }
+
+    @Test
+    fun `a flag that names a tool is not reported as unmatched`() {
+        val registrar = ToolRegistrar(server(), tools(), toolFlags = mapOf(DisabledTool.NAME to false))
+
+        assertEquals(
+            emptyList(),
+            registrar.snapshot.unmatchedFlags,
+            "a flag that named a real tool matched it, whether or not it disabled it",
+        )
+    }
 }

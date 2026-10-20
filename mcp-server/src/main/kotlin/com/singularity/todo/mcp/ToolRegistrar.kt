@@ -102,6 +102,10 @@ class ToolRegistrar(
     private fun buildSnapshot(): ToolsetSnapshot {
         val registered = enabledTools.map { describe(it) }
         val disabled = disabledTools.map { describe(it) }
+        // A flag that names no exposed tool did not switch anything off — and the
+        // operator who set it believes it did. The names are reported, not dropped.
+        val exposed = (registered + disabled).map { it.name }.toSet()
+        val unmatched = toolFlags.keys.filterNot { it in exposed }.sorted()
         return ToolsetSnapshot(
             identity = ToolboxIdentity(
                 buildVersion = ToolboxIdentityFactory.buildVersion(),
@@ -113,6 +117,7 @@ class ToolRegistrar(
             disabled = disabled,
             configurationStatus = configurationStatus,
             configurationFetchedAtEpochMillis = configurationFetchedAtEpochMillis,
+            unmatchedFlags = unmatched,
         )
     }
 

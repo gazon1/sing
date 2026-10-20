@@ -11,7 +11,6 @@ import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.ai.RecordingTool
 import com.singularity.todo.core.ai.filterTools
 import com.singularity.todo.core.ai.resolveModelWithFlags
-import com.singularity.todo.core.ai.toolId
 import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.observability.ToolCallSource
 import com.singularity.todo.core.config.RemoteConfigPort
@@ -65,8 +64,8 @@ class KoogAgentService(
     // is fixed for the lifetime of the service instance (flags refresh is infrequent).
     private val tools: List<Tool<*, *>> = run {
         val flags = remoteConfigPort.observe().value.mcpToolFlags
-        filterTools(allTools, flags).also {
-            val disabled = allTools.mapNotNull { it.toolId() } - it.mapNotNull { it.toolId() }.toSet()
+        filterTools(allTools, flags).also { enabled ->
+            val disabled = allTools.map { it.descriptor.name } - enabled.map { it.descriptor.name }.toSet()
             if (disabled.isNotEmpty()) {
                 co.touchlab.kermit.Logger.withTag("KoogAgentService")
                     .i { "Kill switch: disabled tools: $disabled" }

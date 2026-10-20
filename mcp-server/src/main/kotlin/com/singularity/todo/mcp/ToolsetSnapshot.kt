@@ -84,6 +84,16 @@ data class ToolsetSnapshot(
     val disabled: List<ToolboxToolEntry>,
     val configurationStatus: ConfigurationStatus,
     val configurationFetchedAtEpochMillis: Long?,
+    /**
+     * Flags that named no tool this server exposes.
+     *
+     * A flag for a tool that no longer exists — renamed, removed, or never there — is
+     * inert: it matches nothing, and the tool it was meant to switch off is still
+     * exposed. An operator who set that flag believes the opposite, which is why the
+     * names are reported rather than dropped. They are *not* disabled tools: a flag
+     * that matches nothing did not disable anything.
+     */
+    val unmatchedFlags: List<String> = emptyList(),
 ) {
     /**
      * The status of the configuration, derived from the snapshot the port returned.

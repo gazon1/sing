@@ -124,6 +124,23 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
                 put("disabledCount", disabled.size)
             }
         }
+        if (snapshot.unmatchedFlags.isNotEmpty()) {
+            // A flag that named no tool switched nothing off. Reporting it is the
+            // difference between "the operator's flag did nothing" and "the operator's
+            // flag is still in force, and the tool it names is missing".
+            put(
+                "unmatchedFlags",
+                buildJsonArray {
+                    snapshot.unmatchedFlags.take(MAX_UNMATCHED_LISTED).forEach { flag ->
+                        add(buildJsonObject { put("name", flag) })
+                    }
+                },
+            )
+            if (snapshot.unmatchedFlags.size > MAX_UNMATCHED_LISTED) {
+                put("unmatchedFlagsTruncated", true)
+                put("unmatchedFlagsCount", snapshot.unmatchedFlags.size)
+            }
+        }
     }
 
     private fun domains(registered: List<ToolboxToolEntry>): JsonObject = buildJsonObject {
@@ -162,5 +179,8 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
 
         /** The disabled list is a diagnostic, not a page of the configuration. */
         const val MAX_DISABLED_LISTED = 20
+
+        /** The unmatched-flag list is a diagnostic too, and the same size. */
+        const val MAX_UNMATCHED_LISTED = 20
     }
 }

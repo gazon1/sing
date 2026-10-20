@@ -1,0 +1,374 @@
+{
+    "version": 1,
+    "tools": [
+        {
+            "name": "cluster_notes",
+            "toolClass": "ClusterNotesTool",
+            "domain": "ai",
+            "description": "Group note titles into thematic clusters.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "cluster_tasks",
+            "toolClass": "ClusterTasksTool",
+            "domain": "ai",
+            "description": "Group task titles into thematic clusters.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "create_note",
+            "toolClass": "CreateNoteTool",
+            "domain": "notes",
+            "description": "Creates a new note or folder.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "create_project",
+            "toolClass": "CreateProjectTool",
+            "domain": "projects",
+            "description": "Creates a new project.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "create_tag",
+            "toolClass": "CreateTagTool",
+            "domain": "tags",
+            "description": "Creates a new tag.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "create_task",
+            "toolClass": "CreateTaskTool",
+            "domain": "tasks",
+            "description": "Creates a new task. All fields optional except title.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "decompose_and_create",
+            "toolClass": "DecomposeAndCreateTool",
+            "domain": "tasks",
+            "description": "Asks the LLM to break a task into sub-tasks, then creates each sub-task in one call. Returns the created taskIds. planSource='llm' or 'empty' (LLM unavailable).",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "decompose_task",
+            "toolClass": "DecomposeTaskTool",
+            "domain": "ai",
+            "description": "Break a task into smaller, actionable sub-tasks.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "delete_note",
+            "toolClass": "DeleteNoteTool",
+            "domain": "notes",
+            "description": "Creates a proposal to soft-delete a note by its ID. The deletion requires user confirmation before taking effect.",
+            "readOnly": false,
+            "destructive": true,
+            "idempotent": false
+        },
+        {
+            "name": "delete_project",
+            "toolClass": "DeleteProjectTool",
+            "domain": "projects",
+            "description": "Creates a proposal to archive a project by its ID. The deletion requires user confirmation before taking effect.",
+            "readOnly": false,
+            "destructive": true,
+            "idempotent": false
+        },
+        {
+            "name": "delete_tag",
+            "toolClass": "DeleteTagTool",
+            "domain": "tags",
+            "description": "Creates a proposal to soft-delete a tag by its ID. The deletion requires user confirmation before taking effect.",
+            "readOnly": false,
+            "destructive": true,
+            "idempotent": false
+        },
+        {
+            "name": "delete_task",
+            "toolClass": "DeleteTaskTool",
+            "domain": "tasks",
+            "description": "Creates a proposal to soft-delete (archive) a task by its ID. The deletion requires user confirmation before taking effect.",
+            "readOnly": false,
+            "destructive": true,
+            "idempotent": false
+        },
+        {
+            "name": "extract_actions",
+            "toolClass": "ExtractActionsTool",
+            "domain": "ai",
+            "description": "Extract actionable tasks from a note.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "generate_checklist",
+            "toolClass": "GenerateChecklistTool",
+            "domain": "ai",
+            "description": "Generate a checklist of steps to complete a task.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "generate_description",
+            "toolClass": "GenerateDescriptionTool",
+            "domain": "ai",
+            "description": "Generate a brief description for a task title.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "get_note",
+            "toolClass": "GetNoteTool",
+            "domain": "notes",
+            "description": "Fetch a single note by its ID.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "get_project",
+            "toolClass": "GetProjectTool",
+            "domain": "projects",
+            "description": "Fetch a single project by its ID.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "get_task",
+            "toolClass": "GetTaskTool",
+            "domain": "tasks",
+            "description": "Fetch a single task by its ID.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "improve_note",
+            "toolClass": "ImproveNoteTool",
+            "domain": "ai",
+            "description": "Improve note clarity, conciseness, and readability.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "list_adrs",
+            "toolClass": "ListAdrsTool",
+            "domain": "adr",
+            "description": "List all Architecture Decision Records sorted by date (newest first).",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "list_linked_tasks",
+            "toolClass": "ListLinkedTasksTool",
+            "domain": "tasks",
+            "description": "List all tasks linked to a specific project.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "list_open_deferred",
+            "toolClass": "ListOpenDeferredTool",
+            "domain": "adr",
+            "description": "List all deferred backlog entries with OPEN or PARTIAL status.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "list_projects",
+            "toolClass": "ListProjectsTool",
+            "domain": "projects",
+            "description": "List all projects for the current user, with task counts.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "list_tasks",
+            "toolClass": "ListTasksTool",
+            "domain": "tasks",
+            "description": "List tasks, optionally filtered by project.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "pick_time",
+            "toolClass": "PickTimeTool",
+            "domain": "ai",
+            "description": "Suggest the best time slot for today or tomorrow for a task.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "project_review",
+            "toolClass": "ProjectReviewTool",
+            "domain": "ai",
+            "description": "Review a project, identify risks, and suggest the next action.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "read_adr",
+            "toolClass": "ReadAdrTool",
+            "domain": "adr",
+            "description": "Read a specific ADR by its slug (e.g. 2026-09-05-koin-suspend-bridge).",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "refine_task",
+            "toolClass": "RefineTaskTool",
+            "domain": "ai",
+            "description": "Rewrite the task title to be clearer and more actionable.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "rewrite_note",
+            "toolClass": "RewriteNoteTool",
+            "domain": "ai",
+            "description": "Rewrite a note in a different style (OneLiner, TLDR, or Structured).",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "search_decisions",
+            "toolClass": "SearchDecisionsTool",
+            "domain": "adr",
+            "description": "Search the decision records by title, tags or body text, newest first. Returns each match with its status, tags, date and a snippet, so an open or superseded decision is visible without reading the file. Use read_adr for the full text of a hit. An empty result means nothing matched; check the 'available' field — false means there was no corpus to search, not that nothing matched.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "search_docs",
+            "toolClass": "SearchDocsTool",
+            "domain": "docs",
+            "description": "Search the project's written knowledge — the architecture documents, the skills, the capability specifications and the decision records — and return matching files with a path and a snippet. Narrow the search with the scope argument: decisions, architecture, skills, specs or all. An empty result means nothing matched; check the 'available' field — false means the corpus was not searched at all.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "search_tasks",
+            "toolClass": "SearchTasksTool",
+            "domain": "tasks",
+            "description": "Search tasks by title (case-insensitive).",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "smart_rewrite",
+            "toolClass": "SmartRewriteTool",
+            "domain": "ai",
+            "description": "Craft a concise, actionable task title from a raw idea.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "suggest_tags",
+            "toolClass": "SuggestTagsTool",
+            "domain": "ai",
+            "description": "Suggest tags for a note.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "summarize_note",
+            "toolClass": "SummarizeNoteTool",
+            "domain": "ai",
+            "description": "Summarize a note in one sentence.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "update_adr",
+            "toolClass": "UpdateAdrTool",
+            "domain": "adr",
+            "description": "Change an existing ADR's status frontmatter; the body is never modified. status must be one of: accepted, deferred, superseded, open. status=superseded additionally requires supersededBy, naming an existing slug (a markdown link is accepted). Use this to close a decision once it is settled, and to mark one as replaced after writing its successor — the replacement is a separate write_adr call, not a new '-v2' slug of this one.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "update_note",
+            "toolClass": "UpdateNoteTool",
+            "domain": "notes",
+            "description": "Updates an existing note's title and/or body.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "update_project",
+            "toolClass": "UpdateProjectTool",
+            "domain": "projects",
+            "description": "Updates an existing project.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "update_task",
+            "toolClass": "UpdateTaskTool",
+            "domain": "tasks",
+            "description": "Updates an existing task. Pass only fields to change.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": true
+        },
+        {
+            "name": "weekly_plan",
+            "toolClass": "WeeklyPlanTool",
+            "domain": "ai",
+            "description": "Suggest 3-5 tasks to focus on this week.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        },
+        {
+            "name": "write_adr",
+            "toolClass": "WriteAdrTool",
+            "domain": "adr",
+            "description": "Create a NEW Architecture Decision Record (ADR) as a Markdown file. Fails if the slug already exists — a decision is never overwritten. To close or revise an existing decision use update_adr, which changes its status and records the supersedes/superseded-by link. To say something new that replaces an old decision, write a new ADR naming the old one in its `supersedes:` frontmatter field, then call update_adr on the old one with status=superseded — do NOT invent a '-v2' slug, it leaves the predecessor unlinked.",
+            "readOnly": false,
+            "destructive": false,
+            "idempotent": false
+        }
+    ]
+}
