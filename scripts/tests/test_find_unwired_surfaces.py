@@ -409,6 +409,84 @@ class TestDetectorTable(unittest.TestCase):
         findings = fus._check_orphan_binding(code, self._corpus(code), pre)
         self.assertFalse(any("Analytics" in f for _, f in findings), findings)
 
+    # ── Detector 6: the type behind a bare `get()` ──────────────────────────
+    #
+    # `gateway = get()` names no type: Koin takes it from the parameter it
+    # fills. A scan that only knew `get<Name>()` called every such binding an
+    # orphan, and the only available fix was an allowlist of claims. These
+    # three tests pin the resolution in both directions, so the allowlist can
+    # shrink instead of grow.
+
+    def test_constructor_injection_counts_as_consumption(self):
+        code = self._fake_code(
+            {
+                "CoreDiModule.kt": (
+                    "single<AuthRepository> {\n"
+                    "    SupabaseAuthRepository(\n"
+                    "        log = Logger.withTag(\"AuthRepository\"),\n"
+                    "        gateway = get(),\n"
+                    "    )\n"
+                    "}\n"
+                ),
+                "AuthRepository.kt": (
+                    "class SupabaseAuthRepository(\n"
+                    "    private val log: Logger,\n"
+                    "    private val gateway: AuthGateway,\n"
+                    ")\n"
+                ),
+            }
+        )
+        pre = fus._precompute_orphan_binding(code)
+        findings = fus._check_orphan_binding(code, self._corpus(code), pre)
+        self.assertFalse(any("AuthGateway" in f for _, f in findings), findings)
+
+    def test_positional_constructor_injection_counts_as_consumption(self):
+        # The argument is positional, so the type comes from the parameter's
+        # position rather than its name.
+        code = self._fake_code(
+            {
+                "CoreDiModule.kt": "single<Session> { GenuiSession(get(), get()) }",
+                "Session.kt": (
+                    "class GenuiSession(\n"
+                    "    private val transport: GenuiTransport,\n"
+                    "    private val parser: A2uiParser,\n"
+                    ")\n"
+                ),
+            }
+        )
+        pre = fus._precompute_orphan_binding(code)
+        findings = fus._check_orphan_binding(code, self._corpus(code), pre)
+        self.assertFalse(any("GenuiTransport" in f for _, f in findings), findings)
+
+    def test_a_binding_nothing_injects_is_still_reported(self):
+        # The resolution must not become a blanket excuse: a binding that no
+        # `get()` fills is still an orphan.
+        code = self._fake_code(
+            {
+                "CoreDiModule.kt": (
+                    "single<NeverInjected> { NeverInjected(get()) }\n"
+                ),
+                "NeverInjected.kt": "class NeverInjected(private val log: Logger)\n",
+            }
+        )
+        pre = fus._precompute_orphan_binding(code)
+        findings = fus._check_orphan_binding(code, self._corpus(code), pre)
+        self.assertTrue(any("NeverInjected" in f for _, f in findings), findings)
+
+    def test_a_test_only_injection_does_not_count_as_consumption(self):
+        # A binding injected only by a test is unwired in production, which is
+        # the whole point of the shape.
+        code = self._fake_code(
+            {
+                "CoreDiModule.kt": "single<TestOnlyPort> { TestOnlyPort(get()) }",
+                "TestOnlyPort.kt": "class TestOnlyPort(private val log: Logger)\n",
+                "src/jvmTest/Test.kt": "val port: TestOnlyPort = get()",
+            }
+        )
+        pre = fus._precompute_orphan_binding(code)
+        findings = fus._check_orphan_binding(code, self._corpus(code), pre)
+        self.assertTrue(any("TestOnlyPort" in f for _, f in findings), findings)
+
     # ── Full run ──────────────────────────────────────────────────────────
 
     def test_full_run_exit_0_clean(self):
