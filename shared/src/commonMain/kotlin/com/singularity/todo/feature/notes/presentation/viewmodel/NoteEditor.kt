@@ -144,6 +144,9 @@ internal class NoteEditor(
     /** Caches the existing note when opening to preserve every field across saves. */
     private var cachedNote: Note? = null
 
+    /** Watches the open note for rewrites that come from outside this editor. */
+    private val rewriteWatcher = NoteRewriteWatcher(repo, vmScope)
+
     /** Opens an existing note for editing. */
     fun openEditor(noteId: String) {
         vmScope.launch {
@@ -153,7 +156,12 @@ internal class NoteEditor(
             val html = note.bodyHtml
                 ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
                 ?: ""
-            val draft = Editing(
+            // Named `opened`, not `draft`: a local named `draft` would shadow the
+            // ViewModel's live draft inside the watcher's lambdas, and the
+            // watcher must see the *live* draft — otherwise it compares the note
+            // against the snapshot it was opened with and reports rewrites for
+            // content the user has since changed.
+            val opened = Editing(
                 id = note.id.value,
                 title = note.title,
                 html = html,
@@ -164,8 +172,20 @@ internal class NoteEditor(
             // updateDraft first would make open() a no-op (sameEntity early-return),
             // leaving baseline at the empty initial draft — closeEditor (discard)
             // would then revert to an empty editor instead of the opened note.
-            open(draft)
-            updateDraft { draft }
+            open(opened)
+            updateDraft { opened }
+            rewriteWatcher.start(NoteId.fromString(noteId), { draft }) { note, html ->
+                cachedNote = note
+                val reseeded = draft.copy(
+                    title = note.title,
+                    html = html,
+                    isDirty = false,
+                    isNew = false,
+                    revision = draft.revision + 1,
+                )
+                open(reseeded)
+                updateDraft { reseeded }
+            }
         }
     }
 
@@ -427,6 +447,8 @@ internal class NoteEditor(
     // ─── Cleanup ─────────────────────────────────────────────────────────
 
     fun closeEditor() {
+        // The watcher must not re-seed an editor that is on its way out.
+        rewriteWatcher.stop()
         discard()
     }
 }

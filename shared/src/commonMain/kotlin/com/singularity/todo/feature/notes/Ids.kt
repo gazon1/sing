@@ -152,6 +152,20 @@ sealed interface EditorState {
         val isDirty: Boolean = false,
         /** True until the note is persisted for the first time (create-on-first-save). */
         val isNew: Boolean = false,
+        /**
+         * Counts how many times the note was rewritten from *outside* this editor.
+         *
+         * The editor owns the content it shows, so a rewrite it did not make — a
+         * proposal applied to the note, a sync from another device — reaches the
+         * screen only through this counter. A field that sees it change knows the
+         * content it holds was replaced rather than typed, and takes the new
+         * content instead of treating it as an echo of its own last push.
+         *
+         * It advances only when the editor re-seeds itself from the note, never
+         * when the user types: a keystroke is the editor's own change and needs
+         * no announcement.
+         */
+        val revision: Long = 0,
     ) : EditorState
 }
 

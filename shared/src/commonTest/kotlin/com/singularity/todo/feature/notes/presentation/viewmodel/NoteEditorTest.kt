@@ -319,4 +319,83 @@ class NoteEditorTest {
 
         assertEquals(listOf(Unit), received)
     }
+
+    // ─── The note rewritten from outside the editor ──────────────────────────
+    //
+    // The editor owns the content it shows, but the note is not only written by
+    // the editor: a proposal applied to it (an AI rewrite the user accepted), a
+    // sync from another device. Without the editor noticing, the next keystroke
+    // dispatches the *old* body over the new one — the rewrite is undone by the
+    // user's next word, silently.
+
+    @Test
+    fun `a note rewritten from outside replaces the editor's content`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+        vm.openEditor(testNote.id.value)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        // The note is rewritten from outside the editor.
+        notesRepo.seed(testNote.copy(title = "Rewritten", bodyHtml = "<p>Rewritten body</p>"))
+        runCurrent()
+
+        val state = vm.stateFlow.value.draft
+        assertIs<EditorState.Editing>(state)
+        assertEquals("Rewritten", state.title)
+        assertEquals("<p>Rewritten body</p>", state.html)
+        // The revision is how the fields learn the content was replaced, not typed.
+        assertEquals(1L, state.revision)
+        assertFalse(state.isDirty)
+    }
+
+    @Test
+    fun `the user's unsaved edits are not replaced by a rewrite from outside`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+        vm.openEditor(testNote.id.value)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        // The user is typing: their text is not saved yet.
+        vm.onIntent(NotesEditorIntent.EditBody("<p>Mine</p>"))
+        runCurrent()
+
+        notesRepo.seed(testNote.copy(bodyHtml = "<p>Theirs</p>"))
+        runCurrent()
+
+        val state = vm.stateFlow.value.draft
+        assertIs<EditorState.Editing>(state)
+        assertEquals("<p>Mine</p>", state.html)
+        // No revision: nothing was replaced, so no field is told otherwise.
+        assertEquals(0L, state.revision)
+        assertTrue(state.isDirty)
+    }
+
+    @Test
+    fun `the editor's own save is not counted as a rewrite from outside`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+        vm.openEditor(testNote.id.value)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        vm.onIntent(NotesEditorIntent.EditBody("<p>Updated content</p>"))
+        runCurrent()
+        advanceTimeBy(600L) // the debounce elapses and the autosave writes
+        runCurrent()
+
+        val state = vm.stateFlow.value.draft
+        assertIs<EditorState.Editing>(state)
+        assertFalse(state.isDirty)
+        // The autosave's echo of our own content is not a rewrite: the editor did
+        // not learn anything it did not already know.
+        assertEquals(0L, state.revision)
+    }
 }

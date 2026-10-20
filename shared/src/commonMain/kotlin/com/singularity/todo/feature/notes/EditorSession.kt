@@ -34,33 +34,19 @@ class EditorSession(
     private val id: String,
 ) {
     /**
-     * All links inserted in this session, mapped to their character ranges.
-     * Used by [findLinkAt] to resolve link taps to URLs.
+     * Replaces the content the editor holds with content that came from outside.
      *
-     * Populated by [recordLink] and consumed by [findLinkAt].
-     * Note: for link resolution after PR #2, prefer walking
-     * [RichTextState.children] ordered spans instead of this in-memory map.
+     * The editor owns its content, so a note rewritten elsewhere — a proposal
+     * applied to it, a sync from another device — reaches the editor only as a
+     * request to take the new content. The baseline moves with it: the new
+     * content is what the upstream already holds, so dispatching it back would be
+     * an echo of the upstream's own value, and would mark the draft dirty for
+     * nothing.
      */
-    private val insertedLinks = mutableListOf<Pair<IntRange, String>>()
-
-    /**
-     * Records a link insertion for later tap-resolution.
-     * When a selection is collapsed (cursor only), no meaningful range can be
-     * stored — the link will not be resolvable by tap alone. The caller
-     * should position the cursor inside the link text before tapping.
-     */
-    fun recordLink(url: String) {
-        val sel = richTextState.selection
-        insertedLinks.add(sel.min..<sel.max to url)
+    fun replaceContent(html: String) {
+        richTextState.setHtml(html)
+        lastDispatchedHtml = richTextState.toHtml()
     }
-
-    /**
-     * Finds the URL of a link at the given character offset.
-     * Returns null when the offset falls outside any recorded link range.
-     */
-    fun findLinkAt(charOffset: Int): String? = insertedLinks.find { (range, _) ->
-        charOffset in range
-    }?.second
 
     /**
      * Dispatches the current HTML to the ViewModel if it differs from what
@@ -99,6 +85,20 @@ fun rememberEditorSession(
             onBodyChange = { id, html -> onBodyChangeState.value(id, html) },
             id = state.id,
         )
+    }
+
+    // The note was rewritten from outside: take the content it now holds.
+    //
+    // The revision is the editor's signal that the content it shows was replaced
+    // rather than typed — a proposal applied to the note, a sync from another
+    // device. Without it the editor would keep the old text, and the next
+    // keystroke would dispatch that old text over the new one.
+    //
+    // The first revision is the load itself, which the session already has: the
+    // guard is there so the content is not set twice on the first composition.
+    LaunchedEffect(state.id, state.revision) {
+        if (state.revision == 0L) return@LaunchedEffect
+        session.replaceContent(state.html)
     }
 
     // Dispatch the HTML to the ViewModel on every edit.

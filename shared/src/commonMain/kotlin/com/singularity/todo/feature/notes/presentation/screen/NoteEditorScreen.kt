@@ -134,10 +134,15 @@ fun NoteEditorScreenContent(
     val session = rememberEditorSession(draft) { _, html -> onBodyChange(html) }
 
     // The field owns the title's text; the draft keeps the domain value. An external
-    // title (the AI rewriting it) comes back through the bridge.
+    // title (the AI rewriting it, a sync) comes back through the bridge.
+    //
+    // The revision is what says the new title is a *rewrite* and not an echo of
+    // something the field pushed earlier. Without it the bridge's guard treats the
+    // rewrite as a lagging upstream and drops it.
     val titleState = rememberBridgedTextFieldState(
         externalText = draft.title,
         onTextChanged = onTitleChange,
+        revision = draft.revision,
     )
 
     Scaffold(
@@ -172,36 +177,31 @@ fun NoteEditorScreenContent(
             )
         },
         bottomBar = {
-            session.let { editorSession ->
-                Column {
-                    EditorToolbar(
-                        richTextState = editorSession.richTextState,
-                        onHtmlChange = { editorSession.dispatchHtml() },
-                        onAiClick = onShowAiSheet,
-                        onLinkClick = { linkOverlay.show(NoteLinkSheet.External) },
-                        onInternalLinkClick = { linkOverlay.show(NoteLinkSheet.InternalPicker()) },
-                    )
-                }
+            Column {
+                EditorToolbar(
+                    richTextState = session.richTextState,
+                    onHtmlChange = { session.dispatchHtml() },
+                    onAiClick = onShowAiSheet,
+                    onLinkClick = { linkOverlay.show(NoteLinkSheet.External) },
+                    onInternalLinkClick = { linkOverlay.show(NoteLinkSheet.InternalPicker()) },
+                )
             }
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            session?.let { editorSession ->
-                EditorTitleAndBody(
-                    session = editorSession,
-                    titleState = titleState,
-                )
-            }
+            EditorTitleAndBody(
+                session = session,
+                titleState = titleState,
+            )
         }
     }
 
     if (linkOverlay.sheet == NoteLinkSheet.External) {
         LinkUrlDialog(
             onConfirm = { url ->
-                session?.richTextState?.addLinkToSelection(url = url)
-                session?.recordLink(url)
+                session.richTextState.addLinkToSelection(url = url)
+                session.dispatchHtml()
                 linkOverlay.dismissAll()
-                session?.dispatchHtml()
             },
             onDismiss = {
                 linkOverlay.dismissAll()
@@ -219,9 +219,8 @@ fun NoteEditorScreenContent(
             },
             onSelected = { result ->
                 val url = result.kind.urlFor(result.id)
-                session?.richTextState?.addLinkToSelection(url = url)
-                session?.recordLink(url)
-                session?.dispatchHtml()
+                session.richTextState.addLinkToSelection(url = url)
+                session.dispatchHtml()
             },
             onDismiss = {
                 linkOverlay.dismissAll()
