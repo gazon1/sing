@@ -70,6 +70,10 @@ be reported as "found no problems".
 Usage:
     python3 scripts/check-room-schema-integrity.py
     python3 scripts/check-room-schema-integrity.py --self-test
+    python3 scripts/check-room-schema-integrity.py --json
+
+`--json` is the output contract the `sgate` adapter reads: one object with
+`passed`, `blocking_errors`, and the per-rule `violations`.
 
 Exit codes:
     0 — the declared schema, the exports, and the migration chain agree
@@ -703,14 +707,27 @@ def self_test() -> int:
 
 @click.command()
 @click.option("--self-test", is_flag=True, help="plant each defect and assert it is caught")
+@click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
 @click.pass_context
-def cli(ctx: click.Context, self_test: bool) -> None:
+def cli(ctx: click.Context, self_test: bool, emit_json: bool) -> None:
     """Prove the declared schema, the exported schema, and the migration chain are the same schema."""
     if self_test:
         raise ctx.exit(self_test())
 
     violations = run_all(ROOT)
     if violations:
+        if emit_json:
+            click.echo(json.dumps(
+                {
+                    "passed": False,
+                    "blocking_errors": [str(v) for v in violations],
+                    "violations": [
+                        {"rule": v.rule, "message": v.message} for v in violations
+                    ],
+                },
+                ensure_ascii=False,
+            ))
+            raise ctx.exit(VALIDATION_FAILURE)
         click.echo(f"Room schema integrity: {len(violations)} violation(s)", err=True)
         for v in violations:
             click.echo(f"  {v}", err=True)
@@ -720,6 +737,18 @@ def cli(ctx: click.Context, self_test: bool) -> None:
         "shared/src/commonMain/kotlin/com/singularity/todo/core/database/AppDatabase.kt"
     )).read_text())
     count = len(exported_versions(SCHEMA_DIR))
+    if emit_json:
+        click.echo(json.dumps(
+            {
+                "passed": True,
+                "blocking_errors": [],
+                "violations": [],
+                "schema_version": version,
+                "exported_schemas": count,
+            },
+            ensure_ascii=False,
+        ))
+        raise ctx.exit(CLEAN)
     click.echo(f"Room schema integrity: SCHEMA_VERSION {version}, {count} exported schemas, chain continuous")
     raise ctx.exit(CLEAN)
 

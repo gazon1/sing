@@ -48,10 +48,16 @@ is somebody's deliberate fix, left alone.
 Usage:
   python3 scripts/check-test-task-inputs.py
   python3 scripts/check-test-task-inputs.py --verbose
+  python3 scripts/check-test-task-inputs.py --json
+
+`--json` is the output contract the `sgate` adapter reads: one object with
+`passed`, `blocking_errors`, and the counters. The adapter used to rebuild
+that verdict from the word "ERROR" in this script's prose.
 """
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import sys
@@ -194,14 +200,22 @@ def _is_ancestor(candidate: pathlib.Path, target: pathlib.Path) -> bool:
 
 @click.command()
 @click.option("--verbose", is_flag=True, help="print the roots that are correctly declared too")
+@click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool) -> None:
+def cli(ctx: click.Context, verbose: bool, emit_json: bool) -> None:
     if not module_build_files(ROOT):
-        click.echo(
-            'check_test_task_inputs.py: no module build files found — '
-            'refusing to pass on an empty scan',
-            err=True,
+        message = (
+            'no module build files found — refusing to pass on an empty scan'
         )
+        if emit_json:
+            click.echo(json.dumps(
+                {"passed": False, "blocking_errors": [message]}, ensure_ascii=False
+            ))
+        else:
+            click.echo(
+                f'check_test_task_inputs.py: {message}',
+                err=True,
+            )
         raise ctx.exit(IO_ERROR)
 
     findings, notes, checked, path_properties = analyse(ROOT)
@@ -210,6 +224,17 @@ def cli(ctx: click.Context, verbose: bool) -> None:
             click.echo(f'  {note}')
 
     if findings:
+        if emit_json:
+            click.echo(json.dumps(
+                {
+                    "passed": False,
+                    "blocking_errors": list(findings),
+                    "findings": list(findings),
+                    "checked_roots": checked,
+                },
+                ensure_ascii=False,
+            ))
+            raise ctx.exit(VALIDATION_FAILURE)
         click.echo(f'check_test_task_inputs.py: {len(findings)} finding(s)')
         for finding in findings:
             click.echo(f'ERROR: {finding}')
@@ -231,18 +256,40 @@ def cli(ctx: click.Context, verbose: bool) -> None:
         # must pass, while a parser that matches nothing is indistinguishable from a clean
         # tree unless it is called out. This is the same distinction as
         # `check-test-runs.py`'s "ran 0 tests" floor.
-        click.echo(
-            'check_test_task_inputs.py: ERROR — found 0 path-valued system properties, so '
-            'this run proves nothing.',
-            err=True,
+        message = (
+            'found 0 path-valued system properties, so this run proves nothing. '
+            'Either the parser stopped matching the declarations, or the repository '
+            'has no test task passing a path to its JVM. Both must be resolved by '
+            'hand before this gate is trusted; do not read the empty result as a pass.'
         )
+        if emit_json:
+            click.echo(json.dumps(
+                {
+                    "passed": False,
+                    "blocking_errors": [message],
+                    "checked_roots": checked,
+                    "path_properties": path_properties,
+                },
+                ensure_ascii=False,
+            ))
+            raise ctx.exit(VALIDATION_FAILURE)
         click.echo(
-            'Either the parser stopped matching the declarations, or the repository has '
-            'no test task passing a path to its JVM. Both must be resolved by hand before '
-            'this gate is trusted; do not read the empty result as a pass.',
+            f'check_test_task_inputs.py: ERROR — {message}',
             err=True,
         )
         raise ctx.exit(VALIDATION_FAILURE)
+
+    if emit_json:
+        click.echo(json.dumps(
+            {
+                "passed": True,
+                "blocking_errors": [],
+                "checked_roots": checked,
+                "path_properties": path_properties,
+            },
+            ensure_ascii=False,
+        ))
+        raise ctx.exit(CLEAN)
 
     click.echo(
         f'check_test_task_inputs.py: OK — {checked} external root(s) checked, '

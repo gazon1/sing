@@ -156,6 +156,13 @@ NOT_RUN_IN_STATIC: dict[str, Placement] = {
 #: disk in both directions: a module nobody classified is a decision nobody
 #: made, and a classified module that is gone is a claim about a file that no
 #: longer exists.
+#:
+#: Two commands here were shims for a gate that no longer existed, and could
+#: only fail. ``unwired_backlog_refs`` was a shim for a script that went with
+#: its gate in 2026-10-19; ``light_adr_modules_stay_light`` was a shim for
+#: ``scripts/check-adr-module-boundary.py``, deleted on 2026-10-15 when the
+#: owner retired that gate. Both are gone — a command that cannot pass is not
+#: a gate, it is a way to run a stack trace.
 COMMAND_MODULES: dict[str, str] = {
     "adr_references_are_valid": "gate",
     "adr_status_policy": "gate",
@@ -163,7 +170,6 @@ COMMAND_MODULES: dict[str, str] = {
     "conventions": "gate",
     "decisions_digest_within_budget": "gate",
     "gradle_test_population": "gate",
-    "light_adr_modules_stay_light": "gate",
     "room_schema_integrity": "gate",
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",

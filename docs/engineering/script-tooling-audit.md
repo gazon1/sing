@@ -327,7 +327,7 @@ consolidation.
 the duplicated primitives only where the semantics match; **DECIDE** the two semantic
 questions explicitly rather than by substitution.
 
-### F9 — Five `sgate` adapters scrape human-readable output, and one already has a JSON contract
+### F9 — Five `sgate` adapters scrape human-readable output, and two already have a JSON contract
 
 `scripts/src/sgate/models.py` defines `GatePayload`, whose `honest_pass` (`:41`) ANDs
 the parser's verdict with the underlying exit code — "a gate that reports green on a
@@ -342,7 +342,7 @@ Five adapters parse a child's stdout and never use it:
 | `gradle_test_population.py` | `check_gradle_test_population: OK` | **yes** (`check-gradle-test-population.py:183`) |
 | `room_schema_integrity.py` | `Room schema integrity: SCHEMA_VERSION …` | no |
 | `test_task_external_inputs_declared.py` | producer text | no |
-| `light_adr_modules_stay_light.py` | producer text | no |
+| `light_adr_modules_stay_light.py` | producer text | no — and the producer is gone (see below) |
 
 For the first two the producer already emits a stable JSON verdict, and the adapter
 re-derives the same verdict from a regex over prose. `check-gradle-test-population.py`
@@ -357,8 +357,10 @@ reconstructs the verdict from the prose. The producer's JSON branch
 its output. The adapter's `passed` is `bool(_OK_RE.search(stdout))`: a claim about
 the script's output text, not about the script's exit status.
 
-**Verdict: CONSOLIDATE** — migrate the two adapters with a JSON contract to consume it,
-and move the other three onto `GatePayload` so the honest-exit rule applies to them too.
+**Verdict: CONSOLIDATE → DONE (2026-10-20)** — the four live adapters now consume the
+contract; two producers gained the `--json` branch they needed to offer it; the fifth
+adapter was an orphan of a gate retired on 2026-10-15 and is gone. See
+`docs/decisions/2026-10-20-f9-adapters-read-the-contract.md`.
 
 ### F10 — The registry is duplicated, and the duplication is checked rather than removed
 
@@ -428,8 +430,8 @@ to fail.
 | Disposition | Count | Items | Status |
 |---|---|---|---|
 | **Keep** (repo-specific rule, correctly implemented) | 30 | The gate scripts with tests; `workflow_gradle.py`; `source_text.py`; `traceability/spec.py`; `traceability/junit_xml.py`; `check-test-runs.py`; `check-workflow-exit-status.py`; `adr_corpus.py`; `scanning.py` | — |
-| **Fix** (a defect, not a simplification) | 5 | F1, F2, F3, F4, F14 | **all fixed 2026-10-20** |
-| **Consolidate** (one authoritative implementation) | 6 | F5, F6, F7, F8 (partial), F9, F10+F11 | open |
+| **Fix** (a defect, not a simplification) | 6 | F1, F2, F3, F4, F9, F14 | **all fixed 2026-10-20** |
+| **Consolidate** (one authoritative implementation) | 5 | F5, F6, F7, F8 (partial), F10+F11 | open |
 | **Delete** | 1 | F1's dead gate (done); plus F8's dead aliases | partly done |
 | **Investigate** | 1 | F12 | open |
 | **Add tests** | 1 | F13 | open |
@@ -455,6 +457,34 @@ Five defects, each independently mergeable, landed on 2026-10-20:
   a YAML parse, and the text waits it cannot price are counted against a floor.
 
 
+### What the second round of fixes changed (F9)
+
+**F9 — four `sgate` adapters now read their producer's JSON contract.** Two
+(`build_output_readers`, `gradle_test_population`) had producers that already emitted
+`--json`; the adapters ran them in text mode and asked the output for the word `OK`.
+The other two live adapters (`room_schema_integrity`, `test_task_external_inputs_declared`)
+had producers with no JSON branch at all — so the producers gained one, and the
+adapters read it. All four now contain no verdict-shaped regular expression, and their
+exit code is the honest one: the payload's `passed` ANDed with the producer's exit code
+(`GatePayload.honest_pass`). The reading itself lives in one place,
+`run_json_contract` in `scripts/src/sgate/commands/_runner.py`.
+
+**One orphan removed, not guarded.** The fifth adapter, `light_adr_modules_stay_light`,
+pointed at `scripts/check-adr-module-boundary.py`, which was deleted on 2026-10-15
+(commit `a2d6cba8`) when the owner retired that gate along with 25 others. The adapter
+was classified as a `gate` in `COMMAND_MODULES` but was in neither `_registry.GATES` nor
+`static-gates.sh`: it was in no suite and could only fail. Invoking it raised
+`NameError: name 'logger' is not defined`, so even its "script not found" path was
+broken. Guarding it would have made a retired gate callable again, so the module and
+its registry entry are gone — the second case of the `unwired_backlog_refs` shape.
+
+**`--check` became true.** In all four adapters the flag was accepted and ignored,
+while its help text promised "Dry-run: print result without exiting non-zero". It now
+reports the verdict and exits 0, in both the human and the JSON path.
+
+ADR: `docs/decisions/2026-10-20-f9-adapters-read-the-contract.md`.
+
+
 ## What was measured and rejected
 
 The plan this audit answers proposed replacing custom scanners with a Kotlin parser.
@@ -477,11 +507,14 @@ it consolidates code.
 2. ~~**Fix F2**~~ — **done 2026-10-20**, PR #764. The measured count is 26 waits of
    435, not 38 of 533: the first count included waits the gate was never asked about.
 3. **Delete the dead aliases** (F8) and `measure-baseline-composition.py`'s status
-   (F12) — no behaviour change, verified by the existing 1194 tests.
+   (F12) — no behaviour change, verified by the existing 1202 tests.
 4. **Add the two meta-gate tests** (F13).
 5. **Consolidate the scanners and the Gradle parser** (F5, F7) — each needs a
    before/after corpus measurement.
-6. **Consolidate the adapters** (F9) — JSON contract first, `GatePayload` second.
+6. ~~**Consolidate the adapters** (F9)~~ — **done 2026-10-20**. Four adapters read
+   their producer's JSON contract instead of scraping its prose; two producers gained
+   the `--json` branch they needed to offer it; the fifth adapter was an orphan of a
+   gate retired on 2026-10-15 and is gone.
 7. **One registry, one placement table** (F10, F11) — the largest change; needs its
    own change record.
 
@@ -490,24 +523,18 @@ measure, so each needs its own before/after measurement.
 
 ### The next round, concretely
 
-Three changes, in this order, each with its own measurement:
+Two changes, in this order, each with its own measurement:
 
-1. **F9 — the adapters read the contract instead of the prose.** Two of the five
-   producers already emit `{"passed", "blocking_errors"}`; the adapters rebuild those
-   two fields from a regex over the output text. Switching them to `--json` is
-   mechanical and removes a class of "the script's wording changed" failure. The
-   other three move onto `GatePayload`, so the honest-pass rule (parser verdict AND
-   exit code) applies to them too.
-2. **F5 + F6 + F7 — one implementation of each question.** Point the two Kotlin
+1. **F5 + F6 + F7 — one implementation of each question.** Point the two Kotlin
    strippers at `scanners/source_text.py`; give the two Maestro header readers one
    implementation; use `workflow_gradle.iter_invocations` in the third caller. Each
    needs a before/after corpus measurement, because all three change what a gate
    *sees* — and one of them (`check-dependency-usage.py`) currently under-reports,
    so the count of findings may go up before it goes down.
-3. **F8 + F12 — delete what nothing calls.** Seven dead `emulator` exports, the
+2. **F8 + F12 — delete what nothing calls.** Seven dead `emulator` exports, the
    `maestro/_device.py` aliases, `AdbCall` (~90 lines), and either a `just` recipe
    for `measure-baseline-composition.py` or the file itself. No behaviour change;
-   the 1194 tests are the check.
+   the 1202 tests are the check.
 
 F10 and F11 stay out of that round. They are the ones that remove duplication
 rather than relocate it, and every gate name and mode moves when they land — that
@@ -524,14 +551,16 @@ first impression:
 | F5 | 3 Kotlin comment-strippers; the canonical one is `scanners/source_text.py` (404 lines) | 2 scripts × ~15 lines each | low — a corpus measurement before/after decides it |
 | F6 | 2 Maestro `tags:` header parsers that disagree | ~30 lines | low — one reader, one test that asserts the other agrees |
 | F7 | the shared Gradle parser used by 2 of 3 callers | ~10 lines | low — the third caller uses a different question |
-| F8 | 7 dead `emulator` exports, `maestro/_device.py` aliases, `AdbCall` (~90 lines) | ~120 lines | low — no behaviour change; 1194 tests cover the rest |
-| F9 | 5 `sgate` adapters that scrape output; 2 of them have a JSON contract their producer already emits | ~100 lines | low — the contract is already there |
+| F8 | 7 dead `emulator` exports, `maestro/_device.py` aliases, `AdbCall` (~90 lines) | ~120 lines | low — no behaviour change; 1202 tests cover the rest |
 | F10, F11 | 2 registries → 1 manifest; 3 placement tables → 1 | large | **high** — every gate name and mode moves |
 | F12 | 1 script with no caller | 1 file | low — delete or wire into a `just` recipe |
 | F13 | 12 gate scripts with no unit test | 12 test files | low — additive |
 
-The cheapest meaningful next round is F6 + F7 + F9 (about 140 lines, no behaviour
-change) followed by F8 + F12 (deletions). F10 and F11 are the ones that actually
+F9 is done (2026-10-20): the four live adapters read the contract, two producers
+gained the `--json` branch, and the orphan adapter is gone.
+
+The cheapest meaningful next round is F6 + F7 (about 40 lines, no behaviour change)
+followed by F8 + F12 (deletions). F10 and F11 are the ones that actually
 remove duplication rather than relocate it, and they are the ones that want their
 own change record.
 
