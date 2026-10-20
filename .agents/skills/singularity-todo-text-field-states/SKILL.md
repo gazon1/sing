@@ -220,11 +220,12 @@ that types and then asserts on the app's state has to let the composition settle
 Who owns the text is the decision; this is where each field's answer lives. A field that
 is not in this table has not been classified yet — classify it before you touch it.
 
-**The table is checked.** `TextFieldShapeConventionTest`
-(`shared/src/jvmTest/.../arch/TextFieldShapeConventionTest.kt`) compares it with the
-code: a file that owns a field and is missing from this table fails the build, a row
-whose shape does not match the helper the file uses fails the build, and a row whose
-file no longer exists fails the build. Adding a field means adding a row here.
+**This table is the registry.** `TextFieldShapeConventionTest`
+(`shared/src/jvmTest/.../arch/TextFieldShapeConventionTest.kt`) reads *this* table — there is
+no second copy of it in the test — and compares it with the code: a file that owns a field
+and is missing from this table fails the build, a row whose shape does not match the helper
+the file uses fails the build, and a row whose file no longer exists fails the build.
+Adding a field means adding a row here.
 
 **The shape is derived from the code, not from its text.** The test reads the *imports*
 of every file: a file that uses the bridged helper imports
@@ -309,8 +310,9 @@ field forgot the question altogether because the argument had a default. All thr
 silent. A count that lives in the source cannot be frozen at the call site, and the
 question cannot be left out — the source is required, and its type says what it means.
 
-**The table is checked.** `TextFieldRewriteContractTest`
-(`shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`) compares it with the
+**This table is the registry.** `TextFieldRewriteContractTest`
+(`shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`) reads *this* table —
+there is no second copy of it in the test — and compares it with the
 code: a file that owns a bridged field and is missing from this table fails the build, a
 row whose owner does not declare a source of the claimed kind fails the build, an owned row
 whose counter is never declared or never advanced fails the build, a file that builds its
@@ -326,23 +328,28 @@ comment outside a declaration cannot make a counter move.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
-| File | Field | Upstream | Source | Counter | Advances |
-|---|---|---|---|---|---|
-| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | - | - |
-| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | - | - |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | - | - |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
-| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | - | - |
-| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | - | - |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | - | - |
-| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | - | - |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | - | - |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (create) | the create draft, which seeds it once | `StaticText` | - | - |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (create) | the create draft, which seeds it once | `StaticText` | - | - |
+| File | Field | Upstream | Source | Owner | Counter | Advances |
+|---|---|---|---|---|---|---|
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | `feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt` | - | - |
+| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | `feature/ai/chat/ChatViewModel.kt` | - | - |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/material3/input/TextFieldRenderer.kt` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | `feature/notes/Ids.kt` | - | - |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | `feature/projects/presentation/state/ProjectEditorUiState.kt` | - | - |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | `feature/projects/presentation/state/ProjectsUiState.kt` | - | - |
+| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | `feature/search/SearchViewModel.kt` | - | - |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | `feature/settings/SettingsUiState.kt` | - | - |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (create) | the create draft, which seeds it once | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (create) | the create draft, which seeds it once | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
+
+The **Owner** column names the file that builds the source — the component that holds the
+value and knows who else writes it. It is the owner the field's answer comes from, and it
+is the file the source is read out of. The one row where the owner *is* the field site is
+the GenUI renderer, whose owner is a server the renderer does not own.
 
 The **Counter** column names the file that declares the count; the **Advances** column
 names the file that moves it. They are often the same file, and they are not always: the
