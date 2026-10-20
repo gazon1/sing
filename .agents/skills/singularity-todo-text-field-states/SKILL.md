@@ -278,36 +278,47 @@ Three answers, and a field that is *bridged* must have one:
 **The table is checked.** `TextFieldRewriteContractTest`
 (`shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`) compares it with the
 code: a file that owns a bridged field and is missing from this table fails the build,
-and a row that claims a revision but finds none in the file fails the build. Adding a
-bridged field means adding a row here.
+a row that claims a revision but finds none in the file fails the build, a row whose
+revision is a frozen constant fails the build, and a row whose counter names a file
+that does not declare the revision fails the build. Adding a bridged field means
+adding a row here.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
-| File | Field | Upstream | Answer |
-|---|---|---|---|
-| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | none |
-| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | the value itself |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | none |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | the value and a revision token |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title, the note's body | the note itself (a proposal applied to it, a sync) | the value and a revision token |
-| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | the value itself |
-| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | the value itself |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | none |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | the value itself |
-| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | the value itself |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | none |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description | the task coordinator, which observes the task | the value itself |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title | the task coordinator, which observes the task | the value itself |
+| File | Field | Upstream | Answer | Counter |
+|---|---|---|---|---|
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | none | - |
+| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | the value itself | - |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | none | - |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | the value and a revision token | `feature/genui/render/material3/input/TextFieldRenderer.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title, the note's body | the note itself (a proposal applied to it, a sync) | the value and a revision token | `feature/notes/Ids.kt` |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | the value itself | - |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | the value and a revision token | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | none | - |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | the value itself | - |
+| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | the value itself | - |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | none | - |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description | the task coordinator, which observes the task | the value and a revision token | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title | the task coordinator, which observes the task | the value and a revision token | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
 
 The note's body is not a bridged field — it is a rich-text editor that holds its own
 content — and it takes the rewrite a different way: the editor's session is re-seeded
 from the draft when the draft's revision changes. The revision is the same idea as the
 token: the party that rewrote the content says so.
 
+**The counter column names the file that owns the number.** A revision that is passed
+as a literal can never move, so the field would never learn that it is a rewrite —
+and a frozen token is worse than no token, because it looks like the contract is
+honoured. The counter is the draft's own revision: it moves when the entity was
+*replaced* from outside, and it never moves for a keystroke or for the echo of the
+field's own save.
+
 **The rows that say "the value itself" carry the rarer half of the gap.** A rewrite
 that lands on a value the field produced is dropped there: the field keeps showing what
 it last held while the entity says something else, and the next keystroke overwrites
-the rewrite. Closing that is the revision token, one site at a time.
+the rewrite. Closing that is the revision token, one site at a time — the task detail
+and the project detail now carry it, because both observe an entity that a sync can
+rewrite.
 
 ## 10. Traps
 
