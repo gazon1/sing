@@ -16,6 +16,7 @@
 appId: com.singularity.todo
 name: notes-edit-body
 tags:
+  - smoke
   - regression
   - notes
 ---

@@ -9,6 +9,7 @@
 appId: com.singularity.todo
 name: notes-filter-chips
 tags:
+  - smoke
   - regression
   - notes
 ---
