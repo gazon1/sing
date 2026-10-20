@@ -457,12 +457,11 @@ in the five places F2, F6 and F7 name. The finding is not "use a YAML library" �
 Ordered so that each step is independently mergeable and each fixes a defect before
 it consolidates code.
 
-1. **Fix the four defects** (F1, F3, F4, F14) — small, low-risk, and each is a gate
-   that currently certifies less than it claims.
-2. **Fix F2** — the largest silent-pass (38 waits), with a corpus-wide re-measurement
-   before and after.
+1. ~~**Fix the four defects** (F1, F3, F4, F14)~~ — **done 2026-10-20**, PR #764.
+2. ~~**Fix F2**~~ — **done 2026-10-20**, PR #764. The measured count is 26 waits of
+   435, not 38 of 533: the first count included waits the gate was never asked about.
 3. **Delete the dead aliases** (F8) and `measure-baseline-composition.py`'s status
-   (F12) — no behaviour change, verified by the existing 1190 tests.
+   (F12) — no behaviour change, verified by the existing 1194 tests.
 4. **Add the two meta-gate tests** (F13).
 5. **Consolidate the scanners and the Gradle parser** (F5, F7) — each needs a
    before/after corpus measurement.
@@ -470,21 +469,48 @@ it consolidates code.
 7. **One registry, one placement table** (F10, F11) — the largest change; needs its
    own change record.
 
-Steps 1–4 are independent and can ship separately. Steps 5–7 change what the gates
+Steps 3–4 are independent and can ship separately. Steps 5–7 change what the gates
 measure, so each needs its own before/after measurement.
+
+### Sizing the remaining work
+
+Measured on 2026-10-20, so the next round starts from numbers rather than from a
+first impression:
+
+| Finding | What is left | Size | Risk if done |
+|---|---|---|---|
+| F5 | 3 Kotlin comment-strippers; the canonical one is `scanners/source_text.py` (404 lines) | 2 scripts × ~15 lines each | low — a corpus measurement before/after decides it |
+| F6 | 2 Maestro `tags:` header parsers that disagree | ~30 lines | low — one reader, one test that asserts the other agrees |
+| F7 | the shared Gradle parser used by 2 of 3 callers | ~10 lines | low — the third caller uses a different question |
+| F8 | 7 dead `emulator` exports, `maestro/_device.py` aliases, `AdbCall` (~90 lines) | ~120 lines | low — no behaviour change; 1194 tests cover the rest |
+| F9 | 5 `sgate` adapters that scrape output; 2 of them have a JSON contract their producer already emits | ~100 lines | low — the contract is already there |
+| F10, F11 | 2 registries → 1 manifest; 3 placement tables → 1 | large | **high** — every gate name and mode moves |
+| F12 | 1 script with no caller | 1 file | low — delete or wire into a `just` recipe |
+| F13 | 12 gate scripts with no unit test | 12 test files | low — additive |
+
+The cheapest meaningful next round is F6 + F7 + F9 (about 140 lines, no behaviour
+change) followed by F8 + F12 (deletions). F10 and F11 are the ones that actually
+remove duplication rather than relocate it, and they are the ones that want their
+own change record.
+
 
 ## Evidence and limits
 
-Every finding above was verified against the checkout at `59163997`. The F2 count
-(38 of 533) was measured by replaying the gate's own regexes over
-`Maestro/flows/**`; the gate itself was not run against a modified corpus. The
-"no callers" claims come from a repository-wide grep over `.py`, `.sh`, `.yml`, `.md`,
-`.toml` and `.just` files, excluding `.git`, `build` and `__pycache__`; a caller
-outside this repository cannot be excluded, though `sgate`, `emulator` and
-`traceability` are repo-local packages installed from `scripts/src/pyproject.toml`.
+Every finding above was verified against the checkout at `59163997` (the fixes landed
+on `origin/main` at `12078fa2`). The F2 count is **26 waits of 435**, measured by
+replaying the gate's own regexes over `Maestro/flows/**` and confirmed afterwards by
+the YAML parser that replaced them.
+
+The "no callers" claims come from two passes: a repository-wide grep over `.py`,
+`.sh`, `.yml`, `.md`, `.toml` and `.just` files (excluding `.git`, `build` and
+`__pycache__`), and — for the emulator exports (F8) — an AST import analysis, which
+corrected the grep's first answer from eleven to seven. A caller outside this
+repository cannot be excluded, though `sgate`, `emulator` and `traceability` are
+repo-local packages installed from `scripts/src/pyproject.toml`.
 
 `scripts/src/traceability/links.py` and `maestro_suggest.py` diverge in code (F6); the
 number of flows where the divergence changes a finding was not measured.
 `check-doc-dead-refs.py` scans four top-level docs plus `SKILLS_DIR` and `shared/src`
 but not `docs/**` — whether another gate covers `docs/architecture/**` was not
 confirmed.
+
