@@ -1,8 +1,9 @@
 ---
 title: "The bridge takes a revision token, and the flush trade-off is accepted and pinned"
 date: 2026-10-20
-status: accepted
+status: superseded
 tags: [ui, compose, viewmodel]
+superseded-by: 2026-10-20-the-rewrite-authority-is-a-type
 ---
 
 ## Context
