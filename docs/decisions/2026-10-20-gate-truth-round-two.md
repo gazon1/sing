@@ -34,8 +34,9 @@ lists the gates and the utilities side by side. One of them was dead:
 **The scanner could not see constructor injection.** A DI binding that asks for
 a type without naming it — `single { HlcFactory(deviceIdProvider = get(), …) }`
 — has the type in the constructor's signature, and a scan that reads
-`get<X>()` sees nothing. Twenty-eight types were in the allowlist because of
-it, each with a note saying the scanner could not follow them.
+`get<X>()` sees nothing. Thirty-one of the thirty-five names in the allowlist
+were there because of it, each with a note saying the scanner could not follow
+them.
 
 ## Idea
 
@@ -46,7 +47,7 @@ check. Where that is not possible, the statement should be derivable.
 
 **A control is declared once.** The registry holds it; the harness executes it.
 `scripts/src/sgate/gate_controls.py` holds the appliers, the gate records and
-the tables; `check-gate-wiring.py` is 563 lines shorter and imports them. The
+the tables; `check-gate-wiring.py` is 674 lines shorter and imports them. The
 reachability scan moves to `scripts/src/sgate/gate_reachability.py`, because two
 callers ask the same question — the wiring gate over every surface, the
 registry checker over the gate lines — and the delegation walk was written
@@ -114,7 +115,7 @@ keep it true.
 
 The scanner's limit was the reason an allowlist existed at all, and the
 allowlist had become a place where the debt went instead of being named. With
-the limit lifted, 29 of the 33 names resolved themselves. The four that remain
+the limit lifted, 31 of the 35 names resolved themselves. The four that remain
 are the ones the scan still cannot see and nobody should: two features that
 have no production call site by design, and two seams that are bound and
 asked for by nothing. The entries that stood for them named a different type
@@ -123,7 +124,7 @@ invisible.
 
 ## Consequences
 
-- **The gate tooling is 563 lines shorter, and the control machinery has a
+- **The gate tooling is 674 lines shorter, and the control machinery has a
   home.** `scripts/src/sgate/gate_controls.py` is the place to look for what a
   control does.
 - **Part B is now the proof for every control.** It applies the registry's
@@ -135,7 +136,7 @@ invisible.
   step had to be named for it to be pointed at.
 - **A new command module has to be classified**, or the registry checker says
   so.
-- **The allowlist shrank from 33 names to 4.** The unwired-surfaces floor
+- **The allowlist shrank from 35 names to 4.** The unwired-surfaces floor
   stays at 0.
 - **A wrapper asked for a member it does not have fails** instead of running
   nothing and reporting success.
