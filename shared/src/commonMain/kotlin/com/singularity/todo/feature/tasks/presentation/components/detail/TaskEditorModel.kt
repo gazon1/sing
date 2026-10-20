@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.attachments.Attachment
-import com.singularity.todo.core.ui.components.StaticText
-import com.singularity.todo.core.ui.components.TextSource
+import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.ui.textfields.TextSource
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId

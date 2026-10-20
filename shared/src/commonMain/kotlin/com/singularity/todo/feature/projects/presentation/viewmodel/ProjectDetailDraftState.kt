@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import androidx.compose.runtime.Stable
-import com.singularity.todo.core.ui.components.OwnedText
+import com.singularity.todo.core.ui.textfields.OwnedText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

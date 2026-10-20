@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import androidx.compose.runtime.Immutable
-import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate

@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.state
 import androidx.compose.runtime.Immutable
-import com.singularity.todo.core.ui.components.StaticText
+import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 
 enum class ProjectSortOrder { Name, Color }

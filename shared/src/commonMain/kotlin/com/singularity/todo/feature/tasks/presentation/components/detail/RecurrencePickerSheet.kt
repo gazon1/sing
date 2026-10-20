@@ -37,9 +37,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
-import com.singularity.todo.core.ui.components.dayOfMonthTransformation
-import com.singularity.todo.core.ui.components.recurrenceIntervalTransformation
+import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
+import com.singularity.todo.core.ui.textfields.dayOfMonthTransformation
+import com.singularity.todo.core.ui.textfields.recurrenceIntervalTransformation
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed

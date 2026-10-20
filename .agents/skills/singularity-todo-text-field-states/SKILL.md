@@ -31,6 +31,13 @@ value is never pushed anywhere. If the field is editable, it is not anchored.
 **Local is for text that never leaves the field.** A filter in a sheet that is applied on
 submit, a one-off search box whose result is read at the moment of use.
 
+**The helpers live in `com.singularity.todo.core.ui.textfields`.** The bridged and the
+anchored helper are there, together with the source types and the transformations. The
+package is the reason the shape of a field can be *derived* rather than guessed: a file
+that uses one of the helpers has to import it, so the import list is the compiler's own
+record of the shape. A file in the helpers' own package could call one without an import
+— which is why the package holds no fields.
+
 ## 2. Write the field
 
 ```kotlin
@@ -76,7 +83,7 @@ OutlinedTextField(state = state, inputTransformation = digitsOnlyTransformation(
 ```
 
 The named transformations live in
-`shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TextFieldTransformations.kt`:
+`shared/src/commonMain/kotlin/com/singularity/todo/core/ui/textfields/TextFieldTransformations.kt`:
 
 | Transformation | Rule |
 |---|---|
@@ -106,7 +113,7 @@ ObserveTextFieldEdits(state) { viewModel.onIntent(SettingsIntent.ClearError) }
 ```
 
 `ObserveTextFieldEdits` lives in
-`shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TextFieldEdits.kt`.
+`shared/src/commonMain/kotlin/com/singularity/todo/core/ui/textfields/TextFieldEdits.kt`.
 It **skips the first emission** — the field's seed is not an edit, and reacting to it would
 clear an error the user has not touched yet.
 
@@ -174,9 +181,9 @@ that test on purpose.
 
 | What | Where |
 |---|---|
-| a filtering or validation rule | `shared/src/commonTest/kotlin/com/singularity/todo/core/ui/components/TextFieldTransformationsTest.kt` — pure functions |
-| a push/pull guard | `shared/src/commonTest/kotlin/com/singularity/todo/core/ui/components/TextFieldStateBridgeTest.kt` — pure functions |
-| the bridge as a composed field | `desktopApp/src/jvmTest/kotlin/com/singularity/todo/core/ui/components/TextFieldStateBridgeUiTest.kt` |
+| a filtering or validation rule | `shared/src/commonTest/kotlin/com/singularity/todo/core/ui/textfields/TextFieldTransformationsTest.kt` — pure functions |
+| a push/pull guard | `shared/src/commonTest/kotlin/com/singularity/todo/core/ui/textfields/TextFieldStateBridgeTest.kt` — pure functions |
+| the bridge as a composed field | `desktopApp/src/jvmTest/kotlin/com/singularity/todo/core/ui/textfields/TextFieldStateBridgeUiTest.kt` |
 | a screen's own field | `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/` |
 
 **`shared` has no Compose test capability.** Compose UI tests live in `desktopApp/src/jvmTest`.
@@ -216,8 +223,14 @@ is not in this table has not been classified yet — classify it before you touc
 **The table is checked.** `TextFieldShapeConventionTest`
 (`shared/src/jvmTest/.../arch/TextFieldShapeConventionTest.kt`) compares it with the
 code: a file that owns a field and is missing from this table fails the build, a row
-whose shape does not match the helper the file calls fails the build, and a row whose
+whose shape does not match the helper the file uses fails the build, and a row whose
 file no longer exists fails the build. Adding a field means adding a row here.
+
+**The shape is derived from the code, not from its text.** The test reads the *imports*
+of every file: a file that uses the bridged helper imports
+`com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState`, because the
+helper is in another package. A mention of a helper in a comment imports nothing, so a
+comment cannot classify a file that owns no field — and a field cannot hide behind one.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
@@ -303,6 +316,13 @@ row whose owner does not declare a source of the claimed kind fails the build, a
 whose counter is never declared or never advanced fails the build, a file that builds its
 own source fails the build, and a row whose file no longer exists fails the build. Adding
 a bridged field means adding a row here.
+
+**The evidence is the code's structure, not its text.** The bridged sites are the files
+that *import* the bridged helper; the owner's source is a property with a type; the
+counter is a property with a name; the bridge's parameters are a list of names. The two
+checks that Konsist cannot express — a counter that *moves*, and a site that *constructs*
+a source — are read from the declarations of the file with the comments stripped, so a
+comment outside a declaration cannot make a counter move.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 

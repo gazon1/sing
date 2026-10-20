@@ -71,19 +71,35 @@ import kotlin.test.assertTrue
  * 5. **The bridge takes no revision argument.** The counter is the source's
  *    property, not something a call site can write down.
  *
+ * ## Where the evidence comes from
+ *
+ * The registry makes claims about the code, and every claim is checked against the
+ * code's *structure*, not against its text. A file that uses the bridged helper has
+ * to import it — the helper lives in `com.singularity.todo.core.ui.textfields`, and
+ * no other package can reach it without an import — so the import list is the
+ * compiler's own record of which files are bridged sites. The owner's source is a
+ * property with a type, the counter is a property with a name, the bridge's
+ * parameters are a list of names.
+ *
+ * The two checks that cannot be structural — a counter that *moves*, and a site that
+ * *constructs* a source — are read from the declarations of the file, with the
+ * comments stripped. Konsist 0.17.3 has no API for call sites, so the text of a
+ * declaration is the finest grain available; what it cannot be fooled by is a
+ * comment outside the declaration, and a comment inside one.
+ *
  * ## What it cannot check
  *
- * The scan is lexical, and it sees files, not fields: a file with two bridged
- * fields of different upstreams is one row, and the per-field answer lives in the
- * skill's table (the "Field" column). Whether a rewrite can land on a value the
- * field produced is a property of the *upstream*, not of the file, and the table
- * states it rather than deriving it.
+ * The scan is per file, not per field: a file with two bridged fields of different
+ * upstreams is one row, and the per-field answer lives in the skill's table (the
+ * "Field" column). Whether a rewrite can land on a value the field produced is a
+ * property of the *upstream*, not of the file, and the table states it rather than
+ * deriving it.
  *
- * The lexical scan can also not tell whether the counter actually moves at
- * runtime — only that the field is handed an owned source rather than a static
- * one. That the counter advances is the draft state's own contract, proved in
- * `TaskDetailDraftStateTest`, `ProjectDetailDraftStateTest` and
- * `NoteRewriteWatcherTest`.
+ * The scan can also not tell whether the counter actually moves at *runtime* — only
+ * that the field is handed an owned source rather than a static one, and that the
+ * file that owns the counter contains the increment. That the counter advances is
+ * the draft state's own contract, proved in `TaskDetailDraftStateTest`,
+ * `ProjectDetailDraftStateTest` and `NoteRewriteWatcherTest`.
  */
 @Tag("fast")
 class TextFieldRewriteContractTest {
@@ -107,15 +123,17 @@ class TextFieldRewriteContractTest {
     @Test
     fun `the owner a row names declares a source of that kind`() {
         val wrong = registry.mapNotNull { row ->
-            val owner = sourceOf(row.owner)
             val kind = row.kind.sourceType
             // A row that builds its own source — the GenUI renderer, whose owner is a
             // server — has no property to declare: the source is constructed where the
-            // server's value and the server's count are read.
+            // server's value and the server's count are read. It still has to name the
+            // type, or the construction would not compile.
             val declared = if (row.buildsSource) {
-                owner.contains(kind)
+                TextFieldShapeScan.imports(row.owner).contains(SOURCE_IMPORT + kind)
             } else {
-                owner.sourceDeclarations().any { it == kind }
+                TextFieldShapeScan.properties(row.owner).any { property ->
+                    property.declaresSourceOf(kind)
+                }
             }
             if (declared) return@mapNotNull null
             "$row.site -> ${row.owner} declares no $kind source"
@@ -136,7 +154,10 @@ class TextFieldRewriteContractTest {
         val missing = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
             val counter = row.counter
             if (counter.isEmpty()) return@mapNotNull "$row.site -> names no counter file"
-            if (sourceOf(counter).contains("revision", ignoreCase = true)) return@mapNotNull null
+            val declared = TextFieldShapeScan.properties(counter).any { property ->
+                property.name.contains("revision", ignoreCase = true)
+            }
+            if (declared) return@mapNotNull null
             "$row.site -> $counter declares no revision"
         }.sorted()
 
@@ -156,7 +177,10 @@ class TextFieldRewriteContractTest {
         val frozen = registry.filter { it.kind == Kind.OWNED }.mapNotNull { row ->
             val advancer = row.advances
             if (advancer.isEmpty()) return@mapNotNull "$row.site -> names no file that advances the counter"
-            if (sourceOf(advancer).contains(ADVANCE)) return@mapNotNull null
+            val advances = TextFieldShapeScan.declarationTexts(advancer).any { text ->
+                ADVANCE.containsMatchIn(KotlinText.stripComments(text))
+            }
+            if (advances) return@mapNotNull null
             "$row.site -> $advancer never advances the counter"
         }.sorted()
 
@@ -174,10 +198,12 @@ class TextFieldRewriteContractTest {
     @Test
     fun `a field site does not build its own source`() {
         val built = registry.filterNot { it.buildsSource }.mapNotNull { row ->
-            val arguments = productionSourceOf(row.site).sourceArguments()
-            val constructed = arguments.filter { argument ->
-                argument.contains("StaticText(") || argument.contains("OwnedText(")
-            }
+            val constructed = TextFieldShapeScan.functions(row.site)
+                .filterNot { function -> function.isPreview() }
+                .mapNotNull { function ->
+                    val code = KotlinText.stripComments(function.text)
+                    CONSTRUCTION.find(code)?.value
+                }
             if (constructed.isEmpty()) return@mapNotNull null
             "$row.site -> ${constructed.joinToString(", ")}"
         }.sorted()
@@ -194,16 +220,15 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `the bridge takes no revision argument`() {
-        val bridge = sourceOf(BRIDGE_FILE)
-        val offending = BRIDGE_FUNCTION.findAll(bridge).mapNotNull { match ->
-            val parameters = match.groupValues[1]
-            if (!parameters.contains("revision")) return@mapNotNull null
+        val offending = TextFieldShapeScan.functions(BRIDGE_FILE)
+            .filter { it.name == BRIDGED_HELPER }
             // The bridge's own implementation reads the count from the source; only a
             // *public* declaration would let a call site write one down.
-            val declaration = bridge.substring(0, match.range.first).substringAfterLast('\n').trim()
-            if (declaration == "private") return@mapNotNull null
-            parameters
-        }.toList()
+            .filterNot { it.hasPrivateModifier }
+            .mapNotNull { function ->
+                function.parameters.firstOrNull { it.name == "revision" }?.name
+            }
+            .toList()
 
         assertTrue(
             offending.isEmpty(),
@@ -442,61 +467,18 @@ class TextFieldRewriteContractTest {
     // ── the scan ───────────────────────────────────────────────────────────────
 
     /**
-     * The files that call the bridged helper.
+     * The files that own a bridged text field.
      *
-     * The helper's own definition is excluded: `TextFieldStateBridge.kt` *is* the
-     * helper, not a field site.
+     * Derived from the files' imports: a file that uses the bridged helper has to
+     * import it, because the helper lives in its own package. The helper's own
+     * definition is in that package too, so it is not a field site.
      */
-    private fun bridgedSites(): Set<String> {
-        val root = SourceScan.commonMainRoot()
-        return root.walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".kt") }
-            .mapNotNull { file ->
-                val relative = file.relativeTo(root).invariantSeparatorsPath
-                if (relative == BRIDGE_FILE) return@mapNotNull null
-                if (!file.readText().contains(BRIDGED_CALL)) null else relative
-            }
-            .toSet()
-    }
-
-    /** The source of a file the registry names. */
-    private fun sourceOf(path: String): String {
-        val root = SourceScan.commonMainRoot()
-        val file = File(root, path)
-        assertTrue(file.isFile, "the registry names a file that does not exist: $path")
-        return file.readText()
-    }
-
-    /**
-     * The production part of a file — everything before its first preview.
-     *
-     * A preview is a fixture: it may build a source, because it is standing in
-     * for an owner rather than being one. The marker is the *annotation* on its
-     * own line, not the word: a file whose header comment mentions `@Preview`
-     * must not be cut there, or the check would never see the rest of it.
-     */
-    private fun productionSourceOf(path: String): String {
-        val source = sourceOf(path)
-        val preview = PREVIEW_MARKER.find(source) ?: return source
-        return source.substring(0, preview.range.first)
-    }
+    private fun bridgedSites(): Set<String> =
+        TextFieldShapeScan.shapes()
+            .filterValues { shapes -> FieldShape.BRIDGED in shapes }
+            .keys
 
     // ── the skill's rewrite table ──────────────────────────────────────────────
-
-    /**
-     * The kinds of source a file declares.
-     *
-     * A file may declare both — the notes' state declares the editor's owned title
-     * and the list's static query — so this is the *set*, not the single kind.
-     */
-    private fun String.sourceDeclarations(): Set<String> =
-        SOURCE_DECLARATION.findAll(this).map { it.groupValues[1] }.toSet()
-
-    /**
-     * The `source = …` arguments of the bridge calls in a file.
-     */
-    private fun String.sourceArguments(): List<String> =
-        SOURCE_ARGUMENT.findAll(this).map { it.groupValues[1].trim() }.toList()
 
     /**
      * One row of the skill's rewrite table.
@@ -551,32 +533,17 @@ class TextFieldRewriteContractTest {
         if (this == "-" || isEmpty()) "" else this
 
     private companion object {
-        const val BRIDGED_CALL = "rememberBridgedTextFieldState("
-        const val BRIDGE_FILE = "core/ui/components/TextFieldStateBridge.kt"
+        /** The bridge, the one file that holds the helper itself. */
+        const val BRIDGE_FILE = "core/ui/textfields/TextFieldStateBridge.kt"
 
-        /** The bridge's own declarations, with their parameter lists. */
-        val BRIDGE_FUNCTION = Regex(
-            """fun rememberBridgedTextFieldState\((.*?)\)\s*:\s*TextFieldState""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
+        /** The name of the bridged helper — the function the bridge exposes. */
+        const val BRIDGED_HELPER = "rememberBridgedTextFieldState"
 
-        /** The `source = …` argument of a bridge call. */
-        val SOURCE_ARGUMENT = Regex("""source\s*=\s*([^\n]+)""")
+        /** Where the two kinds of source live. */
+        const val SOURCE_IMPORT = "com.singularity.todo.core.ui.textfields."
 
-        /**
-         * The annotation that opens a preview.
-         *
-         * It has to be the annotation on its own line: the word `@Preview` also
-         * appears in prose, and cutting a file at a mention of it would hide
-         * everything after the mention from the checks.
-         */
-        val PREVIEW_MARKER = Regex(
-            """^\s*@(?:Preview|androidx\.compose\.ui\.tooling\.preview\.Preview)\s*$""",
-            RegexOption.MULTILINE,
-        )
-
-        /** A declaration of a source property, with the type it declares. */
-        val SOURCE_DECLARATION = Regex("""val\s+[\w.]+\s*:\s*(OwnedText|StaticText)\b""")
+        /** A source that is constructed. */
+        val CONSTRUCTION = Regex("""(?:StaticText|OwnedText)\(""")
 
         /** A counter that advances. */
         val ADVANCE = Regex("""revision[^\n]*\+\s*1""", RegexOption.IGNORE_CASE)

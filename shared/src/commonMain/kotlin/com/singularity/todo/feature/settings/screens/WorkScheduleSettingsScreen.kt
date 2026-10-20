@@ -31,7 +31,7 @@ import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
-import com.singularity.todo.core.ui.components.rememberAnchoredTextFieldState
+import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.datetime.DayOfWeek
