@@ -341,6 +341,14 @@ re-derives the same verdict from a regex over prose. `check-gradle-test-populati
 emits exactly `{"passed", "blocking_errors", "warnings"}` — the same shape the adapter
 reconstructs.
 
+The mechanism is visible in `build_output_readers.py:85`: the adapter builds
+`py_cmd = [sys.executable, str(script)]` and runs it **without** `--json`, then
+reconstructs the verdict from the prose. The producer's JSON branch
+(`check-build-output-readers.py:182-186`) already emits `{"passed", "blocking_errors"}`
+— the same two fields, computed by the producer rather than inferred by a regex over
+its output. The adapter's `passed` is `bool(_OK_RE.search(stdout))`: a claim about
+the script's output text, not about the script's exit status.
+
 **Verdict: CONSOLIDATE** — migrate the two adapters with a JSON contract to consume it,
 and move the other three onto `GatePayload` so the honest-exit rule applies to them too.
 
