@@ -522,3 +522,25 @@ number of flows where the divergence changes a finding was not measured.
 but not `docs/**` — whether another gate covers `docs/architecture/**` was not
 confirmed.
 
+### A note on running the suite locally
+
+`check.sh` runs `sgate run-all` from `PATH`, and the installed `sgate` on a developer
+machine is an **editable install** — which points at whichever checkout was installed,
+not necessarily this one. On this machine it resolves to
+`/home/max/orca/workspaces/singularity_cllone_kmp/gulper`, and the run fails there
+with `doc dead refs` — **with and without this change's commits**, so it is the
+environment, not the code.
+
+Everything in this document was therefore measured with
+`PYTHONPATH=$PWD/scripts/src python3 -m sgate run-all`, which uses this checkout. A
+failure that reproduces with the changes stashed is the environment; a failure that
+does not is the change. That distinction was applied to every measurement here, and
+it is the reason the baseline was re-taken with the work stashed.
+
+`scripts/src/sgate/commands/_registry.py` and `check-gate-wiring.py` load their
+modules **by path** rather than through `import sgate.<name>`, so they read this
+checkout's registry even when an editable install points elsewhere. That is not
+accidental: it is what makes a gate on the registry trustworthy on a machine with
+two checkouts of it.
+
+
