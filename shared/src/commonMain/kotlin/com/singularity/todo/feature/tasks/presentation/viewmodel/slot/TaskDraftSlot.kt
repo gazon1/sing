@@ -35,11 +35,12 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * ## Why [seed] is public
  *
- * Seeding is a one-time initialisation from the loaded task, not a projection of the
+ * Seeding is a projection of the loaded task onto the draft, not a projection of the
  * flows, so it cannot live in the `combine` chain. The coordinator calls [seed] from its
  * task collector — once per task change rather than once per unrelated child update.
- * [TaskDetailDraftState.seed] is idempotent, so a task arriving again never clobbers an
- * in-progress edit.
+ * [TaskDetailDraftState.seed] decides what the incoming task means: the echo of our own
+ * save changes nothing, an in-progress edit is never clobbered, and a rewrite from
+ * outside is taken and counted in the draft's revision.
  */
 @OptIn(FlowPreview::class)
 class TaskDraftSlot(
@@ -85,10 +86,12 @@ class TaskDraftSlot(
     }
 
     /**
-     * Initialises the draft from the loaded task.
+     * Seeds the draft from the loaded task.
      *
-     * Idempotent — a second call while the user is editing is ignored, so a remote task
-     * update arriving mid-edit does not reset the text field.
+     * The seed decides what the incoming task means — see
+     * [TaskDetailDraftState.seed]. A task arriving again is not a reason to
+     * reset the text field: only a rewrite from outside, on a draft that holds
+     * no unsaved edits, replaces the text.
      */
     fun seed(title: String, description: String) = draftState.seed(title, description)
 

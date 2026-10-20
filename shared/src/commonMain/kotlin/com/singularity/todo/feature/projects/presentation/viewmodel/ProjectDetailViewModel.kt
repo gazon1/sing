@@ -335,7 +335,8 @@ class ProjectDetailViewModel(
     init {
         // Name and description edits. `mutate` re-reads the project through
         // [UpdateProjectUseCase] inside its own launch, so neither debounce can write back
-        // a stale snapshot.
+        // a stale snapshot. The draft learns that its edits are persisted from the
+        // repository's own echo — see [ProjectDetailDraftState.seed].
         debouncer.debounce(draftState.state.map { it.name }) { name ->
             mutate { copy(name = name) }
         }

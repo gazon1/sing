@@ -20,6 +20,14 @@ data class TaskDetailUi(
     val titleDraft: String = task.title,
     /** Draft description owned by VM — prevents mirror-state in Composable. */
     val descriptionDraft: String = task.description ?: "",
+    /**
+     * The draft's revision counter.
+     *
+     * It moves when the task was rewritten from outside, and that is what tells the
+     * bridged text fields that the new text is a *replacement* rather than the echo of
+     * a keystroke the field itself produced. It never moves for a keystroke.
+     */
+    val revision: Long = 0,
     val project: Project? = null,
     val tags: List<Tag> = emptyList(),
     val checklist: List<ChecklistItem> = emptyList(),

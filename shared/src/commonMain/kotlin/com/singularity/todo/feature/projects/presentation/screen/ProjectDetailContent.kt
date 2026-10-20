@@ -100,6 +100,7 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
                     now = clock.now(),
                     nameDraft = draftState.name,
                     descriptionDraft = draftState.description,
+                    revision = draftState.revision,
                     actions = actions,
                 )
                 ProjectMetaChipsRow(ui = s.ui, actions = actions)

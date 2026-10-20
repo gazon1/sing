@@ -47,6 +47,10 @@ import kotlin.time.Instant
  * and a "Saved X ago" label.
  *
  * Exposed as public to support preview providers and unit tests without a VM.
+ *
+ * @param revision the draft's revision counter. It moves when the project was rewritten
+ *   from outside, and that is what tells the bridged fields that the new text is a
+ *   *replacement* rather than the echo of a keystroke the field itself produced.
  */
 @OptIn(ExperimentalTime::class)
 @Composable
@@ -56,6 +60,7 @@ fun ProjectHeroSection(
     now: Instant,
     nameDraft: String,
     descriptionDraft: String,
+    revision: Long = 0,
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
@@ -64,10 +69,12 @@ fun ProjectHeroSection(
     val nameState = rememberBridgedTextFieldState(
         externalText = nameDraft,
         onTextChanged = actions::onUpdateName,
+        revision = revision,
     )
     val descriptionState = rememberBridgedTextFieldState(
         externalText = descriptionDraft,
         onTextChanged = actions::onUpdateDescription,
+        revision = revision,
     )
 
     Column(

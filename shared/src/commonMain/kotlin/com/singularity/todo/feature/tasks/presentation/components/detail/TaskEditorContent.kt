@@ -69,6 +69,9 @@ import kotlin.time.Instant
  *   is worse than no checkbox.
  * @param descriptionDraft Current description value.
  * @param onDescriptionChange Called when description text changes.
+ * @param revision The draft's revision counter. It moves when the task was rewritten from
+ *   outside, and that is what tells the bridged fields that the new text is a
+ *   *replacement* rather than the echo of a keystroke the field itself produced.
  * @param priority Current priority value.
  * @param onPrioritySelect Called when a priority is selected in the sheet.
  * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
@@ -109,6 +112,7 @@ fun TaskEditorContent(
     onCheckToggle: (() -> Unit)?,
     descriptionDraft: String,
     onDescriptionChange: (String) -> Unit,
+    revision: Long = 0,
     priority: TaskPriority,
     onPrioritySelect: (TaskPriority) -> Unit,
     onPriorityClear: (() -> Unit)?,
@@ -174,12 +178,14 @@ fun TaskEditorContent(
                 isCompleted = isCompleted,
                 onTitleChange = onTitleChange,
                 onCheckToggle = onCheckToggle,
+                revision = revision,
             )
 
             // Description
             TaskDescriptionField(
                 description = descriptionDraft,
                 onDescriptionChange = onDescriptionChange,
+                revision = revision,
             )
 
             // View-mode extra sections

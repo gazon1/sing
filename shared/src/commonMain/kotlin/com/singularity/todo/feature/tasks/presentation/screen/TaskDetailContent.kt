@@ -164,6 +164,7 @@ fun TaskDetailContent(
                         onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
                         descriptionDraft = ui.descriptionDraft,
                         onDescriptionChange = { coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it)) },
+                        revision = ui.revision,
                         priority = ui.task.priority,
                         onPrioritySelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
                         onPriorityClear = {

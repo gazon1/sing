@@ -281,6 +281,7 @@ class TaskDetailCoordinator(
             task = task,
             titleDraft = draftState.title,
             descriptionDraft = draftState.description,
+            revision = draftState.revision,
             project = entityState.project,
             tags = entityState.tags,
             checklist = childrenState.checklist,
