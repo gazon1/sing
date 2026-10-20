@@ -76,6 +76,20 @@ internal fun KoPropertyDeclaration.declaresSourceOf(kind: String): Boolean {
 }
 
 /**
+ * Whether the function hands out a source of [kind].
+ *
+ * An owner that builds a source does not always keep it in a property: the GenUI
+ * data context builds the source of a bound field in a function and hands it out
+ * whole. The return type is the evidence — the function's *name* says nothing, and
+ * the body of it may say anything.
+ */
+internal fun KoFunctionDeclaration.returnsSourceOf(kind: String): Boolean {
+    val type = returnType ?: return false
+    if (type.name == kind) return true
+    return type.typeArguments.orEmpty().any { argument -> argument.name == kind }
+}
+
+/**
  * The scan itself: the shape of every file that owns a text field, and the
  * declarations of any file in `commonMain`.
  */

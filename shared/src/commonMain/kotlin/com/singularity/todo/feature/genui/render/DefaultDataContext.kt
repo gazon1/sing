@@ -2,6 +2,7 @@ package com.singularity.todo.feature.genui.render
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.singularity.todo.core.ui.textfields.OwnedText
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.schema.DataModel
@@ -15,8 +16,10 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Everything a renderer is allowed to reach: the components, the data they bind to, and the two
@@ -56,6 +59,9 @@ class DefaultDataContext(
     /** The whole surface map, for callers that need to know what exists rather than what changed. */
     val surfaces: StateFlow<Map<SurfaceId, Surface>> = controller.surfaces
 
+    /** The sources handed out so far, one per path. */
+    private val sources: MutableMap<UiPath, BoundTextSource> = mutableMapOf()
+
     /**
      * The data model backing this surface, or null while the surface does not exist.
      *
@@ -85,6 +91,50 @@ class DefaultDataContext(
      * lagging model and the wrong one for a deliberate rewrite.
      */
     fun serverRevision(): Flow<Long> = controller.serverRevision(surfaceId)
+
+    /**
+     * The source of a field bound to [path].
+     *
+     * The context builds the source, because the context is what knows the value and the
+     * server's count of writes. A renderer that built the source itself would be
+     * answering a question it cannot know the answer to: only the *server's* writes are a
+     * rewrite, and the count that says so belongs to the context, not to the field.
+     *
+     * The source is built once per path and kept, so that a recomposition does not
+     * restart the observation: the flow stays the same object, and the field keeps the
+     * value it has.
+     *
+     * @param path the data-model path the field is bound to.
+     * @param fallback the text the field shows while the model holds nothing at [path].
+     */
+    fun textSource(path: UiPath, fallback: String): BoundTextSource {
+        val existing = sources[path]
+        if (existing != null && existing.fallback == fallback) return existing
+        val created = BoundTextSource(
+            current = sourceOf(
+                value = controller.snapshot(surfaceId)?.dataModel?.get(path),
+                revision = controller.currentServerRevision(surfaceId),
+                fallback = fallback,
+            ),
+            updates = combine(
+                controller.value(surfaceId, path),
+                controller.serverRevision(surfaceId),
+            ) { value, revision -> sourceOf(value, revision, fallback) },
+            fallback = fallback,
+        )
+        sources[path] = created
+        return created
+    }
+
+    /**
+     * The source of a value at [path]: the text, and the count of the server's writes.
+     *
+     * The text is the value at the path, or the fallback while the model holds nothing
+     * there — the field's own initial text, which the caller knows and the context does
+     * not.
+     */
+    private fun sourceOf(value: JsonElement?, revision: Long, fallback: String): OwnedText =
+        OwnedText((value as? JsonPrimitive)?.content ?: fallback, revision)
 
     /**
      * Writes a value and announces it.

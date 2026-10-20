@@ -333,7 +333,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | `feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt` | - | - |
 | `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | `feature/ai/chat/ChatViewModel.kt` | - | - |
 | `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/material3/input/TextFieldRenderer.kt` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | `feature/notes/Ids.kt` | - | - |
 | `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
@@ -348,8 +348,10 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
 The **Owner** column names the file that builds the source — the component that holds the
 value and knows who else writes it. It is the owner the field's answer comes from, and it
-is the file the source is read out of. The one row where the owner *is* the field site is
-the GenUI renderer, whose owner is a server the renderer does not own.
+is the file the source is read out of. The GenUI renderer used to be the one row whose
+owner was the field site itself; it is not any more — the data context builds the source
+and hands it out whole, because the context is what knows both the value and the server's
+count of writes.
 
 The **Counter** column names the file that declares the count; the **Advances** column
 names the file that moves it. They are often the same file, and they are not always: the
@@ -376,10 +378,11 @@ so a replacement lands on a value the field never produced: `StaticText` is the 
 answer there. The detail draft observes an entity a sync can rewrite, and the rewrite can
 land on a value the field produced: `OwnedText`, with the draft's count.
 
-**The GenUI renderer builds its own source, and that is the one exception.** Its owner is
-a server the renderer does not own, and the renderer is the boundary where the server's
-value and the server's count are read. The count still comes from the data context, not
-from the renderer.
+**The GenUI renderer does not build its own source, and neither does anybody else.** Its
+owner is a server, and the renderer is not the component that knows what the server wrote.
+The data context is: it holds the value at the path and the server's count of writes, and
+it hands the source out whole. The renderer reads it and passes it to the bridge, like
+every other field in the app.
 
 ## 10. Traps
 
@@ -399,8 +402,8 @@ from the renderer.
   without that, the next keystroke dispatches the old body over the new one.
 - **A field never builds its own source.** The source says who may rewrite the field, and
   only the owner knows. A field that constructs `StaticText(...)` or `OwnedText(...)` is
-  answering a question it cannot know the answer to — the GenUI renderer is the one
-  documented exception, because its owner is a server.
+  answering a question it cannot know the answer to — there is no exception, not even for
+  a surface, whose owner is a server the field does not own.
 - **`OwnedText` without a moving count is a lie.** The type says the upstream may replace
   the value with anything; the count says it actually did. An owner that hands out
   `OwnedText(text, 0)` forever has claimed an authority it never uses.
