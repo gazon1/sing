@@ -66,3 +66,20 @@ issues-refresh:
     #!/bin/bash
     set -euo pipefail
     python3 scripts/refresh-issues-snapshot.py
+
+[group('scripts')]
+[doc('Show where the detekt suppressions actually are (baseline composition)')]
+[working-directory(justfile_directory())]
+baseline-composition top="":
+    #!/bin/bash
+    set -euo pipefail
+    # The consumer is a human reading a baseline change: the baseline file
+    # carries no marker saying which rules are live, so "which of these 53
+    # suppressions are for a rule that cannot report?" was a hand computation,
+    # and the hand computation was wrong once already. This prints the numbers
+    # instead, from the same parser the ratchet gate uses.
+    if [ -z "{{top}}" ]; then
+        python3 scripts/measure-baseline-composition.py
+    else
+        python3 scripts/measure-baseline-composition.py --top {{top}}
+    fi

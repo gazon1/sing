@@ -221,8 +221,8 @@ class StartupLockTest(unittest.TestCase):
         """Lock is acquired immediately when free; released on context exit."""
         with tempfile.TemporaryDirectory() as tmp:
             lock = pathlib.Path(tmp) / "test.lock"
-            orig = ee.LOCK_FILE
-            ee.LOCK_FILE = lock
+            orig = ee.cfg.lock_file
+            ee.cfg.lock_file = lock
             try:
                 # First acquisition succeeds (no one holds it).
                 with ee.startup_lock(timeout=5):
@@ -231,7 +231,7 @@ class StartupLockTest(unittest.TestCase):
                 with ee.startup_lock(timeout=5):
                     pass
             finally:
-                ee.LOCK_FILE = orig
+                ee.cfg.lock_file = orig
 
     def test_second_caller_blocks_then_times_out(self):
         """A waiter that cannot acquire the lock hits its deadline and raises."""
@@ -241,28 +241,28 @@ class StartupLockTest(unittest.TestCase):
             holder_can_exit = threading.Event()
 
             def holder():
-                orig = ee.LOCK_FILE
-                ee.LOCK_FILE = lock
+                orig = ee.cfg.lock_file
+                ee.cfg.lock_file = lock
                 try:
                     with ee.startup_lock(timeout=10):
                         barrier.wait(timeout=5)  # signal: holder has the lock
                         holder_can_exit.wait(timeout=5)  # wait until test is ready
                 finally:
-                    ee.LOCK_FILE = orig
+                    ee.cfg.lock_file = orig
 
             t = threading.Thread(target=holder, group=None)
             t.start()
             barrier.wait(timeout=5)  # wait until holder has the lock
 
             # Now the holder holds the lock. Waiter will block and timeout.
-            orig = ee.LOCK_FILE
-            ee.LOCK_FILE = lock
+            orig = ee.cfg.lock_file
+            ee.cfg.lock_file = lock
             try:
                 with self.assertRaises(TimeoutError):
                     with ee.startup_lock(timeout=1):  # 1s deadline
                         pass  # should not reach here
             finally:
-                ee.LOCK_FILE = orig
+                ee.cfg.lock_file = orig
                 holder_can_exit.set()  # let holder release the lock
                 t.join(timeout=10)
 
@@ -342,10 +342,10 @@ class IntegrationTest(unittest.TestCase):
         which advances the fake clock and sets boot_completed when the deadline
         is reached.
         """
-        orig_avd = ee.AVD
-        orig_lock = ee.LOCK_FILE
-        orig_extra = ee.EXTRA_FLAGS
-        orig_boot = ee.BOOT_TIMEOUT
+        orig_avd = ee.cfg.avd
+        orig_lock = ee.cfg.lock_file
+        orig_extra = ee.cfg.extra_flags
+        orig_boot = ee.cfg.boot_timeout
         log_path = pathlib.Path(tempfile.mkdtemp()) / "em.log"
 
         # Virtual monotonic: reads and increments fake._clock._monotonic_offset so
@@ -744,7 +744,7 @@ class AvdPreflightTest(unittest.TestCase):
     """
 
     def _start(self, listed: list[str] | None, avd: str = "singularity-api36") -> tuple[int, str]:
-        orig_avd = ee.AVD
+        orig_avd = ee.cfg.avd
         ee.cfg.avd = avd
         try:
             with unittest.mock.patch.object(_device, "list_avds", return_value=listed), \
