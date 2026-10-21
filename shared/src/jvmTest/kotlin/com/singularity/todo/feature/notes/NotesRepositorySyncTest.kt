@@ -54,6 +54,7 @@ class NotesRepositorySyncTest {
         sync = FakeSyncRepository(this)
         repo = NotesRepositoryImpl(
             noteDao = db.noteDao(),
+            ftsDao = db.ftsDao(),
             clock = Clock.System,
             currentUser = FakeProfileAwareCurrentUser(
                 FakeAuthRepository(Session.Anonymous(user)),

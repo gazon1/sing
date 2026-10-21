@@ -1,9 +1,12 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.TextMatch
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.search.query.FreeTextRule
 import com.singularity.todo.feature.search.query.Options
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
@@ -52,6 +55,12 @@ class SearchUseCase(
      * - Accumulates post-filter predicates for conditions the DAO can't express
      *   (negated, OR, pinned, archived, has:description, complex date relations)
      *
+     * The free text narrows the rows *in the database*, through the full-text
+     * index — the search reads the records that carry the word instead of every
+     * record of the profile. The index narrows; the rule decides. A rule the
+     * index cannot answer (one that only says "not") is answered by reading the
+     * rows, the way it was before.
+     *
      * Note, project, and tag results are matched by the same free-text rule the tasks
      * are matched by — [ResolvedSearchQuery.freeTextRule] — so one query means one
      * thing for every kind of record. Structured terms are filters over tasks; they
@@ -76,10 +85,28 @@ class SearchUseCase(
     }
 
     private fun buildResultsFlow(resolved: ResolvedSearchQuery): Flow<SearchResults> {
+        val textMatch = resolved.textMatch
+
         // ── Task flow ──────────────────────────────────────────────────────────
-        val baseTaskFlow: Flow<List<Task>> = when {
+        //
+        // The free text narrows the rows *in the database*, through the
+        // full-text index: the search reads the tasks that carry the term
+        // instead of reading every task and looking at each one. The structured
+        // conditions narrow them further, and the free-text rule still has the
+        // last word — the index finds the candidates, the rule decides.
+        val structuredTaskFlow: Flow<List<Task>> = when {
             resolved.taskFilter != null -> taskRepo.observeByFilter(resolved.taskFilter)
             else -> taskRepo.observeAll()
+        }
+        val baseTaskFlow: Flow<List<Task>> = when {
+            textMatch == null -> structuredTaskFlow
+
+            resolved.taskFilter == null -> taskRepo.observeByTextMatch(textMatch)
+
+            else -> combine(structuredTaskFlow, taskRepo.observeByTextMatch(textMatch)) { structured, matched ->
+                val matchedIds = matched.mapTo(mutableSetOf()) { task -> task.id }
+                structured.filter { task -> task.id in matchedIds }
+            }
         }
 
         val taskFlow = baseTaskFlow.map { tasks ->
@@ -110,29 +137,9 @@ class SearchUseCase(
         // F5 — a query with no free text selects no note, project or tag. The
         // structured terms of a query are filters over tasks, and there is no
         // free-text part to match anything else with.
-        val noteFlow = noteRepo.observeAll().map { notes ->
-            if (rule.isEmpty) {
-                emptyList()
-            } else {
-                notes.filter { note -> rule.selects { term -> note.title.contains(term, ignoreCase = true) } }
-            }
-        }
-
-        val projectFlow = projectRepo.observeAll().map { projects ->
-            if (rule.isEmpty) {
-                emptyList()
-            } else {
-                projects.filter { project -> rule.selects { term -> project.name.contains(term, ignoreCase = true) } }
-            }
-        }
-
-        val tagFlow = tagRepo.observeAll().map { tags ->
-            if (rule.isEmpty) {
-                emptyList()
-            } else {
-                tags.filter { tag -> rule.selects { term -> tag.name.contains(term, ignoreCase = true) } }
-            }
-        }
+        val noteFlow = textMatchedNotes(textMatch, rule)
+        val projectFlow = textMatchedProjects(textMatch, rule)
+        val tagFlow = textMatchedTags(textMatch, rule)
 
         return combine(taskFlow, noteFlow, projectFlow, tagFlow) { tasks, notes, projects, tags ->
             SearchResults(
@@ -141,6 +148,60 @@ class SearchUseCase(
                 projects = projects,
                 tags = tags,
             )
+        }
+    }
+
+    /**
+     * The notes that satisfy the free-text rule.
+     *
+     * The candidates come from the full-text index when the query has a
+     * narrowing the index can answer, and from every note otherwise; the rule
+     * then decides, in both cases.
+     */
+    private fun textMatchedNotes(textMatch: TextMatchQuery?, rule: FreeTextRule): Flow<List<Note>> {
+        val source = if (textMatch != null) {
+            noteRepo.observeByTextMatch(textMatch)
+        } else {
+            noteRepo.observeAll()
+        }
+        return source.map { notes ->
+            if (rule.isEmpty) {
+                emptyList()
+            } else {
+                notes.filter { note -> rule.selects { term -> TextMatch.matches(note.title, term) } }
+            }
+        }
+    }
+
+    /** The projects that satisfy the free-text rule. See [textMatchedNotes]. */
+    private fun textMatchedProjects(textMatch: TextMatchQuery?, rule: FreeTextRule): Flow<List<Project>> {
+        val source = if (textMatch != null) {
+            projectRepo.observeByTextMatch(textMatch)
+        } else {
+            projectRepo.observeAll()
+        }
+        return source.map { projects ->
+            if (rule.isEmpty) {
+                emptyList()
+            } else {
+                projects.filter { project -> rule.selects { term -> TextMatch.matches(project.name, term) } }
+            }
+        }
+    }
+
+    /** The tags that satisfy the free-text rule. See [textMatchedNotes]. */
+    private fun textMatchedTags(textMatch: TextMatchQuery?, rule: FreeTextRule): Flow<List<Tag>> {
+        val source = if (textMatch != null) {
+            tagRepo.observeByTextMatch(textMatch)
+        } else {
+            tagRepo.observeAll()
+        }
+        return source.map { tags ->
+            if (rule.isEmpty) {
+                emptyList()
+            } else {
+                tags.filter { tag -> rule.selects { term -> TextMatch.matches(tag.name, term) } }
+            }
         }
     }
 

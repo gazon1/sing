@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.domain
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -147,8 +148,10 @@ object TaskDomain {
 
         is TaskFilter.ByTag -> task.tags.contains(filter.id) && !task.isTrashed
 
-        is TaskFilter.Search -> task.title.contains(filter.query, ignoreCase = true) ||
-            task.description?.contains(filter.query, ignoreCase = true) == true
+        // Word-prefix matching — the semantics of the full-text index, so that
+        // the in-memory rule and the index answer the same question.
+        is TaskFilter.Search -> TextMatch.matches(task.title, filter.query) ||
+            TextMatch.matches(task.description, filter.query)
 
         is TaskFilter.ByDateRange ->
             task.dueDate != null &&

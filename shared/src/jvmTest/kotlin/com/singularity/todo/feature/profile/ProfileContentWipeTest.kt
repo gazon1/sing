@@ -289,6 +289,7 @@ class ProfileContentWipeTest {
 
     private fun taskRepo(uid: UserId, sync: FakeSyncRepository = FakeSyncRepository()) = TaskRepositoryImpl(
         taskDao = db.taskDao(),
+        ftsDao = db.ftsDao(),
         clock = Clock.System,
         currentUser = currentUser(uid),
         syncRepository = sync,
@@ -298,6 +299,7 @@ class ProfileContentWipeTest {
 
     private fun notesRepo(uid: UserId) = NotesRepositoryImpl(
         noteDao = db.noteDao(),
+        ftsDao = db.ftsDao(),
         clock = Clock.System,
         currentUser = currentUser(uid),
         syncRepository = FakeSyncRepository(),
@@ -306,6 +308,7 @@ class ProfileContentWipeTest {
 
     private fun projectsRepo(uid: UserId) = ProjectsRepositoryImpl(
         projectDao = db.projectDao(),
+        ftsDao = db.ftsDao(),
         inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
         clock = Clock.System,
         currentUser = currentUser(uid),

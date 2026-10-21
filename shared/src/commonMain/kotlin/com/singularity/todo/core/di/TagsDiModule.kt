@@ -24,11 +24,12 @@ fun tagsModule(): org.koin.core.module.Module = module {
 
     single<TagsRepository> {
         TagsRepositoryImpl(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
+            tagDao = get(),
+            ftsDao = get(),
+            clock = get(),
+            currentUser = get(),
+            syncRepository = get(),
+            unitOfWork = get(),
         )
     }
 

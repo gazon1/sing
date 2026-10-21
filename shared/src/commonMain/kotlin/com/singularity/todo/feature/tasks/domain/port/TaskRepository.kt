@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.domain.port
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.SoftDeletable
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
@@ -105,6 +106,18 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * Re-subscribes automatically when the user changes.
      */
     fun observeByFilter(filter: TaskFilter): Flow<List<Task>>
+
+    /**
+     * Observes the tasks whose title or description match [query].
+     *
+     * The lookup goes through the full-text index, so the cost of the search
+     * does not grow with the number of tasks in the database. The match is a
+     * *word-prefix* match — the semantics of the index — and the terms are
+     * combined the way [query] says: every term, or any of them.
+     *
+     * A query with no terms matches nothing.
+     */
+    fun observeByTextMatch(query: TextMatchQuery): Flow<List<Task>>
 
     /**
      * Returns tasks scheduled for exactly [date], ordered by pin status then due time.

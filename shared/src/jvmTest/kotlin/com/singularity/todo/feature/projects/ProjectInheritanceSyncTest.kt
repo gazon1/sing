@@ -80,6 +80,7 @@ class ProjectInheritanceSyncTest {
 
     private fun projects(db: FakeAppDatabase, sync: FakeSyncRepository) = ProjectsRepositoryImpl(
         projectDao = db.projectDao(),
+        ftsDao = db.ftsDao(),
         inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
         clock = Clock.System,
         currentUser = FakeProfileAwareCurrentUser(

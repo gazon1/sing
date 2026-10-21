@@ -179,16 +179,6 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id AND user_id = :userId")
     suspend fun getByIdForUser(id: String, userId: String): TaskEntity?
 
-    @Query(
-        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND (title LIKE '%' || :q || '%' OR description LIKE '%' || :q || '%') ORDER BY due_date ASC, is_pinned DESC",
-    )
-    fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>>
-
-    @Query(
-        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
-    )
-    suspend fun searchTitles(userId: String, q: String): List<TaskEntity>
-
     @Upsert
     suspend fun upsert(task: TaskEntity)
 
@@ -518,16 +508,6 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE id = :id AND user_id = :userId")
     suspend fun getByIdForUser(id: String, userId: String): NoteEntity?
-
-    @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
-    )
-    fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>>
-
-    @Query(
-        "SELECT * FROM notes WHERE user_id = :userId AND archived_at IS NULL AND deleted_at IS NULL AND title LIKE '%' || :q || '%' ORDER BY updated_at DESC LIMIT 20",
-    )
-    suspend fun searchByTitle(userId: String, q: String): List<NoteEntity>
 
     @Upsert
     suspend fun upsert(note: NoteEntity)

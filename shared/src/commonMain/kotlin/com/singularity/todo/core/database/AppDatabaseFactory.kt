@@ -45,6 +45,9 @@ object AppDatabaseFactory {
      * `AutoMigrationSpec.onPostMigrate` cannot express — it is registered as a
      * manual [androidx.room3.migration.Migration] via `addMigrations` below.
      *
+     * [Migration42To43] is the other exception: it creates the full-text
+     * indexes, and an index is a virtual table that no schema differ describes.
+     *
      * During **active schema development** (adding a new migration), you may
      * temporarily re-add `.fallbackToDestructiveMigration(dropAllTables = true)`
      * to this builder to skip writing the migration by hand. **Remove it before
@@ -74,6 +77,9 @@ object AppDatabaseFactory {
                 // can only describe a schema change. See Migration37To38.
                 Migration37To38(),
                 Migration38To39(),
+                // Creates the full-text indexes — virtual tables, which an
+                // AutoMigrationSpec cannot describe. See Migration42To43.
+                Migration42To43(),
             )
             .build()
     }

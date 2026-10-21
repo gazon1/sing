@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.data
 
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.toEpochMillis
@@ -11,6 +12,7 @@ import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
@@ -46,6 +48,7 @@ private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val dep
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskRepositoryImpl(
     private val taskDao: TaskDao,
+    private val ftsDao: FtsDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
@@ -133,7 +136,7 @@ class TaskRepositoryImpl(
 
             is TaskFilter.ByTag -> taskDao.watchByTag(uid.value, filter.id.value)
 
-            is TaskFilter.Search -> taskDao.watchSearchResults(uid.value, filter.query)
+            is TaskFilter.Search -> ftsDao.watchTasks(uid.value, TextMatchQuery(listOf(filter.query)))
 
             is TaskFilter.ByDateRange -> taskDao.watchByDateRange(
                 uid.value,
@@ -167,6 +170,11 @@ class TaskRepositoryImpl(
 
         userTasksWithExtras(uid, entityFlow)
     }
+
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            userTasksWithExtras(uid, ftsDao.watchTasks(uid.value, query))
+        }
 
     override fun observeByDate(date: LocalDate): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
         userTasksWithExtras(uid, taskDao.watchByDate(uid.value, date.toString()))

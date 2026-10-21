@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.data
 
+import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.ProjectDao
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectInheritedTagGroupDao
@@ -14,6 +15,7 @@ import com.singularity.todo.core.database.toLocalDateOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -32,6 +34,7 @@ import com.singularity.todo.core.database.UnitOfWork
  */
 class ProjectsRepositoryImpl(
     private val projectDao: ProjectDao,
+    private val ftsDao: FtsDao,
     private val inheritedTagGroupDao: ProjectInheritedTagGroupDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
@@ -44,6 +47,11 @@ class ProjectsRepositoryImpl(
     override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
         projectDao.watchAll(uid.value).map { list -> list.map { it.toProject() } }
     }
+
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            ftsDao.watchProjects(uid.value, query).map { list -> list.map { it.toProject() } }
+        }
 
     override fun observe(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
         projectDao.watchByIdForUser(id.value, uid.value).map { it?.toProject() }

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import kotlinx.datetime.LocalDate
@@ -41,6 +42,20 @@ data class ResolvedSearchQuery(
      * that has to occur as a whole.
      */
     val freeText: String? = null,
+    /**
+     * The narrowing the full-text index can do for this query — or `null` when
+     * the index cannot narrow it.
+     *
+     * The index answers positive questions only: it finds the records that carry
+     * a term, and it has no way of expressing "must not carry". A rule made only
+     * of negated terms therefore has no index narrowing, and a rule that
+     * disjoins a negated term with a positive one has none either — the
+     * records that match by *not* carrying the negated term are exactly the
+     * ones the index would throw away.
+     *
+     * When this is `null` the search reads the rows and matches them in memory.
+     */
+    val textMatch: TextMatchQuery? = null,
     /**
      * The free-text rule of this query — the terms, their polarity, and whether they
      * are alternatives.

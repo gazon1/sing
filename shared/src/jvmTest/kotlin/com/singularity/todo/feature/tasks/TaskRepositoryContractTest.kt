@@ -305,6 +305,7 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
         val syncRepo: SyncRepository = FakeSyncRepository()
         return TaskRepositoryImpl(
             taskDao = db.taskDao(),
+            ftsDao = db.ftsDao(),
             clock = kotlin.time.Clock.System,
             currentUser = currentUser,
             syncRepository = syncRepo,
