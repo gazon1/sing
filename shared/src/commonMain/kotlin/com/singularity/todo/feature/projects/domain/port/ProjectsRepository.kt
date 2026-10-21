@@ -3,7 +3,6 @@ package com.singularity.todo.feature.projects.domain.port
 import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.coroutines.flow.Flow
@@ -57,15 +56,6 @@ interface ProjectsRepository :
     /** Projects under a specific parent, scoped to current user. */
     fun observeByParent(parentId: ProjectId): Flow<List<Project>>
 
-    /**
-     * Observes the projects whose name matches [query].
-     *
-     * The lookup goes through the full-text index, so the cost of the search
-     * does not grow with the number of projects. The match is a *word-prefix*
-     * match — the semantics of the index — and the terms are combined the way
-     * [query] says: every term, or any of them.
-     */
-    fun observeByTextMatch(query: TextMatchQuery): Flow<List<Project>>
 
     /** Changes to a project (for inline-edit debounce). */
     fun changes(id: ProjectId): Flow<Project?>

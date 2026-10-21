@@ -112,10 +112,10 @@ interface FtsDao {
           AND t.user_id = :userId
           AND t.archived_at IS NULL
         ORDER BY t.updated_at DESC
-        LIMIT 20
+        LIMIT :limit
         """,
     )
-    suspend fun searchTaskTitlesByMatch(userId: String, match: String): List<TaskEntity>
+    suspend fun searchTaskTitlesByMatch(userId: String, match: String, limit: Int): List<TaskEntity>
 
     /**
      * The notes whose title matches the index — the first twenty, most recently
@@ -130,10 +130,10 @@ interface FtsDao {
           AND n.archived_at IS NULL
           AND n.deleted_at IS NULL
         ORDER BY n.updated_at DESC
-        LIMIT 20
+        LIMIT :limit
         """,
     )
-    suspend fun searchNoteTitlesByMatch(userId: String, match: String): List<NoteEntity>
+    suspend fun searchNoteTitlesByMatch(userId: String, match: String, limit: Int): List<NoteEntity>
 
     // ── The semantic surface ────────────────────────────────────────────────
     //

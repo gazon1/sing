@@ -52,6 +52,7 @@ fun domainModule(): List<Module> = buildList {
     add(projectsModule())
     add(notesModule())
     add(tagsModule())
+    add(searchModule())
     add(calendarModule())
     add(agendaModule())
     add(proposalModule())

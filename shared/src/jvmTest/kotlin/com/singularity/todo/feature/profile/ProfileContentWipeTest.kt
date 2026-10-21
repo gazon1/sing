@@ -4,6 +4,7 @@ package com.singularity.todo.feature.profile
 
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.ids.UserId
@@ -289,7 +290,7 @@ class ProfileContentWipeTest {
 
     private fun taskRepo(uid: UserId, sync: FakeSyncRepository = FakeSyncRepository()) = TaskRepositoryImpl(
         taskDao = db.taskDao(),
-        ftsDao = db.ftsDao(),
+        textIndex = db.textIndex(currentUser(uid)),
         clock = Clock.System,
         currentUser = currentUser(uid),
         syncRepository = sync,
@@ -299,7 +300,7 @@ class ProfileContentWipeTest {
 
     private fun notesRepo(uid: UserId) = NotesRepositoryImpl(
         noteDao = db.noteDao(),
-        ftsDao = db.ftsDao(),
+        textIndex = db.textIndex(currentUser(uid)),
         clock = Clock.System,
         currentUser = currentUser(uid),
         syncRepository = FakeSyncRepository(),
@@ -308,7 +309,6 @@ class ProfileContentWipeTest {
 
     private fun projectsRepo(uid: UserId) = ProjectsRepositoryImpl(
         projectDao = db.projectDao(),
-        ftsDao = db.ftsDao(),
         inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
         clock = Clock.System,
         currentUser = currentUser(uid),

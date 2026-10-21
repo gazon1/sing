@@ -14,6 +14,7 @@ import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tags.toTag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import kotlinx.coroutines.flow.Flow
@@ -27,7 +28,6 @@ import com.singularity.todo.core.database.UnitOfWork
  */
 class TagsRepositoryImpl(
     private val tagDao: TagDao,
-    private val ftsDao: FtsDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
@@ -39,11 +39,6 @@ class TagsRepositoryImpl(
     override fun observeAll(): Flow<List<Tag>> = currentUser.observeForCurrentUser { uid ->
         tagDao.watchAll(uid.value).map { list -> list.map { it.toTag() } }
     }
-
-    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Tag>> =
-        currentUser.observeForCurrentUser { uid ->
-            ftsDao.watchTags(uid.value, query).map { list -> list.map { it.toTag() } }
-        }
 
     override fun observe(id: TagId): Flow<Tag?> = currentUser.observeForCurrentUser { uid ->
         tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
@@ -118,20 +113,6 @@ class TagsRepositoryImpl(
     }
 }
 
-/** Not private: [TagGroupRepositoryImpl] re-pushes released members on group delete. */
-internal fun TagEntity.toTag(): Tag = Tag(
-    id = TagId.fromString(id),
-    name = name,
-    color = color,
-    createdAt = createdAt.toInstant(),
-    updatedAt = updatedAt.toInstant(),
-    groupId = groupId?.let { com.singularity.todo.feature.tags.domain.model.TagGroupId.fromString(it) },
-    sortOrder = sortOrder,
-    deletedAt = deletedAt.toInstantOrNull(),
-    userId = UserId(userId),
-    serverVersion = sync.serverVersion,
-    hlc = sync.hlc?.let { Hlc(it) },
-)
 
 fun Tag.toEntity(): TagEntity = TagEntity(
     id = id.value,

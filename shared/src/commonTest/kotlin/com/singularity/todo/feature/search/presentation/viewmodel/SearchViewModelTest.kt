@@ -31,6 +31,7 @@ import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.FakeSearchTextIndex
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
@@ -108,6 +109,12 @@ class SearchViewModelTest {
                     noteRepo = fakeNotesRepo,
                     projectRepo = fakeProjectsRepo,
                     tagRepo = fakeTagsRepo,
+                    textIndex = FakeSearchTextIndex(
+                        taskRepo = fakeTaskRepo,
+                        noteRepo = fakeNotesRepo,
+                        projectRepo = fakeProjectsRepo,
+                        tagRepo = fakeTagsRepo,
+                    ),
                     queryResolver = stubResolver,
                 ),
             savedSearchRepo = fakeSavedSearchRepo,
@@ -144,6 +151,12 @@ class SearchViewModelTest {
                     noteRepo = fakeNotesRepo,
                     projectRepo = fakeProjectsRepo,
                     tagRepo = fakeTagsRepo,
+                    textIndex = FakeSearchTextIndex(
+                        taskRepo = fakeTaskRepo,
+                        noteRepo = fakeNotesRepo,
+                        projectRepo = fakeProjectsRepo,
+                        tagRepo = fakeTagsRepo,
+                    ),
                     queryResolver =
                         DefaultSearchQueryResolver(
                             tagLookup = NO_TAGS,

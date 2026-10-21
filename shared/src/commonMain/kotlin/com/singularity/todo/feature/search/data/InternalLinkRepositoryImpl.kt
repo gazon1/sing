@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.search.data
 
-import com.singularity.todo.core.database.FtsDao
-import com.singularity.todo.core.database.FtsMatchQuery
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toTask
+import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
@@ -15,22 +14,18 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 class InternalLinkRepositoryImpl(
     private val noteDao: NoteDao,
     private val taskDao: TaskDao,
-    private val ftsDao: FtsDao,
+    private val textIndex: SearchTextIndex,
     private val currentUser: ProfileAwareCurrentUser,
 ) : InternalLinkRepository {
 
     override suspend fun searchNotes(query: String): List<Note> {
         if (query.isBlank()) return emptyList()
-        val userId = currentUser.scopedUserId.value.value
-        val match = FtsMatchQuery.expression(TextMatchQuery(listOf(query))) ?: return emptyList()
-        return ftsDao.searchNoteTitlesByMatch(userId, match).map { it.toNote() }
+        return textIndex.recentNoteTitles(TextMatchQuery(listOf(query)), limit = SUGGESTION_LIMIT)
     }
 
     override suspend fun searchTasks(query: String): List<Task> {
         if (query.isBlank()) return emptyList()
-        val userId = currentUser.scopedUserId.value.value
-        val match = FtsMatchQuery.expression(TextMatchQuery(listOf(query))) ?: return emptyList()
-        return ftsDao.searchTaskTitlesByMatch(userId, match).map { it.toTask() }
+        return textIndex.recentTaskTitles(TextMatchQuery(listOf(query)), limit = SUGGESTION_LIMIT)
     }
 
     override suspend fun getBacklinkNotes(noteId: String): List<Note> {
@@ -46,5 +41,10 @@ class InternalLinkRepositoryImpl(
     override suspend fun getNotesLinkingToTask(taskId: String): List<Note> {
         val userId = currentUser.scopedUserId.value.value
         return noteDao.getNotesLinkingToTask(taskId, userId).map { it.toNote() }
+    }
+
+    private companion object {
+        /** How many titles a suggestion list holds. */
+        const val SUGGESTION_LIMIT = 20
     }
 }

@@ -13,6 +13,7 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.FakeSearchTextIndex
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
@@ -51,6 +52,12 @@ class SearchTextQueryTest {
         noteRepo = notesRepo,
         projectRepo = projectsRepo,
         tagRepo = tagsRepo,
+        textIndex = FakeSearchTextIndex(
+            taskRepo = taskRepo,
+            noteRepo = notesRepo,
+            projectRepo = projectsRepo,
+            tagRepo = tagsRepo,
+        ),
         queryResolver = DefaultSearchQueryResolver(
             tagLookup = NO_TAGS,
             projectLookup = NO_PROJECTS,

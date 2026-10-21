@@ -42,7 +42,7 @@ fun notesModule(): org.koin.core.module.Module = module {
     single<NotesRepository> {
         NotesRepositoryImpl(
             noteDao = get(),
-            ftsDao = get(),
+            textIndex = get(),
             clock = get(),
             currentUser = get(),
             syncRepository = get(),
@@ -53,7 +53,7 @@ fun notesModule(): org.koin.core.module.Module = module {
         InternalLinkRepositoryImpl(
             noteDao = get(),
             taskDao = get(),
-            ftsDao = get(),
+            textIndex = get(),
             currentUser = get(),
         )
     }

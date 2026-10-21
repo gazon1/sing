@@ -2,7 +2,6 @@ package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -124,34 +123,11 @@ class DefaultSearchQueryResolver(
             options = query.options,
             freeText = ctx.freeText.takeIf { it.isNotBlank() },
             freeTextRule = freeTextRule,
-            textMatch = textMatchFor(freeTextRule),
+            textMatchPlan = freeTextRule.plan(),
             needsPostFilter = ctx.needsPostFilter,
             postFilter = postFilter,
             isOrPostFilter = ctx.isOrPostFilter,
         )
-    }
-
-    /**
-     * The narrowing the full-text index can do for [rule] — or `null` when it
-     * cannot narrow it.
-     *
-     * The index answers positive questions only: it finds the records that carry
-     * a term, and it has no way of expressing "must not carry". Three rules
-     * follow from that:
-     *
-     * - a rule with no positive term has nothing to look up;
-     * - a rule that *disjoins* a negated term with a positive one has nothing
-     *   to look up either, because the records that match by *not* carrying the
-     *   negated term are exactly the ones a positive lookup throws away;
-     * - a rule that *requires* a negated term can still be narrowed: the index
-     *   finds the records that carry the positive terms, and the rule then
-     *   removes the ones that carry the negated one.
-     */
-    private fun textMatchFor(rule: FreeTextRule): TextMatchQuery? {
-        val positive = rule.terms.filter { !it.negated }.map { it.text }
-        if (positive.isEmpty()) return null
-        if (rule.combinesWithOr && rule.terms.any { it.negated }) return null
-        return TextMatchQuery(terms = positive, combinesWithOr = rule.combinesWithOr)
     }
 
     // ─── Context ─────────────────────────────────────────────────────────────

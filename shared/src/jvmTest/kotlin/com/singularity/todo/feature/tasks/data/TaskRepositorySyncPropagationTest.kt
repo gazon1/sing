@@ -6,6 +6,7 @@ package com.singularity.todo.feature.tasks.data
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
@@ -63,7 +64,7 @@ class TaskRepositorySyncPropagationTest {
         )
         repo = TaskRepositoryImpl(
             taskDao = db.taskDao(),
-            ftsDao = db.ftsDao(),
+            textIndex = db.textIndex(currentUser),
             clock = Clock.System,
             currentUser = currentUser,
             syncRepository = sync,
