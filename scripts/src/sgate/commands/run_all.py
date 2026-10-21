@@ -24,6 +24,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn
 import sgate
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register
 from sgate.log import logger
+from sgate.models import GatePayload
 
 
 @dataclass
@@ -39,6 +40,9 @@ class GateResult:
     #: "exit=1" is not a diagnosis; see `OUTPUT_TAIL_LINES` at the print site.
     stdout: str = ""
     stderr: str = ""
+    #: The verdict the gate's own payload carried, when it emitted one. None
+    #: means the gate printed no contract and the exit code is all there was.
+    payload_passed: bool | None = None
 
 
 # Pattern to parse gate lines from static-gates.sh:
@@ -84,6 +88,33 @@ GATE_TIMEOUTS = {
 def _timeout_for(display_name: str) -> int:
     """The budget for one gate, in seconds."""
     return GATE_TIMEOUTS.get(display_name, DEFAULT_GATE_TIMEOUT)
+
+
+def _read_gate_payload(stdout: str, gate_name: str) -> GatePayload | None:
+    """The verdict a gate's JSON payload carries, or None when it has none.
+
+    A gate dispatched through `sgate` is asked for `--json`, so its stdout is
+    the contract: one JSON object with a boolean `passed`. A gate run as a
+    plain script prints human text, and there is nothing to read — the caller
+    falls back to the exit code.
+
+    Only the verdict is taken from the document. The rest of the payload is
+    the gate's business, and a document whose extra fields do not fit the
+    payload is still a document that said `passed`.
+    """
+    text = stdout.strip()
+    if not text.startswith("{"):
+        return None
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(document, dict):
+        return None
+    verdict = document.get("passed")
+    if not isinstance(verdict, bool):
+        return None
+    return GatePayload(gate=gate_name, passed=verdict)
 
 #: Lines that mark a failure wherever they appear in a gate's output. The tail
 #: alone is not enough: every delegated `sgate` gate ends its stderr with a burst
@@ -247,7 +278,24 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         # that could not run at all reported success. No gate declares a
         # Kiwi dependency any more, so nothing emits 4; if something did, it
         # would now be red, which is the honest reading.
-        passed = rc == CLEAN
+        #
+        # The verdict is the gate's own, not the runner's: a gate dispatched
+        # through `sgate` was asked for `--json`, so its stdout is the contract
+        # and it carries a verdict of its own. The runner reads it and ANDs it
+        # with the exit code — the rule `GatePayload.honest_pass` already
+        # states. A gate that reports `passed: false` and exits 0 is red; a
+        # gate that reports `passed: true` and exits non-zero is red too.
+        #
+        # A gate run as a plain script prints human text, so there is no
+        # payload to read and the exit code is the only verdict there is.
+        payload = _read_gate_payload(_decode(result.stdout), display_name)
+        passed = payload.honest_pass(rc) if payload is not None else rc == CLEAN
+        error = ""
+        if payload is not None and not payload.passed and rc == CLEAN:
+            # The gate said it failed and still exited 0. That is the case the
+            # verdict exists for, and the report has to name it: a row reading
+            # "exit=0" on a failing gate reads like a bug in the table.
+            error = "the gate's own payload says it failed, and it exited 0"
 
         return GateResult(
             name=display_name,
@@ -255,8 +303,10 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             passed=passed,
             exit_code=rc,
             duration_ms=duration_ms,
+            error=error,
             stdout=_decode(result.stdout),
             stderr=_decode(result.stderr),
+            payload_passed=payload.passed if payload is not None else None,
         )
 
     except subprocess.TimeoutExpired:
@@ -417,6 +467,8 @@ def run_all(emit_json: bool, concurrency: int,
                 status = "[red]✗ miss[/red]"
             elif r.exit_code == 124:
                 status = "[red]✗ timeout[/red]"
+            elif r.payload_passed is False:
+                status = "[red]✗ payload[/red]"
             else:
                 status = f"[red]✗ exit={r.exit_code}[/red]"
             t.add_row(r.name, status, f"{r.duration_ms}ms")
