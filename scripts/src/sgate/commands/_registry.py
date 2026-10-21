@@ -634,6 +634,20 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("sgate"),
         script_args=("render-registry", "--check"),
     ),
+    # The JSON contract every gate dispatched through `sgate` is called with.
+    #
+    # `sgate run-all` calls each gate with `--json`, and the document that
+    # lands on stdout is what a consumer reads. Nothing checked that the
+    # document was a document: the GitHub Actions annotation (`::error::` on
+    # stdout, because that is where Actions reads workflow commands from) and
+    # four adapters that rebuilt a verdict from prose were both found by
+    # reading, and both were found late.
+    GateSpec(
+        name="gates speak the JSON contract",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-gate-json-contract.py"),
+    ),
     # The two clusters.
     #
     # Each of these is one gate that runs several checks over one subject: the
@@ -786,6 +800,31 @@ GATE_CONTROLS: dict[str, Control] = {
             "catalogue that answers questions about a gate set nobody runs — and a "
             "reader has no way to tell, because the file looks exactly as "
             "authoritative as the registry it drifted from"
+        ),
+    ),
+    # The JSON contract. The probe makes one gate's stdout stop being one JSON
+    # document, and the gate must notice.
+    #
+    # The edit is in the shared runner rather than in one adapter, because the
+    # defect it reproduces is not an adapter's: it is a second writer on the
+    # contract channel. The runner is where every registry-generated gate gets
+    # its document, so a stray line there is exactly what a consumer would meet.
+    'gate-json-contract': Control(
+        kind='sabotage',
+        proves='scripts/check-gate-json-contract.py',
+        argv=('{python}', 'scripts/check-gate-json-contract.py'),
+        path='scripts/src/sgate/commands/_runner.py',
+        edit=Edit(
+            kind='replace',
+            old='        print(payload.model_dump_json(indent=2))',
+            new='        print("gate chatter that is not JSON")\n        print(payload.model_dump_json(indent=2))',
+            count=1,
+        ),
+        why=(
+            "a gate whose stdout carries prose in front of the document is a gate "
+            "a consumer cannot read: the verdict is there, and the parser that "
+            "wanted it gets a stack trace instead. Nothing caught it, because "
+            "nothing read the document"
         ),
     ),
     # The two cluster gates. Each control breaks one member's input, and the

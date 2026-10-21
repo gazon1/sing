@@ -327,6 +327,23 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="gate-json-contract",
+        cmd=[sys.executable, "scripts/check-gate-json-contract.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        #
+        # The probe puts a line of prose in front of one gate's JSON document.
+        # That is the smallest possible version of the failure: the verdict is
+        # still there, and a consumer that reads the document gets a parse error
+        # instead of a verdict.
+        why=(
+            "a gate whose stdout carries prose in front of the document is a gate a "
+            "consumer cannot read: the verdict is there, and the parser that wanted it "
+            "gets a stack trace instead. Nothing caught it, because nothing read the "
+            "document"
+        ),
+    ),
+    ScriptGate(
         name="maestro-flow-catalogue",
         cmd=[sys.executable, "scripts/check-maestro-flow-catalogue.py"],
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);

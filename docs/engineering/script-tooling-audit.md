@@ -430,7 +430,7 @@ to fail.
 | Disposition | Count | Items | Status |
 |---|---|---|---|
 | **Keep** (repo-specific rule, correctly implemented) | 30 | The gate scripts with tests; `workflow_gradle.py`; `source_text.py`; `traceability/spec.py`; `traceability/junit_xml.py`; `check-test-runs.py`; `check-workflow-exit-status.py`; `adr_corpus.py`; `scanning.py` | — |
-| **Fix** (a defect, not a simplification) | 6 | F1, F2, F3, F4, F9, F14 | **all fixed 2026-10-20** |
+| **Fix** (a defect, not a simplification) | 6 | F1, F2, F3, F4, F9, F14 | **all fixed 2026-10-20/21** |
 | **Consolidate** (one authoritative implementation) | 5 | F5, F6, F7, F8 (partial), F10+F11 | open |
 | **Delete** | 1 | F1's dead gate (done); plus F8's dead aliases | partly done |
 | **Investigate** | 1 | F12 | open |
@@ -483,6 +483,59 @@ while its help text promised "Dry-run: print result without exiting non-zero". I
 reports the verdict and exits 0, in both the human and the JSON path.
 
 ADR: `docs/decisions/2026-10-20-f9-adapters-read-the-contract.md`.
+
+
+### What the third round of fixes changed (the contract, closed)
+
+**Two more holes in the contract, and the third found by the gate that was
+written to close them.** The GitHub Actions annotation is written to stdout,
+because that is where Actions reads workflow commands from — so a gate whose
+stdout carried a document had two claimants for one channel, and in CI the
+annotation won. Round 2 fixed the four adapters it had rewritten; the two
+places it did not reach were `handle_result` (what **every registry-generated
+gate** calls) and a hand-copied twin of it in `adr_status_policy`. Both are
+closed, and `adr_status_policy`'s `--check` — accepted and ignored, like the
+adapters' was — now reports and exits 0.
+
+**The opt-out became a mode.** `annotate=False` on every call site was a
+promise each future adapter had to remember. `contract_stdout()` in
+`sgate/output.py` claims stdout once, where the document is emitted, and the
+annotation goes to stderr inside it: still in the CI log, no longer a workflow
+command, and no longer competing with the document for the channel.
+
+**A gate keeps every gate to the contract.** `scripts/check-gate-json-contract.py`
+runs each gate the shell registry dispatches through `sgate` with `--json` and
+requires stdout to be exactly one JSON object carrying `passed`. It reuses the
+liveness probe's heavyweight filter, so the two gates skip the same gates, and
+it runs the module from *this* checkout rather than the `sgate` on PATH — on a
+machine with two checkouts of this repository, the binary on PATH is an
+editable install pointing at the other one.
+
+Writing it found a third instance on the first run: `sgate render-registry
+--check --json` printed `{"status": "current"}` — a status word, and no
+verdict. It carries `passed` now.
+
+ADR: `docs/decisions/2026-10-21-one-owner-of-stdout.md`.
+
+
+### The findings, as issues
+
+Every finding above is filed, so that a reader of this document can follow the
+work without reading this document:
+
+| Finding | Issue | Shape of the work |
+|---|---|---|
+| F5 | [#773](https://github.com/gazon1/sing/issues/773) | three Kotlin comment-strippers become one canonical scanner |
+| F6 | [#774](https://github.com/gazon1/sing/issues/774) | two Maestro `tags:` header readers that disagree become one |
+| F7 | [#775](https://github.com/gazon1/sing/issues/775) | the third Gradle invocation caller uses the shared parser |
+| F8 | [#776](https://github.com/gazon1/sing/issues/776) | dead `emulator` exports and the `maestro` aliases |
+| F9 (round 2) | [#769](https://github.com/gazon1/sing/issues/769) | the last two contract holes: `handle_result`, `adr_status_policy` |
+| F9 (round 2) | [#770](https://github.com/gazon1/sing/issues/770) | one owner for stdout: the contract becomes a mode |
+| F9 (round 2) | [#771](https://github.com/gazon1/sing/issues/771) | meta-gate: every gate speaks the JSON contract |
+| F10 + F11 | [#779](https://github.com/gazon1/sing/issues/779) | one manifest of gates and one table of placements |
+| F12 | [#777](https://github.com/gazon1/sing/issues/777) | `measure-baseline-composition.py`: wire it or delete it |
+| F13 | [#778](https://github.com/gazon1/sing/issues/778) | 12 gate scripts have no unit test |
+| — | [#772](https://github.com/gazon1/sing/issues/772) | `sgate run-all` should read the payload, not only the exit code |
 
 
 ## What was measured and rejected
