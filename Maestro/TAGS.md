@@ -104,6 +104,8 @@ non-alphanumeric characters with `_`.
 | `TASK_CONTEXT_MENU_PIN` | `task_action_pin` | |
 | `TASK_CONTEXT_MENU_SHEET` | `task_context_menu_sheet` | |
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
+| `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
+| `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
@@ -320,6 +322,7 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `CHAT_INPUT` | `chat_input` | |
 | `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
+| `EDITOR_SHEET_CLOSE` | `editor_sheet_close` | |
 | `LOADING_INDICATOR` | `loading_indicator` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |

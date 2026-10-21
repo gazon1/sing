@@ -8,6 +8,7 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -70,6 +71,11 @@ class TaskRecurrenceScenarioTest {
 
         awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
         assertTagDisplayed(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+
+        // The attribute list scrolls, and the recurrence row sits below the fold
+        // of the 1024x768 test window: a node that is composed but out of view
+        // reads as "not displayed", which is a different failure from "not there".
+        scrollToTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
         // The label is the state the user reads, so asserting it is what makes
         // this a behaviour check rather than a selector smoke test: a row
