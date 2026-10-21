@@ -31,7 +31,11 @@ value class QueryInterval internal constructor(private val _days: Int) {
     val isNone: Boolean get() = this == NONE
 
     companion object {
-        /** Unconstrained. Distinct from [NOW] — see D3. */
+        /**
+         * D3 — `none` is a distinct value, not zero.
+         *
+         * It means "no date constraint", which is not the same as "today".
+         */
         val NONE = QueryInterval(Int.MIN_VALUE)
         val NOW = QueryInterval(0)
         val TODAY = NOW
@@ -41,8 +45,9 @@ value class QueryInterval internal constructor(private val _days: Int) {
         /**
          * Parses an interval, or returns `null` if [raw] matches no known form.
          *
-         * `null` is not an error: the caller falls back to free text (D4), so `due:soon`
-         * searches for the literal text `due:soon` rather than failing.
+         * D4 — an unparseable interval is not a parse error. The caller falls back to
+         * free text, so `due:soon` searches for the literal text `due:soon` rather than
+         * failing.
          */
         fun parse(raw: String): QueryInterval? {
             val input = raw.trim().lowercase()
@@ -56,7 +61,12 @@ value class QueryInterval internal constructor(private val _days: Int) {
         }
 
         /**
-         * `<signed number><unit>` — D1/D2.
+         * `<signed number><unit>`.
+         *
+         * D1 — units are days, weeks, months, years, where a month is 30 days and a
+         * year is 365.
+         *
+         * D2 — the sign is explicit or absent. `3d` and `+3d` are the same.
          *
          * Unit lengths are fixed: a month is 30 days and a year is 365, deliberately.
          * Calendar-aware arithmetic was rejected because it would make the parsed value

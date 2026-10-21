@@ -82,6 +82,22 @@ class SavedAgendaViewsRepositoryImpl(
         agendaViewDao.delete(uid.value, id.raw)
     }
 
+    /**
+     * Hard-deletes every saved view of the active profile.
+     *
+     * A saved view is profile content like any other: one left behind by an
+     * earlier run is a view the next run sees, and it is what the agenda shows.
+     * The scope is the current profile's scoped user id, so another profile's
+     * views are untouched.
+     *
+     * The views are local content — they are not part of the sync protocol —
+     * so nothing is pushed for them.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value.value
+        agendaViewDao.deleteAllForUser(uid)
+    }
+
     // ─── Mapping ───────────────────────────────────────────────────────────────
 
     private fun AgendaViewEntity.toDomain(): SavedAgendaView = SavedAgendaView(

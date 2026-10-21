@@ -15,6 +15,7 @@ from emulator.maestro._bridge import Bridge
 from emulator.maestro._fixtures import reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag
 from emulator.maestro._lock import DeviceLock, DeviceLocked
+from emulator.maestro._policy import PolicyError, load_policy
 from emulator.maestro._types import (
     EXIT_FAIL,
     EXIT_PASS,
@@ -99,11 +100,14 @@ def _report_is_fresh(report: Path, started_at: float) -> bool:
 
 @click.command(
     help="Run Maestro UI flows against a connected Android device or emulator.",
-    epilog="SERIAL env var also accepted for device selection.",
+    epilog=(
+        "SERIAL, FLOW and TAGS env vars are also accepted for device, flow and "
+        "tag selection — the `just` recipes pass them that way."
+    ),
 )
-@click.option("--flow", "-f", "flow", default="Maestro/flows",
+@click.option("--flow", "-f", "flow", default=None,
               help="Flow directory, file, or glob (default: Maestro/flows)")
-@click.option("--tags", "-t", "tags", default="",
+@click.option("--tags", "-t", "tags", default=None,
               help="Comma-separated tags to filter; flow must declare one of them")
 @click.option("--serial", "-s", "serial", default=None,
               help="Pin a specific device serial (also set via SERIAL env var)")
@@ -113,7 +117,7 @@ def _report_is_fresh(report: Path, started_at: float) -> bool:
               help="Do not verify that the installed APK matches this checkout")
 @click.option("--maestro-max-retries", type=int, default=2,
               help="Max device-recovery retries per flow (default: 2)")
-@click.option("--maestro-cleanup", type=click.Choice(["run", "all", "off"]),
+@click.option("--maestro-cleanup", type=click.Choice(["all", "off"]),
               default="all", help="Fixture cleanup scope (default: all)")
 @click.option("--junit-dir", "junit_dir", default=None,
               help="Directory for JUnit XML results (default: <repo>/build/maestro-results)")
@@ -141,7 +145,18 @@ def main(
 ) -> int:
     deps = deps or _default_device_deps()
 
+    # The environment is a first-class way to select what runs. The `just`
+    # recipes cannot pass a flag through to this script — they set the
+    # variables instead — and until these three were read here, `FLOW` and
+    # `TAGS` were silently dropped: `just gm agenda` ran the whole suite
+    # (94 flows) instead of the agenda-tagged subset, and
+    # `just ui-maestro <flow>` ran everything too. A selection that is
+    # ignored is worse than no selection: the run looks like it did what was
+    # asked and the report says otherwise.
     serial = serial or os.environ.get("SERIAL") or ""
+    flow = flow or os.environ.get("FLOW") or "Maestro/flows"
+    tags = tags if tags is not None else os.environ.get("TAGS", "")
+    tags = tags or ""
 
     if dry_run:
         flow_target = (ROOT / flow).resolve()
@@ -177,6 +192,18 @@ def main(
                 logger.info(f"  {f}")
 
         return ctx.exit(EXIT_PASS)
+
+    # ── Bridge policy ───────────────────────────────────────────────────────────
+    #
+    # The policy says which device commands the host bridge may run. It is read
+    # before the device is even acquired: a run whose policy cannot be read
+    # would fail every flow that needs the bridge, one by one, and the report
+    # would read as a broken suite rather than as a broken configuration.
+    try:
+        policy = load_policy()
+    except PolicyError as exc:
+        logger.error(f"The bridge policy could not be loaded: {exc}")
+        return ctx.exit(EXIT_FAIL)
 
     # ── Acquire device ─────────────────────────────────────────────────────────
     # No `if serial else None` guard: an empty pin means "whatever device is
@@ -299,75 +326,76 @@ def main(
     # never executed still looks like it passed.
     run_started_at = time.time()
 
-    # The run id of a flow that failed, whose fixtures are still on the device.
-    #
-    # A failing flow keeps its fixtures so that the failure can be triaged
-    # against the data that caused it — but "until the next flow starts" is
-    # long enough. Leaving them there for the rest of the shard makes every
-    # later flow that asserts an empty list fail on the previous flow's data,
-    # and a suite whose failures cascade is a suite that reports one defect
-    # as forty. The nightly run of 2026-10-20 failed 43 flows across all four
-    # shards in exactly this shape.
-    stale_run_id: str | None = None
-
     # ── Host bridge ────────────────────────────────────────────────────────────
     #
     # A Maestro script cannot reach the host: the engine has no shell, no Java
     # host access, and no `env` object. The flows that need to touch the device's
     # shell — set a system property, damage the app's encrypted store — need a
     # channel, and HTTP is the only one Maestro offers. The bridge is that
-    # channel: it runs a *device* command through adb, and only the commands in
-    # its whitelist. See `maestro._bridge`.
-    bridge = Bridge(serial)
+    # channel: it runs a *device* command through adb, and only the commands its
+    # policy allows. See `maestro._bridge` and `maestro._policy`.
+    bridge = Bridge(serial, policy=policy)
     bridge_url = bridge.start()
     logger.info(f"Host bridge: {bridge_url}")
 
-    for flow_path in flows:
+    for index, flow_path in enumerate(flows):
         flow_name = flow_path.stem
         logger.info(f"\n=== {flow_name} ===")
 
-        # The previous flow's leftovers go before this flow starts, not after
-        # the failure is captured: the artifacts (screenshot, screen tree,
-        # logcat) are what triage reads, and they are captured below.
+        # The device is wiped before *every* flow, the first one included: the
+        # device carries whatever the run before this one left on it, and a flow
+        # that asserts an empty list must not be able to see it.
         #
-        # In the default scope the device is wiped before *every* flow, the
-        # first one included: the device carries whatever the run before this
-        # one left on it, and a flow that asserts an empty list must not be
-        # able to see it. In the narrow scope there is nothing to wipe before
-        # the first flow, because the sweep only knows this run's titles.
-        if stale_run_id or maestro_cleanup == "all":
-            deps.cleanup_run_fixtures(serial, stale_run_id or "", maestro_cleanup, deps)
-            stale_run_id = None
+        # This is also what a failing flow's leftovers meet: the artifacts
+        # (screenshot, screen tree, logcat) are captured below, and the next
+        # flow's wipe takes the rows away afterwards. Leaving them for the rest
+        # of the shard makes every later flow that asserts an empty list fail on
+        # the previous flow's data, and a suite whose failures cascade is a suite
+        # that reports one defect as forty.
+        if maestro_cleanup == "all":
+            # The wipe is the whole scope: it needs no list of titles, which is
+            # why the narrow scope is gone. The second argument is the run id
+            # the narrow scope swept by; the contract still carries it, and the
+            # wipe does not read it.
+            deps.cleanup_run_fixtures(serial, "", maestro_cleanup, deps)
 
         # The session is reset before the flow, not after it: a flow that ends
         # signed out must not decide the session of the flow after it, and the
-        # reset is a different kind of fixture from the row sweep above.
+        # reset is a different kind of fixture from the content wipe above.
         reset_session(serial, deps)
 
-        ok, run_id = run_one_flow(
-            flow_path=flow_path,
-            serial=serial,
-            junit_dir=junit_path,
-            skip_install=skip_install,
-            allow_stale=allow_stale_apk,
-            max_retries=maestro_max_retries,
-            expected_sha=expected_sha or "",
-            deps=deps,
-            bridge_url=bridge_url,
-        )
+        try:
+            ok, _run_id = run_one_flow(
+                flow_path=flow_path,
+                serial=serial,
+                junit_dir=junit_path,
+                skip_install=skip_install,
+                allow_stale=allow_stale_apk,
+                max_retries=maestro_max_retries,
+                expected_sha=expected_sha or "",
+                deps=deps,
+                bridge_url=bridge_url,
+            )
+        except DeviceLostError as exc:
+            # The device is gone. The remaining flows did not run, and they are
+            # not failures: they are flows that were never reached, and the
+            # report has to say which. Continuing would turn one lost device
+            # into ninety failures and hide the cause.
+            not_run = [f.stem for f in flows[index + 1:]]
+            logger.error(f"the run stopped: {exc}")
+            logger.error(
+                f"{len(not_run)} flow(s) did not run because the device was lost: "
+                f"{', '.join(not_run) if not_run else 'none'}"
+            )
+            bridge.stop()
+            logger.error("=== Maestro flows did not finish — the device was lost ===")
+            return ctx.exit(EXIT_FAIL)
 
         if ok:
             passed.append(flow_name)
-            # The default scope wipes before every flow, so there is nothing
-            # to do here; the narrow scope has to sweep this flow's own rows
-            # now, because the next flow's sweep only knows the run id of the
-            # flow that *failed*.
-            if maestro_cleanup == "run":
-                deps.cleanup_run_fixtures(serial, run_id, maestro_cleanup, deps)
         else:
             failed.append(flow_name)
             deps.capture_artifacts(serial, flow_name, junit_path / flow_name, deps)
-            stale_run_id = run_id
 
     # The bridge has served every flow; nothing may reach the host after this.
     bridge.stop()
@@ -424,4 +452,8 @@ def main(
 
 
 # Import at bottom to avoid circular import with _runner → _device → _provenance → …
-from emulator.maestro._runner import _EXIT_REASON, run_one_flow  # noqa: E402
+from emulator.maestro._runner import (  # noqa: E402
+    _EXIT_REASON,
+    DeviceLostError,
+    run_one_flow,
+)

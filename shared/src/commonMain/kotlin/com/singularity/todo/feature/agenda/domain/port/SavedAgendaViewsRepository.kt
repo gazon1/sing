@@ -20,6 +20,27 @@ interface SavedAgendaViewsRepository : GenericUserScopedRepository<SavedAgendaVi
     suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView>
 
     /**
+     * Hard-deletes every saved view the active profile owns and reports how many
+     * rows went.
+     *
+     * ## Why this exists
+     *
+     * A saved view is profile content like any other: one left behind by an
+     * earlier run is a view the next run sees, and it changes what the agenda
+     * shows. This is the one operation that reaches the views of the profile as
+     * a whole.
+     *
+     * ## What it does not do
+     *
+     * It touches nothing outside the active profile: the scope is the current
+     * profile's scoped user id, which is what every row of that profile
+     * carries.
+     *
+     * @return the number of rows removed.
+     */
+    suspend fun deleteAllForCurrentProfile(): Result<Int>
+
+    /**
      * Duplicates a [SavedAgendaView] into a different user profile.
      * Generates a fresh [SavedAgendaView.id], stamps [targetUserId], resets timestamps.
      */

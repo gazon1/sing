@@ -142,7 +142,8 @@ A word is a condition when it matches one of the rules below; otherwise §3 G5 a
 | `scheduled:<interval>` | `Scheduled(interval, EQ)` | §5 |
 | `priority:<p>` | `HasPriority(p)` | `highest`, `high`, `medium`, `low` |
 | `<status>` | `HasStatus(status)` | `done`, `not done` / `notdone`, `pending` |
-| `tag:<name>` | `HasTag(name)` | repeated → `HasAllTags` |
+| `tag:<name>` | `HasTag(name)` | repeated → `HasAllTags` (C1) |
+| `tags:<a,b>` | `HasAllTags(names)` | the explicit spelling of what C1 makes implicit |
 | `project:<name>` | `InProject(name)` | |
 | `pinned` | `IsPinned` | |
 | `archived` | `IsArchived` | |
@@ -150,7 +151,8 @@ A word is a condition when it matches one of the rules below; otherwise §3 G5 a
 
 **C1 — `tag:` accumulates.** `tag:work tag:urgent` is one `HasAllTags` condition, not an
 implicit `AND` of two `HasTag`s. The distinction is visible in the AST and matters to
-saved searches.
+saved searches. The explicit form `tags:work,urgent` states the same condition in one
+word.
 
 **C2 — names and text are taken literally after the prefix.** `tag:work` looks up the tag
 named `work`; `project:Plans` looks up the project named `Plans`. Resolution to an id
@@ -266,8 +268,8 @@ One rule, one owner: the resolver builds it, and every kind is matched by it.
 ## 7. Conformance
 
 An implementation conforms if it satisfies §1–§6 and passes the behavioural suite in
-`shared/src/commonTest/kotlin/com/singularity/todo/feature/search/query/` — 146 tests
-across eight classes, each carrying `@Tag`. The rule of §6 is also asserted per kind —
+`shared/src/commonTest/kotlin/com/singularity/todo/feature/search/query/` — 153 tests
+across nine classes, each carrying `@Tag`. The rule of §6 is also asserted per kind —
 task, note, project, tag — in
 `shared/src/commonTest/kotlin/com/singularity/todo/feature/search/SearchFreeTextRuleTest.kt`,
 because a rule that only holds for one kind of record is not a rule.
@@ -275,6 +277,32 @@ because a rule that only holds for one kind of record is not a rule.
 The suite is organised by the sections above rather than by implementation unit, so a
 failure names a rule and not a class. Where a rule is easy to get subtly wrong — R1, R3,
 G1, G2, G3, C1, D1, F2 — it has its own named test.
+
+### 7.1 The grammar and the code are held in agreement
+
+A specification and an implementation drift apart silently: a rule is added here and
+not implemented, or a rule is implemented and never written down, and the search box
+answers a question nobody asked it to answer.
+
+Two things keep them together.
+
+**The code cites the rule.** A rule the implementation carries is cited next to the
+code that implements it, in the words used here: `G2 — conjunction is implicit.`
+A rule that is not cited is a rule nobody can find, and a citation in other words is a
+rule that has drifted from this document.
+
+**A test reads this document.**
+`shared/src/jvmTest/kotlin/com/singularity/todo/feature/search/query/SearchQueryGrammarAgreementTest.kt`
+reads this file and the sources of the search feature, and fails the build when
+
+- a rule declared here is not cited by the code, or is cited in words this document
+  does not use;
+- a rule the code mentions is not declared here;
+- a rule this document refers to is not declared here.
+
+The test carries no copy of the rules. It reads them here, and compares — a test with
+its own list of the rules would be a second place to forget to update, which is the
+failure it exists to catch.
 
 ## 8. Deliberate non-goals
 

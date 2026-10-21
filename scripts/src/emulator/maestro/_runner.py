@@ -39,6 +39,24 @@ setup_logger(is_ci=False)
 logger = _logger
 
 
+class DeviceLostError(RuntimeError):
+    """The device is gone and cannot be recovered.
+
+    This is not a flow failure. A flow failure is a statement about the app;
+    a lost device is a statement about the run, and the two must not be
+    confused in the report. It is also not recoverable by continuing: every
+    flow after this one would fail the same way, and a run that reports
+    ninety failures for one lost device is a report about nothing.
+
+    So the run stops here, and the report says which flows did not run.
+    """
+
+    def __init__(self, serial: str, reason: str) -> None:
+        super().__init__(f"device {serial} was lost and could not be recovered: {reason}")
+        self.serial = serial
+        self.reason = reason
+
+
 def _log_failure(stdout: str, stderr: str) -> None:
     """Log why a flow failed, from both streams.
 
@@ -179,11 +197,16 @@ def run_one_flow(
             # return None and lose the flow.
             acquired = deps.acquire_device(serial)
             if not acquired:
+                # The device is gone and nothing could bring it back. Every
+                # flow after this one would fail the same way, so the run
+                # stops here: a report that lists ninety failures for one lost
+                # device is a report about the device, not about the app.
+                reason = _EXIT_REASON.get(acquired.exit_code, "unknown")
                 logger.error(
-                    f"could not recover {serial}: "
-                    f"{_EXIT_REASON.get(acquired.exit_code, 'unknown')}"
+                    f"could not recover {serial}: {reason}. The run stops here — "
+                    f"the flows that did not run are reported as not run, not as failures."
                 )
-                return False, run_id
+                raise DeviceLostError(serial, reason)
             serial = acquired.serial
         else:
             out = deps.adb("devices") or ""

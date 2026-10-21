@@ -25,4 +25,16 @@ interface AgendaViewDao {
 
     @Query("SELECT * FROM agenda_views WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<AgendaViewEntity>
+
+    /**
+     * Hard-deletes every saved view owned by [userId].
+     *
+     * The views are profile content like any other: a view left behind by an
+     * earlier run is a view the next run sees. One statement over `user_id`
+     * reaches every row the profile owns.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM agenda_views WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }

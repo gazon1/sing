@@ -869,16 +869,6 @@ object TestTags {
     const val ATTACHMENTS_URL_INPUT = "attachments_url_input"
     const val ATTACHMENTS_TITLE_INPUT = "attachments_title_input"
 
-    // ─── Task detail ───────────────────────────────────────────
-    //
-    // Tags for the task detail screen (read-only view, not the editor).
-
-    /** Pin toggle button on the task detail screen. */
-    const val TASK_DETAIL_PIN_BUTTON = "task_detail_pin_button"
-
-    /** Title text on the task detail screen. */
-    const val TASK_DETAIL_TITLE = "task_detail_title"
-
     // ─── Statistics / Health drill-down ──────────────────────────────────
 
     /**

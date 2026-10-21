@@ -42,4 +42,15 @@ class UserScopedDraftStore(private val currentUser: ProfileAwareCurrentUser, pri
     override suspend fun clear(key: String) {
         delegate.clear(userIdPrefix + key)
     }
+
+    /**
+     * Clears the drafts of the *current* user only.
+     *
+     * The prefix is the user's, so a caller that empties the namespace
+     * empties its own — another user's drafts are not touched, which is the
+     * same isolation the per-key methods have.
+     */
+    override suspend fun clearPrefix(prefix: String) {
+        delegate.clearPrefix(userIdPrefix + prefix)
+    }
 }

@@ -41,4 +41,17 @@ interface DraftStore {
      * Deletes a draft by key. Idempotent — deleting non-existent draft is a no-op.
      */
     suspend fun clear(key: String)
+
+    /**
+     * Deletes every draft whose key starts with [prefix].
+     *
+     * A prefix of `""` deletes every draft the store holds.
+     *
+     * This exists because a store that can only delete a *named* draft cannot
+     * be emptied, and a store that cannot be emptied accumulates: a form that
+     * restores its draft hands the next session the previous session's text.
+     * The caller that owns the namespace knows the prefix; the store knows
+     * only the keys, so the prefix is passed in rather than guessed here.
+     */
+    suspend fun clearPrefix(prefix: String)
 }

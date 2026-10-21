@@ -32,4 +32,10 @@ class FakeDraftStore : DraftStore {
     override suspend fun clear(key: String) {
         mutex.withLock { map.remove(key) }
     }
+
+    override suspend fun clearPrefix(prefix: String) {
+        mutex.withLock {
+            map.keys.filter { it.startsWith(prefix) }.forEach { map.remove(it) }
+        }
+    }
 }

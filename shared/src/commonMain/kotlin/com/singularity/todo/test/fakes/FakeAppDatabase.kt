@@ -137,7 +137,8 @@ class FakeAppDatabase : AppDatabase() {
     @Suppress("BackingPropertyNaming")
     private val _proposalItems = MutableStateFlow<Map<String, ProposalItemEntity>>(emptyMap())
 
-    override fun taskDao(): TaskDao = FakeTaskDao(_tasks, _taskTags, _taskDependencies, _tags, _projectTagGroups)
+    override fun taskDao(): TaskDao =
+        FakeTaskDao(_tasks, _taskTags, _taskDependencies, _tags, _projectTagGroups, _checklist)
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
     override fun tagDao(): TagDao = FakeTagDao(_tags)
@@ -164,6 +165,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun tagGroupDao(): TagGroupDao = FakeTagGroupDao(_tagGroups)
     override fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao = FakeProjectInheritedTagGroupDao(
         _projectTagGroups,
+        _projects,
     )
     override fun timeEntryDao(): TimeEntryDao = FakeTimeEntryDao(_timeEntries)
     override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals)
@@ -387,6 +389,7 @@ private class FakeTaskDao(
     private val depRefs: MutableStateFlow<List<TaskDependencyCrossRef>>,
     private val tags: MutableStateFlow<Map<String, TagEntity>>,
     private val projectTagGroups: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
+    private val checklist: MutableStateFlow<Map<String, ChecklistItemEntity>>,
 ) : TaskDao {
 
     override fun watchActive(userId: String): Flow<List<TaskEntity>> = store.map {
@@ -694,6 +697,39 @@ private class FakeTaskDao(
         store.value.values.filter { t ->
             t.userId == userId && t.archivedAt == null && t.outgoingLinks.contains("task://$taskId")
         }.take(20)
+
+    // ── Profile-scoped wipe ───────────────────────────────────────────────────
+    //
+    // The real statements reach every row the profile owns, archived ones
+    // included. A fake that swept only the live rows would hide the defect the
+    // wipe exists to fix.
+
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
+
+    override suspend fun deleteTagRefsForUser(userId: String): Int {
+        val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val doomed = crossRefs.value.count { it.taskId in owned }
+        crossRefs.update { refs -> refs.filterNot { it.taskId in owned } }
+        return doomed
+    }
+
+    override suspend fun deleteDependenciesForUser(userId: String): Int {
+        val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val doomed = depRefs.value.count { it.taskId in owned || it.dependsOnTaskId in owned }
+        depRefs.update { refs -> refs.filterNot { it.taskId in owned || it.dependsOnTaskId in owned } }
+        return doomed
+    }
+
+    override suspend fun deleteChecklistItemsForUser(userId: String): Int {
+        val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val doomed = checklist.value.values.count { it.taskId in owned }
+        checklist.update { items -> items.filterValues { it.taskId !in owned } }
+        return doomed
+    }
 }
 
 // ─── NoteDao ──────────────────────────────────────────────────────────────────
@@ -864,6 +900,17 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         mutateForUser(id, userId) {
             it.copy(kind = com.singularity.todo.feature.notes.NoteKind.valueOf(kind), updatedAt = ts)
         }
+
+    /**
+     * The real statement reaches every row the profile owns, deleted and
+     * archived ones included — a fake that swept only the live rows would hide
+     * the defect the wipe exists to fix.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 // ─── ProjectDao ────────────────────────────────────────────────────────────────
@@ -926,6 +973,17 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         mutateForUser(id, userId) { it.copy(isDeleted = true, deletedAt = ts, updatedAt = ts) }
     override suspend fun listAllForUser(userId: String): List<ProjectEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The real statement reaches every row the profile owns, deleted ones
+     * included — a fake that swept only the live rows would hide the defect the
+     * wipe exists to fix.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 
     private fun mutateForUser(id: String, userId: String, fn: (ProjectEntity) -> ProjectEntity): Int {
         store.update { current ->
@@ -1901,6 +1959,12 @@ private class FakeAgendaViewDao(private val store: MutableStateFlow<Map<String, 
 
     override suspend fun listAllForUser(userId: String): List<AgendaViewEntity> =
         store.value.values.filter { it.userId == userId }
+
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 // ─── RemoteConfigDao ────────────────────────────────────────────────────────
@@ -2007,6 +2071,7 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
 
 private class FakeProjectInheritedTagGroupDao(
     private val store: MutableStateFlow<List<ProjectInheritedTagGroupCrossRef>>,
+    private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
 ) : ProjectInheritedTagGroupDao {
     override fun watchByProject(projectId: String, userId: String): Flow<List<String>> = store.map { list ->
         list.filter { it.projectId == projectId }.map { it.tagGroupId }
@@ -2055,6 +2120,17 @@ private class FakeProjectInheritedTagGroupDao(
     }
 
     override suspend fun listAllForUser(userId: String): List<ProjectInheritedTagGroupCrossRef> = store.value
+
+    /**
+     * Scoped the way the real DAO scopes it: through the owning project's
+     * `user_id`, because the join table itself carries no owner column.
+     */
+    override suspend fun deleteAllForUserProjects(userId: String): Int {
+        val owned = projects.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val before = store.value.count { it.projectId in owned }
+        store.update { list -> list.filterNot { it.projectId in owned } }
+        return before
+    }
 
     override suspend fun insert(ref: ProjectInheritedTagGroupCrossRef) {
         store.update { list ->

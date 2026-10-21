@@ -618,6 +618,24 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "maestro.root",
         layout.projectDirectory.dir("../Maestro").asFile.absolutePath,
     )
+    // The search query grammar, read by `SearchQueryGrammarAgreementTest`.
+    //
+    // That test answers "does every rule in the grammar have a counterpart in the
+    // code, and does every rule the code claims have one in the grammar?" — which
+    // means it has to read the document itself, not a copy of it. The path is declared
+    // rather than derived for the reason `maestro.root` is declared: a derived path
+    // is invisible to scripts/check-test-task-inputs.py, which fails when a path-valued
+    // system property points outside its module with no input covering it.
+    systemProperty(
+        "searchQueryGrammar.spec",
+        rootProject.file("docs/specs/search-query-grammar.md").absolutePath,
+    )
+    // The document is not a compile input of :shared, so without this the task went
+    // UP-TO-DATE on every grammar edit and re-reported the previous run's verdict —
+    // a gate that cannot be invalidated by the change it watches.
+    inputs.file(rootProject.file("docs/specs/search-query-grammar.md"))
+        .withPropertyName("searchQueryGrammarSpec")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // The text-field inventory in the skill, read by `TextFieldShapeConventionTest`.
     //
     // That test answers "is every text field in the app classified?" — and the

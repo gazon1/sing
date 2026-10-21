@@ -1,0 +1,38 @@
+# spec-kit issue record — hand-written: a Maestro failure group measured by
+# scripts/ci/check-maestro-results.py.
+#
+# Not imported from an OpenSpec change. The importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand: the measurement it carries
+# would not survive the next `--replace` otherwise.
+---
+version: '1.0'
+type: maestro-failure
+slug: maestro-failure-element-still-visible
+date: '2026-10-21'
+title: 'Maestro: an element the flow asserted to be gone was still on screen'
+status: open
+change_type: active
+speckit_imported: false
+adr_refs: []
+tags:
+- maestro
+- e2e-debt
+documents: {}
+specs_dir: ''
+is_stub: false
+openspec_path: ''
+measurement:
+  gate: scripts/ci/check-maestro-results.py
+  scope: full
+  group: 'Assertion is false: id: <id> is not visible'
+  flows: 1
+  measured_on: '2026-10-21'
+  floor: config/docs/maestro-failure-floor.txt
+elements:
+- element: task_item_buy_milk
+  flows: 1
+  messages:
+  - 'Assertion is false: id: task_item_buy_milk is not visible'
+affected_flows:
+- Maestro/flows/archive/01-restore.yaml

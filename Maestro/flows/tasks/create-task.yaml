@@ -16,15 +16,19 @@ tags:
     id: task_editor_title_input
 - tapOn:
     id: task_editor_title_input
+# The create screen restores its draft, so the field is not empty when the flow
+# arrives: the previous flow's title is still in it. `inputText` appends, and
+# the assertion below is an exact match, so the field has to be emptied first.
+- eraseText
 - inputText: "${RUN_ID} Buy milk"
 # Fail here rather than at the save assertion if the keystrokes never landed:
 # the title field is a BasicTextField, and a lost IME composition is otherwise
 # indistinguishable from a broken save button.
 #
-# NOTE: asserted as text on purpose. The editor is still open, so there is no
+# Asserted as text on purpose. The editor is still open, so there is no
 # task row — `task_item_buy_milk` only exists once the task is saved (asserted
-# below). Asserting the field's content needs a text selector until the product
-# exposes the title field's value as a tag.
+# below). The field publishes its value as the node's text, so a text selector
+# is the right instrument here.
 - assertVisible: "${RUN_ID} Buy milk"
 - hideKeyboard
 - tapOn:

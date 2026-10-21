@@ -1,0 +1,53 @@
+# spec-kit issue record — hand-written: a Maestro failure group measured by
+# scripts/ci/check-maestro-results.py.
+#
+# Not imported from an OpenSpec change. The importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand: the measurement it carries
+# would not survive the next `--replace` otherwise.
+---
+version: '1.0'
+type: maestro-failure
+slug: maestro-failure-expected-text-not-visible
+date: '2026-10-21'
+title: 'Maestro: a text the flow asserted was not on screen'
+status: open
+change_type: active
+speckit_imported: false
+adr_refs: []
+tags:
+- maestro
+- e2e-debt
+documents: {}
+specs_dir: ''
+is_stub: false
+openspec_path: ''
+measurement:
+  gate: scripts/ci/check-maestro-results.py
+  scope: full
+  group: 'Assertion is false: <text> is visible'
+  flows: 4
+  measured_on: '2026-10-21'
+  floor: config/docs/maestro-failure-floor.txt
+elements:
+- element: 'Assertion is false: "Archive is empty" is visible'
+  flows: 1
+  messages:
+  - 'Assertion is false: "Archive is empty" is visible'
+- element: 'Assertion is false: "No priority" is visible'
+  flows: 1
+  messages:
+  - 'Assertion is false: "No priority" is visible'
+- element: 'Assertion is false: "r5549817520 Buy milk" is visible'
+  flows: 1
+  messages:
+  - 'Assertion is false: "r5549817520 Buy milk" is visible'
+- element: 'Assertion is false: "✓ r5552136040 Child task one" is visible'
+  flows: 1
+  messages:
+  - 'Assertion is false: "✓ r5552136040 Child task one" is visible'
+affected_flows:
+- Maestro/flows/negative/04-empty-archive.yaml
+- Maestro/flows/tasks/01-set-priority.yaml
+- Maestro/flows/tasks/create-task.yaml
+- Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml

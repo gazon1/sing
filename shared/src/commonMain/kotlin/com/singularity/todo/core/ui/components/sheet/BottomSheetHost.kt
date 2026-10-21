@@ -11,6 +11,7 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,7 +30,19 @@ fun BottomSheetHost(
     ModalBottomSheet(
         onDismissRequest = dismissWithAnimation,
         sheetState = sheetState,
-        modifier = modifier,
+        // The sheet renders into its own Android window, so the app-root
+        // `testTagsAsResourceId` never reaches it and every testTag inside the
+        // sheet is invisible to UI automation. The mapping is asserted *here*,
+        // on the window that owns the content, rather than in each sheet's own
+        // file: the content of a sheet is usually written somewhere else
+        // entirely, and a mapping that has to be repeated at every such site is
+        // a mapping that will be forgotten at one of them.
+        //
+        // The property is read from the node's *ancestors* (Compose walks up
+        // the semantics tree of the window), so asserting it on the sheet's
+        // root covers the whole subtree — measured on the device: the ids
+        // inside `ModalBottomSheet` reach UIAutomator as resource-ids.
+        modifier = modifier.mapTestTagsAsResourceIds(),
         contentWindowInsets = { WindowInsets.safeDrawing },
     ) {
         content()

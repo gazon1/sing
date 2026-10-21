@@ -113,10 +113,9 @@ subtasks_section item
 sync_interval_row item
 task_checkbox_buy_milk item
 task_context_menu_sheet dialog
-task_detail_pin_button button
-task_detail_title text
 task_editor_due_date_row_label text
 task_editor_due_row item
+task_editor_pin_row item
 task_editor_priority_row item
 task_editor_recurrence_row item
 task_editor_title_input field

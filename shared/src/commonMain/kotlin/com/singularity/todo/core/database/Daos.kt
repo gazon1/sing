@@ -377,6 +377,64 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
 
+    // ── Profile-scoped wipe ─────────────────────────────────────────────────────
+    //
+    // A sweep that enumerates the *live* rows cannot empty a profile: every
+    // archived row survives it and turns up in the next run's trash — the
+    // previous run's state, seen by the next one. These statements reach every
+    // row the profile owns, whatever its archived state, and the cross-references
+    // that point at those rows go with them.
+
+    /**
+     * Hard-deletes every task row owned by [userId] — archived and trashed rows
+     * included.
+     *
+     * Hard, not soft: the archive (`softDelete`) is how a *finished* task is
+     * kept, and it is exactly what makes a wiped profile still show rows. This
+     * statement is the "the profile holds no tasks" wipe.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM tasks WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
+
+    /**
+     * Removes the tag cross-references of every task owned by [userId].
+     *
+     * The references live in their own table and carry no owner column, so
+     * deleting the tasks leaves them behind — pointing at tasks that are gone.
+     */
+    @Query("DELETE FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
+    suspend fun deleteTagRefsForUser(userId: String): Int
+
+    /**
+     * Removes the dependency edges of every task owned by [userId], in both
+     * directions: an edge this profile's task holds towards a task of another
+     * profile belongs to the deleted task as much as the other way round, and
+     * keeping it would leave a dangling reference to a task that is gone.
+     */
+    @Query(
+        """
+        DELETE FROM task_dependencies
+        WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        OR depends_on_task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteDependenciesForUser(userId: String): Int
+
+    /**
+     * Removes the checklist items of every task owned by [userId].
+     *
+     * The items are rows of their own table and carry no owner column, so the
+     * tasks they belong to can be deleted without taking them along. The table
+     * is [ChecklistDao]'s, but the rows are reachable only through a task, and
+     * the wipe that empties the tasks is this one.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM checklist_items WHERE task_id IN (SELECT id FROM tasks WHERE user_id = :userId)")
+    suspend fun deleteChecklistItemsForUser(userId: String): Int
+
     // ── Owner-scoped erase ──────────────────────────────────────────────────────
     //
     // See `OwnerEraseDao` — the deletes live there, grouped by operation rather than
@@ -520,6 +578,19 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<NoteEntity>
+
+    /**
+     * Hard-deletes every note row owned by [userId] — deleted and archived rows
+     * included.
+     *
+     * `watchAll` reports the live notes only, so a sweep built on it leaves the
+     * deleted and archived ones behind. One statement over `user_id` reaches
+     * every row the profile owns.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM notes WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 
     @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
     suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
@@ -699,6 +770,18 @@ interface ProjectDao {
 
     @Query("SELECT * FROM projects WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<ProjectEntity>
+
+    /**
+     * Hard-deletes every project row owned by [userId] — deleted rows included.
+     *
+     * `watchAll` reports the live projects only, so a sweep built on it leaves
+     * the deleted ones behind. One statement over `user_id` reaches every row
+     * the profile owns.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM projects WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }
 
 @Dao
@@ -1138,6 +1221,23 @@ interface ProjectInheritedTagGroupDao {
         """,
     )
     suspend fun deleteAllForUser(projectId: String, userId: String): Int
+
+    /**
+     * Removes the inherited tag groups of *every* project owned by [userId].
+     *
+     * The counterpart of [deleteAllForUser] for the whole profile rather than
+     * for one project: the rows carry no owner column, so the projects they
+     * belong to can be deleted without taking them along.
+     *
+     * @return the number of rows removed.
+     */
+    @Query(
+        """
+        DELETE FROM project_tag_groups
+        WHERE project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteAllForUserProjects(userId: String): Int
 
     /**
      * Inserts one inheritance row, scoped to the owning project.

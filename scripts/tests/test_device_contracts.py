@@ -189,9 +189,9 @@ class AdbArgvShapeTest(unittest.TestCase):
 
     def test_cleanup_run_fixtures_is_scoped(self):
         deps = _RecordingDeps()
-        _fixtures.cleanup_run_fixtures("emulator-5554", "r1", "run", deps)
+        _fixtures.cleanup_run_fixtures("emulator-5554", "r1", "all", deps)
         self._assert_scoped_only(deps)
-        self.assertTrue(any("todo-debug://seed?cleanup=" in args[-1]
+        self.assertTrue(any("todo-debug://seed?reset=content" in args[-1]
                             for _, args in deps.scoped))
 
     def test_apk_sha_from_device_is_scoped(self):

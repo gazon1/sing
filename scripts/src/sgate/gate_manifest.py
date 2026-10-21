@@ -603,6 +603,20 @@ PLACEMENTS: dict[str, Placement] = {
         ),
         tracked_by=".github/workflows/android-device-tests.yml#Check the instrumented suite's floor",
     ),
+    "maestro results are within the floor": Placement(
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "CI runs it as the `maestro-results` job of e2e.yml, after the shards: it "
+            "reads the JUnit XML the run wrote, and that XML does not exist until a "
+            "shard has run. It runs on the shards' combined reports rather than "
+            "inside a shard, because the floor in "
+            "config/docs/maestro-failure-floor.txt is a number for the whole suite — "
+            "a gate that ran inside one of the four nightly shards would measure a "
+            "quarter of the suite against the whole suite's floor, and pass on debt "
+            "it could not see."
+        ),
+        tracked_by=".github/workflows/e2e.yml#Maestro results gate",
+    ),
     "rebase compiles": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import time
-import urllib.parse
 from typing import TYPE_CHECKING
 
 from emulator.maestro._types import APP_ID
@@ -14,8 +13,8 @@ if TYPE_CHECKING:  # pragma: no cover — import cycle guard, annotations only
 def reset_session(serial: str, deps: "DeviceDeps") -> None:
     """Give the app a fresh process, and with it the session it starts with.
 
-    A session reset is a different kind of fixture from the row sweep in
-    :func:`cleanup_run_fixtures`, and it needs its own mechanism: the sweep
+    A session reset is a different kind of fixture from the content wipe in
+    :func:`cleanup_run_fixtures`, and it needs its own mechanism: the wipe
     removes the *rows* a flow seeded, while this restores the *session* the
     next flow runs under. The two cannot be folded into each other — a flow
     that ends signed out leaves no rows behind and still hands the next flow
@@ -45,7 +44,7 @@ def cleanup_run_fixtures(
 ) -> None:
     """Remove what the previous flow left on the device. Best-effort.
 
-    Three scopes, and the default is the one that makes the suite mean what
+    Two scopes, and the default is the one that makes the suite mean what
     it says:
 
     - ``all`` (default) — wipe every task, note and project in the active
@@ -53,11 +52,18 @@ def cleanup_run_fixtures(
       the flows share one device and one database, so anything a flow leaves
       behind is still there for the next one, and a flow that asserts an
       empty list then fails on the *previous* flow's row.
-    - ``run`` — remove the rows whose title starts with the run id or with
-      ``Buy milk``. Narrower and faster, but the boundary is a *list of
-      titles*, and the suite keeps adding fixed titles to it: every one the
-      list forgets survives the run.
     - ``off`` — send nothing.
+
+    The narrow scope — a sweep of the rows whose title starts with the run id
+    or with a fixed title — is gone, and it is not coming back in that shape.
+    Its boundary was a *list of titles* that somebody had to keep up to date
+    by hand, and the list was already behind the suite: a title it forgot
+    survived the run, and the failure that caused was silent — a flow that
+    asserts an empty list fails on the *previous* flow's data, and a flow
+    that asserts its own task fails because another flow's task is in the way.
+    The nightly run of 2026-10-20 failed 43 flows across all four shards in
+    exactly that shape, while the same flows passed in the smoke suite. See
+    the ADR ``2026-10-28-the-bridge-policy-is-a-file.md``.
 
     Why ``all`` is the default and the seed activity's own warning about it
     ("not concurrency-safe by construction") does not apply: the runner holds
@@ -72,38 +78,17 @@ def cleanup_run_fixtures(
     Uses ``deps.adb_on`` so ``-s <serial>`` is present; see
     ``emulator/maestro/_artifacts.py`` for the failure this prevents.
 
-    The list of prefixes is ``urllib.parse.quote``-encoded **whole**, with no
-    shell quoting around it and with no pre-encoded characters inside it.
-
-    Both of those used to be wrong, and the failure was silent. The value was
-    built as ``f"'{run_id},Buy%20milk'"`` — shell-style quotes and a
-    pre-encoded space — and then quoted again, so the app received the
-    literal string ``'r4797858390,Buy%20milk'`` and split it into the
-    prefixes ``"'r4797858390"`` and ``"Buy%20milk'"``. The app matches titles
-    by *prefix*, so neither matched anything: the run id was preceded by an
-    apostrophe and the fixed title carried a trailing apostrophe and an
-    encoded space. Every fixture a flow seeded stayed on the device for the
-    rest of the shard.
-
-    Nothing about that is visible in the failure: a flow that asserts an
-    empty list fails because of the *previous* flow's data, and a flow that
-    asserts its own task fails because another flow's task is in the way. The
-    nightly run of 2026-10-20 failed 43 flows across all four shards for
-    exactly this reason, while the same flows passed in the smoke suite —
-    fewer flows, less data, and the failures attributed to the product.
-
-    The property that matters, and what the test below asserts: after
-    decoding, every prefix must be a real prefix of a title the app can
-    hold, and the run id must be one of them.
+    ``run_id`` is the id of the flow whose fixtures are being swept. It is part
+    of the ``DeviceDeps`` contract and every fake in the tree passes it, but
+    the surviving scopes do not name individual rows — the wipe knows every
+    row, and ``off`` sends nothing — so it is not read.
     """
     if mode == "off":
         return
+    if mode != "all":
+        raise ValueError(f"unknown cleanup scope: {mode!r}")
     if not deps.device_alive(serial):
         return
-    if mode == "all":
-        cmd = "am start -a android.intent.action.VIEW -d todo-debug://seed?reset=content"
-    else:
-        encoded = urllib.parse.quote(f"{run_id},Buy milk")
-        cmd = f"am start -a android.intent.action.VIEW -d todo-debug://seed?cleanup={encoded}"
+    cmd = "am start -a android.intent.action.VIEW -d todo-debug://seed?reset=content"
     deps.adb_on(serial, "shell", cmd)
     time.sleep(1)

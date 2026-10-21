@@ -31,23 +31,35 @@ address to every flow as ``E2E_BRIDGE_URL``. A script calls it:
 ``http.get`` returns ``{ok, status, body, headers}`` and ``body`` is a *string*,
 so the payload is parsed by the script.
 
-The server is not a shell. It accepts a device command only if the command
-starts with one of the prefixes in :data:`ALLOWED_PREFIXES`, and it always runs
-it through ``adb -s <serial> shell`` — the command never runs on the host. The
-server binds to 127.0.0.1, on an ephemeral port, for the duration of one test
-run, and it is stopped when the run ends.
+The server is not a shell. It runs a device command only if the WHOLE command
+matches one of the shapes the policy allows, and it always runs it through
+``adb -s <serial> shell`` — the command never runs on the host. The server
+binds to 127.0.0.1, on an ephemeral port, for the duration of one test run, and
+it is stopped when the run ends.
+
+What the policy is
+------------------
+The allowed shapes live in a file — ``config/maestro/bridge-policy.yaml`` —
+not in a Python literal, because the set grows with the flows. A flow that
+needs a new device command gets it by editing the policy, not by editing the
+bridge.
+
+The shapes are matched whole, never by prefix. A prefix check accepts
+``run-as com.singularity.todo ; rm -rf /`` — the device shell would run the
+second command as the *shell* user rather than the app's. The rule lives in
+the code (``fullmatch``) and in
+``docs/decisions/2026-10-28-the-bridge-policy-is-a-file.md``.
 
 What it refuses
 ---------------
-Anything that is not one of the allowed prefixes, and anything that is not a
-device command at all. A rejected command is a 400 with a JSON body saying why;
-it is never executed. A flow that needs the bridge and does not have it fails
-with a message that says so, rather than passing on its next assertion.
+Anything that does not match a policy shape, and anything that is not a device
+command at all. A rejected command is a 400 with a JSON body saying why; it is
+never executed. A flow that needs the bridge and does not have it fails with a
+message that says so, rather than passing on its next assertion.
 """
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import threading
 from dataclasses import dataclass
@@ -55,32 +67,12 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Callable
 from urllib.parse import parse_qs, urlparse
 
+from emulator.maestro._policy import Policy, default_policy
 from emulator.maestro._types import APP_ID
 
 #: The name the runner hands the flows. It is a global inside a script, not
 #: ``env.E2E_BRIDGE_URL`` — Maestro exposes each ``env:`` entry as a bare global.
 BRIDGE_ENV_NAME = "E2E_BRIDGE_URL"
-
-#: The device commands the bridge will run, and nothing else.
-#:
-#: ``run-as`` is how a flow reaches a file inside the app's own data directory;
-#: it only works for a debuggable build, which is what the E2E build is. The
-#: property commands are how a flow tells the debug build to behave differently
-#: for one flow — the stub reads ``debug.stub_auth.*`` at runtime.
-#:
-#: The shapes are matched whole, not by prefix. A prefix check accepts
-#: ``run-as com.singularity.todo ; rm -rf /`` — the device shell would run the
-#: second command as the *shell* user rather than the app's — so the command has
-#: to be one of these three forms and nothing else.
-_ALLOWED_SHAPES = (
-    # run-as <package> sh -c '<script>' — the script may not contain a single
-    # quote, so it cannot end the quoted argument and append commands of its own.
-    re.compile(rf"^run-as {re.escape(APP_ID)} sh -c '[^']*'$"),
-    # setprop <name> <value> — neither may hold a shell metacharacter.
-    re.compile(r"^setprop [A-Za-z0-9._-]+ [A-Za-z0-9._-]*$"),
-    # getprop <name>
-    re.compile(r"^getprop [A-Za-z0-9._-]+$"),
-)
 
 #: How long a bridged command may run before the bridge gives up on it.
 COMMAND_TIMEOUT_SEC = 30
@@ -122,9 +114,14 @@ def _default_run_device_command(serial: str, command: str) -> CommandResult:
     return CommandResult(code=cp.returncode, stdout=cp.stdout, stderr=cp.stderr)
 
 
-def is_allowed(command: str) -> bool:
-    """Whether the bridge will run this device command."""
-    return any(shape.match(command) for shape in _ALLOWED_SHAPES)
+def is_allowed(command: str, policy: Policy | None = None) -> bool:
+    """Whether the bridge will run this device command.
+
+    The command has to match one of the policy's shapes *whole*. A command
+    that starts with an allowed shape and carries more arguments is a different
+    command, and it is refused.
+    """
+    return (policy if policy is not None else default_policy()).allows(command)
 
 
 class _BridgeHandler(BaseHTTPRequestHandler):
@@ -148,14 +145,16 @@ class _BridgeHandler(BaseHTTPRequestHandler):
             return
 
         command = commands[0]
-        if not is_allowed(command):
+        policy = self.bridge.policy
+        if not policy.allows(command):
             self._respond(
                 400,
                 {
                     "error": (
-                        "the bridge only runs a device command of one of these shapes: "
-                        f"run-as {APP_ID} sh -c '…', setprop <name> <value>, "
-                        f"getprop <name>; refused: {command!r}"
+                        "the bridge runs only the device commands its policy allows "
+                        f"({policy.source}; shapes: {', '.join(policy.ids())}), and a "
+                        "command has to match one of them whole; "
+                        f"refused: {command!r}"
                     )
                 },
             )
@@ -196,10 +195,12 @@ class Bridge:
         serial: str,
         app_id: str = APP_ID,
         run_device_command: Callable[[str, str], CommandResult] | None = None,
+        policy: Policy | None = None,
     ) -> None:
         self.serial = serial
         self.app_id = app_id
         self._run = run_device_command or _default_run_device_command
+        self.policy = policy if policy is not None else default_policy()
         self._server: HTTPServer | None = None
         self._thread: threading.Thread | None = None
 

@@ -1,0 +1,61 @@
+# The device commands the Maestro host bridge may run.
+#
+# The bridge is the only channel a Maestro script has to the device's shell: it
+# starts a loopback HTTP server for the length of one test run and executes the
+# commands it is sent through `adb -s <serial> shell`. It is reachable by
+# anything on the host while the run lasts, so this file is the whole of its
+# exposure. See `docs/decisions/2026-10-20-a-maestro-script-cannot-reach-the-host.md`.
+#
+# THE RULE — a command is allowed only when the WHOLE command matches one of
+# the patterns below. A prefix is not a match. `run-as com.singularity.todo ; rm -rf /`
+# starts with an allowed command and is still refused: the device's shell would
+# run the second half as the *shell* user rather than the app's. The matching
+# mode is declared here as `whole` and the loader refuses any other value, so
+# the rule cannot be quietly relaxed by editing this file.
+#
+# The patterns are regular expressions, matched with `fullmatch` — never
+# `match` (a prefix) and never `search` (anywhere). `{app_id}` is replaced with
+# the app's package id, escaped for the regex.
+#
+# A pattern may not contain `.*` or `.+`: that is a prefix match in disguise,
+# and the loader refuses it. A variable part of a shape is written as a negated
+# class (`[^']*`), which cannot run past the end of what it names.
+#
+# Adding a shape is an edit to this file and nothing else: no Python changes,
+# no new branch in the matcher. What the bridge may run is a policy question,
+# and this file is where the answer lives.
+
+version: 1
+
+# The only match mode the loader accepts. `whole` means the command has to
+# match a pattern from end to end.
+match: whole
+
+# The app whose private data the bridge is allowed to reach. The loader refuses
+# a policy that names another app: `run-as` for a different package is a
+# different privilege, and it must not be reachable by editing a pattern.
+app_id: com.singularity.todo
+
+commands:
+  - id: run-as-script
+    pattern: "run-as {app_id} sh -c '[^']*'"
+    why: >
+      `run-as` is how a flow reaches a file inside the app's own data directory
+      — the encrypted session store the debug build writes. It only works for a
+      debuggable build, which is what the E2E build is. The script is
+      single-quoted and may not contain a quote of its own, so it cannot end
+      the quoted argument and append commands of its own.
+
+  - id: setprop
+    pattern: "setprop [A-Za-z0-9._-]+ [A-Za-z0-9._-]*"
+    why: >
+      A property set is how a flow tells the debug build to behave differently
+      for one flow — the auth stub reads `debug.stub_auth.*` at runtime. Neither
+      the name nor the value may hold a shell metacharacter, so the command
+      cannot be the first half of a longer one.
+
+  - id: getprop
+    pattern: "getprop [A-Za-z0-9._-]+"
+    why: >
+      The read side of the same thing: a flow asserts on the property the debug
+      build reports. The name may not hold a shell metacharacter either.

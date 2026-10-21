@@ -15,9 +15,11 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
-# NOTE: asserted by id rather than text for reliability.
+# The field publishes its value as the node's text (measured on the device),
+# so the value is assertable — the field's own id says only that a title
+# field is open.
 - assertVisible:
-    id: task_detail_title
+    text: "Buy milk"
 
 # The time tracking section shows the START chip on a signed-in session.
 # (Anonymous/dev sessions show time_tracking_error instead; the section is

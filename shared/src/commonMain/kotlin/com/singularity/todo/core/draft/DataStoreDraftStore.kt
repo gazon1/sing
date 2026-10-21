@@ -53,4 +53,17 @@ class DataStoreDraftStore(
             prefs.remove(stringPreferencesKey(key))
         }
     }
+
+    override suspend fun clearPrefix(prefix: String) {
+        dataStore.edit { prefs ->
+            // The keys are read from the state being edited, so a key removed
+            // in this pass cannot be seen twice — and a key added by another
+            // writer between the read and the edit is not touched, which is
+            // the right answer for a store whose writes are per-user.
+            prefs.asMap().keys
+                .map { it.name }
+                .filter { it.startsWith(prefix) }
+                .forEach { prefs.remove(stringPreferencesKey(it)) }
+        }
+    }
 }

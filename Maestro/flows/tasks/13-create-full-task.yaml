@@ -54,6 +54,9 @@ tags:
 # ── Fill title ─────────────────────────────────────────────────────────
 - tapOn:
     id: task_editor_title_input
+# The create screen restores its draft, so the field still holds the previous
+# flow's title; `inputText` appends to whatever is there.
+- eraseText
 - inputText: "${RUN_ID} Full task with all fields"
 - hideKeyboard
 

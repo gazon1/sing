@@ -21,6 +21,27 @@ interface ProjectsRepository :
      */
     suspend fun upsert(project: Project): Project
 
+    /**
+     * Hard-deletes every project the active profile owns — deleted projects
+     * included — and reports how many rows went.
+     *
+     * ## Why this exists
+     *
+     * A sweep that enumerates [observeAll] cannot empty a profile: `observeAll`
+     * reports the live projects only, so every deleted project survives the
+     * sweep and turns up in the next run — the previous run's state, seen by
+     * the next one.
+     *
+     * ## What it does not do
+     *
+     * It touches nothing outside the active profile: the scope is the current
+     * profile's scoped user id, which is what every row of that profile
+     * carries.
+     *
+     * @return the number of rows removed.
+     */
+    suspend fun deleteAllForCurrentProfile(): Result<Int>
+
     /** Single project by [id] for the current user. */
     fun observeProject(id: ProjectId): Flow<Project?>
 

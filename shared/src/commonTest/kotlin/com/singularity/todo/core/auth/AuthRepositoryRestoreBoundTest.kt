@@ -17,6 +17,7 @@ import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -27,6 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -121,7 +123,9 @@ class AuthRepositoryRestoreBoundTest {
             val session = assertIs<Session.SignedIn>(repository.currentSession.value)
             assertEquals(UserId.fromString("owner-1"), session.userId)
             assertEquals("access-2", session.accessToken, "the refreshed token is the one the device keeps")
-            expectNoEvents()
+            // The failure window closed with the restore, so the stream completed
+            // without an event: a reader is told there was no failure.
+            awaitComplete()
         }
     }
 
@@ -147,6 +151,7 @@ class AuthRepositoryRestoreBoundTest {
             )
             assertEquals(Session.SignedOut, repository.currentSession.value)
             awaitItem()
+            awaitComplete()
         }
     }
 
@@ -164,6 +169,7 @@ class AuthRepositoryRestoreBoundTest {
 
             assertEquals(Session.SignedOut, repository.currentSession.value)
             awaitItem()
+            awaitComplete()
         }
     }
 
@@ -197,7 +203,47 @@ class AuthRepositoryRestoreBoundTest {
                 "the report must carry the failure it is about",
             )
             awaitItem()
+            awaitComplete()
         }
+    }
+
+    /**
+     * The bound on the *reader* of the failure stream.
+     *
+     * The stream used to stay open for the lifetime of the repository, so a reader
+     * waiting for a report that would never come — the view model's
+     * `restoreFailures.firstOrNull()` — waited for a report that cannot exist, forever.
+     * The restore publishes the report at most once and then closes the window, so the
+     * absence of a failure is something the reader is told.
+     *
+     * The reader in this test arrives after the restore is over: it is answered at once,
+     * without spending a millisecond of the caller's time waiting for a window that has
+     * already closed.
+     */
+    @Test
+    fun `a reader that arrives after the restore is answered without waiting`() = runTest {
+        val storage = FakeSecureStorage(
+            values = mapOf(
+                SecureSessionStore.KEY_ACCESS to "access-1",
+                SecureSessionStore.KEY_REFRESH to "refresh-1",
+                SecureSessionStore.KEY_USER_ID to "owner-1",
+                SecureSessionStore.KEY_EMAIL to "a@b.c",
+            ),
+        )
+        val repository = repository(storage)
+
+        awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
+        advanceUntilIdle()
+        val before = testScheduler.currentTime
+
+        val failure = repository.restoreFailures.firstOrNull()
+
+        assertNull(failure, "a restore that succeeded has no failure to report")
+        assertEquals(
+            before,
+            testScheduler.currentTime,
+            "the reader must be answered at once: the window it waits for has already closed",
+        )
     }
 
     /**

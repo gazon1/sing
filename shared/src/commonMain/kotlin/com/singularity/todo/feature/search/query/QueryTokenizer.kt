@@ -32,12 +32,12 @@ package com.singularity.todo.feature.search.query
  * quote is the normal state of a query mid-edit, and rejecting it would make the search
  * box feel broken for the half-second before they finish.
  *
- * **R2 — quoted contents are literal.** Never re-examined for operators or parentheses,
- * so `"AND"` is the text `AND`.
+ * **R2 — a quoted string is never reinterpreted.** The contents are literal text, so
+ * they are never re-examined for operators or parentheses: `"AND"` is the text `AND`.
  *
- * **R3 — a word that case-insensitively equals a keyword *is* that keyword.** The cost is
- * that a user searching for the literal word `and` must quote it; the alternative is a
- * grammar where `And` sometimes means one thing and sometimes another.
+ * **R3 — a word equal to a keyword *in any case* is that keyword, not text.** The cost
+ * is that a user searching for the literal word `and` must quote it; the alternative is
+ * a grammar where `And` sometimes means one thing and sometimes another.
  */
 class QueryTokenizer(private val input: String) {
 
@@ -77,7 +77,8 @@ class QueryTokenizer(private val input: String) {
         val text = StringBuilder()
         var pos = start + 1
         while (pos < input.length && input[pos] != '"') {
-            // R4: a backslash escapes the next character, and only inside quotes.
+            // R4 — escapes are resolved inside quotes only. A backslash escapes the next
+            // character, and only here, inside a quoted string.
             if (input[pos] == '\\' && pos + 1 < input.length) {
                 text.append(input[pos + 1])
                 pos += 2

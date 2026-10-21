@@ -12,7 +12,6 @@ import pathlib
 import tempfile
 import unittest
 import unittest.mock
-import urllib.parse
 import os
 
 import emulator.maestro
@@ -712,86 +711,20 @@ class UnreportedFlowTest(unittest.TestCase):
 
 
 class FixtureCleanupTest(unittest.TestCase):
-    """The cleanup link must name the fixtures it is supposed to remove.
+    """The cleanup scope is a wipe of the content, not a sweep of named titles.
 
-    The app deletes a task, note or project whose title *starts with* one of
-    the comma-separated prefixes in ``cleanup=``. So the property that matters
-    is not "the link was sent" but "the prefixes the app will read are real
-    prefixes of the titles that were seeded".
+    The narrow scope is gone. It removed the rows whose title started with the
+    run id or with a fixed title, and the fixed titles were a list somebody had
+    to keep up to date by hand: a title the list forgot survived the run, and
+    the failure that caused was silent — a flow that asserts an empty list
+    fails on the *previous* flow's data, and a flow that asserts its own task
+    fails because another flow's task is in the way.
 
-    It was not, and the failure was invisible. The value was built as
-    ``f"'{run_id},Buy%20milk'"`` — shell-style quotes and a pre-encoded
-    space — and then URL-quoted again, so the app read the prefixes
-    ``"'r4797858390"`` and ``"Buy%20milk'"``. Neither matched a title. Every
-    fixture stayed on the device for the rest of the shard, and the nightly
-    run of 2026-10-20 failed 43 flows across all four shards because of it:
-    a flow that asserts an empty list failed on the *previous* flow's data,
-    and a flow that asserts its own task failed on another flow's task being
-    in the way.
-
-    These tests assert the property, not the implementation: they decode the
-    link the app would receive and check the prefixes against real titles.
+    What is left is a scope that knows every row: the content wipe. These
+    tests assert what each surviving scope sends.
     """
 
     RUN_ID = "r4797858390"
-
-    def _cleanup_prefixes(self, mode: str = "run") -> list[str]:
-        """The prefixes the app reads, taken from the link the runner sends."""
-        calls: list[str] = []
-
-        deps = DeviceDeps(
-            try_run=lambda cmd, **kw: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
-            device_alive=lambda s: True,
-            device_model=lambda s: "Pixel_8",
-            maestro_saw_device_failure=lambda stderr: False,
-            apk_sha_from_device=lambda s: "abc123def456",
-            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
-            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
-            adb=lambda *a, **kw: "",
-            adb_on=lambda serial, *a, **kw: calls.append(" ".join(a)),
-            reset_adb_server=lambda: None,
-            wait_for_app_resumed=lambda s, timeout=20: True,
-            cleanup_run_fixtures=lambda serial, run_id, mode, deps: None,
-            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
-            git_sha=lambda deps: "abc123def456",
-        )
-
-        with unittest.mock.patch.object(_fixtures.time, "sleep", lambda _s: None):
-            _fixtures.cleanup_run_fixtures("emulator-5554", self.RUN_ID, mode, deps)
-
-        self.assertEqual(len(calls), 1, f"expected exactly one cleanup link, got {calls}")
-        link = calls[0]
-        self.assertIn("todo-debug://seed?cleanup=", link)
-        raw = link.split("todo-debug://seed?cleanup=", 1)[1]
-        decoded = urllib.parse.unquote(raw)
-        return [p.strip() for p in decoded.split(",") if p.strip()]
-
-    def test_the_run_id_is_one_of_the_prefixes(self):
-        prefixes = self._cleanup_prefixes()
-        self.assertIn(self.RUN_ID, prefixes)
-
-    def test_a_seeded_title_starts_with_one_of_the_prefixes(self):
-        """The property the app actually uses: titles are matched by prefix."""
-        prefixes = self._cleanup_prefixes()
-        for title in (
-            f"{self.RUN_ID} Anonymous task",
-            f"{self.RUN_ID}_ClearSearchTask2026",
-            "Buy milk",
-        ):
-            self.assertTrue(
-                any(title.startswith(p) for p in prefixes),
-                f"{title!r} is matched by none of the prefixes {prefixes!r}",
-            )
-
-    def test_the_fixed_seed_title_is_swept_too(self):
-        self.assertIn("Buy milk", self._cleanup_prefixes())
-
-    def test_the_prefixes_carry_no_quoting(self):
-        """Quotes and pre-encoded spaces are what broke it; they must not come back."""
-        prefixes = self._cleanup_prefixes()
-        for prefix in prefixes:
-            self.assertNotIn("'", prefix)
-            self.assertNotIn("%", prefix)
 
     def test_the_all_mode_sweeps_everything_instead(self):
         calls: list[str] = []
@@ -847,15 +780,12 @@ class FailedFlowCleanupTest(unittest.TestCase):
     flow that asserts an empty list fail on the previous flow's leftovers, and
     a suite whose failures cascade reports one defect as forty.
 
-    Two scopes, and the default is the wide one. In the default scope the
-    device is wiped *before every flow*, so a flow's result cannot depend on
-    what ran before it — that is the property the suite needs to mean
-    anything. In the narrow scope the wipe knows the run id and the one fixed
-    title, so a flow's fixtures are swept but a row the suite forgot to name
-    survives, and the order of the flows starts to matter.
+    One scope, and it is the wide one: the device is wiped *before every flow*,
+    so a flow's result cannot depend on what ran before it — that is the
+    property the suite needs to mean anything.
     """
 
-    def _run(self, tmp: str, cleanup_scope: str | None = None):
+    def _run(self, tmp: str):
         """The repository's smoke flows, the first of which fails.
 
         Returns the cleanup calls and the number of them that had already
@@ -906,8 +836,6 @@ class FailedFlowCleanupTest(unittest.TestCase):
             "--skip-install", "--allow-stale-apk",
             "--junit-dir", str(pathlib.Path(tmp) / "junit"),
         ]
-        if cleanup_scope is not None:
-            argv += ["--maestro-cleanup", cleanup_scope]
 
         orig = _cli._default_device_deps
         try:
@@ -949,20 +877,6 @@ class FailedFlowCleanupTest(unittest.TestCase):
                 f"{flow} started with {cleanup_before[flow]} wipe(s) before it; "
                 f"exactly one wipe per flow is what isolates them",
             )
-
-    def test_a_passing_flow_is_swept_immediately(self):
-        """In the narrow scope a passing flow is swept on success.
-
-        The default scope wipes before the next flow instead, and that is
-        enough there. The narrow scope cannot: its sweep only knows the run
-        id of the flow that failed, so a flow that succeeded has to be swept
-        while its run id is still the one in hand.
-        """
-        with tempfile.TemporaryDirectory() as tmp:
-            cleanup_calls, cleanup_before, attempts = self._run(tmp, cleanup_scope="run")
-
-        last = attempts[-1]
-        self.assertEqual(cleanup_before[last], len(attempts) - 1)
 
     def test_the_default_scope_wipes_the_content(self):
         """The default scope is a content wipe, not a prefix sweep.

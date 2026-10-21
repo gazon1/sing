@@ -20,6 +20,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
@@ -124,6 +125,49 @@ class ProjectsRepositoryImpl(
     }
 
     // ── SoftDeletable ─────────────────────────────────────────────────────────
+
+    /**
+     * Hard-deletes every project of the active profile, deleted ones included.
+     *
+     * ## Why the delete travels to the server as a deletion
+     *
+     * The rows are gone locally — that is the point of the wipe — but the server
+     * still holds them, and this codebase has no tombstone: a project's deletion
+     * travels as state (`isDeleted`), which is what `softDelete` pushes. So every
+     * removed project is enqueued as deleted, and the server's copy says what
+     * the local wipe means. Enqueueing nothing would leave the server calling
+     * them live, and the next pull would bring them back.
+     *
+     * The snapshot is taken *before* the delete: afterwards the rows are gone and
+     * there is nothing left to describe.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val doomed = projectDao.listAllForUser(uid)
+            // The inherited tag groups are part of the project document, and the
+            // join table is emptied with the projects — so the sets are read
+            // while they still exist.
+            val inheritance = inheritedTagGroupDao.listAllForUser(uid)
+                .groupBy { it.projectId }
+                .mapValues { (_, rows) -> rows.map { TagGroupId.fromString(it.tagGroupId) }.toSet() }
+            val now = clock.now()
+            // The join table first: its rows carry no owner column of their own,
+            // so the projects they belong to can be deleted without taking them
+            // along.
+            inheritedTagGroupDao.deleteAllForUserProjects(uid)
+            val removed = projectDao.deleteAllForUser(uid)
+            doomed.forEach { row ->
+                val project = row.toProject().copy(
+                    inheritedTagGroupIds = inheritance[row.id].orEmpty(),
+                )
+                syncRepository.enqueue(
+                    project.copy(isDeleted = true, deletedAt = project.deletedAt ?: now),
+                )
+            }
+            removed
+        }
+    }
 
     override suspend fun restore(id: ProjectId): Result<Unit> = runCatchingCancellable {
         unitOfWork.write {
