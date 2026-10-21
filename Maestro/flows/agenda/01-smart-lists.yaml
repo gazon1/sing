@@ -22,19 +22,19 @@ tags:
 # the task has no due date and Inbox buckets it under "No Date".
 #
 # Seeding is used instead of driving the editor's title field because it yields a
-# deterministic fixture stamped with ${RUN_ID} that the runner's per-attempt
-# sweep can find and remove, independent of keyboard/IME behaviour.
+# deterministic fixture, independent of keyboard/IME behaviour.
 #
-# The title is prefixed with ${RUN_ID}. Room survives between runs on one emulator,
-# so a fixed title would collide with the previous run's copy — and this flow
-# dates the task, which would leave the predecessor dated and break the
-# "not on Today" assertion below. The runner mints RUN_ID per attempt and sweeps
-# every title carrying it once this flow passes, so leftovers cannot accumulate
-# and a leaked fixture names the run that created it.
+# The title is fixed, and the seed replaces: seeding "SDNoDate" again updates the
+# row this flow seeded instead of adding a second one. A per-run prefix would have
+# avoided the collision by making every run's row a different row — at the price of
+# a name, a test tag and a failure message that changed on every run. This flow
+# dates the task, so a leftover copy would have been dated too and would have
+# broken the "not on Today" assertion below; with a replacing seed the leftover is
+# the same row.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20SDNoDate"
+      QUERY: "task=SDNoDate"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
@@ -42,12 +42,12 @@ tags:
       id: nav_tab_inbox
     timeout: 10000
 
-# The row's testTag is the slugified title: TestTags.taskItem("<run> SDNoDate").
+# The row's testTag is the slugified title: TestTags.taskItem("SDNoDate").
 # Scroll to it rather than waiting for it in place: launch-clean does not clear
 # Room, so tasks from other runs may still be listed above this one.
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_sdnodate"
+      id: "task_item_sdnodate"
     direction: DOWN
     timeout: 8000
 
@@ -71,17 +71,17 @@ tags:
       id: tasks_fab
     timeout: 8000
 - assertNotVisible:
-    id: "task_item_${RUN_ID}_sdnodate"
+    id: "task_item_sdnodate"
 
 # Go back to Inbox and date the task.
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: "task_item_${RUN_ID}_sdnodate"
+      id: "task_item_sdnodate"
     timeout: 8000
 - tapOn:
-    id: "task_item_${RUN_ID}_sdnodate"
+    id: "task_item_sdnodate"
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -146,7 +146,7 @@ tags:
 # have left: it may no longer appear below the "No Date" header, and must now
 # appear below the "Today" header.
 - assertNotVisible:
-    id: "task_item_${RUN_ID}_sdnodate"
+    id: "task_item_sdnodate"
     below:
       id: agenda_section_no_date
 # ... and now sits under "Today", which is above the current scroll position —
@@ -158,7 +158,7 @@ tags:
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: "task_item_${RUN_ID}_sdnodate"
+      id: "task_item_sdnodate"
       below:
         id: agenda_section_today
     timeout: 8000

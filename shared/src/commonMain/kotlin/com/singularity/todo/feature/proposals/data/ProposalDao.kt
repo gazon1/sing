@@ -134,4 +134,13 @@ interface ProposalDao {
         """,
     )
     suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long, userId: String): Int
+
+    /**
+     * Hard-deletes every proposal of [userId].
+     *
+     * The items of a proposal are deleted by [ProposalItemDao.deleteAllForUser]; the
+     * foreign key cascades too, but the explicit delete keeps the order visible.
+     */
+    @Query("DELETE FROM ai_proposal WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }

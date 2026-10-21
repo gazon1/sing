@@ -31,10 +31,12 @@ tags:
     timeout: 5000
 
 # Open attachments sheet.
+# The row is at the bottom of the task, below the fold. UP is the direction that
+# brings what is below into view; DOWN moves the content down and away from it.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
-    direction: DOWN
+    direction: UP
     timeout: 8000
 - tapOn:
     id: attachments_add_file_row
@@ -43,12 +45,12 @@ tags:
       id: attachments_url_input
     timeout: 5000
 
-# The Add URL button should be disabled when the URL field is empty.
-# A disabled button may or may not be tappable — verify nothing was added
-# by trying to add with blank URL and checking the list stays empty.
-# Since the URL field is empty, tapping Add URL does nothing.
-- assertNotVisible:
-    id: attachments_add_url_button
+# The Add URL button is disabled while the URL field is empty, so nothing can be
+# added. A disabled control is still on screen — asserting that the button is
+# *not visible* fails on a correct app — so the claim to check is the one this
+# flow means: the sheet's list is still empty.
+- assertVisible:
+    text: "No attachments yet"
 
 # Verify the sheet is still open with the empty URL field.
 - assertVisible:

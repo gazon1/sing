@@ -76,6 +76,30 @@ text='No priority'                                  ← the label is there too
 The ids inside a `ModalBottomSheet` reach UIAutomator as resource-ids, and the
 sheet's plain text is in the tree as well.
 
+### The rule's own list of windows is checked, not trusted
+
+The rule knows which surfaces open a separate Android window, and that
+knowledge used to be a hand-maintained list of call shapes. A hand-maintained
+list of the surfaces a rule has to cover is a list that rots: the first
+version of this rule knew `AlertDialog` and nothing else, and every sheet,
+dropdown and popup it did not know about was a window whose tags Maestro could
+not see.
+
+So the list is keyed by the **import** that brings a surface in, and a second
+test reads the imports in the tree: every import whose name has the shape of
+a window — a dialog, a popup, a sheet, a dropdown, a snackbar — has to be in
+the table, and the table has to carry the call shape that opens it. A window
+surface the rule has never heard of is now a finding rather than a silent
+gap.
+
+The call shapes are matched on a name boundary, not as a tail: `Dialog(` is
+Compose's own window, and `ConfirmDialog(` is a composable of this
+repository that renders in the same window as its caller. Matching the tail
+would make the rule ask a custom composable to map tags it never owned.
+
+Each shape in the table also has a positive control, because a rule that has
+never caught anything may be broken rather than clean.
+
 ## Rationale
 
 The eight-file version and the one-file version produce the same tree. Only

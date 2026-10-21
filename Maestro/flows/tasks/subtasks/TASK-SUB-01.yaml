@@ -36,7 +36,12 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
-- openLink: "todo-debug://seed?task=${RUN_ID}_Parent%20Task&due=today"
+#
+# The title is fixed, and the seed replaces: seeding "Parent Task" again updates
+# the row this flow seeded instead of adding a second one. The subtask below is
+# typed into the editor, so its title keeps the run id: a typed title is this
+# flow's own row, and the run id keeps it apart from any other run's.
+- openLink: "todo-debug://seed?task=Parent%20Task&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -45,10 +50,10 @@ tags:
 # ── Open the task detail view ────────────────────────────────────
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_parent_task
+      id: task_item_parent_task
     timeout: 8000
 - tapOn:
-    id: task_item_${RUN_ID}_parent_task
+    id: task_item_parent_task
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input

@@ -64,6 +64,15 @@ interface TimeEntryDao {
     /** Full-table export — all time entries for a user, including deleted ones. */
     @Query("SELECT * FROM time_entries WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TimeEntryEntity>
+
+    /**
+     * Hard-deletes every time entry of [userId] — soft-deleted rows included.
+     *
+     * `watchForUserInRange` filters on `deleted_at IS NULL`, so a sweep built on it
+     * leaves the trashed entries behind.
+     */
+    @Query("DELETE FROM time_entries WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }
 
 /**

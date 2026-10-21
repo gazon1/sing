@@ -24,10 +24,13 @@ tags:
 # Open the hamburger menu.
 - tapOn:
     id: nav_menu_button
-- scrollUntilVisible:
-    element:
+# The menu sheet opens with Statistics already on screen. Scrolling it with
+# scrollUntilVisible pushed the entry down into the system navigation bar,
+# where the tap landed on the system HOME button and left the app — which is
+# why the tab was never on screen to be found.
+- extendedWaitUntil:
+    visible:
       id: menu_statistics
-    direction: DOWN
     timeout: 5000
 - tapOn:
     id: menu_statistics
@@ -35,6 +38,12 @@ tags:
 # Statistics opens on the Tasks tab; the bucket cards live on the Health tab.
 # Waiting for a bucket without selecting the tab waits for something that is
 # on the next tab — which is what the flow did, and it failed for 15 s.
+# The first tab is the proof that the statistics screen is up: tapping the
+# Health tab before the screen arrives taps nothing.
+- extendedWaitUntil:
+    visible:
+      id: statistics_tab_tasks
+    timeout: 10000
 - tapOn:
     id: statistics_tab_health
 - extendedWaitUntil:

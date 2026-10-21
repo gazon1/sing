@@ -5,23 +5,18 @@ import android.content.Intent
 import android.net.Uri
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionStore
-import com.singularity.todo.core.draft.DraftStore
-import com.singularity.todo.core.error.fold
+import com.singularity.todo.core.seed.NoteSeed
+import com.singularity.todo.core.seed.ProjectSeed
+import com.singularity.todo.core.seed.SeedWriter
+import com.singularity.todo.core.seed.TaskSeed
+import com.singularity.todo.core.wipe.ContentResetter
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
-import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.stubs.TestAuthStubs
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tasks.domain.TaskDomain
-import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -40,13 +35,18 @@ import kotlinx.datetime.toLocalDateTime
  * Deep-link scheme: `todo-debug://seed?<params>`
  *
  * Supported parameters:
- * - `task=<title>`           — creates a task (pair with `due=`)
+ * - `task=<title>`           — seeds a task (pair with `due=`). The profile ends
+ *   up holding exactly one task with that title: an existing one is updated in
+ *   place, a missing one is created. A flow asserts on the row it seeded by
+ *   *name* — a task row's test tag is the slug of its title — so the title has
+ *   to be the same on every run, and the seed has to be a definition of the
+ *   state rather than an append to it. See [SeedWriter].
  * - `desc=<text>`            — sets the description of the seeded task. A flow
  *   that filters by description needs the description to be there before the
  *   filter is applied; the parameter was asked for by such a flow and silently
  *   ignored, which made the flow assert against a task that had none.
- * - `note=<title>`           — creates a note
- * - `project=<name>`         — creates a project
+ * - `note=<title>`           — seeds a note (one note with that title)
+ * - `project=<name>`         — seeds a project (one project with that name)
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
  * - `updatedAt=now|-22d|<ISO instant>` — stamps the task's created/updated
@@ -61,11 +61,14 @@ import kotlinx.datetime.toLocalDateTime
  *   task, note and project in the active profile whose title/name starts with
  *   any of the given prefixes. Comma-separated so one link can sweep several
  *   fixture families.
- * - `reset=content` — deletes instead of seeding: removes every task, note,
- *   project and saved agenda view in the active profile — archived, trashed and
- *   soft-deleted rows included — keeping the profile and session. For fixtures
- *   a flow *typed* rather than seeded, which carry no run id for `cleanup=` to
- *   match. NOT concurrency-safe — it wipes other runs' in-flight fixtures too.
+ * - `reset=content` — deletes instead of seeding: removes every row of the active
+ *   profile's content — tasks, notes, projects, tags, reminders, attachments,
+ *   saved views and the rest, archived, trashed and soft-deleted rows included —
+ *   keeping the profile and session. For fixtures a flow *typed* rather than
+ *   seeded, which carry no run id for `cleanup=` to match. The list of tables it
+ *   reaches, and the ones it leaves alone, are in
+ *   `docs/architecture/wipe-inventory.md`. NOT concurrency-safe — it wipes other
+ *   runs' in-flight fixtures too.
  * - `session=anonymous|signedout|signedin` — changes the *session*, not the content:
  *   the app is put into a local (anonymous) session, into a signed-out one, or a
  *   session is installed in the app's own encrypted store — the store a real
@@ -86,11 +89,12 @@ import kotlinx.datetime.toLocalDateTime
  * todo-debug://seed?cleanup=r1a2b3c,Buy%20milk
  * ```
  *
- * `cleanup` is how a flow's fixtures are tied to the run that created them:
- * the runner stamps a per-flow id into the seeded titles and passes the same id
- * back here once the flow passes, so one run can never delete another run's data
- * and nothing is left behind to collide with the next run. Cleaning on *success*
- * only is deliberate — a failing flow keeps its fixtures for triage.
+ * `cleanup` removes the rows whose title starts with one of the given prefixes.
+ * It is the tool for the fixtures a flow *typed* rather than seeded: a seeded
+ * fixture carries no run id any more, because the seed replaces and a fixed
+ * title is what keeps a flow's assertion — and the failure message of that
+ * assertion — readable. The runner wipes the profile's content between flows,
+ * so `cleanup` is a mid-run tool rather than the suite's isolation mechanism.
  *
  * Cleanup and seeding are mutually exclusive: `cleanup` short-circuits the
  * entity-creating branches below.
@@ -163,101 +167,78 @@ class DebugSeedActivity :
         profileRepo.switchTo(newProfile.id)
     }
 
-    /** Seeds the one entity the params name. A link seeds at most one kind. */
+    /**
+     * Seeds the one entity the params name. A link seeds at most one kind.
+     *
+     * The writing itself is [SeedWriter]'s: the activity is the entry point, not
+     * the logic, and the rule that matters — the profile ends up holding exactly
+     * one row with the seeded title — has to be a rule that a test can hold.
+     */
     private suspend fun seedEntity(
         params: Map<String, String>,
-        userId: UserId,
         taskRepo: TaskRepository,
         notesRepo: NotesRepository,
         projectsRepo: ProjectsRepository,
+        currentUser: ProfileAwareCurrentUser,
     ) {
+        val writer = SeedWriter(
+            tasks = taskRepo,
+            notes = notesRepo,
+            projects = projectsRepo,
+            currentUser = currentUser,
+        )
         when {
-            params.containsKey("task") -> seedTask(params, userId, taskRepo)
+            params.containsKey("task") -> seedTask(params, writer)
 
-            params.containsKey("note") -> notesRepo.createNoteWithTitle(params["note"]!!)
+            params.containsKey("note") -> writer.writeNote(NoteSeed(title = params["note"]!!))
 
-            params.containsKey("project") -> seedProject(params, userId, projectsRepo)
+            params.containsKey("project") -> writer.writeProject(
+                ProjectSeed(
+                    name = params["project"]!!,
+                    color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
+                    stamp = Clock.System.now(),
+                ),
+            )
 
             // Profile creation and switch are handled by switchToProfileIfRequested.
             params.containsKey("profile") -> Unit
         }
     }
 
-    private suspend fun seedTask(
-        params: Map<String, String>,
-        userId: UserId,
-        taskRepo: TaskRepository,
-    ) {
+    private suspend fun seedTask(params: Map<String, String>, writer: SeedWriter) {
         val title = params["task"]!!
-        val dueDate = params["due"]?.let { resolveDate(it) }
         // A task stamped "now" is never stagnant: the health window is 21 days
         // without movement, and a flow cannot reach that bucket by seeding a
         // fresh task. `updatedAt=-22d` puts both timestamps in the past, which
         // is what the stagnation bucket is defined by.
         val stamp = params["updatedAt"]?.let { resolveInstant(it) } ?: Clock.System.now()
 
-        val input: CreateTaskInput = TaskDomain.createInput(
-            title = title,
-            description = params["desc"],
-            kind = TaskKind.Task,
-            dueDate = dueDate,
-        ).fold(
-            left = { error -> throw IllegalArgumentException("Invalid input: $error") },
-            right = { it },
+        val result = writer.writeTask(
+            TaskSeed(
+                title = title,
+                description = params["desc"],
+                dueDate = params["due"]?.let { resolveDate(it) },
+                stamp = stamp,
+                dependsOnTitle = params["dependsOn"],
+            ),
         )
-
-        val task = TaskDomain.buildTask(
-            input = input,
-            id = TaskId.generate(),
-            createdAt = stamp,
-            updatedAt = stamp,
-            userId = userId,
-        )
-        taskRepo.upsert(task)
-
+        android.util.Log.i("DebugSeedActivity", "task '$title' was ${result.outcome}")
         // A dependency is what makes a task *blocked* — a different bucket from
         // "stale", and one a fresh task can never be. The dependency is named by
         // title, because a deep link cannot know an id it has not created
         // itself; the other task has to be seeded first.
-        params["dependsOn"]?.let { dependencyTitle ->
-            val dependency = taskRepo.observeAll().first()
-                .firstOrNull { it.title == dependencyTitle }
-            if (dependency == null) {
-                android.util.Log.w(
-                    "DebugSeedActivity",
-                    "No task titled '$dependencyTitle' to depend on; seeding without a dependency",
-                )
-            } else {
-                taskRepo.setDependencies(task.id, setOf(dependency.id))
-            }
+        result.missingDependency?.let { dependencyTitle ->
+            android.util.Log.w(
+                "DebugSeedActivity",
+                "No task titled '$dependencyTitle' to depend on; seeding without a dependency",
+            )
         }
-    }
-
-    private suspend fun seedProject(
-        params: Map<String, String>,
-        userId: UserId,
-        projectsRepo: ProjectsRepository,
-    ) {
-        val now = Clock.System.now()
-        projectsRepo.create(
-            Project(
-                id = ProjectId.generate(),
-                name = params["project"]!!,
-                color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
-                description = null,
-                createdAt = now,
-                updatedAt = now,
-                userId = userId,
-            ),
-        )
     }
 
     private suspend fun seed(params: Map<String, String>) {
         val taskRepo: TaskRepository by inject()
         val notesRepo: NotesRepository by inject()
         val projectsRepo: ProjectsRepository by inject()
-        val agendaViewsRepo: SavedAgendaViewsRepository by inject()
-        val draftStore: DraftStore by inject()
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
 
@@ -273,13 +254,7 @@ class DebugSeedActivity :
         // because of the previous run, and the suite's independence was a
         // claim rather than a fact.
         if (params.containsKey("reset")) {
-            resetContent(
-                taskRepo = taskRepo,
-                notesRepo = notesRepo,
-                projectsRepo = projectsRepo,
-                agendaViewsRepo = agendaViewsRepo,
-                draftStore = draftStore,
-            )
+            resetContent()
             return
         }
 
@@ -308,19 +283,16 @@ class DebugSeedActivity :
 
         // Switch to the target profile BEFORE seeding any entity.
         // This updates activeProfileId, which in turn updates
-        // ProfileAwareCurrentUser.scopedUserId — used by createNoteWithTitle.
+        // ProfileAwareCurrentUser.scopedUserId — the identity the seeded rows are
+        // written under.
         switchToProfileIfRequested(params, profileRepo)
 
-        // Use the scoped userId for all entity writes. When profile= was given,
-        // switchTo above updated activeProfileId so currentUser.current returns
-        // the correct scoped id. When no profile= was given, this is the current
-        // profile's scoped userId.
         seedEntity(
             params = params,
-            userId = currentUser.current,
             taskRepo = taskRepo,
             notesRepo = notesRepo,
             projectsRepo = projectsRepo,
+            currentUser = currentUser,
         )
     }
 
@@ -390,13 +362,22 @@ class DebugSeedActivity :
     }
 
     /**
-     * Removes every task, note, project and saved agenda view in the active
-     * profile, keeping the profile, the session and the auth state intact.
+     * Removes every row of the active profile's content, keeping the profile, the
+     * session and the auth state intact.
      *
      * This is the escape hatch for fixtures that a flow creates by *typing* a
      * title rather than seeding it: those carry no run id, so the prefix sweep
      * cannot find them, and they accumulate until a negative flow (one asserting
      * an empty list) starts failing because a previous run's row is still there.
+     *
+     * The list of tables it reaches lives in the library, not here: the reset is
+     * production behaviour that the E2E runner depends on, so it is a port
+     * ([ContentResetter]) and the tables it reaches are stated in one place —
+     * `ProfileWipePlan` — which `scripts/ci/check-profile-reset-inventory.py` checks
+     * against the Room schema and against `docs/architecture/wipe-inventory.md`.
+     * A debug activity that carried its own list of tables would be a list
+     * nothing checks, and the next table added to the schema would be the one
+     * it forgot.
      *
      * The repositories are asked to empty the profile rather than swept row by
      * row, and the difference is the whole point: a sweep of the *live* rows
@@ -408,33 +389,17 @@ class DebugSeedActivity :
      * run's in-flight fixtures too. Use it for sequential runs — or to recover a
      * wedged device — never while two suites share an emulator.
      */
-    private suspend fun resetContent(
-        taskRepo: TaskRepository,
-        notesRepo: NotesRepository,
-        projectsRepo: ProjectsRepository,
-        agendaViewsRepo: SavedAgendaViewsRepository,
-        draftStore: DraftStore,
-    ) {
-        var removed = 0
-        taskRepo.deleteAllForCurrentProfile()
-            .onSuccess { removed += it }
-            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on tasks", it) }
-        notesRepo.deleteAllForCurrentProfile()
-            .onSuccess { removed += it }
-            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on notes", it) }
-        projectsRepo.deleteAllForCurrentProfile()
-            .onSuccess { removed += it }
-            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on projects", it) }
-        agendaViewsRepo.deleteAllForCurrentProfile()
-            .onSuccess { removed += it }
-            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on agenda views", it) }
-        // The drafts live outside the database — in the app's DataStore — and
-        // they are content too: a form that restores its draft hands the next
-        // flow the previous flow's text, and a flow that types into the field
-        // then appends to it instead of writing the title it meant to write.
-        // A database-wide reset cannot reach them.
-        draftStore.clearPrefix("")
-        android.util.Log.i("DebugSeedActivity", "reset(content) removed $removed entities")
+    private suspend fun resetContent() {
+        // The type argument is spelled out. A bare `by inject()` leaves the
+        // consumer invisible to the orphan-binding audit, which would then read
+        // the binding as unwired — and an audit that cannot see the one caller
+        // of a binding is an audit that will ask for the binding to be removed.
+        val resetter by inject<ContentResetter>()
+        val result = resetter.resetContent()
+        android.util.Log.i(
+            "DebugSeedActivity",
+            "reset(content) reached ${result.wipedTables.size} tables: ${result.wipedTables.joinToString()}",
+        )
     }
 
     /**

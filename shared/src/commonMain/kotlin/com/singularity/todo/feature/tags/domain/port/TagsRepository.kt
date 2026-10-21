@@ -18,6 +18,16 @@ interface TagsRepository :
      */
     suspend fun upsert(tag: Tag): Tag
 
+    /**
+     * Deletes every tag of the active profile.
+     *
+     * One bulk delete per profile, not a sweep of the live rows: a trashed tag is a
+     * row the next run still sees, and a sweep is defined by the query that feeds it.
+     *
+     * @return how many rows were deleted.
+     */
+    suspend fun deleteAllForCurrentProfile(): Result<Int>
+
     // ─── Domain methods ─────────────────────────────────────────────────────────
 
     /** Single tag observation by id (no user-filter, uses ambient current user). */

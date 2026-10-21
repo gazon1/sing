@@ -1,10 +1,12 @@
 """maestro._cli — Click CLI entry point with loguru structured logging."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import click
@@ -98,6 +100,111 @@ def _report_is_fresh(report: Path, started_at: float) -> bool:
         return False
 
 
+def _report_is_clean(report: pathlib.Path) -> bool:
+    """Whether a flow's report says the flow passed.
+
+    A report that carries a failure is not a finished flow: the flow ran and it
+    did not pass, and running it again is the whole point of a resume. A report
+    that says the flow passed is a finished flow, and the reason a resume
+    exists at all is that ninety-four flows take about two hours — a device
+    that loses the app in the middle of a run must not cost the whole run.
+    """
+    try:
+        root = ET.parse(report).getroot()
+    except (OSError, ET.ParseError):
+        return False
+    cases = list(root.iter("testcase"))
+    if not cases:
+        return False
+    return all(case.find("failure") is None for case in cases)
+
+
+def _write_environment(results_dir: Path, serial: str, deps: DeviceDeps) -> None:
+    """Write down the environment the run happened in.
+
+    A floor belongs to an environment. The number of flows that may fail on an
+    emulator and the number that may fail on a phone are two different
+    quantities, and a gate that compares a phone's number with an emulator's
+    floor is not measuring anything. The gate reads this file and refuses to
+    judge a run it cannot compare.
+    """
+    payload = {
+        "kind": "emulator" if serial.startswith("emulator-") else "device",
+        "api": deps.device_api_level(serial),
+        "device": deps.device_model(serial),
+        "serial": serial,
+        "apk": deps.apk_sha_from_device(serial),
+    }
+    try:
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "environment.json").write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+    except OSError as exc:
+        logger.warning(f"could not write the run's environment: {exc}")
+
+
+def _write_run_summary(
+    results_dir: Path,
+    passed: list[str],
+    failed: list[str],
+    not_measured: list[str],
+    retried: list[str],
+) -> None:
+    """Write the run's own account of itself, next to the reports.
+
+    The gate reads the reports; a reader of the run needs the three numbers a
+    report cannot carry: how many flows passed, how many failed, and how many
+    were never measured at all.
+    """
+    try:
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "run-summary.json").write_text(
+            json.dumps(
+                {
+                    "passed": passed,
+                    "failed": failed,
+                    "not_measured": not_measured,
+                    "retried": retried,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning(f"could not write the run summary: {exc}")
+
+
+def _reinstall_app(serial: str, deps: DeviceDeps, skip_install: bool) -> bool:
+    """Put the app back on the device, and say whether it worked.
+
+    Unlike a lost device, a missing app is recoverable: the APK can be
+    installed again and the run can carry on. The flow that found the app
+    missing was not measured, and stays unmeasured — reinstalling afterwards
+    does not turn it into a verdict.
+    """
+    if skip_install:
+        logger.error(
+            "the app is not installed on the device, and --skip-install says "
+            "not to install it — the run cannot continue"
+        )
+        return False
+    logger.warning("the app is not on the device — installing it again")
+    cp = deps.gradle_install_debug(serial)
+    if cp.returncode != 0:
+        logger.error(
+            f"installDebug failed (rc={cp.returncode}); the app could not be put back"
+        )
+        return False
+    if not deps.app_installed(serial):
+        logger.error("the app was installed but is still not on the device")
+        return False
+    logger.info("the app is back on the device")
+    return True
+
+
 @click.command(
     help="Run Maestro UI flows against a connected Android device or emulator.",
     epilog=(
@@ -127,6 +234,8 @@ def _report_is_fresh(report: Path, started_at: float) -> bool:
               help="Run only flows for this shard (1-based, use with --shards)")
 @click.option("--shards", type=int, default=None,
               help="Total number of shards (use with --shard)")
+@click.option("--resume", is_flag=True,
+              help="Skip the flows that already have a clean report from an earlier run")
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -141,6 +250,7 @@ def main(
     dry_run: bool,
     shard: int | None,
     shards: int | None,
+    resume: bool,
     deps: DeviceDeps | None = None,
 ) -> int:
     deps = deps or _default_device_deps()
@@ -321,10 +431,38 @@ def main(
     junit_path = Path(junit_dir) if junit_dir else ROOT / "build" / "maestro-results"
     passed: list[str] = []
     failed: list[str] = []
+    #: Flows that were not measured: the app was not on the device while they
+    #: ran. They are neither passed nor failed, and the report has to say so.
+    not_measured: list[str] = []
+    #: Flows that needed more than one attempt. A flow that passes on the
+    #: second try is a passing flow, but it is also a flow that is not
+    #: reliable, and merging the two facts loses the second one.
+    retried: list[str] = []
     # The moment the run starts: a JUnit report older than this belongs to an
     # earlier run, and counting it as this run's report is how a flow that
     # never executed still looks like it passed.
     run_started_at = time.time()
+
+    if resume:
+        # A resume re-runs the flows that are not finished and leaves the ones
+        # that are. The reports are the record: there is no second list that
+        # could disagree with them.
+        already = [
+            f for f in flows if _report_is_clean(junit_path / f"{f.stem}.xml")
+        ]
+        if already:
+            flows = [f for f in flows if f not in already]
+            logger.info(
+                f"Resume: {len(already)} flow(s) already have a clean report and "
+                f"are not run again"
+            )
+        if not flows:
+            logger.info("Resume: every selected flow already has a clean report")
+            _write_environment(junit_path, serial, deps)
+            _write_run_summary(junit_path, [], [], [], [])
+            return ctx.exit(EXIT_PASS)
+
+    _write_environment(junit_path, serial, deps)
 
     # ── Host bridge ────────────────────────────────────────────────────────────
     #
@@ -365,7 +503,7 @@ def main(
         reset_session(serial, deps)
 
         try:
-            ok, _run_id = run_one_flow(
+            ok, _run_id, attempts = run_one_flow(
                 flow_path=flow_path,
                 serial=serial,
                 junit_dir=junit_path,
@@ -376,6 +514,28 @@ def main(
                 deps=deps,
                 bridge_url=bridge_url,
             )
+        except AppMissingError as exc:
+            # The app is not on the device. The flow did not fail — it was not
+            # measured, and the report it would have left behind says so in a
+            # way the gate would read as a verdict. The runner removes that
+            # report; here the flow is recorded as unmeasured and the app is
+            # put back, so the flows after it are measured properly.
+            logger.error(f"the flow was not measured: {exc}")
+            not_measured.append(flow_name)
+            if not _reinstall_app(serial, deps, skip_install):
+                not_run = [f.stem for f in flows[index + 1:]]
+                logger.error(
+                    f"the app could not be put back on the device; the run stops "
+                    f"here. {len(not_run)} flow(s) did not run: "
+                    f"{', '.join(not_run) if not_run else 'none'}"
+                )
+                bridge.stop()
+                _write_run_summary(junit_path, passed, failed, not_measured, retried)
+                logger.error(
+                    "=== Maestro flows did not finish — the app was gone from the device ==="
+                )
+                return ctx.exit(EXIT_FAIL)
+            continue
         except DeviceLostError as exc:
             # The device is gone. The remaining flows did not run, and they are
             # not failures: they are flows that were never reached, and the
@@ -388,9 +548,16 @@ def main(
                 f"{', '.join(not_run) if not_run else 'none'}"
             )
             bridge.stop()
+            _write_run_summary(junit_path, passed, failed, not_measured, retried)
             logger.error("=== Maestro flows did not finish — the device was lost ===")
             return ctx.exit(EXIT_FAIL)
 
+        if attempts > 1:
+            retried.append(flow_name)
+            logger.warning(
+                f"{flow_name}: passed on attempt {attempts} — the flow is not "
+                f"reliable, and this is not the same as a flow that passed first time"
+            )
         if ok:
             passed.append(flow_name)
         else:
@@ -399,6 +566,8 @@ def main(
 
     # The bridge has served every flow; nothing may reach the host after this.
     bridge.stop()
+
+    _write_run_summary(junit_path, passed, failed, not_measured, retried)
 
     # ── Every selected flow must have reported ────────────────────────────────
     #
@@ -412,6 +581,20 @@ def main(
         for flow in flows
         if not _report_is_fresh(junit_path / f"{flow.stem}.xml", run_started_at)
     ]
+    # A flow that was not measured is not a flow that produced no report: the
+    # first is a statement about the device, the second is a statement about
+    # the run. They are reported separately, and the second is the worse one.
+    unmeasured = [stem for stem in not_measured if stem in unreported]
+    unreported = [stem for stem in unreported if stem not in not_measured]
+    if unmeasured:
+        logger.error(
+            f"{len(unmeasured)} flow(s) were not measured because the app was not "
+            f"on the device: {', '.join(unmeasured)}"
+        )
+        logger.error(
+            "A flow that was not measured carries no verdict. It is not a "
+            "failure, and it is not a pass — re-run the suite to measure it."
+        )
     if unreported:
         logger.error(
             f"{len(unreported)} flow(s) produced no JUnit report and cannot be "
@@ -421,6 +604,7 @@ def main(
             "A green run must mean every selected flow ran. Investigate the "
             "device state and the flow output; do not lower the bar."
         )
+    if unmeasured or unreported:
         return ctx.exit(EXIT_FAIL)
 
     # ── Crash triage ──────────────────────────────────────────────────────────
@@ -442,18 +626,29 @@ def main(
         logger.info(f"Passed ({len(passed)}): {', '.join(passed)}")
     if failed:
         logger.error(f"Failed ({len(failed)}): {', '.join(failed)}")
+    if not_measured:
+        logger.error(
+            f"Not measured ({len(not_measured)}): {', '.join(not_measured)} — the "
+            f"app was not on the device while they ran"
+        )
+    if retried:
+        logger.warning(
+            f"Retried ({len(retried)}): {', '.join(retried)} — these flows passed, "
+            f"but not on the first attempt"
+        )
 
-    if not failed:
+    if not failed and not not_measured:
         logger.info("=== Maestro flows passed ===")
     else:
         logger.error("=== Maestro flows failed ===")
 
-    return ctx.exit(EXIT_FAIL if failed else EXIT_PASS)
+    return ctx.exit(EXIT_FAIL if (failed or not_measured) else EXIT_PASS)
 
 
 # Import at bottom to avoid circular import with _runner → _device → _provenance → …
 from emulator.maestro._runner import (  # noqa: E402
     _EXIT_REASON,
+    AppMissingError,
     DeviceLostError,
     run_one_flow,
 )

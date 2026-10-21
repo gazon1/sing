@@ -27,6 +27,27 @@ def _junit_reports_device_failure(report: Path) -> bool:
     return junit_reports_device_failure(report)
 
 
+def _app_installed(serial: str) -> bool:
+    """Whether the app is on the device, for a bundle that does not say.
+
+    The answer is "yes" for a bundle that does not care about the app's
+    presence: a fake that is only about the flow's assertions should not have
+    to answer a question about the device. The real bundle binds the real
+    implementation, and that is the one a run uses.
+    """
+    return True
+
+
+def _device_api_level(serial: str) -> int | None:
+    """The API level, for a bundle that does not say.
+
+    None means "not known", which is not the same as a known level — a
+    measurement whose environment is unknown cannot be compared with a floor,
+    and the gate that reads it says so.
+    """
+    return None
+
+
 @dataclass(frozen=True)
 class DeviceDeps:
     """Explicit device-layer dependencies for run_one_flow and CLI main.
@@ -88,6 +109,14 @@ class DeviceDeps:
     #   process's stderr counts that as a broken flow, which is not retried.
     junit_reports_device_failure: Callable[[Path], bool] = _junit_reports_device_failure
 
+    # * ``app_installed`` answers "is the app on the device". A device can lose
+    #   the app and keep answering adb, and a runner that does not ask cannot
+    #   tell a flow that failed from a flow that was never measured.
+    # * ``device_api_level`` is part of the environment a measurement was taken
+    #   in, and the floor belongs to one environment.
+    app_installed: Callable[[str], bool] = _app_installed
+    device_api_level: Callable[[str], int | None] = _device_api_level
+
 
 def _default_device_deps() -> DeviceDeps:
     """Lazily build the real DeviceDeps to avoid circular imports at module scope."""
@@ -95,6 +124,8 @@ def _default_device_deps() -> DeviceDeps:
     from emulator._startup import acquire_device
     from emulator.maestro._artifacts import capture_artifacts
     from emulator.maestro._device import (
+        app_installed,
+        device_api_level,
         device_model,
         gradle_install_debug,
         maestro_saw_device_failure,
@@ -129,6 +160,8 @@ def _default_device_deps() -> DeviceDeps:
             cleanup_run_fixtures=cleanup_run_fixtures,
             capture_artifacts=capture_artifacts,
             git_sha=lambda: _git_sha(deps),
+            app_installed=app_installed,
+            device_api_level=device_api_level,
         )
         return deps
 

@@ -44,35 +44,35 @@ tags:
 # Switch to Account tab.
 # The settings nav rail is a scrollable column of twelve ~76dp rows, so the
 # trailing tabs (Files, Backup, Account) are below the fold on a phone viewport
-# — the screen looks complete, but the tab is not on it. Swipe the rail first,
-# the way Maestro/flows/settings/03-cycle-tabs.yaml does: that flow needs five
-# swipes to bring Account into view (three for Files, one for Backup, one for
-# Account). Maestro's scrollUntilVisible swipes from the centre of the screen,
-# which scrolls the content pane and not the rail, hence the explicit swipes.
-# A swipe past the end of the rail is a no-op, so over-swiping is harmless.
+# — the screen looks complete, but the tab is not on it. Maestro's
+# scrollUntilVisible swipes from the centre of the screen, which scrolls the
+# content pane and not the rail, hence the explicit swipes.
+#
+# The swipes are aimed at the rail element rather than at hardcoded pixels:
+# the old recipe (x=105, y=2000) was written for a 2400px-tall emulator and
+# fell off a 1600px-tall screen, where the gesture landed nowhere and the tab
+# stayed below the fold. A swipe past the end of the rail is a no-op, so
+# over-swiping is harmless.
 - swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
 - swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
 - swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
 - swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
 - swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
 - extendedWaitUntil:
     visible:
       id: settings_tab_account

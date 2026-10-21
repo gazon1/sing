@@ -56,4 +56,13 @@ interface AttachmentAnnotationDao {
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NULL",
     )
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+
+    /**
+     * Hard-deletes every annotation of [userId] — soft-deleted rows included.
+     *
+     * An annotation is soft-deleted only; there is no hard delete on the single-row
+     * path, so a sweep that follows live rows alone would leave the trashed ones.
+     */
+    @Query("DELETE FROM attachment_annotations WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }

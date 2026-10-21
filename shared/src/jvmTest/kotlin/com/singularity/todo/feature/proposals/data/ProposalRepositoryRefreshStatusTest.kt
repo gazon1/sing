@@ -108,6 +108,8 @@ class ProposalRepositoryRefreshStatusTest {
             updatedAt: Long,
             userId: String,
         ): Int = 1
+
+        override suspend fun deleteAllForUser(userId: String): Int = 0
     }
 
     private class EmptyProposalItemDao : ProposalItemDao {
@@ -133,6 +135,8 @@ class ProposalRepositoryRefreshStatusTest {
         override suspend fun retractPendingItems(proposalId: String, userId: String): Int = 0
 
         override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> = emptyList()
+
+        override suspend fun deleteAllForUser(userId: String): Int = 0
     }
 
     private fun repository(

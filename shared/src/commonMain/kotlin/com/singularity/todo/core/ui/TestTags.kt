@@ -878,7 +878,19 @@ object TestTags {
     // that appears when adding a URL to a task.
 
     const val ATTACHMENTS_ADD_URL_BUTTON = "attachments_add_url_button"
+
+    /**
+     * The row in the task detail that opens the attachments sheet.
+     *
+     * The sheet's own file-picker button used to carry this id, which made the id
+     * name two different things: the thing that opens the manager and the thing
+     * inside the manager that picks a file. Only the row is reachable from the
+     * task, so only the row keeps the id the flows look for.
+     */
     const val ATTACHMENTS_ADD_FILE_ROW = "attachments_add_file_row"
+
+    /** The sheet's file-picker button — inside the sheet, not on the task. */
+    const val ATTACHMENTS_PICK_FILE_BUTTON = "attachments_pick_file_button"
     const val ATTACHMENTS_URL_INPUT = "attachments_url_input"
     const val ATTACHMENTS_TITLE_INPUT = "attachments_title_input"
 

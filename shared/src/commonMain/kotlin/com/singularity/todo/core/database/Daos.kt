@@ -764,6 +764,10 @@ interface ProjectDao {
     suspend fun deleteAllForUser(userId: String): Int
 }
 
+// The profile reset needs a bulk delete from this DAO, and the DAO was already at
+// the limit. Same call as OwnerEraseDao: the rule counts a cohesive DAO's reads
+// and writes, and a wipe that must reach the trashed rows needs one more.
+@Suppress("TooManyFunctions")
 @Dao
 interface TagDao {
     @Query("SELECT * FROM tags WHERE user_id = :userId AND deleted_at IS NULL ORDER BY sort_order ASC, name ASC")
@@ -797,6 +801,15 @@ interface TagDao {
 
     @Query("SELECT * FROM tags WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagEntity>
+
+    /**
+     * Hard-deletes every tag of [userId] — trashed rows included.
+     *
+     * `watchAll` reports the live tags only, so a sweep built on it leaves the
+     * trashed ones behind — and those are exactly the rows a previous run left.
+     */
+    @Query("DELETE FROM tags WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 
     /**
      * Detaches every live tag from a group being soft-deleted.
@@ -881,8 +894,21 @@ interface ReminderDao {
     /** Full-table export — all reminders for a user, including expired ones. */
     @Query("SELECT * FROM task_reminders WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskReminderEntity>
+
+    /**
+     * Hard-deletes every task reminder of [userId].
+     *
+     * A reminder outlives the task it belongs to — the row is not removed when the
+     * task is, so a sweep that only follows the tasks leaves the reminders behind.
+     */
+    @Query("DELETE FROM task_reminders WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }
 
+// The profile reset needs a bulk delete from this DAO, and the DAO was already at
+// the limit. Same call as OwnerEraseDao: the rule counts a cohesive DAO's reads
+// and writes, and a wipe that must reach the trashed rows needs one more.
+@Suppress("TooManyFunctions")
 @Dao
 interface ProjectReminderDao {
     @Query("SELECT * FROM project_reminders WHERE user_id = :userId ORDER BY fire_at ASC")
@@ -922,6 +948,15 @@ interface ProjectReminderDao {
     /** Full-table export — all project reminders for a user. */
     @Query("SELECT * FROM project_reminders WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<ProjectReminderEntity>
+
+    /**
+     * Hard-deletes every project reminder of [userId].
+     *
+     * A project reminder outlives the project it belongs to, so a sweep that only
+     * follows the projects leaves the reminders behind.
+     */
+    @Query("DELETE FROM project_reminders WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }
 
 @Dao
@@ -1148,6 +1183,15 @@ interface TagGroupDao {
     /** Full-table export — all tag groups for a user, including soft-deleted ones. */
     @Query("SELECT * FROM tag_groups WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TagGroupEntity>
+
+    /**
+     * Hard-deletes every tag group of [userId] — trashed rows included.
+     *
+     * `watchAll` reports the live groups only, so a sweep built on it leaves the
+     * trashed ones behind.
+     */
+    @Query("DELETE FROM tag_groups WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }
 
 // ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────

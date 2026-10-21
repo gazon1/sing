@@ -29,6 +29,14 @@ measurement:
   flows: 7
   measured_on: '2026-10-21'
   floor: config/docs/maestro-failure-floor.txt
+cause:
+- 'No visible element found: id: attachments_add_file_row'
+- 'No visible element found: id: settings_tab_backup'
+- 'No visible element found: id: top_bar_back_button'
+issue:
+- 818
+- 820
+- 840
 elements:
 - element: attachments_add_file_row
   flows: 5

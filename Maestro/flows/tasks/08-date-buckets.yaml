@@ -11,10 +11,11 @@ tags:
   - tasks
   - smoke
 ---
-# Seed three tasks with different due dates.
-- openLink: "todo-debug://seed?task=${RUN_ID}_YesterdayTask&due=-1d"
-- openLink: "todo-debug://seed?task=${RUN_ID}_TodayTask&due=today"
-- openLink: "todo-debug://seed?task=${RUN_ID}_TomorrowTask&due=tomorrow"
+# Seed three tasks with different due dates. The titles are fixed and the seed
+# replaces, so each run asserts on the same three rows.
+- openLink: "todo-debug://seed?task=YesterdayTask&due=-1d"
+- openLink: "todo-debug://seed?task=TodayTask&due=today"
+- openLink: "todo-debug://seed?task=TomorrowTask&due=tomorrow"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -30,16 +31,16 @@ tags:
       id: agenda_section_overdue
     timeout: 8000
 - assertVisible:
-    id: task_item_${RUN_ID}_yesterdaytask
+    id: task_item_yesterdaytask
 
 # Today section should contain TodayTask.
 - assertVisible:
     id: agenda_section_today
 - assertVisible:
-    id: task_item_${RUN_ID}_todaytask
+    id: task_item_todaytask
 
 # Upcoming section should contain TomorrowTask.
 - assertVisible:
     id: agenda_section_upcoming
 - assertVisible:
-    id: task_item_${RUN_ID}_tomorrowtask
+    id: task_item_tomorrowtask

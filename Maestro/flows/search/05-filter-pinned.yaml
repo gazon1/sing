@@ -12,8 +12,8 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
-- openLink: "todo-debug://seed?task=${RUN_ID}_PinnedTask2026&due=today"
-- openLink: "todo-debug://seed?task=${RUN_ID}_UnpinnedTask2026&due=today"
+- openLink: "todo-debug://seed?task=PinnedTask2026&due=today"
+- openLink: "todo-debug://seed?task=UnpinnedTask2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -24,13 +24,13 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_pinnedtask2026
+      id: task_item_pinnedtask2026
     timeout: 8000
 - tapOn:
-    id: task_item_${RUN_ID}_pinnedtask2026
+    id: task_item_pinnedtask2026
 - extendedWaitUntil:
     visible:
-      text: "${RUN_ID} PinnedTask2026"
+      text: "PinnedTask2026"
     timeout: 8000
 # Scroll and pin it.
 - scrollUntilVisible:
@@ -62,11 +62,11 @@ tags:
 - inputText: "Task2026"
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_pinnedtask2026
+      id: task_item_pinnedtask2026
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_unpinnedtask2026
+      id: task_item_unpinnedtask2026
     timeout: 8000
 
 # Open filter sheet via Tune icon (matched through its accessibility label).
@@ -86,9 +86,9 @@ tags:
 # Only the pinned task remains visible.
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_pinnedtask2026
+      id: task_item_pinnedtask2026
     timeout: 8000
 - extendedWaitUntil:
     notVisible:
-      id: task_item_${RUN_ID}_unpinnedtask2026
+      id: task_item_unpinnedtask2026
     timeout: 8000

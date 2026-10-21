@@ -56,6 +56,9 @@ import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
+import com.singularity.todo.core.wipe.ContentResetter
+import com.singularity.todo.core.wipe.ProfileContentResetter
+import com.singularity.todo.core.wipe.ProfileWipeDeps
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
@@ -150,6 +153,37 @@ fun coreModule(): org.koin.core.module.Module =
         // DraftStore uses the same per-platform DataStore<Preferences> binding.
         // Drafts are not secrets — stored in regular DataStore, not SecureStoragePort.
         single<DraftStore> { DataStoreDraftStore(get(), Logger.withTag("DraftStore")) }
+
+        // ─── Profile wipe ─────────────────────────────────────────────────────
+        // The E2E suite reaches this through the debug deep link, but the list of
+        // tables it reaches is production behaviour: it lives in the library, and
+        // `scripts/ci/check-profile-reset-inventory.py` keeps it, the inventory document and
+        // the Room schema in step.
+        single<ContentResetter> {
+            ProfileContentResetter(
+                deps = ProfileWipeDeps(
+                    taskRepository = get(),
+                    notesRepository = get(),
+                    projectsRepository = get(),
+                    savedAgendaViewsRepository = get(),
+                    tagsRepository = get(),
+                    tagGroupRepository = get(),
+                    reminderDao = get(),
+                    projectReminderDao = get(),
+                    timeEntryDao = get(),
+                    savedSearchDao = get(),
+                    attachmentDao = get(),
+                    annotationDao = get(),
+                    proposalDao = get(),
+                    proposalItemDao = get(),
+                    calendarImportEventDao = get(),
+                    calendarSyncTaskMapDao = get(),
+                    googleEventShadowDao = get(),
+                ),
+                draftStore = get(),
+                currentUser = get(),
+            )
+        }
 
         // ─── Session / Auth ─────────────────────────────────────────────────
 

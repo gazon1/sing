@@ -8,11 +8,11 @@
 # returning to the source tab.
 #
 # NOTE: Both fixtures are created through the shared seed helper
-# (../../helpers/seed.yaml) with a ${RUN_ID}-prefixed title. A seeded fixture
-# is deterministic and stamped with the per-attempt ${RUN_ID}, so the runner's
-# sweep can find exactly this run's rows; typing the title into the editor is
-# not needed to prove the return-to-tab navigation, and the flow must not
-# depend on keyboard/IME behaviour or on the editor's Save button enabling.
+# (../../helpers/seed.yaml) with a fixed title. A seeded fixture is deterministic,
+# and the seed replaces: seeding the same title again updates the row this flow
+# seeded instead of adding a second one. Typing the title into the editor is not
+# needed to prove the return-to-tab navigation, and the flow must not depend on
+# keyboard/IME behaviour or on the editor's Save button enabling.
 #
 appId: com.singularity.todo
 name: tasks-return-to-source-tab
@@ -28,7 +28,7 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Return%20to%20Today&due=-1d"
+      QUERY: "task=Return%20to%20Today&due=-1d"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -37,13 +37,13 @@ tags:
 # Scroll to make it visible in case it arrived below the fold.
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_return_to_today"
+      id: "task_item_return_to_today"
     direction: DOWN
     timeout: 8000
 # Open the seeded task — this opens TaskDetailScreen. Navigating back
 # (auto-save on every change) returns to the Today tab with the task visible.
 - tapOn:
-    id: "task_item_${RUN_ID}_return_to_today"
+    id: "task_item_return_to_today"
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -56,7 +56,7 @@ tags:
 # Verify we are back on the Today tab with the task row visible.
 - extendedWaitUntil:
     visible:
-      id: "task_item_${RUN_ID}_return_to_today"
+      id: "task_item_return_to_today"
     timeout: 8000
 
 # ── Case 2: Inbox → FAB → save → task appears in Inbox ────────────────
@@ -65,7 +65,7 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Return%20to%20Inbox"
+      QUERY: "task=Return%20to%20Inbox"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -74,13 +74,13 @@ tags:
     id: nav_tab_inbox
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_return_to_inbox"
+      id: "task_item_return_to_inbox"
     direction: DOWN
     timeout: 8000
 # Open the seeded task from Inbox; navigating back auto-saves and returns
 # to the Inbox tab.
 - tapOn:
-    id: "task_item_${RUN_ID}_return_to_inbox"
+    id: "task_item_return_to_inbox"
 - extendedWaitUntil:
     visible:
       id: task_editor_title_input
@@ -91,5 +91,5 @@ tags:
 # Verify we are back on the Inbox tab (task row still visible).
 - extendedWaitUntil:
     visible:
-      id: "task_item_${RUN_ID}_return_to_inbox"
+      id: "task_item_return_to_inbox"
     timeout: 8000

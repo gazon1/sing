@@ -57,6 +57,33 @@ class DeviceLostError(RuntimeError):
         self.reason = reason
 
 
+class AppMissingError(RuntimeError):
+    """The app is not on the device, so the flow was not measured.
+
+    The device can lose the app and keep answering adb perfectly: the package
+    is removed and every flow after that fails in four seconds with "Package
+    com.singularity.todo is not installed". That message is not a statement
+    about the app — it is the absence of the app.
+
+    So this is neither a passing flow nor a failing one. The flow's report is
+    removed, because a report that says "the app was not installed" would be
+    read as a verdict, and the gate's own rule — a flow with no report is a
+    flow that did not run — is the honest shape for it.
+
+    Unlike a lost device, this is recoverable: the APK can be installed again
+    and the run can continue. The flows that were skipped are still reported
+    as unmeasured.
+    """
+
+    def __init__(self, serial: str, flow_name: str) -> None:
+        super().__init__(
+            f"the app is not installed on {serial}; the flow '{flow_name}' was "
+            f"not measured"
+        )
+        self.serial = serial
+        self.flow_name = flow_name
+
+
 def _log_failure(stdout: str, stderr: str) -> None:
     """Log why a flow failed, from both streams.
 
@@ -82,8 +109,14 @@ def run_one_flow(
     expected_sha: str,
     deps: DeviceDeps | None = None,
     bridge_url: str = "",
-) -> tuple[bool, str]:
-    """Run one Maestro flow. Returns (passed, run_id).
+) -> tuple[bool, str, int]:
+    """Run one Maestro flow. Returns (passed, run_id, attempts).
+
+    The attempt count is part of the verdict, and it is deliberately not the
+    same thing as the verdict: a flow that failed once and passed on the retry
+    is a passing flow, but it is also a flow that is not reliable, and the two
+    facts must not be merged. A run that reports only "passed" has thrown away
+    the evidence that a third of the suite needs a second attempt.
 
     Args:
         deps: Device-layer dependency bundle. Tests pass a fake here to avoid
@@ -94,6 +127,11 @@ def run_one_flow(
             ``env.E2E_BRIDGE_URL``. Empty means the flow has no host channel, and
             a flow that needs one says so rather than passing on its next
             assertion.
+
+    Raises:
+        AppMissingError: the app is not on the device, so the flow was not
+            measured. The caller decides whether to install it again.
+        DeviceLostError: the device is gone and cannot be recovered.
     """
     if deps is None:
         deps = _default_device_deps()
@@ -101,6 +139,13 @@ def run_one_flow(
     flow_name = flow_path.stem
     junit_dir.mkdir(parents=True, exist_ok=True)
     junit_file = junit_dir / f"{flow_name}.xml"
+
+    # The app is checked before the flow, not only after a failure. A run can
+    # start against a device that has lost the app, and the first flow would
+    # then be the one that discovers it — a failure report about an app that
+    # was never there.
+    if not deps.app_installed(serial):
+        raise AppMissingError(serial, flow_name)
 
     for attempt in range(max_retries + 1):
         run_id = f"r{int(time.time() * 1000) % 10**9}{attempt}"
@@ -131,8 +176,8 @@ def run_one_flow(
                         f"device was relaunched and carries g{installed_sha}, "
                         f"not g{expected_sha}; reinstalling..."
                     )
-                    return False, run_id
-            return True, run_id
+                    return False, run_id, attempt + 1
+            return True, run_id, attempt + 1
 
         stderr = cp.stderr if cp else ""
         # A device that dies mid-flow is written into the flow's JUnit report,
@@ -144,12 +189,20 @@ def run_one_flow(
             or deps.junit_reports_device_failure(junit_file)
         )
         if not device_failed and deps.device_alive(serial):
+            # The device answers. The flow may still not have been measured: the
+            # app can be gone from a device that is perfectly healthy, and then
+            # the failure message is about the missing package, not about the
+            # app. A report that says so must not be left behind, because a
+            # report is read as a verdict.
+            if not deps.app_installed(serial):
+                junit_file.unlink(missing_ok=True)
+                raise AppMissingError(serial, flow_name)
             _log_failure(stdout, stderr)
-            return False, run_id
+            return False, run_id, attempt + 1
 
         if attempt >= max_retries:
             _log_failure(stdout, stderr)
-            return False, run_id
+            return False, run_id, attempt + 1
 
         # A device-level signature is not the same as a dead device. Under a
         # loaded host Maestro's own adb socket times out and prints one, while
@@ -225,7 +278,7 @@ def run_one_flow(
             install_cp = deps.gradle_install_debug(serial)
             if install_cp.returncode != 0:
                 logger.error(f"installDebug failed (rc={install_cp.returncode})")
-                return False, run_id
+                return False, run_id, attempt + 1
             if not allow_stale:
                 installed_sha = deps.apk_sha_from_device(serial)
                 if installed_sha and installed_sha != expected_sha:
@@ -233,7 +286,7 @@ def run_one_flow(
                         f"Relaunched device holds g{installed_sha}, not g{expected_sha}; "
                         "results would describe wrong binary."
                     )
-                    return False, run_id
+                    return False, run_id, attempt + 1
         else:
             if not allow_stale:
                 installed_sha = deps.apk_sha_from_device(serial)
@@ -243,4 +296,4 @@ def run_one_flow(
                         "so binary is whatever the snapshot held."
                     )
 
-    return False, run_id
+    return False, run_id, max_retries + 1

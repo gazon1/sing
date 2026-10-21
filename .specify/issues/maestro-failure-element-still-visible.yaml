@@ -29,6 +29,10 @@ measurement:
   flows: 1
   measured_on: '2026-10-21'
   floor: config/docs/maestro-failure-floor.txt
+cause:
+- 'Assertion is false: id: task_item_buy_milk is not visible'
+issue:
+- 869
 elements:
 - element: task_item_buy_milk
   flows: 1

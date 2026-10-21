@@ -29,6 +29,10 @@ measurement:
   flows: 1
   measured_on: '2026-10-21'
   floor: config/docs/maestro-failure-floor.txt
+cause:
+- 'Element not found: Text matching regex: High priority'
+issue:
+- 881
 elements:
 - element: 'Element not found: Text matching regex: High priority'
   flows: 1

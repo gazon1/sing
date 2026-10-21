@@ -19,10 +19,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
@@ -118,20 +120,21 @@ fun TaskDetailChecklistSection(
  * previewed and called by nothing outside its own file — it renders the thumbnail,
  * the file size and a type-correct icon, none of which the text row did.
  *
- * @param onAttachFile opens the platform file picker. `null` hides the button — there is
- *   no task to attach to while the task is still being created.
+ * @param onOpenAttachments opens the attachments sheet — the one place that can add a
+ *   file or a URL. `null` hides the row, because a row that opens nothing is worse
+ *   than no row at all.
  * @param onOpen navigates to the viewer for one attachment. `null` renders rows that
  *   cannot be tapped, so no row advertises an interaction it does not have.
  */
 @Composable
 fun TaskDetailAttachmentsSection(
     attachments: List<Attachment>,
-    onAttachFile: (() -> Unit)? = null,
+    onOpenAttachments: (() -> Unit)? = null,
     onDelete: ((AttachmentId) -> Unit)? = null,
     onOpen: ((AttachmentId) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (attachments.isEmpty() && onAttachFile == null) return
+    if (attachments.isEmpty() && onOpenAttachments == null) return
     ExtraSectionCard(
         icon = { Icon(Icons.Filled.AttachFile, contentDescription = null) },
         label = "Attachments (${attachments.size})",
@@ -146,14 +149,15 @@ fun TaskDetailAttachmentsSection(
                         onOpen = onOpen?.takeIf { !att.isUrl }?.let { open -> { open(att.id) } },
                     )
                 }
-                if (onAttachFile != null) {
+                if (onOpenAttachments != null) {
                     Text(
                         text = "+ Add file",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clickable(onClick = onAttachFile),
+                            .clickable(onClick = onOpenAttachments)
+                            .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
                     )
                 }
             }

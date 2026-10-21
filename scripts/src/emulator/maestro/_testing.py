@@ -35,7 +35,7 @@ class FakeMaestro:
         fake = FakeMaestro([FakeMaestroResult(0)])
         # wire into the device/subprocess layers:
         _subprocess.try_run = lambda cmd, **kw: fake.test(Path(cmd[2]))
-        ok, run_id = run_one_flow(flow, serial, ...)
+        ok, run_id, attempts = run_one_flow(flow, serial, ...)
         assert ok
         assert len(fake.calls) == 1
     """

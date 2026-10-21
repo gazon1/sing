@@ -14,8 +14,8 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
-- openLink: "todo-debug://seed?task=${RUN_ID}_TaskWithDesc2026&desc=HasDescription&due=today"
-- openLink: "todo-debug://seed?task=${RUN_ID}_TaskNoDesc2026&due=today"
+- openLink: "todo-debug://seed?task=TaskWithDesc2026&desc=HasDescription&due=today"
+- openLink: "todo-debug://seed?task=TaskNoDesc2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -41,11 +41,11 @@ tags:
 - inputText: "Task2026"
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_taskwithdesc2026
+      id: task_item_taskwithdesc2026
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_tasknodesc2026
+      id: task_item_tasknodesc2026
     timeout: 8000
 
 # Open filter sheet via the Tune icon in the top bar (no testTag — use its label).
@@ -64,10 +64,10 @@ tags:
     id: search_filter_apply_button
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_taskwithdesc2026
+      id: task_item_taskwithdesc2026
     timeout: 8000
 # Task without description should be hidden.
 - extendedWaitUntil:
     notVisible:
-      id: task_item_${RUN_ID}_tasknodesc2026
+      id: task_item_tasknodesc2026
     timeout: 8000

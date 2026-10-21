@@ -335,6 +335,25 @@ ALLOWLIST: Set[str] = {
     "task_item_rendertesttask2026",
     "task_item_savedalpha2026",
     "task_item_seed_task",
+    # Seeded task titles that are now stable: the seed replaces a task with the
+    # same title instead of appending one, so the title a flow seeds is the
+    # title the flow can assert on — and the run id has nothing to do with it.
+    "task_item_sdnodate",
+    "task_item_signout_task",
+    "task_item_clearsearchtask2026",
+    "task_item_tasknodesc2026",
+    "task_item_taskwithdesc2026",
+    "task_item_unpinnedtask2026",
+    "task_item_anonymous_task",
+    "task_item_offline_task",
+    "task_item_parent_task",
+    "task_item_return_to_inbox",
+    "task_item_return_to_today",
+    "task_item_todaytask",
+    "task_item_tomorrowtask",
+    "task_item_uniquesearchabletask2026",
+    "task_item_worktask",
+    "task_item_yesterdaytask",
     # Dynamic checklist item from seed data
     "checklist_item_milk",
     # Settings tab IDs used in sync flows but not yet in TestTags.kt (pre-existing gap)

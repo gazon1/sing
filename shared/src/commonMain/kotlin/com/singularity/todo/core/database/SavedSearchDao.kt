@@ -29,4 +29,13 @@ interface SavedSearchDao {
     /** Full-table export — all saved searches for a user. */
     @Query("SELECT * FROM saved_searches WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<SavedSearchEntity>
+
+    /**
+     * Hard-deletes every saved search of [userId].
+     *
+     * A saved search is a standalone row — it does not hang off a task — so it
+     * survives a wipe that only follows the task graph.
+     */
+    @Query("DELETE FROM saved_searches WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }

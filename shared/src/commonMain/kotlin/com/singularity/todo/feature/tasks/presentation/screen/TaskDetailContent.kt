@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
@@ -228,7 +229,22 @@ fun TaskDetailContent(
                                 onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
                             ),
                             checklist = null,
-                            attachments = null,
+                            // The bundle that gives the attachments sheet its
+                            // behaviour: without it the sheet opens with no way to
+                            // add a link or a file. A URL attachment — the kind a
+                            // person types — had no way in at all.
+                            attachments = AttachmentsCallbacks(
+                                onOpen = { sheets.show(TaskEditorSheet.Attachments) },
+                                onAddUrl = { url, title ->
+                                    coordinator.onIntent(
+                                        TaskDetailIntent.Domain.AddUrlAttachment(url, title),
+                                    )
+                                },
+                                onAttachFile = { pickAttachment() },
+                                onDelete = {
+                                    coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                },
+                            ),
                             onTimeEntryAdd = null,
                             onTimeEntrySave = null,
                             extraSections = {
@@ -309,11 +325,12 @@ fun TaskDetailContent(
                                         onOpen = { navigator.openDetail(it.id) },
                                         onAddSubtask = { coordinator.onIntent(TaskDetailIntent.Domain.AddSubtask(it)) },
                                     )
-                                    // Always shown, not only when there is something to show: this row is also
-                                    // how the user attaches the first file.
+                                    // Always shown, not only when there is something to show: this row
+                                    // is also how the user opens the attachments sheet to attach
+                                    // the first file — or the first link.
                                     TaskDetailAttachmentsSection(
                                         attachments = ui.attachments,
-                                        onAttachFile = { pickAttachment() },
+                                        onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
                                         onDelete = {
                                             coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
                                         },
@@ -354,6 +371,11 @@ fun TaskDetailContent(
                         // the sheets from the same state, so the row that opens one and the
                         // host that shows it are looking at one thing.
                         sheets = sheets,
+                        // The detail lists its attachments under the fields, the way
+                        // it lists its checklist items — so no card here. The sheet
+                        // is opened from that list instead, and the callbacks the
+                        // sheet needs travel with the bundle, not with the card.
+                        showAttachmentsRow = false,
                     )
 
                     if (showAiSheet) {

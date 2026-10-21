@@ -58,6 +58,8 @@ _REAL_IMPLS = {
     "git_sha": _provenance.git_sha,
     "probe_device_health": _device.probe_device_health,
     "emulator_process_alive": _device.emulator_process_alive,
+    "app_installed": maestro_device.app_installed,
+    "device_api_level": maestro_device.device_api_level,
 }
 
 

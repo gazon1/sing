@@ -52,4 +52,14 @@ interface TagGroupRepository {
      * Used by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
      */
     suspend fun upsert(tagGroup: TagGroup): TagGroup
+
+    /**
+     * Deletes every tag group of the active profile.
+     *
+     * One bulk delete per profile, not a sweep of the live rows: a trashed group is a
+     * row the next run still sees, and a sweep is defined by the query that feeds it.
+     *
+     * @return how many rows were deleted.
+     */
+    suspend fun deleteAllForCurrentProfile(): Result<Int>
 }
