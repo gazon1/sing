@@ -83,6 +83,20 @@ Seven gaps, closed after the change itself was merged:
       compiler plugin checks definition requests by static type and a heterogeneous
       list has none (ADR `2026-10-21-the-toolbox-surface-from-the-compiler-down`)
 
+## The third wave
+
+- [x] The tool list is written once: the two platform modules' identical blocks moved
+      to `commonMain` as `Module.aiToolBindings()`
+- [x] The local report knows the record's schema version and refuses to count what it
+      cannot read
+- [x] The resource URIs are pinned by a test, and the payload's compatibility rule is
+      written down where the payload is built
+- [x] `ToolAnnotations` sits with the catalogue it belongs to
+- [x] The flag key space is published in the architecture document as a generated,
+      gate-checked block
+
+ADR: `2026-10-21-the-toolbox-once-more`.
+
 ## Verification
 
 - [x] `:shared:jvmTest` — the full suite; the nine failures it reported were all from

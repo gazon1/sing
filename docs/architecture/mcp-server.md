@@ -236,6 +236,19 @@ A flag that names **no** tool is reported, not dropped: `describe_toolbox` lists
 switch anything off, and the operator who set it believes otherwise — so the server says
 so rather than staying quiet about it.
 
+**The key space is the tool names.** A flag is keyed by the name the tool is registered
+under, so the valid keys are exactly the tool names — and they are declared, not
+implied: `config/docs/tool-surface.json` carries them under `flagKeys`, and a test says
+the file is current. The gate checks every flag key the *documentation* shows against
+that space, so a document that teaches an operator to write a flag matching nothing is
+reported rather than believed.
+
+**The payload may only grow.** `describe_toolbox`'s payload and the resource URIs are
+contracts with clients that are not upgraded with the server: a new field is fine (a
+client ignores what it does not know), a renamed or removed field breaks every client
+that reads it. Both are pinned by tests, so a rename fails the build instead of the
+clients.
+
 The policy is **fail-open** and says so: when the configuration cannot be read, every tool
 is enabled — including one an operator meant to disable. `configurationStatus` reports
 `current`, `cached`, `stale` or `unavailable`, so the difference between "no flag" and "no
@@ -583,3 +596,55 @@ Both wrap the repository's own Python gates rather than reimplementing them, so 
 preview and the gate cannot disagree.
 
 <!-- END GENERATED: adr-tools -->
+
+<!-- BEGIN GENERATED: tool-flags -->
+
+A remote configuration switches a tool off by naming it, so these are the
+names it may use. A flag that names nothing matches nothing, and the server
+reports it under `unmatchedFlags`.
+
+| Domain | Flag key |
+|---|---|
+| adr | `list_adrs` |
+| adr | `list_open_deferred` |
+| adr | `read_adr` |
+| adr | `search_decisions` |
+| adr | `update_adr` |
+| adr | `write_adr` |
+| ai | `cluster_notes` |
+| ai | `cluster_tasks` |
+| ai | `decompose_task` |
+| ai | `extract_actions` |
+| ai | `generate_checklist` |
+| ai | `generate_description` |
+| ai | `improve_note` |
+| ai | `pick_time` |
+| ai | `project_review` |
+| ai | `refine_task` |
+| ai | `rewrite_note` |
+| ai | `smart_rewrite` |
+| ai | `suggest_tags` |
+| ai | `summarize_note` |
+| ai | `weekly_plan` |
+| docs | `search_docs` |
+| notes | `create_note` |
+| notes | `delete_note` |
+| notes | `get_note` |
+| notes | `update_note` |
+| projects | `create_project` |
+| projects | `delete_project` |
+| projects | `get_project` |
+| projects | `list_projects` |
+| projects | `update_project` |
+| tags | `create_tag` |
+| tags | `delete_tag` |
+| tasks | `create_task` |
+| tasks | `decompose_and_create` |
+| tasks | `delete_task` |
+| tasks | `get_task` |
+| tasks | `list_linked_tasks` |
+| tasks | `list_tasks` |
+| tasks | `search_tasks` |
+| tasks | `update_task` |
+
+<!-- END GENERATED: tool-flags -->

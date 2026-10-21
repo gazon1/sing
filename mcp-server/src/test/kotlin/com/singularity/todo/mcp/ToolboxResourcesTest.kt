@@ -141,6 +141,17 @@ class ToolboxResourcesTest {
     )
 
     @Test
+    fun `the resource uris are the contract they have always been`() {
+        // A URI is what a client bookmarks, subscribes to, or asks for by name. A
+        // rename of any of them breaks every client that used it, and nothing else in
+        // the tree would say so: the payloads are pinned by the tests below, but the
+        // names were only written down in the documentation.
+        assertEquals("singularity://toolbox", ToolboxResources.TOOLBOX_URI)
+        assertEquals("singularity://decisions", ToolboxResources.DECISIONS_URI)
+        assertEquals("singularity://decision", ToolboxResources.DECISION_URI)
+    }
+
+    @Test
     fun `the toolbox document lists the registered tools`() {
         val resources = ToolboxResources(snapshot(), null)
 

@@ -1,6 +1,6 @@
 package com.singularity.todo.mcp
 
-import com.singularity.todo.mcp.ToolAnnotations
+import com.singularity.todo.feature.ai.ToolAnnotations
 import io.modelcontextprotocol.kotlin.sdk.types.ToolAnnotations as McpToolAnnotations
 
 /**

@@ -67,6 +67,16 @@ TOOLS_DIR = ROOT / ("shared/src/commonMain/kotlin/com/singularity/todo/feature/a
 BEGIN = "<!-- BEGIN GENERATED: adr-tools -->"
 END = "<!-- END GENERATED: adr-tools -->"
 
+# The second generated block: the flag key space.
+#
+# A remote configuration switches a tool off by naming it, so the names an operator
+# may use are a fact an operator has to be able to *read*. The catalogue declares
+# them, the export writes them down, and this block puts them in the document a
+# human opens — with the same guarantee as the ADR block above: the gate compares
+# what is committed with what the code says, so the list cannot go stale.
+FLAG_BEGIN = "<!-- BEGIN GENERATED: tool-flags -->"
+FLAG_END = "<!-- END GENERATED: tool-flags -->"
+
 # The documents whose command reference is generated. Both describe the ADR tools, and
 # both had drifted; the rest of each file is prose and stays hand-written.
 #
@@ -87,6 +97,12 @@ DOCUMENTS = (
 # check-skill-drift.py and by its own tests. Renaming it here would break those callers
 # to make a name accurate, which is the wrong trade.
 SKILLS = DOCUMENTS
+
+#: The documents the flag key space is written into. Only the architecture document:
+#: the skill is a procedure for an agent, and the key space is an operator's fact.
+FLAG_DOCUMENTS = (
+    ROOT / "docs/architecture/mcp-server.md",
+)
 
 # Parsing rules for `AdrSurface.kt` declarations:
 #
@@ -361,6 +377,53 @@ def render() -> str:
     return '\n'.join(lines)
 
 
+def flag_keys() -> list[tuple[str, str]]:
+    """(domain, tool name) for every tool a configuration may switch off.
+
+    The catalogue is the owner of the tool set, so the key space is the catalogue's
+    names — the same strings the client calls, and the same strings the export
+    declares under `flagKeys`.
+    """
+    return sorted(
+        ((domain, name) for name, _tool_class, domain in catalog_entries()),
+        key=lambda row: (row[0], row[1]),
+    )
+
+
+def render_flag_block() -> str:
+    """The flag key space, as a table."""
+    lines = [FLAG_BEGIN, '']
+    lines.append('A remote configuration switches a tool off by naming it, so these are the')
+    lines.append('names it may use. A flag that names nothing matches nothing, and the server')
+    lines.append('reports it under `unmatchedFlags`.')
+    lines.append('')
+    lines.append('| Domain | Flag key |')
+    lines.append('|---|---|')
+    for domain, name in flag_keys():
+        lines.append(f'| {domain} | `{name}` |')
+    lines.append('')
+    lines.append(FLAG_END)
+    return '\n'.join(lines)
+
+
+def current_flag_block(path: pathlib.Path) -> str | None:
+    """The flag block currently committed in [path], or None if there are no markers."""
+    text = path.read_text(encoding='utf-8')
+    if FLAG_BEGIN not in text or FLAG_END not in text:
+        return None
+    start = text.index(FLAG_BEGIN)
+    return text[start:text.index(FLAG_END, start) + len(FLAG_END)]
+
+
+def splice_flag(text: str, block: str) -> str:
+    """Replace the generated flag block, or append it. Everything else is untouched."""
+    if FLAG_BEGIN in text and FLAG_END in text:
+        start = text.index(FLAG_BEGIN)
+        end = text.index(FLAG_END, start) + len(FLAG_END)
+        return text[:start] + block + text[end:]
+    return text.rstrip('\n') + '\n\n' + block + '\n'
+
+
 def current_block(path: pathlib.Path) -> str | None:
     """The block currently committed in [path], or None if there are no markers."""
     text = path.read_text(encoding='utf-8')
@@ -391,6 +454,12 @@ def main() -> int:
         print(f'render-adr-tools-section: {exc}', file=sys.stderr)
         return 1
 
+    try:
+        flag_block = render_flag_block()
+    except (ParseError, ValueError) as exc:
+        print(f'render-adr-tools-section: {exc}', file=sys.stderr)
+        return 1
+
     drifted: list[pathlib.Path] = []
     missing: list[pathlib.Path] = []
     for skill in SKILLS:
@@ -405,6 +474,19 @@ def main() -> int:
             skill.write_text(splice(skill.read_text(encoding='utf-8'), block),
                              encoding='utf-8')
 
+    flag_drifted: list[pathlib.Path] = []
+    flag_missing: list[pathlib.Path] = []
+    for path in FLAG_DOCUMENTS:
+        if not path.is_file():
+            flag_missing.append(path)
+            continue
+        if current_flag_block(path) == flag_block:
+            continue
+        flag_drifted.append(path)
+        if not args.check:
+            path.write_text(splice_flag(path.read_text(encoding='utf-8'), flag_block),
+                            encoding='utf-8')
+
     for path in missing:
         print(f'render-adr-tools-section: {path} does not exist')
 
@@ -412,16 +494,19 @@ def main() -> int:
         for path in drifted:
             print(f'DRIFT: {path.relative_to(ROOT)} — the "ADR tools" section no longer '
                   f'matches the code')
-        if drifted or missing:
+        for path in flag_drifted:
+            print(f'DRIFT: {path.relative_to(ROOT)} — the flag key space no longer matches '
+                  f'the catalogue')
+        if drifted or flag_drifted or missing:
             print('')
             print('regenerate with: python3 scripts/render-adr-tools-section.py')
             return 1
         print(f'render-adr-tools-section: OK — {len(SKILLS)} skill(s) match the tool surface')
         return 0
 
-    for path in drifted:
+    for path in drifted + flag_drifted:
         print(f'updated: {path.relative_to(ROOT)}')
-    if not drifted and not missing:
+    if not drifted and not flag_drifted and not missing:
         print('already up to date')
     return 1 if missing else 0
 
