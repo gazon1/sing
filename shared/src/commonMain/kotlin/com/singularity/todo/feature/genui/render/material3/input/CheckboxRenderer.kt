@@ -36,7 +36,7 @@ private fun BoundCheckbox(
     ctx: com.singularity.todo.feature.genui.render.DataContext,
     modifier: Modifier,
 ) {
-    val bound by ctx.value(c.path).collectAsStateWithLifecycle(initialValue = null)
+    val bound by ctx.valueWithoutCount(c.path).collectAsStateWithLifecycle(initialValue = null)
     val checked: Boolean = (bound as? JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: c.initial
     Row(
         verticalAlignment = Alignment.CenterVertically,

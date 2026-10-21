@@ -348,6 +348,17 @@ source would be answering a question it cannot know the answer to. The owner is 
 component that holds the value and knows who else writes it — a ViewModel's state, a
 draft.
 
+**The read carries the count.** A field bound to a path in a surface's data model reads
+it through `textSource(path, fallback)` — the value *and* the count of the server's writes
+to that path, in one object. The context's other read of a path is
+`valueWithoutCount(path)`, and it is named for what it does not carry: it is for values
+that are not text and are not rewritten from outside — a checkbox's flag, a due date on a
+card. A text field that reads through it gets a value with no count, and a rewrite that
+lands on a value the field had already sent is then dropped as an echo. The two reads
+look alike when the second one is called `value`, so it is not called `value`.
+`TextFieldSourceContractTest` holds the line: a field that bridges a surface path reads
+it through the source.
+
 **The bridge has no `revision` parameter**, and that is the point. The count used to be an
 argument with a default, and three failures came out of that: an upstream that owned the
 value passed no count, an upstream passed a count that never moved (`revision = 0`), and a

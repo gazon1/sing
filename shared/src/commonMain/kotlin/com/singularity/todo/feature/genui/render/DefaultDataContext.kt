@@ -81,8 +81,26 @@ class DefaultDataContext(
     /** The root component reference of this surface. */
     fun rootRef(): Flow<NodeRef?> = controller.rootRef(surfaceId)
 
-    /** The value at a data-model path, emitting only when that value changes. */
-    fun value(path: UiPath): Flow<JsonElement?> = controller.value(surfaceId, path)
+    /**
+     * The value at a data-model path, **without** the count of the server's writes.
+     *
+     * The name says what the read does not carry, because that is the part that matters.
+     * Two reads of a path exist, and they answer different questions:
+     *
+     * - [textSource] — the value **and** the count of the server's writes to it. A field
+     *   reads its text through this one, because the count is what tells the field that a
+     *   value is a rewrite rather than an echo of what the field itself pushed.
+     * - this one — the value alone. Right for a value that is not text and is not
+     *   rewritten from outside: a checkbox's flag, a due date on a card.
+     *
+     * A text field that reads through this one gets a value with no count, and a rewrite
+     * that lands on a value the field had already sent is dropped as an echo. The
+     * contract test in `TextFieldSourceContractTest` holds the line: a field that bridges
+     * a path reads it through [textSource].
+     *
+     * @param path the data-model path to read.
+     */
+    fun valueWithoutCount(path: UiPath): Flow<JsonElement?> = controller.value(surfaceId, path)
 
     /**
      * The source of a field bound to [path].
