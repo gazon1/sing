@@ -22,5 +22,4 @@ interface TagsRepository :
 
     /** Single tag observation by id (no user-filter, uses ambient current user). */
     fun observeTag(id: TagId): Flow<Tag?>
-
 }

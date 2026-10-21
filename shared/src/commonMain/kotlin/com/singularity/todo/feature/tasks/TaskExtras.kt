@@ -53,7 +53,4 @@ internal fun TaskDao.withExtras(uid: UserId, source: Flow<List<TaskEntity>>): Fl
 }
 
 /** The cross-references of a set of tasks, indexed by the task they belong to. */
-private data class TaskExtras(
-    val tagsByTask: Map<String, List<String>>,
-    val depsByTask: Map<String, Set<String>>,
-)
+private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val depsByTask: Map<String, Set<String>>)

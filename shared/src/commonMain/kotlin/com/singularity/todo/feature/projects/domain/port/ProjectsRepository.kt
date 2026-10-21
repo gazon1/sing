@@ -56,7 +56,6 @@ interface ProjectsRepository :
     /** Projects under a specific parent, scoped to current user. */
     fun observeByParent(parentId: ProjectId): Flow<List<Project>>
 
-
     /** Changes to a project (for inline-edit debounce). */
     fun changes(id: ProjectId): Flow<Project?>
 
