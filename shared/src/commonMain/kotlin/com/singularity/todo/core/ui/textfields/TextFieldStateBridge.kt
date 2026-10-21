@@ -198,6 +198,11 @@ private class BridgeHistory(initialText: String, initialRevision: Long?) {
  * counter is not a parameter it can write down. Writing one down means *building* the
  * source, and building the source at the field is what the contract forbids.
  *
+ * There is no third overload that takes a [TextSource] and decides at runtime. A component
+ * that serves two upstreams — the task editor serves the create draft and the detail
+ * draft — cannot say which kind of upstream it holds, so it is split: each half knows its
+ * kind, and the kind is a compile-time property of the parameter it is given.
+ *
  * @param source the upstream's value and the authority over it. Built by the owner.
  * @param onTextChanged invoked with the field text whenever the user edits it.
  * @return the [TextFieldState] to hand to the text field.
@@ -226,31 +231,6 @@ fun rememberBridgedTextFieldState(
     source: StaticText,
     onTextChanged: (String) -> Unit,
 ): TextFieldState = rememberBridgedTextFieldState(source.text, onTextChanged, null)
-
-/**
- * Owns the text of a state-based text field whose upstream is not known to be one kind or the
- * other.
- *
- * A component that serves two upstreams — the task editor serves the create draft and the
- * detail draft — cannot say which kind of upstream it holds, and must not decide: the source
- * carries the answer, and this overload reads it.
- *
- * The `when` is exhaustive because [TextSource] is sealed with exactly two permitted shapes.
- * A third kind of source cannot be added without the bridge saying what it means — the answer
- * is not a matter of taste.
- *
- * @param source the upstream's value and the authority over it. Built by the owner.
- * @param onTextChanged invoked with the field text whenever the user edits it.
- * @return the [TextFieldState] to hand to the text field.
- */
-@Composable
-internal fun rememberBridgedTextFieldState(
-    source: TextSource,
-    onTextChanged: (String) -> Unit,
-): TextFieldState = when (source) {
-    is OwnedText -> rememberBridgedTextFieldState(source, onTextChanged)
-    is StaticText -> rememberBridgedTextFieldState(source, onTextChanged)
-}
 
 /**
  * The bridge itself.

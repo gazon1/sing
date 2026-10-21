@@ -292,6 +292,27 @@ class TextFieldRewriteContractTest {
         )
     }
 
+    @Test
+    fun `the bridge does not decide the kind of the source at runtime`() {
+        val offending = TextFieldShapeScan.functions(BRIDGE_FILE)
+            // A function that takes the sealed parent decides the kind with a `when`
+            // when it is called: the kind is a runtime question, and the answer is
+            // wherever the `when` happens to live.
+            .filter { function ->
+                function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
+            }
+            .map { it.name }
+
+        assertTrue(
+            offending.isEmpty(),
+            "The bridge takes a source whose kind it decides at runtime:\n" +
+                offending.joinToString("\n") { "  - $it" } +
+                "\n\nA component that serves two upstreams cannot say which kind of " +
+                "upstream it holds, so it is split: each half knows its kind, and the " +
+                "kind is a compile-time property of the parameter it is given.",
+        )
+    }
+
     // ── the registry: the skill's rewrite table ─────────────────────────────────
 
     /**
@@ -409,6 +430,9 @@ class TextFieldRewriteContractTest {
 
         /** The type whose writes are all named. */
         const val FIELD_OWNED = "FieldOwnedText"
+
+        /** The sealed parent of the two kinds of source. */
+        const val TEXT_SOURCE = "TextSource"
 
         /** The only way a `Revisioned`'s count moves. */
         const val REPLACED_BY = "replacedBy("

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -41,8 +42,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
+import com.singularity.todo.core.ui.textfields.OwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
-import com.singularity.todo.core.ui.textfields.TextSource
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -63,15 +65,17 @@ import kotlin.time.Instant
 /**
  * Unified task editor Composable for both Create and View modes.
  *
- * @param titleSource Current title, as the field's source. The owner builds it: the create
- *   draft hands over a static one, the detail draft an owned one.
- * @param onTitleChange Called when title text changes.
+ * The fields are already bridged: the caller owns the source, knows its kind, and hands
+ * over the state. This composable renders the editor and never asks which kind of upstream
+ * it has — the two editors that serve the two kinds are [TaskEditorContent] and
+ * [TaskCreateEditorContent].
+ *
+ * @param titleState The title's field state, bridged by the caller.
  * @param isCompleted Whether the task is completed (affects checkbox appearance).
  * @param onCheckToggle Called when the completion checkbox is toggled. `null` hides the
  *   checkbox — Create mode has no task to complete yet, and a checkbox that does nothing
  *   is worse than no checkbox.
- * @param descriptionSource Current description, as the field's source.
- * @param onDescriptionChange Called when description text changes.
+ * @param descriptionState The description's field state, bridged by the caller.
  * @param priority Current priority value.
  * @param onPrioritySelect Called when a priority is selected in the sheet.
  * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
@@ -106,12 +110,10 @@ import kotlin.time.Instant
 @Composable
 fun TaskEditorContent(
     taskId: String,
-    titleSource: TextSource,
-    onTitleChange: (String) -> Unit,
+    titleState: TextFieldState,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
-    descriptionSource: TextSource,
-    onDescriptionChange: (String) -> Unit,
+    descriptionState: TextFieldState,
     priority: TaskPriority,
     onPrioritySelect: (TaskPriority) -> Unit,
     onPriorityClear: (() -> Unit)?,
@@ -173,16 +175,14 @@ fun TaskEditorContent(
             // Title row
             TaskTitleRow(
                 taskId = taskId,
-                titleSource = titleSource,
+                titleState = titleState,
                 isCompleted = isCompleted,
-                onTitleChange = onTitleChange,
                 onCheckToggle = onCheckToggle,
             )
 
             // Description
             TaskDescriptionField(
-                descriptionSource = descriptionSource,
-                onDescriptionChange = onDescriptionChange,
+                descriptionState = descriptionState,
             )
 
             // View-mode extra sections
@@ -339,8 +339,6 @@ fun TaskEditorContent(
     TaskEditorSheetsHost(
         model = TaskEditorModel(
             taskId = null,
-            titleSource = titleSource,
-            descriptionSource = descriptionSource,
             priority = priority,
             dueDate = dueDate,
             dueTime = dueTime,
@@ -358,9 +356,7 @@ fun TaskEditorContent(
         ),
         callbacks = TaskEditorCallbacks(
             onBack = onBack,
-            onTitleChange = onTitleChange,
             onCheckToggle = onCheckToggle,
-            onDescriptionChange = onDescriptionChange,
             priority = RowCallbacks(
                 onChange = onPrioritySelect,
                 onClick = onPriorityClick,
@@ -422,24 +418,95 @@ private fun StartDateRow(
 }
 
 /**
- * Overload that unpacks [TaskEditorModel] and [TaskEditorCallbacks] into explicit parameters.
- * Used by [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
+ * The editor of a task whose upstream **owns** the title and the description.
+ *
+ * The upstream may replace the value with anything, including a value the field produced
+ * earlier, so the source carries the count of the replacements. That count is the owner's
+ * business: the editor does not keep it, and it does not decide whether the count moved —
+ * it hands the source to the bridge and shows what comes back.
+ *
+ * @param titleSource the title's source. The owner builds it, and its type says who may
+ *   replace the title.
+ * @param descriptionSource the description's source, in the same shape.
+ * @param onTitleChange called with the title the user typed.
+ * @param onDescriptionChange called with the description the user typed.
  */
 @Composable
 fun TaskEditorContent(
     model: TaskEditorModel,
+    titleSource: OwnedText,
+    descriptionSource: OwnedText,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
     callbacks: TaskEditorCallbacks,
     isCompleted: Boolean = false,
     now: Instant,
 ) {
+    TaskEditorScaffold(
+        model = model,
+        callbacks = callbacks,
+        titleState = rememberBridgedTextFieldState(titleSource, onTitleChange),
+        descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
+        isCompleted = isCompleted,
+        now = now,
+    )
+}
+
+/**
+ * The editor of a task whose upstream **loads** the title and the description once.
+ *
+ * The upstream replaces the value only with one the field never produced, so the echo guard
+ * needs no lifting and there is no count to read. That is a different kind of source, and
+ * it is a different editor: the kind is a compile-time property of the parameter, not a
+ * question this component answers at runtime.
+ *
+ * @param titleSource the title's source. The owner builds it, and its type says who may
+ *   replace the title.
+ * @param descriptionSource the description's source, in the same shape.
+ * @param onTitleChange called with the title the user typed.
+ * @param onDescriptionChange called with the description the user typed.
+ */
+@Composable
+fun TaskCreateEditorContent(
+    model: TaskEditorModel,
+    titleSource: StaticText,
+    descriptionSource: StaticText,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    callbacks: TaskEditorCallbacks,
+    now: Instant,
+) {
+    TaskEditorScaffold(
+        model = model,
+        callbacks = callbacks,
+        titleState = rememberBridgedTextFieldState(titleSource, onTitleChange),
+        descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
+        isCompleted = false,
+        now = now,
+    )
+}
+
+/**
+ * Unpacks [TaskEditorModel] and [TaskEditorCallbacks] into explicit parameters.
+ *
+ * The fields are already bridged by the caller, so this is where the two kinds meet: the
+ * editor renders what it is given and never asks which kind of upstream it has.
+ */
+@Composable
+private fun TaskEditorScaffold(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    titleState: TextFieldState,
+    descriptionState: TextFieldState,
+    isCompleted: Boolean,
+    now: Instant,
+) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
-        titleSource = model.titleSource,
-        onTitleChange = callbacks.onTitleChange,
+        titleState = titleState,
         isCompleted = isCompleted,
         onCheckToggle = callbacks.onCheckToggle,
-        descriptionSource = model.descriptionSource,
-        onDescriptionChange = callbacks.onDescriptionChange,
+        descriptionState = descriptionState,
         priority = model.priority,
         onPrioritySelect = callbacks.priority.onChange,
         onPriorityClear = callbacks.priority.onClear,
@@ -466,13 +533,14 @@ fun TaskEditorContent(
         estimateCallbacks = callbacks.estimate,
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
-        extraSections = null,
+        extraSections = callbacks.extraSections,
         onSetDependencies = callbacks.dependencies?.onChange,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
         now = now,
+        sheets = callbacks.sheets,
     )
 }
 
@@ -506,12 +574,10 @@ private fun dueDateLabel(date: LocalDate?, time: LocalTime?): String {
 private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     TaskEditorContent(
         taskId = "",
-        titleSource = StaticText(""),
-        onTitleChange = {},
+        titleState = TextFieldState(""),
         isCompleted = false,
         onCheckToggle = null,
-        descriptionSource = StaticText(""),
-        onDescriptionChange = {},
+        descriptionState = TextFieldState(""),
         priority = TaskPriority.None,
         onPrioritySelect = {},
         onPriorityClear = null,
@@ -537,12 +603,10 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
     val today = PreviewSamples.today
     TaskEditorContent(
         taskId = "",
-        titleSource = StaticText("Buy groceries"),
-        onTitleChange = {},
+        titleState = TextFieldState("Buy groceries"),
         isCompleted = false,
         onCheckToggle = null,
-        descriptionSource = StaticText("Milk, eggs, bread"),
-        onDescriptionChange = {},
+        descriptionState = TextFieldState("Milk, eggs, bread"),
         priority = TaskPriority.High,
         onPrioritySelect = {},
         onPriorityClear = {},
@@ -573,12 +637,10 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
     val sampleTask = PreviewSamples.task(id = "t2", title = "Review PR")
     TaskEditorContent(
         taskId = "",
-        titleSource = StaticText("Review PR"),
-        onTitleChange = {},
+        titleState = TextFieldState("Review PR"),
         isCompleted = false,
         onCheckToggle = null,
-        descriptionSource = StaticText(""),
-        onDescriptionChange = {},
+        descriptionState = TextFieldState(""),
         priority = TaskPriority.Urgent,
         onPrioritySelect = {},
         onPriorityClear = {},

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -8,6 +9,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -86,10 +88,8 @@ data class TaskEditorMenuItem(val label: String, val onClick: () -> Unit, val te
  */
 data class TaskEditorCallbacks(
     val onBack: () -> Unit,
-    val onTitleChange: (String) -> Unit,
     /** Null hides the completion checkbox — Create mode has no task to complete yet. */
     val onCheckToggle: (() -> Unit)?,
-    val onDescriptionChange: (String) -> Unit,
     /** Priority row — null = hidden */
     @Suppress("NoEmptyOnClickLambda")
     val priority: RowCallbacks<TaskPriority> = RowCallbacks(onChange = {}),
@@ -126,6 +126,13 @@ data class TaskEditorCallbacks(
      */
     val onTimeEntrySave: ((startedAtMs: Long, endedAtMs: Long, kind: TimeEntryKind, note: String?) -> Unit)?,
 
+    /**
+     * Sections the editor does not know about — the checklist, the tags, the proposals,
+     * the logbook — rendered under the fields. Null means the editor shows nothing else.
+     */
+    val extraSections: (@Composable () -> Unit)? = null,
+    /** The sheets the editor opens. Null means the editor opens none of its own. */
+    val sheets: DialogState<TaskEditorSheet>? = null,
     /** Bottom bar content — null means no bottom bar */
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */

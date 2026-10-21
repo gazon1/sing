@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
 import com.singularity.todo.feature.tasks.presentation.components.detail.LogbookSection
@@ -57,8 +58,10 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDet
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailRecurrenceSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailTagsSection
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.FirstRun
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
@@ -157,185 +160,197 @@ fun TaskDetailContent(
                     }
 
                     TaskEditorContent(
-                        taskId = ui.task.id.value,
+                        model = TaskEditorModel(
+                            taskId = ui.task.id,
+                            priority = ui.task.priority,
+                            dueDate = ui.task.dueDate,
+                            dueTime = ui.task.dueTime,
+                            startDate = null,
+                            startTime = null,
+                            project = ui.project?.id,
+                            tags = ui.tags.map { it.id },
+                            recurrence = ui.task.recurrence,
+                            isPinned = ui.task.isPinned,
+                            estimateMinutes = ui.task.estimateMinutes,
+                            dependsOn = ui.dependsOn,
+                            availableTasks = ui.availableTasks,
+                        ),
                         titleSource = ui.titleSource,
-                        onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
-                        isCompleted = ui.task.isCompleted,
-                        onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
                         descriptionSource = ui.descriptionSource,
-                        onDescriptionChange = { coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it)) },
-                        priority = ui.task.priority,
-                        onPrioritySelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
-                        onPriorityClear = {
-                            coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.None))
+                        onTitleChange = { coordinator.onIntent(TaskDetailIntent.Domain.TitleChanged(it)) },
+                        onDescriptionChange = {
+                            coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))
                         },
-                        dueDate = ui.task.dueDate,
-                        dueTime = ui.task.dueTime,
-                        onDueDateSelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetDueDate(it)) },
-                        onDueDateClear = {
-                            coordinator.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
-                            coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(null))
-                        },
-                        onDueTimeSelect = { coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
-                        showDueDate = true,
-                        onPriorityClick = { sheets.show(TaskEditorSheet.Priority) },
-                        onDueDateClick = { sheets.show(TaskEditorSheet.Date) },
-                        startDate = null,
-                        startTime = null,
-                        startDateCallbacks = null,
-                        project = ui.project?.id,
-                        projectCallbacks = RowCallbacks(
-                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },
-                            onClick = { sheets.show(TaskEditorSheet.Project) },
-                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(null)) },
-                        ),
-                        tags = ui.tags.map { it.id },
-                        tagsCallbacks = RowCallbacks(
-                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(it)) },
-                            onClick = { sheets.show(TaskEditorSheet.Tags) },
-                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(emptyList())) },
-                        ),
-                        recurrence = ui.task.recurrence,
-                        recurrenceCallbacks = RowCallbacks(
-                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetRecurrence(it)) },
-                            onClick = { sheets.show(TaskEditorSheet.Recurrence) },
-                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetRecurrence(null)) },
-                        ),
-                        isPinned = ui.task.isPinned,
-                        pinCallbacks = ToggleCallbacks(
-                            onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.TogglePinned) },
-                        ),
-                        dependsOn = ui.dependsOn,
-                        availableTasks = ui.availableTasks,
-                        // Was absent on the desktop path while the Android-only
-                        // screen had it, so an estimate set on one platform was
-                        // invisible on the other. Both routes render this now.
-                        estimateMinutes = ui.task.estimateMinutes,
-                        estimateCallbacks = RowCallbacks(
-                            onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(it)) },
-                            onClick = { sheets.show(TaskEditorSheet.Estimate) },
-                            onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
-                        ),
-                        extraSections = {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                // First-run nudge and pending AI proposals both
-                                // arrive through `extras`, which is Unresolved
-                                // until the coordinator's cold-start work lands.
-                                // Reading them as absent while unresolved is the
-                                // intended behaviour: there is nothing to show yet,
-                                // and inventing an empty offer would flash a
-                                // section that disappears a frame later.
-                                val firstRun = when (val ex = extras) {
-                                    is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                                    is TaskDetailExtras.Ready -> ex.firstRun
-                                }
-                                if (firstRun is FirstRun.Offer) {
-                                    FirstRunSection(
-                                        // Only Ask AI has a handler to give it. The
-                                        // other two chips are not rendered — see
-                                        // FirstRunSection's KDoc.
-                                        onAskAi = { showAiSheet = true },
+                        callbacks = TaskEditorCallbacks(
+                            onBack = { navigator.back() },
+                            onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                            priority = RowCallbacks(
+                                onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
+                                onClick = { sheets.show(TaskEditorSheet.Priority) },
+                                onClear = {
+                                    coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.None))
+                                },
+                            ),
+                            dueDate = DateRowCallbacks(
+                                onChangeDate = { coordinator.onIntent(TaskDetailIntent.Domain.SetDueDate(it)) },
+                                onChangeTime = { coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(it)) },
+                                onClick = { sheets.show(TaskEditorSheet.Date) },
+                                onClear = {
+                                    coordinator.onIntent(TaskDetailIntent.Domain.SetDueDate(null))
+                                    coordinator.onIntent(TaskDetailIntent.Domain.SetDueTime(null))
+                                },
+                            ),
+                            startDate = null,
+                            project = RowCallbacks(
+                                onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(it)) },
+                                onClick = { sheets.show(TaskEditorSheet.Project) },
+                                onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetProject(null)) },
+                            ),
+                            tags = RowCallbacks(
+                                onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(it)) },
+                                onClick = { sheets.show(TaskEditorSheet.Tags) },
+                                onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetTags(emptyList())) },
+                            ),
+                            recurrence = RowCallbacks(
+                                onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetRecurrence(it)) },
+                                onClick = { sheets.show(TaskEditorSheet.Recurrence) },
+                                onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetRecurrence(null)) },
+                            ),
+                            pin = ToggleCallbacks(
+                                onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.TogglePinned) },
+                            ),
+                            estimate = RowCallbacks(
+                                onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(it)) },
+                                onClick = { sheets.show(TaskEditorSheet.Estimate) },
+                                onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
+                            ),
+                            dependencies = RowCallbacks(
+                                onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
+                            ),
+                            checklist = null,
+                            attachments = null,
+                            onTimeEntryAdd = null,
+                            onTimeEntrySave = null,
+                            extraSections = {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    // First-run nudge and pending AI proposals both
+                                    // arrive through `extras`, which is Unresolved
+                                    // until the coordinator's cold-start work lands.
+                                    // Reading them as absent while unresolved is the
+                                    // intended behaviour: there is nothing to show yet,
+                                    // and inventing an empty offer would flash a
+                                    // section that disappears a frame later.
+                                    val firstRun = when (val ex = extras) {
+                                        is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                                        is TaskDetailExtras.Ready -> ex.firstRun
+                                    }
+                                    if (firstRun is FirstRun.Offer) {
+                                        FirstRunSection(
+                                            // Only Ask AI has a handler to give it. The
+                                            // other two chips are not rendered — see
+                                            // FirstRunSection's KDoc.
+                                            onAskAi = { showAiSheet = true },
+                                        )
+                                    }
+                                    val proposals = when (val ex = extras) {
+                                        is TaskDetailExtras.Unresolved -> emptyList()
+                                        is TaskDetailExtras.Ready -> ex.proposals
+                                    }
+                                    if (proposals.isNotEmpty()) {
+                                        TaskDetailProposalSection(
+                                            proposals = proposals,
+                                            onConfirm = { itemId ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
+                                                )
+                                            },
+                                            onReject = { itemId, reason ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.RejectProposalItem(itemId, reason),
+                                                )
+                                            },
+                                            onConfirmAll = { proposalId ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.ConfirmAllProposalItems(proposalId),
+                                                )
+                                            },
+                                            onDismiss = { proposalId ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.DismissProposal(proposalId),
+                                                )
+                                            },
+                                        )
+                                    }
+                                    TaskDetailTagsSection(
+                                        tags = ui.tags,
+                                        onDeleteTag = { coordinator.onIntent(TaskDetailIntent.Domain.RemoveTag(it)) },
                                     )
-                                }
-                                val proposals = when (val ex = extras) {
-                                    is TaskDetailExtras.Unresolved -> emptyList()
-                                    is TaskDetailExtras.Ready -> ex.proposals
-                                }
-                                if (proposals.isNotEmpty()) {
-                                    TaskDetailProposalSection(
-                                        proposals = proposals,
-                                        onConfirm = { itemId ->
-                                            coordinator.onIntent(
-                                                TaskDetailIntent.Domain.ConfirmProposalItem(itemId),
-                                            )
+                                    if (ui.task.recurrence != null) {
+                                        TaskDetailRecurrenceSection(
+                                            recurrence = ui.task.recurrence,
+                                        )
+                                    }
+                                    TaskDetailChecklistSection(
+                                        checklist = ui.checklist,
+                                        onToggle = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(it))
                                         },
-                                        onReject = { itemId, reason ->
-                                            coordinator.onIntent(
-                                                TaskDetailIntent.Domain.RejectProposalItem(itemId, reason),
-                                            )
-                                        },
-                                        onConfirmAll = { proposalId ->
-                                            coordinator.onIntent(
-                                                TaskDetailIntent.Domain.ConfirmAllProposalItems(proposalId),
-                                            )
-                                        },
-                                        onDismiss = { proposalId ->
-                                            coordinator.onIntent(
-                                                TaskDetailIntent.Domain.DismissProposal(proposalId),
-                                            )
+                                        onDelete = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(it))
                                         },
                                     )
-                                }
-                                TaskDetailTagsSection(
-                                    tags = ui.tags,
-                                    onDeleteTag = { coordinator.onIntent(TaskDetailIntent.Domain.RemoveTag(it)) },
-                                )
-                                if (ui.task.recurrence != null) {
-                                    TaskDetailRecurrenceSection(
-                                        recurrence = ui.task.recurrence,
+                                    SubtasksSection(
+                                        subtasks = ui.subtasks,
+                                        onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleSubtask(it)) },
+                                        onDelete = { coordinator.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
+                                        onOpen = { navigator.openDetail(it.id) },
+                                        onAddSubtask = { coordinator.onIntent(TaskDetailIntent.Domain.AddSubtask(it)) },
                                     )
-                                }
-                                TaskDetailChecklistSection(
-                                    checklist = ui.checklist,
-                                    onToggle = {
-                                        coordinator.onIntent(TaskDetailIntent.Domain.ToggleChecklistItem(it))
-                                    },
-                                    onDelete = {
-                                        coordinator.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(it))
-                                    },
-                                )
-                                SubtasksSection(
-                                    subtasks = ui.subtasks,
-                                    onToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleSubtask(it)) },
-                                    onDelete = { coordinator.onIntent(TaskDetailIntent.Domain.DeleteSubtask(it)) },
-                                    onOpen = { navigator.openDetail(it.id) },
-                                    onAddSubtask = { coordinator.onIntent(TaskDetailIntent.Domain.AddSubtask(it)) },
-                                )
-                                // Always shown, not only when there is something to show: this row is also
-                                // how the user attaches the first file.
-                                TaskDetailAttachmentsSection(
-                                    attachments = ui.attachments,
-                                    onAttachFile = { pickAttachment() },
-                                    onDelete = {
-                                        coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
-                                    },
-                                    onOpen = { id -> navigator.openAttachment(id) },
-                                )
-                                if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
-                                    LinkedBacklinksCard(
-                                        linkedNotes = ui.linkedNotes,
-                                        linkedTasks = ui.linkedTasks,
+                                    // Always shown, not only when there is something to show: this row is also
+                                    // how the user attaches the first file.
+                                    TaskDetailAttachmentsSection(
+                                        attachments = ui.attachments,
+                                        onAttachFile = { pickAttachment() },
+                                        onDelete = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                        },
+                                        onOpen = { id -> navigator.openAttachment(id) },
+                                    )
+                                    if (ui.linkedNotes.isNotEmpty() || ui.linkedTasks.isNotEmpty()) {
+                                        LinkedBacklinksCard(
+                                            linkedNotes = ui.linkedNotes,
+                                            linkedTasks = ui.linkedTasks,
+                                            onOpenNote = { navigator.openNote(it) },
+                                            onOpenTask = { navigator.openDetail(it) },
+                                        )
+                                    }
+                                    TimeTrackingSection(
+                                        state = ui.timeSlotState,
+                                        onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
+                                        onStop = { coordinator.onIntent(TaskDetailIntent.Domain.Stop) },
+                                        onAddManual = { showTimeEntrySheet = true },
+                                    )
+                                    LogbookSection(
+                                        entries = ui.logbookEntries,
                                         onOpenNote = { navigator.openNote(it) },
-                                        onOpenTask = { navigator.openDetail(it) },
+                                        onAddNote = { taskId -> navigator.openCreateNote(taskId) },
+                                        currentTaskId = ui.task.id,
+                                        now = now,
                                     )
                                 }
-                                TimeTrackingSection(
-                                    state = ui.timeSlotState,
-                                    onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
-                                    onStop = { coordinator.onIntent(TaskDetailIntent.Domain.Stop) },
-                                    onAddManual = { showTimeEntrySheet = true },
-                                )
-                                LogbookSection(
-                                    entries = ui.logbookEntries,
-                                    onOpenNote = { navigator.openNote(it) },
-                                    onAddNote = { taskId -> navigator.openCreateNote(taskId) },
-                                    currentTaskId = ui.task.id,
-                                    now = now,
-                                )
-                            }
-                        },
-                        onSetDependencies = { coordinator.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
-                        bottomBar = null,
-                        menuItems = buildDetailMenuItems(isTrashed = ui.task.isTrashed) { intent ->
-                            coordinator.onIntent(intent)
-                        },
-                        onBack = { navigator.back() },
-                        onAiClick = { showAiSheet = true },
+                            },
+                            bottomBar = null,
+                            menuItems = buildDetailMenuItems(isTrashed = ui.task.isTrashed) { intent ->
+                                coordinator.onIntent(intent)
+                            },
+                            onAiClick = { showAiSheet = true },
+                            sheets = sheets,
+                        ),
+                        isCompleted = ui.task.isCompleted,
                         now = now,
-                        sheets = sheets,
                     )
 
                     if (showAiSheet) {
