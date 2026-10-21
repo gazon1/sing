@@ -6,7 +6,10 @@ tags:
   - scenario:ATTACH-02
 ---
 # Seed a task.
-- openLink: "todo-debug://seed?task=${RUN_ID}_DeleteAttachTask2026"
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=${RUN_ID}_DeleteAttachTask2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -61,9 +64,10 @@ tags:
       id: attachments_url_input
     timeout: 5000
 
-# Delete the attachment using contentDescription (no stable testTag — UUID-based).
+# Delete the attachment by its accessibility label (no stable testTag — UUID-based).
+# Maestro matches a content description through `text`, which is what it exposes.
 - tapOn:
-    contentDescription: "Delete"
+    text: "Delete"
 - extendedWaitUntil:
     notVisible:
       text: "https://example.com/to-delete"

@@ -9,8 +9,11 @@ tags:
   - scenario:SEARCH-05
 ---
 # Seed two tasks.
-- openLink: "todo-debug://seed?task=${RUN_ID}_PinnedTask2026"
-- openLink: "todo-debug://seed?task=${RUN_ID}_UnpinnedTask2026"
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=${RUN_ID}_PinnedTask2026&due=today"
+- openLink: "todo-debug://seed?task=${RUN_ID}_UnpinnedTask2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -37,7 +40,7 @@ tags:
     timeout: 8000
 - tapOn:
     id: task_detail_pin_button
-- navigateBack
+- back
 
 # Open quick search.
 - tapOn:
@@ -66,9 +69,9 @@ tags:
       id: task_item_${RUN_ID}_unpinnedtask2026
     timeout: 8000
 
-# Open filter sheet via Tune icon.
+# Open filter sheet via Tune icon (matched through its accessibility label).
 - tapOn:
-    iconDescription: "Filter"
+    text: "Filter"
 - extendedWaitUntil:
     visible:
       id: search_filter_pinned_switch

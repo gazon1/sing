@@ -45,6 +45,7 @@ _REAL_IMPLS = {
     "device_alive": _device.device_alive,
     "device_model": maestro_device.device_model,
     "maestro_saw_device_failure": maestro_device.maestro_saw_device_failure,
+    "junit_reports_device_failure": maestro_device.junit_reports_device_failure,
     "apk_sha_from_device": _provenance.apk_sha_from_device,
     "gradle_install_debug": maestro_device.gradle_install_debug,
     "acquire_device": _startup.acquire_device,
@@ -55,6 +56,8 @@ _REAL_IMPLS = {
     "cleanup_run_fixtures": _fixtures.cleanup_run_fixtures,
     "capture_artifacts": _artifacts.capture_artifacts,
     "git_sha": _provenance.git_sha,
+    "probe_device_health": _device.probe_device_health,
+    "emulator_process_alive": _device.emulator_process_alive,
 }
 
 
@@ -222,14 +225,17 @@ class AdbOnTest(unittest.TestCase):
     def test_injects_dash_s(self):
         captured: list[list[str]] = []
 
-        def fake_try_run(args, *, timeout=5):
+        def fake_run(args, **kwargs):
             captured.append(args)
             cp = unittest.mock.Mock()
             cp.returncode = 0
             cp.stdout = "ok\n"
+            cp.stderr = ""
             return cp
 
-        with unittest.mock.patch.object(_device, "try_run", fake_try_run):
+        # The boundary is `subprocess.run`: `adb_on` reaches it through
+        # `adb_outcome`, which is where the retry on a timeout lives.
+        with unittest.mock.patch.object(_device.subprocess, "run", fake_run):
             self.assertEqual(_device.adb_on("emulator-5554", "shell", "echo", "hi"),
                              "ok")
         self.assertEqual(captured, [["adb", "-s", "emulator-5554",

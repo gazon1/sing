@@ -13,6 +13,7 @@ import tempfile
 import unittest
 import unittest.mock
 import urllib.parse
+import os
 
 import emulator.maestro
 import emulator.maestro._artifacts as _artifacts
@@ -25,6 +26,7 @@ import emulator.maestro._provenance as _provenance
 import emulator.maestro._subprocess as _subprocess
 
 # DeviceDeps for the new testable signature of run_one_flow.
+from emulator._device import DeviceHealth
 from emulator._startup import Acquisition
 from emulator._types import EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
 
@@ -41,6 +43,13 @@ from emulator.maestro import (
 from emulator.maestro._types import EXIT_FAIL, EXIT_PASS, DeviceDeps
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+# The CLI takes a device lock before it runs anything, and the lock is a real
+# file in the real lock directory. A test that drives the CLI must not take
+# the lock of the device a developer's run is using — and must not be refused
+# because one is in progress.
+_LOCK_DIR = tempfile.mkdtemp(prefix="maestro-lock-test-")
+os.environ["MAESTRO_LOCK_DIR"] = _LOCK_DIR
 
 
 # ── pure function tests ────────────────────────────────────────────────────────
@@ -257,11 +266,91 @@ def _make_deps(
         cleanup_run_fixtures=fake_cleanup_run_fixtures,
         capture_artifacts=fake_capture_artifacts,
         git_sha=fake_git_sha,
+        # The health probes are faked rather than defaulted: the real ones talk
+        # to the adb on whichever host runs the tests, and a test must not
+        # depend on a device being attached.
+        probe_device_health=lambda s: DeviceHealth(
+            "alive" if alive[0] else "gone", "the test says so"
+        ),
+        emulator_process_alive=lambda: alive[0],
     )
 
 
 class RunMaestroIntegrationTest(unittest.TestCase):
     """Exercise run_one_flow via the new DeviceDeps parameter (no module patching)."""
+
+    def test_a_busy_host_retries_without_resetting_the_adb_server(self):
+        """A device-level signature while the device answers is a busy host.
+
+        Resetting the adb server would hide the device from every other client
+        for the seconds it takes to come back, so the recovery has to be a
+        plain retry.
+        """
+        fake = FakeMaestro([
+            FakeMaestroResult(1, stderr="Device server died"),
+            FakeMaestroResult(0, stdout="flow passed"),
+        ])
+        resets: list[str] = []
+        deps = _make_deps(fake)
+        deps = DeviceDeps(**{
+            **deps.__dict__,
+            "reset_adb_server": lambda: resets.append("reset"),
+            "probe_device_health": lambda s: DeviceHealth("alive", "it answered"),
+            "emulator_process_alive": lambda: True,
+        })
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
+            ok, _run_id = run_one_flow(
+                flow_path=flow,
+                serial="emulator-5554",
+                junit_dir=pathlib.Path(tempfile.mkdtemp()),
+                skip_install=True,
+                allow_stale=True,
+                max_retries=2,
+                expected_sha="",
+                deps=deps,
+            )
+
+        self.assertTrue(ok)
+        self.assertEqual(2, len(fake.calls), "the flow was retried once")
+        self.assertEqual([], resets, "a healthy device must not have its adb server reset")
+
+    def test_a_device_that_is_gone_boots_the_avd_again(self):
+        """No emulator process means there is nothing to reset — boot it again."""
+        fake = FakeMaestro([FakeMaestroResult(1, stderr="0 devices connected")])
+        resets: list[str] = []
+        acquired: list[str] = []
+        deps = _make_deps(fake)
+        deps = DeviceDeps(**{
+            **deps.__dict__,
+            "device_alive": lambda s: False,
+            "reset_adb_server": lambda: resets.append("reset"),
+            "probe_device_health": lambda s: DeviceHealth("gone", "no answer"),
+            "emulator_process_alive": lambda: False,
+            "acquire_device": lambda pin: (
+                acquired.append(pin)
+                or Acquisition("emulator-5554", EXIT_OK)
+            ),
+        })
+        flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
+
+        with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
+            ok, _run_id = run_one_flow(
+                flow_path=flow,
+                serial="emulator-5554",
+                junit_dir=pathlib.Path(tempfile.mkdtemp()),
+                skip_install=True,
+                allow_stale=True,
+                max_retries=2,
+                expected_sha="",
+                deps=deps,
+            )
+
+        self.assertFalse(ok)
+        self.assertTrue(acquired, "the AVD was booted again")
+        self.assertEqual({"emulator-5554"}, set(acquired))
+        self.assertEqual([], resets, "there was no emulator to reset the server for")
 
     def test_run_one_flow_passes_on_maestro_success(self):
         fake = FakeMaestro([FakeMaestroResult(0, stdout="flow passed")])
@@ -757,9 +846,16 @@ class FailedFlowCleanupTest(unittest.TestCase):
     long enough. Leaving the data for the rest of the shard makes every later
     flow that asserts an empty list fail on the previous flow's leftovers, and
     a suite whose failures cascade reports one defect as forty.
+
+    Two scopes, and the default is the wide one. In the default scope the
+    device is wiped *before every flow*, so a flow's result cannot depend on
+    what ran before it — that is the property the suite needs to mean
+    anything. In the narrow scope the wipe knows the run id and the one fixed
+    title, so a flow's fixtures are swept but a row the suite forgot to name
+    survives, and the order of the flows starts to matter.
     """
 
-    def _run(self, tmp: str):
+    def _run(self, tmp: str, cleanup_scope: str | None = None):
         """The repository's smoke flows, the first of which fails.
 
         Returns the cleanup calls and the number of them that had already
@@ -805,17 +901,18 @@ class FailedFlowCleanupTest(unittest.TestCase):
 
         from click.testing import CliRunner
 
+        argv = [
+            "--flow", str(flows),
+            "--skip-install", "--allow-stale-apk",
+            "--junit-dir", str(pathlib.Path(tmp) / "junit"),
+        ]
+        if cleanup_scope is not None:
+            argv += ["--maestro-cleanup", cleanup_scope]
+
         orig = _cli._default_device_deps
         try:
             _cli._default_device_deps = lambda: deps
-            CliRunner().invoke(
-                _cli.main,
-                [
-                    "--flow", str(flows),
-                    "--skip-install", "--allow-stale-apk",
-                    "--junit-dir", str(pathlib.Path(tmp) / "junit"),
-                ],
-            )
+            CliRunner().invoke(_cli.main, argv)
         finally:
             _cli._default_device_deps = orig
 
@@ -827,7 +924,7 @@ class FailedFlowCleanupTest(unittest.TestCase):
 
         self.assertGreaterEqual(len(attempts), 2, "the smoke suite has fewer than two flows")
         second = attempts[1]
-        self.assertEqual(
+        self.assertGreaterEqual(
             cleanup_before[second], 1,
             f"the failing flow's fixtures were still on the device when "
             f"{second} started (cleanup calls so far: {cleanup_before[second]})",
@@ -837,16 +934,93 @@ class FailedFlowCleanupTest(unittest.TestCase):
             f"every flow must be swept exactly once: {cleanup_calls}",
         )
 
-    def test_a_passing_flow_is_swept_immediately(self):
-        """A passing flow is swept on success, without waiting for a next flow."""
+    def test_every_flow_starts_on_a_wiped_device(self):
+        """The default scope wipes before every flow, the first one included.
+
+        The device carries whatever the run before this one left on it, and a
+        flow that asserts an empty list must not be able to see it.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             cleanup_calls, cleanup_before, attempts = self._run(tmp)
-        # The first (failing) flow is not swept when it fails — it is swept
-        # before the second one starts. Every later flow is swept on success,
-        # so by the time the last flow starts there is one sweep per flow
-        # before it.
+
+        for index, flow in enumerate(attempts, start=1):
+            self.assertEqual(
+                cleanup_before[flow], index,
+                f"{flow} started with {cleanup_before[flow]} wipe(s) before it; "
+                f"exactly one wipe per flow is what isolates them",
+            )
+
+    def test_a_passing_flow_is_swept_immediately(self):
+        """In the narrow scope a passing flow is swept on success.
+
+        The default scope wipes before the next flow instead, and that is
+        enough there. The narrow scope cannot: its sweep only knows the run
+        id of the flow that failed, so a flow that succeeded has to be swept
+        while its run id is still the one in hand.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            cleanup_calls, cleanup_before, attempts = self._run(tmp, cleanup_scope="run")
+
         last = attempts[-1]
         self.assertEqual(cleanup_before[last], len(attempts) - 1)
+
+    def test_the_default_scope_wipes_the_content(self):
+        """The default scope is a content wipe, not a prefix sweep.
+
+        A prefix sweep only knows the titles the runner was told about, and
+        the suite keeps adding fixed titles to that list; a content wipe knows
+        everything the previous flow created, which is what isolates the
+        flows from each other.
+        """
+        modes: list[str] = []
+        flows = ROOT / "Maestro/flows/smoke"
+
+        def fake_try_run(cmd, **kw):
+            flow = pathlib.Path(cmd[2]).stem
+            report = pathlib.Path(cmd[cmd.index("--output") + 1])
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                f'<testsuite name="{flow}" tests="1" failures="0"/>\n'
+            )
+            return unittest.mock.Mock(returncode=0, stdout="flow passed", stderr="")
+
+        deps = DeviceDeps(
+            try_run=fake_try_run,
+            device_alive=lambda s: True,
+            device_model=lambda s: "Pixel_8",
+            maestro_saw_device_failure=lambda stderr: False,
+            apk_sha_from_device=lambda s: "abc123def456",
+            gradle_install_debug=lambda s: unittest.mock.Mock(returncode=0, stdout="", stderr=""),
+            acquire_device=lambda pin: Acquisition("emulator-5554", EXIT_OK),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda serial, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, timeout=20: True,
+            cleanup_run_fixtures=lambda serial, run_id, mode, deps: modes.append(mode),
+            capture_artifacts=lambda serial, name, artifact_dir, deps: None,
+            git_sha=lambda deps: "abc123def456",
+        )
+
+        from click.testing import CliRunner
+
+        with tempfile.TemporaryDirectory() as tmp:
+            orig = _cli._default_device_deps
+            try:
+                _cli._default_device_deps = lambda: deps
+                CliRunner().invoke(
+                    _cli.main,
+                    [
+                        "--flow", str(flows),
+                        "--skip-install", "--allow-stale-apk",
+                        "--junit-dir", str(pathlib.Path(tmp) / "junit"),
+                    ],
+                )
+            finally:
+                _cli._default_device_deps = orig
+
+        self.assertTrue(modes, "the run swept nothing at all")
+        self.assertEqual(set(modes), {"all"})
 
 
 class SessionResetTest(unittest.TestCase):

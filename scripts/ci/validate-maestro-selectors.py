@@ -154,6 +154,16 @@ FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
     # noteAction — action names from NoteAction enum
     ("noteAction", "Edit", "note_action_"),
     ("noteAction", "Delete", "note_action_"),
+    # calendarViewMode — the four CalendarViewMode constants, lowercased
+    ("calendarViewMode", "day", "calendar_view_mode_"),
+    ("calendarViewMode", "four_days", "calendar_view_mode_"),
+    ("calendarViewMode", "week", "calendar_view_mode_"),
+    ("calendarViewMode", "month", "calendar_view_mode_"),
+    # calendarViewModeSelected — the same four constants, lowercased
+    ("calendarViewModeSelected", "day", "calendar_view_mode_selected_"),
+    ("calendarViewModeSelected", "four_days", "calendar_view_mode_selected_"),
+    ("calendarViewModeSelected", "week", "calendar_view_mode_selected_"),
+    ("calendarViewModeSelected", "month", "calendar_view_mode_selected_"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -259,9 +269,17 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_action_open",
     # Calendar view mode tabs (calendarViewMode function)
     "calendar_view_mode_day",
-    "calendar_view_mode_4_days",
+    # The tag is spelled from the enum constant's name, `FOUR_DAYS`, not from
+    # the label the app shows ("4 days"). The label is the app's wording; the
+    # constant's name is the mode's identity.
+    "calendar_view_mode_four_days",
     "calendar_view_mode_week",
     "calendar_view_mode_month",
+    # calendarViewModeSelected — the mode the dropdown says is selected.
+    "calendar_view_mode_selected_day",
+    "calendar_view_mode_selected_four_days",
+    "calendar_view_mode_selected_week",
+    "calendar_view_mode_selected_month",
     # Calendar weekday headers (calendarWeekdayHeader function)
     "calendar_weekday_mon",
     "calendar_weekday_tue",

@@ -12,7 +12,10 @@ tags:
   - scenario:SEARCH-02
 ---
 # Seed a task with a Cyrillic title.
-- openLink: "todo-debug://seed?task=%D0%9F%D0%BE%D0%BA%D1%83%D0%BF%D0%BA%D0%B8"
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=%D0%9F%D0%BE%D0%BA%D1%83%D0%BF%D0%BA%D0%B8&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

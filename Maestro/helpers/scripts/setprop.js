@@ -1,34 +1,64 @@
-// Sets an Android system property via adb before the flow starts.
+// Sets an Android system property on the device, before the flow starts.
 //
 // Usage in onFlowStart:
 //   onFlowStart:
 //     - runScript:
-//         name: scripts/setprop.js
+//         file: scripts/setprop.js
 //         env:
 //           PROP: debug.stub_auth.unconfirmed_signup
 //           VALUE: "true"
 //
-// Requires adb in PATH and a rooted emulator (or emulator with SELinux permissive).
-// On CI emulators this typically works; on a real device it may require root.
+// The property is set through the E2E runner's command bridge: a Maestro
+// script has no shell of its own, and the bridge is the only way out of the
+// sandbox.
+//
+// The flow's env entries arrive as bare globals, so PROP and VALUE are read
+// as globals and not as env.PROP.
+//
+// The command bridge is defined in the E2E runner, so running the flow with
+// `maestro test` directly cannot set a property; the flow then fails on the
+// property's effect rather than passing on a property that was never set.
+// The env entries are read into differently named locals on purpose: a `var`
+// of the same name would be hoisted, and the hoisted value would shadow the
+// global the entry arrived as.
+var prop = typeof PROP === "undefined" ? null : PROP;
+var value = typeof VALUE === "undefined" ? null : VALUE;
 
-var prop = env.PROP;
-var value = env.VALUE;
-
-if (!prop || value === undefined) {
-    output.error = "PROP and VALUE env vars are required";
-} else {
-    try {
-        var cmd = java.lang.Runtime.getRuntime().exec(["adb", "shell", "setprop", prop, value]);
-        var exitCode = cmd.waitFor();
-        if (exitCode !== 0) {
-            var stderr = new java.io.BufferedReader(
-                new java.io.InputStreamReader(cmd.getErrorStream())
-            ).readLine();
-            output.error = "setprop failed with exit " + exitCode + ": " + stderr;
-        } else {
-            output.ok = true;
-        }
-    } catch (e) {
-        output.error = "setprop threw: " + e.toString();
-    }
+if (!prop || value === null) {
+    throw new Error("PROP and VALUE env vars are required");
 }
+
+// Runs a command on the host through the E2E runner's command bridge.
+//
+// A Maestro script has no shell of its own: the sandbox has no `execSync` and
+// no `java`, so the only way to reach the device is the HTTP bridge the
+// runner starts, whose base URL arrives as the E2E_BRIDGE_URL environment
+// entry of the flow.
+//
+// The helper is repeated in each script that needs it because the sandbox has
+// no module loader: a shared helper could not be imported.
+function shell(cmd) {
+    if (typeof E2E_BRIDGE_URL === "undefined" || E2E_BRIDGE_URL === "") {
+        throw new Error(
+            "E2E_BRIDGE_URL is not set: this script needs the E2E runner's command bridge. " +
+            "Run the flow through scripts/run-maestro-e2e.py, not `maestro test` directly."
+        );
+    }
+    var res = http.get(E2E_BRIDGE_URL + "/shell?cmd=" + encodeURIComponent(cmd));
+    var data = JSON.parse(res.body);
+    if (!res.ok) {
+        // 400: the bridge refused the command before it ran. 500: it ran and
+        // failed. The two say different things — one is a wrong command, the
+        // other a wrong state on the device — so the message says which.
+        throw new Error(
+            data.error ||
+            ("the command failed with exit " + data.code + ": " + (data.stderr || "").trim())
+        );
+    }
+    return data.stdout || "";
+}
+
+shell("setprop " + prop + " " + value);
+
+output.ok = true;
+output.prop = prop;

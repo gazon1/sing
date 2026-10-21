@@ -52,14 +52,17 @@ class SearchUseCase(
      * - Accumulates post-filter predicates for conditions the DAO can't express
      *   (negated, OR, pinned, archived, has:description, complex date relations)
      *
-     * Note, project, and tag results are matched against [ResolvedSearchQuery.freeText] when available,
-     * or the original query string otherwise.
+     * Note, project, and tag results are matched by the same free-text rule the tasks
+     * are matched by — [ResolvedSearchQuery.freeTextRule] — so one query means one
+     * thing for every kind of record. Structured terms are filters over tasks; they
+     * do not select notes, projects or tags, and a query with no free text selects
+     * none of them.
      *
      * Sort order and pagination ([Options.limit]/[Options.offset]) apply to the task results only.
      */
     suspend operator fun invoke(query: Query, userId: String): Flow<SearchResults> {
         val resolved = queryResolver.resolve(query, userId)
-        return buildResultsFlow(resolved, query)
+        return buildResultsFlow(resolved)
     }
 
     /**
@@ -72,7 +75,7 @@ class SearchUseCase(
         return invoke(query, userId)
     }
 
-    private fun buildResultsFlow(resolved: ResolvedSearchQuery, query: Query): Flow<SearchResults> {
+    private fun buildResultsFlow(resolved: ResolvedSearchQuery): Flow<SearchResults> {
         // ── Task flow ──────────────────────────────────────────────────────────
         val baseTaskFlow: Flow<List<Task>> = when {
             resolved.taskFilter != null -> taskRepo.observeByFilter(resolved.taskFilter)
@@ -95,23 +98,34 @@ class SearchUseCase(
         }
 
         // ── Notes, projects, tags ───────────────────────────────────────────────
-        val freeText = resolved.freeText ?: query.toString()
+        //
+        // The same rule the tasks were matched by. Each kind supplies its own
+        // searchable text — a note by its title (the notes repository searches titles
+        // only, `watchSearchByTitle`), a project or a tag by its name — and the rule
+        // decides which records the terms select.
+        val rule = resolved.freeTextRule
 
-        val noteFlow = noteRepo.search(freeText)
+        val noteFlow = noteRepo.observeAll().map { notes ->
+            if (rule.isEmpty) {
+                emptyList()
+            } else {
+                notes.filter { note -> rule.selects { term -> note.title.contains(term, ignoreCase = true) } }
+            }
+        }
 
         val projectFlow = projectRepo.observeAll().map { projects ->
-            if (freeText.isNotBlank()) {
-                projects.filter { it.name.contains(freeText, ignoreCase = true) }
+            if (rule.isEmpty) {
+                emptyList()
             } else {
-                projects
+                projects.filter { project -> rule.selects { term -> project.name.contains(term, ignoreCase = true) } }
             }
         }
 
         val tagFlow = tagRepo.observeAll().map { tags ->
-            if (freeText.isNotBlank()) {
-                tags.filter { it.name.contains(freeText, ignoreCase = true) }
+            if (rule.isEmpty) {
+                emptyList()
             } else {
-                tags
+                tags.filter { tag -> rule.selects { term -> tag.name.contains(term, ignoreCase = true) } }
             }
         }
 

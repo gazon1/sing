@@ -201,23 +201,30 @@ def wait_for_app_ready(serial: str, timeout: int = 90) -> bool:
 
 # ── Maestro run ───────────────────────────────────────────────────────────────
 
-def run_maestro(
+def maestro_argv(
     *,
     serial: str,
     shard: int | None,
     shards: int | None,
     suite: str,
     junit_dir: Path,
-) -> int:
-    """Run Maestro flows via python3 -m emulator.maestro."""
-    # Build argv for maestro._cli
+) -> list[str]:
+    """The argv for ``python3 -m emulator.maestro``.
+
+    Split out from :func:`run_maestro` so that what the CI run asks for is
+    something a test can read.
+    """
     argv = [
         sys.executable, "-m", "emulator.maestro",
         "--serial", serial,
         "--skip-install",          # APK already installed via adb
         "--allow-stale-apk",      # provenance N/A for artifact APK
         "--junit-dir", str(junit_dir),
-        "--maestro-cleanup", "run",
+        # The cleanup scope is deliberately *not* passed here. The default is
+        # the one the local runner uses, and the two have to measure the same
+        # thing: a CI run that swept its fixtures differently from the local
+        # run would report a different failure count for the same tree. See
+        # `2026-10-20-the-local-e2e-run-measures-the-binary-ci-measures.md`.
     ]
     if shard is not None and shards is not None:
         argv.extend(["--shard", str(shard), "--shards", str(shards)])
@@ -231,6 +238,25 @@ def run_maestro(
     argv.extend(["--flow", str(flow_target)])
     if tags:
         argv.extend(["--tags", ",".join(tags)])
+    return argv
+
+
+def run_maestro(
+    *,
+    serial: str,
+    shard: int | None,
+    shards: int | None,
+    suite: str,
+    junit_dir: Path,
+) -> int:
+    """Run Maestro flows via python3 -m emulator.maestro."""
+    argv = maestro_argv(
+        serial=serial,
+        shard=shard,
+        shards=shards,
+        suite=suite,
+        junit_dir=junit_dir,
+    )
 
     # MAESTRO_CONFIG for the config.yaml location
     env = {

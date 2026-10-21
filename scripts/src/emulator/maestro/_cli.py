@@ -11,8 +11,10 @@ import click
 from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
+from emulator.maestro._bridge import Bridge
 from emulator.maestro._fixtures import reset_session
 from emulator.maestro._flow import collect_flows, filter_flows_by_tag
+from emulator.maestro._lock import DeviceLock, DeviceLocked
 from emulator.maestro._types import (
     EXIT_FAIL,
     EXIT_PASS,
@@ -36,6 +38,51 @@ def _col(code: str, s: str) -> str:
 RED    = lambda s: _col("0;31", s)
 GREEN  = lambda s: _col("0;32", s)
 YELLOW = lambda s: _col("0;33", s)
+
+
+def _install_debug(serial: str, deps: DeviceDeps) -> str | None:
+    """Install the debug APK, and survive a device that dies under the install.
+
+    The install is the one step where a dying device ends the whole run: the
+    per-flow recovery has not started yet, and a device that vanished mid
+    install takes the whole suite with it. On this host the emulator is
+    restarted by the system often enough that this is a real occurrence, not a
+    hypothetical one.
+
+    So a failed install is read the way a failed flow is read: the device is
+    asked whether it is there. A device that answers means the *build* failed
+    and retrying will not help; a device that does not answer means the AVD
+    is rebooted and the install is tried again.
+
+    Returns:
+        The serial the APK was installed on, or None when the install could not
+        be completed.
+    """
+    for attempt in range(2):
+        cp = deps.gradle_install_debug(serial)
+        if cp.returncode == 0:
+            return serial
+        health = deps.probe_device_health(serial)
+        if health.state == "alive":
+            logger.error(
+                f"installDebug failed (rc={cp.returncode}) and the device "
+                f"answers ({health.detail}) — the build failed, not the device"
+            )
+            return None
+        logger.warning(
+            f"installDebug failed (rc={cp.returncode}): {health.detail} — "
+            f"rebooting the AVD (attempt {attempt + 1})..."
+        )
+        acquired = deps.acquire_device(serial)
+        if not acquired:
+            logger.error(
+                f"could not recover {serial}: "
+                f"{_EXIT_REASON.get(acquired.exit_code, 'unknown')}"
+            )
+            return None
+        serial = acquired.serial
+    logger.error("installDebug failed twice; the device is not usable")
+    return None
 
 
 def _report_is_fresh(report: Path, started_at: float) -> bool:
@@ -67,7 +114,7 @@ def _report_is_fresh(report: Path, started_at: float) -> bool:
 @click.option("--maestro-max-retries", type=int, default=2,
               help="Max device-recovery retries per flow (default: 2)")
 @click.option("--maestro-cleanup", type=click.Choice(["run", "all", "off"]),
-              default="run", help="Fixture cleanup scope (default: run)")
+              default="all", help="Fixture cleanup scope (default: all)")
 @click.option("--junit-dir", "junit_dir", default=None,
               help="Directory for JUnit XML results (default: <repo>/build/maestro-results)")
 @click.option("--dry-run", is_flag=True,
@@ -147,6 +194,28 @@ def main(
     serial = acq.serial
     logger.info(f"Device ready: {serial}")
 
+    # ── One run per device ────────────────────────────────────────────────────
+    #
+    # A run drives the device: it installs an APK, resets the session and starts
+    # a device server on the emulator. A second run on the same device does not
+    # queue behind the first — the two device servers kill each other and every
+    # flow fails within a second with `DeviceServerDiedException`, which reads
+    # like a broken suite and is really two runners sharing one emulator.
+    #
+    # The lock is released when this process exits; a lock whose owner was
+    # killed is taken over by the next run, so a crash cannot lock the device
+    # out of use.
+    lock = DeviceLock(serial)
+    try:
+        lock.acquire()
+    except DeviceLocked as exc:
+        logger.error(str(exc))
+        return ctx.exit(EXIT_FAIL)
+    # Released when the command returns — not when the process exits: the run
+    # is what holds the device, and a process that runs one suite after another
+    # must not lock itself out of the second one.
+    ctx.call_on_close(lock.release)
+
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
 
     # ── Wake + unlock + IME workaround ─────────────────────────────────────────
@@ -160,9 +229,8 @@ def main(
         logger.info("Skipping install (--skip-install)")
     else:
         logger.info("=== Installing debug APK ===")
-        cp = deps.gradle_install_debug(serial)
-        if cp.returncode != 0:
-            logger.error(f"installDebug failed (rc={cp.returncode})")
+        serial = _install_debug(serial, deps)
+        if serial is None:
             return ctx.exit(EXIT_FAIL)
 
     # ── APK provenance ─────────────────────────────────────────────────────────
@@ -242,6 +310,18 @@ def main(
     # shards in exactly this shape.
     stale_run_id: str | None = None
 
+    # ── Host bridge ────────────────────────────────────────────────────────────
+    #
+    # A Maestro script cannot reach the host: the engine has no shell, no Java
+    # host access, and no `env` object. The flows that need to touch the device's
+    # shell — set a system property, damage the app's encrypted store — need a
+    # channel, and HTTP is the only one Maestro offers. The bridge is that
+    # channel: it runs a *device* command through adb, and only the commands in
+    # its whitelist. See `maestro._bridge`.
+    bridge = Bridge(serial)
+    bridge_url = bridge.start()
+    logger.info(f"Host bridge: {bridge_url}")
+
     for flow_path in flows:
         flow_name = flow_path.stem
         logger.info(f"\n=== {flow_name} ===")
@@ -249,8 +329,14 @@ def main(
         # The previous flow's leftovers go before this flow starts, not after
         # the failure is captured: the artifacts (screenshot, screen tree,
         # logcat) are what triage reads, and they are captured below.
-        if stale_run_id:
-            deps.cleanup_run_fixtures(serial, stale_run_id, maestro_cleanup, deps)
+        #
+        # In the default scope the device is wiped before *every* flow, the
+        # first one included: the device carries whatever the run before this
+        # one left on it, and a flow that asserts an empty list must not be
+        # able to see it. In the narrow scope there is nothing to wipe before
+        # the first flow, because the sweep only knows this run's titles.
+        if stale_run_id or maestro_cleanup == "all":
+            deps.cleanup_run_fixtures(serial, stale_run_id or "", maestro_cleanup, deps)
             stale_run_id = None
 
         # The session is reset before the flow, not after it: a flow that ends
@@ -267,15 +353,24 @@ def main(
             max_retries=maestro_max_retries,
             expected_sha=expected_sha or "",
             deps=deps,
+            bridge_url=bridge_url,
         )
 
         if ok:
             passed.append(flow_name)
-            deps.cleanup_run_fixtures(serial, run_id, maestro_cleanup, deps)
+            # The default scope wipes before every flow, so there is nothing
+            # to do here; the narrow scope has to sweep this flow's own rows
+            # now, because the next flow's sweep only knows the run id of the
+            # flow that *failed*.
+            if maestro_cleanup == "run":
+                deps.cleanup_run_fixtures(serial, run_id, maestro_cleanup, deps)
         else:
             failed.append(flow_name)
             deps.capture_artifacts(serial, flow_name, junit_path / flow_name, deps)
             stale_run_id = run_id
+
+    # The bridge has served every flow; nothing may reach the host after this.
+    bridge.stop()
 
     # ── Every selected flow must have reported ────────────────────────────────
     #

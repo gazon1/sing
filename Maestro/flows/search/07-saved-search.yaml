@@ -10,8 +10,11 @@ tags:
   - scenario:SEARCH-07
 ---
 # Seed two tasks with a shared prefix.
-- openLink: "todo-debug://seed?task=SavedAlpha2026"
-- openLink: "todo-debug://seed?task=SavedBeta2026"
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=SavedAlpha2026&due=today"
+- openLink: "todo-debug://seed?task=SavedBeta2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -42,7 +45,7 @@ tags:
 
 # Open save dialog via the save icon in the top bar.
 - tapOn:
-    iconDescription: "Save search"
+    text: "Save search"
 - extendedWaitUntil:
     visible:
       text: "Search name"

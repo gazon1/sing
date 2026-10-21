@@ -6,8 +6,8 @@
 #   2. Attempt to sign in.
 #   3. Verify the error message is shown.
 #
-# Note: requires `exec` access to `adb` in PATH. See 08-signup-network-error.yaml
-# for details on the airplane mode requirement.
+# Airplane mode is set with Maestro's own `setAirplaneMode` command; see
+# 08-signup-network-error.yaml for why the earlier `exec` form was wrong.
 appId: com.singularity.todo
 name: auth-signin-network-error
 tags:
@@ -16,10 +16,11 @@ tags:
   - AUTH-FAIL-02
   - manual
 ---
-- exec:
-    command: adb shell settings put global airplane_mode_on 1 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true
+- setAirplaneMode:
+    value: enabled
 
-- waitForAnimations: 1500
+- waitForAnimationToEnd:
+    timeout: 1500
 
 - launchApp:
     appId: com.singularity.todo
@@ -64,5 +65,5 @@ tags:
     id: auth_error_text
 
 # Cleanup: restore network.
-- exec:
-    command: adb shell settings put global airplane_mode_on 0 && adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false
+- setAirplaneMode:
+    value: disabled

@@ -4,11 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.error.fold
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.test.stubs.TestAuthStubs
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -37,6 +39,10 @@ import kotlinx.datetime.toLocalDateTime
  *
  * Supported parameters:
  * - `task=<title>`           — creates a task (pair with `due=`)
+ * - `desc=<text>`            — sets the description of the seeded task. A flow
+ *   that filters by description needs the description to be there before the
+ *   filter is applied; the parameter was asked for by such a flow and silently
+ *   ignored, which made the flow assert against a task that had none.
  * - `note=<title>`           — creates a note
  * - `project=<name>`         — creates a project
  * - `profile=<name>`         — creates and switches to a profile
@@ -57,14 +63,16 @@ import kotlinx.datetime.toLocalDateTime
  *   project in the active profile, keeping the profile and session. For fixtures
  *   a flow *typed* rather than seeded, which carry no run id for `cleanup=` to
  *   match. NOT concurrency-safe — it wipes other runs' in-flight fixtures too.
- * - `session=anonymous|signedout` — changes the *session*, not the content: the
- *   app is put into a local (anonymous) session or into a signed-out one. A
- *   flow can therefore reach the states the app really has, instead of the one
- *   the E2E build happens to start in. The E2E build replaces the auth
- *   repository with a stub that starts `Session.SignedIn`, which is why the
- *   attach-account affordance — rendered only for `Session.Anonymous` — used
- *   to be unreachable in every UI test: a flow waited for an element that
- *   could not be on the screen.
+ * - `session=anonymous|signedout|signedin` — changes the *session*, not the content:
+ *   the app is put into a local (anonymous) session, into a signed-out one, or a
+ *   session is installed in the app's own encrypted store — the store a real
+ *   login writes to, so a flow can have a session that a later step can
+ *   invalidate, damage or recover from. A flow can therefore reach the states
+ *   the app really has, instead of the one the E2E build happens to start in.
+ *   The E2E build replaces the auth repository with a stub that starts
+ *   `Session.SignedIn`, which is why the attach-account affordance — rendered
+ *   only for `Session.Anonymous` — used to be unreachable in every UI test: a
+ *   flow waited for an element that could not be on the screen.
  *
  * Examples:
  * ```
@@ -187,6 +195,7 @@ class DebugSeedActivity :
 
         val input: CreateTaskInput = TaskDomain.createInput(
             title = title,
+            description = params["desc"],
             kind = TaskKind.Task,
             dueDate = dueDate,
         ).fold(
@@ -317,6 +326,10 @@ class DebugSeedActivity :
      *   the button it is about to click.
      * - `signedout` — no session at all: the sign-in screen is what the app
      *   shows.
+     * - `signedin` — a session installed in the app's own encrypted store, the
+     *   same write a real login makes, without a server. The app reads it on
+     *   its next launch, so a flow that wants a *persisted* session installs it
+     *   and restarts the app.
      *
      * The change goes through [AuthRepository], not through the stub's own
      * fields: `startLocalSession()` is the operation the app itself calls when
@@ -340,9 +353,31 @@ class DebugSeedActivity :
                 }
             }
 
+            "signedin", "signed_in" -> {
+                // The install path: the session goes into the app's own
+                // encrypted store, through the same write a real login makes —
+                // so the session is really on the device, and a flow can go on
+                // to invalidate it, damage the store it lives in, or recover
+                // from it.
+                val sessionStore: SecureSessionStore by inject()
+                TestAuthStubs.installSignedInSession(sessionStore, this@DebugSeedActivity)
+                    .onFailure {
+                        android.util.Log.e("DebugSeedActivity", "the session could not be installed", it)
+                    }
+                // And the running app uses it now, without waiting for a
+                // restart. In the E2E build the repository is the stub, whose
+                // sign-in publishes the session; the restart the helper does
+                // afterwards is what proves the app reads it back from the
+                // store.
+                val result = authRepository.signIn(TestAuthStubs.DEFAULT_EMAIL, "e2e-session")
+                result.onFailure {
+                    android.util.Log.e("DebugSeedActivity", "the signed-in session was not taken up", it)
+                }
+            }
+
             else -> android.util.Log.w(
                 "DebugSeedActivity",
-                "Unknown session state '$state'; expected 'anonymous' or 'signedout'",
+                "Unknown session state '$state'; expected 'anonymous', 'signedout' or 'signedin'",
             )
         }
     }

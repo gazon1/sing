@@ -50,6 +50,10 @@ fun ViewModeDropdown(selected: CalendarViewMode, onSelect: (CalendarViewMode) ->
                 text = selected.label,
                 color = palette.textPrimary,
                 fontSize = 14.sp,
+                // The label is the app's own wording; the tag says which mode is
+                // selected, so a flow can assert the mode without asserting the
+                // word the app chose for it.
+                modifier = Modifier.testTag(TestTags.calendarViewModeSelected(selected.name)),
             )
             Spacer(modifier = Modifier.width(4.dp))
             Icon(

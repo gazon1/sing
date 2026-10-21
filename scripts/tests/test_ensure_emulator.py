@@ -44,29 +44,25 @@ from emulator import (
     startup_lock,
     try_run,
 )
+from emulator._device import CommandOutcome
 from emulator._startup import Acquisition, acquire_device
 from emulator.maestro._testing import Clock, FakeAdb, FakeProc
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _make_fake_try_run(table: dict[str, str | None]):
-    """Return a try_run-like callable backed by a dict.
+    """Return a try_run_detailed-like callable backed by a dict.
 
     table: mapping from cmdline string (space-joined) to output string or None.
            A key of "*" matches any command not explicitly listed.
+           A value of None means the command failed.
     """
     def fake(args: list[str], *, timeout: float = 5, **kwargs):
         key = " ".join(args)
         value = table.get(key, table.get("*"))
         if value is None:
-            cp = unittest.mock.Mock()
-            cp.returncode = 1
-            cp.stdout = ""
-            return cp
-        cp = unittest.mock.Mock()
-        cp.returncode = 0
-        cp.stdout = value
-        return cp
+            return CommandOutcome(False, "", "", 1, False)
+        return CommandOutcome(True, value, "", 0, False)
     return fake
 
 
@@ -86,7 +82,7 @@ def _std_table(serial: str) -> dict[str, str | None]:
 class DeviceIsReadyTest(unittest.TestCase):
 
     def _run(self, serial: str, table: dict[str, str | None]):
-        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run_detailed", _make_fake_try_run(table)):
             return ee.device_is_ready(serial)
 
     def test_all_checks_pass_returns_true(self):
@@ -125,7 +121,7 @@ class DeviceIsReadyTest(unittest.TestCase):
 class FirstReadyDeviceTest(unittest.TestCase):
 
     def _run(self, table: dict[str, str | None]):
-        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run_detailed", _make_fake_try_run(table)):
             return ee.first_ready_device()
 
     def test_returns_first_ready_device(self):
@@ -155,7 +151,7 @@ class FirstReadyDeviceTest(unittest.TestCase):
 class FindReadyTest(unittest.TestCase):
 
     def _run(self, pin: str, table: dict[str, str | None]):
-        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run_detailed", _make_fake_try_run(table)):
             return ee.find_ready(pin)
 
     def test_pin_ready_returns_pin(self):
@@ -276,7 +272,7 @@ class StartupLockTest(unittest.TestCase):
 class PinSemanticsTest(unittest.TestCase):
 
     def _run(self, pin: str, table: dict[str, str | None]):
-        with unittest.mock.patch.object(_device, "try_run", _make_fake_try_run(table)):
+        with unittest.mock.patch.object(_device, "try_run_detailed", _make_fake_try_run(table)):
             return ee.find_ready(pin)
 
     def test_pin_not_ready_is_not_silently_ignored(self):
@@ -387,7 +383,7 @@ class IntegrationTest(unittest.TestCase):
         cfg.boot_timeout = boot_timeout
         try:
             with contextlib.redirect_stderr(io.StringIO()):
-                with unittest.mock.patch.object(_device, "try_run", fake.try_run), \
+                with unittest.mock.patch.object(_device, "try_run_detailed", fake.try_run_detailed), \
                      unittest.mock.patch.object(_device, "popen", fake.popen), \
                      unittest.mock.patch.object(ee, "popen", fake.popen), \
                      unittest.mock.patch.object(ee, "_avd_is_running", lambda: avd_running), \

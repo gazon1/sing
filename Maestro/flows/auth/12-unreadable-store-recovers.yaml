@@ -1,8 +1,8 @@
 # AUTH-FIRSTRUN-05: the app starts when the session store cannot be read.
 #
-# preconditions: installed app, a session store file on disk.
+# preconditions: installed app, a session in the app's encrypted store.
 # steps:
-#   1. Launch the app once so the encrypted store is created, then force-stop it.
+#   1. Install a session, so the store holds one, then force-stop the app.
 #   2. Corrupt the encrypted store file, leaving the keystore key intact.
 #   3. Launch the app again — a fresh process, which is the only state that can show this.
 # expected: the login screen appears within the restore budget, not a spinner.
@@ -28,14 +28,30 @@
 # not, and it reaches the same recovery. The difference is honest and does not change what is
 # being asserted: a store that cannot be decrypted must end at the login screen.
 #
-# ## How the signed-out app is reached
+# ## Why a session is installed first
 #
-# The E2E build replaces the auth repository with a stub that starts every process
-# signed in, so the sign-in screen is not on the screen by default. The
-# signed-out state is reached through the debug session link, which calls the
-# same `AuthRepository.signOut()` the app's own "Sign out" button calls. No
-# state wipe is used: clearing the state would remove the very file this flow
-# goes on to damage.
+# A store that was never written cannot show the regression. There is nothing to
+# invalidate, and an app with no session at all is signed out for the uninteresting
+# reason that it never had one. So the flow installs a session first
+# (helpers/session-signedin.yaml), which writes a real session into the app's
+# encrypted store — the same store, under the same keys, that a real login writes.
+#
+# ## What the flow asserts
+#
+# The app comes up *signed out*: the session was in the store, the store could not
+# be read, and the session went with it. The login screen is what the app shows
+# when that happens, and a spinner would be the app stuck on a restore that never
+# finishes.
+#
+# Then the store is writable again: the app wrote a session into it after the
+# recovery erased it, which is what "the app is usable" means from the outside.
+#
+# ## run-as and the build it needs
+#
+# The damage is done with `adb shell run-as`, which only works for a debuggable
+# build. The E2E build is a debug build, and the helper's script fails with an
+# explicit message when run-as is unavailable — rather than damaging nothing and
+# letting the flow pass on its next assertion.
 appId: com.singularity.todo
 name: auth-unreadable-store-recovers
 tags:
@@ -43,11 +59,11 @@ tags:
   - auth
   - AUTH-FIRSTRUN-05
 ---
-# First launch, so the encrypted store exists and holds something. The launch
-# does not wipe the app's data: clearing would remove the very file this flow
-# goes on to damage.
+# A session in the store, so there is something to invalidate. The launch does
+# not wipe the app's data: clearing would remove the very file this flow goes
+# on to damage.
 - runFlow: ../../helpers/launch-clean.yaml
-- runFlow: ../../helpers/session-signedout.yaml
+- runFlow: ../../helpers/session-signedin.yaml
 
 # The process has to be gone before the file is damaged, or Android serves the store from
 # the in-memory cache it parsed before the damage and nothing observes it.
@@ -58,12 +74,25 @@ tags:
 # A fresh process, reading a file it cannot parse.
 - runFlow: ../../helpers/relaunch.yaml
 
-# A signed-out app again: the login screen is what the app shows.
-- runFlow: ../../helpers/session-signedout.yaml
+# The session was in the store and the store could not be read, so the session
+# is gone: the login screen is what the app shows.
+- extendedWaitUntil:
+    visible:
+      id: auth_continue_offline_button
+    timeout: 30000
 
+# The spinner is what a restore that never finishes looks like, so it must be
+# gone by now. Asserting its absence is the assertion that names the
+# regression.
 - assertNotVisible:
     id: loading_indicator
 
-# And the app is usable afterwards, not merely open — the recovery must leave a store that
-# the current key can read.
+# The store is no longer the damaged file: the recovery erased what it could
+# not read, and what is left is a store the app can read and write.
 - runScript: ../../helpers/scripts/verify-store.js
+
+# And the app is usable again: the store was erased by the recovery, and the
+# app wrote a session into it again — which is what "the store works" means
+# from the outside.
+- runFlow: ../../helpers/session-signedin.yaml
+- runScript: ../../helpers/scripts/verify-session.js

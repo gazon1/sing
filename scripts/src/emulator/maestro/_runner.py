@@ -9,6 +9,7 @@ from loguru import logger as _logger
 
 from emulator._loguru import setup_logger
 from emulator._types import EXIT_CRASHED, EXIT_LOCK, EXIT_NOT_READY, EXIT_OK, EXIT_TIMEOUT
+from emulator.maestro._bridge import BRIDGE_ENV_NAME
 from emulator.maestro._types import (
     APP_ID,
     EXIT_FAIL,
@@ -17,6 +18,11 @@ from emulator.maestro._types import (
     DeviceDeps,
     _default_device_deps,
 )
+
+#: How long to wait before retrying a flow that failed while the device was
+#: merely slow. Long enough for the host's queue to drain a little, short
+#: enough not to stretch a 94-flow run.
+RETRY_BACKOFF_SEC = 3.0
 
 #: Why an acquisition failed, so a recovery that gives up says which of the four
 #: it hit. "Could not obtain a device" alone cannot tell a wedged emulator from a
@@ -33,6 +39,21 @@ setup_logger(is_ci=False)
 logger = _logger
 
 
+def _log_failure(stdout: str, stderr: str) -> None:
+    """Log why a flow failed, from both streams.
+
+    Maestro reports a flow that could not even be *parsed* on stderr and
+    nothing on stdout — "Unknown Property: contentDescription at …" is the
+    whole story of that flow, and without stderr the runner printed an empty
+    line and left the reader with a flow that failed and no reason. Logging
+    stdout alone hid the class of failure that has nothing to do with the
+    app.
+    """
+    for label, text in (("stdout", stdout), ("stderr", stderr)):
+        if text and text.strip():
+            logger.error(f"--- maestro {label} ---\n{text}")
+
+
 def run_one_flow(
     flow_path: Path,
     serial: str,
@@ -42,12 +63,19 @@ def run_one_flow(
     max_retries: int,
     expected_sha: str,
     deps: DeviceDeps | None = None,
+    bridge_url: str = "",
 ) -> tuple[bool, str]:
     """Run one Maestro flow. Returns (passed, run_id).
 
     Args:
         deps: Device-layer dependency bundle. Tests pass a fake here to avoid
               patching module-level globals. Defaults to the real platform impl.
+        bridge_url: Where the flow can reach the host. Passed to the flow as the
+            ``E2E_BRIDGE_URL`` global — Maestro exposes each ``--env`` entry as a
+            bare global, so a script reads ``E2E_BRIDGE_URL`` and not
+            ``env.E2E_BRIDGE_URL``. Empty means the flow has no host channel, and
+            a flow that needs one says so rather than passing on its next
+            assertion.
     """
     if deps is None:
         deps = _default_device_deps()
@@ -58,12 +86,19 @@ def run_one_flow(
 
     for attempt in range(max_retries + 1):
         run_id = f"r{int(time.time() * 1000) % 10**9}{attempt}"
+        # The report of an earlier attempt is not evidence about this one. A
+        # leftover file would make this attempt look like it failed the way the
+        # previous one did — and the previous one may have failed with a dead
+        # device, which is the difference between retrying and giving up.
+        junit_file.unlink(missing_ok=True)
         cmd = [
             "maestro", "test", str(flow_path),
             "--env", f"RUN_ID={run_id}",
             "--format", "JUNIT",
             "--output", str(junit_file),
         ]
+        if bridge_url:
+            cmd += ["--env", f"{BRIDGE_ENV_NAME}={bridge_url}"]
         logger.info(f"run id: {run_id}")
 
         cp = deps.try_run(cmd, cwd=ROOT, timeout=300)
@@ -82,18 +117,60 @@ def run_one_flow(
             return True, run_id
 
         stderr = cp.stderr if cp else ""
-        if not deps.maestro_saw_device_failure(stderr) and deps.device_alive(serial):
-            logger.error(stdout)
+        # A device that dies mid-flow is written into the flow's JUnit report,
+        # not into the process's stderr: the report's <failure> element carries
+        # Maestro's gRPC stack. Reading stderr alone counts a dead device as a
+        # broken flow, and a broken flow is never retried.
+        device_failed = (
+            deps.maestro_saw_device_failure(stderr)
+            or deps.junit_reports_device_failure(junit_file)
+        )
+        if not device_failed and deps.device_alive(serial):
+            _log_failure(stdout, stderr)
             return False, run_id
 
         if attempt >= max_retries:
-            logger.error(stdout)
+            _log_failure(stdout, stderr)
             return False, run_id
 
-        logger.warning(
-            f"Device unusable during {flow_name}; recovering (attempt {attempt + 1})..."
-        )
-        deps.reset_adb_server()
+        # A device-level signature is not the same as a dead device. Under a
+        # loaded host Maestro's own adb socket times out and prints one, while
+        # the device is working — so the first question is what kind of failure
+        # this is, not whether to recover.
+        health = deps.probe_device_health(serial)
+        if health.state == "alive":
+            # The device answers. The host was busy, not the device. Retry the
+            # flow and leave the adb server alone: resetting it would hide the
+            # device from every other client for the four seconds it takes to
+            # come back, which is how one busy host turns into several
+            # "failures" at once.
+            logger.warning(
+                f"{flow_name}: a device-level failure, but the device answers "
+                f"({health.detail}). The host was busy, not the device — "
+                f"retrying without resetting the adb server "
+                f"(attempt {attempt + 1})..."
+            )
+            time.sleep(RETRY_BACKOFF_SEC)
+            continue
+
+        # The device did not answer. Whether an emulator process is still
+        # running decides what recovery means: a live emulator needs its adb
+        # server restarted, a dead one needs the AVD booted again. Asking the
+        # host directly is the only way to tell — adb cannot answer while the
+        # server it depends on is the thing in question.
+        if deps.emulator_process_alive():
+            logger.warning(
+                f"Device unusable during {flow_name} ({health.detail}); the "
+                f"emulator is still running, so resetting the adb server "
+                f"(attempt {attempt + 1})..."
+            )
+            deps.reset_adb_server()
+        else:
+            logger.warning(
+                f"Device unusable during {flow_name} ({health.detail}) and no "
+                f"emulator process is running — booting the AVD again "
+                f"(attempt {attempt + 1})..."
+            )
 
         if not deps.device_alive(serial):
             # acquire_device boots the AVD when nothing ready is attached, which

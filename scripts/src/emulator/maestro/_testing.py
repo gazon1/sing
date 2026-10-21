@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from emulator._device import CommandOutcome
+
 
 @dataclass
 class FakeMaestroResult:
@@ -224,6 +226,25 @@ class FakeAdb:
     def fail_command(self, cmd: str) -> None:
         """Make a specific command return non-zero / None (as if timed out)."""
         self._failures.add(cmd)
+
+    def try_run_detailed(self, args: list[str], *, timeout: float = 5, **kwargs):
+        """The same answer as `try_run`, in the shape the device layer wants.
+
+        The device layer has to tell a timeout from a failure — a command that
+        did not answer in time says the host was busy, and a command that failed
+        says the device is gone. The mock's return code cannot carry that, so
+        the conversion is explicit: a command the fake marked as failed is a
+        failure, not a timeout.
+        """
+        cp = self.try_run(args, timeout=timeout, **kwargs)
+        code = getattr(cp, "returncode", 1)
+        return CommandOutcome(
+            code == 0,
+            getattr(cp, "stdout", "") or "",
+            getattr(cp, "stderr", "") or "",
+            code,
+            False,
+        )
 
     def try_run(self, args: list[str], *, timeout: float = 5, **kwargs):
         """Returns a Mock CompletedProcess for adb commands, respecting virtual time.

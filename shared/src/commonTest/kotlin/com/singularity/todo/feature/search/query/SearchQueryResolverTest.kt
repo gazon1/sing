@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -79,6 +80,35 @@ class SearchQueryResolverTest {
         val resolved = resolver.resolve(query, userId)
         assertEquals("hello world", resolved.freeText)
         assertNull(resolved.taskFilter)
+    }
+
+    @Test
+    fun `free text terms become the rule every kind is matched by`() = runTest {
+        val query = SingularityQueryParser("hello world").parse()
+
+        val resolved = resolver.resolve(query, userId)
+
+        assertEquals(listOf("hello", "world"), resolved.freeTextRule.terms.map { it.text })
+        assertTrue(resolved.freeTextRule.terms.none { it.negated })
+        assertFalse(resolved.freeTextRule.combinesWithOr, "a conjunction is not a disjunction")
+    }
+
+    @Test
+    fun `an OR query makes the free text terms alternatives`() = runTest {
+        val query = SingularityQueryParser("hello OR world").parse()
+
+        val resolved = resolver.resolve(query, userId)
+
+        assertTrue(resolved.freeTextRule.combinesWithOr)
+    }
+
+    @Test
+    fun `a query with no free text has no rule`() = runTest {
+        val query = SingularityQueryParser("priority:high").parse()
+
+        val resolved = resolver.resolve(query, userId)
+
+        assertTrue(resolved.freeTextRule.isEmpty)
     }
 
     @Test
