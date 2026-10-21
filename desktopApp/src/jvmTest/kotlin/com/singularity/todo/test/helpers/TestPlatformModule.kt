@@ -101,6 +101,11 @@ fun testPlatformModule(): Module = module {
     single { get<AppDatabase>().noteDao() }
     single { get<AppDatabase>().projectDao() }
     single { get<AppDatabase>().tagDao() }
+    // The full-text index. The repositories read it when the search asks for a
+    // word, so a graph without it cannot answer a search at all — and the
+    // failure surfaces as a `NoDefinitionFoundException` inside composition,
+    // which Compose retries every frame.
+    single { get<AppDatabase>().ftsDao() }
     single { get<AppDatabase>().tagGroupDao() }
     single { get<AppDatabase>().projectInheritedTagGroupDao() }
     single { get<AppDatabase>().syncOutboxDao() }
