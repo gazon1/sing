@@ -7,12 +7,17 @@
 # fresh process is asking for.
 #
 # The fixture-accumulation problem that `clearState` would have solved is solved
-# instead by the runner: `run-maestro` stamps each attempt's title
-# with a per-run id and, on success, sweeps exactly those rows plus the fixed
-# seed titles via `todo-debug://seed?cleanup=…`. That is selective — it leaves
-# the session, the profile and the auth state alone — and it keeps one run's
-# cleanup from touching another run's data, which a blanket `pm clear` between
-# flows would do under concurrency.
+# instead by the runner: `run-maestro` resets the app's content before every
+# flow via `todo-debug://reset?scope=content`, which reaches the active
+# profile's tasks (archived ones included), notes, projects and saved agenda
+# views. The session, the profile and the auth state are left alone, so one
+# run's reset cannot take another run's data with it under concurrency.
+#
+# The narrow sweep that used to run on success (the rows whose title starts with
+# the run id) is gone: its list of titles had to be maintained by hand and was
+# already behind the suite. See
+# `docs/decisions/2026-10-21-each-flow-gets-a-clean-device.md` and its
+# amendment of 2026-10-28.
 #
 # To exercise the auth screen (auth guard after a fresh install), use a flow
 # that clears state explicitly and drives the sign-in step with real credentials.

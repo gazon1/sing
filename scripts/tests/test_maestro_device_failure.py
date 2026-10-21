@@ -16,6 +16,7 @@ Two defects made a whole E2E suite look broken while it measured nothing:
 """
 from __future__ import annotations
 
+import dataclasses
 import pathlib
 import tempfile
 import unittest
@@ -23,14 +24,14 @@ import unittest.mock
 
 from emulator._device import DeviceHealth
 from emulator._startup import Acquisition
-from emulator._types import EXIT_OK
+from emulator._types import EXIT_NOT_READY, EXIT_OK
 from emulator.maestro import _cli
 from emulator.maestro._device import (
     gradle_install_debug,
     junit_reports_device_failure,
     maestro_saw_device_failure,
 )
-from emulator.maestro._runner import run_one_flow
+from emulator.maestro._runner import DeviceLostError, run_one_flow
 from emulator.maestro._types import DeviceDeps
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -297,6 +298,71 @@ class InstallRecoveryTest(unittest.TestCase):
         deps, calls, acquired = self._deps(alive=True, install_results=[0])
         self.assertEqual(_cli._install_debug("emulator-5554", deps), "emulator-5554")
         self.assertEqual(calls, ["emulator-5554"])
+
+
+class ALostDeviceStopsTheRunTest(unittest.TestCase):
+    """A device that cannot be recovered ends the run; it does not fail it.
+
+    Measured on a physical phone (2026-10-28): the wireless adb connection
+    dropped on the seventh flow, and the runner carried on — every remaining
+    flow "failed" in four seconds, and the report read as ninety broken flows
+    instead of one lost device. The report has to name the cause.
+    """
+
+    def _deps(self):
+        """The fake Maestro writes a report that says the device died."""
+        base = _deps([_DEAD_DEVICE_REPORT])
+        noop = unittest.mock.Mock(returncode=0, stdout="", stderr="")
+        return dataclasses.replace(
+            base,
+            try_run=base.try_run,
+            device_alive=lambda s: False,
+            # The acquisition fails: no device, and none could be started.
+            acquire_device=lambda pin: Acquisition(None, EXIT_NOT_READY),
+            adb=lambda *a, **kw: "",
+            adb_on=lambda s, *a, **kw: "",
+            reset_adb_server=lambda: None,
+            wait_for_app_resumed=lambda s, t=20: True,
+            cleanup_run_fixtures=lambda *a, **kw: None,
+            capture_artifacts=lambda *a, **kw: None,
+            probe_device_health=lambda s: DeviceHealth("gone", "the test says so"),
+            emulator_process_alive=lambda: False,
+        )
+
+    def test_an_unrecoverable_device_raises_instead_of_failing_the_flow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = pathlib.Path(tmp) / "some-flow.yaml"
+            flow.write_text("appId: com.singularity.todo\n", encoding="utf-8")
+            with self.assertRaises(DeviceLostError):
+                run_one_flow(
+                    flow_path=flow,
+                    serial="emulator-5554",
+                    junit_dir=pathlib.Path(tmp) / "reports",
+                    skip_install=True,
+                    allow_stale=True,
+                    max_retries=1,
+                    expected_sha="",
+                    deps=self._deps(),
+                )
+
+    def test_the_error_names_the_device_and_the_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = pathlib.Path(tmp) / "some-flow.yaml"
+            flow.write_text("appId: com.singularity.todo\n", encoding="utf-8")
+            with self.assertRaises(DeviceLostError) as caught:
+                run_one_flow(
+                    flow_path=flow,
+                    serial="emulator-5554",
+                    junit_dir=pathlib.Path(tmp) / "reports",
+                    skip_install=True,
+                    allow_stale=True,
+                    max_retries=1,
+                    expected_sha="",
+                    deps=self._deps(),
+                )
+            self.assertEqual(caught.exception.serial, "emulator-5554")
+            self.assertIn("emulator-5554", str(caught.exception))
+            self.assertTrue(caught.exception.reason)
 
 
 if __name__ == "__main__":
