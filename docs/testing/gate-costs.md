@@ -1,0 +1,81 @@
+# What the verification loop costs
+
+The local loop is the sum of decisions nobody priced. This page publishes what it
+costs, so that the next decision is priced too.
+
+The numbers come from the runs that happened anyway: `sgate run-all` times every gate
+it runs, and `check.sh` times every Gradle step it runs. Nothing is executed twice to
+be measured, and the baseline in `config/docs/gate-benchmarks.json` records the
+machine the numbers came from — a duration measured on one machine says nothing about
+another, so the comparison refuses to conclude anything when the environment changed.
+
+Two caveats, so the numbers are read as what they are: they are **one run on one
+machine**, and a warm Gradle cache makes them lower than a cold one, a busy machine
+higher than an idle one. Re-record after a cold, quiet run if that is the number you
+want to compare against.
+
+To refresh the numbers:
+
+    ./check.sh                       # measure the loop
+    sgate gate-costs --record        # write the baseline and re-render this page
+
+The block below is generated. A hand-edited number is a failing gate, not a fact.
+
+<!-- BEGIN GENERATED: sgate gate-costs -->
+
+Recorded on 2026-10-21T12:59:57Z — cpus=16, javaHome=/usr/lib/jvm/java-25-openjdk, os=Linux, python=3.14.8.
+
+| What | Median |
+|------|--------|
+| Step: adr-cli:detekt | 1.0 s |
+| Step: adr-core+core-base:detekt | 961 ms |
+| Step: androidApp:assembleDebug | 34.4 s |
+| Step: androidApp:compileDebugKotlin | 27.0 s |
+| Step: desktopApp:test | 13.1 s |
+| Step: detekt | 1.0 s |
+| Step: detekt-rules:koverVerify | 1.3 s |
+| Step: detekt-rules:test | 1.7 s |
+| Step: gate liveness | 1 min 10 s |
+| Step: gate script tests | 1 min 45 s |
+| Step: gate wiring | 2 min 27 s |
+| Step: koverVerify | 1.4 s |
+| Step: mcp-server:compileKotlin | 3.4 s |
+| Step: mcp-server:detekt | 969 ms |
+| Step: shared:jvmTest | 6 min 44 s |
+| Step: shared:testAndroidHostTest | 35.8 s |
+| Step: static gates | 38.3 s |
+| Gate: GitHub workflows are valid | 307 ms |
+| Gate: YAML is structurally valid | 4.0 s |
+| Gate: adr references are valid | 558 ms |
+| Gate: ci workflow shape is declared | 2.2 s |
+| Gate: coverage holes did not grow | 1.4 s |
+| Gate: coverage matrix current | 912 ms |
+| Gate: declared dependencies are used | 8.5 s |
+| Gate: detekt governance is consistent | 3.5 s |
+| Gate: doc dead refs | 1.6 s |
+| Gate: doc links | 573 ms |
+| Gate: gate registries agree | 300 ms |
+| Gate: gate registry is current | 710 ms |
+| Gate: gates speak the JSON contract | 36.0 s |
+| Gate: git hooks path is per-worktree | 674 ms |
+| Gate: maestro flow catalogue is current | 880 ms |
+| Gate: maestro selectors valid | 809 ms |
+| Gate: pro licence boundary | 558 ms |
+| Gate: provenance | 2.0 s |
+| Gate: releases describe themselves | 839 ms |
+| Gate: room schema integrity | 752 ms |
+| Gate: scenario specs valid | 1.0 s |
+| Gate: script conventions | 682 ms |
+| Gate: settings read by a feature | 2.0 s |
+| Gate: supabase schema is self-consistent | 915 ms |
+| Gate: sync allowlist seed matches contract | 991 ms |
+| Gate: the published gate costs are current | 521 ms |
+| Gate: the shell registry is current | 512 ms |
+| Gate: the toolbox surface is declared once | 481 ms |
+| Gate: ui wait budgets are consistent | 1.3 s |
+| Gate: unwired surfaces | 26.1 s |
+| Gate: version catalog has no literals | 990 ms |
+| Gate: waiver references resolve | 1.3 s |
+| Gate: workflow env context resolves | 920 ms |
+| Gate: workflow steps keep their exit status | 1.1 s |
+<!-- END GENERATED: sgate gate-costs -->

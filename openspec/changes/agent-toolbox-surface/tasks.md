@@ -97,6 +97,38 @@ Seven gaps, closed after the change itself was merged:
 
 ADR: `2026-10-21-the-toolbox-once-more`.
 
+## The fourth wave
+
+- [x] The cost of the loop is measured: `sgate run-all` times every gate, `check.sh`
+      times every Gradle step, and nothing is run twice to be timed
+- [x] `config/docs/gate-benchmarks.json` — the recorded baseline, with the machine it
+      was measured on
+- [x] `docs/testing/gate-costs.md` — the published cost, as a generated block
+- [x] The gate *the published gate costs are current* — it compares two committed files,
+      which is a question a CI runner can answer honestly
+- [x] The local report names what got slower and refuses to compare across machines
+- [x] `sgate check-benchmarks` — removed; it could not pass, and a command that cannot
+      pass teaches its users to ignore it
+- [x] `describe_toolbox` carries `toolset.surfaceContractVersion`, owned by the catalogue
+- [x] The registry snapshot carries `schemaVersion`; the report reads the shape its
+      version declares and counts what it cannot read
+- [x] `ToolboxRuntimeContractTest` — the production writers and the production report,
+      compared in one test
+- [x] The report names the records the time window excluded, and reports the error rate
+      per tool as a share of the calls
+- [x] `config/docs/document-corpus.json` — the document corpora have a policy: the roots
+      of every scope, the depth bound and what a document is
+- [x] `DocumentCorpusConfig` (Kotlin) and `scripts/document_corpus.py` (Python) — two
+      readers of that policy, compared by `DocumentCorpusReadersAgreeTest`
+- [x] The docs suite names the commands that exist — four of the seven it named had
+      never existed, and one pointed at a script deleted in July
+- [x] The chain test — describe the toolbox, call a tool, read what the server wrote,
+      read it with the report
+
+ADR: `2026-10-21-a-payload-says-which-version-it-is`,
+`2026-10-21-the-document-corpora-have-a-policy`,
+`2026-10-21-the-cost-of-the-loop-is-measured`.
+
 ## Verification
 
 - [x] `:shared:jvmTest` — the full suite; the nine failures it reported were all from

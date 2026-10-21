@@ -1,5 +1,6 @@
 package com.singularity.todo.mcp
 
+import com.singularity.todo.feature.ai.McpToolCatalog
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -61,6 +62,19 @@ class ToolboxToolTest {
         assertEquals("active00000000000", toolset["activeToolsetFingerprint"]?.jsonPrimitive?.content)
         assertEquals("current", toolset["configurationStatus"]?.jsonPrimitive?.content)
         assertEquals(1, toolset["registeredCount"]?.jsonPrimitive?.int)
+    }
+
+    @Test
+    fun `the toolset says which contract version it speaks`() {
+        """An agent that cannot tell a newer server from an older one reads a
+        field it does not understand as if it did."""
+        val payload = ToolboxTool(snapshot()).payload(listOf(entry("list_tasks")), emptyList(), false)
+
+        val toolset = payload["toolset"]?.jsonObject ?: error("no toolset")
+        assertEquals(
+            McpToolCatalog.SURFACE_CONTRACT_VERSION,
+            toolset["surfaceContractVersion"]?.jsonPrimitive?.int,
+        )
     }
 
     @Test

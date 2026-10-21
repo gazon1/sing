@@ -1,1 +1,320 @@
-{}
+{
+  "environment": {
+    "cpus": 16,
+    "javaHome": "/usr/lib/jvm/java-25-openjdk",
+    "os": "Linux",
+    "python": "3.14.8"
+  },
+  "gates": {
+    "GitHub workflows are valid": {
+      "medianMs": 307,
+      "samples": [
+        307
+      ]
+    },
+    "YAML is structurally valid": {
+      "medianMs": 3954,
+      "samples": [
+        3954
+      ]
+    },
+    "adr references are valid": {
+      "medianMs": 558,
+      "samples": [
+        558
+      ]
+    },
+    "ci workflow shape is declared": {
+      "medianMs": 2175,
+      "samples": [
+        2175
+      ]
+    },
+    "coverage holes did not grow": {
+      "medianMs": 1350,
+      "samples": [
+        1350
+      ]
+    },
+    "coverage matrix current": {
+      "medianMs": 912,
+      "samples": [
+        912
+      ]
+    },
+    "declared dependencies are used": {
+      "medianMs": 8528,
+      "samples": [
+        8528
+      ]
+    },
+    "detekt governance is consistent": {
+      "medianMs": 3532,
+      "samples": [
+        3532
+      ]
+    },
+    "doc dead refs": {
+      "medianMs": 1557,
+      "samples": [
+        1557
+      ]
+    },
+    "doc links": {
+      "medianMs": 573,
+      "samples": [
+        573
+      ]
+    },
+    "gate registries agree": {
+      "medianMs": 300,
+      "samples": [
+        300
+      ]
+    },
+    "gate registry is current": {
+      "medianMs": 710,
+      "samples": [
+        710
+      ]
+    },
+    "gates speak the JSON contract": {
+      "medianMs": 35978,
+      "samples": [
+        35978
+      ]
+    },
+    "git hooks path is per-worktree": {
+      "medianMs": 674,
+      "samples": [
+        674
+      ]
+    },
+    "maestro flow catalogue is current": {
+      "medianMs": 880,
+      "samples": [
+        880
+      ]
+    },
+    "maestro selectors valid": {
+      "medianMs": 809,
+      "samples": [
+        809
+      ]
+    },
+    "pro licence boundary": {
+      "medianMs": 558,
+      "samples": [
+        558
+      ]
+    },
+    "provenance": {
+      "medianMs": 1985,
+      "samples": [
+        1985
+      ]
+    },
+    "releases describe themselves": {
+      "medianMs": 839,
+      "samples": [
+        839
+      ]
+    },
+    "room schema integrity": {
+      "medianMs": 752,
+      "samples": [
+        752
+      ]
+    },
+    "scenario specs valid": {
+      "medianMs": 1042,
+      "samples": [
+        1042
+      ]
+    },
+    "script conventions": {
+      "medianMs": 682,
+      "samples": [
+        682
+      ]
+    },
+    "settings read by a feature": {
+      "medianMs": 2041,
+      "samples": [
+        2041
+      ]
+    },
+    "supabase schema is self-consistent": {
+      "medianMs": 915,
+      "samples": [
+        915
+      ]
+    },
+    "sync allowlist seed matches contract": {
+      "medianMs": 991,
+      "samples": [
+        991
+      ]
+    },
+    "the published gate costs are current": {
+      "medianMs": 521,
+      "samples": [
+        521
+      ]
+    },
+    "the shell registry is current": {
+      "medianMs": 512,
+      "samples": [
+        512
+      ]
+    },
+    "the toolbox surface is declared once": {
+      "medianMs": 481,
+      "samples": [
+        481
+      ]
+    },
+    "ui wait budgets are consistent": {
+      "medianMs": 1330,
+      "samples": [
+        1330
+      ]
+    },
+    "unwired surfaces": {
+      "medianMs": 26144,
+      "samples": [
+        26144
+      ]
+    },
+    "version catalog has no literals": {
+      "medianMs": 990,
+      "samples": [
+        990
+      ]
+    },
+    "waiver references resolve": {
+      "medianMs": 1307,
+      "samples": [
+        1307
+      ]
+    },
+    "workflow env context resolves": {
+      "medianMs": 920,
+      "samples": [
+        920
+      ]
+    },
+    "workflow steps keep their exit status": {
+      "medianMs": 1110,
+      "samples": [
+        1110
+      ]
+    }
+  },
+  "recordedAt": "2026-10-21T12:59:57Z",
+  "schemaVersion": 1,
+  "steps": {
+    "adr-cli:detekt": {
+      "medianMs": 1046,
+      "samples": [
+        1046
+      ]
+    },
+    "adr-core+core-base:detekt": {
+      "medianMs": 961,
+      "samples": [
+        961
+      ]
+    },
+    "androidApp:assembleDebug": {
+      "medianMs": 34395,
+      "samples": [
+        34395
+      ]
+    },
+    "androidApp:compileDebugKotlin": {
+      "medianMs": 27021,
+      "samples": [
+        27021
+      ]
+    },
+    "desktopApp:test": {
+      "medianMs": 13135,
+      "samples": [
+        13135
+      ]
+    },
+    "detekt": {
+      "medianMs": 1018,
+      "samples": [
+        1018
+      ]
+    },
+    "detekt-rules:koverVerify": {
+      "medianMs": 1266,
+      "samples": [
+        1266
+      ]
+    },
+    "detekt-rules:test": {
+      "medianMs": 1730,
+      "samples": [
+        1730
+      ]
+    },
+    "gate liveness": {
+      "medianMs": 70788,
+      "samples": [
+        70788
+      ]
+    },
+    "gate script tests": {
+      "medianMs": 105964,
+      "samples": [
+        105964
+      ]
+    },
+    "gate wiring": {
+      "medianMs": 147398,
+      "samples": [
+        147398
+      ]
+    },
+    "koverVerify": {
+      "medianMs": 1406,
+      "samples": [
+        1406
+      ]
+    },
+    "mcp-server:compileKotlin": {
+      "medianMs": 3421,
+      "samples": [
+        3421
+      ]
+    },
+    "mcp-server:detekt": {
+      "medianMs": 969,
+      "samples": [
+        969
+      ]
+    },
+    "shared:jvmTest": {
+      "medianMs": 404469,
+      "samples": [
+        404469
+      ]
+    },
+    "shared:testAndroidHostTest": {
+      "medianMs": 35774,
+      "samples": [
+        35774
+      ]
+    },
+    "static gates": {
+      "medianMs": 38291,
+      "samples": [
+        38291
+      ]
+    }
+  }
+}

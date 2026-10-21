@@ -1,5 +1,6 @@
 package com.singularity.todo.mcp
 
+import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.ai.tools.AdrStorage
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceRequest
@@ -102,6 +103,10 @@ class ToolboxResources(
      * shape is a contract, and a contract no test pins is a contract a rename breaks.
      */
     internal fun toolboxPayload(): JsonObject = buildJsonObject {
+        // The contract version, so a client reading the resource can tell whether the
+        // shape it knows is the shape this server speaks — the same reason
+        // `describe_toolbox` carries it.
+        put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
         put("buildVersion", snapshot.identity.buildVersion)
         put("catalogFingerprint", snapshot.identity.catalogFingerprint)
         put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)

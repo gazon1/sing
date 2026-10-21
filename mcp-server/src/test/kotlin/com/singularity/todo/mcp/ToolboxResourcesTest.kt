@@ -2,6 +2,7 @@ package com.singularity.todo.mcp
 
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.systemTimeZone
+import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.ai.tools.AdrStorage
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
@@ -162,6 +163,20 @@ class ToolboxResourcesTest {
         val first = tools.first().jsonObject
         assertEquals("list_tasks", first["name"]?.jsonPrimitive?.content)
         assertEquals("tasks", first["domain"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `the toolbox document says which contract version it speaks`() {
+        """A client that reads the resource rather than the tool needs to know the
+        same thing: whether the shape it knows is the shape this server speaks."""
+        val resources = ToolboxResources(snapshot(), null)
+
+        val payload = resources.toolboxPayload()
+
+        assertEquals(
+            McpToolCatalog.SURFACE_CONTRACT_VERSION,
+            payload["surfaceContractVersion"]?.jsonPrimitive?.int,
+        )
     }
 
     @Test

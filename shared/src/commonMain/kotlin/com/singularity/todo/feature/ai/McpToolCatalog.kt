@@ -96,6 +96,22 @@ import kotlin.reflect.KClass
 object McpToolCatalog {
 
     /**
+     * The version of the contract an agent reads.
+     *
+     * The agent-facing surface has three parts — the catalogue of tools, the payload
+     * `describe_toolbox` returns, and the resource URIs — and a client is not upgraded
+     * with the server. So the surface carries a version, and a client that knows a
+     * different one can say so instead of reading a field it does not understand as
+     * if it did.
+     *
+     * The rules are the same as everywhere else in this surface: a **new** field is
+     * allowed, a **renamed** or **removed** field is not. The version is bumped when
+     * the shape changes in a way a client can observe — a renamed field, a removed
+     * field, a changed meaning.
+     */
+    const val SURFACE_CONTRACT_VERSION = 1
+
+    /**
      * A single tool entry in the catalog.
      *
      * @param name       snake_case name as seen by the MCP client.

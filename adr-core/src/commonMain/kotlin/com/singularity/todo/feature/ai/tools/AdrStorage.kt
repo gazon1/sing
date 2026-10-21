@@ -123,6 +123,11 @@ class AdrStorage(
         decisionsDir = decisionsDir,
         corpus = corpus,
         readAdr = { path -> readAdrAt(Path(path)) },
+        // The document corpora live in their own policy, read from the checkout this
+        // storage was built for. A checkout without the file falls back to the roots the
+        // policy declares by default — the same directories the search used to name in
+        // code — so a missing policy changes what is *declared*, never what is found.
+        documents = DocumentCorpusConfig.loadOrDefault(projectRoot),
     )
 
     /**

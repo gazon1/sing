@@ -1,5 +1,6 @@
 package com.singularity.todo.mcp
 
+import com.singularity.todo.feature.ai.McpToolCatalog
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
@@ -113,6 +114,7 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
         put(
             "toolset",
             buildJsonObject {
+                put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
                 put("buildVersion", snapshot.identity.buildVersion)
                 put("catalogFingerprint", snapshot.identity.catalogFingerprint)
                 put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)

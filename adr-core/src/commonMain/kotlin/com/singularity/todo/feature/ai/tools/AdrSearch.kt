@@ -32,22 +32,28 @@ object SearchLimits {
  * here so that the tool, the CLI and the report all search the same trees — a search
  * that answered from a different set of directories than the one the corpus rules
  * describe would be a second corpus.
+ *
+ * The *directories* are not here: they are in `config/docs/document-corpus.json`, read
+ * by [DocumentCorpusConfig], so that the Python side can read the same policy and a
+ * test can compare the two readers. What lives here is the list of scopes — the names
+ * an agent may ask for — and whether a scope is a document corpus or the decision
+ * records.
  */
-enum class SearchScope(val id: String, val relativePath: String?) {
+enum class SearchScope(val id: String, val isDocumentScope: Boolean) {
     /** The decision records and the deferred backlog. */
-    DECISIONS("decisions", null),
+    DECISIONS("decisions", false),
 
-    /** `docs/architecture/` — the hand-written architecture documents. */
-    ARCHITECTURE("architecture", "docs/architecture"),
+    /** The hand-written architecture documents. */
+    ARCHITECTURE("architecture", true),
 
-    /** `.agents/skills/` — the procedures. */
-    SKILLS("skills", ".agents/skills"),
+    /** The procedures. */
+    SKILLS("skills", true),
 
-    /** `openspec/specs/` — the capability specifications. */
-    SPECS("specs", "openspec/specs"),
+    /** The capability specifications. */
+    SPECS("specs", true),
 
     /** Every scope above. */
-    ALL("all", null),
+    ALL("all", false),
     ;
 
     companion object {
@@ -147,6 +153,15 @@ class CorpusSearch internal constructor(
     private val decisionsDir: String,
     private val corpus: AdrCorpusConfig,
     private val readAdr: (String) -> AdrStorage.AdrFile?,
+    /**
+     * The document corpora — where the documents live, how deep the walk goes and what
+     * a document is.
+     *
+     * A policy rather than literals, so that the Python reader can read the same thing
+     * and a test can compare the two. The decisions are not in it: they are records, and
+     * their rules live in [AdrCorpusConfig].
+     */
+    private val documents: DocumentCorpusConfig = DocumentCorpusConfig.DEFAULT,
 ) {
 
     /**
@@ -230,7 +245,7 @@ class CorpusSearch internal constructor(
                 warnings += "the document scopes need a project checkout, and this process has none"
             } else {
                 hits += SearchScope.entries
-                    .filter { it.relativePath != null }
+                    .filter { it.isDocumentScope }
                     .filter { scope == SearchScope.ALL || it == scope }
                     .flatMap { searchScopeDirectory(it, needle, warnings) }
             }
@@ -247,29 +262,52 @@ class CorpusSearch internal constructor(
 
     private fun searchScopeDirectory(scope: SearchScope, needle: String, warnings: MutableList<String>):
         List<AdrSearchHit> {
-        val relative = scope.relativePath ?: return emptyList()
-        val root = Path(projectRoot ?: return emptyList(), relative)
-        if (!root.isDirectory()) {
-            warnings += "the ${scope.id} scope is not available: $relative"
+        val roots = documents.rootsFor(scope.id)
+        if (roots.isEmpty()) {
+            warnings += "the ${scope.id} scope is not declared in $DocumentCorpusConfig.CONFIG_PATH"
             return emptyList()
         }
-        return markdownFiles(root).mapNotNull { file ->
-            // An unreadable file is a warning, not a failure: one broken document must
-            // not turn the whole scope into "nothing was searched".
-            val text = runCatching { file.readText() }.getOrElse {
-                warnings += "skipped an unreadable file under $relative"
-                return@mapNotNull null
+        return roots.flatMap { relative ->
+            val root = Path(projectRoot ?: return@flatMap emptyList(), relative)
+            if (!root.isDirectory()) {
+                warnings += "the ${scope.id} scope is not available: $relative"
+                return@flatMap emptyList()
             }
-            val match = matchIn(needle, titleOf(text), emptyList(), text) ?: return@mapNotNull null
-            AdrSearchHit(
-                slug = file.fileName.toString().removeSuffix(".md"),
-                title = titleOf(text),
-                kind = "document",
-                scope = scope.id,
-                snippet = match,
-                path = relativeToRoot(file.toString()),
-            )
+            markdownFiles(root).mapNotNull { file ->
+                // An unreadable file is a warning, not a failure: one broken document must
+                // not turn the whole scope into "nothing was searched".
+                val text = runCatching { file.readText() }.getOrElse {
+                    warnings += "skipped an unreadable file under $relative"
+                    return@mapNotNull null
+                }
+                val match = matchIn(needle, titleOf(text), emptyList(), text) ?: return@mapNotNull null
+                AdrSearchHit(
+                    slug = file.fileName.toString().removeSuffix(documents.fileExtension),
+                    title = titleOf(text),
+                    kind = "document",
+                    scope = scope.id,
+                    snippet = match,
+                    path = relativeToRoot(file.toString()),
+                )
+            }
         }
+    }
+
+    /**
+     * The documents of a scope, as paths relative to the project root.
+     *
+     * The list of what a scope *contains*, without a query. It is what the Python reader
+     * is compared against: `DocumentCorpusReadersAgreeTest` asks both readers the same
+     * question and compares the answers, because two readers that disagree about which
+     * files are documents disagree about what a search can find.
+     */
+    fun documentsIn(scope: SearchScope): List<String> {
+        val root = projectRoot ?: return emptyList()
+        return documents.rootsFor(scope.id).flatMap { relative ->
+            val directory = Path(root, relative)
+            if (!directory.isDirectory()) return@flatMap emptyList()
+            markdownFiles(directory).map { relativeToRoot(it.toString()) }
+        }.sorted()
     }
 
     /**
@@ -318,11 +356,11 @@ class CorpusSearch internal constructor(
     }
 
     private fun markdownFiles(root: Path, depth: Int = 0): List<Path> {
-        if (depth > MAX_DEPTH) return emptyList()
+        if (depth > documents.maxDepth) return emptyList()
         return root.listDirectoryEntries().flatMap { entry ->
             when {
                 entry.isDirectory() -> markdownFiles(entry, depth + 1)
-                entry.toString().endsWith(".md") -> listOf(entry)
+                entry.toString().endsWith(documents.fileExtension) -> listOf(entry)
                 else -> emptyList()
             }
         }
@@ -362,7 +400,10 @@ class CorpusSearch internal constructor(
 
     private fun relativeToRoot(path: String): String {
         val root = projectRoot ?: return path
-        return path.removePrefix(root).trimStart('/', '/')
+        // The separator is normalised, so the path means the same thing on every
+        // machine — and so the Python reader, which spells paths with `/`, can be
+        // compared with this one without a platform exception.
+        return path.removePrefix(root).trimStart('/', '\\').replace('\\', '/')
     }
 
     private fun clamp(limit: Int): Int = limit.coerceIn(1, MAX_LIMIT)
@@ -371,6 +412,5 @@ class CorpusSearch internal constructor(
         const val DEFAULT_LIMIT = SearchLimits.DEFAULT
         const val MAX_LIMIT = SearchLimits.MAX
         const val SNIPPET_MAX = SearchLimits.SNIPPET_MAX
-        private const val MAX_DEPTH = 6
     }
 }

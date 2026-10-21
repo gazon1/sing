@@ -216,6 +216,12 @@ It reports five separate values, because they answer different questions:
 | `activeToolsetFingerprint` | the registered tools | which tools are exposed *right now*? |
 | `configurationStatus` | the startup snapshot | was the kill switch applied at all? |
 
+The payload also carries `toolset.surfaceContractVersion` — the version of the contract
+the surface speaks, owned by the catalogue (`McpToolCatalog.SURFACE_CONTRACT_VERSION`).
+The fingerprints say *that* something changed; the version says *whether the shape the
+client knows is the shape this server speaks*. A client that reads a renamed field would
+otherwise conclude that a tool does not exist, and would have no way to tell.
+
 The response carries no absolute path, no secret and no remote-config content, and the
 disabled-tool list is bounded.
 
@@ -262,6 +268,14 @@ specifications. Both go through the corpus rules in `config/docs/adr-corpus.json
 archive is unreachable, the backlog is marked as backlog, and an empty result is
 distinguishable from a corpus that was not searched at all.
 
+The *document* corpora have their own policy, `config/docs/document-corpus.json`: the
+roots of every scope, how deep the walk goes, and what a document is. It is read by the
+search engine (`DocumentCorpusConfig`) and by the Python reader
+(`scripts/document_corpus.py`), and `DocumentCorpusReadersAgreeTest` compares the two —
+so "which files are documents?" has one answer, not one per reader. The decisions are
+not in that file: they are records, with a frontmatter contract and a staleness rule,
+and their policy is the ADR one.
+
 `singularity-adr search` is the same search from a terminal, over the same storage.
 
 ### Resources
@@ -279,6 +293,25 @@ exception text. The measurement happens at the dispatch boundary here, and throu
 decorator in the in-app agent; one event schema, two instrumentation points.
 
 The report is local: `python3 scripts/mcp-toolbox-usage.py`.
+
+Both files the report reads declare their version, and the report is strict about the
+versions it knows:
+
+- a **call record** carries `schemaVersion`; a record of a version the report does not
+  know is counted and named, and is not read as a call;
+- the **registry snapshot** carries `schemaVersion` too. Version 1 writes the tool lists
+  as objects, the same shape `describe_toolbox` reports; a snapshot written before the
+  version existed has no version and its lists are strings — that is version 0. An entry
+  that fits neither shape of the version it claims is counted, not guessed at.
+
+The report says what it could not read: the entries that did not match their version's
+shape, the versions it does not know, and the records the time window excluded. It also
+reports the error *rate* per tool — a share of the calls, not a second count, because
+"3 errors" beside "calls: 3" is a division a reader may not do.
+
+The two sides are compared by a test that runs both: `ToolboxRuntimeContractTest` writes
+a snapshot and the records with the production writers and runs the production report
+over them.
 
 ## Two-Tier Error Model
 
@@ -530,9 +563,14 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | `shared/src/commonMain/kotlin/.../core/observability/ToolCallLog.kt` | the tool-call event, its port and the recorder |
 | `shared/src/commonMain/kotlin/.../core/ai/RecordingTool.kt` | the in-app decorator that records a call |
 | `adr-core/src/commonMain/kotlin/.../tools/AdrSearch.kt` | the search engine, the scopes and the envelope |
+| `adr-core/src/commonMain/kotlin/.../tools/DocumentCorpus.kt` | the document corpora policy, read by the search |
+| `config/docs/document-corpus.json` | the roots of every document scope, the depth bound, what a document is |
+| `scripts/document_corpus.py` | the Python reader of that policy — compared with the Kotlin one |
 | `scripts/mcp-toolbox-usage.py` | the local report over the call records |
+| `docs/testing/gate-costs.md` | what the verification loop costs, measured and published |
 | `mcp-server/src/test/kotlin/.../mcp/McpServerEndToEndTest.kt` | End-to-end protocol test via the stdio transport |
 | `mcp-server/src/test/kotlin/.../mcp/ToolRegistrarTest.kt` | the kill switch, at the place it is applied |
+| `mcp-server/src/test/kotlin/.../mcp/ToolboxRuntimeContractTest.kt` | the runtime's writes, read by the production report |
 
 ## Related Skills
 

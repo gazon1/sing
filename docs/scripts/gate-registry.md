@@ -47,6 +47,7 @@ sche... | — | — |
 | gate registries agree | blocking | check_gate_registries.py — the two gate registries agree on what exists. | — | — |
 | gate registry is current | blocking | gate registry is current | — | — |
 | the shell registry is current | blocking | the shell registry is current | — | — |
+| the published gate costs are current | blocking | the published gate costs are current | — | — |
 | gates speak the JSON contract | blocking | check-gate-json-contract.py — every gate dispatched through `sgate` speaks on... | — | — |
 | ci workflow shape is declared | blocking | check_ci_workflow_shape.py — the shape of the CI workflow's Gradle block. | — | — |
 | detekt governance is consistent | blocking | check_detekt_governance.py — the governance around the detekt rules. | — | — |

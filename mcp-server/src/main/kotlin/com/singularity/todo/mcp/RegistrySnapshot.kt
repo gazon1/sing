@@ -21,6 +21,17 @@ import java.io.File
  */
 object RegistrySnapshot {
 
+    /**
+     * The version of the snapshot's shape.
+     *
+     * The reader needs it because the shape changed once already: the tool lists used
+     * to be strings, and they are objects now. A reader that cannot tell the two apart
+     * has to accept both — and then it cannot say what it read. The version says which
+     * shape this snapshot has, so the reader can be strict about the one it knows and
+     * honest about the one it does not.
+     */
+    const val SCHEMA_VERSION = 1
+
     private const val DIRECTORY = "tool-calls"
     private const val FILE_NAME = "registry.json"
     private const val TAG = "RegistrySnapshot"
@@ -40,6 +51,7 @@ object RegistrySnapshot {
     }
 
     private fun payload(snapshot: ToolsetSnapshot) = buildJsonObject {
+        put("schemaVersion", SCHEMA_VERSION)
         put("startedAt", System.currentTimeMillis())
         put("registeredTools", toolNames(snapshot.registered))
         put("disabledTools", toolNames(snapshot.disabled))

@@ -304,6 +304,24 @@ PLACEMENTS: dict[str, Placement] = {
 # --check` is the gate that says the file is current; after changing the
 # manifest, run `sgate render-static-gates --write`.""",
     ),
+    "the published gate costs are current": Placement(
+        kind=PlacementKind.STATIC,
+        command='sgate gate-costs --check',
+        note="""
+# What the verification loop costs.
+#
+# The loop grew by minutes at a time — a wave added an Android host test, another
+# added a module to the detekt sweep — and nobody could say so, because nothing
+# measured it. Now `sgate run-all` times every gate it runs and `check.sh` times
+# every Gradle step it runs, and the result is published in
+# docs/testing/gate-costs.md.
+#
+# This gate compares two committed files: the published page and the recorded
+# baseline. That is a question a CI runner can answer honestly. The comparison with
+# a *local* measurement is not one CI can answer, and it is not asked here — the
+# local report names what got slower, and a CI runner has no local measurement to
+# name.""",
+    ),
     "gates speak the JSON contract": Placement(
         kind=PlacementKind.STATIC,
         command='python3 scripts/check-gate-json-contract.py',

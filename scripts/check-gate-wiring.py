@@ -1598,7 +1598,13 @@ def _registry_gate_commands() -> list[tuple[str, str, str]]:
 #: renders a file and checks that the file is current. It backs no check script,
 #: and the gate it *is* — the freshness of the shell registry — is proven by the
 #: file it compares.
-_NON_GATE_SGATE_COMMANDS = frozenset({"info", "render-registry", "render-static-gates"})
+#:
+#: `gate-costs` is here for the same reason again: it compares the published cost
+#: page with the recorded baseline, and proves the gate it is by the two files
+#: agreeing. It backs no check script, and it is not supposed to.
+_NON_GATE_SGATE_COMMANDS = frozenset(
+    {"info", "render-registry", "render-static-gates", "gate-costs"}
+)
 
 #: `sgate` invocations that resolved to no command module, filled by
 #: `reachable_gate_scripts()` and reported by `check_gate_reachability()`. A list

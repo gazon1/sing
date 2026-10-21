@@ -27,6 +27,44 @@ cd "$ROOT"
 # results that are still correct. CI uses the strict form, where every test task runs.
 RESULT_MAX_AGE=21600
 
+# ── What this loop costs ───────────────────────────────────────────────────────
+# The cost of the local loop is the sum of decisions nobody priced: a wave added an
+# Android host test, another added a module to the detekt sweep, and each of those
+# is minutes on a machine that was already slow. Nobody could say so, because
+# nothing measured it.
+#
+# So every step below is timed, and the numbers are handed to `sgate gate-costs`,
+# which publishes them (docs/testing/gate-costs.md) and compares them with the
+# recorded baseline. Nothing is run twice to be timed: these are the runs that
+# happened anyway.
+COST_DIR="$ROOT/build/diagnostics"
+COST_FILE="$COST_DIR/cycle-steps.txt"
+mkdir -p "$COST_DIR"
+: >"$COST_FILE"
+
+# Milliseconds since the epoch. `date +%s%3N` is GNU-only and bash's SECONDS is
+# whole seconds, which is too coarse for a gate that takes ten of them.
+now_ms() {
+    python3 -c 'import time; print(int(time.time() * 1000))'
+}
+
+# timed <name> <command...> — run the command, record how long it took, and hand
+# back its exit code. The record is written even when the command failed: a step
+# that broke the build still cost the time it took.
+timed() {
+    local name=$1
+    shift
+    local start end rc
+    start=$(now_ms)
+    set +e
+    "$@"
+    rc=$?
+    set -e
+    end=$(now_ms)
+    printf '%s\t%s\n' "$name" "$((end - start))" >>"$COST_FILE"
+    return $rc
+}
+
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -52,7 +90,7 @@ bash scripts/ci/preflight-gate-tools.sh || {
     exit 1
 }
 
-sgate run-all || {
+timed "static gates" sgate run-all || {
     echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
     exit 1
 }
@@ -80,14 +118,14 @@ echo -e "${YELLOW}=== [2/$TOTAL] androidApp:compileDebugKotlin ===${NC}"
 # (`.github/workflows/ci.yml`, the free leg of the Android matrix), and
 # `scripts/check-gate-wiring.py`'s Gradle-task parity check is what keeps the
 # two surfaces from drifting apart.
-./gw :androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin --quiet || {
+timed "androidApp:compileDebugKotlin" ./gw :androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin --quiet || {
     echo -e "${RED}androidApp:compileDebugKotlin FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}androidMain compiled${NC}"
 
 echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
-./gw :shared:jvmTest --quiet || {
+timed "shared:jvmTest" ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     exit 1
 }
@@ -101,7 +139,7 @@ echo -e "${GREEN}shared:jvmTest passed${NC}"
 # The host test is a Robolectric test — no emulator, no device — so it belongs in the
 # local loop, not only in CI.
 echo -e "${YELLOW}=== [3b/$TOTAL] shared:testAndroidHostTest ===${NC}"
-./gw :shared:testAndroidHostTest --quiet || {
+timed "shared:testAndroidHostTest" ./gw :shared:testAndroidHostTest --quiet || {
     echo -e "${RED}shared:testAndroidHostTest FAILED — the Android source set does not compile, " \
         "and nothing else in this script would have said so${NC}"
     exit 1
@@ -109,14 +147,14 @@ echo -e "${YELLOW}=== [3b/$TOTAL] shared:testAndroidHostTest ===${NC}"
 echo -e "${GREEN}shared:testAndroidHostTest passed${NC}"
 
 echo -e "${YELLOW}=== [4/$TOTAL] desktopApp:test ===${NC}"
-./gw :desktopApp:test --quiet || {
+timed "desktopApp:test" ./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
 echo -e "${YELLOW}=== [5/$TOTAL] androidApp:assembleDebug ===${NC}"
-./gw :androidApp:assembleDebug --quiet || {
+timed "androidApp:assembleDebug" ./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"
     exit 1
 }
@@ -169,7 +207,7 @@ echo -e "${YELLOW}=== [7/$TOTAL] gates are wired and can fail ===${NC}"
 # without it: a casual `python3 scripts/check-gate-wiring.py` must not
 # cold-boot a daemon, hold the shared cache lock, and freeze the host — which
 # is exactly what it did once, with no timeout to bound the damage.
-GATE_WIRING_GRADLE=1 python3 scripts/check-gate-wiring.py || {
+timed "gate wiring" env GATE_WIRING_GRADLE=1 python3 scripts/check-gate-wiring.py || {
     echo -e "${RED}gate wiring check FAILED — a gate is unreachable or cannot fail${NC}"
     exit 1
 }
@@ -180,7 +218,7 @@ echo -e "${YELLOW}=== [7b/$TOTAL] gate scripts' own unit tests ===${NC}"
 # CI runs them in the `tests` job, next to the Gradle run they would otherwise
 # compete with — but a local loop that skipped them would not rehearse what CI
 # runs, and the local loop is the one a developer can iterate on.
-python3 -m unittest discover -s scripts/tests || {
+timed "gate script tests" python3 -m unittest discover -s scripts/tests || {
     echo -e "${RED}gate script unit tests FAILED${NC}"
     exit 1
 }
@@ -193,7 +231,7 @@ echo -e "${YELLOW}=== [7c/$TOTAL] gates are alive ===${NC}"
 # It probes the gates named in scripts/ci/static-gates.sh, and it is not one of
 # them: a probe that probed itself would launch every gate, and every gate would
 # launch the probe.
-python3 scripts/check-gate-liveness.py || {
+timed "gate liveness" python3 scripts/check-gate-liveness.py || {
     echo -e "${RED}a gate died when it was probed${NC}"
     exit 1
 }
@@ -201,7 +239,7 @@ python3 scripts/check-gate-liveness.py || {
 echo -e "${YELLOW}=== [8/$TOTAL] detekt rule unit tests ===${NC}"
 # A custom rule that cannot fire is indistinguishable from a rule that has
 # nothing to match. These tests are the only evidence either way.
-./gw :detekt-rules:test --quiet || {
+timed "detekt-rules:test" ./gw :detekt-rules:test --quiet || {
     echo -e "${RED}detekt rule unit tests FAILED - a rule cannot be trusted without them${NC}"
     exit 1
 }
@@ -219,7 +257,7 @@ echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
     echo -e "${RED}could not measure detekt-rule branch coverage${NC}"
     exit 1
 }
-./gw :detekt-rules:koverVerify || {
+timed "detekt-rules:koverVerify" ./gw :detekt-rules:koverVerify || {
     echo -e "${RED}detekt-rule branch coverage is below the floor (see DETEKT_RULE_BRANCH_FLOOR)${NC}"
     exit 1
 }
@@ -231,7 +269,7 @@ echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (app + detekt-rules) ===${NC}"
 # Skipped when no report exists (same reason as the --if-present it replaces: koverReport
 # instruments every test task and roughly triples the local loop; CI runs it on every push).
 if [ -f build/reports/kover/report.xml ]; then
-    ./gw :koverVerify || {
+    timed "koverVerify" ./gw :koverVerify || {
         echo -e "${RED}app coverage below the recorded floor${NC}"
         exit 1
     }
@@ -244,7 +282,7 @@ else
 fi
 
 echo -e "${YELLOW}=== [10/$TOTAL] mcp-server:compileKotlin (DI graph validation) ===${NC}"
-./gw :mcp-server:compileKotlin --quiet || {
+timed "mcp-server:compileKotlin" ./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
     exit 1
 }
@@ -261,7 +299,7 @@ echo -e "${GREEN}=== [11/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${N
 # violation in either passed `./check.sh` and failed CI. detekt-rules matters
 # most — it is the module holding the project's own custom rules, and a rule file
 # that does not lint is indistinguishable from one that has no findings.
-./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet || {
+timed "detekt" ./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet || {
     echo -e "${RED}detekt reported violations — see config/detekt/ for the active rule set${NC}"
     exit 1
 }
@@ -270,7 +308,7 @@ echo -e "${GREEN}=== [12/$TOTAL] mcp-server:detekt ===${NC}"
 # This task was invoked by ci.yml with `ignoreFailures = true`, so it could not
 # fail there, and it was not in check.sh at all, so it did not run here either.
 # Both halves mattered: nothing enforced it and nothing ran it.
-./gw :mcp-server:detekt --quiet || {
+timed "mcp-server:detekt" ./gw :mcp-server:detekt --quiet || {
     echo -e "${RED}mcp-server:detekt reported violations${NC}"
     exit 1
 }
@@ -279,7 +317,7 @@ echo -e "${GREEN}=== [12b/$TOTAL] adr-cli:detekt ===${NC}"
 # `:adr-cli` declares `detekt` with `ignoreFailures = false`. A configured detekt task
 # that no surface invokes reports success forever, which is the exact defect the block
 # above was written for — applied one module over.
-./gw :adr-cli:detekt --quiet || {
+timed "adr-cli:detekt" ./gw :adr-cli:detekt --quiet || {
     echo -e "${RED}adr-cli:detekt reported violations${NC}"
     exit 1
 }
@@ -288,7 +326,7 @@ echo -e "${GREEN}=== [12c/$TOTAL] adr-core + core-base:detekt ===${NC}"
 # The two modules the CLI was refactored onto (#542). Their baselines are empty, so a
 # finding here is a finding about code written today — which is the only state a new
 # module should ever be in. Left uninvoked they would report success forever.
-./gw :adr-core:detekt :core-base:detekt --quiet || {
+timed "adr-core+core-base:detekt" ./gw :adr-core:detekt :core-base:detekt --quiet || {
     echo -e "${RED}adr-core/core-base detekt reported violations${NC}"
     exit 1
 }
@@ -350,6 +388,13 @@ if [[ "${RUN_MAESTRO:-0}" == "1" ]]; then
         echo -e "${YELLOW}maestro CLI not on PATH — skipping${NC}"
     fi
 fi
+
+echo ""
+echo -e "${YELLOW}=== what the loop cost ===${NC}"
+# The report, not a verdict: it names what got slower than the recorded baseline and
+# exits zero either way. The baseline itself lives in config/docs/gate-benchmarks.json
+# and is published in docs/testing/gate-costs.md.
+sgate gate-costs
 
 echo ""
 echo -e "${GREEN}=== ALL CHECKS PASSED ===${NC}"
