@@ -50,6 +50,41 @@ _GATE_LINE = re.compile(r'^gate\s+(blocking|advisory)\s+"([^"]+)"\s+(.+)$')
 #: failure, and a log nobody can scroll is the same as no log.
 OUTPUT_TAIL_LINES = 40
 
+#: The budget for one gate, in seconds.
+#:
+#: Five minutes is enough for a gate that reads files and asks a question.
+#: It is not enough for a gate that resolves a build: see `GATE_TIMEOUTS`.
+DEFAULT_GATE_TIMEOUT = 300
+
+#: Gates whose own work needs more than the default budget, and why.
+#:
+#: `declared dependencies are used` asks Gradle which files each configuration
+#: resolved and reads the jars to learn the package roots they contribute. On a
+#: runner with a cold Gradle home that is a download of the distribution plus a
+#: resolution of every configuration — minutes, not seconds, and how many
+#: minutes depends on the network.
+#:
+#: It failed on that budget rather than on a finding: the run that prompted
+#: this table measured 113 s on a good day and was killed at 300 s on a bad one,
+#: with the same tree and the same code. A gate that needs the build does not
+#: fit in a budget that was chosen for gates that do not.
+#:
+#: The budget stays under the job's own ten-minute cap, so a gate that hangs is
+#: killed by the runner rather than by the job. The static job now restores the
+#: Gradle cache, which is what actually makes this gate fast; this number is the
+#: floor under a cold cache, not the plan.
+#:
+#: The gate still fails if it finds anything. The budget buys the gate time to
+#: finish; it does not buy it a pass.
+GATE_TIMEOUTS = {
+    "declared dependencies are used": 540,
+}
+
+
+def _timeout_for(display_name: str) -> int:
+    """The budget for one gate, in seconds."""
+    return GATE_TIMEOUTS.get(display_name, DEFAULT_GATE_TIMEOUT)
+
 #: Lines that mark a failure wherever they appear in a gate's output. The tail
 #: alone is not enough: every delegated `sgate` gate ends its stderr with a burst
 #: of loguru DEBUG lines, so the last 40 lines of a real failure can contain none
@@ -136,6 +171,8 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
     repo_root = str(sgate.repo.ROOT)
     static_sh = str(sgate.repo.STATIC_GATES_SH)
 
+    timeout = _timeout_for(display_name)
+
     try:
         tokens = shlex.split(command)
         if not tokens:
@@ -154,7 +191,7 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
                 venv_python = sys.executable
                 sgate_bin = str(Path(venv_python).parent / "sgate")
             cmd = [sgate_bin, *args, "--json"]
-            result = subprocess.run(cmd, capture_output=True, timeout=300,
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                    cwd=repo_root)
 
         elif head == "python3":
@@ -166,14 +203,14 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             venv_python = Path(sys.executable)
             py_bin = str(venv_python.parent / "python")
             cmd = [py_bin, script_path] + args[1:]
-            result = subprocess.run(cmd, capture_output=True, timeout=300,
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                    cwd=repo_root)
 
         elif head.startswith("./"):
             # Direct shell script
             script_path = repo_root + "/" + head[2:]
             cmd = ["bash", script_path] + args
-            result = subprocess.run(cmd, capture_output=True, timeout=300,
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                    cwd=repo_root)
 
         elif head in _static_gate_functions(static_sh):
@@ -193,14 +230,14 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             func_call = shlex.join([head, *args])
             bash_cmd = f"STATIC_GATES_SOURCED=1 . {shlex.quote(static_sh)} && {func_call}"
             cmd = ["bash", "-c", bash_cmd]
-            result = subprocess.run(cmd, capture_output=True, timeout=300,
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                    cwd=repo_root)
 
         else:
             # Anything else — including `bash -c '<snippet>'`, where shlex has
             # already reduced the quoted snippet to a single argv element.
             cmd = tokens
-            result = subprocess.run(cmd, capture_output=True, timeout=300,
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                    cwd=repo_root)
 
         duration_ms = int((time.monotonic() - start) * 1000)
@@ -226,7 +263,7 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         return GateResult(
             name=display_name, mode=mode, passed=False, exit_code=124,
             duration_ms=int((time.monotonic() - start) * 1000),
-            error="timeout (>300s)",
+            error=f"timeout (>{timeout}s)",
         )
     except FileNotFoundError:
         return GateResult(

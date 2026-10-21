@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from scanners.source_text import strip_code, strip_comments
+from scanners.source_text import line_depths, strip_code, strip_comments
 
 # scripts/src/scanners/test_classes.py → [0]=scanners [1]=src [2]=scripts [3]=repo
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -162,6 +162,7 @@ def _test_classes_in(source: str) -> list[str]:
     # Скобки считаются по коду: литералы и комментарии обнулены, поэтому
     # фигурная скобка внутри строки или KDoc не может оборвать тело класса.
     lines = strip_code(source).split("\n")
+    depths = line_depths(source)
     header_re = re.compile(
         r"^(?:@\w+(?:\([^)]*\))?\s*)*"
         r"(?:public |internal |private |protected |abstract |open |final |sealed |data |value )*"
@@ -175,7 +176,7 @@ def _test_classes_in(source: str) -> list[str]:
         name = header.group(1)
         if not name.endswith("Test") or _is_abstract_or_open(lines[index]):
             continue
-        if _has_test_member(lines, index):
+        if _has_test_member(lines, depths, index):
             out.append(name)
     return out
 
@@ -186,7 +187,7 @@ def _is_abstract_or_open(declaration: str) -> bool:
     ) is not None
 
 
-def _has_test_member(code_lines: list[str], class_index: int) -> bool:
+def _has_test_member(code_lines: list[str], depths: list[int], class_index: int) -> bool:
     """Есть ли @Test-аннотация в теле класса, начавшемся на [class_index].
 
     Считает фигурные скобки до закрытия тела, поэтому длина класса значения не
@@ -206,6 +207,12 @@ def _has_test_member(code_lines: list[str], class_index: int) -> bool:
     `ArchitectureTest`, `EnqueueSiteIsScannedTest`. Kotlin-сторона того же
     вопроса закрыта стражем ClassBodyScannerAgreementTest; здесь это сделано
     сразу, потому что дешевле, чем ещё один страж с эталоном.
+
+    [depths] — глубина скобок на конец каждой строки, от
+    `scanners.source_text.line_depths`. Это тот же вопрос, что и «где кончилось
+    тело класса», и раньше он отвечался здесь вторым счётчиком. Счётчик был
+    не хуже — он считал по уже обнулённому тексту, — но он был вторым
+    ответом на тот же вопрос, и мог разойтись с первым.
     """
     if "{" not in code_lines[class_index]:
         return any(
@@ -213,18 +220,17 @@ def _has_test_member(code_lines: list[str], class_index: int) -> bool:
             for i in range(1, 6)
             if class_index + i < len(code_lines)
         )
-    depth = 0
+    # Глубина снаружи класса: конец предыдущей строки. Класс может быть
+    # вложен в другой, и «внутри» — это не ноль.
+    outside = depths[class_index - 1] if class_index > 0 else 0
     opened = False
     for i in range(class_index, len(code_lines)):
-        for ch in code_lines[i]:
-            if ch == "{":
-                depth += 1
-                opened = True
-            elif ch == "}":
-                depth -= 1
+        depth = depths[i] if i < len(depths) else outside
+        if not opened and depth > outside:
+            opened = True
         if _TEST_MEMBER.match(code_lines[i]):
             return True
-        if opened and depth == 0:
+        if opened and depth <= outside:
             return False
     return False
 

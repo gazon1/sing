@@ -93,16 +93,42 @@ class TestDeadSymbolClassifiesBySourceSet(unittest.TestCase):
 
 
 class TestStripComments(unittest.TestCase):
-    def test_removes_block_comment(self):
-        self.assertEqual(fus.strip_comments("a/* b */c"), "ac")
+    """The script reads Kotlin through `scanners.source_text`, not its own regexes.
 
-    def test_removes_line_comment(self):
-        self.assertEqual(fus.strip_comments("a // b\nc"), "a \nc")
+    The canonical reader *blanks* a comment instead of deleting it: the text
+    keeps its length and its line numbers, so a detector that reports a line
+    still points at the line the reader saw.
+    """
+
+    def test_blanks_block_comment(self):
+        self.assertEqual(fus.strip_comments("a/* b */c"), "a       c")
+
+    def test_blanks_line_comment(self):
+        self.assertEqual(fus.strip_comments("a // b\nc"), "a     \nc")
 
     def test_kdoc_mention_not_counted(self):
         text = "/** See [FooScreen] for details. */\nfun FooScreen() = Unit"
         stripped = fus.strip_comments(text)
-        self.assertIn("FooScreen", stripped)
+        # The KDoc mention is blanked; the declaration is not.
+        self.assertEqual(stripped.count("FooScreen"), 1)
+        self.assertNotIn("[FooScreen]", stripped)
+
+    def test_nested_block_comment_is_one_comment(self):
+        """A `/* /* */ */` comment ends at the second `*/`, not the first.
+
+        The regex this replaced stopped at the first `*/`, so the tail of a
+        nested comment was read as code.
+        """
+        text = "a /* outer /* inner */ still comment */ b"
+        stripped = fus.strip_comments(text)
+        self.assertNotIn("outer", stripped)
+        self.assertNotIn("still comment", stripped)
+        self.assertTrue(stripped.startswith("a "))
+        self.assertTrue(stripped.endswith(" b"))
+
+    def test_line_comment_inside_string_literal_is_not_a_comment(self):
+        text = 'val url = "https://example.com" // trailing'
+        self.assertIn("https://example.com", fus.strip_comments(text))
 
 
 class TestDetectorTable(unittest.TestCase):

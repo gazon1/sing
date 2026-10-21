@@ -38,6 +38,7 @@ from pathlib import Path
 
 import yaml
 
+from scanners.maestro_flow import flow_tags_text
 from traceability import REPO_ROOT, ValidationError
 from traceability.links import SCENARIO_TAG_PREFIX
 from traceability.spec import ID_PATTERN, ScenarioSpec
@@ -189,27 +190,16 @@ def _declared_area(spec: ScenarioSpec) -> str:
 
 
 def _header_tags(text: str) -> list[str]:
-    """The ``tags:`` block of a flow header, the same shape ``scan_maestro`` reads.
+    """The ``tags:`` block of a flow header.
 
-    Parsed by hand rather than with ``yaml.safe_load`` because a flow file is a
-    header block, a ``---``, and a list of commands; loading the whole thing
-    would parse commands this module has no opinion about.
+    Read by `scanners.maestro_flow` — the same reader `run-maestro` filters
+    on and the same reader the traceability layer reads. This function used
+    to stop at the first ``---`` and read the rest of the file on its own
+    rules, so a flow whose tags block sits in a later document looked to the
+    suggester like a flow with no tags at all — and to the runner like a
+    flow with tags.
     """
-    tags: list[str] = []
-    in_tags = False
-    for line in text.splitlines():
-        if line.startswith("---"):
-            break
-        stripped = line.strip()
-        if stripped == "tags:":
-            in_tags = True
-            continue
-        if in_tags:
-            if stripped.startswith("- "):
-                tags.append(stripped[2:].strip())
-            else:
-                break
-    return tags
+    return flow_tags_text(text)
 
 
 def _count_commands(text: str) -> int:

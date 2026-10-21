@@ -39,6 +39,7 @@ import subprocess
 import sys
 
 import click
+
 from sgate.commands.base import run
 
 CLEAN = 0

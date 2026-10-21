@@ -247,6 +247,11 @@ A third brace matcher sits in `scripts/src/scanners/test_classes.py:218-228`
 the third brace matcher. The `find-unwired-surfaces` change needs a re-run against its
 allowlist (the ADR records that AST and regex agreed on P4, so the check is cheap).
 
+**Status: DONE 2026-10-21** (issues #773, #774, #775). Both scripts read `scanners.source_text`; the
+second brace matcher in `test_classes.py` is gone, and the class body is now read with
+`source_text.line_depths`. Measured on the corpus: 1676 Kotlin files, 447 test classes,
+**0 differences** in the inventory. The dependency gate's blind spot is gone with it.
+
 ### F6 — Two hand-rolled parsers of the Maestro `tags:` header disagree
 
 `scripts/src/traceability/links.py:268-274` scans the **whole file** and treats every
@@ -257,6 +262,19 @@ stops at the **first** `---`. The docstring of the second says "the same shape
 A flow whose `tags:` block sits after a `---` is found by one and not the other.
 
 **Verdict: CONSOLIDATE** — one reader, and a test that asserts the other agrees.
+
+**Status: DONE 2026-10-21** (issues #773, #774, #775). The reader is `scanners/maestro_flow.py`, and
+it is the *runner's* rule — the runner is what filters on a tag, so a reader that
+disagrees with it is wrong about a fact the runner acts on. The runner
+(`emulator/maestro/_flow.py`), the traceability scanner (`traceability/links.py`) and
+the suggester (`traceability/maestro_suggest.py`) all read it now, and
+`scripts/tests/test_maestro_flow_reader.py` asserts that they agree against the real
+flows. Measured: 105 flows, **0 differences** — and the old Python reader and the old
+shell reader agree with it on all 105 as well.
+
+A fourth copy was found while consolidating: `scripts/maestro-flow-tags.sh`, a shell
+implementation of the same reader with no caller left. It is a deletion, not a
+consolidation, and it goes with the dead code of the next round.
 
 ### F7 — `workflow_gradle.py` is the right pattern, applied to half the callers
 
@@ -279,6 +297,12 @@ rule, two copies. `check-gate-wiring.py:2099` additionally defines a third notio
 
 **Verdict: CONSOLIDATE (partially)** — reuse the shared continuation join. The task-name
 rule is genuinely a different question over a different corpus and may stay separate.
+
+**Status: DONE 2026-10-21** (issue #775), for the join only. The rule is now public —
+`workflow_gradle.join_continuations` — and `check-gate-wiring.py` calls it instead of
+carrying a second copy of the regex. The task-name rule stays separate: it is a
+different question over a different corpus, and merging it would have changed what
+that gate measures.
 
 ### F8 — `emulator`/`maestro` re-export layers with no callers
 
@@ -525,9 +549,9 @@ work without reading this document:
 
 | Finding | Issue | Shape of the work |
 |---|---|---|
-| F5 | [#773](https://github.com/gazon1/sing/issues/773) | three Kotlin comment-strippers become one canonical scanner |
-| F6 | [#774](https://github.com/gazon1/sing/issues/774) | two Maestro `tags:` header readers that disagree become one |
-| F7 | [#775](https://github.com/gazon1/sing/issues/775) | the third Gradle invocation caller uses the shared parser |
+| F5 | [#773](https://github.com/gazon1/sing/issues/773) | three Kotlin comment-strippers become one canonical scanner — **done 2026-10-21** |
+| F6 | [#774](https://github.com/gazon1/sing/issues/774) | two Maestro `tags:` header readers that disagree become one — **done 2026-10-21** |
+| F7 | [#775](https://github.com/gazon1/sing/issues/775) | the third Gradle invocation caller uses the shared parser — **done 2026-10-21** |
 | F8 | [#776](https://github.com/gazon1/sing/issues/776) | dead `emulator` exports and the `maestro` aliases |
 | F9 (round 2) | [#769](https://github.com/gazon1/sing/issues/769) | the last two contract holes: `handle_result`, `adr_status_policy` |
 | F9 (round 2) | [#770](https://github.com/gazon1/sing/issues/770) | one owner for stdout: the contract becomes a mode |
@@ -536,6 +560,49 @@ work without reading this document:
 | F12 | [#777](https://github.com/gazon1/sing/issues/777) | `measure-baseline-composition.py`: wire it or delete it |
 | F13 | [#778](https://github.com/gazon1/sing/issues/778) | 12 gate scripts have no unit test |
 | — | [#772](https://github.com/gazon1/sing/issues/772) | `sgate run-all` should read the payload, not only the exit code |
+### What the fourth round of fixes changed (F5, F6, F7)
+
+**One implementation per question.** Four questions in this repository had two answers,
+and every divergence had a quiet direction:
+
+| Question | Before | After |
+|---|---|---|
+| what does this Kotlin file say, minus its comments | two private regexes | `scanners.source_text` |
+| where does this class body end | a second brace counter | `scanners.source_text.line_depths` |
+| what tags does this Maestro flow declare | three readers (two Python, one shell) | `scanners.maestro_flow` |
+| which command does this continued block run | two copies of the continuation regex | `workflow_gradle.join_continuations` |
+
+**The dependency gate's blind spot is gone with it.** `check-dependency-usage.py`
+stripped comments with a regex that did not know a `//` inside a string literal is not
+a comment. Everything after that quote on the line disappeared — including a real
+reference to the dependency — so the gate under-reported usage and a used dependency
+could look unused. It now reads the canonical reader.
+
+**The corpus did not move, and that is the measurement.** 1676 Kotlin files and 447
+test classes: the inventory before and after is identical. 105 Maestro flows: the tags
+before and after are identical — and the old Python reader and the old shell reader
+agree with the new one on all 105 as well. The change is in the failure direction, not
+in the answers.
+
+**The consolidation had a cost, and CI found it.** The canonical Kotlin reader
+is a character walk, and it costs 36× what the regexes it replaced cost (2.5 s
+against 0.07 s over 1654 files). `unwired surfaces` went from 39 s to 61 s in
+CI — inside its budget, but not invisible.
+
+The bigger cost was a pre-existing fragility this round walked into: the
+static job has no Gradle home to restore, so `declared dependencies are used`
+— the one gate that resolves the build — downloaded the distribution and
+resolved every configuration on every run. It measured 113 s on a good day and
+was killed at the 300 s budget on a bad one, with the same tree and the same
+code. The static job now restores the Gradle cache, and the gate has a budget
+of its own (540 s, under the job's ten-minute cap).
+
+**One reader found that the audit had not named.** `scripts/maestro-flow-tags.sh` — a
+shell implementation of the Maestro tag reader — has no caller left. The runner moved
+to Python and took the shell file's job with it. It is a deletion, and it goes with
+the rest of the dead code in the next round rather than in this one.
+
+ADR: `docs/decisions/2026-10-21-one-implementation-per-question.md`.
 
 
 ## What was measured and rejected
@@ -562,8 +629,9 @@ it consolidates code.
 3. **Delete the dead aliases** (F8) and `measure-baseline-composition.py`'s status
    (F12) — no behaviour change, verified by the existing 1202 tests.
 4. **Add the two meta-gate tests** (F13).
-5. **Consolidate the scanners and the Gradle parser** (F5, F7) — each needs a
-   before/after corpus measurement.
+5. ~~**Consolidate the scanners and the Gradle parser** (F5, F7)~~ — **done 2026-10-21**
+   (issues #773, #774, #775), together with F6. Each was measured against the corpus before and after:
+   1676 files / 447 test classes and 105 flows, zero differences.
 6. ~~**Consolidate the adapters** (F9)~~ — **done 2026-10-20**. Four adapters read
    their producer's JSON contract instead of scraping its prose; two producers gained
    the `--json` branch they needed to offer it; the fifth adapter was an orphan of a
@@ -578,12 +646,12 @@ measure, so each needs its own before/after measurement.
 
 Two changes, in this order, each with its own measurement:
 
-1. **F5 + F6 + F7 — one implementation of each question.** Point the two Kotlin
-   strippers at `scanners/source_text.py`; give the two Maestro header readers one
-   implementation; use `workflow_gradle.iter_invocations` in the third caller. Each
-   needs a before/after corpus measurement, because all three change what a gate
-   *sees* — and one of them (`check-dependency-usage.py`) currently under-reports,
-   so the count of findings may go up before it goes down.
+1. ~~**F5 + F6 + F7 — one implementation of each question.**~~ — **done 2026-10-21**
+   (issues #773, #774, #775). The two Kotlin strippers read `scanners/source_text.py`; the class body is
+   read with `source_text.line_depths`; the Maestro tag reader is `scanners/maestro_flow.py`
+   and all three consumers read it; the continuation join is
+   `workflow_gradle.join_continuations`. Measured before and after on the corpus:
+   zero differences, and the dependency gate's under-reporting is fixed.
 2. **F8 + F12 — delete what nothing calls.** Seven dead `emulator` exports, the
    `maestro/_device.py` aliases, `AdbCall` (~90 lines), and either a `just` recipe
    for `measure-baseline-composition.py` or the file itself. No behaviour change;
@@ -601,9 +669,9 @@ first impression:
 
 | Finding | What is left | Size | Risk if done |
 |---|---|---|---|
-| F5 | 3 Kotlin comment-strippers; the canonical one is `scanners/source_text.py` (404 lines) | 2 scripts × ~15 lines each | low — a corpus measurement before/after decides it |
-| F6 | 2 Maestro `tags:` header parsers that disagree | ~30 lines | low — one reader, one test that asserts the other agrees |
-| F7 | the shared Gradle parser used by 2 of 3 callers | ~10 lines | low — the third caller uses a different question |
+| F5 | ~~3 Kotlin comment-strippers~~ — done 2026-10-21 (#773) | — | done: `scanners/source_text` reads Kotlin for both scripts |
+| F6 | ~~2 Maestro `tags:` header parsers that disagree~~ — done 2026-10-21 (#774) | — | done: `scanners/maestro_flow.py`, one reader, three consumers |
+| F7 | ~~the shared Gradle parser used by 2 of 3 callers~~ — done 2026-10-21 (#775) | — | done for the join; the task-name rule stays separate by design |
 | F8 | 7 dead `emulator` exports, `maestro/_device.py` aliases, `AdbCall` (~90 lines) | ~120 lines | low — no behaviour change; 1202 tests cover the rest |
 | F10, F11 | 2 registries → 1 manifest; 3 placement tables → 1 | large | **high** — every gate name and mode moves |
 | F12 | 1 script with no caller | 1 file | low — delete or wire into a `just` recipe |
