@@ -634,6 +634,17 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     override suspend fun listAllTagsForUser(userId: String): List<TaskTagCrossRef> = error("not implemented")
 
     override suspend fun archiveCompletedForUser(ts: Long, userId: String): Int = error("not implemented")
+
+    // The profile wipe is driven by the fake repository's own store, so the DAO
+    // side of it is not exercised here — the same reason the other unused
+    // statements above answer "not implemented".
+    override suspend fun deleteAllForUser(userId: String): Int = error("not implemented")
+
+    override suspend fun deleteTagRefsForUser(userId: String): Int = error("not implemented")
+
+    override suspend fun deleteDependenciesForUser(userId: String): Int = error("not implemented")
+
+    override suspend fun deleteChecklistItemsForUser(userId: String): Int = error("not implemented")
 }
 
 open class FakeTaskRepository(
@@ -766,6 +777,21 @@ open class FakeTaskRepository(
     override suspend fun upsert(task: Task): Task {
         store.upsert(task)
         return task
+    }
+
+    /**
+     * Removes every task of the current profile, archived ones included.
+     *
+     * The fake mirrors production: a hard delete of every row the profile owns,
+     * not a sweep of the live ones. The archived tasks are exactly the rows a
+     * live sweep leaves behind, so a fake that swept them would hide the defect
+     * this operation exists to fix.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val uid = currentUserId()
+        val doomed = store.values().filter { it.userId == uid }
+        doomed.forEach { store.remove(it.id.value) }
+        doomed.size
     }
 
     // ── Domain-specific user-scoped observers ────────────────────────────────────
@@ -1549,6 +1575,20 @@ class FakeProjectsRepository(
         return project
     }
 
+    /**
+     * Removes every project of the current profile, deleted ones included.
+     *
+     * The fake mirrors production: a hard delete of every row the profile owns,
+     * not a sweep of the live ones. The deleted projects are exactly the rows a
+     * live sweep leaves behind.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val doomed = store.values().filter { it.userId == uid }
+        doomed.forEach { store.remove(it.id.value) }
+        doomed.size
+    }
+
     // ─── SoftDeletable ───────────────────────────────────────────────────────
 
     override suspend fun restore(id: ProjectId): Result<Unit> {
@@ -1955,6 +1995,21 @@ open class FakeNotesRepository(
                 ?: throw NoSuchElementException("Note $id not found or not owned by current user")
             store.upsert(existing.copy(deletedAt = clock.now()))
         }
+    }
+
+    /**
+     * Removes every note of the current profile, deleted and archived ones
+     * included.
+     *
+     * The fake mirrors production: a hard delete of every row the profile owns,
+     * not a sweep of the live ones. The deleted and archived notes are exactly
+     * the rows a live sweep leaves behind.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val doomed = store.values().filter { it.userId == uid }
+        doomed.forEach { store.remove(it.id.value) }
+        doomed.size
     }
 
     // ─── SoftDeletable ─────────────────────────────────────────────────────
@@ -2604,6 +2659,20 @@ class FakeSavedAgendaViewsRepository(
     override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         store.update { map -> map - SavedAgendaViewKey.of(uid.value, id.raw) }
+    }
+
+    /**
+     * Removes every saved view of the current profile.
+     *
+     * The scope is the current profile's scoped user id, so another profile's
+     * views are left alone — the same isolation production's `user_id` predicate
+     * gives.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value.value
+        val doomed = store.value.values.filter { it.userId.value == uid }
+        store.update { map -> map.filterValues { it.userId.value != uid } }
+        doomed.size
     }
 
     /** Synchronous upsert for tests. */

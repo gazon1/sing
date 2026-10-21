@@ -5,8 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.SecureSessionStore
+import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.fold
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.core.ids.UserId
@@ -59,8 +61,9 @@ import kotlinx.datetime.toLocalDateTime
  *   task, note and project in the active profile whose title/name starts with
  *   any of the given prefixes. Comma-separated so one link can sweep several
  *   fixture families.
- * - `reset=content` — deletes instead of seeding: removes every task, note and
- *   project in the active profile, keeping the profile and session. For fixtures
+ * - `reset=content` — deletes instead of seeding: removes every task, note,
+ *   project and saved agenda view in the active profile — archived, trashed and
+ *   soft-deleted rows included — keeping the profile and session. For fixtures
  *   a flow *typed* rather than seeded, which carry no run id for `cleanup=` to
  *   match. NOT concurrency-safe — it wipes other runs' in-flight fixtures too.
  * - `session=anonymous|signedout|signedin` — changes the *session*, not the content:
@@ -253,6 +256,8 @@ class DebugSeedActivity :
         val taskRepo: TaskRepository by inject()
         val notesRepo: NotesRepository by inject()
         val projectsRepo: ProjectsRepository by inject()
+        val agendaViewsRepo: SavedAgendaViewsRepository by inject()
+        val draftStore: DraftStore by inject()
         val profileRepo: ProfileRepository by inject()
         val currentUser: ProfileAwareCurrentUser by inject()
 
@@ -272,6 +277,8 @@ class DebugSeedActivity :
                 taskRepo = taskRepo,
                 notesRepo = notesRepo,
                 projectsRepo = projectsRepo,
+                agendaViewsRepo = agendaViewsRepo,
+                draftStore = draftStore,
             )
             return
         }
@@ -383,13 +390,19 @@ class DebugSeedActivity :
     }
 
     /**
-     * Removes every task, note and project in the active profile, keeping the
-     * profile, the session and the auth state intact.
+     * Removes every task, note, project and saved agenda view in the active
+     * profile, keeping the profile, the session and the auth state intact.
      *
      * This is the escape hatch for fixtures that a flow creates by *typing* a
      * title rather than seeding it: those carry no run id, so the prefix sweep
      * cannot find them, and they accumulate until a negative flow (one asserting
      * an empty list) starts failing because a previous run's row is still there.
+     *
+     * The repositories are asked to empty the profile rather than swept row by
+     * row, and the difference is the whole point: a sweep of the *live* rows
+     * leaves every archived, trashed and soft-deleted row behind, and those are
+     * exactly the rows a previous run left — they show up in the next run's
+     * trash, or in its archived list, as if the run had never happened.
      *
      * **Not concurrency-safe by construction.** Wiping all content deletes another
      * run's in-flight fixtures too. Use it for sequential runs — or to recover a
@@ -399,11 +412,28 @@ class DebugSeedActivity :
         taskRepo: TaskRepository,
         notesRepo: NotesRepository,
         projectsRepo: ProjectsRepository,
+        agendaViewsRepo: SavedAgendaViewsRepository,
+        draftStore: DraftStore,
     ) {
         var removed = 0
-        taskRepo.observeAll().first().forEach { taskRepo.delete(it.id).onSuccess { removed++ } }
-        notesRepo.observeAll().first().forEach { notesRepo.delete(it.id).onSuccess { removed++ } }
-        projectsRepo.observeAll().first().forEach { projectsRepo.delete(it.id).onSuccess { removed++ } }
+        taskRepo.deleteAllForCurrentProfile()
+            .onSuccess { removed += it }
+            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on tasks", it) }
+        notesRepo.deleteAllForCurrentProfile()
+            .onSuccess { removed += it }
+            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on notes", it) }
+        projectsRepo.deleteAllForCurrentProfile()
+            .onSuccess { removed += it }
+            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on projects", it) }
+        agendaViewsRepo.deleteAllForCurrentProfile()
+            .onSuccess { removed += it }
+            .onFailure { android.util.Log.e("DebugSeedActivity", "reset(content) failed on agenda views", it) }
+        // The drafts live outside the database — in the app's DataStore — and
+        // they are content too: a form that restores its draft hands the next
+        // flow the previous flow's text, and a flow that types into the field
+        // then appends to it instead of writing the title it meant to write.
+        // A database-wide reset cannot reach them.
+        draftStore.clearPrefix("")
         android.util.Log.i("DebugSeedActivity", "reset(content) removed $removed entities")
     }
 

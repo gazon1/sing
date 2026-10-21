@@ -274,6 +274,53 @@ class TaskRepositoryImpl(
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
 
+    /**
+     * Hard-deletes every task of the active profile, archived ones included.
+     *
+     * ## Why the delete travels to the server as an archive
+     *
+     * The rows are gone locally — that is the point of the wipe — but the server
+     * still holds them, and this codebase has no tombstone: a delete travels as
+     * state (`archivedAt`), which is what `softDelete` pushes. So every removed
+     * task is enqueued as archived, and the server's copy says what the local
+     * wipe means. Enqueueing nothing would leave the server calling them live,
+     * and the next pull would bring them back.
+     *
+     * The snapshot is taken *before* the delete: afterwards the rows are gone and
+     * there is nothing left to describe.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val doomed = taskDao.listAllForUser(uid)
+            // The tag and dependency lists are read while they still exist: the
+            // pushed copy of a wiped task is a faithful one, not a task that
+            // never had tags.
+            val tagRefs = taskDao.listAllTagsForUser(uid)
+                .groupBy { it.taskId }
+                .mapValues { (_, rows) -> rows.map { TagId.fromString(it.tagId) } }
+            val depRefs = taskDao.listAllDependenciesForUser(uid)
+                .groupBy { it.taskId }
+                .mapValues { (_, rows) -> rows.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
+            val now = clock.now()
+            // The cross-references first: they carry no owner column of their
+            // own, so the tasks they point at can be deleted without taking them
+            // along.
+            taskDao.deleteTagRefsForUser(uid)
+            taskDao.deleteDependenciesForUser(uid)
+            taskDao.deleteChecklistItemsForUser(uid)
+            val removed = taskDao.deleteAllForUser(uid)
+            doomed.forEach { row ->
+                val task = row.toTask(
+                    tags = tagRefs[row.id].orEmpty(),
+                    dependsOn = depRefs[row.id].orEmpty(),
+                )
+                syncRepository.enqueue(task.copy(archivedAt = task.archivedAt ?: now))
+            }
+            removed
+        }
+    }
+
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
     override suspend fun upsert(task: Task): Task {

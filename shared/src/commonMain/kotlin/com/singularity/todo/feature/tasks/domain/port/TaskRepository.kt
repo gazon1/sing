@@ -46,6 +46,32 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
 
     // ── Domain-specific ─────────────────────────────────────────────────────────
 
+    /**
+     * Hard-deletes every task the active profile owns — archived and trashed
+     * tasks included — and reports how many rows went.
+     *
+     * ## Why this exists
+     *
+     * A sweep that enumerates [observeAll] cannot empty a profile: `observeAll`
+     * reports the live tasks only, so every archived task survives the sweep and
+     * turns up in the next run's trash — the previous run's state, seen by the
+     * next one. This is the one operation that reaches the rows no live read
+     * sees.
+     *
+     * The rows are gone for good rather than archived: the archive is how a
+     * *finished* task is kept, and it is exactly what makes a wiped profile
+     * still show rows.
+     *
+     * ## What it does not do
+     *
+     * It touches nothing outside the active profile: the scope is the current
+     * profile's scoped user id, which is what every row of that profile
+     * carries. The profile and the session are left alone.
+     *
+     * @return the number of rows removed.
+     */
+    suspend fun deleteAllForCurrentProfile(): Result<Int>
+
     suspend fun softDelete(id: TaskId): Result<Unit>
     suspend fun toggleComplete(id: TaskId): Result<Unit>
     suspend fun togglePinned(id: TaskId): Result<Unit>

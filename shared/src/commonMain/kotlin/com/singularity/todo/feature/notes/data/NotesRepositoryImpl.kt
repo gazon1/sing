@@ -100,6 +100,36 @@ class NotesRepositoryImpl(
 
     // ─── SoftDeletable ────────────────────────────────────────────────────────
 
+    /**
+     * Hard-deletes every note of the active profile, deleted and archived ones
+     * included.
+     *
+     * ## Why the delete travels to the server as a deletion
+     *
+     * The rows are gone locally — that is the point of the wipe — but the server
+     * still holds them, and this codebase has no tombstone: a note's deletion
+     * travels as state (`deletedAt`), which is what `softDelete` pushes. So every
+     * removed note is enqueued as deleted, and the server's copy says what the
+     * local wipe means. Enqueueing nothing would leave the server calling them
+     * live, and the next pull would bring them back.
+     *
+     * The snapshot is taken *before* the delete: afterwards the rows are gone and
+     * there is nothing left to describe.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val doomed = noteDao.listAllForUser(uid)
+            val now = clock.now()
+            val removed = noteDao.deleteAllForUser(uid)
+            doomed.forEach { row ->
+                val note = row.toNote()
+                syncRepository.enqueue(note.copy(deletedAt = note.deletedAt ?: now))
+            }
+            removed
+        }
+    }
+
     override suspend fun restore(id: NoteId): Result<Unit> = runCatchingCancellable {
         unitOfWork.write {
             val rows = noteDao.restoreForUser(
