@@ -150,6 +150,10 @@ class DefaultSearchQueryResolver(
         var negationDepth: Int = 0
 
         fun addText(t: String, negated: Boolean) {
+            // F1 — the free text of a query is a list of terms. One term is one
+            // `HasText` condition, and the terms are collected here and handed to the
+            // rule as one object, so every kind of record is matched by the same
+            // terms.
             if (freeText.isNotBlank()) freeText += " "
             freeText += t
             freeTextTerms += FreeTextRule.Term(text = t, negated = negated)
@@ -158,7 +162,7 @@ class DefaultSearchQueryResolver(
         /**
          * The free-text rule this query states.
          *
-         * The terms are alternatives when the query contains an `OR` — the same
+         * The terms are alternatives when the query contains an `OR` (F4) — the same
          * connective the task post-filter uses to combine its predicates, so tasks
          * and the other kinds are combined the same way.
          */
@@ -247,25 +251,46 @@ class DefaultSearchQueryResolver(
             ctx.resolvedTagIds.add(entity.id)
             ctx.addPostFilter { task -> task.tags.any { it.value == entity.id } }
         } else {
+            // C3 — an unresolvable name is not a parse error. It resolves to no rows.
             ctx.unknownTagNames.add(c.tagName)
             ctx.addPostFilter { false }
         }
     }
 
+    /**
+     * C1 — `tag:` accumulates. Every name has to be on the task.
+     *
+     * C3 decides what an unresolvable name means here. The name is not a parse error,
+     * but it *is* a name that cannot be satisfied, so the condition selects no rows —
+     * not the rows that carry the names that did resolve. A query that names one tag
+     * that exists and one that does not asks for tasks that carry both, and there are
+     * none.
+     *
+     * The alternative — matching the tags that did resolve — is a filter that answers a
+     * question the user did not ask, and it is the reason the single-tag path and the
+     * accumulating path have to agree: `tag:work tag:missing` and `tags:work,missing`
+     * are the same query, and one of them matching work-tasks while the other does not
+     * would be a rule with two answers.
+     */
     private suspend fun handleHasAllTags(c: Condition.HasAllTags, ctx: ResolveContext) {
         val ids = mutableSetOf<String>()
+        var unresolved = false
         for (tagName in c.tagNames) {
             val entity = tagLookup.findByName(ctx.userId, tagName)
             if (entity != null) {
                 ids.add(entity.id)
             } else {
                 ctx.unknownTagNames.add(tagName)
+                unresolved = true
             }
         }
         if (ids.isNotEmpty()) {
             ctx.resolvedTagIds.addAll(ids)
             ctx.addPostFilter { task -> ids.all { id -> task.tags.any { it.value == id } } }
-        } else if (c.tagNames.isNotEmpty()) {
+        }
+        if (unresolved) {
+            // C3 — an unresolvable name is not a parse error. One unresolvable name
+            // is enough: the condition matches nothing.
             ctx.addPostFilter { false }
         }
     }
@@ -276,6 +301,7 @@ class DefaultSearchQueryResolver(
             ctx.resolvedProjectId = entity.id
             ctx.addPostFilter { task -> task.projectId?.value == entity.id }
         } else {
+            // C3 — an unresolvable name is not a parse error. It resolves to no rows.
             ctx.unknownProjectNames.add(c.name)
             ctx.addPostFilter { false }
         }

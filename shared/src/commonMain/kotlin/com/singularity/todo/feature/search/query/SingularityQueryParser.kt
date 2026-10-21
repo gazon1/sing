@@ -47,6 +47,9 @@ class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).
         },
 
         // ── Single tag ────────────────────────────────────────────────────────
+        // C2 — names and text are taken literally after the prefix. `tag:work` is the
+        // tag named `work`. Resolving that name to an id happens later, in the
+        // resolver, against the database.
         ConditionMatch(Regex("""^-?tag:(\S+)$""")) { m ->
             val tagName = m.groupValues[1]
             if (m.groupValues[0].startsWith("-")) {
@@ -57,6 +60,8 @@ class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).
         },
 
         // ── Multi-tag (AND) ────────────────────────────────────────────────────
+        // The explicit spelling of what C1 makes implicit: repeated `tag:` words
+        // accumulate into the same one `HasAllTags` condition.
         ConditionMatch(Regex("""^-?tags:(.+)$""")) { m ->
             val tagNames = m.groupValues[1].split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
             if (m.groupValues[0].startsWith("-")) {
@@ -67,6 +72,8 @@ class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).
         },
 
         // ── Project ───────────────────────────────────────────────────────────
+        // C2 — names and text are taken literally after the prefix. `project:Plans` is
+        // the project named `Plans`, not a lookup that ignores case.
         ConditionMatch(Regex("""^project:(\S+)$""")) { m ->
             Condition.InProject(m.groupValues[1])
         },

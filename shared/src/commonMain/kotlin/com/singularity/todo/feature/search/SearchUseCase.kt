@@ -99,12 +99,17 @@ class SearchUseCase(
 
         // ── Notes, projects, tags ───────────────────────────────────────────────
         //
-        // The same rule the tasks were matched by. Each kind supplies its own
-        // searchable text — a note by its title (the notes repository searches titles
-        // only, `watchSearchByTitle`), a project or a tag by its name — and the rule
-        // decides which records the terms select.
+        // The same rule the tasks were matched by.
+        //
+        // F3 — the searchable text of a record is the kind's own. A note is searched
+        // by its title (the notes repository searches titles only,
+        // `watchSearchByTitle`), a project or a tag by its name — and the rule decides
+        // which records the terms select.
         val rule = resolved.freeTextRule
 
+        // F5 — a query with no free text selects no note, project or tag. The
+        // structured terms of a query are filters over tasks, and there is no
+        // free-text part to match anything else with.
         val noteFlow = noteRepo.observeAll().map { notes ->
             if (rule.isEmpty) {
                 emptyList()

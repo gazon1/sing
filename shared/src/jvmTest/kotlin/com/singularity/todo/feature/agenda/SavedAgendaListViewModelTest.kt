@@ -215,6 +215,12 @@ private class FakeRepo(views: List<SavedAgendaView>, private val deleteFail: Exc
 
     override suspend fun currentUserId(): String = "test-user"
 
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val before = store.value.size
+        store.value = emptyList()
+        before
+    }
+
     override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> =
         runCatchingCancellable {
             val now = fakeNow

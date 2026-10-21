@@ -13,7 +13,7 @@ package com.singularity.todo.feature.search.query
  *
  * [spec]: ../../../../../../../docs/specs/search-query-grammar.md
  *
- * Grammar, with precedence `NOT` > `AND` > `OR` (G1):
+ * Grammar, with precedence `NOT` > `AND` > `OR`:
  *
  * ```
  * expression  := disjunction
@@ -31,17 +31,20 @@ package com.singularity.todo.feature.search.query
  *
  * ## Two rules that a conventional parser gets wrong
  *
+ * **G1 — precedence is `NOT` > `AND` > `OR`.** `a or b and c` is `OR(a, AND(b, c))`, not
+ * `AND(OR(a, b), c)`.
+ *
  * **G2 — conjunction is implicit.** `due:today priority:high` is two atoms, not a syntax
  * error. This is the shape users actually type, and requiring an explicit `AND` would
  * make the language read like a programming language rather than a search box. The loop
  * in [parseConjunction] therefore continues on a bare `Word`/`Quoted`/`LParen`/`Not`
  * token, not only on an explicit [QueryTokenizer.Token.And].
  *
- * **G3 — `NOT` binds the whole remaining expression.** `NOT a OR b` is `NOT(OR(a, b))`,
- * not `OR(NOT(a), b)`. The obvious recursive-descent shortcut — making `NOT` recurse into
- * the next *atom* — silently returns a superset of what the user asked for, which is the
- * worst failure mode a filter can have. [parseAtom] therefore recurses into
- * [parseDisjunction].
+ * **G3 — `NOT` binds the whole expression that follows it.** `NOT a OR b` is
+ * `NOT(OR(a, b))`, not `OR(NOT(a), b)`. The obvious recursive-descent shortcut — making
+ * `NOT` recurse into the next *atom* — silently returns a superset of what the user asked
+ * for, which is the worst failure mode a filter can have. [parseAtom] therefore recurses
+ * into [parseDisjunction].
  *
  * ## Flattening
  *
@@ -61,7 +64,8 @@ class ConditionExprParser(
 
     /** Parses the whole token list. Never throws — see G5 and G9. */
     fun parse(): Condition {
-        if (tokens.isEmpty()) return Condition.And(emptyList()) // G7
+        // G7 — an empty conjunction is a no-op, and matches everything.
+        if (tokens.isEmpty()) return Condition.And(emptyList())
         return parseDisjunction(0).condition
     }
 
@@ -97,13 +101,17 @@ class ConditionExprParser(
     private fun parseAtom(from: Int): Cursor {
         if (from >= tokens.size) return Cursor(Condition.And(emptyList()), from)
         return when (val token = tokens[from]) {
-            // G3 — the whole following expression, not just the next atom.
+            // G3 — `NOT` binds the whole expression that follows it. The expression,
+            // not just the next atom.
             is QueryTokenizer.Token.Not ->
                 parseDisjunction(from + 1).let { Cursor(Condition.Not(it.condition), it.position) }
 
             is QueryTokenizer.Token.LParen -> {
                 val inner = parseDisjunction(from + 1)
-                // G9 — a missing `)` is tolerated; parse as far as we got.
+                // G4 — parentheses override precedence. The group is parsed as a
+                // whole expression, so `(a or b) and c` is `AND(OR(a, b), c)`.
+                // G9 — an unclosed `(` is tolerated. The expression is parsed as far
+                // as it goes.
                 val afterClose = if (inner.peek() is QueryTokenizer.Token.RParen) {
                     inner.advanced().position
                 } else {
@@ -112,11 +120,14 @@ class ConditionExprParser(
                 Cursor(inner.condition, afterClose)
             }
 
-            // G5 — a word is a condition if a rule claims it, otherwise free text.
+            // G5 — a word that matches no condition rule is free text. A rule that
+            // claims it makes it a condition instead.
             is QueryTokenizer.Token.Word ->
                 Cursor(conditionFor(token.text) ?: Condition.HasText(token.text), from + 1)
 
-            // G6 — quoted is always free text, whatever it contains (R2).
+            // G6 — a quoted string is always free text, whatever it contains (R2).
+            // F1 — the free text of a query is a list of terms. A quoted string is one
+            // term, however many words it holds.
             is QueryTokenizer.Token.Quoted -> Cursor(Condition.HasText(token.text), from + 1)
 
             else -> Cursor(Condition.And(emptyList()), from)
@@ -139,7 +150,12 @@ class ConditionExprParser(
         return null
     }
 
-    /** G8 — collapse nested same-operator nodes and single-element nodes. */
+    /**
+     * G8 — nested same-operator nodes are flattened.
+     *
+     * `AND(a, AND(b, c))` becomes `AND(a, b, c)`, and a one-element node collapses to
+     * that element.
+     */
     private fun flatten(parts: List<Condition>, op: BoolOp): Condition {
         val flat = mutableListOf<Condition>()
         for (part in parts) {
@@ -149,9 +165,65 @@ class ConditionExprParser(
                 else -> flat += part
             }
         }
-        if (flat.isEmpty()) return Condition.And(emptyList()) // G7 — matches everything
-        if (flat.size == 1) return flat[0]
-        return if (op == BoolOp.AND) Condition.And(flat) else Condition.Or(flat)
+        val merged = if (op == BoolOp.AND) mergeTagConditions(flat) else flat
+        // G7 — an empty conjunction is a no-op, and matches everything.
+        if (merged.isEmpty()) return Condition.And(emptyList())
+        if (merged.size == 1) return merged[0]
+        return if (op == BoolOp.AND) Condition.And(merged) else Condition.Or(merged)
+    }
+
+    /**
+     * C1 — `tag:` accumulates.
+     *
+     * `tag:work tag:urgent` is one `HasAllTags`, not an implicit `AND` of two
+     * `HasTag`s. The distinction is visible in the AST and it matters to saved
+     * searches: a saved search compares conditions, and two conditions that mean the
+     * same thing are two conditions that compare unequal.
+     *
+     * ## What is merged, and what is not
+     *
+     * Only the *direct* tag conditions of one conjunction are merged, and only where
+     * the merge cannot change what the query means:
+     *
+     * - A negated tag is a `Not(HasTag)`, and `Not` is not a tag condition — so
+     *   `-tag:work tag:urgent` keeps two conditions. Merging them would say "has both
+     *   tags", which is the opposite of what the query says.
+     * - A disjunction is not a conjunction — `tag:work OR tag:urgent` is two
+     *   alternatives, and merging them would turn "either" into "both".
+     * - A single `tag:` stays a `HasTag`. The rule is about accumulation: one name is
+     *   not an accumulation.
+     *
+     * The merge is a normalisation, not a new meaning: `AND(HasTag(a), HasTag(b))` and
+     * `HasAllTags({a, b})` select the same tasks, so the query means the same thing
+     * before and after.
+     */
+    private fun mergeTagConditions(parts: List<Condition>): List<Condition> {
+        val tagParts = parts.filter { it is Condition.HasTag || it is Condition.HasAllTags }
+        if (tagParts.size < 2) return parts
+
+        val names = linkedSetOf<String>()
+        for (part in tagParts) {
+            when (part) {
+                is Condition.HasTag -> names += part.tagName
+                is Condition.HasAllTags -> names += part.tagNames
+                else -> Unit
+            }
+        }
+        val merged = Condition.HasAllTags(names)
+
+        val result = mutableListOf<Condition>()
+        var replaced = false
+        for (part in parts) {
+            if (part is Condition.HasTag || part is Condition.HasAllTags) {
+                if (!replaced) {
+                    result += merged
+                    replaced = true
+                }
+            } else {
+                result += part
+            }
+        }
+        return result
     }
 
     /**

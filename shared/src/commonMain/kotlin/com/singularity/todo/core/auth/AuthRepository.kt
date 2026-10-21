@@ -60,6 +60,22 @@ interface AuthRepository {
      * one, the instrumented stub, the fakes — is handed its session and never fails to
      * produce one. A default keeps that truth in one place instead of making a dozen
      * doubles each carry an event they can never fire.
+     *
+     * ## The flow completes when the restore window closes
+     *
+     * The report is published at most once, and only by the restore, so once the restore
+     * is over this flow has nothing more to say — and it says so by completing.
+     *
+     * That is what makes "there was no failure" an answerable question. A reader that
+     * waits for a report which will never come — `restoreFailures.firstOrNull()` in the
+     * view model — waits for the restore and then learns there was no failure, instead
+     * of waiting forever for an event that cannot exist. The wait is bounded by the
+     * restore, and the restore is bounded by
+     * [com.singularity.todo.core.coroutines.boundedRead].
+     *
+     * A reader that arrives *after* the window closed still learns what happened: a
+     * closed channel with a buffered element delivers that element first and completes
+     * afterwards.
      */
     val restoreFailures: Flow<Unit> get() = NoRestoreFailures
     suspend fun signUp(email: String, password: String): Result<Unit>
@@ -183,6 +199,14 @@ class SupabaseAuthRepository(
      * `Channel.BUFFERED` also keeps `trySend` from suspending, so the recovery path in
      * [restoreSession] cannot block on a subscriber — which would be a second way for a
      * broken store to stall the launch it is already recovering from.
+     *
+     * ## Why the channel is closed when the restore is over
+     *
+     * The restore runs once per repository instance, so the report can be published at
+     * most once and only by [restoreSession]. Closing the channel when that restore is
+     * over says exactly that, and it is what makes the absence of a failure an answer
+     * rather than an absence of information: a reader waiting for a report learns there
+     * was none instead of waiting forever for an event that cannot arrive.
      */
     private val _restoreFailures = Channel<Unit>(Channel.BUFFERED)
     override val restoreFailures: Flow<Unit> = _restoreFailures.receiveAsFlow()
@@ -296,8 +320,31 @@ class SupabaseAuthRepository(
         // the honest answer and "Continue Offline" is one tap away.
         if (outcome !is BoundedReadResult.Completed) {
             _currentSession.value = Session.SignedOut
-            _restoreFailures.trySend(Unit)
+            // The channel is still open here — it is closed by
+            // [closeRestoreFailureWindow] right after — so the report is buffered for a
+            // reader that arrives later, which is the whole point of a buffered channel.
+            val published = _restoreFailures.trySend(Unit)
+            if (published.isFailure) {
+                // The window is closed, so there is nowhere left to publish to. The
+                // restore runs once per repository instance, so this says the
+                // assumption behind [closeRestoreFailureWindow] no longer holds — and
+                // it says it out loud rather than dropping the report.
+                log.w { "A restore failure arrived after the failure window was closed" }
+            }
         }
+        closeRestoreFailureWindow()
+    }
+
+    /**
+     * Closes the window in which a restore failure can be reported.
+     *
+     * The restore runs once per repository instance, so the report can be published at
+     * most once and only by [restoreSession]. Closing the channel here says exactly
+     * that, and it is what turns "there was no failure" from something a reader has to
+     * guess into something it is told.
+     */
+    private fun closeRestoreFailureWindow() {
+        _restoreFailures.close()
     }
 
     /**
