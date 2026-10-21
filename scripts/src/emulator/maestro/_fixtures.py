@@ -43,7 +43,31 @@ def reset_session(serial: str, deps: "DeviceDeps") -> None:
 def cleanup_run_fixtures(
     serial: str, run_id: str, mode: str, deps: "DeviceDeps",
 ) -> None:
-    """Send cleanup deeplink to the app. Best-effort.
+    """Remove what the previous flow left on the device. Best-effort.
+
+    Three scopes, and the default is the one that makes the suite mean what
+    it says:
+
+    - ``all`` (default) — wipe every task, note and project in the active
+      profile. This is the only scope that gives each flow **its own data**:
+      the flows share one device and one database, so anything a flow leaves
+      behind is still there for the next one, and a flow that asserts an
+      empty list then fails on the *previous* flow's row.
+    - ``run`` — remove the rows whose title starts with the run id or with
+      ``Buy milk``. Narrower and faster, but the boundary is a *list of
+      titles*, and the suite keeps adding fixed titles to it: every one the
+      list forgets survives the run.
+    - ``off`` — send nothing.
+
+    Why ``all`` is the default and the seed activity's own warning about it
+    ("not concurrency-safe by construction") does not apply: the runner holds
+    a per-device lock for the whole run, so there is no second suite on the
+    device to wipe. See ``maestro._lock`` and the ADR
+    ``2026-10-21-each-flow-gets-a-clean-device.md``.
+
+    The wipe is scoped to the active profile — the profile, the session and
+    the auth state are left alone, and a flow that switched profiles is
+    cleaned while that profile is still active.
 
     Uses ``deps.adb_on`` so ``-s <serial>`` is present; see
     ``emulator/maestro/_artifacts.py`` for the failure this prevents.

@@ -114,7 +114,7 @@ def _report_is_fresh(report: Path, started_at: float) -> bool:
 @click.option("--maestro-max-retries", type=int, default=2,
               help="Max device-recovery retries per flow (default: 2)")
 @click.option("--maestro-cleanup", type=click.Choice(["run", "all", "off"]),
-              default="run", help="Fixture cleanup scope (default: run)")
+              default="all", help="Fixture cleanup scope (default: all)")
 @click.option("--junit-dir", "junit_dir", default=None,
               help="Directory for JUnit XML results (default: <repo>/build/maestro-results)")
 @click.option("--dry-run", is_flag=True,
@@ -329,8 +329,14 @@ def main(
         # The previous flow's leftovers go before this flow starts, not after
         # the failure is captured: the artifacts (screenshot, screen tree,
         # logcat) are what triage reads, and they are captured below.
-        if stale_run_id:
-            deps.cleanup_run_fixtures(serial, stale_run_id, maestro_cleanup, deps)
+        #
+        # In the default scope the device is wiped before *every* flow, the
+        # first one included: the device carries whatever the run before this
+        # one left on it, and a flow that asserts an empty list must not be
+        # able to see it. In the narrow scope there is nothing to wipe before
+        # the first flow, because the sweep only knows this run's titles.
+        if stale_run_id or maestro_cleanup == "all":
+            deps.cleanup_run_fixtures(serial, stale_run_id or "", maestro_cleanup, deps)
             stale_run_id = None
 
         # The session is reset before the flow, not after it: a flow that ends
@@ -352,7 +358,12 @@ def main(
 
         if ok:
             passed.append(flow_name)
-            deps.cleanup_run_fixtures(serial, run_id, maestro_cleanup, deps)
+            # The default scope wipes before every flow, so there is nothing
+            # to do here; the narrow scope has to sweep this flow's own rows
+            # now, because the next flow's sweep only knows the run id of the
+            # flow that *failed*.
+            if maestro_cleanup == "run":
+                deps.cleanup_run_fixtures(serial, run_id, maestro_cleanup, deps)
         else:
             failed.append(flow_name)
             deps.capture_artifacts(serial, flow_name, junit_path / flow_name, deps)
