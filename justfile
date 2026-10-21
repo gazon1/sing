@@ -108,6 +108,7 @@ alias trace-carrier  := traceability::trace-carrier
 # ----- Scripts shortcuts -----
 alias bench  := scripts::bench
 alias rd     := scripts::refresh-decisions
+alias baseline := scripts::baseline-composition
 
 # ==============================================================================
 # 🔧 Setup

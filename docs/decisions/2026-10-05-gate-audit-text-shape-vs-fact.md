@@ -169,8 +169,12 @@ run it", check whether the defect is in the part that actually needs running.
 ## Links
 
 - `config/test-fixtures/runnable-test-members.txt` — the shared contract
-- `scripts/maestro-flow-tags.sh` + `scripts/tests/test_maestro_flow_tags.py` —
-  the tag filter, extracted so it is testable without a device (#148)
+- `scripts/src/scanners/maestro_flow.py` + `scripts/tests/test_maestro_flow_reader.py` —
+  the tag filter, extracted so it is testable without a device (#148). The shell
+  file this decision names, `scripts/maestro-flow-tags.sh`, was deleted on
+  2026-10-21: the runner moved to Python and took the file's job with it, and
+  the reader is now one — `scanners/maestro_flow.py`, shared by the runner, the
+  traceability scanner and the suggester. The shell copy had no caller left.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestMember.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt`
 - `scripts/tests/test_runnable_test_members.py`
