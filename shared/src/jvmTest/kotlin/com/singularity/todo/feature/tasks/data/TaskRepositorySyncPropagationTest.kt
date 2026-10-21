@@ -63,6 +63,7 @@ class TaskRepositorySyncPropagationTest {
         )
         repo = TaskRepositoryImpl(
             taskDao = db.taskDao(),
+            ftsDao = db.ftsDao(),
             clock = Clock.System,
             currentUser = currentUser,
             syncRepository = sync,

@@ -198,8 +198,23 @@ condition. A quoted string is one term, however many words it holds: `"quarterly
 report"` is a single term and has to occur as written.
 
 **F2 — every term has to match.** A record matches the free text of a query iff
-every term of that free text occurs in the record's searchable text (F3).
+every term of that free text matches the record's searchable text (F3).
 Matching is case-insensitive.
+
+**F2a — a term matches a *word* of the searchable text by its beginning.** A
+term is split into words — runs of letters and digits — and matches when the
+record's words contain the term's words in order, where the last word of the
+term may be unfinished and the ones before it have to be complete. A one-word
+term is therefore a word-prefix match; a quoted phrase is a phrase whose last
+word may be unfinished.
+
+"arch" matches "architecture". "port" does **not** match "airport": the word
+"airport" does not begin with "port".
+
+This is the rule the full-text index implements — the index stores words, so it
+can only find the beginning of one — and the in-memory rule is the same rule,
+so that the two cannot answer differently. See
+`docs/decisions/2026-10-21-the-search-asks-the-index.md`.
 
 **F3 — the searchable text of a record is the kind's own.**
 
@@ -211,7 +226,7 @@ Matching is case-insensitive.
 | Tag | name |
 
 The rule does not change what is searchable. Each kind keeps its own surface, so
-the task list and the search screen cannot drift apart on what "contains" means.
+the task list and the search screen cannot drift apart on what a match means.
 
 **F4 — the terms are combined by the query's connective.** A query that contains
 an `OR` makes its terms alternatives: any of them may match. A query without one

@@ -63,12 +63,13 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     single<TaskRepository> {
         TaskRepositoryImpl(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
+            taskDao = get(),
+            ftsDao = get(),
+            clock = get(),
+            currentUser = get(),
+            syncRepository = get(),
+            unitOfWork = get(),
+            dependencyValidator = get(),
         )
     }
 

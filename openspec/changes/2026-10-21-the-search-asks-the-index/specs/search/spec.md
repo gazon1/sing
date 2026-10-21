@@ -1,0 +1,117 @@
+# The search asks the index, and the index narrows the rows — Observable Behavior
+
+**capability:** `search` | **status:** proposed
+
+---
+
+## ADDED Requirements
+
+### Requirement: REQ-SEARCH-001
+
+A text search **SHALL** return the records whose searchable text contains a word
+beginning with the term, and **MUST NOT** return the records that do not.
+
+**Rationale:** the search answers one question — "which records carry this
+word" — and it has to answer it the same way every time. A word that merely
+contains the term ("airport" for "port") is a different question, and answering
+it in one place but not the other is how a search starts to feel arbitrary.
+
+#### Scenario: A term finds the word that begins with it
+- A record's searchable text holds the word "architecture"
+- A search for "arch" is made
+- The record is returned
+
+#### Scenario: A term does not find a word that contains it
+- A record's searchable text holds the word "airport"
+- A search for "port" is made
+- The record is not returned
+
+---
+
+### Requirement: REQ-SEARCH-002
+
+A text search **SHALL** return the records of the profile that is asking, and
+**MUST NOT** return the records of another profile.
+
+**Rationale:** a search that crosses profiles is a leak, and a leak that only
+appears for one word is a leak nobody reports.
+
+#### Scenario: A search sees only the asking profile
+- Two profiles hold a record with the same word
+- A search for that word is made in one of them
+- Only the record of that profile is returned
+
+---
+
+### Requirement: REQ-SEARCH-003
+
+A record whose text changed **SHALL** be found under its new text and **MUST
+NOT** be found under its old text.
+
+**Rationale:** the index is a copy of the words of the records. A copy that is
+not in step is worse than no copy: the search would answer about a record that
+no longer exists in that form.
+
+#### Scenario: A renamed record follows its name
+- A record's text is changed
+- A search for the old text is made
+- The record is not returned
+- A search for the new text is made
+- The record is returned
+
+---
+
+### Requirement: REQ-SEARCH-004
+
+A search **SHALL** return the records that existed before the index was
+created, exactly as it returns the records written after it.
+
+**Rationale:** an index that starts empty loses records silently. The search
+would return fewer results than the profile holds, and nothing would report
+it: the user would conclude that the record is gone.
+
+#### Scenario: An old record is found
+- A record was written before the index existed
+- The index is created
+- A search for the word of that record is made
+- The record is returned
+
+---
+
+### Requirement: REQ-SEARCH-005
+
+The stored text of a record **SHALL** be kept once. The database **MUST NOT**
+hold a second copy of it.
+
+**Rationale:** a second copy doubles the storage of every record and is a
+second thing to keep in step with the first. The index of words is enough to
+answer a search; the words of the record are not.
+
+---
+
+### Requirement: REQ-SEARCH-006
+
+The time a search takes **SHALL NOT** grow in proportion to the number of
+records stored.
+
+**Rationale:** a search runs while the user types. A search whose cost grows
+with the number of records is a search that becomes unusable exactly when the
+profile has something worth searching for.
+
+#### Scenario: A search over many records stays as fast as over few
+- A profile holds many records
+- A search is made
+- The search reads the records that carry the word, not every record
+
+---
+
+### Requirement: REQ-SEARCH-007
+
+A search whose term holds no letters or digits **SHALL** return no records.
+
+**Rationale:** a term that cannot be a word cannot match a word. Returning
+every record for it would be the opposite of an answer.
+
+#### Scenario: A term of punctuation matches nothing
+- A search for a term of punctuation is made
+- No records are returned

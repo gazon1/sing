@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tags.data
 
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.toInstant
@@ -8,6 +9,7 @@ import com.singularity.todo.core.database.toInstantOrNull
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -25,6 +27,7 @@ import com.singularity.todo.core.database.UnitOfWork
  */
 class TagsRepositoryImpl(
     private val tagDao: TagDao,
+    private val ftsDao: FtsDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
@@ -36,6 +39,11 @@ class TagsRepositoryImpl(
     override fun observeAll(): Flow<List<Tag>> = currentUser.observeForCurrentUser { uid ->
         tagDao.watchAll(uid.value).map { list -> list.map { it.toTag() } }
     }
+
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Tag>> =
+        currentUser.observeForCurrentUser { uid ->
+            ftsDao.watchTags(uid.value, query).map { list -> list.map { it.toTag() } }
+        }
 
     override fun observe(id: TagId): Flow<Tag?> = currentUser.observeForCurrentUser { uid ->
         tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }

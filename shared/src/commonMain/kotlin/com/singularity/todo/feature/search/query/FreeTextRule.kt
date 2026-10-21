@@ -17,10 +17,16 @@ package com.singularity.todo.feature.search.query
  *
  * ## The rule
  *
- * - A **term** matches a record when the record's searchable text contains it,
+ * - A **term** matches a record when one of the record's words begins with it,
  *   case-insensitively. Which text is searchable belongs to the kind of record: a
  *   task is searched by title and description (`TaskFilter.Search`), a note by its
  *   title, a project or a tag by its name (F3).
+ *
+ *   The rule is a *word-prefix* rule because that is what the full-text index
+ *   implements — the index stores words, so it can only find the beginning of one
+ *   (F2a). The matcher lives in
+ *   [com.singularity.todo.core.search.TextMatch], and both the index and this
+ *   rule use it, so a record found by one is found by the other.
  * - The terms are combined by the query's connective (F4). A conjunction — the
  *   default, because §3 G2 makes juxtaposition a conjunction — requires **every**
  *   term to match (F2). A query that contains an `OR` makes the terms alternatives:
@@ -48,7 +54,7 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      * tasks (F5). Tasks are not filtered by an empty rule — the resolver adds no task
      * predicate for it at all, so the structured conditions decide on their own.
      *
-     * @param matchesTerm Answers whether one term occurs in the record's searchable
+     * @param matchesTerm Answers whether one term matches the record's searchable
      *   text. The caller supplies it because the searchable text belongs to the kind
      *   of record, not to the rule (F3).
      */
@@ -62,8 +68,8 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
         }
         // F4 — the terms are combined by the query's connective. `OR` makes the terms
         // alternatives, a conjunction makes them requirements.
-        // F2 — every term has to match. Matching is case-insensitive, which is the
-        // caller's half of the rule (F3).
+        // F2 — every term has to match. Matching is a word-prefix match and is
+        // case-insensitive, which is the caller's half of the rule (F3).
         return if (combinesWithOr) satisfied.any { it } else satisfied.all { it }
     }
 }

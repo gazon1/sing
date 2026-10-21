@@ -364,6 +364,18 @@ abstract class EntityMapperCompletenessTest {
         // reason. An entity in neither this map nor ENTITY_PARAMS is a hole in the gate,
         // not a fact about the schema — which is what the self-completeness test catches.
         private val UNMAPPED_ENTITIES = mapOf(
+            "TaskFtsEntity" to
+                "the full-text index of the tasks: a virtual table whose content is the " +
+                "tasks table itself, read through the index and never mapped to a domain model",
+            "NoteFtsEntity" to
+                "the full-text index of the notes: a virtual table whose content is the " +
+                "notes table itself, read through the index and never mapped to a domain model",
+            "ProjectFtsEntity" to
+                "the full-text index of the projects: a virtual table whose content is the " +
+                "projects table itself, read through the index and never mapped to a domain model",
+            "TagFtsEntity" to
+                "the full-text index of the tags: a virtual table whose content is the " +
+                "tags table itself, read through the index and never mapped to a domain model",
             "LlmUsageEntity" to
                 "usage rows are written by the recorder and read back as projections; " +
                 "no domain model, so there is no mapper to be incomplete",

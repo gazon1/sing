@@ -11,6 +11,7 @@ import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
+import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteDao
@@ -142,6 +143,7 @@ class FakeAppDatabase : AppDatabase() {
     override fun noteDao(): NoteDao = FakeNoteDao(_notes)
     override fun projectDao(): ProjectDao = FakeProjectDao(_projects)
     override fun tagDao(): TagDao = FakeTagDao(_tags)
+    override fun ftsDao(): FtsDao = FakeFtsDao(_tasks, _notes, _projects, _tags)
     override fun syncOutboxDao(): SyncOutboxDao = FakeSyncOutboxDao(_outbox)
     override fun syncDeadLetterDao(): SyncDeadLetterDao = FakeSyncDeadLetterDao(_deadLetter)
     override fun syncStateDao(): SyncStateDao = FakeSyncStateDao(_syncState)
@@ -383,6 +385,61 @@ class FakeAppDatabase : AppDatabase() {
 
 // ─── TaskDao ─────────────────────────────────────────────────────────────────
 
+/**
+ * The in-memory stand-in for the full-text index.
+ *
+ * The fake database has no index, so it answers a match expression by reading
+ * it — see [matchesFtsExpression]. The rule it answers with is the one the
+ * real index implements, so a test that passes here is a test about the
+ * behaviour and not about the fake.
+ */
+private class FakeFtsDao(
+    private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
+    private val notes: MutableStateFlow<Map<String, NoteEntity>>,
+    private val projects: MutableStateFlow<Map<String, ProjectEntity>>,
+    private val tags: MutableStateFlow<Map<String, TagEntity>>,
+) : FtsDao {
+
+    override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskEntity>> = tasks.map { map ->
+        map.values.filter { t ->
+            t.userId == userId && t.archivedAt == null &&
+                matchesFtsExpression(match, listOf(t.title, t.description))
+        }.sortedWith(compareBy({ t -> t.dueDate ?: "\uFFFF" }, { t -> !t.isPinned }))
+    }
+
+    override fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteEntity>> = notes.map { map ->
+        map.values.filter { n ->
+            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
+                matchesFtsExpression(match, listOf(n.title))
+        }.sortedByDescending { it.updatedAt }.take(20)
+    }
+
+    override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectEntity>> =
+        projects.map { map ->
+            map.values.filter { p ->
+                p.userId == userId && !p.isDeleted && matchesFtsExpression(match, listOf(p.name))
+            }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+        }
+
+    override fun watchTagsByMatch(userId: String, match: String): Flow<List<TagEntity>> = tags.map { map ->
+        map.values.filter { t ->
+            t.userId == userId && t.deletedAt == null && matchesFtsExpression(match, listOf(t.name))
+        }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    }
+
+    override suspend fun searchTaskTitlesByMatch(userId: String, match: String): List<TaskEntity> =
+        tasks.value.values.filter { t ->
+            t.userId == userId && t.archivedAt == null &&
+                matchesFtsExpression(match, listOf(t.title, t.description))
+        }.sortedByDescending { it.updatedAt }.take(20)
+
+    override suspend fun searchNoteTitlesByMatch(userId: String, match: String): List<NoteEntity> =
+        notes.value.values.filter { n ->
+            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
+                matchesFtsExpression(match, listOf(n.title))
+        }.sortedByDescending { it.updatedAt }.take(20)
+}
+
 private class FakeTaskDao(
     private val store: MutableStateFlow<Map<String, TaskEntity>>,
     private val crossRefs: MutableStateFlow<List<TaskTagCrossRef>>,
@@ -508,16 +565,6 @@ private class FakeTaskDao(
     override fun watchPinned(userId: String): Flow<List<TaskEntity>> = store.map {
         it.values.filter { t -> t.userId == userId && t.isPinned && t.archivedAt == null }
             .sortedWith(compareBy({ !it.isPinned }, { it.dueDate ?: "" }))
-    }
-
-    override fun watchSearchResults(userId: String, q: String): Flow<List<TaskEntity>> = store.map {
-        it.values.filter { t ->
-            t.userId == userId && t.archivedAt == null &&
-                (
-                    t.title.contains(q, ignoreCase = true) ||
-                        (t.description?.contains(q, ignoreCase = true) == true)
-                )
-        }
     }
 
     override suspend fun upsert(task: TaskEntity) {
@@ -686,10 +733,6 @@ private class FakeTaskDao(
 
     override fun observeDependencyCrossRefs(userId: String): Flow<List<TaskDependencyCrossRef>> = depRefs
 
-    override suspend fun searchTitles(userId: String, q: String): List<TaskEntity> = store.value.values.filter {
-        it.userId == userId && it.archivedAt == null && it.title.contains(q, ignoreCase = true)
-    }.sortedByDescending { it.updatedAt }.take(20)
-
     override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
@@ -776,13 +819,6 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
             .sortedWith(compareBy({ it.sortOrder }, { it.title }))
     }
 
-    override fun watchSearchByTitle(userId: String, q: String): Flow<List<NoteEntity>> = store.map { map ->
-        map.values.filter { n ->
-            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
-                n.title.contains(q, ignoreCase = true)
-        }.sortedByDescending { it.updatedAt }.take(20)
-    }
-
     override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<NoteEntity>> = store.map { map ->
         map.values.filter { n ->
             n.taskId == taskId && n.userId == userId && n.deletedAt == null
@@ -855,14 +891,6 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
 
     override suspend fun listAllForUser(userId: String): List<NoteEntity> =
         store.value.values.filter { it.userId == userId }
-
-    override suspend fun searchByTitle(userId: String, q: String): List<NoteEntity> = store.value.values.filter {
-        it.userId == userId && it.deletedAt == null && it.title.contains(
-            q,
-            ignoreCase = true,
-        )
-    }
-        .sortedByDescending { it.updatedAt }.take(20)
 
     override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }

@@ -26,6 +26,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
     single<ProjectsRepository> {
         ProjectsRepositoryImpl(
             projectDao = get(),
+            ftsDao = get(),
             inheritedTagGroupDao = get(),
             clock = get(),
             currentUser = get(),

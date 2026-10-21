@@ -55,6 +55,7 @@ class TagsReadIsolationTest {
 
     private fun repository(db: FakeAppDatabase) = TagsRepositoryImpl(
         tagDao = db.tagDao(),
+        ftsDao = db.ftsDao(),
         clock = Clock.System,
         currentUser = FakeProfileAwareCurrentUser(
             authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),

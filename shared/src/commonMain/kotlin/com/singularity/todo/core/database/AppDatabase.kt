@@ -48,7 +48,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 42
+const val SCHEMA_VERSION = 43
 
 /**
  * Room database for Android.
@@ -86,6 +86,10 @@ const val SCHEMA_VERSION = 42
         CalendarSyncStateEntity::class,
         GoogleEventShadowEntity::class,
         CalendarImportEventEntity::class,
+        TaskFtsEntity::class,
+        NoteFtsEntity::class,
+        ProjectFtsEntity::class,
+        TagFtsEntity::class,
     ],
     version = SCHEMA_VERSION,
     autoMigrations = [
@@ -138,6 +142,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
     abstract fun projectDao(): ProjectDao
     abstract fun tagDao(): TagDao
+
+    /** The full-text index over the searchable kinds. See [FtsDao]. */
+    abstract fun ftsDao(): FtsDao
     abstract fun syncOutboxDao(): SyncOutboxDao
     abstract fun syncDeadLetterDao(): SyncDeadLetterDao
     abstract fun syncStateDao(): SyncStateDao

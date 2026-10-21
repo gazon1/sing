@@ -38,6 +38,7 @@ import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
+import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
@@ -53,6 +54,7 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays
@@ -602,18 +604,6 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     override suspend fun getByIdForUser(id: String, userId: String): com.singularity.todo.core.database.TaskEntity =
         error("not implemented")
 
-    override fun watchSearchResults(
-        userId: String,
-        q: String,
-    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error(
-        "not implemented",
-    )
-
-    override suspend fun searchTitles(userId: String, q: String): List<com.singularity.todo.core.database.TaskEntity> =
-        error(
-            "not implemented",
-        )
-
     override suspend fun upsert(task: com.singularity.todo.core.database.TaskEntity) = error("not implemented")
 
     override suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
@@ -819,6 +809,21 @@ open class FakeTaskRepository(
                     )
             }
     }
+
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.onStart { emit(store.state.value) }
+                .map { map ->
+                    map.values.filter { it.userId == uid }
+                        .filter { task -> matchesTextMatch(query, task.title, task.description) }
+                        .sortedWith(
+                            compareBy({
+                                it.dueDate?.toString()
+                                    ?: "\uFFFF"
+                            }, { !it.isPinned }),
+                        )
+                }
+        }
 
     override fun observeByDate(date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
@@ -1530,6 +1535,14 @@ class FakeProjectsRepository(
         store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
     }
 
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && !it.isDeleted }
+                    .filter { project -> matchesTextMatch(query, project.name) }
+            }
+        }
+
     override suspend fun get(id: ProjectId): Project? {
         val uid = currentUser.scopedUserId.value
         return store[id.value]?.takeIf { it.userId == uid }
@@ -1712,6 +1725,14 @@ class FakeTagsRepository(
     override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        }
+
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<com.singularity.todo.feature.tags.Tag>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid }
+                    .filter { tag -> matchesTextMatch(query, tag.name) }
+            }
         }
 
     override suspend fun get(id: TagId): com.singularity.todo.feature.tags.Tag? {
@@ -1954,6 +1975,14 @@ open class FakeNotesRepository(
     ): Flow<com.singularity.todo.feature.notes.Note?> = currentUser.observeForCurrentUser { uid ->
         store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
     }
+
+    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<com.singularity.todo.feature.notes.Note>> =
+        currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && it.archivedAt == null && it.deletedAt == null }
+                    .filter { note -> matchesTextMatch(query, note.title) }
+            }
+        }
 
     override suspend fun get(id: com.singularity.todo.feature.notes.NoteId): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value
