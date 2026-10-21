@@ -158,6 +158,15 @@ internal object TextFieldShapeScan {
     fun functions(path: String): List<KoFunctionDeclaration> = file(path).functions()
 
     /**
+     * Every function of every file of `commonMain`, nested ones included.
+     *
+     * For the rules that are about the whole tree rather than about one file: a sealed
+     * parent that travels as a parameter is a rule about every component, not about the
+     * bridge.
+     */
+    fun allFunctions(): List<KoFunctionDeclaration> = files.values.flatMap { it.functions() }
+
+    /**
      * The text of every declaration of the file at [path] — the functions and the
      * properties, nested ones included.
      *

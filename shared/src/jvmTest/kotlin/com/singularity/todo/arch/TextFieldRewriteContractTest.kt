@@ -292,6 +292,33 @@ class TextFieldRewriteContractTest {
         )
     }
 
+    /**
+     * The sealed parent of the two kinds of source is nobody's parameter.
+     *
+     * The bridge's own check covers one file. The rule is about every component: a
+     * parameter of the sealed parent is a promise the compiler cannot keep — anyone
+     * holding one may pass it on, and the receiver has to decide what to do with it.
+     * The decision is a `when`, and the `when` is where the kind stops being known.
+     */
+    @Test
+    fun `the sealed parent of the two kinds is never a parameter`() {
+        val offending = TextFieldShapeScan.allFunctions()
+            .filter { function ->
+                function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
+            }
+            .map { function -> function.name }
+            .sorted()
+
+        assertTrue(
+            offending.isEmpty(),
+            "These functions take the sealed parent of the two kinds of source:\n" +
+                offending.joinToString("\n") { "  - $it" } +
+                "\n\nA component that serves two kinds of upstream cannot say which kind " +
+                "of upstream it holds, so it is split: each half knows its kind, and the " +
+                "kind is a compile-time property of the parameter it is given.",
+        )
+    }
+
     @Test
     fun `the bridge does not decide the kind of the source at runtime`() {
         val offending = TextFieldShapeScan.functions(BRIDGE_FILE)

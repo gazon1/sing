@@ -306,6 +306,11 @@ per kind, and **no overload that takes the sealed parent and dispatches on it**.
 holding the wrong kind does not compile, and a reader of the call site sees the kind
 without opening the type.
 
+**The sealed parent is nobody's parameter, anywhere in the tree.** The contract test says
+so over every function of `commonMain`, not only over the bridge: a parameter of the
+sealed parent is a promise the compiler cannot keep — anyone holding one may pass it on,
+and the receiver has to decide what to do with it.
+
 **The static promise lives in the owner's type.** `StaticText` says *what the bridge does*
 with a value; it does not say *what the owner may write*. A `String` in the owner's state
 says nothing at all: a reviewer cannot tell a seed from a replacement, and the compiler
