@@ -10,6 +10,7 @@ import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -498,7 +499,8 @@ class AgendaViewModel(
 
         // Build a TaskDraft from the section prefill
         val draft = TaskDraft(
-            title = sectionPrefill.title ?: "",
+            // The prefill's title comes from outside the field, so the field never produced it.
+            title = FieldOwnedText.empty().seeded(sectionPrefill.title ?: ""),
             dueDate = resolvedDue?.let { DueDateOption.Custom(it, it.toString()) }
                 ?: DueDateOption.None,
         )

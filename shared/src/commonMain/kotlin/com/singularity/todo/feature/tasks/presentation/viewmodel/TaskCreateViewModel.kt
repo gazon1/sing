@@ -82,7 +82,8 @@ class TaskCreateViewModel(
             ?: DueDateOption.None,
     )
 
-    override fun validate(draft: TaskDraft): String? = if (draft.title.isBlank()) "Title is required" else null
+    override fun validate(draft: TaskDraft): String? =
+        if (draft.title.text.isBlank()) "Title is required" else null
 
     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
         when (val result = deps.createFromDraft(draft)) {
@@ -103,9 +104,13 @@ class TaskCreateViewModel(
 
     override fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
-            is TaskCreateIntent.TitleChanged -> updateDraft { it.copy(title = intent.title) }
+            is TaskCreateIntent.TitleChanged ->
+                // The field's own text: the field wrote it, and the field already shows it.
+                updateDraft { it.copy(title = it.title.echoed(intent.title)) }
 
-            is TaskCreateIntent.DescriptionChanged -> updateDraft { it.copy(description = intent.description) }
+            is TaskCreateIntent.DescriptionChanged ->
+                // The field's own text: the field wrote it, and the field already shows it.
+                updateDraft { it.copy(description = it.description.echoed(intent.description)) }
 
             is TaskCreateIntent.SetPriority -> updateDraft { it.copy(priority = intent.priority) }
 

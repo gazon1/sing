@@ -76,7 +76,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
         showSaveDialog = showSaveDialog,
         searchToRename = searchToRename,
         activeFilter = state.activeFilter,
-        query = state.query,
+        query = state.query.text,
         onDismissFilterSheet = { showFilterSheet = false },
         onApplyFilter = { filter ->
             viewModel.onIntent(SearchIntent.OnApplyFilter(filter))
@@ -126,7 +126,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 )
             }
 
-            when (val content = searchContent(state.query, state.results)) {
+            when (val content = searchContent(state.query.text, state.results)) {
                 SearchContent.IdlePrompt -> EmptyState(
                     title = "Enter a search query",
                     testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,

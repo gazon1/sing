@@ -74,9 +74,9 @@ open class SettingsExporter(private val contributors: Set<SettingsContributor<*,
             ),
             ai = AiSnapshot(
                 providerId = ai.provider.id,
-                baseUrl = ai.baseUrl,
-                model = ai.model,
-                systemPrompt = ai.systemPrompt,
+                baseUrl = ai.baseUrl.text,
+                model = ai.model.text,
+                systemPrompt = ai.systemPrompt.text,
             ),
             notifications = NotificationsSnapshot(
                 enabled = notifications.enabled,

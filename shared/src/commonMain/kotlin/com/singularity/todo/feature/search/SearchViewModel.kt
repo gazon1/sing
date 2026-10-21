@@ -8,6 +8,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.search.domain.SavedSearch
@@ -36,7 +37,9 @@ import kotlinx.coroutines.launch
 /**
  * Persistent UI state for the search screen.
  *
- * @param query Raw query string as entered by the user.
+ * @param query The query as the field wrote it, and the one a saved search seeded.
+ *                     It is a [FieldOwnedText] so that every write to it is named: the
+ *                     field's own text, a seed, or a clear.
  * @param parsedQuery The last successfully parsed [Query] AST, used for execution.
  *                     Null when the current [query] has not yet parsed successfully.
  * @param activeFilter The [SimpleFilter] derived from [parsedQuery], or null if
@@ -48,7 +51,7 @@ import kotlinx.coroutines.launch
  * @param isSearching True while a search is in flight.
  */
 data class SearchUiState(
-    val query: String = "",
+    val query: FieldOwnedText = FieldOwnedText.empty(),
     val parsedQuery: Query? = null,
     val activeFilter: SimpleFilter? = null,
     val activeSavedSearchId: SavedSearchId? = null,
@@ -63,8 +66,12 @@ data class SearchUiState(
      * replaces it with a query the field never produced, which the field takes as it stands. So
      * the value is never rewritten with one the field produced: the field's echo guard needs no
      * lifting, and there is no counter to read.
+     *
+     * The promise is in the type of the value, not in this sentence: the query is a
+     * [FieldOwnedText], and the only ways to write one are the field's own text, a seed and a
+     * clear.
      */
-    val querySource: StaticText get() = StaticText(query)
+    val querySource: StaticText get() = StaticText(query.text)
 }
 
 /**
@@ -145,7 +152,7 @@ class SearchViewModel(
 
     // ─── Internal state ────────────────────────────────────────────────────────
 
-    private val _queryString = MutableStateFlow("")
+    private val _queryString = MutableStateFlow(FieldOwnedText.empty())
     private val _parsedQuery = MutableStateFlow<Query?>(null)
     private val _activeSavedSearchId = MutableStateFlow<SavedSearchId?>(null)
     private val _activeFilter = MutableStateFlow<SimpleFilter?>(null)
@@ -165,7 +172,7 @@ class SearchViewModel(
             combine(_queryString, _parsedQuery) { qs, pq -> qs to pq }
                 .debounce(300.milliseconds)
                 .flatMapLatest { (qs, pq) ->
-                    if (qs.isBlank()) {
+                    if (qs.text.isBlank()) {
                         flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
                     } else {
                         channelFlow {
@@ -217,7 +224,8 @@ class SearchViewModel(
 
     private fun onQueryChange(query: String) {
         _activeSavedSearchId.value = null
-        _queryString.value = query
+        // The field's own text: the field wrote it, and the field already shows it.
+        _queryString.value = _queryString.value.echoed(query)
 
         if (query.isBlank()) {
             _parsedQuery.value = null
@@ -290,7 +298,9 @@ class SearchViewModel(
                 return@launch
             }
             _activeSavedSearchId.value = id
-            _queryString.value = saved.queryString
+            // A seed: the saved search's query came from outside the field, so the field
+            // never produced it and takes it as it stands.
+            _queryString.value = _queryString.value.seeded(saved.queryString)
 
             try {
                 val parsed = parseQuery(saved.queryString)
@@ -307,7 +317,7 @@ class SearchViewModel(
 
     private fun onSaveCurrentSearch(name: String) {
         vmScope.launch {
-            val queryString = _queryString.value.ifBlank { "" }
+            val queryString = _queryString.value.text
             val existingId = _activeSavedSearchId.value
             val now = clock.now()
 

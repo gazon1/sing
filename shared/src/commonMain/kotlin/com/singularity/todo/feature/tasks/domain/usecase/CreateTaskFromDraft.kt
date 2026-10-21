@@ -68,8 +68,8 @@ class CreateTaskFromDraftUseCase(
         }
 
         val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
-            title = draft.title,
-            description = draft.description.ifBlank { null },
+            title = draft.title.text,
+            description = draft.description.text.ifBlank { null },
             priority = draft.priority,
             kind = TaskKind.Task,
             projectId = draft.projectId?.let { ProjectId.fromString(it) },

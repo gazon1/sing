@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import androidx.compose.runtime.Immutable
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.ui.textfields.FieldOwnedTextAsString
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -26,12 +28,17 @@ data class TaskCreateUiState(
  *
  * Uses plain data classes instead of domain entities so the draft is fully
  * self-contained and serializable without depending on repository entity shapes.
+ *
+ * The title and the description are [FieldOwnedText]s, so every write to them is named: the
+ * field's own text, a seed (the draft as it was stored, a section's prefill), or a clear.
  */
 @Serializable
 @Immutable
 data class TaskDraft(
-    val title: String = "",
-    val description: String = "",
+    @Serializable(with = FieldOwnedTextAsString::class)
+    val title: FieldOwnedText = FieldOwnedText.empty(),
+    @Serializable(with = FieldOwnedTextAsString::class)
+    val description: FieldOwnedText = FieldOwnedText.empty(),
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: DueDateOption = DueDateOption.None,
     val dueTime: LocalTime? = null,
@@ -55,11 +62,18 @@ data class TaskDraft(
      * after that the field's own keystrokes are what it holds. A replacement therefore
      * lands on a value the field never produced, the field's echo guard needs no
      * lifting, and there is no counter to read.
+     *
+     * The promise is in the type of the value, not in this sentence: the title is a
+     * [FieldOwnedText], and the only ways to write one are the field's own text, a seed
+     * and a clear.
      */
-    val titleSource: StaticText get() = StaticText(title)
+    val titleSource: StaticText get() = StaticText(title.text)
 
-    /** The description as the field's source; see [titleSource] for why no counter is read. */
-    val descriptionSource: StaticText get() = StaticText(description)
+    /**
+     * The description as the field's source; see [titleSource] for why no counter is read
+     * and for the promise that lives in the type of the value.
+     */
+    val descriptionSource: StaticText get() = StaticText(description.text)
 }
 
 /**

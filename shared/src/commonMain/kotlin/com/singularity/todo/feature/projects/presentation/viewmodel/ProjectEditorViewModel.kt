@@ -61,9 +61,10 @@ class ProjectEditorViewModel(
             updateState {
                 it.copy(
                     loading = false,
-                    name = project.name,
-                    description = project.description
-                        ?: "",
+                    // Seeds: the stored project came from outside the field, so the field
+                    // never produced it and takes it as it stands.
+                    name = it.name.seeded(project.name),
+                    description = it.description.seeded(project.description ?: ""),
                     color = project.color,
                     icon = project.icon,
                     parentId = project.parentId,
@@ -76,19 +77,30 @@ class ProjectEditorViewModel(
 
     override fun onIntent(intent: ProjectEditorIntent) {
         when (intent) {
-            is ProjectEditorIntent.NameChanged -> updateState { it.copy(name = intent.name, errorMessage = null) }
+            // Echoes: the field's own text, which the field already shows.
+            is ProjectEditorIntent.NameChanged ->
+                updateState { it.copy(name = it.name.echoed(intent.name), errorMessage = null) }
+
             is ProjectEditorIntent.ColorChanged -> updateState { it.copy(color = intent.color) }
+
             is ProjectEditorIntent.IconChanged -> updateState { it.copy(icon = intent.icon) }
-            is ProjectEditorIntent.DescriptionChanged -> updateState { it.copy(description = intent.description) }
+
+            is ProjectEditorIntent.DescriptionChanged ->
+                updateState { it.copy(description = it.description.echoed(intent.description)) }
+
             is ProjectEditorIntent.ParentChanged -> updateState { it.copy(parentId = intent.parentId) }
+
             ProjectEditorIntent.ErrorShown -> updateState { it.copy(errorMessage = null) }
+
             ProjectEditorIntent.Save -> save()
         }
     }
 
     private fun save() {
         val current = _state.value
-        val validationError = ProjectsDomain.validateName(current.name)?.message
+        val name = current.name.text
+        val description = current.description.text
+        val validationError = ProjectsDomain.validateName(name)?.message
         if (validationError != null) {
             updateState { it.copy(errorMessage = validationError) }
             return
@@ -98,9 +110,9 @@ class ProjectEditorViewModel(
         if (current.projectId == null) {
             // Create mode
             val input = CreateProjectInput(
-                name = current.name.trim(),
+                name = name.trim(),
                 color = current.color,
-                description = current.description.ifBlank { null },
+                description = description.ifBlank { null },
                 icon = current.icon,
                 parentId = current.parentId,
             )
@@ -120,8 +132,8 @@ class ProjectEditorViewModel(
             ) {
                 updateProject(current.projectId) { existing ->
                     existing.copy(
-                        name = current.name.trim(),
-                        description = current.description.ifBlank { null },
+                        name = name.trim(),
+                        description = description.ifBlank { null },
                         color = current.color,
                         icon = current.icon,
                         parentId = current.parentId,

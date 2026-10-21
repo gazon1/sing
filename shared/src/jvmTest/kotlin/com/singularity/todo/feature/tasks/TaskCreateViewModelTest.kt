@@ -9,6 +9,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
@@ -98,7 +99,11 @@ class TaskCreateViewModelTest {
     @Test
     fun `draft restored from store on init subsequent save uses restored title`() = runTest {
         // Pre-seed a draft
-        fakeDraftStore.save(draftKey, TaskDraft(title = "Restored task"), TaskDraft.serializer())
+        fakeDraftStore.save(
+            draftKey,
+            TaskDraft(title = FieldOwnedText.empty().seeded("Restored task")),
+            TaskDraft.serializer(),
+        )
         val vm = createVm(backgroundScope)
         advanceTimeBy(1_000)
         runCurrent()

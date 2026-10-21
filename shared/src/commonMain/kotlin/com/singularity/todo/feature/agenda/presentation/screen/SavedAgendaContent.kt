@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -392,7 +393,7 @@ private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
                     updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
                 ),
                 draft = Draft(
-                    name = "My Work Setup",
+                    name = FieldOwnedText.empty().seeded("My Work Setup"),
                     sections = listOf(
                         Section("today", "Today", 0, Selector.DateBucket(RelativeBucket.Today)),
                         Section("overdue", "Overdue", 1, Selector.DateBucket(RelativeBucket.Overdue)),
@@ -427,7 +428,7 @@ private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
                     updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
                 ),
                 draft = Draft(
-                    name = "My Work Setup",
+                    name = FieldOwnedText.empty().seeded("My Work Setup"),
                     sections = emptyList(),
                     originalName = "My Work Setup",
                     originalSections = emptyList(),

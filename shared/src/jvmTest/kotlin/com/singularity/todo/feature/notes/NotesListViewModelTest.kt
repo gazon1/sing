@@ -206,7 +206,7 @@ class NotesListViewModelTest {
             vm.listState().unpinned,
             "a query that matches nothing must empty the list",
         )
-        assertEquals("zzz-no-such-note", vm.uiState().searchQuery)
+        assertEquals("zzz-no-such-note", vm.uiState().searchQuery.text)
     }
 
     @Test
@@ -282,7 +282,7 @@ class NotesListViewModelTest {
         runCurrent()
 
         val loaded = assertIs<NotesUiState.Content>(vm.stateFlow.value)
-        assertEquals("groceries", loaded.searchQuery)
+        assertEquals("groceries", loaded.searchQuery.text)
         assertEquals(NoteFilter.Pinned, loaded.filter)
         assertEquals(NoteSortOrder.TitleAsc, loaded.sortOrder)
 
@@ -293,7 +293,7 @@ class NotesListViewModelTest {
         runCurrent()
 
         val failed = assertIs<NotesUiState.Error>(vm.stateFlow.value)
-        assertEquals("groceries", failed.searchQuery, "a failure must not clear the query")
+        assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
         assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
         assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
     }

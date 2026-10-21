@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.state
 import androidx.compose.runtime.Immutable
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 
@@ -28,14 +29,20 @@ enum class ProjectSortOrder { Name, Color }
 @Immutable
 sealed interface ProjectsUiState {
 
-    /** The query the list is filtered by. Empty when nothing is filtered. */
-    val searchQuery: String
+    /**
+     * The query the list is filtered by. Empty when nothing is filtered.
+     *
+     * It is a [FieldOwnedText], so every write to it is named: the field's own
+     * text, a seed, or a clear.
+     */
+    val searchQuery: FieldOwnedText
 
     /** The order the list is sorted in. */
     val sortOrder: ProjectSortOrder
 
     /** The list is being loaded for the first time. */
-    data class Loading(override val searchQuery: String, override val sortOrder: ProjectSortOrder) : ProjectsUiState
+    data class Loading(override val searchQuery: FieldOwnedText, override val sortOrder: ProjectSortOrder) :
+        ProjectsUiState
 
     /**
      * The list holds no projects.
@@ -44,12 +51,13 @@ sealed interface ProjectsUiState {
      * match …" rather than "no projects yet") and so the filter the user typed survives
      * the state that reports the filter found nothing.
      */
-    data class Empty(override val searchQuery: String, override val sortOrder: ProjectSortOrder) : ProjectsUiState
+    data class Empty(override val searchQuery: FieldOwnedText, override val sortOrder: ProjectSortOrder) :
+        ProjectsUiState
 
     /** The list holds projects. */
     data class Content(
         val projects: List<ProjectWithCounts>,
-        override val searchQuery: String,
+        override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
     ) : ProjectsUiState
 
@@ -61,8 +69,11 @@ sealed interface ProjectsUiState {
      * the user had typed — the field is bound to the query, so the reset would reach
      * the ViewModel as if the user had cleared it.
      */
-    data class Error(val message: String, override val searchQuery: String, override val sortOrder: ProjectSortOrder) :
-        ProjectsUiState
+    data class Error(
+        val message: String,
+        override val searchQuery: FieldOwnedText,
+        override val sortOrder: ProjectSortOrder,
+    ) : ProjectsUiState
 }
 
 /**
@@ -77,5 +88,9 @@ sealed interface ProjectsUiState {
  * source is what the field is handed. A property of the interface would say the variants
  * have to carry the source too — and then the query and the source would be two values
  * that could disagree.
+ *
+ * The promise is in the type of the value, not in this sentence: the query is a
+ * [FieldOwnedText], and the only ways to write one are the field's own text, a seed and a
+ * clear.
  */
-val ProjectsUiState.searchQuerySource: StaticText get() = StaticText(searchQuery)
+val ProjectsUiState.searchQuerySource: StaticText get() = StaticText(searchQuery.text)

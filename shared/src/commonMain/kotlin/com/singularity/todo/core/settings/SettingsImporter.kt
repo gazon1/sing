@@ -3,6 +3,7 @@ package com.singularity.todo.core.settings
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.schedule.WorkingDays
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.serialization.json.Json
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -85,9 +86,12 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
             val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>>()
                 .firstOrNull()
             contributor?.process(SettingsIntent.Ai.UpdateProvider(LlmProvider.fromId(snapshot.ai.providerId)))
-            contributor?.process(SettingsIntent.Ai.UpdateBaseUrl(snapshot.ai.baseUrl))
-            contributor?.process(SettingsIntent.Ai.UpdateModel(snapshot.ai.model))
-            contributor?.process(SettingsIntent.Ai.UpdateSystemPrompt(snapshot.ai.systemPrompt))
+            // An imported value comes from outside the field, so the field never produced it.
+            contributor?.process(SettingsIntent.Ai.UpdateBaseUrl(FieldOwnedText.empty().seeded(snapshot.ai.baseUrl)))
+            contributor?.process(SettingsIntent.Ai.UpdateModel(FieldOwnedText.empty().seeded(snapshot.ai.model)))
+            contributor?.process(
+                SettingsIntent.Ai.UpdateSystemPrompt(FieldOwnedText.empty().seeded(snapshot.ai.systemPrompt)),
+            )
         }.onFailure { e ->
             failures.add("AI: ${e.message ?: e}")
         }

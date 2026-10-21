@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 
 /**
@@ -63,18 +64,36 @@ sealed interface SettingsUiState {
          * that provider's default — a value the field never produced. So the value is never
          * rewritten with one the field produced: the field's echo guard needs no lifting, and there
          * is no counter to read.
+         *
+         * The promise is in the type of the value, not in this sentence: the base URL is a
+         * [FieldOwnedText], and every write to it is named — the field's own text, a seed, or a
+         * clear.
          */
-        val baseUrlSource: StaticText get() = StaticText(ai.baseUrl)
+        val baseUrlSource: StaticText get() = StaticText(baseUrl.text)
 
         /**
          * The model name as the field's source; see [baseUrlSource] for why no counter is needed.
          */
-        val modelSource: StaticText get() = StaticText(ai.model)
+        val modelSource: StaticText get() = StaticText(model.text)
 
         /**
          * The system prompt as the field's source; see [baseUrlSource] for why no counter is
          * needed.
          */
-        val systemPromptSource: StaticText get() = StaticText(ai.systemPrompt)
+        val systemPromptSource: StaticText get() = StaticText(systemPrompt.text)
+
+        /**
+         * The base URL as the field's own text.
+         *
+         * The value is the section's, and the section is the one that holds it — but the field
+         * sees it through this property, so this is where the field's kind is written down.
+         */
+        val baseUrl: FieldOwnedText get() = ai.baseUrl
+
+        /** The model name as the field's own text; see [baseUrl]. */
+        val model: FieldOwnedText get() = ai.model
+
+        /** The system prompt as the field's own text; see [baseUrl]. */
+        val systemPrompt: FieldOwnedText get() = ai.systemPrompt
     }
 }

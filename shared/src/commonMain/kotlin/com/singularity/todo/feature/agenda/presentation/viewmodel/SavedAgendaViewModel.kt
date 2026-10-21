@@ -14,6 +14,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -49,7 +50,7 @@ class SavedAgendaDraftState {
         draft = value
     }
 
-    fun setName(name: String) = update { it.copy(name = name) }
+    fun setName(name: String) = update { it.copy(name = it.name.echoed(name)) }
 
     fun reorderSections(sections: List<Section>) = update { it.copy(sections = sections) }
 
@@ -69,21 +70,31 @@ class SavedAgendaDraftState {
     }
 
     /** Marks the current draft as saved — resets originalName/originalSections so isDirty becomes false. */
-    fun markSaved() = update { it.copy(originalName = it.name, originalSections = it.sections) }
+    fun markSaved() = update { it.copy(originalName = it.name.text, originalSections = it.sections) }
 
     private fun update(reducer: (Draft) -> Draft) {
         draft = reducer(draft)
     }
 }
 
+/**
+ * The editable draft of a saved agenda view.
+ *
+ * @param name the name of the view, as the field wrote it. A [FieldOwnedText], so that every
+ *   write to it is named: the field's own text, a seed or a clear.
+ * @param sections the sections of the draft.
+ * @param originalName the name as it was loaded or last saved — the baseline for [isDirty].
+ * @param originalSections the sections as they were loaded or last saved.
+ * @param initialized whether the draft holds a loaded or seeded value.
+ */
 data class Draft(
-    val name: String,
+    val name: FieldOwnedText,
     val sections: List<Section>,
     val originalName: String,
     val originalSections: List<Section>,
     val initialized: Boolean = false,
 ) {
-    val isDirty: Boolean get() = name != originalName || sections != originalSections
+    val isDirty: Boolean get() = name.text != originalName || sections != originalSections
 
     /**
      * The name as the field's source.
@@ -91,11 +102,35 @@ data class Draft(
      * The draft is seeded once, when the saved view is loaded, and afterwards holds what the user
      * typed, so it never replaces the field's value with one the field never produced: the
      * field's echo guard needs no lifting, and there is no counter to read.
+     *
+     * The promise is in the type of the value, not in this sentence: the name is a
+     * [FieldOwnedText], and the only ways to write one are the field's own text, a seed and a
+     * clear.
      */
-    val nameSource: StaticText get() = StaticText(name)
+    val nameSource: StaticText get() = StaticText(name.text)
 
     companion object {
-        fun empty() = Draft("", emptyList(), "", emptyList(), false)
+        fun empty() = Draft(FieldOwnedText.empty(), emptyList(), "", emptyList(), false)
+
+        /**
+         * A draft whose name came from outside the field — a saved view, a seed.
+         *
+         * The name is seeded rather than echoed: the field never produced it, so the field takes
+         * it as it stands.
+         */
+        fun seeded(
+            name: String,
+            sections: List<Section>,
+            originalName: String = name,
+            originalSections: List<Section> = sections,
+            initialized: Boolean = true,
+        ): Draft = Draft(
+            name = FieldOwnedText.empty().seeded(name),
+            sections = sections,
+            originalName = originalName,
+            originalSections = originalSections,
+            initialized = initialized,
+        )
     }
 }
 
@@ -109,7 +144,7 @@ sealed interface SavedAgendaViewState {
         val decodeError: Boolean = false,
     ) : SavedAgendaViewState {
         val canSave: Boolean get() = draft.initialized && !isSaving &&
-            draft.name.isNotBlank() && draft.isDirty && !decodeError
+            draft.name.text.isNotBlank() && draft.isDirty && !decodeError
     }
 
     /** Results mode: loaded definition ready to pass to [com.singularity.todo.feature.agenda.presentation.screen.AgendaScreen]. */
@@ -186,14 +221,11 @@ class SavedAgendaViewModel(
             return
         }
         val sections = decodeSections(view.sectionsJson)
-        val draft = Draft(
-            view.name,
-            sections
-                ?: emptyList(),
-            view.name,
-            sections
-                ?: emptyList(),
-            true,
+        val draft = Draft.seeded(
+            name = view.name,
+            sections = sections ?: emptyList(),
+            originalName = view.name,
+            originalSections = sections ?: emptyList(),
         )
         draftState.seed(draft)
         setState(
@@ -209,7 +241,7 @@ class SavedAgendaViewModel(
     private fun initCreateMode(mode: SavedAgendaScreenMode.Create) {
         val seed = seedStore.consumeSeed()
             ?: mode.seed
-        val draft = Draft(seed.title, seed.sections, seed.title, seed.sections, true)
+        val draft = Draft.seeded(seed.title, seed.sections)
         draftState.seed(draft)
         setState(
             SavedAgendaViewState.Editing(null, draftState.state, seed.sections.size),
@@ -315,7 +347,7 @@ class SavedAgendaViewModel(
      */
     private suspend fun saveDraft(current: SavedAgendaViewState.Editing) {
         val draft = draftState.state
-        val nameToSave = draft.name.trim()
+        val nameToSave = draft.name.text.trim()
         val sectionsJson = AgendaDefinition(nameToSave, draft.sections).toSectionsJson()
         val now = deps.clock.now()
         when (mode) {

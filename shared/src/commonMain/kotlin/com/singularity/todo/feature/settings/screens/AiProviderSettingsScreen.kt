@@ -42,6 +42,7 @@ import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -120,9 +121,11 @@ fun AiProviderSettingsScreen(
                                 // whose default the user hasn't customised. Uses the same
                                 // rule as [OpenAiConfig.resolveBaseUrl] so that
                                 // `Test connection` and the displayed URL agree.
-                                val resolved = OpenAiConfig.resolveBaseUrl(state.ai.baseUrl, provider)
-                                if (resolved != state.ai.baseUrl) {
-                                    onIntent(SettingsIntent.Ai.UpdateBaseUrl(resolved))
+                                val resolved = OpenAiConfig.resolveBaseUrl(state.baseUrl.text, provider)
+                                if (resolved != state.baseUrl.text) {
+                                    // The provider's default: a value from outside the
+                                    // field, so the field never produced it.
+                                    onIntent(SettingsIntent.Ai.UpdateBaseUrl(state.baseUrl.seeded(resolved)))
                                 }
                                 expanded = false
                             },
@@ -169,7 +172,8 @@ fun AiProviderSettingsScreen(
             )
             val baseUrlState = rememberBridgedTextFieldState(
                 source = state.baseUrlSource,
-                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(it)) },
+                // The field's own text: the field wrote it, and the field already shows it.
+                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateBaseUrl(state.baseUrl.echoed(it))) },
             )
             OutlinedTextField(
                 state = baseUrlState,
@@ -183,10 +187,11 @@ fun AiProviderSettingsScreen(
         // ─── Model ──────────────────────────────────────────────────────────────
         SettingsSection(title = "Model") {
             // Read-only anchor: the dropdown sets the model, the field only shows it.
-            val modelState = rememberAnchoredTextFieldState(state.ai.model)
+            val modelState = rememberAnchoredTextFieldState(state.model.text)
             val modelNameState = rememberBridgedTextFieldState(
                 source = state.modelSource,
-                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateModel(it)) },
+                // The field's own text: the field wrote it, and the field already shows it.
+                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateModel(state.model.echoed(it))) },
             )
             if (state.aiEphemeral.models.isNotEmpty()) {
                 var modelExpanded by remember { mutableStateOf(false) }
@@ -212,7 +217,9 @@ fun AiProviderSettingsScreen(
                             DropdownMenuItem(
                                 text = { Text(model) },
                                 onClick = {
-                                    onIntent(SettingsIntent.Ai.UpdateModel(model))
+                                    // The model list came from the server: a value from
+                                    // outside the field, so the field never produced it.
+                                    onIntent(SettingsIntent.Ai.UpdateModel(state.model.seeded(model)))
                                     modelExpanded = false
                                 },
                             )
@@ -248,7 +255,8 @@ fun AiProviderSettingsScreen(
         SettingsSection(title = "System Prompt") {
             val systemPromptState = rememberBridgedTextFieldState(
                 source = state.systemPromptSource,
-                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(it)) },
+                // The field's own text: the field wrote it, and the field already shows it.
+                onTextChanged = { onIntent(SettingsIntent.Ai.UpdateSystemPrompt(state.systemPrompt.echoed(it))) },
             )
             Text(
                 "Sent to the model on every request. Edit to specialise the assistant.",
@@ -326,9 +334,9 @@ private fun AiProviderSettingsScreenLightPreview() = PreviewThemed(darkTheme = f
         state = SettingsUiState.Content(
             ai = com.singularity.todo.core.settings.SettingsSection.Ai(
                 provider = LlmProvider.OPENAI,
-                baseUrl = "https://api.openai.com/v1",
-                model = "gpt-4o-mini",
-                systemPrompt = "You are a helpful assistant.",
+                baseUrl = FieldOwnedText.empty().seeded("https://api.openai.com/v1"),
+                model = FieldOwnedText.empty().seeded("gpt-4o-mini"),
+                systemPrompt = FieldOwnedText.empty().seeded("You are a helpful assistant."),
             ),
         ),
         onIntent = {},
@@ -343,9 +351,9 @@ private fun AiProviderSettingsScreenConnectedPreview() = PreviewThemed(darkTheme
         state = SettingsUiState.Content(
             ai = com.singularity.todo.core.settings.SettingsSection.Ai(
                 provider = LlmProvider.OPENAI,
-                baseUrl = "https://api.openai.com/v1",
-                model = "gpt-4o-mini",
-                systemPrompt = "You are a helpful assistant.",
+                baseUrl = FieldOwnedText.empty().seeded("https://api.openai.com/v1"),
+                model = FieldOwnedText.empty().seeded("gpt-4o-mini"),
+                systemPrompt = FieldOwnedText.empty().seeded("You are a helpful assistant."),
             ),
             aiEphemeral = com.singularity.todo.core.settings.EphemeralState.Ai(
                 testResult = AiTestResult.Ok(latencyMs = 234),
@@ -363,9 +371,9 @@ private fun AiProviderSettingsScreenDarkPreview() = PreviewThemed(darkTheme = tr
         state = SettingsUiState.Content(
             ai = com.singularity.todo.core.settings.SettingsSection.Ai(
                 provider = LlmProvider.ANTHROPIC_COMPATIBLE,
-                baseUrl = "https://api.anthropic.com/v1",
-                model = "claude-sonnet-4-20250514",
-                systemPrompt = "You are Claude.",
+                baseUrl = FieldOwnedText.empty().seeded("https://api.anthropic.com/v1"),
+                model = FieldOwnedText.empty().seeded("claude-sonnet-4-20250514"),
+                systemPrompt = FieldOwnedText.empty().seeded("You are Claude."),
             ),
             aiEphemeral = com.singularity.todo.core.settings.EphemeralState.Ai(
                 testResult = AiTestResult.Error(message = "Connection timeout"),

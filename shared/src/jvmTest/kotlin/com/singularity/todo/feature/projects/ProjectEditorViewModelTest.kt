@@ -51,14 +51,14 @@ class ProjectEditorViewModelTest {
     @Test
     fun `initial state has empty name for new project`() = runTest {
         val vm = createVm(backgroundScope)
-        assertEquals("", vm.stateFlow.value.name)
+        assertEquals("", vm.stateFlow.value.name.text)
     }
 
     @Test
     fun `NameChanged updates state`() = runTest {
         val vm = createVm(backgroundScope)
         vm.onIntent(ProjectEditorIntent.NameChanged("My project"))
-        assertEquals("My project", vm.stateFlow.value.name)
+        assertEquals("My project", vm.stateFlow.value.name.text)
     }
 
     // ─── W4: the editor must not keep a private copy of the name rule ──────────
