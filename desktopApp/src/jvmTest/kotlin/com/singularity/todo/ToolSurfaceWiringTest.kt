@@ -3,7 +3,7 @@ package com.singularity.todo
 import ai.koog.agents.core.tools.Tool
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
-import com.singularity.todo.mcp.McpToolCatalog
+import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.test.helpers.testPlatformModule
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.koinApplication
@@ -75,10 +75,10 @@ class ToolSurfaceWiringTest {
             val classByName = tools.associate { it.descriptor.name to it::class.simpleName }
             for (entry in declared) {
                 assertEquals(
-                    entry.toolClass,
+                    entry.toolClass.simpleName,
                     classByName[entry.name],
-                    "the catalogue points ${entry.name} at ${entry.toolClass}, but that is not " +
-                        "the class that is wired",
+                    "the catalogue points ${entry.name} at ${entry.toolClass.simpleName}, but " +
+                        "that is not the class that is wired",
                 )
             }
 

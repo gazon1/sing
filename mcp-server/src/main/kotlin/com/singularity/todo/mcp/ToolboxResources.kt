@@ -95,7 +95,13 @@ class ToolboxResources(
         }
     }
 
-    private fun toolboxPayload(): JsonObject = buildJsonObject {
+    /**
+     * The documents, as the client receives them.
+     *
+     * Internal rather than private, for the same reason as `ToolboxTool.payload`: the
+     * shape is a contract, and a contract no test pins is a contract a rename breaks.
+     */
+    internal fun toolboxPayload(): JsonObject = buildJsonObject {
         put("buildVersion", snapshot.identity.buildVersion)
         put("catalogFingerprint", snapshot.identity.catalogFingerprint)
         put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
@@ -115,7 +121,7 @@ class ToolboxResources(
         }
     }
 
-    private fun decisionsPayload(): JsonObject = buildJsonObject {
+    internal fun decisionsPayload(): JsonObject = buildJsonObject {
         val storage = this@ToolboxResources.storage
         if (storage == null) {
             put("available", false)
@@ -150,7 +156,7 @@ class ToolboxResources(
      * `read_adr` tool takes, so a resource and a tool cannot disagree about which
      * decisions exist.
      */
-    private fun decisionBody(slug: String): String {
+    internal fun decisionBody(slug: String): String {
         val storage = this.storage
         return when {
             storage == null -> "No corpus is available to this server."

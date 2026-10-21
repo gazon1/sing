@@ -55,7 +55,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 SURFACE_KT = ROOT / ("adr-cli/src/main/kotlin/com/singularity/todo/adr/cli"
                      "/AdrSurface.kt")
-CATALOG_KT = ROOT / ("shared/src/commonMain/kotlin/com/singularity/todo/mcp"
+CATALOG_KT = ROOT / ("shared/src/commonMain/kotlin/com/singularity/todo/feature/ai"
                      "/McpToolCatalog.kt")
 # The tool classes own their descriptions. The catalogue used to carry a second copy of
 # every description and the two drifted apart in 32 of 39 tools -- including five where
@@ -264,12 +264,17 @@ def catalog_entries() -> list[tuple[str, str, str]]:
     entries: list[tuple[str, str, str]] = []
     for chunk in block.split('ToolEntry(')[1:]:
         found = []
-        for field in ('name', 'toolClass', 'domain'):
+        for field in ('name', 'domain'):
             m = re.search(rf'^\s*{field}\s*=\s*"([^"]+)"', chunk, re.MULTILINE)
             if not m:
                 raise ParseError(f'{CATALOG_KT.name}: a ToolEntry has no {field}')
             found.append(m.group(1))
-        entries.append((found[0], found[1], found[2]))
+        # The class is a class reference, not a name in a string: the catalogue holds the
+        # class itself, so there is no second copy of the name to drift.
+        m = re.search(r'^\s*toolClass\s*=\s*(\w+)::class', chunk, re.MULTILINE)
+        if not m:
+            raise ParseError(f'{CATALOG_KT.name}: a ToolEntry has no toolClass')
+        entries.append((found[0], m.group(1), found[1]))
     if not entries:
         raise ParseError(f'{CATALOG_KT.name}: no ToolEntry declarations found -- the catalog shape '
                          'changed and this renderer has to follow it')

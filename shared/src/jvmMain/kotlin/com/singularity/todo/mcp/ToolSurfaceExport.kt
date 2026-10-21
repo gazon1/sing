@@ -1,11 +1,12 @@
 package com.singularity.todo.mcp
-
+import com.singularity.todo.feature.ai.McpToolCatalog
+import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import java.io.File
 
 /**
  * The tool surface, exported from the **compiled** declarations.
@@ -52,9 +53,6 @@ object ToolSurfaceExport {
     /** The version of the format. Bumped when the shape changes. */
     const val VERSION = 1
 
-    /** The package the tool classes live in. */
-    const val TOOL_PACKAGE = "com.singularity.todo.feature.ai.tools"
-
     private val json = Json { prettyPrint = true }
 
     /**
@@ -76,35 +74,39 @@ object ToolSurfaceExport {
                     }
             },
         )
+        // The flag key space: the names a remote configuration may use to switch a tool
+        // off. It is the tools' names and nothing else — the same strings the client
+        // calls — so declaring it here makes the space checkable: a configuration, or a
+        // document, can be compared with it.
+        put(
+            "flagKeys",
+            buildJsonArray {
+                McpToolCatalog.catalog
+                    .map { it.name }
+                    .sorted()
+                    .forEach { name -> add(JsonPrimitive(name)) }
+            },
+        )
     }
 
     private fun toolJson(entry: McpToolCatalog.ToolEntry): JsonObject {
-        val clazz = loadClass(entry.toolClass)
-        val declaredName = constant(clazz, "NAME")
+        val clazz = entry.toolClass
+        val declaredName = constant(clazz.java, "NAME")
         require(declaredName == entry.name) {
-            "the catalogue says ${entry.name} is ${entry.toolClass}, but that class declares " +
+            "the catalogue says ${entry.name} is ${clazz.simpleName}, but that class declares " +
                 "$declaredName"
         }
-        val description = constant(clazz, "DESCRIPTION")
+        val description = constant(clazz.java, "DESCRIPTION")
         val annotations = entry.annotations
         return buildJsonObject {
             put("name", entry.name)
-            put("toolClass", entry.toolClass)
+            put("toolClass", clazz.simpleName ?: entry.name)
             put("domain", entry.domain)
             put("description", description)
             put("readOnly", annotations.readOnlyHint)
             put("destructive", annotations.destructiveHint)
             put("idempotent", annotations.idempotentHint)
         }
-    }
-
-    private fun loadClass(simpleName: String): Class<*> = try {
-        Class.forName("$TOOL_PACKAGE.$simpleName")
-    } catch (e: ClassNotFoundException) {
-        error(
-            "the catalogue names the tool class $simpleName, and there is no such class: " +
-                "${e.message}",
-        )
     }
 
     /**

@@ -1,5 +1,4 @@
 package com.singularity.todo.mcp
-
 import ai.koog.agents.core.tools.Tool
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -7,8 +6,11 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.security.SecureStoragePort
+import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.test.fakes.FakeSecureStorage
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.junit.Test
 import org.junit.jupiter.api.Tag
 import org.junit.runner.RunWith
@@ -16,8 +18,6 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * The Android toolbox that is *wired* must be the toolbox that is *declared*.
@@ -84,10 +84,10 @@ class ToolSurfaceWiringTest {
             val classByName = tools.associate { it.descriptor.name to it::class.simpleName }
             for (entry in declared) {
                 assertEquals(
-                    entry.toolClass,
+                    entry.toolClass.simpleName,
                     classByName[entry.name],
-                    "the catalogue points ${entry.name} at ${entry.toolClass}, but that is not " +
-                        "the class that is wired",
+                    "the catalogue points ${entry.name} at ${entry.toolClass.simpleName}, but " +
+                        "that is not the class that is wired",
                 )
             }
 

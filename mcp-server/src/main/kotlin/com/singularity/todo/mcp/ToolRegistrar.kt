@@ -1,5 +1,4 @@
 package com.singularity.todo.mcp
-
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.Tool
 import ai.koog.serialization.JSONObject
@@ -9,6 +8,7 @@ import com.singularity.todo.core.observability.ToolCallContext
 import com.singularity.todo.core.observability.ToolCallError
 import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.observability.ToolCallSource
+import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.mcp.errors.ErrorMapper
 import com.singularity.todo.mcp.errors.McpToolError
 import com.singularity.todo.mcp.schema.KoogJsonSchemaBuilder
@@ -24,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+
 
 /**
  * Bridges Koog [SimpleTool] instances to the MCP [Server] tool registry.

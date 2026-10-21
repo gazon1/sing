@@ -329,7 +329,7 @@ data class ToolAnnotations(
 **The annotations live in the catalogue, one entry per tool** — not in a map of their own:
 
 ```kotlin
-// shared/src/commonMain/kotlin/com/singularity/todo/mcp/McpToolCatalog.kt
+// shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt
 ToolEntry(
     name = "create_task",
     toolClass = "CreateTaskTool",
@@ -513,7 +513,7 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | `mcp-server/src/main/kotlin/.../mcp/errors/ErrorMapper.kt` | McpToolError → CallToolResult or throw |
 | `mcp-server/src/main/kotlin/.../mcp/ToolAnnotations.kt` | readOnly/destructive/idempotent/openWorld hints |
 | `mcp-server/src/main/kotlin/.../mcp/pagination/CursorCodec.kt` | base64(opaque cursor) encode/decode |
-| `shared/src/commonMain/kotlin/.../mcp/McpToolCatalog.kt` | the declared surface: name, class, domain, annotations |
+| `shared/src/commonMain/kotlin/.../feature/ai/McpToolCatalog.kt` | the declared surface: name, class, domain, annotations |
 | `shared/src/commonMain/kotlin/.../core/observability/ToolCallLog.kt` | the tool-call event, its port and the recorder |
 | `shared/src/commonMain/kotlin/.../core/ai/RecordingTool.kt` | the in-app decorator that records a call |
 | `adr-core/src/commonMain/kotlin/.../tools/AdrSearch.kt` | the search engine, the scopes and the envelope |
