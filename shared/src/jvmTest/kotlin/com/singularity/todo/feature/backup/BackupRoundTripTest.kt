@@ -15,6 +15,7 @@ import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -113,12 +114,12 @@ class BackupRoundTripTest {
         val currentUser = FakeProfileAwareCurrentUser(auth)
         val repository = TaskRepositoryImpl(
             taskDao = sourceDb.taskDao(),
+            textIndex = sourceDb.textIndex(currentUser),
             clock = Clock.System,
             currentUser = currentUser,
             syncRepository = FakeSyncRepository(),
             dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
             unitOfWork = FakeUnitOfWork(),
-            ftsDao = sourceDb.ftsDao(),
         )
         repository.create(
             Task(

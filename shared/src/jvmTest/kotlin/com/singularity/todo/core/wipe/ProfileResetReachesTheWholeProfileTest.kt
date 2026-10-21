@@ -21,6 +21,7 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
@@ -681,7 +682,6 @@ class ProfileResetReachesTheWholeProfileTest {
                 currentUser = currentUser,
                 syncRepository = FakeSyncRepository(),
                 unitOfWork = FakeUnitOfWork(),
-                ftsDao = db.ftsDao(),
             ),
             tagGroupRepository = TagGroupRepositoryImpl(
                 tagGroupDao = db.tagGroupDao(),
@@ -711,21 +711,21 @@ class ProfileResetReachesTheWholeProfileTest {
 
     private fun taskRepo() = TaskRepositoryImpl(
         taskDao = db.taskDao(),
+        textIndex = db.textIndex(currentUser),
         clock = Clock.System,
         currentUser = currentUser,
         syncRepository = FakeSyncRepository(),
         dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
         unitOfWork = FakeUnitOfWork(),
-        ftsDao = db.ftsDao(),
     )
 
     private fun notesRepo() = NotesRepositoryImpl(
         noteDao = db.noteDao(),
+        textIndex = db.textIndex(currentUser),
         clock = Clock.System,
         currentUser = currentUser,
         syncRepository = FakeSyncRepository(),
         unitOfWork = FakeUnitOfWork(),
-        ftsDao = db.ftsDao(),
     )
 
     private fun projectsRepo() = ProjectsRepositoryImpl(
@@ -735,6 +735,5 @@ class ProfileResetReachesTheWholeProfileTest {
         currentUser = currentUser,
         syncRepository = FakeSyncRepository(),
         unitOfWork = FakeUnitOfWork(),
-        ftsDao = db.ftsDao(),
     )
 }
