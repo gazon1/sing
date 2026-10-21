@@ -84,6 +84,10 @@ jobs:
     # write permission the push is refused with a 403 and the branch is never
     # created, which leaves the whole mechanism inert.
     permissions:
+      # The Gradle cache is read from the workflow cache, and reading it needs
+      # `actions: read`. Without it the cache restore is refused and the gate
+      # that resolves the build runs against a cold Gradle home again.
+      actions: read
       contents: write
     # Run when scripts/docs changed, or when anything changed on main (always), or on
     # workflow_dispatch (manual trigger).
@@ -94,6 +98,24 @@ jobs:
       || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v7
+
+      # One gate in this job needs the build: `declared dependencies are used`
+      # asks Gradle which files each configuration resolved and reads the jars
+      # to learn the package roots they contribute. Without a Gradle home to
+      # restore, every run downloaded the distribution and resolved every
+      # configuration from scratch — 113 s on a good day, and killed at the
+      # 300 s budget on a bad one, with the same tree and the same code.
+      #
+      # The cache is what makes the gate's cost stable: the dependency cache is
+      # keyed on the Gradle files, not on the branch, so a pull request restores
+      # what main resolved. The action is read-only off main, so a pull request
+      # cannot evict or poison the cache main depends on.
+      #
+      # This is the same action the `tests` job uses — one cache policy for
+      # every workflow (ADR 2026-10-05-ci-action-versions-and-runner-image-pin).
+      - uses: ./.github/actions/setup-jvm-gradle
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # uv manages the Python toolchain and project dependencies from pyproject.toml.
       # python-version is still declared so setup-python pins the interpreter;

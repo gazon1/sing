@@ -584,6 +584,19 @@ before and after are identical — and the old Python reader and the old shell r
 agree with the new one on all 105 as well. The change is in the failure direction, not
 in the answers.
 
+**The consolidation had a cost, and CI found it.** The canonical Kotlin reader
+is a character walk, and it costs 36× what the regexes it replaced cost (2.5 s
+against 0.07 s over 1654 files). `unwired surfaces` went from 39 s to 61 s in
+CI — inside its budget, but not invisible.
+
+The bigger cost was a pre-existing fragility this round walked into: the
+static job has no Gradle home to restore, so `declared dependencies are used`
+— the one gate that resolves the build — downloaded the distribution and
+resolved every configuration on every run. It measured 113 s on a good day and
+was killed at the 300 s budget on a bad one, with the same tree and the same
+code. The static job now restores the Gradle cache, and the gate has a budget
+of its own (540 s, under the job's ten-minute cap).
+
 **One reader found that the audit had not named.** `scripts/maestro-flow-tags.sh` — a
 shell implementation of the Maestro tag reader — has no caller left. The runner moved
 to Python and took the shell file's job with it. It is a deletion, and it goes with

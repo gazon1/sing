@@ -97,6 +97,34 @@ that was measured, not asserted.**
   it is wrong about a fact the runner acts on, and the traceability layer would
   link scenarios the runner never runs.
 
+## The gate that resolves the build
+
+The consolidation was not free, and the cost showed up in CI rather than in a
+test.
+
+`declared dependencies are used` asks Gradle which files each configuration
+resolved and reads the jars to learn the package roots they contribute. The
+static job that runs it has no Gradle home to restore, so every run downloaded
+the distribution and resolved every configuration from scratch: **113 s on a good
+day, killed at the 300 s budget on a bad one** — the same tree, the same code,
+a different network.
+
+Two changes, and only the second one is the real fix:
+
+- **The static job restores the Gradle cache** (`setup-jvm-gradle`, the same
+  action the `tests` job uses, plus `actions: read` so the cache can be read).
+  The dependency cache is keyed on the Gradle files, not on the branch, so a
+  pull request restores what main resolved.
+- **The gate gets its own budget** (540 s, under the job's own ten-minute
+  cap). That is the floor under a cold cache, not the plan.
+
+The canonical Kotlin reader is also slower than the regexes it replaced: it is a
+character walk, and it costs 36× what a regex costs over the corpus (2.5 s
+against 0.07 s for 1654 files). The gates that read Kotlin through it stay well
+inside their budgets — `unwired surfaces` went from 39 s to 61 s in CI — and
+paying a character walk for a correct answer is the trade this decision makes
+on purpose.
+
 ## Consequences
 
 - `scripts/find-unwired-surfaces.py` and `scripts/check-dependency-usage.py`

@@ -141,5 +141,59 @@ class TestGateRegistryHasExpectedGates(unittest.TestCase):
         self.assertIn("advisory", modes)
 
 
+class TestTheGateBudget(unittest.TestCase):
+    """A gate that needs the build gets a budget that fits the build.
+
+    `declared dependencies are used` resolves the build: it asks Gradle which
+    files each configuration resolved and reads the jars. On a cold Gradle home
+    that is minutes, and it was killed at the 300 s budget the other gates
+    share — with the same tree and the same code, on a day when the same gate
+    measured 113 s.
+    """
+
+    def test_the_default_budget_is_five_minutes(self):
+        from sgate.commands.run_all import DEFAULT_GATE_TIMEOUT
+
+        self.assertEqual(DEFAULT_GATE_TIMEOUT, 300)
+
+    def test_the_gate_that_resolves_the_build_gets_a_larger_budget(self):
+        from sgate.commands.run_all import _timeout_for
+
+        self.assertGreater(
+            _timeout_for("declared dependencies are used"),
+            300,
+            "the gate that resolves the build must not share the budget of the "
+            "gates that only read files",
+        )
+
+    def test_every_other_gate_keeps_the_default(self):
+        from sgate.commands.run_all import DEFAULT_GATE_TIMEOUT, _timeout_for
+
+        for gate in sgate.gates.load_gates():
+            if gate.name == "declared dependencies are used":
+                continue
+            self.assertEqual(
+                _timeout_for(gate.name), DEFAULT_GATE_TIMEOUT,
+                f"{gate.name} has a budget of its own without a reason to have one",
+            )
+
+    def test_the_budget_fits_inside_the_static_job(self):
+        """The job's own ten-minute cap is the real ceiling.
+
+        A budget above it buys nothing: the job would be killed instead of the
+        gate, and the log would say so less clearly.
+        """
+        from sgate.commands.run_all import GATE_TIMEOUTS
+
+        workflow = Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
+        text = workflow.read_text(encoding="utf-8")
+        self.assertIn("timeout-minutes: 10", text)
+        for name, budget in GATE_TIMEOUTS.items():
+            self.assertLess(
+                budget, 600,
+                f"the budget for {name!r} exceeds the static job's own cap",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
