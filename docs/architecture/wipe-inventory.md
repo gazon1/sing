@@ -61,9 +61,15 @@ and `scripts/ci/check-profile-reset-inventory.py` fails when the two, the Room s
 and this document disagree. The gate is the point of the exercise — an
 exception list that nothing checks is an exception list that rots.
 
+The index tables are a third kind of entry, and they are checked from a fourth
+source: the gate reads the link between an index and the table it mirrors out
+of the Room annotations, so the claim in the table below is checked against the
+schema rather than believed.
+
 ## The inventory
 
-Thirty tables. Twenty-one are wiped, nine are not, and none is unresolved.
+Thirty-four tables. Twenty-one are wiped, nine are left alone, four are emptied
+by consequence, and none is unresolved.
 
 ### 1. Wiped — profile content the reset reaches
 
@@ -105,7 +111,32 @@ Thirty tables. Twenty-one are wiped, nine are not, and none is unresolved.
 | `sync_dead_letter` | not profile content | The shelf of patches that could not be delivered. Its own documentation says a change the user made must not be destroyed because the system could not deliver it. |
 | `calendar_sync_state` | not profile content | The calendar provider's incremental cursor — the sync token, and when the provider was last read. It is the engine's bookkeeping about the outside world; clearing it costs a full re-listing of the provider's calendar and buys no isolation. |
 
-### 3. Unresolved
+### 3. Emptied by consequence — the index tables the reset does not delete
+
+An index is a read model over the table it indexes: every row it returns is a row
+of `tasks`, `notes`, `projects` or `tags`. The tables below hold no rows of their
+own, and nothing in the application writes to them — Room keeps them in step by
+installing triggers on the content table (`room_fts_content_sync_tasks_fts_BEFORE_DELETE`
+and its siblings), so the delete that empties `tasks` empties `tasks_fts` with it.
+
+They are profile content all the same: a profile that has just been reset should
+not have its words in the index, and a search would find them there.
+
+| Table | Verdict | Why it is profile content | The table whose delete empties it |
+|---|---|---|---|
+| `tasks_fts` | emptied by consequence | The full-text index of the tasks. A task the reset deleted must not still be findable by its words. | `tasks` |
+| `notes_fts` | emptied by consequence | The full-text index of the notes. | `notes` |
+| `projects_fts` | emptied by consequence | The full-text index of the projects. | `projects` |
+| `tags_fts` | emptied by consequence | The full-text index of the tags. | `tags` |
+
+The link is not a claim: the gate reads it from the Room annotations
+(`@Fts4(contentEntity = …)`) and fails when the table named here is not the one
+the schema says the index mirrors, or when the mirrored table is not one the
+reset deletes. The behaviour — that the index really is empty afterwards — is
+measured, not read: `ProfileResetReachesTheWholeProfileTest` counts the rows of
+each index table before and after the reset, against real SQLite.
+
+### 4. Unresolved
 
 None. Every table in the schema has a verdict, and every verdict is justified
 from the entity definitions and the code that reads and writes it.
@@ -136,6 +167,10 @@ second section of this inventory: `profiles`, `llm_usage`, `remote_configs`,
 `sync_dead_letter` and `calendar_sync_state`. They were not reached before this
 change either, and they are not reached now — for the reasons given there.
 
+The four index tables of the third section came later, with the full-text
+search: they are the fourth kind of table, the ones the reset empties without
+deleting, because the table they mirror is deleted.
+
 ## What the gate checks, and what it does not
 
 `scripts/ci/check-profile-reset-inventory.py` reads three things — the `@Entity`
@@ -148,7 +183,10 @@ fails when:
 - the code wipes a table this document calls "not profile content", or this
   document calls "wiped" a table the code does not reach;
 - a table the code claims to wipe has no profile-scoped `DELETE FROM` in the
-  sources, or the delete the plan names is not a call the reset actually makes.
+  sources, or the delete the plan names is not a call the reset actually makes;
+- an index is not accounted for — one this document does not name, one that does
+  not mirror the table the list says it mirrors, one whose mirrored table the
+  reset does not delete, or one the list deletes directly.
 
 It does **not** check that the deletes do what they claim — that is the JVM
 test's job (`ProfileResetReachesTheWholeProfileTest`), which seeds one row in

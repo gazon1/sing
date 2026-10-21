@@ -40,8 +40,9 @@ interface ContentResetter {
 /**
  * The outcome of a profile reset.
  *
- * @param wipedTables the tables the reset reached, in the order it reached them.
- *   The list comes from [ProfileWipePlan], and `scripts/ci/check-profile-reset-inventory.py`
+ * @param wipedTables the tables the reset reached — the ones it deleted, and the
+ *   ones it emptied because the table they index was deleted. The list comes from
+ *   [ProfileWipePlan], and `scripts/ci/check-profile-reset-inventory.py`
  *   is what keeps that list and the calls the reset actually makes in step.
  */
 data class ContentResetResult(val wipedTables: List<String>)

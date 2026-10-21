@@ -67,6 +67,8 @@ def build_tree(
     impl=None,
     doc=None,
     deletes=None,
+    consequence=None,
+    index_entities=None,
 ) -> pathlib.Path:
     """Write a consistent repository tree, then let the caller break it.
 
@@ -83,6 +85,10 @@ def build_tree(
             table: f'@Query("DELETE FROM {table} WHERE user_id = :userId")'
             for table in wiped
         }
+    if index_entities is None:
+        index_entities = {}
+    if consequence is None:
+        consequence = {index: content for index, content in index_entities.items()}
 
     kotlin = root / "shared/src/commonMain/kotlin/com/singularity/todo"
     (kotlin / "core/database").mkdir(parents=True, exist_ok=True)
@@ -93,6 +99,12 @@ def build_tree(
         f'@Entity(tableName = "{table}")\ndata class {table.title().replace("_", "")}Entity(val id: String)'
         for table in tables
     )
+    if index_entities:
+        entities += "\n" + "\n".join(
+            f'@Entity(tableName = "{index}")\n'
+            f"@Fts4(contentEntity = {content}::class)"
+            for index, content in index_entities.items()
+        )
     (kotlin / "core/database/Entities.kt").write_text(entities, encoding="utf-8")
 
     dao = "\n".join(deletes.values())
@@ -100,12 +112,20 @@ def build_tree(
 
     if plan is None:
         plan = ",\n".join(f'        "{table}" to "{call}"' for table, call in wiped.items())
+    consequence_block = ""
+    if consequence:
+        consequence_block = (
+            "\n    val EMPTIED_BY_CONSEQUENCE: Map<String, String> = mapOf(\n"
+            + ",\n".join(f'        "{index}" to "{content}"' for index, content in consequence.items())
+            + ",\n    )\n"
+        )
     (kotlin / "core/wipe/ProfileWipePlan.kt").write_text(
         "package com.singularity.todo.core.wipe\n\n"
         "object ProfileWipePlan {\n"
         "    val WIPED: Map<String, String> = mapOf(\n"
         f"{plan},\n"
         "    )\n"
+        f"{consequence_block}"
         "}\n",
         encoding="utf-8",
     )
@@ -133,6 +153,10 @@ def build_tree(
         rows += [
             f"| `{table}` | not profile content | not the profile's content |"
             for table in left_alone
+        ]
+        rows += [
+            f"| `{index}` | emptied by consequence | mirrors `{content}` |"
+            for index, content in consequence.items()
         ]
         doc = "\n".join(rows)
     (root / "docs/architecture/wipe-inventory.md").write_text(
@@ -271,6 +295,117 @@ class ProfileResetInventoryGateTest(unittest.TestCase):
         rendered = "\n".join(finding.render() for finding in findings)
         self.assertIn(TABLES[-1], rendered)
         self.assertIn("ProfileWipePlan.kt", rendered)
+
+
+class ProfileResetInventoryIndexTest(unittest.TestCase):
+    """The gate holds the full-text indexes to the tables they mirror.
+
+    An index is a table like any other, and a table nobody decided about is
+    the failure this gate exists for. The indexes are a fourth kind of entry:
+    the reset empties them without deleting them, because the table they
+    mirror is deleted — and Room's triggers do the emptying.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        # An index of `table_0`, and the table it mirrors is one the reset
+        # deletes: `table_0` is in the first half of TABLES, so it is wiped.
+        self.index_entities = {"table_0_fts": "Table0Entity"}
+        self.consequence = {"table_0_fts": "table_0"}
+
+    def test_a_consistent_tree_with_an_index_passes(self):
+        build_tree(
+            self.root,
+            index_entities=self.index_entities,
+            consequence=self.consequence,
+        )
+        code, findings = run_gate(self.root)
+        self.assertEqual(0, code, f"a consistent tree must pass, got: {findings}")
+
+    def test_an_index_nobody_decided_about_fails(self):
+        build_tree(
+            self.root,
+            index_entities=self.index_entities,
+            consequence=self.consequence,
+        )
+        doc = self.root / "docs/architecture/wipe-inventory.md"
+        doc.write_text(
+            doc.read_text(encoding="utf-8").replace(
+                "| `table_0_fts` | emptied by consequence | mirrors `table_0` |\n",
+                "",
+            ),
+            encoding="utf-8",
+        )
+        plan = self.root / "shared/src/commonMain/kotlin/com/singularity/todo/core/wipe/ProfileWipePlan.kt"
+        plan.write_text(
+            plan.read_text(encoding="utf-8").replace(
+                '        "table_0_fts" to "table_0",\n',
+                "",
+            ),
+            encoding="utf-8",
+        )
+        code, findings = run_gate(self.root)
+        self.assertEqual(1, code)
+        self.assertIn("index-nobody-decided-about", kinds(findings))
+        self.assertIn("table_0_fts", {f.table for f in findings})
+
+    def test_an_index_the_document_names_but_the_list_does_not_fails(self):
+        build_tree(
+            self.root,
+            index_entities=self.index_entities,
+            consequence=self.consequence,
+        )
+        plan = self.root / "shared/src/commonMain/kotlin/com/singularity/todo/core/wipe/ProfileWipePlan.kt"
+        plan.write_text(
+            plan.read_text(encoding="utf-8").replace(
+                '        "table_0_fts" to "table_0",\n',
+                "",
+            ),
+            encoding="utf-8",
+        )
+        code, findings = run_gate(self.root)
+        self.assertEqual(1, code)
+        self.assertIn("documented-but-not-planned", kinds(findings))
+        self.assertIn("table_0_fts", {f.table for f in findings})
+
+    def test_an_index_that_mirrors_another_table_fails(self):
+        build_tree(
+            self.root,
+            index_entities=self.index_entities,
+            consequence={"table_0_fts": "table_1"},
+        )
+        code, findings = run_gate(self.root)
+        self.assertEqual(1, code)
+        self.assertIn("index-mirrors-another-table", kinds(findings))
+        self.assertIn("table_0_fts", {f.table for f in findings})
+
+    def test_an_index_whose_content_survives_fails(self):
+        build_tree(
+            self.root,
+            wiped={"table_0": _call_for("table_0")},
+            left_alone=[table for table in TABLES if table != "table_0"],
+            index_entities=self.index_entities,
+            consequence={"table_0_fts": "table_19"},
+        )
+        code, findings = run_gate(self.root)
+        self.assertEqual(1, code)
+        self.assertIn("index-outlives-its-content", kinds(findings))
+        self.assertIn("table_0_fts", {f.table for f in findings})
+
+    def test_an_index_the_list_deletes_directly_fails(self):
+        build_tree(
+            self.root,
+            index_entities=self.index_entities,
+            consequence=self.consequence,
+            wiped={**{t: _call_for(t) for t in TABLES}, "table_0_fts": _call_for("table_0_fts")},
+            left_alone=[],
+        )
+        code, findings = run_gate(self.root)
+        self.assertEqual(1, code)
+        self.assertIn("index-in-the-delete-plan", kinds(findings))
+        self.assertIn("table_0_fts", {f.table for f in findings})
 
 
 class ProfileResetInventoryAgainstTheRepositoryTest(unittest.TestCase):

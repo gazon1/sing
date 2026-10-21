@@ -22,6 +22,9 @@ package com.singularity.todo.core.wipe
  * The value is the call exactly as it is written in [ProfileContentResetter], so
  * the gate can check that the reset really makes that call, and that the call
  * really issues a `DELETE FROM` scoped to the profile.
+ *
+ * [EMPTIED_BY_CONSEQUENCE] is the other half: the tables the reset reaches
+ * without a call of their own, because the table they index is reached.
  */
 object ProfileWipePlan {
 
@@ -54,5 +57,28 @@ object ProfileWipePlan {
         "tasks" to "taskRepository.deleteAllForCurrentProfile",
         "task_tags" to "taskRepository.deleteAllForCurrentProfile",
         "time_entries" to "timeEntryDao.deleteAllForUser",
+    )
+
+    /**
+     * The tables the reset empties without deleting them directly: the full-text
+     * indexes, which hold no rows of their own.
+     *
+     * An index is a read model over the table it indexes — every row it returns is
+     * a row of `tasks`, `notes`, `projects` or `tags`. Room keeps the two in step
+     * with triggers it installs on the content table
+     * (`room_fts_content_sync_tasks_fts_BEFORE_DELETE` and its siblings), so the
+     * delete that empties `tasks` empties `tasks_fts` with it.
+     *
+     * The value is the table the index mirrors — the one whose delete empties it.
+     * The gate checks that the two really are mirrors, from the
+     * `@Fts4(contentEntity = …)` annotation, and that the mirrored table is one
+     * the reset deletes: an index whose content table survives would keep the
+     * profile's words after the reset, and the search would find them.
+     */
+    val EMPTIED_BY_CONSEQUENCE: Map<String, String> = mapOf(
+        "notes_fts" to "notes",
+        "projects_fts" to "projects",
+        "tags_fts" to "tags",
+        "tasks_fts" to "tasks",
     )
 }

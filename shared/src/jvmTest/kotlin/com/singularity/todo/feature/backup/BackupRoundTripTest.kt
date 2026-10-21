@@ -118,6 +118,7 @@ class BackupRoundTripTest {
             syncRepository = FakeSyncRepository(),
             dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
             unitOfWork = FakeUnitOfWork(),
+            ftsDao = sourceDb.ftsDao(),
         )
         repository.create(
             Task(

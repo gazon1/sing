@@ -48,6 +48,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import androidx.sqlite.SQLiteDriver
 import java.io.File
 import java.nio.file.Files
 import kotlinx.coroutines.flow.first
@@ -97,13 +98,17 @@ class ProfileResetReachesTheWholeProfileTest {
     private val profileId = "profile-1"
 
     private lateinit var tempDir: File
+    private lateinit var driver: SQLiteDriver
+    private lateinit var dbPath: String
     private lateinit var db: AppDatabase
     private lateinit var currentUser: ProfileAwareCurrentUser
 
     @BeforeTest
     fun setUp() {
         tempDir = Files.createTempDirectory("singularity-reset-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+        dbPath = File(tempDir, "singularity.db").absolutePath
+        driver = createSqlDriver()
+        db = AppDatabaseFactory.build(driver, dbPath)
         currentUser = FakeProfileAwareCurrentUser(initialUserId = alice)
     }
 
@@ -192,9 +197,49 @@ class ProfileResetReachesTheWholeProfileTest {
         val result = resetter().resetContent()
 
         assertEquals(
-            ProfileWipePlan.WIPED.keys.toList(),
+            ProfileWipePlan.WIPED.keys.toList() +
+                ProfileWipePlan.EMPTIED_BY_CONSEQUENCE.keys.toList(),
             result.wipedTables,
             "the reset must report exactly the tables the plan says it reaches",
+        )
+    }
+
+    @Test
+    fun `the reset empties the index of the rows it deleted`() = runTest {
+        seedProfileContent(alice.value)
+
+        indexTables().forEach { (table, content) ->
+            assertTrue(
+                countRows(table) > 0,
+                "the index of $content must hold a row before the reset, or the " +
+                    "count after it proves nothing",
+            )
+        }
+
+        resetter().resetContent()
+
+        indexTables().forEach { (table, content) ->
+            assertEquals(
+                0,
+                countRows(table),
+                "the reset must leave no row of $table behind: the index of " +
+                    "$content mirrors the rows that are gone",
+            )
+        }
+    }
+
+    @Test
+    fun `the reset leaves another profile's index rows alone`() = runTest {
+        seedProfileContent(alice.value)
+        seedProfileContent(bob.value)
+
+        resetter().resetContent()
+
+        assertEquals(
+            1,
+            countRows("tasks_fts"),
+            "the index holds the rows of both profiles, and the reset may only " +
+                "take its own",
         )
     }
 
@@ -248,6 +293,40 @@ class ProfileResetReachesTheWholeProfileTest {
             db.calendarSyncStateDao().get(alice.value, "google", "primary") != null
         },
     )
+
+    /**
+     * The index tables, and the table each one mirrors.
+     *
+     * Read from the plan rather than written here, so the test and the reset
+     * cannot disagree about which index mirrors what.
+     */
+    private fun indexTables(): List<Pair<String, String>> =
+        ProfileWipePlan.EMPTIED_BY_CONSEQUENCE.entries.map { (index, content) ->
+            index to content
+        }
+
+    /**
+     * The rows of a table, counted by the database itself.
+     *
+     * An index table has no DAO of its own — nothing writes to it, so there is
+     * nothing to write through — and a DAO method with one caller and one
+     * purpose would be a method that exists only for this test. The count is a
+     * fact about the table, so it is asked of the table.
+     */
+    private fun countRows(table: String): Int {
+        val connection = driver.open(dbPath)
+        try {
+            val statement = connection.prepare("SELECT count(*) FROM $table")
+            try {
+                statement.step()
+                return statement.getLong(0).toInt()
+            } finally {
+                statement.close()
+            }
+        } finally {
+            connection.close()
+        }
+    }
 
     // ─── Seeding ────────────────────────────────────────────────────────────────
 
@@ -305,6 +384,7 @@ class ProfileResetReachesTheWholeProfileTest {
             NoteEntity(
                 id = "note-$uid",
                 userId = uid,
+                title = "Note",
                 bodyMarkdown = "body",
                 bodyHtml = null,
                 parentNoteId = null,
@@ -601,6 +681,7 @@ class ProfileResetReachesTheWholeProfileTest {
                 currentUser = currentUser,
                 syncRepository = FakeSyncRepository(),
                 unitOfWork = FakeUnitOfWork(),
+                ftsDao = db.ftsDao(),
             ),
             tagGroupRepository = TagGroupRepositoryImpl(
                 tagGroupDao = db.tagGroupDao(),
@@ -635,6 +716,7 @@ class ProfileResetReachesTheWholeProfileTest {
         syncRepository = FakeSyncRepository(),
         dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
         unitOfWork = FakeUnitOfWork(),
+        ftsDao = db.ftsDao(),
     )
 
     private fun notesRepo() = NotesRepositoryImpl(
@@ -643,6 +725,7 @@ class ProfileResetReachesTheWholeProfileTest {
         currentUser = currentUser,
         syncRepository = FakeSyncRepository(),
         unitOfWork = FakeUnitOfWork(),
+        ftsDao = db.ftsDao(),
     )
 
     private fun projectsRepo() = ProjectsRepositoryImpl(
@@ -652,5 +735,6 @@ class ProfileResetReachesTheWholeProfileTest {
         currentUser = currentUser,
         syncRepository = FakeSyncRepository(),
         unitOfWork = FakeUnitOfWork(),
+        ftsDao = db.ftsDao(),
     )
 }

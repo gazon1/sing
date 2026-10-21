@@ -29,7 +29,11 @@ The gate fails when:
   sources, or the delete has no `WHERE` — a list that names a table nothing
   deletes, or a sweep of the live rows;
 * a call the plan names is not a call the reset makes, or the reset makes a
-  wipe call the plan does not name — the list and the code drifting apart.
+  wipe call the plan does not name — the list and the code drifting apart;
+* a full-text index is not accounted for — an index nobody decided about, an
+  index that does not mirror the table the list says it mirrors, or an index
+  whose content table the reset does not delete (which would leave the
+  profile's words in the index after the reset).
 
 It does not check that the deletes do what they claim. That is the JVM test's
 job (`ProfileResetReachesTheWholeProfileTest`), which seeds one row in every
@@ -73,13 +77,19 @@ WIPE_IMPL = SHARED_MAIN / "core/wipe/ProfileContentResetter.kt"
 INVENTORY = Path("docs/architecture/wipe-inventory.md")
 
 #: The verdicts the inventory may give a table.
-VERDICTS = ("wiped", "not profile content", "unresolved")
+VERDICTS = ("wiped", "not profile content", "emptied by consequence", "unresolved")
 
 #: `tableName = "tasks"` in an `@Entity` annotation.
 _TABLE_NAME_RE = re.compile(r'tableName\s*=\s*"([A-Za-z0-9_]+)"')
 
 #: `"tasks" to "taskRepository.deleteAllForCurrentProfile",` in the plan.
 _PLAN_ENTRY_RE = re.compile(r'"([A-Za-z0-9_]+)"\s+to\s+"([A-Za-z0-9_.]+)"')
+
+#: `data class TaskEntity(` — the class an entity is declared as.
+_ENTITY_CLASS_RE = re.compile(r"data class\s+([A-Za-z0-9_]+)")
+
+#: `@Fts4(contentEntity = TaskEntity::class` — the table an index mirrors.
+_FTS_CONTENT_RE = re.compile(r"@Fts4\s*\(\s*contentEntity\s*=\s*([A-Za-z0-9_]+)::class")
 
 #: `deps.taskRepository.deleteAllForCurrentProfile()` in the implementation.
 _WIPE_CALL_RE = re.compile(
@@ -118,9 +128,95 @@ class Inventory:
 
     schema_tables: set[str] = field(default_factory=set)
     plan: dict[str, str] = field(default_factory=dict)
+    consequence: dict[str, str] = field(default_factory=dict)
     calls_in_impl: set[str] = field(default_factory=set)
     verdicts: dict[str, str] = field(default_factory=dict)
     scoped_deletes: set[str] = field(default_factory=set)
+    indexes: dict[str, str] = field(default_factory=dict)
+
+
+def _kotlin_map_entries(text: str, name: str) -> dict[str, str]:
+    """The entries of `val <name> = mapOf(...)` — one Kotlin map literal.
+
+    Scoped to the named map on purpose: the plan holds more than one, and a
+    regex over the whole file would read the indexes as tables the reset
+    deletes.
+    """
+    anchor = text.find(f"val {name}")
+    if anchor == -1:
+        return {}
+    literal = text.find("mapOf(", anchor)
+    if literal == -1:
+        return {}
+    start = text.find("(", literal)
+    depth = 0
+    for index in range(start, len(text)):
+        if text[index] == "(":
+            depth += 1
+        elif text[index] == ")":
+            depth -= 1
+            if depth == 0:
+                block = text[start:index]
+                return {table: call for table, call in _PLAN_ENTRY_RE.findall(block)}
+    return {}
+
+
+def _entity_classes(text: str) -> dict[str, str]:
+    """The entity class → table map of one Kotlin file.
+
+    Read line by line because an `@Entity` annotation may put its `tableName`
+    on the next line, and because the annotation may carry other arguments
+    with parentheses of their own (`indices = [Index("user_id")]`).
+    """
+    mapping: dict[str, str] = {}
+    pending: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("@Entity"):
+            pending = None
+            found = _TABLE_NAME_RE.search(stripped)
+            if found:
+                pending = found.group(1)
+            continue
+        if pending is None:
+            found = _TABLE_NAME_RE.search(stripped)
+            if found:
+                pending = found.group(1)
+                continue
+        declared = _ENTITY_CLASS_RE.search(stripped)
+        if declared:
+            if pending is not None:
+                mapping[declared.group(1)] = pending
+            pending = None
+    return mapping
+
+
+def _index_tables(text: str) -> dict[str, str]:
+    """The index table → content entity class map of one Kotlin file.
+
+    An index is an `@Entity` whose `@Fts4` names the entity it mirrors. The
+    table the index itself is declared with is the table just above the
+    annotation, so the two are read together.
+    """
+    indexes: dict[str, str] = {}
+    pending: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("@Entity"):
+            pending = None
+            found = _TABLE_NAME_RE.search(stripped)
+            if found:
+                pending = found.group(1)
+            continue
+        if pending is None:
+            found = _TABLE_NAME_RE.search(stripped)
+            if found:
+                pending = found.group(1)
+                continue
+        fts = _FTS_CONTENT_RE.search(stripped)
+        if fts and pending is not None:
+            indexes[pending] = fts.group(1)
+    return indexes
 
 
 def _kotlin_sources(root: Path) -> list[Path]:
@@ -141,9 +237,16 @@ def collect(root: Path) -> Inventory:
     if not (root / SHARED_MAIN).is_dir():
         raise FileNotFoundError(str(root / SHARED_MAIN))
 
+    # The entity class → table map is global: an index names the entity it
+    # mirrors, and that entity is declared in another file.
+    class_to_table: dict[str, str] = {}
+
     for source in _kotlin_sources(root):
         text = source.read_text(encoding="utf-8")
         inv.schema_tables.update(_TABLE_NAME_RE.findall(text))
+        class_to_table.update(_entity_classes(text))
+        for index, content_class in _index_tables(text).items():
+            inv.indexes[index] = class_to_table.get(content_class, content_class)
         for match in _DELETE_FROM_RE.finditer(text):
             table = match.group(1)
             # The statement ends at the closing quote of the query string. A
@@ -158,7 +261,8 @@ def collect(root: Path) -> Inventory:
                 inv.scoped_deletes.add(table)
 
     plan_text = _read(WIPE_PLAN, root)
-    inv.plan = {table: call for table, call in _PLAN_ENTRY_RE.findall(plan_text)}
+    inv.plan = _kotlin_map_entries(plan_text, "WIPED")
+    inv.consequence = _kotlin_map_entries(plan_text, "EMPTIED_BY_CONSEQUENCE")
 
     impl_text = _read(WIPE_IMPL, root)
     inv.calls_in_impl = {
@@ -180,8 +284,10 @@ def check(inv: Inventory) -> list[Finding]:
 
     doc_wiped = {t for t, v in inv.verdicts.items() if v == "wiped"}
     doc_left = {t for t, v in inv.verdicts.items() if v == "not profile content"}
+    doc_consequence = {t for t, v in inv.verdicts.items() if v == "emptied by consequence"}
     doc_unresolved = {t for t, v in inv.verdicts.items() if v == "unresolved"}
     plan_tables = set(inv.plan)
+    consequence_tables = set(inv.consequence)
 
     # R1 — every table in the schema has a verdict.
     for table in sorted(inv.schema_tables - set(inv.verdicts)):
@@ -318,6 +424,121 @@ def check(inv: Inventory) -> list[Finding]:
             )
         )
 
+    # R8 — the two lists of index tables are the same list. The document and the
+    # plan each say which tables the reset reaches without a delete of their own.
+    for table in sorted(doc_consequence - consequence_tables):
+        findings.append(
+            Finding(
+                kind="documented-but-not-planned",
+                table=table,
+                detail=(
+                    "the inventory calls this emptied by consequence, but the "
+                    "wipe's list does not name it. Either the list is out of date "
+                    "or the verdict is wrong."
+                ),
+                where=str(WIPE_PLAN),
+            )
+        )
+    for table in sorted(consequence_tables - doc_consequence):
+        findings.append(
+            Finding(
+                kind="planned-but-not-documented",
+                table=table,
+                detail=(
+                    "the wipe's list empties this table by consequence, but the "
+                    "inventory does not say so. The document must give every table "
+                    "the reset reaches a verdict and a reason."
+                ),
+                where=str(INVENTORY),
+            )
+        )
+
+    # R9 — an index mirrors the table the list says it mirrors. The link is read
+    # from the Room annotations, not from the list, so a wrong claim in the
+    # list is caught rather than believed.
+    for table, content in sorted(inv.consequence.items()):
+        actual = inv.indexes.get(table)
+        if actual is None:
+            findings.append(
+                Finding(
+                    kind="index-that-is-not-an-index",
+                    table=table,
+                    detail=(
+                        "the wipe's list empties this table because the table it "
+                        "mirrors is deleted, but the schema declares no full-text "
+                        "index here. The reason it is emptied does not exist."
+                    ),
+                    where=str(SHARED_MAIN),
+                )
+            )
+            continue
+        if actual != content:
+            findings.append(
+                Finding(
+                    kind="index-mirrors-another-table",
+                    table=table,
+                    detail=(
+                        f"the wipe's list says this index mirrors `{content}`, but "
+                        f"the schema says it mirrors `{actual}`. One of the two is "
+                        "wrong, and the wrong one would leave the wrong index "
+                        "behind."
+                    ),
+                    where=str(SHARED_MAIN),
+                )
+            )
+
+    # R10 — the mirrored table is one the reset deletes. An index whose content
+    # table survives keeps the profile's words after the reset, and the search
+    # finds them.
+    for table, content in sorted(inv.consequence.items()):
+        if content not in plan_tables:
+            findings.append(
+                Finding(
+                    kind="index-outlives-its-content",
+                    table=table,
+                    detail=(
+                        f"this index mirrors `{content}`, which the reset does not "
+                        "delete. The index keeps the profile's rows after the "
+                        "reset, and a search finds them."
+                    ),
+                    where=str(WIPE_PLAN),
+                )
+            )
+
+    # R11 — every index in the schema is accounted for. An index is a table,
+    # and a table nobody decided about is the failure this gate exists for.
+    for table in sorted(set(inv.indexes) - consequence_tables):
+        findings.append(
+            Finding(
+                kind="index-nobody-decided-about",
+                table=table,
+                detail=(
+                    "the schema declares this full-text index, but neither the "
+                    "inventory nor the wipe's list says what a profile reset does "
+                    "with it. Add it to the inventory with a verdict and a reason."
+                ),
+                where=str(INVENTORY),
+            )
+        )
+
+    # R12 — an index is emptied by consequence, never deleted by a call of its
+    # own. Nothing writes to an index table, so a delete aimed at it would be a
+    # delete of a table Room keeps in step by itself.
+    for table in sorted(doc_consequence & plan_tables):
+        findings.append(
+            Finding(
+                kind="index-in-the-delete-plan",
+                table=table,
+                detail=(
+                    "the inventory calls this emptied by consequence, but the "
+                    "wipe's list deletes it directly. The index holds no rows of "
+                    "its own; the delete of the table it mirrors is what empties "
+                    "it."
+                ),
+                where=str(WIPE_PLAN),
+            )
+        )
+
     return findings
 
 
@@ -387,7 +608,8 @@ def cli(ctx: click.Context, repo_root: Path) -> None:
 
     click.echo(
         f"profile reset inventory agrees: {len(inv.schema_tables)} tables, "
-        f"{len(inv.plan)} wiped, {len(inv.verdicts)} verdicts"
+        f"{len(inv.plan)} wiped, {len(inv.consequence)} emptied by consequence, "
+        f"{len(inv.verdicts)} verdicts"
     )
     raise ctx.exit(CLEAN)
 

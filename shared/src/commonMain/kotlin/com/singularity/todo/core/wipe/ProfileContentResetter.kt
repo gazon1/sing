@@ -106,6 +106,9 @@ class ProfileContentResetter(
         // The drafts are not in the database, so no database wipe reaches them.
         draftStore.clearPrefix("")
 
-        return ContentResetResult(wipedTables = ProfileWipePlan.WIPED.keys.toList())
+        return ContentResetResult(
+            wipedTables = ProfileWipePlan.WIPED.keys.toList() +
+                ProfileWipePlan.EMPTIED_BY_CONSEQUENCE.keys.toList(),
+        )
     }
 }
