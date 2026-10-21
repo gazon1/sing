@@ -93,6 +93,21 @@ echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
+# The Android source set is compiled by neither the JVM tests nor detekt: detekt runs
+# without type resolution, and `:shared:jvmTest` never touches `src/androidMain`. A
+# call that does not exist in `kotlinx-datetime 0.8` passed a green detekt and 3266
+# green JVM tests in this repository, and was caught only by the Android build.
+#
+# The host test is a Robolectric test — no emulator, no device — so it belongs in the
+# local loop, not only in CI.
+echo -e "${YELLOW}=== [3b/$TOTAL] shared:testAndroidHostTest ===${NC}"
+./gw :shared:testAndroidHostTest --quiet || {
+    echo -e "${RED}shared:testAndroidHostTest FAILED — the Android source set does not compile, " \
+        "and nothing else in this script would have said so${NC}"
+    exit 1
+}
+echo -e "${GREEN}shared:testAndroidHostTest passed${NC}"
+
 echo -e "${YELLOW}=== [4/$TOTAL] desktopApp:test ===${NC}"
 ./gw :desktopApp:test --quiet || {
     echo -e "${RED}desktopApp:test FAILED${NC}"

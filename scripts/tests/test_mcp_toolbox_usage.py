@@ -123,8 +123,13 @@ class RegistryTest(unittest.TestCase):
         self.dir = pathlib.Path(self._tmp.name)
 
     def test_a_registered_tool_that_was_never_called_is_named(self):
+        # The shape the server writes: the tool list is a list of objects, because the
+        # same shape is what `describe_toolbox` reports. A test that wrote strings
+        # here would agree with a report that crashed on the real snapshot.
         (self.dir / "registry.json").write_text(
-            json.dumps({"registeredTools": ["create_task", "list_open_deferred"]}),
+            json.dumps({
+                "registeredTools": [{"name": "create_task"}, {"name": "list_open_deferred"}],
+            }),
             encoding="utf-8",
         )
         records, _, _ = usage.read_records(self.dir, None)
@@ -139,7 +144,7 @@ class RegistryTest(unittest.TestCase):
     def test_a_tool_that_is_no_longer_registered_is_named(self):
         """A client working from a stale toolbox is a signal, not a cosmetic detail."""
         (self.dir / "registry.json").write_text(
-            json.dumps({"registeredTools": ["create_task"]}),
+            json.dumps({"registeredTools": [{"name": "create_task"}]}),
             encoding="utf-8",
         )
         (self.dir / "2026-10-20-1.jsonl").write_text(
@@ -153,6 +158,39 @@ class RegistryTest(unittest.TestCase):
         report = usage.render(summary, registry, 0, 1, len(records), None)
 
         self.assertIn("Observed but not in the last registry snapshot", report)
+        self.assertIn("old_tool", report)
+
+    def test_a_registry_of_an_older_build_is_still_read(self):
+        """A registry written before the list became a list of objects."""
+        (self.dir / "registry.json").write_text(
+            json.dumps({"registeredTools": ["create_task"]}),
+            encoding="utf-8",
+        )
+        records, _, _ = usage.read_records(self.dir, None)
+        summary = usage.summarize(records)
+        registry = usage.read_registry(self.dir)
+
+        report = usage.render(summary, registry, 0, 1, len(records), None)
+
+        self.assertIn("Registered but not observed", report)
+        self.assertIn("create_task", report)
+
+    def test_a_flag_that_named_no_tool_is_named(self):
+        """The operator set a flag and believes a tool is off. It is not."""
+        (self.dir / "registry.json").write_text(
+            json.dumps({
+                "registeredTools": [{"name": "create_task"}],
+                "unmatchedFlags": ["old_tool"],
+            }),
+            encoding="utf-8",
+        )
+        records, _, _ = usage.read_records(self.dir, None)
+        summary = usage.summarize(records)
+        registry = usage.read_registry(self.dir)
+
+        report = usage.render(summary, registry, 0, 1, len(records), None)
+
+        self.assertIn("Flags that named no tool", report)
         self.assertIn("old_tool", report)
 
     def test_without_a_registry_the_report_says_so(self):

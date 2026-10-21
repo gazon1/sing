@@ -51,7 +51,7 @@ rule was fixed at its owner, and the test now pins both shapes a tool class can 
   core/ai/AiToolFilters.kt              the kill-switch policy — fixed (F16)
   feature/ai/tools/AdrTools.kt          + search_decisions
   feature/ai/tools/SearchDocsTool.kt    + search_docs
-  mcp/McpToolCatalog.kt                 descriptions removed; two entries added
+  feature/ai/McpToolCatalog.kt         descriptions removed; two entries added
 
 :shared/jvmMain · :shared/androidMain
   core/observability/FileToolCallLog.kt the writer, per platform

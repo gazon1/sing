@@ -2,6 +2,7 @@ package com.singularity.todo.mcp
 
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -46,6 +47,10 @@ object RegistrySnapshot {
         put("buildVersion", snapshot.identity.buildVersion)
         put("catalogFingerprint", snapshot.identity.catalogFingerprint)
         put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
+        // The flags that named no tool. The report is the operator's window on a
+        // running server, and "a flag names a tool this build does not have" is
+        // exactly the thing an operator looks for.
+        put("unmatchedFlags", JsonArray(snapshot.unmatchedFlags.map { JsonPrimitive(it) }))
     }
 
     private fun toolNames(tools: List<ToolboxToolEntry>): JsonArray = buildJsonArray {

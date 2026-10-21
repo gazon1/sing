@@ -259,10 +259,17 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
         ),
     ),
     ":shared:testAndroidHostTest": GradleTaskParity(
-        scope="ci",
+        scope="covered",
         why=(
-            "the Android host source set is built only in its own CI job; see "
-            "openspec/changes/ci-checks-parallel-split for why it was split out"
+            "CI reaches it through `koverReport`, which aggregates the test task and "
+            "instruments it; `ci.yml` never spells the task, and the Android host "
+            "source set was CI-only for a while — the local loop did not compile it "
+            "at all. That was a hole with a price: `LocalDate.minusDays` — an API "
+            "`kotlinx-datetime 0.8` does not have — passed a green detekt and 3266 "
+            "green JVM tests, because detekt runs without type resolution and the JVM "
+            "tests do not compile `src/androidMain`. Only the CI job said so. The "
+            "host test is a Robolectric test, so naming it here costs a minute and "
+            "no emulator."
         ),
     ),
     ":adr-cli:installDist": GradleTaskParity(

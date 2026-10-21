@@ -56,6 +56,7 @@
 - [x] The ADR for the kill switch that was never applied
 - [x] The ADR for the gate that reads the surface the compiler saw
 - [x] The ADR for the server that takes its dependencies as arguments
+- [x] The ADR for the surface that is read from the compiler down
 - [x] This change
 - [x] The issue registry — `scripts/openspec-import-all.py`
 - [x] The digest refreshed
@@ -63,6 +64,24 @@
 - [x] `singularity-todo-cli-tool-surface` — the examples that cannot compile, the
       annotation keys, and the eight tools it listed that do not exist
 - [x] `singularity-todo-mcp-dogfooding` — how an external agent uses the new surface
+
+## The follow-up wave
+
+Seven gaps, closed after the change itself was merged:
+
+- [x] The contract the agent reads — the `describe_toolbox` payload, the three MCP
+      resources and the registry snapshot — pinned by tests
+- [x] The local report reads the shape the server writes, and names the flags that
+      matched no tool
+- [x] The skill that teaches an agent mentions `unmatchedFlags`
+- [x] The local gate compiles the Android source set
+- [x] The corpus has one declared policy, and the two readers are checked against
+      each other
+- [x] The flag key space is declared, and the documentation is checked against it
+- [x] The catalogue holds the tool *class*, so the export and the documentation read
+      the same declaration — the tool **list** stays hand-written, because the Koin
+      compiler plugin checks definition requests by static type and a heterogeneous
+      list has none (ADR `2026-10-21-the-toolbox-surface-from-the-compiler-down`)
 
 ## Verification
 
