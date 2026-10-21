@@ -202,7 +202,7 @@ class RunnerReadsTheReportTest(unittest.TestCase):
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
 
         with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
-            ok, _run_id = run_one_flow(
+            ok, _run_id, _attempts = run_one_flow(
                 flow_path=flow,
                 serial="emulator-5554",
                 junit_dir=pathlib.Path(tempfile.mkdtemp()),
@@ -221,7 +221,7 @@ class RunnerReadsTheReportTest(unittest.TestCase):
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
 
         with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
-            ok, _run_id = run_one_flow(
+            ok, _run_id, _attempts = run_one_flow(
                 flow_path=flow,
                 serial="emulator-5554",
                 junit_dir=pathlib.Path(tempfile.mkdtemp()),

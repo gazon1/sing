@@ -2,7 +2,7 @@
 
 Public API:
     main()           → int            (Click CLI entry point)
-    run_one_flow(...) → tuple[bool, str]
+    run_one_flow(...) → tuple[bool, str, int]
     FakeMaestro                          (test harness in _testing)
     flow_tags / flow_has_tag             (tag inspection)
     collect_flows / filter_flows_by_tag

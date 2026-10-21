@@ -19,6 +19,37 @@ def device_model(serial: str) -> str:
     return (adb_on(serial, "shell", "getprop", "ro.product.model") or "").strip()
 
 
+def device_api_level(serial: str) -> int | None:
+    """The device's API level, or None when it does not answer.
+
+    The API level is part of the environment a measurement was taken in. A
+    number measured on API 35 and a number measured on API 36 are two
+    different quantities, and the floor belongs to one of them.
+    """
+    out = (adb_on(serial, "shell", "getprop", "ro.build.version.sdk") or "").strip()
+    try:
+        return int(out)
+    except ValueError:
+        return None
+
+
+def app_installed(serial: str) -> bool:
+    """Whether the app under test is on the device.
+
+    A run can lose the app without losing the device: the package is removed
+    and the device keeps answering adb, perfectly. Every flow after that fails
+    in four seconds with "Package com.singularity.todo is not installed", which
+    is not a statement about the app — it is the absence of the app, and a
+    report that counts it as a failing flow is a report about the run.
+
+    Measured on a physical phone (2026-10-28): the package was removed at
+    15:59 and the runner carried on, so 31 of 94 flows were reported as
+    failures when they had not been measured at all.
+    """
+    out = adb_on(serial, "shell", "pm", "list", "packages", APP_ID) or ""
+    return any(line.strip() == f"package:{APP_ID}" for line in out.splitlines())
+
+
 def reset_adb_server() -> None:
     adb("kill-server")
     time.sleep(2)

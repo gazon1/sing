@@ -300,7 +300,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
 
         with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
-            ok, _run_id = run_one_flow(
+            ok, _run_id, _attempts = run_one_flow(
                 flow_path=flow,
                 serial="emulator-5554",
                 junit_dir=pathlib.Path(tempfile.mkdtemp()),
@@ -335,7 +335,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
 
         with unittest.mock.patch("emulator.maestro._runner.time.sleep", lambda _s: None):
-            ok, _run_id = run_one_flow(
+            ok, _run_id, _attempts = run_one_flow(
                 flow_path=flow,
                 serial="emulator-5554",
                 junit_dir=pathlib.Path(tempfile.mkdtemp()),
@@ -355,7 +355,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         fake = FakeMaestro([FakeMaestroResult(0, stdout="flow passed")])
         deps = _make_deps(fake)
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
-        ok, run_id = run_one_flow(
+        ok, run_id, _attempts = run_one_flow(
             flow, serial="emulator-5554",
             junit_dir=pathlib.Path("/tmp/junit"),
             skip_install=False, allow_stale=False,
@@ -371,7 +371,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         fake = FakeMaestro([FakeMaestroResult(1, stderr="Assertion failed")])
         deps = _make_deps(fake)
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
-        ok, run_id = run_one_flow(
+        ok, run_id, _attempts = run_one_flow(
             flow, serial="emulator-5554",
             junit_dir=pathlib.Path("/tmp/junit"),
             skip_install=False, allow_stale=False,
@@ -387,7 +387,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         fake = FakeMaestro([device_error, success])
         deps = _make_deps(fake, device_alive=True)
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
-        ok, run_id = run_one_flow(
+        ok, run_id, _attempts = run_one_flow(
             flow, serial="emulator-5554",
             junit_dir=pathlib.Path("/tmp/junit"),
             skip_install=False, allow_stale=False,
@@ -402,7 +402,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         fake = FakeMaestro([device_error, device_error, device_error])
         deps = _make_deps(fake, device_alive=True)
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
-        ok, run_id = run_one_flow(
+        ok, run_id, _attempts = run_one_flow(
             flow, serial="emulator-5554",
             junit_dir=pathlib.Path("/tmp/junit"),
             skip_install=False, allow_stale=False,
@@ -419,7 +419,7 @@ class RunMaestroIntegrationTest(unittest.TestCase):
         fake.set_device_sha("old000old000")  # stale APK on relaunched device
         deps = _make_deps(fake, maestro_result_sha="abc123def456", device_alive=True)
         flow = ROOT / "Maestro/flows/smoke/01-launch-today.yaml"
-        ok, run_id = run_one_flow(
+        ok, run_id, _attempts = run_one_flow(
             flow, serial="emulator-5554",
             junit_dir=pathlib.Path("/tmp/junit"),
             skip_install=False, allow_stale=False,
