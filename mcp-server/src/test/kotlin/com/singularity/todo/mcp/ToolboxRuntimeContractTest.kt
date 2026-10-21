@@ -112,9 +112,13 @@ class ToolboxRuntimeContractTest {
         RegistrySnapshot.write(snapshot(), directory.toString())
 
         val log = JvmFileToolCallLog(directory = dataDirectory.toString())
+        // The report's window is the retention, so the records have to be *now*: a
+        // fixed epoch in the past would age out of the window and the report would
+        // correctly report no calls — which would say nothing about the contract.
+        val now = System.currentTimeMillis()
         log.record(
             ToolCallEvent(
-                ts = 1_700_000_000_000L,
+                ts = now,
                 source = ToolCallSource.MCP.name,
                 tool = "list_tasks",
                 outcome = ToolCallOutcome.OK.name,
@@ -123,7 +127,7 @@ class ToolboxRuntimeContractTest {
         )
         log.record(
             ToolCallEvent(
-                ts = 1_700_000_000_100L,
+                ts = now + 1,
                 source = ToolCallSource.MCP.name,
                 tool = "list_tasks",
                 outcome = ToolCallOutcome.BUSINESS_ERROR.name,

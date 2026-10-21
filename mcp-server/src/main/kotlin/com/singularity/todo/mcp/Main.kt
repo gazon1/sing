@@ -6,6 +6,7 @@ import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.observability.ToolCallContext
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
@@ -295,7 +296,8 @@ private fun buildServer(
         ),
         instructions = "Singularity Todo MCP server. Use tools to read/write tasks, notes, " +
             "projects, tags, and ADR entries. Call describe_toolbox to see which tools this " +
-            "server is exposing and why.",
+            "server is exposing and why. Surface contract version: " +
+            "${McpToolCatalog.SURFACE_CONTRACT_VERSION}.",
     )
     val registrar = ToolRegistrar(
         server = server,

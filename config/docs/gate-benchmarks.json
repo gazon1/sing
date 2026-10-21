@@ -1,9 +1,27 @@
 {
+  "ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-21T13:39:52Z",
+    "jobs": {
+      "Android (free)": 204000,
+      "Android (pro)": 255000,
+      "CI gate": 4000,
+      "Gate tooling": 243000,
+      "JVM tests, detekt, coverage": 1889000,
+      "Static gates": 257000,
+      "adr-gate": 118000,
+      "changes": 6000,
+      "nightly-alert": 0,
+      "spec-create": 0
+    },
+    "runId": 39609950342,
+    "url": "https://github.com/gazon1/sing/actions/runs/39609950342"
+  },
   "environment": {
     "cpus": 16,
     "javaHome": "/usr/lib/jvm/java-25-openjdk",
     "os": "Linux",
-    "python": "3.14.8"
+    "python": "3.12.15"
   },
   "gates": {
     "GitHub workflows are valid": {
@@ -211,7 +229,7 @@
       ]
     }
   },
-  "recordedAt": "2026-10-21T12:59:57Z",
+  "recordedAt": "2026-10-21T15:00:39Z",
   "schemaVersion": 1,
   "steps": {
     "adr-cli:detekt": {

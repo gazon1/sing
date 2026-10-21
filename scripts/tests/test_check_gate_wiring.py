@@ -11,6 +11,7 @@ which is the defect class the whole file exists to catch — including in the tw
 parts added here.
 """
 
+import ast
 import contextlib
 import importlib.util
 import os
@@ -512,6 +513,66 @@ class PartFTest(unittest.TestCase):
         for gate in gw.FIXTURE_GATES:
             for part in gate.cmd:
                 self.assertNotIn(part, sabotage_scripts, f"{gate.name} is in both registries")
+
+    def test_no_gate_is_controlled_twice(self):
+        """A name written twice in the controls is a gate run twice for nothing.
+
+        `script-conventions` was declared twice in `SABOTAGE_ONLY_GATES`, with two
+        different probes. The wiring gate filled both from the same registry entry,
+        so the gate ran four times — twice clean, twice sabotaged with the same
+        mutation — and the two runs were indistinguishable in the report.
+
+        The guard above could not see it: it compares the lists with the *fixture*
+        list, and a list that duplicates itself is invisible to a comparison with
+        something else.
+        """
+        seen: dict[str, int] = {}
+        for gate in [*gw.SCRIPT_GATES, *gw.SABOTAGE_ONLY_GATES, *gw.FIXTURE_GATES]:
+            seen[gate.name] = seen.get(gate.name, 0) + 1
+        duplicates = {name: count for name, count in seen.items() if count > 1}
+        self.assertEqual(
+            {},
+            duplicates,
+            f"these gates are controlled more than once: {duplicates}. Each extra "
+            "entry is another process run — and a second entry with the same probe "
+            "is a run that proves nothing new.",
+        )
+
+    def test_the_registry_does_not_declare_a_control_twice(self):
+        """A dict literal drops the earlier key without a word.
+
+        `GATE_CONTROLS` declared `script-conventions` twice, with two different
+        probes: the first was dead code, and the probe that actually ran was the
+        one nobody was reading. Python says nothing about it, so the test says it.
+        """
+        source = (
+            pathlib.Path(__file__).resolve().parent.parent / 'src' / 'sgate' / 'commands'
+            / '_registry.py'
+        ).read_text(encoding='utf-8')
+        tree = ast.parse(source)
+        keys: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AnnAssign):
+                targets = [getattr(t, 'id', '') for t in [node.target]]
+            elif isinstance(node, ast.Assign):
+                targets = [getattr(t, 'id', '') for t in node.targets]
+            else:
+                continue
+            if 'GATE_CONTROLS' in targets and isinstance(node.value, ast.Dict):
+                keys = [
+                    k.value for k in node.value.keys
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str)
+                ]
+                break
+        self.assertTrue(keys, "the registry declares no GATE_CONTROLS")
+        duplicates = {name for name in keys if keys.count(name) > 1}
+        self.assertEqual(
+            set(),
+            duplicates,
+            f"these controls are declared twice in the registry: {duplicates}. The "
+            "earlier declaration is dropped by the dict literal, so the probe that "
+            "runs is not the probe anybody reads.",
+        )
 
 
 class ControlShapeTest(unittest.TestCase):

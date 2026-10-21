@@ -13,6 +13,53 @@ common:
     ./gw :shared:commonTest
 
 [group('tests')]
+[doc('Run only the checks this change makes worth running')]
+[working-directory(justfile_directory())]
+affected:
+    #!/bin/bash
+    set -euo pipefail
+    # The loop costs about thirteen minutes, and one step of it costs seven. The
+    # measurement is published (docs/testing/gate-costs.md), so the question it was
+    # taken to answer is the obvious one: what does this change require?
+    #
+    # The answer is computed from the module graph the build files declare — a
+    # change in :core-base reaches :adr-core, then :shared, then the four modules
+    # that compile against it — and not guessed. See scripts/changed-modules.py.
+    #
+    # This is a *lane*, not a gate: it runs a subset of the checks, and the full
+    # loop is still what CI runs and what `just tests::check` runs.
+    TASKS=()
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            TASKS+=("$line")
+        fi
+    done < <(python3 scripts/changed-modules.py)
+    if [ ${#TASKS[@]} -eq 0 ]; then
+        echo "nothing to run: this change touches no module that owns a check."
+        exit 0
+    fi
+    GRADLE=()
+    SHELL_TASKS=()
+    SCRIPT_TESTS=0
+    for task in "${TASKS[@]}"; do
+        case "$task" in
+            scripts/tests) SCRIPT_TESTS=1 ;;
+            scripts/*) SHELL_TASKS+=("$task") ;;
+            *) GRADLE+=("$task") ;;
+        esac
+    done
+    echo "affected: ${GRADLE[*]:-none} ${SHELL_TASKS[*]:-none}"
+    if [ ${#GRADLE[@]} -gt 0 ]; then
+        ./gw "${GRADLE[@]}" --quiet
+    fi
+    for task in ${SHELL_TASKS[@]+"${SHELL_TASKS[@]}"}; do
+        bash "$task"
+    done
+    if [ "$SCRIPT_TESTS" = "1" ]; then
+        python3 -m unittest discover -s scripts/tests
+    fi
+
+[group('tests')]
 [doc('Run jvmTest (Room + SQLite on JVM)')]
 [working-directory(justfile_directory())]
 jvm:

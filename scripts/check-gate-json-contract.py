@@ -29,6 +29,7 @@ Usage:
 """
 from __future__ import annotations
 
+import concurrent.futures
 import importlib.util
 import json
 import os
@@ -52,6 +53,11 @@ REGISTRY = ROOT / 'scripts' / 'ci' / 'static-gates.sh'
 #: Seconds per probe. The same order as the liveness probe's budget: a gate
 #: that needs longer than this is a gate to report, not to wait for.
 PROBE_TIMEOUT = 300
+
+#: How many probes run at once. The same width `sgate run-all` uses, because
+#: these are the same gates: running them one after another made this gate the
+#: slowest thing in the suite, and the suite then waited for it.
+CONCURRENCY = 8
 
 GATE_RE = re.compile(r'^gate\s+(blocking|advisory)\s+"([^"]+)"\s+(.+?)\s*$', re.MULTILINE)
 
@@ -170,20 +176,45 @@ def probe(name: str, cmd: str) -> str | None:
 
 
 def evaluate() -> tuple[list[str], list[str], int]:
-    """Probe every sgate-dispatched gate. Returns (violations, skipped, probed)."""
+    """Probe every sgate-dispatched gate. Returns (violations, skipped, probed).
+
+    The probes run **concurrently**. They used to run one after another, and the
+    gate was the slowest thing in the static suite: it re-ran two dozen gates
+    serially, so its cost was their *sum* — and `run-all`, which runs the same
+    gates in parallel, was waiting for it.
+
+    Concurrency is safe here for the reason it is safe in `run-all`: the probed
+    gates read the tree. They do not write to it, so two of them at once cannot
+    tread on each other — and `run-all` was already running them all at once,
+    one level up.
+    """
     liveness = _liveness_module()
     violations: list[str] = []
     skipped: list[str] = []
-    probed = 0
+    candidates: list[tuple[str, str]] = []
     for name, cmd in sgate_gates():
         if liveness is not None and liveness.is_slow(name, cmd):
             skipped.append(name)
             continue
-        violation = probe(name, cmd)
-        if violation is not None:
-            violations.append(violation)
-            continue
-        probed += 1
+        candidates.append((name, cmd))
+
+    probed = 0
+    if candidates:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
+            futures = {
+                pool.submit(probe, name, cmd): name for name, cmd in candidates
+            }
+            for future in concurrent.futures.as_completed(futures):
+                name = futures[future]
+                try:
+                    violation = future.result()
+                except Exception as exc:  # a probe that blew up is a violation
+                    violations.append(f'{name}: the probe raised {exc!r}')
+                    continue
+                if violation is not None:
+                    violations.append(violation)
+                    continue
+                probed += 1
     return violations, skipped, probed
 
 

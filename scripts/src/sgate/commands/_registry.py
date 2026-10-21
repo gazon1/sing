@@ -728,14 +728,6 @@ GATE_CONTROLS: dict[str, Control] = {
     'dead-settings': Control(kind='sabotage', proves='scripts/check-dead-settings.py', argv=('{python}', 'scripts/check-dead-settings.py', '--quiet'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt', edit=Edit(kind='replace', old='        val workingDays: Set<DayOfWeek> = WorkingDays.DEFAULT,', new='        val workingDays: Set<DayOfWeek> = WorkingDays.DEFAULT,\n        val deadSettingProbe: Boolean = false,', count=1), why='a persisted setting rendered in Settings and read by no feature is a control that looks like it works; every baseline line is a claim that needs its own justification'),
     'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
-    # script-conventions: the rule that gate scripts use Click. The probe adds
-    # the import the rule looks for, to a script no other control touches.
-    #
-    # The rule was a text search for "import argparse", and the checker that
-    # held the rule contained the string — so the gate reported itself as a
-    # violation on every run and could only ever fail that way. The rule reads
-    # the AST now, and this control proves the new rule can fail.
-    'script-conventions': Control(kind='sabotage', proves='scripts/check-script-conventions.py', argv=('{python}', 'scripts/check-script-conventions.py'), path='scripts/check-adr-references.py', edit=Edit(kind='append', new='\nimport argparse  # control probe: R2.1 must report this\n'), why='a gate script that reaches for argparse instead of Click is the rule this gate exists to enforce'),
     # gate-registries: the gate that compares the two registries. Its input is
     # the shell registry, so the sabotage adds a gate line the Python registry
     # does not know — the exact shape of drift the gate exists to report. The
@@ -884,6 +876,19 @@ GATE_CONTROLS: dict[str, Control] = {
     # the thing that rots: the registry's promise is a pointer, and a pointer
     # whose target has been renamed is exactly what nothing used to notice.
     'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
+    # script-conventions: the rule that gate scripts use Click. The probe adds
+    # the import the rule looks for, to a script no other control touches.
+    #
+    # The rule was a text search for "import argparse", and the checker that
+    # held the rule contained the string — so the gate reported itself as a
+    # violation on every run and could only ever fail that way. The rule reads
+    # the AST now, and this control proves the new rule can fail.
+    #
+    # This control was declared **twice** in this dictionary, with two different
+    # probes. A dict literal drops the earlier one without a word, so the first
+    # declaration was dead code — and the probe that actually ran was the one
+    # nobody was reading. `TestGateControlsTest` now says a key may not be
+    # written twice.
     'script-conventions': Control(kind='sabotage', proves='scripts/check-script-conventions.py', argv=('{python}', 'scripts/check-script-conventions.py'), path='scripts/check-gate-registries.py', edit=Edit(kind='append', new='\nimport argparse\n'), why='a gate script that imports argparse breaks the CLI contract every gate script is written against. The detector that used to find it was a substring search, so it reported the file that *documented* the rule instead of the file that broke it, and the rule was never enforced: the gate was red on a clean tree for a reason nobody could act on, and the exemption that said so was the reason it stayed red.'),
     'unwired-surfaces': Control(
         kind='sabotage',

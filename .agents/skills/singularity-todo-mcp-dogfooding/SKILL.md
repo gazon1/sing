@@ -76,6 +76,9 @@ Reading the project's knowledge (prefer the tools over a shell):
   rule about X?" — both answer with a path and a snippet.
 - An empty result means *nothing matched*. Check the `available` field: `false` means
   there was no corpus to search, which is a different answer.
+- The answer carries `schemaVersion`: the search's shape is a contract, and the version
+  says which shape you are reading. A field you do not know is a newer server, not a
+  shape you are misreading.
 
 Describing the toolbox itself:
 - `describe_toolbox()` — which tools this server exposes, which are switched off by the
