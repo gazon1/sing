@@ -21,18 +21,17 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 
 # Create a task. Seeded through the seed helper's DebugSeedActivity deep-link:
-# seeding yields a deterministic fixture stamped with ${RUN_ID} that the
-# runner's per-attempt sweep can find and remove, independent of keyboard/IME
-# behaviour.
+# seeding yields a deterministic fixture, independent of keyboard/IME behaviour.
 #
-# ${RUN_ID} keeps the title unique per run — Room survives between runs on one
-# emulator, and the offline restart below has to find this run's task, not a
-# leftover from an earlier one. The runner mints the id per attempt and sweeps
-# every title carrying it once this flow passes.
+# The title is fixed, and the seed replaces: seeding "Anonymous task" again
+# updates the row this flow seeded instead of adding a second one. Room survives
+# between runs on one emulator, and the offline restart below has to find this
+# run's task, not a leftover from an earlier one — a replacing seed makes the
+# leftover the same row.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Anonymous%20task"
+      QUERY: "task=Anonymous%20task"
 - waitForAnimationToEnd
 
 # The task appears in Inbox. Scroll to it: tasks from other runs may sit above it.
@@ -40,7 +39,7 @@ tags:
     id: nav_tab_inbox
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_anonymous_task"
+      id: "task_item_anonymous_task"
     direction: DOWN
     timeout: 8000
 
@@ -60,10 +59,10 @@ tags:
     id: nav_tab_inbox
 - scrollUntilVisible:
     element:
-      id: "task_item_${RUN_ID}_anonymous_task"
+      id: "task_item_anonymous_task"
     direction: DOWN
     timeout: 8000
 
 # No error was shown (the anonymous path has no sync guard to trip).
 # The task survived the offline restart.
-- assertVisible: "${RUN_ID} Anonymous task"
+- assertVisible: "Anonymous task"

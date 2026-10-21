@@ -13,7 +13,7 @@ tags:
 # `due=today`: a task without a due date lands in the "No Date" bucket,
 # which the Today tab does not show — the flow would assert against a task
 # it had seeded and could not see.
-- openLink: "todo-debug://seed?task=${RUN_ID}_ClearSearchTask2026&due=today"
+- openLink: "todo-debug://seed?task=ClearSearchTask2026&due=today"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -39,7 +39,7 @@ tags:
 - inputText: "ClearSearchTask2026"
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_clearsearchtask2026
+      id: task_item_clearsearchtask2026
     timeout: 8000
 
 # Clear the query.
@@ -54,5 +54,5 @@ tags:
 # Results must be gone.
 - extendedWaitUntil:
     notVisible:
-      id: task_item_${RUN_ID}_clearsearchtask2026
+      id: task_item_clearsearchtask2026
     timeout: 8000

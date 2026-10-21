@@ -30,18 +30,18 @@ tags:
       id: nav_tab_today
     timeout: 30000
 
-# A task to lose, if losing it is what happens. The title carries the run id,
-# so the runner's fixture sweep removes it and a leftover from an earlier run
-# cannot stand in for it.
+# A task to lose, if losing it is what happens. The title is fixed, and the seed
+# replaces: seeding "Signout task" again updates the row this flow seeded instead
+# of adding a second one, so a leftover from an earlier run cannot stand in for it.
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "task=${RUN_ID}%20Signout%20task"
+      QUERY: "task=Signout%20task"
 - tapOn:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_signout_task
+      id: task_item_signout_task
     timeout: 8000
 
 # Navigate: hamburger menu → Settings → Account tab. The settings navigation
@@ -88,7 +88,7 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_signout_task
+      id: task_item_signout_task
     timeout: 8000
 
 # AUTH-SESSION-01 verified: signed out, data survived, auth guard active.

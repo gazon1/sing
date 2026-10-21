@@ -42,9 +42,11 @@ screenMetrics:
 # Per-attempt fixture identity.
 #
 # run-maestro overrides this with a fresh id on every attempt and
-# sweeps the fixtures stamped with it once the flow passes. Flows that seed a
-# fixture they later mutate should prefix the title with ${RUN_ID} so the
-# cleanup can find exactly their own rows.
+# sweeps the fixtures stamped with it once the flow passes. A flow that seeds
+# a fixture it later mutates should give the fixture a title of its own, not
+# one stamped with ${RUN_ID}: the seed replaces the row it names, so the title
+# a flow seeds is the title the flow can assert on, in every run. See
+# docs/decisions/2026-10-28-the-seed-replaces-the-task-it-names.md.
 #
 # The `manual` default is for `maestro test <flow>` run directly against a
 # device: there is no runner to mint an id or to clean up afterwards, so a

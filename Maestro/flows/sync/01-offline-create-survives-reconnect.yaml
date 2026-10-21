@@ -15,8 +15,9 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - setAirplaneMode: enabled
-# Create a task while offline via deep-link.
-- openLink: "todo-debug://seed?task=${RUN_ID}_Offline%20task"
+# Create a task while offline via deep-link. The title is fixed and the seed
+# replaces, so the row this flow asserts on is the same row every run.
+- openLink: "todo-debug://seed?task=Offline%20task"
 - extendedWaitUntil:
     visible:
       id: nav_tab_today
@@ -25,11 +26,11 @@ tags:
     id: nav_tab_inbox
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_offline_task
+      id: task_item_offline_task
     timeout: 8000
 # Back online: the task is still there.
 - setAirplaneMode: disabled
 - extendedWaitUntil:
     visible:
-      id: task_item_${RUN_ID}_offline_task
+      id: task_item_offline_task
     timeout: 8000
