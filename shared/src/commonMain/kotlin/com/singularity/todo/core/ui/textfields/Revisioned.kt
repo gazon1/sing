@@ -45,6 +45,20 @@ class Revisioned<T> private constructor(val value: T, val revision: Long) {
     /** The value after a replacement from outside. The count moves. */
     fun replacedBy(newValue: T): Revisioned<T> = Revisioned(newValue, revision + 1)
 
+    /**
+     * The value after a replacement from outside — but only if the value actually changed.
+     *
+     * An upstream that rewrites a *different* field of the same owner rewrites nothing
+     * here, and a count that moved for it would announce a replacement that did not
+     * happen: the field would be told that the value it shows was replaced from outside
+     * when it was not.
+     *
+     * @param newValue the value the upstream now holds.
+     * @return the value with a moved count if it changed, this value otherwise.
+     */
+    fun replacedIfChangedBy(newValue: T): Revisioned<T> =
+        if (value == newValue) this else replacedBy(newValue)
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Revisioned<*>) return false

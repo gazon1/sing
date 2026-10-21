@@ -95,7 +95,7 @@ internal class NoteEditor(
         initialDraft = Editing(
             id = "",
             title = Revisioned.initial(""),
-            html = "",
+            html = Revisioned.initial(""),
             isDirty = false,
             isNew = true,
         ),
@@ -110,7 +110,7 @@ internal class NoteEditor(
                         id = noteId,
                         title = draft.title.value,
                         bodyMarkdown = "",
-                        bodyHtml = draft.html,
+                        bodyHtml = draft.html.value,
                     )
                 } else {
                     // Existing note: targeted UPDATE — preserves all other fields
@@ -119,7 +119,7 @@ internal class NoteEditor(
                         id = noteId,
                         title = draft.title.value,
                         bodyMarkdown = "",
-                        bodyHtml = draft.html,
+                        bodyHtml = draft.html.value,
                     )
                 }
                 result.onFailure { e -> autosaveCtx.log.e(e) { "autosave failed: ${e.message}" } }
@@ -171,7 +171,7 @@ internal class NoteEditor(
             val opened = Editing(
                 id = note.id.value,
                 title = Revisioned.initial(note.title),
-                html = html,
+                html = Revisioned.initial(html),
                 isDirty = false,
                 isNew = false,
             )
@@ -184,8 +184,12 @@ internal class NoteEditor(
             rewriteWatcher.start(NoteId.fromString(noteId), { draft }) { note, html ->
                 cachedNote = note
                 val reseeded = draft.copy(
-                    title = draft.title.replacedBy(note.title),
-                    html = html,
+                    // Each field's count moves for its own field. A rewrite that changed
+                    // only the body must not announce itself through the title's count:
+                    // the title was not replaced, and the editor's title field must not
+                    // be told that it was.
+                    title = draft.title.replacedIfChangedBy(note.title),
+                    html = draft.html.replacedIfChangedBy(html),
                     isDirty = false,
                     isNew = false,
                 )
@@ -212,7 +216,7 @@ internal class NoteEditor(
         val draft = Editing(
             id = id.value,
             title = Revisioned.initial(""),
-            html = "",
+            html = Revisioned.initial(""),
             isDirty = false,
             isNew = true,
         )
@@ -258,14 +262,14 @@ internal class NoteEditor(
                 id = noteId,
                 title = draft.title.value,
                 bodyMarkdown = "",
-                bodyHtml = draft.html,
+                bodyHtml = draft.html.value,
             ).getOrThrow()
         } else {
             autosaveContext.repo.updateContent(
                 id = noteId,
                 title = draft.title.value,
                 bodyMarkdown = "",
-                bodyHtml = draft.html,
+                bodyHtml = draft.html.value,
             ).getOrThrow()
         }
         // Extract outgoing links from the rendered HTML and persist them.
@@ -278,7 +282,7 @@ internal class NoteEditor(
         // claims to prevent. Outgoing links are not synced — no DocType describes them,
         // see SyncedWriteEnqueuesTest — so a failure here loses the column locally and
         // there is no later reconciliation that would notice.
-        val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html)
+        val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html.value)
         autosaveContext.repo.setOutgoingLinks(noteId, linkUrls).getOrThrow()
         Either.Right(Unit)
     } catch (e: CancellationException) {
@@ -312,7 +316,7 @@ internal class NoteEditor(
             is NotesEditorIntent.OpenNote -> openEditor(intent.noteId)
             is NotesEditorIntent.CreateNote -> createNote()
             is NotesEditorIntent.EditTitle -> updateDraft { it.withTitle(intent.title) }
-            is NotesEditorIntent.EditBody -> updateDraft { it.copy(html = intent.html, isDirty = true) }
+            is NotesEditorIntent.EditBody -> updateDraft { it.withBody(intent.html) }
             NotesEditorIntent.SaveNow -> save()
             NotesEditorIntent.Close -> closeEditor()
             is NotesEditorIntent.RunAiAction -> runAiAction(intent.action)
@@ -353,7 +357,7 @@ internal class NoteEditor(
         val userId = currentUser.scopedUserId.value
         val now = clock.now()
 
-        val result = ai.run(action, current.title.value, current.html).getOrNull()
+        val result = ai.run(action, current.title.value, current.html.value).getOrNull()
         val (kind, summary) = when (action) {
             NoteAiAction.Summarize -> {
                 val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
@@ -425,7 +429,7 @@ internal class NoteEditor(
         launchDraftEffect(
             key = "ai-$action",
             operation = { current: Editing ->
-                ai.run(action, current.title.value, current.html)
+                ai.run(action, current.title.value, current.html.value)
                     .getOrThrow()
             },
             onResult = { _, _ -> null },

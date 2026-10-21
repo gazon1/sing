@@ -74,7 +74,7 @@ fun rememberEditorSession(
     val onBodyChangeState = rememberUpdatedState(onBodyChange)
 
     val session = remember(state.id) {
-        val richTextState = RichTextState().also { it.setHtml(state.html) }
+        val richTextState = RichTextState().also { it.setHtml(state.bodySource.text) }
         EditorSession(
             richTextState = richTextState,
             // The baseline is the loaded content *as this editor renders it* —
@@ -94,12 +94,14 @@ fun rememberEditorSession(
     // device. Without it the editor would keep the old text, and the next
     // keystroke would dispatch that old text over the new one.
     //
-    // The count travels with the title, in a `Revisioned`: the first revision is the
+    // The count travels with the body, in a `Revisioned`: the first revision is the
     // load itself, which the session already has, and the guard is there so the
-    // content is not set twice on the first composition.
-    LaunchedEffect(state.id, state.title.revision) {
-        if (state.title.revision == 0L) return@LaunchedEffect
-        session.replaceContent(state.html)
+    // content is not set twice on the first composition. The body's own count is
+    // what says so — the title's count belongs to the title, and a rewrite of the
+    // title alone has nothing to do with the content of the body.
+    LaunchedEffect(state.id, state.bodySource.revision) {
+        if (state.bodySource.revision == 0L) return@LaunchedEffect
+        session.replaceContent(state.bodySource.text)
     }
 
     // Dispatch the HTML to the ViewModel on every edit.

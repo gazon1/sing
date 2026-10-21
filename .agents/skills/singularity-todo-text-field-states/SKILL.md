@@ -368,6 +368,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
 | `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's body | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | `feature/notes/Ids.kt` | - | - |
 | `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
 | `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | `feature/projects/presentation/state/ProjectEditorUiState.kt` | - | - |
@@ -412,6 +413,11 @@ that declares it, the **Advances** column the file that moves it.
   count where it was — and the field would take the replacement for an echo of its own
   last push, and keep the text the user typed. That is the lie the type exists to prevent,
   and it is silent: nothing fails, the field just stops listening.
+  **The count belongs to one value.** A draft with two fields holds two `Revisioned`s, and
+  each one's count moves for its own field: a rewrite of the body does not move the
+  title's count, and a rewrite of the title does not move the body's. `replacedIfChangedBy`
+  says it in one place — the count moves when the value changed, and stays where it was
+  when the upstream wrote the value the owner already held.
 - **A count of the upstream's writes.** A GenUI surface counts the *server's writes*, and
   a server write may not change the value at all — so the count is a property of the
   surface, not of a value, and it is a plain number the controller increments. The data
@@ -449,7 +455,11 @@ every other field in the app.
 - **A field that holds its own content has no upstream to pull from.** The note editor's
   body lives inside the rich editor's state object, not in a string the screen can read
   back. A rewrite of the note reaches it only when the session is *re-seeded* — and
-  without that, the next keystroke dispatches the old body over the new one.
+  without that, the next keystroke dispatches the old body over the new one. The session
+  knows it must re-seed because the body's **own** count moved: the body is a
+  `Revisioned<String>` like the title, and its count is what says "the content was
+  replaced, take it". A body's count that moved because the *title* was rewritten says
+  nothing about the content.
 - **A field never builds its own source.** The source says who may rewrite the field, and
   only the owner knows. A field that constructs `StaticText(...)` or `OwnedText(...)` is
   answering a question it cannot know the answer to — there is no exception, not even for

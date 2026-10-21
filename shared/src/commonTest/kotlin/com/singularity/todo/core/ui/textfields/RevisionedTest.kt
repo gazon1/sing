@@ -77,4 +77,24 @@ class RevisionedTest {
 
         assertNotEquals(replaced, typed)
     }
+
+    @Test
+    fun `a replacement of a value that did not change moves no count`() {
+        val value = Revisioned.initial("first")
+
+        val unchanged = value.replacedIfChangedBy("first")
+
+        assertEquals("first", unchanged.value)
+        assertEquals(0L, unchanged.revision)
+    }
+
+    @Test
+    fun `a replacement of a value that changed moves the count`() {
+        val value = Revisioned.initial("first")
+
+        val changed = value.replacedIfChangedBy("second")
+
+        assertEquals("second", changed.value)
+        assertEquals(1L, changed.revision)
+    }
 }
