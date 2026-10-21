@@ -140,6 +140,11 @@ def render_registry(check: bool, json: bool) -> None:
     the mode the registry declares. Purpose, exit codes and the ADR reference
     come from the docstring of the script the gate runs.
 
+    The JSON document carries `passed`, because this command is also a gate
+    ("gate registry is current") and every gate's document says whether the
+    gate passed. A consumer that has to infer it from a status word is back to
+    parsing prose.
+
     Exit codes:
       0 = clean (generated successfully or --check passed)
       1 = --check: file is outdated or missing
@@ -167,7 +172,9 @@ the docstring of the script each gate runs.
     if check:
         if not registry_md.exists():
             if json:
-                click.echo(_json.dumps({"status": "missing", "path": str(registry_md)}))
+                click.echo(_json.dumps(
+                    {"status": "missing", "passed": False, "path": str(registry_md)}
+                ))
             else:
                 logger.error("gate-registry.md is missing — run sgate render-registry to generate")
             raise SystemExit(CONFIG_ERROR)
@@ -175,13 +182,17 @@ the docstring of the script each gate runs.
         current = registry_md.read_text()
         if current != full_content:
             if json:
-                click.echo(_json.dumps({"status": "outdated", "path": str(registry_md)}))
+                click.echo(_json.dumps(
+                    {"status": "outdated", "passed": False, "path": str(registry_md)}
+                ))
             else:
                 logger.warning("gate-registry.md is outdated — run sgate render-registry to update")
             raise SystemExit(CONFIG_ERROR)
 
         if json:
-            click.echo(_json.dumps({"status": "current", "path": str(registry_md)}))
+            click.echo(_json.dumps(
+                {"status": "current", "passed": True, "path": str(registry_md)}
+            ))
         else:
             logger.info("gate-registry.md is current")
         raise SystemExit(CLEAN)
@@ -195,7 +206,9 @@ the docstring of the script each gate runs.
         raise SystemExit(CONFIG_ERROR)
 
     if json:
-        click.echo(_json.dumps({"status": "generated", "path": str(registry_md)}))
+        click.echo(_json.dumps(
+            {"status": "generated", "passed": True, "path": str(registry_md)}
+        ))
     else:
         logger.info(f"generated {registry_md}")
     raise SystemExit(CLEAN)

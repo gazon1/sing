@@ -1,22 +1,64 @@
 """sgate.output — structured output for gates.
 
-- gate_fail() — emit a violation (human + GitHub Actions annotation in CI)
-- gate_warn()  — emit a warning (CI::warning annotation)
-- is_ci()      — detect GitHub Actions environment
+- gate_fail()       — emit a violation (human + GitHub Actions annotation in CI)
+- gate_warn()       — emit a warning (CI::warning annotation)
+- is_ci()           — detect GitHub Actions environment
+- contract_stdout() — declare that stdout carries a machine-readable contract
 
 In CI mode (CI=true) raw tracebacks are never printed.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
-from typing import Optional
+import threading
+from typing import Iterator, Optional
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+#: Whether the current thread is inside a ``contract_stdout()`` block.
+#:
+#: Thread-local because a gate runner may execute gates in parallel threads,
+#: and a contract belongs to one gate's stdout, not to the process.
+_CONTRACT = threading.local()
+
 
 def is_ci() -> bool:
     """Return True when running in GitHub Actions."""
     return bool(os.environ.get("CI"))
+
+
+def _contract_active() -> bool:
+    """True while stdout is claimed by a contract."""
+    return bool(getattr(_CONTRACT, "active", False))
+
+
+@contextlib.contextmanager
+def contract_stdout() -> Iterator[None]:
+    """Declare that stdout carries a machine-readable contract.
+
+    The GitHub Actions annotation is written to **stdout** — that is where
+    Actions reads workflow commands from. A gate that emits JSON on stdout
+    therefore has two claimants for one channel, and in CI the annotation wins:
+    the document a consumer is about to parse is preceded by a line that is
+    not JSON.
+
+    Inside this context the annotation is written to stderr instead. It stays
+    visible in the CI log; it simply stops being a workflow command, which is
+    the right trade when stdout belongs to a contract. The exit code is what
+    fails the build either way.
+
+    A flag on every call site cannot express this: a new adapter that forgets
+    it repeats the defect, and nothing in the code says which one owns stdout.
+    A block says it once, where the contract is emitted.
+    """
+    previous = _contract_active()
+    _CONTRACT.active = True
+    try:
+        yield
+    finally:
+        _CONTRACT.active = previous
 
 
 def _github_error(
@@ -36,9 +78,12 @@ def _github_error(
         header = f"::{tag} {','.join(parts)}::{body}"
     else:
         header = f"::{tag}::{body}"
-    # GitHub annotations always go to stdout so Actions picks them up
-    sys.stdout.write(header + "\n")
-    sys.stdout.flush()
+    # GitHub annotations always go to stdout so Actions picks them up — unless
+    # stdout carries a contract, in which case they go to stderr and stay
+    # visible in the log without being parsed as a workflow command.
+    stream = sys.stderr if _contract_active() else sys.stdout
+    stream.write(header + "\n")
+    stream.flush()
 
 
 # ── public API ───────────────────────────────────────────────────────────────
@@ -53,7 +98,6 @@ def gate_fail(
     message: Optional[str] = None,
     *,
     to_stderr: bool = False,
-    annotate: bool = True,
 ) -> None:
     """Emit one gate violation.
 
@@ -63,11 +107,9 @@ def gate_fail(
     Args:
         to_stderr: If True, write human output to stderr instead of stdout.
                    Use in --json mode to keep stdout clean for JSON output.
-        annotate: If True (default), emit the GitHub Actions annotation in CI.
-                  The annotation goes to **stdout** — that is where Actions
-                  reads it from — so a caller whose stdout is a JSON contract
-                  must turn it off. The exit code is what fails the build; the
-                  annotation is a convenience on top of it.
+
+    The annotation follows the channel rule: inside :func:`contract_stdout` it
+    goes to stderr, because stdout belongs to the contract there.
     """
     if message is None:
         parts = []
@@ -92,7 +134,7 @@ def gate_fail(
     stream.flush()
 
     # CI annotation
-    if annotate and is_ci():
+    if is_ci():
         github_msg = f"[{gate_name}] {rule_label}: {message}"
         _github_error(file, line, github_msg, level="error")
 
@@ -103,14 +145,11 @@ def gate_warn(
     line: Optional[int] = None,
     *,
     to_stderr: bool = False,
-    annotate: bool = True,
 ) -> None:
     """Emit a non-blocking warning.
 
-    In CI mode also emits a GitHub Actions ::warning annotation.
-
-    ``annotate=False`` keeps the annotation off stdout for callers whose
-    stdout carries a JSON contract; see :func:`gate_fail`.
+    In CI mode also emits a GitHub Actions ::warning annotation, on the same
+    channel rule as :func:`gate_fail`.
     """
     if file and line is not None:
         out_line = f"{file}:{line}: warning: {message}"
@@ -123,5 +162,5 @@ def gate_warn(
     stream.write(out_line + "\n")
     stream.flush()
 
-    if annotate and is_ci():
+    if is_ci():
         _github_error(file, line, message, level="warning")

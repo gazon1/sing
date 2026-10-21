@@ -1,28 +1,17 @@
 """sgate.commands.adr_status_policy — shim for: ADR status policy."""
 from __future__ import annotations
 
-import json
 from typing import ClassVar
 
 import click
 
 import sgate
-from sgate.commands._runner import Result, run, run_capture
+from sgate.commands._runner import handle_result, run_capture, run_gate_command
 from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, KIWI_UNAVAILABLE, register
 from sgate.log import logger
 from sgate.output import gate_fail
 
 KIWI_REQUIRED: ClassVar[bool] = False
-
-def _handle_result(result: Result, gate_name: str, *, emit_json: bool) -> None:
-    """Handle run_capture result for non-Kiwi gates."""
-    out = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
-    data = {"gate": gate_name, "passed": result.returncode == 0, "exit_code": result.returncode, "output": out}
-    if result.returncode != 0:
-        gate_fail(gate_name, None, None, None, None, f"exit {result.returncode}", to_stderr=True)
-    print(json.dumps(data))
-    raise SystemExit(result.returncode)
-
 
 @click.command("adr_status_policy")
 @click.option("--check", is_flag=True, help="Dry-run: print result without exiting non-zero")
@@ -56,8 +45,8 @@ def adr_status_policy(check: bool, emit_json: bool) -> None:
     try:
         if emit_json:
             result = run_capture(py_cmd, gate_name)
-            _handle_result(result, gate_name, emit_json=True)
-        run(py_cmd, gate_name)
+            handle_result(result, gate_name, check=check)
+        run_gate_command(py_cmd, gate_name, check=check)
     except SystemExit:
         raise  # propagate deliberate exits from run()/run_capture()
     except Exception:

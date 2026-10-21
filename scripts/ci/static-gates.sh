@@ -314,6 +314,18 @@ gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
 # changes this table, and this gate is what says so.
 gate blocking "gate registry is current" sgate render-registry --check
 
+# Every gate dispatched through `sgate` is called with `--json` by
+# `sgate run-all`, and the document that lands on stdout is what a consumer
+# reads. The contract is one shape: one JSON object, and nothing else.
+#
+# Nothing checked that, and the defect happened twice: the GitHub Actions
+# annotation is written to stdout, because that is where Actions reads
+# workflow commands from, so a gate whose stdout carried a document had two
+# claimants for one channel; and four adapters rebuilt a verdict from prose
+# instead of reading the verdict their producer already emitted. Both were
+# found by reading the code, and both were found late.
+gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-contract.py
+
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
 #
