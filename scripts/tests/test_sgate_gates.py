@@ -195,5 +195,66 @@ class TestTheGateBudget(unittest.TestCase):
             )
 
 
+class TestTheRunnerReadsTheVerdict(unittest.TestCase):
+    """`run-all` takes the gate's verdict, not only its exit code.
+
+    A gate dispatched through `sgate` is asked for `--json`, so its stdout is
+    the contract and it carries a verdict of its own. The runner reads that
+    verdict and ANDs it with the exit code — the rule `GatePayload.honest_pass`
+    states. Before, "green" meant one thing in the gate and another in the
+    runner, and nothing detected the difference.
+    """
+
+    @staticmethod
+    def _gate(stdout: str, code: int) -> str:
+        """A command that prints `stdout` and exits with `code`.
+
+        The double quotes are escaped for the shell: the snippet itself is
+        wrapped in double quotes, so a bare `"` inside it would end the
+        quoting. `printf` reads the backslashes and prints the quotes.
+        """
+        escaped = stdout.replace('"', r'\"')
+        return f"""bash -c "printf '{escaped}'; exit {code}" """
+
+    @staticmethod
+    def _run(command: str):
+        from sgate.commands.run_all import _run_gate_subprocess
+
+        return _run_gate_subprocess("blocking", "a gate", command)
+
+    def test_a_gate_that_says_it_failed_is_red_even_when_it_exits_zero(self):
+        result = self._run(self._gate('{"gate": "x", "passed": false}', 0))
+        self.assertFalse(result.passed)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_a_gate_that_says_it_passed_is_green_when_it_exits_zero(self):
+        result = self._run(self._gate('{"gate": "x", "passed": true}', 0))
+        self.assertTrue(result.passed)
+
+    def test_a_gate_that_exits_non_zero_is_red_even_when_it_says_it_passed(self):
+        result = self._run(self._gate('{"gate": "x", "passed": true}', 1))
+        self.assertFalse(result.passed)
+
+    def test_a_gate_that_prints_no_payload_is_judged_by_its_exit_code(self):
+        """A gate run as a plain script has no payload; the exit code is all there is."""
+        ok = self._run(self._gate("all good", 0))
+        self.assertTrue(ok.passed)
+        bad = self._run(self._gate("found something", 1))
+        self.assertFalse(bad.passed)
+
+    def test_a_broken_document_is_not_read_as_a_verdict(self):
+        """A stdout that is not the contract is not a verdict.
+
+        It is the contract gate's job to say so; the runner must not guess a
+        verdict out of prose.
+        """
+        result = self._run(self._gate("not json", 0))
+        self.assertTrue(result.passed)
+
+    def test_a_document_without_a_verdict_is_not_read_as_a_verdict(self):
+        result = self._run(self._gate('{"gate": "x"}', 0))
+        self.assertTrue(result.passed)
+
+
 if __name__ == "__main__":
     unittest.main()
