@@ -30,10 +30,12 @@ tags:
     timeout: 5000
 
 # Open the attachments sheet via the "+ Add file" row.
+# The row is at the bottom of the task, below the fold. UP is the direction that
+# brings what is below into view; DOWN moves the content down and away from it.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
-    direction: DOWN
+    direction: UP
     timeout: 8000
 - tapOn:
     id: attachments_add_file_row

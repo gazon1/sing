@@ -28,14 +28,12 @@ tags:
 # 2. Open Settings and navigate to Backup.
 - tapOn:
     id: nav_menu_button
+# The menu sheet opens with Settings already on screen. Scrolling it with
+# scrollUntilVisible pushed the entry down into the system navigation bar,
+# where the tap lands on the system HOME button instead of the entry.
 - extendedWaitUntil:
     visible:
       id: menu_settings
-    timeout: 5000
-- scrollUntilVisible:
-    element:
-      id: menu_settings
-    direction: DOWN
     timeout: 5000
 - tapOn:
     id: menu_settings
@@ -43,12 +41,27 @@ tags:
     visible:
       id: settings_tab_interface
     timeout: 10000
-# scrollUntilVisible scrolls the nav-rail container upward to expose settings_tab_backup.
-# Unlike hardcoded swipe coordinates, this is viewport-relative and works on any screen size.
-- scrollUntilVisible:
-    element:
-      id: settings_tab_backup
+# The Backup tab is below the fold in the settings nav rail, and the rail is
+# the only thing that has to scroll to reach it. scrollUntilVisible cannot do
+# that: it swipes the screen centre, which is the content pane, not the 80dp
+# rail on the left edge (docs/decisions/2026-09-29-settings-rail-not-scrollable.md).
+# So the rail is swiped on its own element — the gesture lands on the rail
+# whatever the viewport is, where hardcoded pixels fall off a short screen.
+- swipe:
     direction: UP
+    element:
+      id: settings_nav_rail_scroll
+- swipe:
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
+- swipe:
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_backup
     timeout: 10000
 - tapOn:
     id: settings_tab_backup
@@ -95,14 +108,12 @@ tags:
 # 6. Restore from backup.
 - tapOn:
     id: nav_menu_button
+# The menu sheet opens with Settings already on screen. Scrolling it with
+# scrollUntilVisible pushed the entry down into the system navigation bar,
+# where the tap lands on the system HOME button instead of the entry.
 - extendedWaitUntil:
     visible:
       id: menu_settings
-    timeout: 5000
-- scrollUntilVisible:
-    element:
-      id: menu_settings
-    direction: DOWN
     timeout: 5000
 - tapOn:
     id: menu_settings
@@ -110,11 +121,22 @@ tags:
     visible:
       id: settings_tab_interface
     timeout: 10000
-# Same adaptive scroll for the second Settings→Backup navigation (after restore).
-- scrollUntilVisible:
-    element:
-      id: settings_tab_backup
+# Same rail scroll for the second Settings→Backup navigation (after restore).
+- swipe:
     direction: UP
+    element:
+      id: settings_nav_rail_scroll
+- swipe:
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
+- swipe:
+    direction: UP
+    element:
+      id: settings_nav_rail_scroll
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_backup
     timeout: 10000
 - tapOn:
     id: settings_tab_backup

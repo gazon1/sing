@@ -24,10 +24,12 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
+# The row is at the bottom of the task, below the fold. UP is the direction that
+# brings what is below into view; DOWN moves the content down and away from it.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
-    direction: DOWN
+    direction: UP
     timeout: 8000
 - tapOn:
     id: attachments_add_file_row
@@ -68,10 +70,12 @@ tags:
     visible:
       id: task_editor_title_input
     timeout: 5000
+# The row is at the bottom of the task, below the fold. UP is the direction that
+# brings what is below into view; DOWN moves the content down and away from it.
 - scrollUntilVisible:
     element:
       id: attachments_add_file_row
-    direction: DOWN
+    direction: UP
     timeout: 8000
 
 # Verify the attachment is still present.

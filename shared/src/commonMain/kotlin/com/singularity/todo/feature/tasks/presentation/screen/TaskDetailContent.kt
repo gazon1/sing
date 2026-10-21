@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
+import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.FirstRunSection
 import com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard
@@ -228,7 +229,21 @@ fun TaskDetailContent(
                                 onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
                             ),
                             checklist = null,
-                            attachments = null,
+                            // The attachments sheet was unreachable: the bundle was null, so
+                            // the sheet had no callbacks and nothing could open it. A URL
+                            // attachment — the kind a person types — had no way in at all.
+                            attachments = AttachmentsCallbacks(
+                                onOpen = { sheets.show(TaskEditorSheet.Attachments) },
+                                onAddUrl = { url, title ->
+                                    coordinator.onIntent(
+                                        TaskDetailIntent.Domain.AddUrlAttachment(url, title),
+                                    )
+                                },
+                                onAttachFile = { pickAttachment() },
+                                onDelete = {
+                                    coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                },
+                            ),
                             onTimeEntryAdd = null,
                             onTimeEntrySave = null,
                             extraSections = {
@@ -309,11 +324,12 @@ fun TaskDetailContent(
                                         onOpen = { navigator.openDetail(it.id) },
                                         onAddSubtask = { coordinator.onIntent(TaskDetailIntent.Domain.AddSubtask(it)) },
                                     )
-                                    // Always shown, not only when there is something to show: this row is also
-                                    // how the user attaches the first file.
+                                    // Always shown, not only when there is something to show: this row
+                                    // is also how the user opens the attachments sheet to attach
+                                    // the first file — or the first link.
                                     TaskDetailAttachmentsSection(
                                         attachments = ui.attachments,
-                                        onAttachFile = { pickAttachment() },
+                                        onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
                                         onDelete = {
                                             coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
                                         },

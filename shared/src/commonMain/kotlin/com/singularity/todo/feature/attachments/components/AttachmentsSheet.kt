@@ -50,6 +50,10 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskEditorShee
 /**
  * The attachments sheet: add a link, add a file, remove an attachment.
  *
+ * The sheet closes itself once a URL has been handed over. The attachment shows
+ * up on the task behind the sheet, and a sheet that stays open hides it — so
+ * "did my link land?" was answered by closing the sheet, not by looking at it.
+ *
  * @param onAttachFile opens the platform file picker. `null` hides the "Add file"
  *   button — there is no file to attach before the task exists, and a button that
  *   opens nothing is worse than no button. It was previously a non-null `() -> Unit`
@@ -105,7 +109,7 @@ fun AttachmentsSheet(
                 if (onAttachFile != null) {
                     OutlinedButton(
                         onClick = onAttachFile,
-                        modifier = Modifier.testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),
+                        modifier = Modifier.testTag(TestTags.ATTACHMENTS_PICK_FILE_BUTTON),
                     ) {
                         Icon(Icons.Default.UploadFile, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
@@ -119,6 +123,11 @@ fun AttachmentsSheet(
                             onAddUrl(url.trim(), titleState.text.toString().ifBlank { null })
                             urlState.clearText()
                             titleState.clearText()
+                            // The sheet closes once the attachment is handed over: the
+                            // attachment shows up on the task behind the sheet, and a
+                            // sheet that stays open hides it. Leaving it open also
+                            // made "add two URLs" a two-step dance for no gain.
+                            onDismiss()
                         }
                     },
                     enabled = urlState.text.isNotBlank(),

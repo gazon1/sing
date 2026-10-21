@@ -318,6 +318,7 @@ non-alphanumeric characters with `_`.
 | `ARCHIVE_EMPTY` | `archive_empty` | |
 | `ATTACHMENTS_ADD_FILE_ROW` | `attachments_add_file_row` | |
 | `ATTACHMENTS_ADD_URL_BUTTON` | `attachments_add_url_button` | |
+| `ATTACHMENTS_PICK_FILE_BUTTON` | `attachments_pick_file_button` | |
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `CHAT_INPUT` | `chat_input` | |
