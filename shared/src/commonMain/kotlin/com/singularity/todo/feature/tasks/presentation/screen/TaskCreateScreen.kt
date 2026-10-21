@@ -176,11 +176,6 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
                 onDelete = { id -> vm.onIntent(TaskCreateIntent.RemoveAttachmentUrl(id.value)) },
             ),
             dependencies = null,
-            // The state the rows open their sheets through. The editor reads the same
-            // state to render the sheet, so the row that opens it and the host that
-            // shows it are looking at one thing — without it the rows opened a sheet
-            // nobody was watching.
-            sheets = sheets,
             bottomBar = {
                 TaskSaveBar(
                     isEnabled = state.isSaveEnabled,
@@ -193,6 +188,10 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
         titleSource = state.draft.titleSource,
         descriptionSource = state.draft.descriptionSource,
         now = now,
+        // The state the rows open their sheets through. The editor renders the sheets
+        // from the same state, so the row that opens one and the host that shows it are
+        // looking at one thing.
+        sheets = sheets,
     )
 }
 

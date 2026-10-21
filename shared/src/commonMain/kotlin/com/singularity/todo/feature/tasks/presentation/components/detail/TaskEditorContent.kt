@@ -359,6 +359,10 @@ private fun StartDateRow(
  * @param descriptionSource the description's source, in the same shape.
  * @param onTitleChange called with the title the user typed.
  * @param onDescriptionChange called with the description the user typed.
+ * @param sheets the state the sheets are opened through and rendered from. The caller's rows
+ *   open a sheet through this state, so the caller owns it and hands it over — there is no
+ *   default, because a default is a second state, and two states are two states that will
+ *   not agree.
  */
 @Composable
 fun TaskEditorContent(
@@ -370,6 +374,7 @@ fun TaskEditorContent(
     callbacks: TaskEditorCallbacks,
     isCompleted: Boolean = false,
     now: Instant,
+    sheets: DialogState<TaskEditorSheet>,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -378,6 +383,7 @@ fun TaskEditorContent(
         descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
         isCompleted = isCompleted,
         now = now,
+        sheets = sheets,
     )
 }
 
@@ -394,6 +400,10 @@ fun TaskEditorContent(
  * @param descriptionSource the description's source, in the same shape.
  * @param onTitleChange called with the title the user typed.
  * @param onDescriptionChange called with the description the user typed.
+ * @param sheets the state the sheets are opened through and rendered from. The caller's rows
+ *   open a sheet through this state, so the caller owns it and hands it over — there is no
+ *   default, because a default is a second state, and two states are two states that will
+ *   not agree.
  */
 @Composable
 fun TaskCreateEditorContent(
@@ -404,6 +414,7 @@ fun TaskCreateEditorContent(
     onDescriptionChange: (String) -> Unit,
     callbacks: TaskEditorCallbacks,
     now: Instant,
+    sheets: DialogState<TaskEditorSheet>,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -412,6 +423,7 @@ fun TaskCreateEditorContent(
         descriptionState = rememberBridgedTextFieldState(descriptionSource, onDescriptionChange),
         isCompleted = false,
         now = now,
+        sheets = sheets,
     )
 }
 
@@ -427,6 +439,10 @@ fun TaskCreateEditorContent(
  * bundle for the host, which meant the host answered from values the editor no longer had:
  * a task id of `null` for a task that exists, and an empty checklist for a draft that had
  * items.
+ *
+ * The state is handed over, not defaulted. A default would be a second state, and the row
+ * that opens a sheet and the host that renders it would be looking at different ones —
+ * which is the bug this editor had, in the shape of a fallback.
  */
 @Composable
 private fun TaskEditorScaffold(
@@ -436,12 +452,8 @@ private fun TaskEditorScaffold(
     descriptionState: TextFieldState,
     isCompleted: Boolean,
     now: Instant,
+    sheets: DialogState<TaskEditorSheet>,
 ) {
-    // `remember` runs on every composition, the choice happens after it: a conditional
-    // `remember` would change the slot's identity when the caller's state arrives.
-    val ownSheets = rememberDialogState<TaskEditorSheet>()
-    val sheets = callbacks.sheets ?: ownSheets
-
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
         titleState = titleState,

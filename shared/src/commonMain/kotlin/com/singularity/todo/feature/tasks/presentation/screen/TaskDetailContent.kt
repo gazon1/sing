@@ -347,10 +347,13 @@ fun TaskDetailContent(
                                 coordinator.onIntent(intent)
                             },
                             onAiClick = { showAiSheet = true },
-                            sheets = sheets,
                         ),
                         isCompleted = ui.task.isCompleted,
                         now = now,
+                        // The state the rows open their sheets through. The editor renders
+                        // the sheets from the same state, so the row that opens one and the
+                        // host that shows it are looking at one thing.
+                        sheets = sheets,
                     )
 
                     if (showAiSheet) {
