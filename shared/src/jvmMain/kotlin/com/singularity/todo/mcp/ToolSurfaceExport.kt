@@ -64,6 +64,10 @@ object ToolSurfaceExport {
      */
     fun surface(): JsonObject = buildJsonObject {
         put("version", VERSION)
+        // The contract version the export describes. The export says which tools exist
+        // under which contract, so a reader can tell "this build exposes three more
+        // tools" from "this build speaks a different contract".
+        put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
         put(
             "tools",
             buildJsonArray {

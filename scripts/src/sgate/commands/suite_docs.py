@@ -15,15 +15,25 @@ from sgate.commands.base import CLEAN, INTERNAL_ERROR, register
 from sgate.log import logger
 from sgate.output import gate_fail
 
-# Gates that belong to the "docs" suite (from spec/sgate-cli.md)
+# Gates that belong to the "docs" suite.
+#
+# These are *command* names, and the CLI names them in snake_case. The list used to
+# hold kebab-case names — `skill-frontmatter`, `no-dead-doc-refs`, `publication-hygiene`,
+# `readme-claims`, `adr-corpus-rules-are-shared` — of which only three existed under
+# any spelling, and one of those three pointed at a script deleted in July. So the
+# suite ran commands the CLI does not have, and reported the failures as if they were
+# the documentation's fault.
+#
+# A suite that names commands that do not exist cannot be trusted to have run the
+# ones that do: the failures look like findings, so nobody looks at the names.
 DOCS_GATES = [
-    "skill-frontmatter",
-    "decisions-digest-within-budget",  # doc-sizes gate
-    "no-dead-doc-refs",
-    "adr-references-are-valid",
-    "adr-corpus-rules-are-shared",  # adr-config-sync
-    "publication-hygiene",
-    "readme-claims",
+    "adr_references_are_valid",
+    "adr_status_policy",
+    "decisions_digest_within_budget",
+    "doc_dead_refs",
+    "doc_links",
+    "lint_rules_are_declared_decisions",
+    "the_toolbox_surface_is_declared_once",
 ]
 
 
@@ -46,8 +56,9 @@ def _run_gate(name: str) -> tuple[str, int]:
 def docs(check: bool, json: bool) -> None:
     """Run all documentation gates concurrently.
 
-    Gates: skill-frontmatter, decisions-digest-within-budget, no-dead-doc-refs,
-    adr-references-are-valid, adr-corpus-rules-are-shared, publication-hygiene, readme-claims.
+    Gates: adr_references_are_valid, adr_status_policy,
+    decisions_digest_within_budget, doc_dead_refs, doc_links,
+    lint_rules_are_declared_decisions, the_toolbox_surface_is_declared_once.
 
     Exit codes:
       0 = all clean

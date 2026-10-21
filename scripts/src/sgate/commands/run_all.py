@@ -329,6 +329,29 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         )
 
 
+def _write_gate_run(results: list[GateResult]) -> None:
+    """Record how long each gate took.
+
+    The run happened anyway, so writing down what it cost is free. The file is
+    untracked and belongs to this machine and this moment; `sgate gate-costs` reads
+    it, and the committed baseline is what survives it.
+
+    A failure to write is not a failure of the run: the gates ran, and their verdicts
+    do not depend on whether anybody wrote down how long they took.
+    """
+    document = {
+        "schemaVersion": 1,
+        "recordedAt": int(time.time() * 1000),
+        "gates": {result.name: result.duration_ms for result in results},
+    }
+    try:
+        path = sgate.repo.GATE_RUN_JSON
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError as exc:
+        logger.warning(f"could not record how long the gates took: {exc}")
+
+
 @click.command("run-all")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 @click.option("--concurrency", "-j", default=8, show_default=True, help="Number of parallel workers")
@@ -415,6 +438,10 @@ def run_all(emit_json: bool, concurrency: int,
     # Sort: blocking first, then advisory; alphabetically within group
     order = {"blocking": 0, "advisory": 1}
     results.sort(key=lambda r: (order.get(r.mode, 2), r.name))
+
+    # What this run cost. The run happened anyway; writing down what it took is free,
+    # and `sgate gate-costs` is what reads it.
+    _write_gate_run(results)
 
     blocking = [r for r in results if r.mode == "blocking"]
     advisory = [r for r in results if r.mode == "advisory"]

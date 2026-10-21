@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+
+  "_comment": "The document corpora: the places this project's written knowledge lives. The decisions are NOT here — they are records with their own contract (config/docs/adr-corpus.json: frontmatter, statuses, staleness), and one file with two kinds of rule is a file whose reader has to know which kind it is reading. This one declares the documents: the roots of every scope a search can see, how deep it walks, and what it reads. JSON rather than YAML because Python reads it with the standard library and Kotlin with kotlinx.serialization — the same two readers that read the ADR policy, and for the same reason: a policy only one side can read is a policy the other side ignores.",
+
+  "_comment_depth": "How many directory levels below a root are walked. A corpus is a fixed set of directories, so the bound is a guard against an accidental symlink loop rather than a shape of the data.",
+
+  "maxDepth": 6,
+
+  "_comment_extension": "What a document is. Markdown, because every corpus here is markdown; a scope that needed another format would need its own rule rather than a global one.",
+
+  "fileExtension": ".md",
+
+  "corpora": {
+    "architecture": {
+      "_comment": "The hand-written architecture documents.",
+      "roots": ["docs/architecture"]
+    },
+    "skills": {
+      "_comment": "The procedures an agent follows.",
+      "roots": [".agents/skills"]
+    },
+    "specs": {
+      "_comment": "The capability specifications.",
+      "roots": ["openspec/specs"]
+    }
+  }
+}

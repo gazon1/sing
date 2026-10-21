@@ -85,6 +85,10 @@ Describing the toolbox itself:
   a third list: remote-configuration flags that named **no** tool. Such a flag switched
   nothing off — so if a tool you expected to be gone is still there, the flag is
   probably the reason, and this is where you see it.
+- `toolset.surfaceContractVersion` says which version of the surface contract this
+  server speaks. The payload may only grow, so a newer server is fine — but if you read
+  a field you do not know, the version tells you whether that is a field added later or
+  a shape you are misreading.
 - The read-only documents are also served as MCP resources: `singularity://toolbox`,
   `singularity://decisions`, `singularity://decision/{slug}`. Client support for
   resources varies; the tools above are the portable path.

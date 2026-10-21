@@ -6,7 +6,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 
 /**
@@ -62,6 +64,19 @@ class ToolSurfaceExportTest {
             tools.size,
             "the export must carry every catalogue entry — a tool that is declared but not " +
                 "exported is a tool the gate cannot see",
+        )
+    }
+
+    @Test
+    fun `the export says which contract version it describes`() {
+        """A reader of the export must be able to tell which contract it is
+        looking at, or a change of the contract and a change of the tool list look
+        the same."""
+        val exported = ToolSurfaceExport.surface()
+
+        assertEquals(
+            McpToolCatalog.SURFACE_CONTRACT_VERSION,
+            exported["surfaceContractVersion"]?.jsonPrimitive?.int,
         )
     }
 

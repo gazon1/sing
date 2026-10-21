@@ -337,6 +337,21 @@ gate blocking "gate registry is current" sgate render-registry --check
 # manifest, run `sgate render-static-gates --write`.
 gate blocking "the shell registry is current" sgate render-static-gates --check
 
+# What the verification loop costs.
+#
+# The loop grew by minutes at a time — a wave added an Android host test, another
+# added a module to the detekt sweep — and nobody could say so, because nothing
+# measured it. Now `sgate run-all` times every gate it runs and `check.sh` times
+# every Gradle step it runs, and the result is published in
+# docs/testing/gate-costs.md.
+#
+# This gate compares two committed files: the published page and the recorded
+# baseline. That is a question a CI runner can answer honestly. The comparison with
+# a *local* measurement is not one CI can answer, and it is not asked here — the
+# local report names what got slower, and a CI runner has no local measurement to
+# name.
+gate blocking "the published gate costs are current" sgate gate-costs --check
+
 # Every gate dispatched through `sgate` is called with `--json` by
 # `sgate run-all`, and the document that lands on stdout is what a consumer
 # reads. The contract is one shape: one JSON object, and nothing else.

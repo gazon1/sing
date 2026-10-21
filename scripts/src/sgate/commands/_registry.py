@@ -89,7 +89,7 @@ COMMAND_MODULES: dict[str, str] = {
     "room_schema_integrity": "gate",
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
-    "check_benchmarks": "utility",
+    "gate_costs": "gate",
     "info": "utility",
     "render_registry": "utility",
     "render_static_gates": "utility",
@@ -571,6 +571,24 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("sgate"),
         script_args=("render-static-gates", "--check"),
     ),
+    # What the verification loop costs, published.
+    #
+    # The local loop grew by minutes at a time — a wave added an Android host test,
+    # another added a module to the detekt sweep — and nobody could say so, because
+    # nothing measured it. The measurement now exists (`sgate run-all` times every
+    # gate, `check.sh` times every Gradle step), and this gate keeps the published
+    # page and the recorded baseline in step.
+    #
+    # It compares two committed files, so it is a question a CI runner can answer
+    # honestly: the *comparison* with a local measurement is not one CI can answer,
+    # and it is not asked here.
+    GateSpec(
+        name="the published gate costs are current",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("sgate"),
+        script_args=("gate-costs", "--check"),
+    ),
     # The JSON contract every gate dispatched through `sgate` is called with.
     #
     # `sgate run-all` calls each gate with `--json`, and the document that
@@ -737,6 +755,31 @@ GATE_CONTROLS: dict[str, Control] = {
             "catalogue that answers questions about a gate set nobody runs — and a "
             "reader has no way to tell, because the file looks exactly as "
             "authoritative as the registry it drifted from"
+        ),
+    ),
+    # The published cost of the loop. The probe edits the generated block's marker, and
+    # the gate must notice that the page no longer says what the recorded baseline says.
+    #
+    # The marker, not a row of the table: the table has rows only once a baseline has
+    # been recorded, and a control that cannot be applied is a control that proves
+    # nothing.
+    'published-gate-costs': Control(
+        kind='sabotage',
+        proves='sgate',
+        argv=('{python}', '-m', 'sgate', 'gate-costs', '--check'),
+        path='docs/testing/gate-costs.md',
+        edit=Edit(
+            kind='replace',
+            old='<!-- BEGIN GENERATED: sgate gate-costs -->',
+            new='<!-- BEGIN GENERATED: sgate gate-costs (sabotage probe) -->',
+            count=1,
+        ),
+        why=(
+            "a published cost that no longer matches the recorded baseline is a "
+            "number nobody can trace: the page is what a reader believes, and the "
+            "baseline is what the next comparison is made against — so a page "
+            "that drifted from it makes the loop's cost unknowable while looking "
+            "exactly as authoritative as the one that is right"
         ),
     ),
     # The JSON contract. The probe makes one gate's stdout stop being one JSON

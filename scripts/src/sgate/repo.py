@@ -22,5 +22,13 @@ GATE_REGISTRY_MD: pathlib.Path = ROOT / "docs" / "scripts" / "gate-registry.md"
 # Performance baselines
 GATE_BENCHMARKS_JSON: pathlib.Path = ROOT / "config" / "docs" / "gate-benchmarks.json"
 
+# The published cost of the verification loop
+GATE_COSTS_MD: pathlib.Path = ROOT / "docs" / "testing" / "gate-costs.md"
+
+# The measurement of the cycle that just ran. Untracked: it is a reading of this
+# machine at this moment, and the committed baseline is what survives it.
+GATE_RUN_JSON: pathlib.Path = ROOT / "build" / "diagnostics" / "gate-run.json"
+CYCLE_STEPS_TXT: pathlib.Path = ROOT / "build" / "diagnostics" / "cycle-steps.txt"
+
 # Infra Kiwi
 KIWI_SYNC: pathlib.Path = ROOT / "infra" / "kiwi" / "sync.py"
