@@ -1,4 +1,4 @@
-"""maestro._testing — FakeMaestro harness and AdbCall for integration testing.
+"""maestro._testing — the FakeMaestro harness for integration testing.
 
 FakeMaestro replaces the subprocess layer (try_run for "maestro test ...") with a
 configurable map of flow → result. This lets integration tests cover:
@@ -57,95 +57,6 @@ class FakeMaestro:
         self._device_sha = sha
 
 
-# ── AdbCall: structured adb recording ───────────────────────────────────────────
-
-
-@dataclass
-class AdbCall:
-    """Structured adb call recorder with exact-matching assertion helpers.
-
-    Use as a callable substitute for the real ``adb()``::
-
-        fake = AdbCall()
-        fake.adb("-s", "serial", "shell", "getprop", "ro.product.model", _returns="Pixel_8")
-
-        # Verify exact command was issued:
-        assert fake.last_args() == ("-s", "serial", "shell", "getprop", "ro.product.model")
-        assert fake.last_result() == "Pixel_8"
-
-        # Verify sequence:
-        assert fake.at(0).args == ("-s", serial, "shell", "echo", "ping")
-        fake.assert_count(2)
-
-    Set a default return for unmatched calls with ``default=None`` or ``default=""``.
-    """
-
-    _calls: list[tuple[tuple[str, ...], str | None]] = None
-    default: str | None = None
-
-    def __post_init__(self):
-        if self._calls is None:
-            object.__setattr__(self, "_calls", [])
-
-    def __call__(self, *args: str, _returns: str | None | object = None, **kwargs) -> str | None:
-        """Record args and return ``_returns``, or ``self.default`` if not set."""
-        result: str | None
-        if _returns is not None:
-            result = _returns
-        elif isinstance(_returns, object) and _returns is None:
-            result = None
-        else:
-            result = self.default
-        self._calls.append((args, result))
-        return result
-
-    def clear(self) -> None:
-        """Drop all recorded calls."""
-        self._calls.clear()
-
-    def calls(self) -> list[tuple[tuple[str, ...], str | None]]:
-        """Return the full list of (args, result) pairs."""
-        return self._calls
-
-    def count(self) -> int:
-        return len(self._calls)
-
-    def last_args(self) -> tuple[str, ...]:
-        return self._calls[-1][0]
-
-    def last_result(self) -> str | None:
-        return self._calls[-1][1]
-
-    def at(self, index: int):  # -> AdbCall
-        """Return a single-entry view of the call at ``index`` for chainable asserts."""
-        args, result = self._calls[index]
-        view = AdbCall()
-        view._calls = [(args, result)]
-        return view
-
-    def assert_count(self, n: int, msg: str | None = None) -> None:
-        actual = len(self._calls)
-        assert actual == n, msg or f"expected {n} adb calls, got {actual}: {self._calls}"
-
-    def assert_not_called(self, msg: str | None = None) -> None:
-        assert len(self._calls) == 0, msg or f"expected 0 calls, got {len(self._calls)}: {self._calls}"
-
-    def assert_called_once(self, msg: str | None = None) -> None:
-        assert len(self._calls) == 1, msg or f"expected 1 call, got {len(self._calls)}: {self._calls}"
-
-    def assert_called_once_with(self, *args) -> None:
-        assert len(self._calls) == 1, f"expected 1 call, got {len(self._calls)}"
-        assert self._calls[0][0] == args, f"expected {args}, got {self._calls[0][0]}"
-
-    def assert_called_with(self, *args) -> None:
-        """Assert at least one call matches the given args."""
-        matches = [c for c in self._calls if c[0] == args]
-        assert matches, f"no call found with args {args}; got: {self._calls}"
-
-    def assert_args_match(self, predicate, msg: str | None = None) -> None:
-        """Assert at least one call's args satisfy ``predicate``."""
-        matches = [c for c in self._calls if predicate(c[0])]
-        assert matches, msg or f"no call matched predicate; got: {self._calls}"
 
 
 # ── Clock / FakeProc / FakeAdb: emulator boot-cycle harness ─────────────────────

@@ -10,29 +10,9 @@ import subprocess
 import time
 from pathlib import Path
 
-from emulator._device import (
-    adb as _parent_adb,
-)
-from emulator._device import (
-    adb_on as _parent_adb_on,
-)
-from emulator._device import (
-    device_alive as _parent_device_alive,
-)
+from emulator._device import adb, adb_on
 from emulator.maestro._subprocess import run as _subprocess_run
 from emulator.maestro._types import APP_ID, GW, ROOT
-
-# Re-export parent functions for backward compatibility.
-adb = _parent_adb
-adb_on = _parent_adb_on
-device_alive = _parent_device_alive
-
-
-def adb_check(*args: str) -> bool:
-    """Run adb; return True on exit 0, suppress all output."""
-    from emulator.maestro._subprocess import try_run
-    cp = try_run(["adb", *args], timeout=5)
-    return cp is not None and cp.returncode == 0
 
 
 def device_model(serial: str) -> str:

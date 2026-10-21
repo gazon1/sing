@@ -113,5 +113,83 @@ class TestTheThreeConsumersAgree(unittest.TestCase):
             )
 
 
+class RealFlowsAreReachableTest(unittest.TestCase):
+    """Every flow in the repository is selectable by a tag it declares.
+
+    The invariant that closes the loop. It used to live in
+    `scripts/tests/test_maestro_flow_tags.py`, next to the shell reader it
+    exercised. The reader is one now, so the invariant is asserted against the
+    reader the runner uses — and the shell copy of it is gone.
+
+    Nothing in CI asserted this, which is why a typo'd tag would have had the
+    same effect as the trailing-space bug: the flow exists, every gate passes,
+    and no run ever includes it.
+    """
+
+    @staticmethod
+    def _flows() -> list[pathlib.Path]:
+        return sorted(_FLOWS.rglob("*.yaml"))
+
+    def test_there_are_flows_to_check(self):
+        """A vacuous green is worse than a red: zero flows must not pass."""
+        self.assertGreater(len(self._flows()), 0, f"no flows under {_FLOWS}")
+
+    def test_every_flow_declares_at_least_one_tag(self):
+        untagged = [
+            str(f.relative_to(_ROOT))
+            for f in self._flows()
+            if not flow_tags_text(f.read_text())
+        ]
+        self.assertEqual(
+            untagged,
+            [],
+            "flows with no tag never run under any TAGS= filter, and no gate "
+            "noticed. Give them a tag:",
+        )
+
+    def test_every_declared_tag_selects_its_own_flow(self):
+        from emulator.maestro._flow import flow_has_tag
+
+        unreachable = []
+        for flow in self._flows():
+            for tag in flow_tags_text(flow.read_text()):
+                if not flow_has_tag(flow, tag):
+                    unreachable.append(f"{flow.relative_to(_ROOT)}: {tag!r}")
+        self.assertEqual(
+            unreachable,
+            [],
+            "a flow declares a tag that does not select it, so the tag is a lie "
+            "and the flow is unreachable under that name:",
+        )
+
+    def test_the_smoke_suite_ci_asks_for_is_not_empty(self):
+        """CI selects the smoke suite by tag; an empty directory means it lost its flows.
+
+        The values are read out of the files that drive the jobs, so a CI change
+        that drops the suite is visible here rather than as an empty run.
+        """
+        import re
+
+        sources = {
+            p.relative_to(_ROOT).as_posix(): p.read_text(encoding="utf-8")
+            for p in (
+                _ROOT / ".github/workflows/e2e.yml",
+                _ROOT / "scripts/ci/e2e-shard.sh",
+            )
+            if p.is_file()
+        }
+        suites: set[str] = set()
+        for text in sources.values():
+            suites |= set(re.findall(r"SUITE=([a-z]+)", text))
+
+        if "smoke" in suites:
+            smoke_dir = _FLOWS / "smoke"
+            self.assertTrue(
+                smoke_dir.is_dir() and any(smoke_dir.glob("*.yaml")),
+                "smoke SUITE is used in CI but Maestro/flows/smoke/ is empty or "
+                "absent — the suite would have lost its own contents",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

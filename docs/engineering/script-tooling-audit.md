@@ -351,6 +351,24 @@ consolidation.
 the duplicated primitives only where the semantics match; **DECIDE** the two semantic
 questions explicitly rather than by substitution.
 
+**Status: DONE 2026-10-21** (issue #776) — for the deletions. The eight dead exports,
+the `maestro` aliases, `adb_check` and `AdbCall` are gone; the two differing
+semantics (`None` vs a raised `TimeoutExpired`, the `echo ping` probe) are untouched,
+because they are answers to different questions.
+
+The deletion found something the count could not: the UPPER_CASE aliases of the
+configuration were **patched by three tests and read by nothing**. `emulator.LOCK_FILE
+= lock` changed a module-level copy while the code read `cfg.lock_file`, so the lock
+tests took the *shared* `/tmp/ensure-emulator.lock` instead of the temporary file
+they asked for — and one of them failed with `BrokenBarrierError` whenever another
+checkout held the lock. The tests now patch `cfg`, and the emulator test module went
+from 5.0 s to 1.2 s because it stopped contending for a lock it could not see.
+
+The **consolidation** half of the verdict is not done: the standalone E2E scripts
+still carry their own `try_run`, `device_alive`, discovery and wake/unlock/IME, and
+the two semantic questions are still open. That is a separate change, with its own
+decision record.
+
 ### F9 — Five `sgate` adapters scrape human-readable output, and two already have a JSON contract
 
 `scripts/src/sgate/models.py` defines `GatePayload`, whose `honest_pass` (`:41`) ANDs
@@ -416,6 +434,16 @@ suppressions, and the question has been answered.
 has some value. But an unrunnable, untested script that nothing invokes is a trap for
 the next reader. Either wire it into a `just` recipe (making it reachable) or delete
 it. It is the only script in `scripts/` with no caller at all.
+
+**Status: DONE 2026-10-21** (issue #777). It is wired: `just baseline`, and the
+consumer is named — a human reading a detekt baseline change, who needs to know which
+of the suppressions belong to a rule that can report at all. The script answers that
+question from the ratchet's own parser, which is why it was worth keeping: a
+measurement tool that disagrees with the gate it supports is worse than none.
+
+A fourth dead file was found and deleted in the same round:
+`scripts/maestro-flow-tags.sh` — the shell implementation of the Maestro tag reader,
+with no caller since the runner moved to Python.
 
 ### F13 — Twelve gate scripts have no unit test
 

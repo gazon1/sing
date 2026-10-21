@@ -17,7 +17,7 @@ from emulator.maestro._flow import (
     flow_tags,
 )
 from emulator.maestro._runner import run_one_flow
-from emulator.maestro._testing import AdbCall, FakeMaestro, FakeMaestroResult
+from emulator.maestro._testing import FakeMaestro, FakeMaestroResult
 from emulator.maestro._types import EXIT_FAIL, EXIT_PASS
 
 __all__ = [
@@ -30,7 +30,6 @@ __all__ = [
     "flow_tags",
     "FakeMaestro",
     "FakeMaestroResult",
-    "AdbCall",
     "EXIT_FAIL",
     "EXIT_PASS",
 ]

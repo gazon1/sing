@@ -1,11 +1,19 @@
 """emulator — Android emulator lifecycle management for singularity-todo.
 
 Public API:
-    ensure_device(pin)  → str | None   (serial of a ready device; acquires one)
-    acquire_device(pin) → Acquisition  (serial + exit code, never raises)
-    Config                          (mutable configuration singleton)
-    EXIT_*                          (exit code constants)
-    AVD, LOCK_FILE, EXTRA_FLAGS, BOOT_TIMEOUT, LOCK_TIMEOUT
+    main              → the CLI entry point
+    start_avd, startup_lock, clear_stale_emulator
+    device_is_ready, find_ready, first_ready_device, popen, try_run
+    cfg               (the mutable configuration singleton)
+    EXIT_*           (exit code constants)
+
+**What is not here is as deliberate as what is.** A name that nothing imports
+is not an API — it is a second copy of the thing it re-exports, and the copy is
+the one that drifts. The configuration lives in `cfg` and only in `cfg`; there
+used to be UPPER_CASE aliases of its fields here, and the tests that patched
+them patched a copy nobody read: the code reads `cfg.avd`, so
+`emulator.AVD = 'Pixel_7'` changed nothing at all. A stale alias is not a
+harmless extra name; it is a patch target that silently does nothing.
 """
 from __future__ import annotations
 
@@ -13,21 +21,15 @@ from emulator._cli import main
 # Also available as `.cli` for callers that prefer not to shadow the name `main`.
 cli = main
 from emulator._device import (
-    adb,
-    adb_on,
     device_is_ready,
     find_ready,
     first_ready_device,
-    list_avds,
     popen,
-    probe_device_ready,
     try_run,
 )
 from emulator._startup import (
-    Acquisition,
     _avd_is_running,
     clear_stale_emulator,
-    ensure_device,
     start_avd,
     startup_lock,
 )
@@ -37,38 +39,20 @@ from emulator._types import (
     EXIT_NOT_READY,
     EXIT_OK,
     EXIT_TIMEOUT,
-    Config,
     cfg,
 )
-
-# Re-export UPPER_CASE config names from the cfg singleton so that
-# `emulator.AVD` and `_emu.AVD` keep working without __getattr__.
-# Tests patch these directly:  emulator.AVD = 'Pixel_7'.
-AVD = cfg.AVD
-LOCK_FILE = cfg.LOCK_FILE
-EXTRA_FLAGS = cfg.EXTRA_FLAGS
-BOOT_TIMEOUT = cfg.BOOT_TIMEOUT
-LOCK_TIMEOUT = cfg.LOCK_TIMEOUT
 
 __all__ = [
     # CLI entry point
     "main",
     # Device primitives
-    "_avd_is_running",
-    "adb",
-    "adb_on",
     "device_is_ready",
     "find_ready",
     "first_ready_device",
-    "list_avds",
     "popen",
-    "probe_device_ready",
     "try_run",
     # AVD lifecycle
-    "Acquisition",
-    "acquire_device",
     "clear_stale_emulator",
-    "ensure_device",
     "startup_lock",
     "start_avd",
     # Exit codes
@@ -77,12 +61,6 @@ __all__ = [
     "EXIT_CRASHED",
     "EXIT_TIMEOUT",
     "EXIT_LOCK",
-    # Configuration — UPPER_CASE aliases of cfg properties
+    # Configuration
     "cfg",
-    "Config",
-    "AVD",
-    "LOCK_FILE",
-    "EXTRA_FLAGS",
-    "BOOT_TIMEOUT",
-    "LOCK_TIMEOUT",
 ]
