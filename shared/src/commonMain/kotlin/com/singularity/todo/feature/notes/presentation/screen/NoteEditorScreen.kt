@@ -291,7 +291,7 @@ private fun NoteEditorScreenEditingPreview() = PreviewThemed(darkTheme = false, 
                 draft = EditorState.Editing(
                     id = "n1",
                     title = Revisioned.initial("Meeting Notes"),
-                    html = "<p>Discussed <b>Q4 goals</b> with the team.</p>",
+                    html = Revisioned.initial("<p>Discussed <b>Q4 goals</b> with the team.</p>"),
                     isDirty = false,
                 ),
             ),
@@ -317,7 +317,7 @@ private fun NoteEditorScreenDirtyPreview() = PreviewThemed(darkTheme = true, use
                 draft = EditorState.Editing(
                     id = "n2",
                     title = Revisioned.initial("Draft"),
-                    html = "<p>Work in progress...</p>",
+                    html = Revisioned.initial("<p>Work in progress...</p>"),
                     isDirty = true,
                 ),
             ),

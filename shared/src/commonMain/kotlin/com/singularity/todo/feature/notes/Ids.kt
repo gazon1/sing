@@ -152,7 +152,7 @@ sealed interface EditorState {
     data class Editing(
         val id: String,
         val title: Revisioned<String>,
-        val html: String,
+        val html: Revisioned<String>,
         val isDirty: Boolean = false,
         /** True until the note is persisted for the first time (create-on-first-save). */
         val isNew: Boolean = false,
@@ -174,6 +174,21 @@ sealed interface EditorState {
         val titleSource: OwnedText get() = OwnedText(title.value, title.revision)
 
         /**
+         * The body as the field's source.
+         *
+         * The body has the same contract as the title: the note may be rewritten from
+         * outside the editor, so the owner counts the body's replacements and the
+         * editor reads the count to know that the content it shows was replaced rather
+         * than typed.
+         *
+         * The count is the *body's own*. It used to be the title's count, which meant
+         * that a rewrite of the body was announced by a counter that belonged to
+         * another field — and a rewrite of the title alone re-seeded the body for no
+         * reason.
+         */
+        val bodySource: OwnedText get() = OwnedText(html.value, html.revision)
+
+        /**
          * The user typed a new title.
          *
          * A keystroke is the editor's own change, so the count of the title's
@@ -182,6 +197,17 @@ sealed interface EditorState {
          */
         fun withTitle(newTitle: String): Editing = copy(
             title = title.typed(newTitle),
+            isDirty = true,
+        )
+
+        /**
+         * The user typed a new body.
+         *
+         * A keystroke is the editor's own change, so the count of the body's
+         * replacements does not move — the same rule the title follows.
+         */
+        fun withBody(newHtml: String): Editing = copy(
+            html = html.typed(newHtml),
             isDirty = true,
         )
     }

@@ -124,7 +124,7 @@ class NoteEditorTest {
         assertIs<EditorState.Editing>(state)
         assertEquals(testNote.id.value, state.id)
         assertEquals("Test Note", state.title.value)
-        assertEquals("<p>Hello world</p>", state.html)
+        assertEquals("<p>Hello world</p>", state.html.value)
         assertFalse(state.isDirty)
         assertFalse(state.isNew)
     }
@@ -158,7 +158,7 @@ class NoteEditorTest {
         val savedState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(savedState)
         assertFalse(savedState.isDirty)
-        assertEquals("<p>Updated content</p>", savedState.html)
+        assertEquals("<p>Updated content</p>", savedState.html.value)
     }
 
     @Test
@@ -290,7 +290,7 @@ class NoteEditorTest {
 
         val restoredState = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(restoredState)
-        assertEquals("<p>Hello world</p>", restoredState.html)
+        assertEquals("<p>Hello world</p>", restoredState.html.value)
         assertFalse(restoredState.isDirty)
         // Original content unchanged in the repo
         assertEquals("<p>Hello world</p>", notesRepo.notes[testNote.id.value]?.bodyHtml)
@@ -345,10 +345,62 @@ class NoteEditorTest {
         val state = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(state)
         assertEquals("Rewritten", state.title.value)
-        assertEquals("<p>Rewritten body</p>", state.html)
+        assertEquals("<p>Rewritten body</p>", state.html.value)
         // The revision is how the fields learn the content was replaced, not typed.
+        // Each field counts its own replacements.
         assertEquals(1L, state.title.revision)
+        assertEquals(1L, state.html.revision)
         assertFalse(state.isDirty)
+    }
+
+    @Test
+    fun `a rewrite of the body alone leaves the title's count where it was`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+        vm.openEditor(testNote.id.value)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        // The body is rewritten; the title is not.
+        notesRepo.seed(testNote.copy(bodyHtml = "<p>Rewritten body</p>"))
+        runCurrent()
+
+        val state = vm.stateFlow.value.draft
+        assertIs<EditorState.Editing>(state)
+        assertEquals("Test Note", state.title.value)
+        assertEquals("<p>Rewritten body</p>", state.html.value)
+        // The body was replaced, so the body says so.
+        assertEquals(1L, state.html.revision)
+        // The title was not replaced, so the title says nothing: a count that moved
+        // for another field's rewrite would tell the title's field that its value was
+        // rewritten from outside, which did not happen.
+        assertEquals(0L, state.title.revision)
+    }
+
+    @Test
+    fun `a rewrite of the title alone leaves the body's count where it was`() = runTest {
+        val notesRepo = FakeNotesRepository()
+        notesRepo.seed(testNote)
+        val vm = createVm(notesRepo = notesRepo, scope = backgroundScope)
+
+        vm.openEditor(testNote.id.value)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        // The title is rewritten; the body is not.
+        notesRepo.seed(testNote.copy(title = "Rewritten"))
+        runCurrent()
+
+        val state = vm.stateFlow.value.draft
+        assertIs<EditorState.Editing>(state)
+        assertEquals("Rewritten", state.title.value)
+        assertEquals("<p>Hello world</p>", state.html.value)
+        assertEquals(1L, state.title.revision)
+        // The body was not replaced, so the editor must not re-seed it: the count is
+        // what says so.
+        assertEquals(0L, state.html.revision)
     }
 
     @Test
@@ -370,9 +422,10 @@ class NoteEditorTest {
 
         val state = vm.stateFlow.value.draft
         assertIs<EditorState.Editing>(state)
-        assertEquals("<p>Mine</p>", state.html)
+        assertEquals("<p>Mine</p>", state.html.value)
         // No revision: nothing was replaced, so no field is told otherwise.
         assertEquals(0L, state.title.revision)
+        assertEquals(0L, state.html.revision)
         assertTrue(state.isDirty)
     }
 

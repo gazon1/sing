@@ -223,9 +223,15 @@ class TextFieldRewriteContractTest {
             // point of the type — so the file that advances it says so by calling it. A
             // plain count is incremented instead: that is the GenUI surface's count of
             // the server's writes.
+            //
+            // `replacedIfChangedBy` is the same move, conditional on the value having
+            // changed: a replacement that lands on the value the owner already holds is
+            // the echo of the owner's own save, and it does not move the count.
             val advances = TextFieldShapeScan.declarationTexts(advancer).any { text ->
                 val code = KotlinText.stripComments(text)
-                code.contains(REPLACED_BY) || ADVANCE.containsMatchIn(code)
+                code.contains(REPLACED_BY) ||
+                    code.contains(REPLACED_IF_CHANGED_BY) ||
+                    ADVANCE.containsMatchIn(code)
             }
             if (advances) return@mapNotNull null
             "$row.site -> $advancer never advances the counter"
@@ -406,5 +412,8 @@ class TextFieldRewriteContractTest {
 
         /** The only way a `Revisioned`'s count moves. */
         const val REPLACED_BY = "replacedBy("
+
+        /** The same move, conditional on the value having changed. */
+        const val REPLACED_IF_CHANGED_BY = "replacedIfChangedBy("
     }
 }
