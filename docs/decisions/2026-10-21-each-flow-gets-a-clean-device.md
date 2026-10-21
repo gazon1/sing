@@ -31,14 +31,23 @@ fails because another flow's row is in the way. Nothing in the JUnit XML says
 The full run of 2026-10-21 made this measurable for the first time, because
 the nine flows that had never run now run — so the order changed:
 
-| | before | after |
+| | before the change | after the change |
 |---|---|---|
-| flows that reported | 85 | 94 |
-| passed | 49 | 43 |
-| failed | 36 | 51 |
+| flows that reported | 94 | 94 |
+| passed | 43 | **55** |
+| failed | 51 | **39** |
 
-Seven flows passed before and failed after. Six of them pass when they are run
-**alone** against a clean device:
+Thirteen flows changed from failing to passing, and one changed the other
+way. The thirteen are exactly the ones the earlier run had polluted:
+`01-empty-inbox`, `03-empty-projects`, `04-empty-archive`'s neighbours, the
+four Pomodoro flows, `04-health-stagnant-drilldown`,
+`04-signin-with-seeded-data`, `05-session-invalidation`,
+`01-kill-restart-persist`, `01-offline-create-survives-reconnect` and
+`search-finds-task` — every one of them a flow that asserted on the state of
+the device rather than on its own fixture.
+
+Six of the seven flows that passed in the earlier run and failed in that run
+passed when they were run **alone** against a clean device:
 
 | flow | in the full run | alone on a clean device |
 |---|---|---|
@@ -87,12 +96,23 @@ emulator". The runner now holds a **per-device lock** for the whole run, so
 there is no second suite on the device to wipe. The lock is what made this
 decision possible; before it, the narrow scope was the only safe one.
 
-**What is still not per-flow.** The wipe is scoped to the **active profile**.
-A flow that switches profiles leaves the other profile's rows behind, and
-the wipe that follows it happens in the profile that is active at that
-moment. Per-profile isolation is the part of idea A that this change does
-not deliver, and it is named here rather than left for the reader to
-discover.
+**What is still not per-flow.** The wipe is scoped to the **active profile**,
+and it reaches three of the four kinds of content the app stores:
+
+- **active** tasks, notes and projects — wiped;
+- **archived and trashed** tasks — *not* wiped, because the repository's
+  `observeAll()` is `watchActive`, so the wipe never sees them. A flow that
+  archives a task leaves it in the Archive for the rest of the run, and
+  `negative/04-empty-archive` fails on it.
+- **saved agendas** (`agenda_views`) and saved searches — not wiped at all;
+  `reset=content` does not touch them. `agenda/02-saved-views-open` and
+  `agenda/06-full-lifecycle` fail on a saved agenda an earlier flow left
+  behind.
+
+Those two gaps are named here rather than left for the reader to discover.
+Closing them means teaching the seed activity to reach archived rows and
+saved agendas, and the second of those is a product-side change to a
+debug-only activity — a small change, but a different day's work.
 
 ## Rationale
 
@@ -119,11 +139,18 @@ discover.
 
 - **The full run's failure count is a property of the app again.** Each flow
   starts on a device with no content of its own, so the order of the flows
-  stops being a variable of the measurement.
+  stops being a variable of the measurement. Thirteen flows that failed for
+  the suite's reasons now pass.
 - **A flow that fails alone on a clean device is a defect candidate** — that
   is the shortest path from "red" to "here is the bug".
 - **The wipe costs about a second per flow.** The link is sent before every
   flow, so the run is a little slower; the run is still minutes, not hours.
+- **The CI run measures the same thing as the local run.** The CI driver does
+  not pin a cleanup scope any more, so the two cannot drift apart — the same
+  rule as the binary itself.
+- **Two kinds of content still leak between flows**: archived tasks and saved
+  agendas. Three of the 39 remaining failures are that leak, and they are
+  named above rather than hidden in the count.
 - **Per-profile isolation is still owed.** A flow that switches profiles
   leaves the other profile's rows behind, and until every flow has a profile
   of its own, a green run is a statement about the app *and* about the
@@ -131,17 +158,22 @@ discover.
 
 ## Links
 
-- `scripts/src/emulator/maestro/_fixtures.py` — the sweep and its prefix list
-- `scripts/src/emulator/maestro/_cli.py` — where the sweep runs, and where the
+- `scripts/src/emulator/maestro/_fixtures.py` — the sweep and its scopes
+- `scripts/src/emulator/maestro/_cli.py` — where the wipe runs, and where the
   next flow's session is reset
+- `scripts/run-maestro-e2e.py` — the CI driver, which pins no scope
+- `androidApp/src/debug/kotlin/com/singularity/todo/debug/DebugSeedActivity.kt`
+  — `reset=content`, and the two kinds of content it does not reach
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt`
+  — `observeAll()` is `watchActive`, which is why archived tasks survive
+- `Maestro/flows/negative/04-empty-archive.yaml`,
+  `Maestro/flows/agenda/02-saved-views-open.yaml`,
+  `Maestro/flows/agenda/06-full-lifecycle.yaml` — the flows that catch the leak
 - `Maestro/flows/negative/01-empty-inbox.yaml`,
-  `Maestro/flows/projects/03-empty-projects.yaml`,
-  `Maestro/flows/archive/04-empty-archive.yaml` — the empty-state flows
-- `Maestro/flows/search/02-cyrillic.yaml`, `tasks/09-rename-empty.yaml`,
-  `search/07-saved-search.yaml`, `auth/04-signin-with-seeded-data.yaml`,
-  `Maestro/flows/system/search-finds-task.yaml` — the fixed titles the sweep
-  did not know
+  `Maestro/flows/projects/03-empty-projects.yaml` — the empty-state flows
 - `2026-10-20-a-dead-device-is-written-down-in-the-report.md` — the other way a
   run lies about itself
+- `2026-10-20-the-local-e2e-run-measures-the-binary-ci-measures.md` — the same
+  rule, applied to the binary instead of the fixtures
 - `2026-10-21-a-seeded-task-needs-a-due-date-to-be-on-the-today-tab.md` — the
   other way a flow can fail for a reason that is not the app's
