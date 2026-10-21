@@ -1,4 +1,49 @@
-package com.singularity.todo.mcp
+package com.singularity.todo.feature.ai
+
+import ai.koog.agents.core.tools.Tool
+import com.singularity.todo.feature.ai.tools.ClusterNotesTool
+import com.singularity.todo.feature.ai.tools.ClusterTasksTool
+import com.singularity.todo.feature.ai.tools.CreateNoteTool
+import com.singularity.todo.feature.ai.tools.CreateProjectTool
+import com.singularity.todo.feature.ai.tools.CreateTagTool
+import com.singularity.todo.feature.ai.tools.CreateTaskTool
+import com.singularity.todo.feature.ai.tools.DecomposeAndCreateTool
+import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
+import com.singularity.todo.feature.ai.tools.DeleteNoteTool
+import com.singularity.todo.feature.ai.tools.DeleteProjectTool
+import com.singularity.todo.feature.ai.tools.DeleteTagTool
+import com.singularity.todo.feature.ai.tools.DeleteTaskTool
+import com.singularity.todo.feature.ai.tools.ExtractActionsTool
+import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
+import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
+import com.singularity.todo.feature.ai.tools.GetNoteTool
+import com.singularity.todo.feature.ai.tools.GetProjectTool
+import com.singularity.todo.feature.ai.tools.GetTaskTool
+import com.singularity.todo.feature.ai.tools.ImproveNoteTool
+import com.singularity.todo.feature.ai.tools.ListAdrsTool
+import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
+import com.singularity.todo.feature.ai.tools.ListOpenDeferredTool
+import com.singularity.todo.feature.ai.tools.ListProjectsTool
+import com.singularity.todo.feature.ai.tools.ListTasksTool
+import com.singularity.todo.feature.ai.tools.PickTimeTool
+import com.singularity.todo.feature.ai.tools.ProjectReviewTool
+import com.singularity.todo.feature.ai.tools.ReadAdrTool
+import com.singularity.todo.feature.ai.tools.RefineTaskTool
+import com.singularity.todo.feature.ai.tools.RewriteNoteTool
+import com.singularity.todo.feature.ai.tools.SearchDecisionsTool
+import com.singularity.todo.feature.ai.tools.SearchDocsTool
+import com.singularity.todo.feature.ai.tools.SearchTasksTool
+import com.singularity.todo.feature.ai.tools.SmartRewriteTool
+import com.singularity.todo.feature.ai.tools.SuggestTagsTool
+import com.singularity.todo.feature.ai.tools.SummarizeNoteTool
+import com.singularity.todo.feature.ai.tools.UpdateAdrTool
+import com.singularity.todo.feature.ai.tools.UpdateNoteTool
+import com.singularity.todo.feature.ai.tools.UpdateProjectTool
+import com.singularity.todo.feature.ai.tools.UpdateTaskTool
+import com.singularity.todo.feature.ai.tools.WeeklyPlanTool
+import com.singularity.todo.feature.ai.tools.WriteAdrTool
+import com.singularity.todo.mcp.ToolAnnotations
+import kotlin.reflect.KClass
 
 /**
  * Declarative registry of every MCP tool.
@@ -33,6 +78,16 @@ package com.singularity.todo.mcp
  * compares it with this catalogue, and `scripts/check-skill-drift.py` compares
  * the sources.  A tool in one list and missing from the other fails the build.
  *
+ * The list *could* be derived from this catalogue — the entries hold the class
+ * itself — and it is not, for a reason worth knowing: the Koin compiler plugin
+ * checks every definition request against the *static* type it sees, and in a
+ * heterogeneous list that type is the projection `Tool<*, *>`, for which no
+ * definition exists.  The plugin reports a missing definition for a type nobody
+ * asked for, and it follows the call into a helper function, so the resolution
+ * cannot be moved out of the way either.  The compile-time check that every
+ * tool has a definition is therefore paid in the test suite instead.
+ * See ADR `2026-10-21-the-toolbox-surface-from-the-compiler-down`.
+ *
  * ## Tool naming convention
  *
  * Names are snake_case as exposed to the MCP client.  They must match the
@@ -45,14 +100,16 @@ object McpToolCatalog {
      * A single tool entry in the catalog.
      *
      * @param name       snake_case name as seen by the MCP client.
-     * @param toolClass  simple name of the Koog tool class (no package prefix).
-     *                   Used only for documentation and cross-reference.
+     * @param toolClass  the Koog tool class itself. The class *is* the reference —
+     *                   a name in a string would be a second copy of a fact that
+     *                   could drift, and the catalogue is the place the tools are
+     *                   declared.
      * @param domain     logical domain: "tasks", "projects", "notes", "tags", "adr".
      * @param annotations behaviour hints for the LLM.
      */
     data class ToolEntry(
         val name: String,
-        val toolClass: String,
+        val toolClass: KClass<out Tool<*, *>>,
         val domain: String,
         val annotations: ToolAnnotations = ToolAnnotations(),
     )
@@ -67,49 +124,49 @@ object McpToolCatalog {
         // ── Tasks ──────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_task",
-            toolClass = "CreateTaskTool",
+            toolClass = CreateTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "update_task",
-            toolClass = "UpdateTaskTool",
+            toolClass = UpdateTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_task",
-            toolClass = "DeleteTaskTool",
+            toolClass = DeleteTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "list_tasks",
-            toolClass = "ListTasksTool",
+            toolClass = ListTasksTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "get_task",
-            toolClass = "GetTaskTool",
+            toolClass = GetTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "search_tasks",
-            toolClass = "SearchTasksTool",
+            toolClass = SearchTasksTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "decompose_and_create",
-            toolClass = "DecomposeAndCreateTool",
+            toolClass = DecomposeAndCreateTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "list_linked_tasks",
-            toolClass = "ListLinkedTasksTool",
+            toolClass = ListLinkedTasksTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
@@ -117,31 +174,31 @@ object McpToolCatalog {
         // ── Projects ─────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_project",
-            toolClass = "CreateProjectTool",
+            toolClass = CreateProjectTool::class,
             domain = "projects",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "update_project",
-            toolClass = "UpdateProjectTool",
+            toolClass = UpdateProjectTool::class,
             domain = "projects",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_project",
-            toolClass = "DeleteProjectTool",
+            toolClass = DeleteProjectTool::class,
             domain = "projects",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "list_projects",
-            toolClass = "ListProjectsTool",
+            toolClass = ListProjectsTool::class,
             domain = "projects",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "get_project",
-            toolClass = "GetProjectTool",
+            toolClass = GetProjectTool::class,
             domain = "projects",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
@@ -149,25 +206,25 @@ object McpToolCatalog {
         // ── Notes ─────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_note",
-            toolClass = "CreateNoteTool",
+            toolClass = CreateNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "update_note",
-            toolClass = "UpdateNoteTool",
+            toolClass = UpdateNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_note",
-            toolClass = "DeleteNoteTool",
+            toolClass = DeleteNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "get_note",
-            toolClass = "GetNoteTool",
+            toolClass = GetNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
@@ -175,13 +232,13 @@ object McpToolCatalog {
         // ── Tags ─────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_tag",
-            toolClass = "CreateTagTool",
+            toolClass = CreateTagTool::class,
             domain = "tags",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_tag",
-            toolClass = "DeleteTagTool",
+            toolClass = DeleteTagTool::class,
             domain = "tags",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
@@ -189,37 +246,37 @@ object McpToolCatalog {
         // ── ADR ──────────────────────────────────────────────────────────────
         ToolEntry(
             name = "write_adr",
-            toolClass = "WriteAdrTool",
+            toolClass = WriteAdrTool::class,
             domain = "adr",
             annotations = ToolAnnotations(openWorldHint = true),
         ),
         ToolEntry(
             name = "list_adrs",
-            toolClass = "ListAdrsTool",
+            toolClass = ListAdrsTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "update_adr",
-            toolClass = "UpdateAdrTool",
+            toolClass = UpdateAdrTool::class,
             domain = "adr",
             annotations = ToolAnnotations(openWorldHint = true),
         ),
         ToolEntry(
             name = "read_adr",
-            toolClass = "ReadAdrTool",
+            toolClass = ReadAdrTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "list_open_deferred",
-            toolClass = "ListOpenDeferredTool",
+            toolClass = ListOpenDeferredTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "search_decisions",
-            toolClass = "SearchDecisionsTool",
+            toolClass = SearchDecisionsTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
@@ -227,7 +284,7 @@ object McpToolCatalog {
         // ── Documents ───────────────────────────────────────────────────────
         ToolEntry(
             name = "search_docs",
-            toolClass = "SearchDocsTool",
+            toolClass = SearchDocsTool::class,
             domain = "docs",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
@@ -235,91 +292,91 @@ object McpToolCatalog {
         // ── AI Write Tools ──────────────────────────────────────────────────
         ToolEntry(
             name = "refine_task",
-            toolClass = "RefineTaskTool",
+            toolClass = RefineTaskTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "smart_rewrite",
-            toolClass = "SmartRewriteTool",
+            toolClass = SmartRewriteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "generate_description",
-            toolClass = "GenerateDescriptionTool",
+            toolClass = GenerateDescriptionTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "decompose_task",
-            toolClass = "DecomposeTaskTool",
+            toolClass = DecomposeTaskTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "generate_checklist",
-            toolClass = "GenerateChecklistTool",
+            toolClass = GenerateChecklistTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "pick_time",
-            toolClass = "PickTimeTool",
+            toolClass = PickTimeTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "cluster_tasks",
-            toolClass = "ClusterTasksTool",
+            toolClass = ClusterTasksTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "cluster_notes",
-            toolClass = "ClusterNotesTool",
+            toolClass = ClusterNotesTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "project_review",
-            toolClass = "ProjectReviewTool",
+            toolClass = ProjectReviewTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "weekly_plan",
-            toolClass = "WeeklyPlanTool",
+            toolClass = WeeklyPlanTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "improve_note",
-            toolClass = "ImproveNoteTool",
+            toolClass = ImproveNoteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "summarize_note",
-            toolClass = "SummarizeNoteTool",
+            toolClass = SummarizeNoteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "extract_actions",
-            toolClass = "ExtractActionsTool",
+            toolClass = ExtractActionsTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "rewrite_note",
-            toolClass = "RewriteNoteTool",
+            toolClass = RewriteNoteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "suggest_tags",
-            toolClass = "SuggestTagsTool",
+            toolClass = SuggestTagsTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),

@@ -124,6 +124,33 @@ def summarize(records):
     return dict(by_tool)
 
 
+def _tool_names(registry, key: str) -> list[str]:
+    """The tool names in a registry list.
+
+    The server writes the list as objects — `{"name": "create_task"}` — because the
+    same shape is what `describe_toolbox` reports, and one shape is easier to keep
+    straight than two. A plain string is accepted as well: a registry written by an
+    older build is still a registry, and a report that crashes on it says nothing.
+
+    (This function exists because the report used to read the list as strings while the
+    server wrote objects. The report's own tests agreed with the report, so the
+    mismatch was invisible until a real snapshot was read — which is the same shape of
+    defect this whole change is about.)
+    """
+    if not registry:
+        return []
+    values = registry.get(key)
+    if not isinstance(values, list):
+        return []
+    names = []
+    for value in values:
+        if isinstance(value, str):
+            names.append(value)
+        elif isinstance(value, dict) and isinstance(value.get("name"), str):
+            names.append(value["name"])
+    return names
+
+
 def render(summary, registry, malformed, files_read, record_count, since_days) -> str:
     lines = []
     window = "all records" if since_days is None else f"last {since_days} day(s)"
@@ -148,7 +175,7 @@ def render(summary, registry, malformed, files_read, record_count, since_days) -
                 f"{last_text:>22}{avg:>8}",
             )
 
-    registered = set(registry.get("registeredTools", [])) if registry else set()
+    registered = set(_tool_names(registry, "registeredTools"))
     if registered:
         observed = {t for t in summary if t != "(session)"}
         never = sorted(registered - observed)
@@ -167,6 +194,15 @@ def render(summary, registry, malformed, files_read, record_count, since_days) -
         lines.append("")
         lines.append("No registry snapshot found — the server writes one at startup;")
         lines.append("without it, 'never called' cannot be told from 'never registered'.")
+
+    # The flags that named no tool. They switched nothing off, and the operator who set
+    # one believes a tool is off — so the report says which flags found no tool.
+    unmatched = list(registry.get("unmatchedFlags", [])) if registry else []
+    if unmatched:
+        lines.append("")
+        lines.append("Flags that named no tool in this build:")
+        for flag in unmatched:
+            lines.append(f"  {flag}")
 
     return "\n".join(lines)
 

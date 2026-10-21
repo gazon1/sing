@@ -153,8 +153,20 @@ data class AdrCorpusConfig(
         }
     }
 
+    /**
+     * Whether a path is a decision.
+     *
+     * A decision is a **markdown** file whose name carries the decision pattern, and
+     * that is neither in the archive, nor in the backlog, nor ignored.
+     *
+     * The markdown requirement is here because the Python reader has it: it finds
+     * decisions with a `*.md` glob, and a reader that finds a file the other one does
+     * not is a reader that answers a different question. The two readers of this corpus
+     * are checked against each other by `AdrCorpusReadersAgreeTest`.
+     */
     fun isDecision(path: String): Boolean =
-        !isDeferred(path) && !isArchived(path) && !isIgnored(path) &&
+        path.endsWith(".md") &&
+            !isDeferred(path) && !isArchived(path) && !isIgnored(path) &&
             decisionPattern.containsMatchIn(path.substringAfterLast('/'))
 
     /**

@@ -81,6 +81,10 @@ Describing the toolbox itself:
 - `describe_toolbox()` — which tools this server exposes, which are switched off by the
   remote configuration, which build and checkout it is, and whether the configuration was
   actually applied. Call it when a tool you expected is missing.
+- `describe_toolbox(includeDisabled=true)` adds the disabled tools. `unmatchedFlags` is
+  a third list: remote-configuration flags that named **no** tool. Such a flag switched
+  nothing off — so if a tool you expected to be gone is still there, the flag is
+  probably the reason, and this is where you see it.
 - The read-only documents are also served as MCP resources: `singularity://toolbox`,
   `singularity://decisions`, `singularity://decision/{slug}`. Client support for
   resources varies; the tools above are the portable path.

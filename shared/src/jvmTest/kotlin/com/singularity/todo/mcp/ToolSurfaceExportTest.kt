@@ -1,13 +1,13 @@
 package com.singularity.todo.mcp
-
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.jsonObject
-import org.junit.jupiter.api.Tag
+import com.singularity.todo.feature.ai.McpToolCatalog
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonObject
+import org.junit.jupiter.api.Tag
 
 /**
  * The committed tool surface must be the one the code declares.

@@ -142,13 +142,42 @@ def decisions_in(
     *,
     include_archived: bool = False,
 ) -> list[pathlib.Path]:
-    out = [
-        p for p in sorted(root.glob('*.md'))
-        if cfg._is_decision(p) and p.name not in cfg.ignored_files
-    ]
+    out = _discover_in(root, cfg, depth=0)
     if include_archived:
         out += archived_in(root, cfg)
     return out
+
+
+def _discover_in(root: pathlib.Path, cfg: AdrCorpusConfig, depth: int) -> list[pathlib.Path]:
+    """The decisions under `root`, found the way the Kotlin reader finds them.
+
+    This used to be `root.glob('*.md')` — the top level only — while the Kotlin
+    reader walked the tree up to `discover.maxDepth`. Two readers of one corpus, one
+    of them silently wider: a decision in a subdirectory was a decision to the app and
+    nothing at all to the gates that check the corpus.
+
+    The depth is the *declared* one: `discover.maxDepth` in the corpus config, which
+    this reader parsed into `discover_max_depth` and then never used. The policy has
+    one owner — the config — and both readers now apply it.
+
+    The archive and the backlog are not decisions and are not walked into, and the
+    ignored files are skipped, exactly as `AdrCorpus` does it.
+    """
+    if depth > cfg.discover_max_depth or not root.is_dir():
+        return []
+    found: list[pathlib.Path] = []
+    for path in sorted(root.iterdir()):
+        if path.is_dir():
+            if path.name in (cfg.archive_dir, cfg.deferred_dir):
+                continue
+            found.extend(_discover_in(path, cfg, depth + 1))
+        elif (
+            path.suffix == ".md"
+            and path.name not in cfg.ignored_files
+            and cfg._is_decision(path)
+        ):
+            found.append(path)
+    return found
 
 
 def archived_in(root: pathlib.Path, cfg: AdrCorpusConfig) -> list[pathlib.Path]:
@@ -243,3 +272,24 @@ def frontmatter(text: str) -> str | None:
         return None
     end = next((i for i, l in enumerate(lines[1:], 1) if l.strip() == '---'), None)
     return None if end is None else '\n'.join(lines[1:end])
+
+# ── command line ──────────────────────────────────────────────────────────────
+#
+# The corpus has two readers: this module and the Kotlin one the application uses.
+# Nothing used to say they had to agree, so they drifted — this reader globbed the
+# top level while the Kotlin reader walked the tree, and a decision in a subdirectory
+# was a decision to the app and nothing at all to the gates that check the corpus.
+#
+# `--decisions` prints the slugs this reader finds, one per line, so the other reader
+# can be compared with it. `AdrCorpusReadersAgreeTest` does exactly that: it runs this
+# and compares the answer with the one the application computes.
+if __name__ == "__main__":
+    import sys
+
+    _cfg = load()
+    _root = pathlib.Path(_cfg.root)
+    _decisions = sorted(p.stem for p in decisions_in(_root, _cfg))
+    if "--decisions" in sys.argv:
+        print("\n".join(_decisions))
+    else:
+        print(f"{len(_decisions)} decision(s) under {_root}", file=sys.stderr)

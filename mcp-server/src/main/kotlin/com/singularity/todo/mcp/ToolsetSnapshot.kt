@@ -1,12 +1,13 @@
 package com.singularity.todo.mcp
-
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.ai.McpToolCatalog
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+
 
 /**
  * How the tool configuration was obtained.

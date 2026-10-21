@@ -293,7 +293,7 @@ class ToolboxParityTest(unittest.TestCase):
         drift.renderer.CATALOG_KT = catalog
         text = catalog.read_text(encoding='utf-8')
         catalog.write_text(
-            text.replace('toolClass = "ListTasksTool"', 'toolClass = "GetTaskTool"', 1),
+            text.replace('toolClass = ListTasksTool::class', 'toolClass = GetTaskTool::class', 1),
             encoding='utf-8',
         )
         problems = drift.toolbox_problems()
@@ -379,6 +379,28 @@ class ExportedSurfaceTest(unittest.TestCase):
         drift.TOOL_SURFACE_JSON = export
         problems = drift.surface_problems()
         self.assertTrue(any('reading the source wrongly' in p for p in problems), problems)
+
+    def test_a_flag_key_the_documentation_names_must_exist(self):
+        """A flag that names no tool is silent, and the tool stays exposed."""
+        self.assertEqual(drift.flag_problems(), [])
+
+    def test_a_documented_flag_that_names_no_tool_is_reported(self):
+        spec = pathlib.Path(drift.DOCUMENTED_FLAG_SOURCES[0])
+        planted = self.tmp / 'spec.md'
+        planted.write_text(
+            spec.read_text(encoding='utf-8').replace(
+                'mcpToolFlags = { "summarize_note": false }',
+                'mcpToolFlags = { "summarize_notes": false }',
+                1,
+            ),
+            encoding='utf-8',
+        )
+        drift.DOCUMENTED_FLAG_SOURCES = (planted,) + tuple(drift.DOCUMENTED_FLAG_SOURCES[1:])
+        self.addCleanup(setattr, drift, 'DOCUMENTED_FLAG_SOURCES', drift.DOCUMENTED_FLAG_SOURCES)
+
+        problems = drift.flag_problems()
+
+        self.assertTrue(any('summarize_notes' in p for p in problems), problems)
 
     def test_a_missing_export_is_reported(self):
         drift.TOOL_SURFACE_JSON = self.tmp / 'absent.json'

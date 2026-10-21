@@ -85,7 +85,14 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
         )
     }
 
-    private fun payload(
+    /**
+     * The payload, as the client receives it.
+     *
+     * Internal rather than private: the *shape* of this object is a contract with every
+     * client that reads it, and a contract that no test pins is a contract that can be
+     * broken by a rename. `ToolboxToolTest` asserts the keys.
+     */
+    internal fun payload(
         registered: List<ToolboxToolEntry>,
         disabled: List<ToolboxToolEntry>,
         includeDisabled: Boolean,

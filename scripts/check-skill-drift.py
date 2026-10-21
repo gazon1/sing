@@ -63,6 +63,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import re
 
 import click
 from sgate.commands.base import run
@@ -107,6 +108,78 @@ def exported_surface() -> dict:
     if not isinstance(tools, list):
         return {}
     return {tool.get('name'): tool for tool in tools if isinstance(tool, dict)}
+
+
+def flag_problems() -> list[str]:
+    """The flag keys the documentation names, checked against the declared space.
+
+    A remote configuration switches a tool off by naming it. The name space is the
+    tools' own names, declared in the export. A document that shows a flag naming a
+    tool that does not exist teaches an operator to write a flag that matches nothing —
+    and a flag that matches nothing is silent: the tool stays exposed, and the operator
+    believes it is off.
+
+    So every flag key the documentation shows is checked against the declared space.
+    """
+    problems: list[str] = []
+    exported = exported_surface()
+    if not exported:
+        return problems
+
+    declared = set(exported_flag_keys())
+    if not declared:
+        problems.append('the export declares no flag keys — the space is empty')
+        return problems
+
+    for path, key in documented_flag_keys():
+        if key not in declared:
+            where = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+            problems.append(
+                f'{where} names the flag {key!r}, and no tool has that name — '
+                f'the flag would match nothing, and the tool it was meant to switch off '
+                f'stays exposed'
+            )
+    return problems
+
+
+def exported_flag_keys() -> list[str]:
+    """The flag key space, as the export declares it."""
+    if not TOOL_SURFACE_JSON.is_file():
+        return []
+    try:
+        data = json.loads(TOOL_SURFACE_JSON.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    keys = data.get('flagKeys')
+    if not isinstance(keys, list):
+        return []
+    return [key for key in keys if isinstance(key, str)]
+
+
+def documented_flag_keys() -> list[tuple[pathlib.Path, str]]:
+    """Every flag key the documentation shows, with the file it came from.
+
+    The pattern is a `mcpToolFlags` assignment and the object that follows it — a
+    documented configuration, not prose. A flag key mentioned in passing is not a
+    configuration, and a gate that reported those would be reported as noise.
+    """
+    found: list[tuple[pathlib.Path, str]] = []
+    for path in sorted(DOCUMENTED_FLAG_SOURCES):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        for block in re.finditer(r'mcpToolFlags\s*=\s*\{([^}]*)\}', text):
+            for key in re.findall(r'"([^"]+)"\s*:', block.group(1)):
+                found.append((path, key))
+    return found
+
+
+# The documents that show a configuration. The specification of the change that
+# introduced the switch, and the architecture document that describes it.
+DOCUMENTED_FLAG_SOURCES = (
+    ROOT / 'openspec/changes/agent-toolbox-surface/specs/agent-toolbox-surface/spec.md',
+    ROOT / 'docs/architecture/mcp-server.md',
+)
 
 
 def surface_problems() -> list[str]:
@@ -197,6 +270,7 @@ def toolbox_problems() -> list[str]:
         problems.append(f'the adr-domain tool {tool!r} has no CLI command mapped to it')
 
     problems.extend(surface_problems())
+    problems.extend(flag_problems())
 
     return problems
 

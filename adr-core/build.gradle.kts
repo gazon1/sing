@@ -51,6 +51,15 @@ kotlin {
             // tool payloads at once, so serialization is part of this module's API.
             api(libs.kotlinx.serialization.json)
         }
+
+        // The corpus has two readers — this module and the Python one the gates use —
+        // and `AdrCorpusReadersAgreeTest` checks that they find the same corpus. The
+        // test lives here because this module owns the Kotlin reader; the other side of
+        // the comparison is the decisions digest, which the Python reader writes.
+        jvmTest.dependencies {
+            implementation(libs.kotlin.test.junit5)
+            implementation(libs.junit.jupiter)
+        }
     }
 }
 // detekt — same rules as every other module. The baseline is empty on purpose: this
@@ -59,7 +68,7 @@ detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     baseline = rootProject.file("config/detekt/baseline-adr-core.xml")
     ignoreFailures = false
-    source.setFrom("src/commonMain/kotlin")
+    source.setFrom("src/commonMain/kotlin", "src/jvmTest/kotlin")
 }
 
 dependencies {
@@ -90,4 +99,27 @@ dependencies {
  */
 tasks.matching { it.name == "koverGenerateArtifact" }.configureEach {
     dependsOn(tasks.named("compileKotlinJvm"))
+}
+
+// JUnit Platform (Jupiter) — the same configuration the other modules use.
+//
+// `:adr-core` had no test source set, and therefore no test configuration either: a
+// source set that appears without `useJUnitPlatform()` compiles and then discovers
+// nothing, which Gradle reports as "no tests to execute" rather than as a pass.
+//
+// The tag selection is the same rule as everywhere else — the default runs everything
+// except `@Tag("slow")`, and `-Ptest.tags` selects explicitly — so a test in this
+// module is selected the way a test anywhere else is.
+tasks.withType<Test>().configureEach {
+    failOnNoDiscoveredTests = true
+
+    useJUnitPlatform {
+        val tags = (project.findProperty("test.tags") as String?)
+            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        when {
+            tags.isEmpty() -> excludeTags("slow")
+            tags == listOf("all") -> Unit
+            else -> includeTags(*tags.toTypedArray())
+        }
+    }
 }
