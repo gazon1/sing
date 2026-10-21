@@ -222,48 +222,57 @@ Canonical tags (add new ones to `Maestro/config.yaml` comment block):
 
 ---
 
-## Choosing a Tier: A Sheet Opens Its Own Window
+## Choosing a Tier: A Popup Opens Its Own Window
 
-**A `ModalBottomSheet` opens a second window on desktop, and its content is reachable
-from a JVM test — but not from the main tree.** Pick the tier from this table *before*
-writing selectors.
+**Every popup opens a second window on desktop, and its content is reachable from a JVM
+test — but not from the main tree.** Pick the tier from this table *before* writing
+selectors.
 
 | Surface | Desktop `jvmTest` | Maestro (Android) |
 |---|---|---|
 | Regular composable | yes | yes |
-| `AlertDialog` | **yes** | yes |
+| `AlertDialog` | **yes, through the scene's roots** | yes |
 | `ModalBottomSheet` | **yes, through the scene's roots** | yes |
-| `DropdownMenu` | no | yes |
+| `DropdownMenu` | **yes, through the scene's roots** | yes |
 
-Measured, not assumed (`#152`, re-measured when the editor's sheet state was fixed).
-On desktop, `ModalBottomSheet` resolves to `ModalBottomSheetDialog`, whose skiko actual
-is a `Dialog` — a **separate window**, not an overlay inside the main one. The scene
-therefore has **two semantics roots** while the sheet is open, and the two are not the
-same tree:
+Measured, not assumed (`#152`, re-measured when the editor's sheet state was fixed, and
+again for the other two popups in `2026-10-21-the-popups-open-their-own-windows-too.md`).
 
-- the main tree — the app's own window — is **unchanged** when the sheet opens: same
+On desktop, a popup is a **separate window**, not an overlay inside the main one:
+
+- `ModalBottomSheet` resolves to `ModalBottomSheetDialog`, whose skiko actual is a
+  `Dialog`;
+- `AlertDialog` is a `Dialog`;
+- `DropdownMenu` is a `Popup`.
+
+The scene therefore has **more than one semantics root** while a popup is open, and the
+roots are not the same tree:
+
+- the main tree — the app's own window — is **unchanged** when the popup opens: same
   node count, same tags, same texts;
-- the sheet's nodes live in the **second root**, and the cross-root search finds them.
+- the popup's nodes live in **their own root**, and the cross-root search finds them.
   `onNodeWithTag(…)` and `onAllNodesWithTag(…)` both look across the scene's roots, so a
-  sheet's `testTag` is assertable from a JVM test;
-- a helper that counts a tag *in the main root* finds nothing, because the sheet is not
+  popup's `testTag` is assertable from a JVM test;
+- a helper that counts a tag *in the main root* finds nothing, because the popup is not
   in that root.
 
-`SheetReachabilityTest` pins all three claims, so a Compose upgrade that folds the sheet
-back into the main window fails the test instead of silently changing what a selector
-sees.
+`SheetReachabilityTest` and `PopupReachabilityTest` pin these claims, so a Compose
+upgrade that folds a popup back into the main window fails the test instead of silently
+changing what a selector sees.
 
-**What this means in practice.** A behaviour that lives inside a sheet *can* be covered by
-the JVM tier, as long as the assertion waits for the sheet (it animates in) and does not
-assume the sheet's nodes are in the main tree. The recurrence picker is the worked
-example: `TestTags.RECURRENCE_OPTION_*` are assertable from the desktop tier, and
+**What this means in practice.** A behaviour that lives inside a popup *can* be covered
+by the JVM tier, as long as the assertion waits for the popup (a sheet animates in) and
+does not assume the popup's nodes are in the main tree. The recurrence picker is the
+worked example: `TestTags.RECURRENCE_OPTION_*` are assertable from the desktop tier, and
 `TASK-REC-01` is carried on Android as well
 (`Maestro/flows/tasks/17-create-daily-recurring.yaml`).
 
-**Do not** add `testTag`s to sheet content expecting a JVM test to use them. Either
-the behaviour is verified by a Maestro flow, or the surface has to change — a
-`Dialog`-based replacement would render in the main tree, at the cost of the sheet
-gesture and the bottom-anchored layout that the platform gives for free.
+**What a wrong row costs.** The `DropdownMenu` row used to say *no* for the desktop tier,
+and it was never measured — the truth is *yes*. A wrong row does not merely cost a
+test: it sends the next person to write a Maestro flow for something a JVM test can do,
+and a Maestro flow runs on a device, in another tier, with another set of selectors.
+Measure a row before you believe it, and measure it on the surface the row is about —
+the sheet's row was once measured on an editor row that did nothing at all.
 
 ---
 
