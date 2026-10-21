@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.runtime.Composable
-import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -9,7 +8,6 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -131,17 +129,6 @@ data class TaskEditorCallbacks(
      * the logbook — rendered under the fields. Null means the editor shows nothing else.
      */
     val extraSections: (@Composable () -> Unit)? = null,
-    /**
-     * The state the editor opens its sheets through — and the state the sheets are
-     * rendered from. It is one state on purpose: a row that opens a sheet and a host
-     * that renders it must be looking at the same thing, or the row opens a sheet that
-     * nobody shows.
-     *
-     * Null means the editor opens no sheet of its own. A caller that wires a row to
-     * `sheets.show(...)` must hand that state over here, or the sheet it opens is
-     * invisible.
-     */
-    val sheets: DialogState<TaskEditorSheet>? = null,
     /** Bottom bar content — null means no bottom bar */
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */
