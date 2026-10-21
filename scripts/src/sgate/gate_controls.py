@@ -544,6 +544,12 @@ def _setup_maestro_results(root: Path) -> None:
     is written by a run on an emulator — so the control synthesises it. The
     fixture holds both ways the measurement can lie: a flow that failed while
     the floor allows no failure, and a flow the run produced no report for.
+
+    The registry and the environment come with it, because the gate reads both
+    now: a control that tripped the gate for a reason the gate did not mean to
+    check would prove nothing about the rule it claims to prove. The cause the
+    fixture produces is *registered*, so the fixture fails for the reason it
+    says it fails — the floor — and not because the registry was missing.
     """
     flows = [
         "Maestro/flows/smoke/01-launch-today.yaml",
@@ -553,6 +559,22 @@ def _setup_maestro_results(root: Path) -> None:
     results.mkdir(parents=True, exist_ok=True)
     (root / "catalogue.txt").write_text("\n".join(flows) + "\n", encoding="utf-8")
     (root / "floor.txt").write_text("full 0\n", encoding="utf-8")
+    (root / "debt.yaml").write_text(
+        "environment:\n"
+        "  kind: emulator\n"
+        "  api: 36\n"
+        "causes:\n"
+        "- key: 'No visible element found: id: attachments_add_file_row'\n"
+        "  issue: 818\n"
+        "  owner: product\n"
+        "  status: accepted\n"
+        "  flows: 5\n",
+        encoding="utf-8",
+    )
+    (results / "environment.json").write_text(
+        '{"kind": "emulator", "api": 36, "device": "sdk_gphone64_x86_64"}\n',
+        encoding="utf-8",
+    )
     suite = (
         '<testsuite name="Test Suite" tests="1" failures="{f}">'
         '<testcase classname="{n}" name="{n}" file="{flow}" status="{s}">{b}</testcase>'

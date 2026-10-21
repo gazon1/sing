@@ -29,6 +29,44 @@ measurement:
   flows: 26
   measured_on: '2026-10-21'
   floor: config/docs/maestro-failure-floor.txt
+cause:
+- 'Assertion is false: id: task_detail_title is visible'
+- 'Assertion is false: id: agenda_section_today is visible'
+- 'Assertion is false: id: auth_attach_email_input is visible'
+- 'Assertion is false: id: auth_confirmation_headline is visible'
+- 'Assertion is false: id: auth_save_server_button is visible'
+- 'Assertion is false: id: saved_agenda_empty_title is visible'
+- 'Assertion is false: id: agenda_section_no_date is visible'
+- 'Assertion is false: id: agenda_section_upcoming is visible'
+- 'Assertion is false: id: auth_error_text is visible'
+- 'Assertion is false: id: calendar_sync_system_unavailable is visible'
+- 'Assertion is false: id: dialog_date_picker_ok is visible'
+- 'Assertion is false: id: recurrence_option_daily is visible'
+- 'Assertion is false: id: snackbar_action is visible'
+- 'Assertion is false: id: task_editor_title_input is visible'
+- 'Assertion is false: id: task_item_pokupki is visible'
+- 'Assertion is false: id: task_item_r<n>_taskwithdesc<n> is visible'
+- 'Assertion is false: id: task_item_renameme is visible'
+- 'Assertion is false: id: task_item_savedalpha<n> is visible'
+issue:
+- 864
+- 868
+- 866
+- 838
+- 867
+- 865
+- 873
+- 871
+- 834
+- 835
+- 836
+- 874
+- 842
+- 837
+- 833
+- 839
+- 872
+- 870
 elements:
 - element: task_detail_title
   flows: 4

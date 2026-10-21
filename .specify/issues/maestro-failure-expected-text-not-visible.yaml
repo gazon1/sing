@@ -29,6 +29,16 @@ measurement:
   flows: 4
   measured_on: '2026-10-21'
   floor: config/docs/maestro-failure-floor.txt
+cause:
+- 'Assertion is false: "Archive is empty" is visible'
+- 'Assertion is false: "No priority" is visible'
+- 'Assertion is false: "r<n> Buy milk" is visible'
+- 'Assertion is false: "✓ r<n> Child task one" is visible'
+issue:
+- 876
+- 877
+- 878
+- 879
 elements:
 - element: 'Assertion is false: "Archive is empty" is visible'
   flows: 1

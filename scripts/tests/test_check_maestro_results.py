@@ -13,9 +13,21 @@ is a way the measurement can lie:
   - the failures are grouped by cause, so the table says what the debt is
     made of and not only how much of it there is.
 
-The tests write their own reports: a gate that is only exercised against the
-reports of one particular run is a gate whose behaviour nobody knows when the
-run changes shape.
+A floor counts, and a count cannot see the debt change kind: one cause fixed,
+another introduced, the same number of failing flows. So the gate also reads
+the cause registry, and four more properties matter:
+
+  - a cause the registry does not list is a finding — the debt changed kind;
+  - a cause the registry marks as fixed that comes back is a finding — that
+    is a regression, which a floor that only ratchets down would hide;
+  - a registry cause that did not happen is reported, not failed — the debt
+    shrank, and that is somebody's argument to make;
+  - the run has to have happened where the floor was calibrated — a phone's
+    number and an emulator's number are two different quantities.
+
+The tests write their own reports, their own registry and their own
+environment: a gate that is only exercised against the data of one particular
+run is a gate whose behaviour nobody knows when the run changes shape.
 """
 
 import contextlib
@@ -46,6 +58,22 @@ REPORT_TEMPLATE = """<?xml version='1.0' encoding='UTF-8'?>
 </testsuites>
 """
 
+#: The catalogue the CLI tests measure. Two flows is enough: the gate reads
+#: the catalogue, not the number of flows in it.
+CLI_CATALOGUE = [
+    'Maestro/flows/smoke/01-launch-today.yaml',
+    'Maestro/flows/tasks/create-task.yaml',
+]
+
+#: The causes the fixture registry knows. The first is what the CLI tests
+#: fail on; the second is marked fixed, so its return is a regression; the
+#: third is registered but never fails, so the debt it stands for shrinks.
+KNOWN_CAUSES = (
+    ('No visible element found: id: a', 818, 'product', 'accepted', 5),
+    ('Assertion is false: id: fixed_one is visible', 864, 'test', 'fixed', 4),
+    ('Assertion is false: id: gone is visible', 865, 'unclassified', 'accepted', 2),
+)
+
 
 def report(flow, failure=None, status=None):
     """A JUnit XML report for one flow, as the runner writes it."""
@@ -61,6 +89,68 @@ def report(flow, failure=None, status=None):
     return REPORT_TEMPLATE.format(
         stem=stem, flow=flow, body=body, status=status, failures=failures
     )
+
+
+def write_registry(path, causes=KNOWN_CAUSES, kind='emulator', api=36):
+    """A registry file, written the way the repository writes one.
+
+    The file is read back with the gate's own reader, so the tests exercise
+    the parsing as well as the rules — and they never depend on the
+    repository's own registry, which is data that changes.
+    """
+    lines = [
+        'environment:',
+        f'  kind: {kind}',
+        f'  api: {api}',
+        'causes:',
+    ]
+    for key, issue, owner, status, flows in causes:
+        lines.append(f'- key: {json.dumps(key)}')
+        lines.append(f'  issue: {issue}')
+        lines.append(f'  owner: {owner}')
+        lines.append(f'  status: {status}')
+        lines.append(f'  flows: {flows}')
+    path.write_text('\n'.join(lines) + '\n')
+    return mod.read_registry(path)
+
+
+def build_run(
+    root,
+    reports,
+    floor='full 5\n',
+    causes=KNOWN_CAUSES,
+    environment=None,
+    kind='emulator',
+    api=36,
+):
+    """Every input a measurement needs: catalogue, floor, registry, reports.
+
+    `environment` is the run's environment file; `None` means the run did not
+    write one, which is itself a finding.
+    """
+    catalogue = root / 'catalogue.txt'
+    catalogue.write_text('\n'.join(CLI_CATALOGUE) + '\n')
+    floor_file = root / 'floor.txt'
+    floor_file.write_text(floor)
+    debt = write_registry(root / 'debt.yaml', causes, kind=kind, api=api)
+    results = root / 'results'
+    results.mkdir()
+    for flow, failure in reports:
+        (results / (pathlib.PurePosixPath(flow).stem + '.xml')).write_text(
+            report(flow, failure)
+        )
+    if environment is not None:
+        (results / 'environment.json').write_text(json.dumps(environment))
+    return {
+        'catalogue': catalogue,
+        'floor': floor_file,
+        'debt': debt,
+        'results': results,
+    }
+
+
+#: The environment the fixture registry is calibrated for.
+CALIBRATED_ENVIRONMENT = {'kind': 'emulator', 'api': 36, 'device': 'sdk_gphone64_x86_64'}
 
 
 class NormalisationTest(unittest.TestCase):
@@ -88,7 +178,7 @@ class NormalisationTest(unittest.TestCase):
     def test_a_run_id_inside_a_text_disappears_with_it(self):
         self.assertEqual(
             mod.normalise_failure(
-                'Assertion is false: "\u2713 r5552136040 Child task one" is visible'
+                'Assertion is false: "✓ r5552136040 Child task one" is visible'
             ),
             'Assertion is false: <text> is visible',
         )
@@ -110,6 +200,48 @@ class NormalisationTest(unittest.TestCase):
         self.assertNotEqual(
             mod.normalise_failure('Assertion is false: id: a is visible'),
             mod.normalise_failure('Assertion is false: id: a is not visible'),
+        )
+
+
+class CauseKeyTest(unittest.TestCase):
+    """The registry key: the message, with only the numbers taken out.
+
+    The key keeps the element id and the expected text — the id is what says
+    which cause it is — and takes out the run-specific numbers, so the same
+    cause produces the same key in every run.
+    """
+
+    def test_the_numbers_go_and_the_id_stays(self):
+        self.assertEqual(
+            mod.cause_key(
+                'Assertion is false: id: task_item_r5530242440_taskwithdesc2026 is visible'
+            ),
+            'Assertion is false: id: task_item_r<n>_taskwithdesc<n> is visible',
+        )
+
+    def test_a_run_id_inside_a_text_goes_too(self):
+        self.assertEqual(
+            mod.cause_key('Assertion is false: "r5549817520 Buy milk" is visible'),
+            'Assertion is false: "r<n> Buy milk" is visible',
+        )
+
+    def test_two_digits_are_content_and_stay(self):
+        self.assertEqual(
+            mod.cause_key('Assertion is false: id: task_item_savedalpha01 is visible'),
+            'Assertion is false: id: task_item_savedalpha01 is visible',
+        )
+
+    def test_the_whitespace_is_collapsed(self):
+        self.assertEqual(
+            mod.cause_key('No visible element found:  id:   a\n'),
+            'No visible element found: id: a',
+        )
+
+    def test_two_causes_of_one_shape_stay_apart(self):
+        """The coarse group key cannot tell them apart; the cause key can."""
+        self.assertNotEqual(
+            mod.cause_key('No visible element found: id: attachments_add_file_row'),
+            mod.cause_key('No visible element found: id: settings_tab_backup'),
         )
 
 
@@ -213,6 +345,49 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(findings[0].kind, 'flow file missing')
 
 
+class RegistryFileTest(unittest.TestCase):
+    """The registry is data: the causes the repository has accepted."""
+
+    def test_the_causes_are_read_with_their_owners(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'debt.yaml'
+            registry = write_registry(path)
+        cause = registry.causes['No visible element found: id: a']
+        self.assertEqual(cause.issue, 818)
+        self.assertEqual(cause.owner, 'product')
+        self.assertEqual(cause.status, 'accepted')
+        self.assertEqual(cause.flows, 5)
+        self.assertFalse(cause.fixed)
+
+    def test_the_environment_block_is_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'debt.yaml'
+            registry = write_registry(path, kind='device', api=34)
+        self.assertEqual(registry.environment['kind'], 'device')
+        self.assertEqual(registry.environment['api'], 34)
+
+    def test_a_cause_marked_fixed_says_so(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'debt.yaml'
+            registry = write_registry(path)
+        cause = registry.causes['Assertion is false: id: fixed_one is visible']
+        self.assertTrue(cause.fixed)
+
+    def test_a_registry_that_is_not_a_mapping_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'debt.yaml'
+            path.write_text('- just\n- a list\n')
+            with self.assertRaises(ValueError):
+                mod.read_registry(path)
+
+    def test_a_cause_without_a_key_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'debt.yaml'
+            path.write_text('causes:\n- issue: 1\n')
+            with self.assertRaises(ValueError):
+                mod.read_registry(path)
+
+
 class MeasurementTest(unittest.TestCase):
     """What the gate refuses to accept."""
 
@@ -222,8 +397,25 @@ class MeasurementTest(unittest.TestCase):
         'Maestro/flows/tasks/delete-task.yaml',
     ]
 
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        # The registry knows every cause these tests fail on, so that the
+        # findings below are the ones the test is about.
+        self.registry = write_registry(
+            root / 'debt.yaml',
+            causes=(
+                ('No visible element found: id: a', 818, 'product', 'accepted', 5),
+                ('No visible element found: id: b', 819, 'product', 'accepted', 5),
+                ('Assertion is false: id: c is visible', 820, 'product', 'accepted', 5),
+            ),
+        )
+
     def _measure(self, reports, floor=0, scope=mod.SCOPE_FULL):
-        return mod.measure(scope, self.CATALOGUE, reports, floor, mod.ROOT)
+        return mod.measure(
+            scope, self.CATALOGUE, reports, floor, mod.ROOT, self.registry
+        )
 
     def _report(self, flow, failure=None):
         return mod.Report(
@@ -292,77 +484,283 @@ class MeasurementTest(unittest.TestCase):
         reports = [
             mod.Report(name='01-open.xml', flow=catalogue[0], messages=()),
         ]
-        measurement = mod.measure(mod.SCOPE_FULL, catalogue, reports, 0, mod.ROOT)
+        measurement = mod.measure(
+            mod.SCOPE_FULL, catalogue, reports, 0, mod.ROOT, self.registry
+        )
         kinds = [f.kind for f in measurement.findings]
         self.assertIn('two flows, one report', kinds)
+
+
+class CauseRuleTest(unittest.TestCase):
+    """The rules a floor cannot carry: the shape of the debt, not its size."""
+
+    CATALOGUE = [
+        'Maestro/flows/a/01-open.yaml',
+        'Maestro/flows/b/02-open.yaml',
+    ]
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        self.registry = write_registry(root / 'debt.yaml')
+
+    def _measure(self, reports, floor=5):
+        return mod.measure(
+            mod.SCOPE_FULL, self.CATALOGUE, reports, floor, mod.ROOT, self.registry
+        )
+
+    def _report(self, flow, failure=None):
+        return mod.Report(
+            name=pathlib.PurePosixPath(flow).stem + '.xml',
+            flow=flow,
+            messages=(failure,) if failure else (),
+        )
+
+    def test_a_cause_the_registry_does_not_know_is_a_finding(self):
+        """The debt changed kind, and a count of failing flows cannot see that."""
+        reports = [
+            self._report(self.CATALOGUE[0], 'No visible element found: id: brand_new'),
+            self._report(self.CATALOGUE[1]),
+        ]
+        measurement = self._measure(reports)
+        kinds = [f.kind for f in measurement.findings]
+        self.assertIn('cause not in the registry', kinds)
+        detail = next(
+            f.detail
+            for f in measurement.findings
+            if f.kind == 'cause not in the registry'
+        )
+        self.assertIn('No visible element found: id: brand_new', detail)
+        self.assertIn('changing kind', detail)
+        self.assertEqual(
+            measurement.unknown_causes, ['No visible element found: id: brand_new']
+        )
+
+    def test_a_cause_the_registry_does_not_know_is_a_finding_even_within_the_floor(self):
+        """The floor is not the whole gate: the debt can change kind and not grow."""
+        reports = [
+            self._report(self.CATALOGUE[0], 'No visible element found: id: brand_new'),
+            self._report(self.CATALOGUE[1]),
+        ]
+        measurement = self._measure(reports, floor=5)
+        kinds = [f.kind for f in measurement.findings]
+        self.assertNotIn('over the floor', kinds)
+        self.assertIn('cause not in the registry', kinds)
+
+    def test_a_fixed_cause_that_comes_back_is_a_finding(self):
+        """A regression is the one thing a floor that only ratchets down hides."""
+        reports = [
+            self._report(
+                self.CATALOGUE[0], 'Assertion is false: id: fixed_one is visible'
+            ),
+            self._report(self.CATALOGUE[1]),
+        ]
+        measurement = self._measure(reports)
+        kinds = [f.kind for f in measurement.findings]
+        self.assertIn('fixed cause came back', kinds)
+        detail = next(
+            f.detail for f in measurement.findings if f.kind == 'fixed cause came back'
+        )
+        self.assertIn('regression', detail)
+        self.assertEqual(
+            measurement.regressed_causes,
+            ['Assertion is false: id: fixed_one is visible'],
+        )
+
+    def test_a_registry_cause_that_did_not_happen_is_reported_not_failed(self):
+        """The debt shrank, and a shrinking debt is somebody's argument to make."""
+        reports = [self._report(flow) for flow in self.CATALOGUE]
+        measurement = self._measure(reports)
+        self.assertEqual(measurement.findings, [])
+        absent = [cause.key for cause in measurement.absent_causes]
+        self.assertIn('Assertion is false: id: gone is visible', absent)
+
+    def test_the_absent_causes_are_printed_with_the_flows_they_took_down(self):
+        """Lowering the floor has to be visible, not a forgotten step."""
+        reports = [self._report(flow) for flow in self.CATALOGUE]
+        measurement = self._measure(reports)
+        text = mod.format_measurement(measurement, self.registry)
+        self.assertIn('registry causes that did not happen', text)
+        self.assertIn('Assertion is false: id: gone is visible', text)
+        self.assertIn('#865', text)
+
+    def test_a_fixed_cause_that_stayed_away_is_not_reported_as_shrinking_debt(self):
+        """A fixed cause is not debt, so its absence is not an argument."""
+        reports = [self._report(flow) for flow in self.CATALOGUE]
+        measurement = self._measure(reports)
+        absent = [cause.key for cause in measurement.absent_causes]
+        self.assertNotIn('Assertion is false: id: fixed_one is visible', absent)
+
+    def test_a_cause_that_happened_is_tabulated_with_its_owner(self):
+        reports = [
+            self._report(self.CATALOGUE[0], 'No visible element found: id: a'),
+            self._report(self.CATALOGUE[1]),
+        ]
+        measurement = self._measure(reports)
+        text = mod.format_measurement(measurement, self.registry)
+        self.assertIn('No visible element found: id: a', text)
+        self.assertIn('#818', text)
+        self.assertIn('product', text)
+        self.assertIn('accepted', text)
+
+
+class EnvironmentTest(unittest.TestCase):
+    """The floor belongs to one environment; a run elsewhere is not comparable."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = pathlib.Path(tmp.name)
+
+    def _run(self, *argv):
+        out = io.StringIO()
+        err = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = mod.main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def _gate(self, fixture, *extra):
+        return self._run(
+            '--scope', 'full',
+            '--results-dir', str(fixture['results']),
+            '--catalogue', str(fixture['catalogue']),
+            '--floor', str(fixture['floor']),
+            '--debt', str(fixture['debt'].path),
+            *extra,
+        )
+
+    def test_a_run_that_says_where_it_happened_passes(self):
+        fixture = build_run(
+            self.root,
+            [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            environment=CALIBRATED_ENVIRONMENT,
+        )
+        code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.CLEAN, err)
+
+    def test_a_missing_environment_is_a_finding(self):
+        """A measurement that does not say where it ran cannot be compared."""
+        fixture = build_run(
+            self.root,
+            [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            environment=None,
+        )
+        code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('environment missing', err)
+        self.assertIn('where it happened', err)
+
+    def test_a_run_on_another_kind_of_device_is_a_finding(self):
+        """A phone's number and an emulator's floor are two different quantities."""
+        fixture = build_run(
+            self.root,
+            [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            environment={'kind': 'device', 'api': 36, 'device': 'pixel-7'},
+        )
+        code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('environment mismatch', err)
+        self.assertIn('device', err)
+
+    def test_a_run_on_another_api_is_a_finding(self):
+        fixture = build_run(
+            self.root,
+            [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            environment={'kind': 'emulator', 'api': 34, 'device': 'sdk_gphone64_x86_64'},
+        )
+        code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('environment mismatch', err)
+        self.assertIn('API', err)
+
+    def test_the_environment_file_can_be_pointed_somewhere_else(self):
+        """The path is overridable, so a run can put it wherever it likes."""
+        fixture = build_run(
+            self.root,
+            [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            environment=None,
+        )
+        elsewhere = self.root / 'elsewhere.json'
+        elsewhere.write_text(json.dumps(CALIBRATED_ENVIRONMENT))
+        code, _, err = self._gate(fixture, '--environment', str(elsewhere))
+        self.assertEqual(code, mod.CLEAN, err)
+
+    def test_an_unreadable_environment_is_a_finding(self):
+        fixture = build_run(
+            self.root,
+            [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            environment=None,
+        )
+        broken = self.root / 'broken.json'
+        broken.write_text('{not json')
+        code, _, err = self._gate(fixture, '--environment', str(broken))
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('environment unreadable', err)
 
 
 class CliTest(unittest.TestCase):
     """The command as it runs: the exit codes are the contract."""
 
-    CATALOGUE = [
-        'Maestro/flows/smoke/01-launch-today.yaml',
-        'Maestro/flows/tasks/create-task.yaml',
-    ]
-
-    def _tree(self, root, reports, floor='full 1\n'):
-        (root / 'catalogue.txt').write_text('\n'.join(self.CATALOGUE) + '\n')
-        (root / 'floor.txt').write_text(floor)
-        results = root / 'results'
-        results.mkdir()
-        for flow, failure in reports:
-            (results / (pathlib.PurePosixPath(flow).stem + '.xml')).write_text(
-                report(flow, failure)
-            )
-        return results
+    def _tree(self, root, reports, floor='full 1\n', environment=None):
+        return build_run(
+            root,
+            reports,
+            floor=floor,
+            environment=environment
+            if environment is not None
+            else CALIBRATED_ENVIRONMENT,
+        )
 
     def _run(self, *argv):
-        """Run the gate and return (exit code, stdout)."""
+        """Run the gate and return (exit code, stdout, stderr)."""
         out = io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+        err = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = mod.main(list(argv))
-        return code, out.getvalue()
+        return code, out.getvalue(), err.getvalue()
+
+    def _gate(self, fixture, *extra):
+        return self._run(
+            '--scope', 'full',
+            '--results-dir', str(fixture['results']),
+            '--catalogue', str(fixture['catalogue']),
+            '--floor', str(fixture['floor']),
+            '--debt', str(fixture['debt'].path),
+            *extra,
+        )
 
     def test_a_clean_run_exits_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            results = self._tree(
+            fixture = self._tree(
                 root,
-                [(self.CATALOGUE[0], None), (self.CATALOGUE[1], None)],
+                [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
             )
-            code, _ = self._run(
-                '--scope', 'full',
-                '--results-dir', str(results),
-                '--catalogue', str(root / 'catalogue.txt'),
-                '--floor', str(root / 'floor.txt'),
-            )
-        self.assertEqual(code, mod.CLEAN)
+            code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.CLEAN, err)
 
     def test_a_run_over_the_floor_exits_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            results = self._tree(
+            fixture = self._tree(
                 root,
                 [
-                    (self.CATALOGUE[0], 'No visible element found: id: a'),
-                    (self.CATALOGUE[1], None),
+                    (CLI_CATALOGUE[0], 'No visible element found: id: a'),
+                    (CLI_CATALOGUE[1], None),
                 ],
                 floor='full 0\n',
             )
-            code, _ = self._run(
-                '--scope', 'full',
-                '--results-dir', str(results),
-                '--catalogue', str(root / 'catalogue.txt'),
-                '--floor', str(root / 'floor.txt'),
-            )
+            code, _, err = self._gate(fixture)
         self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('over the floor', err)
 
     def test_a_missing_results_directory_is_an_input_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            (root / 'catalogue.txt').write_text('\n'.join(self.CATALOGUE) + '\n')
+            (root / 'catalogue.txt').write_text('\n'.join(CLI_CATALOGUE) + '\n')
             (root / 'floor.txt').write_text('full 0\n')
-            code, _ = self._run(
+            code, _, _ = self._run(
                 '--scope', 'full',
                 '--results-dir', str(root / 'nothing-here'),
                 '--catalogue', str(root / 'catalogue.txt'),
@@ -373,42 +771,137 @@ class CliTest(unittest.TestCase):
     def test_a_scope_without_a_floor_is_an_input_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            results = self._tree(
+            fixture = self._tree(
                 root,
-                [(self.CATALOGUE[0], None), (self.CATALOGUE[1], None)],
+                [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
                 floor='full 0\n',
             )
-            code, _ = self._run(
+            code, _, _ = self._run(
                 '--scope', 'smoke',
-                '--results-dir', str(results),
-                '--catalogue', str(root / 'catalogue.txt'),
-                '--floor', str(root / 'floor.txt'),
+                '--results-dir', str(fixture['results']),
+                '--catalogue', str(fixture['catalogue']),
+                '--floor', str(fixture['floor']),
+                '--debt', str(fixture['debt'].path),
+            )
+        self.assertEqual(code, mod.IO_ERROR)
+
+    def test_a_missing_registry_is_an_input_error(self):
+        """The registry is one of the gate's inputs; without it there is nothing to compare."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            fixture = self._tree(
+                root,
+                [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+            )
+            code, _, _ = self._run(
+                '--scope', 'full',
+                '--results-dir', str(fixture['results']),
+                '--catalogue', str(fixture['catalogue']),
+                '--floor', str(fixture['floor']),
+                '--debt', str(root / 'no-such-registry.yaml'),
             )
         self.assertEqual(code, mod.IO_ERROR)
 
     def test_the_json_document_is_the_measurement(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            results = self._tree(
+            fixture = self._tree(
                 root,
                 [
-                    (self.CATALOGUE[0], 'No visible element found: id: a'),
-                    (self.CATALOGUE[1], None),
+                    (CLI_CATALOGUE[0], 'No visible element found: id: a'),
+                    (CLI_CATALOGUE[1], None),
                 ],
                 floor='full 1\n',
             )
-            code, out = self._run(
-                '--scope', 'full',
-                '--results-dir', str(results),
-                '--catalogue', str(root / 'catalogue.txt'),
-                '--floor', str(root / 'floor.txt'),
-                '--json',
-            )
+            code, out, _ = self._gate(fixture, '--json')
         self.assertEqual(code, mod.CLEAN)
         payload = json.loads(out)
         self.assertEqual(payload['scope'], 'full')
         self.assertEqual(payload['failed'], 1)
         self.assertEqual(payload['groups'], {'No visible element found: id: <id>': 1})
+
+    def test_the_json_document_carries_the_causes_and_the_cross_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            fixture = self._tree(
+                root,
+                [
+                    (CLI_CATALOGUE[0], 'No visible element found: id: a'),
+                    (CLI_CATALOGUE[1], None),
+                ],
+                floor='full 1\n',
+            )
+            code, out, _ = self._gate(fixture, '--json')
+        self.assertEqual(code, mod.CLEAN)
+        payload = json.loads(out)
+        self.assertEqual(
+            payload['causes'],
+            [
+                {
+                    'key': 'No visible element found: id: a',
+                    'flows': 1,
+                    'issue': 818,
+                    'owner': 'product',
+                    'status': 'accepted',
+                    'in_registry': True,
+                }
+            ],
+        )
+        self.assertEqual(payload['registry']['unknown_causes'], [])
+        self.assertEqual(payload['registry']['regressed_causes'], [])
+        self.assertIn(
+            'Assertion is false: id: gone is visible',
+            [entry['key'] for entry in payload['registry']['did_not_happen']],
+        )
+        self.assertEqual(payload['environment']['calibrated']['kind'], 'emulator')
+        self.assertEqual(payload['environment']['run']['api'], 36)
+        self.assertTrue(payload['environment']['matches'])
+
+    def test_a_new_cause_exits_one_and_names_itself(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            fixture = self._tree(
+                root,
+                [
+                    (CLI_CATALOGUE[0], 'No visible element found: id: brand_new'),
+                    (CLI_CATALOGUE[1], None),
+                ],
+                floor='full 5\n',
+            )
+            code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('cause not in the registry', err)
+        self.assertIn('No visible element found: id: brand_new', err)
+
+    def test_a_fixed_cause_that_comes_back_exits_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            fixture = self._tree(
+                root,
+                [
+                    (
+                        CLI_CATALOGUE[0],
+                        'Assertion is false: id: fixed_one is visible',
+                    ),
+                    (CLI_CATALOGUE[1], None),
+                ],
+                floor='full 5\n',
+            )
+            code, _, err = self._gate(fixture)
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+        self.assertIn('fixed cause came back', err)
+
+    def test_a_cause_that_did_not_happen_is_reported_and_does_not_fail_the_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            fixture = self._tree(
+                root,
+                [(CLI_CATALOGUE[0], None), (CLI_CATALOGUE[1], None)],
+                floor='full 5\n',
+            )
+            code, out, err = self._gate(fixture)
+        self.assertEqual(code, mod.CLEAN, err)
+        self.assertIn('registry causes that did not happen', out)
 
 
 if __name__ == '__main__':

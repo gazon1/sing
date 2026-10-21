@@ -1,0 +1,188 @@
+# The debt the measurement has accepted, one cause at a time.
+#
+# A floor says how much the repository owes. It does not say what it owes, so the
+# number of failing flows can stay the same while the debt changes shape entirely:
+# one cause fixed, another introduced, and the floor still passes. This file is the
+# other half of the measurement — the *causes* the floor covers, each with the GitHub
+# issue that owns it.
+#
+# The gate (`scripts/ci/check-maestro-results.py`) reads this file and holds the run
+# to three things, each of which the floor alone cannot do:
+#
+#   * **A cause that is not listed here fails the gate**, even when the number of
+#     failing flows is within the floor. A new cause is the debt changing kind, and
+#     that is the thing a count cannot see.
+#   * **A cause marked `fixed` that comes back fails the gate.** That is a
+#     regression, and it is the one case where a floor that only ratchets down would
+#     have hidden it.
+#   * **A cause that is listed here and did not happen is reported**, because that
+#     is the debt shrinking, and a shrinking debt is somebody's argument to make.
+#
+# The `environment` block records where the floor was calibrated. The gate compares
+# the run's environment with it and refuses to judge a run it cannot compare: a
+# number measured on an emulator and a number measured on a phone are two different
+# quantities, and calling them the same one is how a gate starts lying.
+#
+# Format: `key` is the cause as the gate reads it — the failure message with the
+# run-specific numbers replaced by `<n>`, so the key is the same in every run. `issue`
+# is the GitHub issue that owns the cause. `owner` is `product`, `test` or
+# `unclassified`. `status` is `accepted` (the debt is known) or `fixed` (it was
+# fixed, and coming back is a regression). `flows` is how many flows the cause took
+# down when the floor was calibrated.
+#
+# Calibrated 2026-10-21 by a full local run of all 94 flows on the emulator: 55
+# passed, 39 failed, 0 device deaths, and the 39 failures were 27 causes.
+
+environment:
+  kind: emulator
+  api: 36
+  device: sdk_gphone64_x86_64
+  measured_on: '2026-10-21'
+  apk: g7dba13ee9947
+  note: >-
+    The floor belongs to this environment. A run on another device is a different
+    measurement, and the gate says so rather than comparing them.
+
+causes:
+- key: "No visible element found: id: attachments_add_file_row"
+  issue: 818
+  owner: product
+  status: accepted
+  flows: 5
+  note: "The sheet that owns the row has no trigger in the UI (#818)."
+- key: "Assertion is false: id: task_detail_title is visible"
+  issue: 864
+  owner: fixed
+  status: fixed
+  flows: 4
+  note: "This round removed the dead second test tag; the flows assert the title's value instead."
+- key: "Assertion is false: id: agenda_section_today is visible"
+  issue: 868
+  owner: unclassified
+  status: accepted
+  flows: 2
+- key: "Assertion is false: id: auth_attach_email_input is visible"
+  issue: 866
+  owner: product
+  status: accepted
+  flows: 2
+  note: "The E2E build's auth stub starts signed in, so the attach-account screen is unreachable (#810)."
+- key: "Assertion is false: id: auth_confirmation_headline is visible"
+  issue: 838
+  owner: product
+  status: accepted
+  flows: 2
+  note: "The E2E build's auth stub starts signed in, so the confirmation is unreachable (#810)."
+- key: "Assertion is false: id: auth_save_server_button is visible"
+  issue: 867
+  owner: product
+  status: accepted
+  flows: 2
+  note: "The E2E build's auth stub starts signed in, so the sign-in screen is unreachable (#810)."
+- key: "Assertion is false: id: saved_agenda_empty_title is visible"
+  issue: 865
+  owner: unclassified
+  status: accepted
+  flows: 2
+- key: "Assertion is false: \"Archive is empty\" is visible"
+  issue: 876
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: \"No priority\" is visible"
+  issue: 877
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: \"r<n> Buy milk\" is visible"
+  issue: 878
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: \"✓ r<n> Child task one\" is visible"
+  issue: 879
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: agenda_section_no_date is visible"
+  issue: 873
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: agenda_section_upcoming is visible"
+  issue: 871
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: auth_error_text is visible"
+  issue: 834
+  owner: product
+  status: accepted
+  flows: 1
+  note: "The E2E build's auth stub starts signed in, so the error text is unreachable (#810)."
+- key: "Assertion is false: id: calendar_sync_system_unavailable is visible"
+  issue: 835
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: dialog_date_picker_ok is visible"
+  issue: 836
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: recurrence_option_daily is visible"
+  issue: 874
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: snackbar_action is visible"
+  issue: 842
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: task_editor_title_input is visible"
+  issue: 837
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: task_item_buy_milk is not visible"
+  issue: 869
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: task_item_pokupki is visible"
+  issue: 833
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: task_item_r<n>_taskwithdesc<n> is visible"
+  issue: 839
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: task_item_renameme is visible"
+  issue: 872
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Assertion is false: id: task_item_savedalpha<n> is visible"
+  issue: 870
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "Element not found: Text matching regex: High priority"
+  issue: 881
+  owner: unclassified
+  status: accepted
+  flows: 1
+- key: "No visible element found: id: settings_tab_backup"
+  issue: 820
+  owner: product
+  status: accepted
+  flows: 1
+  note: "The backup round-trip is broken on main (#820)."
+- key: "No visible element found: id: top_bar_back_button"
+  issue: 840
+  owner: unclassified
+  status: accepted
+  flows: 1
