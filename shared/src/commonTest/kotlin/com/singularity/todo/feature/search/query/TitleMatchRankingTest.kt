@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.TextMatch
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,7 +23,9 @@ class TitleMatchRankingTest {
             Record(title = "Architecture", body = "the house"),
         )
 
-        val ranked = titleMatchesFirst(records) { record -> record.title.startsWith("arch") }
+        val ranked = titleMatchesFirst(records) { record ->
+            TextMatch.matches(record.title, "arch")
+        }
 
         assertEquals(
             listOf("Architecture", "Shopping"),
@@ -40,7 +43,9 @@ class TitleMatchRankingTest {
             Record(title = "Body match", body = "architecture"),
         )
 
-        val ranked = titleMatchesFirst(records) { record -> record.title.contains("title match") }
+        val ranked = titleMatchesFirst(records) { record ->
+            TextMatch.matches(record.title, "title match")
+        }
 
         assertEquals(
             listOf("Later title match", "Earlier title match", "Body match"),
