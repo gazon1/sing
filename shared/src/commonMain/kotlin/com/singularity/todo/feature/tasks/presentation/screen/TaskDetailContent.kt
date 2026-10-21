@@ -229,9 +229,10 @@ fun TaskDetailContent(
                                 onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
                             ),
                             checklist = null,
-                            // The attachments sheet was unreachable: the bundle was null, so
-                            // the sheet had no callbacks and nothing could open it. A URL
-                            // attachment — the kind a person types — had no way in at all.
+                            // The bundle that gives the attachments sheet its
+                            // behaviour: without it the sheet opens with no way to
+                            // add a link or a file. A URL attachment — the kind a
+                            // person types — had no way in at all.
                             attachments = AttachmentsCallbacks(
                                 onOpen = { sheets.show(TaskEditorSheet.Attachments) },
                                 onAddUrl = { url, title ->
@@ -370,6 +371,11 @@ fun TaskDetailContent(
                         // the sheets from the same state, so the row that opens one and the
                         // host that shows it are looking at one thing.
                         sheets = sheets,
+                        // The detail lists its attachments under the fields, the way
+                        // it lists its checklist items — so no card here. The sheet
+                        // is opened from that list instead, and the callbacks the
+                        // sheet needs travel with the bundle, not with the card.
+                        showAttachmentsRow = false,
                     )
 
                     if (showAiSheet) {

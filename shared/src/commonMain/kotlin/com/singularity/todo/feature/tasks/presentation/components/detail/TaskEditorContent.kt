@@ -141,6 +141,7 @@ private fun TaskEditorContent(
     attachmentsCount: Int = 0,
     checklistCallbacks: ChecklistCallbacks? = null,
     attachmentsCallbacks: AttachmentsCallbacks? = null,
+    showAttachmentsRow: Boolean = true,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
@@ -219,18 +220,26 @@ private fun TaskEditorContent(
             }
 
             // Attachments row
-            attachmentsCallbacks?.let { cb ->
-                TaskAttributeCard(
-                    icon = Icons.Filled.AttachFile,
-                    label = if (attachmentsCount > 0) {
-                        "Attachments ($attachmentsCount)"
-                    } else {
-                        "Attachments"
-                    },
-                    isActive = attachmentsCount > 0,
-                    onClick = cb.onOpen,
-                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
-                )
+            //
+            // The row and the sheet are two different things that share one bundle
+            // of callbacks: the row opens the sheet, and the sheet needs the
+            // callbacks to add a link or a file. A caller that lists its
+            // attachments under the fields instead — the task detail does — draws
+            // no row here, and the sheet it opens from there still works.
+            if (showAttachmentsRow) {
+                attachmentsCallbacks?.let { cb ->
+                    TaskAttributeCard(
+                        icon = Icons.Filled.AttachFile,
+                        label = if (attachmentsCount > 0) {
+                            "Attachments ($attachmentsCount)"
+                        } else {
+                            "Attachments"
+                        },
+                        isActive = attachmentsCount > 0,
+                        onClick = cb.onOpen,
+                        modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
+                    )
+                }
             }
 
             // Priority row
@@ -413,6 +422,7 @@ fun TaskEditorContent(
     isCompleted: Boolean = false,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
+    showAttachmentsRow: Boolean = true,
 ) {
     TaskEditorScaffold(
         model = model,
@@ -422,6 +432,7 @@ fun TaskEditorContent(
         isCompleted = isCompleted,
         now = now,
         sheets = sheets,
+        showAttachmentsRow = showAttachmentsRow,
     )
 }
 
@@ -491,6 +502,7 @@ private fun TaskEditorScaffold(
     isCompleted: Boolean,
     now: Instant,
     sheets: DialogState<TaskEditorSheet>,
+    showAttachmentsRow: Boolean = true,
 ) {
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
@@ -525,6 +537,7 @@ private fun TaskEditorScaffold(
         attachmentsCount = model.attachments.size,
         checklistCallbacks = callbacks.checklist,
         attachmentsCallbacks = callbacks.attachments,
+        showAttachmentsRow = showAttachmentsRow,
         extraSections = callbacks.extraSections,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
