@@ -42,7 +42,6 @@ import com.singularity.todo.feature.ai.tools.UpdateProjectTool
 import com.singularity.todo.feature.ai.tools.UpdateTaskTool
 import com.singularity.todo.feature.ai.tools.WeeklyPlanTool
 import com.singularity.todo.feature.ai.tools.WriteAdrTool
-import com.singularity.todo.mcp.ToolAnnotations
 import kotlin.reflect.KClass
 
 /**

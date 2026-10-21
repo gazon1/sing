@@ -335,6 +335,49 @@ class ToolboxParityTest(unittest.TestCase):
         self.assertTrue(any('more than once' in p for p in problems), problems)
 
 
+class FlagKeySpaceTest(unittest.TestCase):
+    """The flag key space, as a generated block.
+
+    An operator writes a remote configuration against these names, so a list that has
+    drifted from the catalogue is a list that teaches the wrong keys. The block is
+    generated, and the gate compares it with the catalogue — the same arrangement as
+    the ADR tool block.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='flag-keys-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def test_the_flag_key_space_is_generated_into_the_architecture_document(self):
+        path = pathlib.Path(renderer.FLAG_DOCUMENTS[0])
+        self.assertTrue(path.is_file(), f'{path} does not exist')
+        block = renderer.current_flag_block(path)
+        self.assertIsNotNone(block, f'{path} has no generated flag key space')
+
+    def test_the_flag_key_space_lists_every_tool(self):
+        declared = {name for _domain, name in renderer.flag_keys()}
+        self.assertEqual(
+            len(renderer.catalog_entries()),
+            len(declared),
+            'every tool is a key a configuration may use',
+        )
+
+    def test_a_hand_edited_flag_key_space_is_reported(self):
+        path = pathlib.Path(renderer.FLAG_DOCUMENTS[0])
+        planted = self.tmp / 'mcp-server.md'
+        planted.write_text(
+            path.read_text(encoding='utf-8').replace('| adr | `list_adrs` |', '| adr | `list_adrr` |', 1),
+            encoding='utf-8',
+        )
+        original = renderer.FLAG_DOCUMENTS
+        self.addCleanup(setattr, renderer, 'FLAG_DOCUMENTS', original)
+        renderer.FLAG_DOCUMENTS = (planted,)
+
+        drifted = renderer.current_flag_block(planted) != renderer.render_flag_block()
+
+        self.assertTrue(drifted, 'a hand-edited key space must not pass unnoticed')
+
+
 class ExportedSurfaceTest(unittest.TestCase):
     """The parser against the compiler.
 
@@ -395,8 +438,9 @@ class ExportedSurfaceTest(unittest.TestCase):
             ),
             encoding='utf-8',
         )
-        drift.DOCUMENTED_FLAG_SOURCES = (planted,) + tuple(drift.DOCUMENTED_FLAG_SOURCES[1:])
-        self.addCleanup(setattr, drift, 'DOCUMENTED_FLAG_SOURCES', drift.DOCUMENTED_FLAG_SOURCES)
+        original = drift.DOCUMENTED_FLAG_SOURCES
+        self.addCleanup(setattr, drift, 'DOCUMENTED_FLAG_SOURCES', original)
+        drift.DOCUMENTED_FLAG_SOURCES = (planted,) + tuple(original[1:])
 
         problems = drift.flag_problems()
 

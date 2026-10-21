@@ -29,6 +29,14 @@ it looked at, and it says "not observed in this window" rather than "unused" —
 absence of a record is not proof that no call happened, because a write can fail and a
 process can die mid-line.
 
+Records outlive the code that wrote them
+--------------------------------------
+Every record carries the `schemaVersion` of the event it came from. A record written by
+a version this script does not know is **not** counted as a call: its fields may mean
+something else, and a report that counted it would state a number it cannot support. The
+records are counted separately and named in the output, so "the report does not understand
+these" is visible rather than folded into the totals.
+
 This is a **local diagnostic, not a gate**. CI has no local telemetry, so a gate over
 this data could only check the age of a file CI never writes.
 
@@ -54,12 +62,25 @@ DEFAULT_DATA_DIR = pathlib.Path.home() / ".singularity-todo" / "tool-calls"
 RECORD_SUFFIX = ".jsonl"
 REGISTRY_NAME = "registry.json"
 
+#: The event schema this script understands. It matches
+#: `ToolCallEvent.SCHEMA_VERSION` on the server side.
+#:
+#: A record of another version is counted, reported, and *not* read as a call: its
+#: `outcome` may mean something else entirely, and a total that quietly included it
+#: would be a number this script cannot stand behind.
+KNOWN_SCHEMA_VERSION = 1
+
 
 def read_records(data_dir: pathlib.Path, since_days: int | None):
-    """Every well-formed record in the window, plus the malformed ones it skipped."""
+    """Every readable record in the window, plus the ones it could not use.
+
+    Three kinds are kept apart: the records this script understands, the records whose
+    schema version it does not, and the lines that are not records at all.
+    """
     cutoff = None if since_days is None else time.time() - since_days * 86400
     records = []
     malformed = 0
+    unknown_version = 0
     files_read = 0
     for path in sorted(data_dir.glob(f"*{RECORD_SUFFIX}")):
         try:
@@ -81,12 +102,17 @@ def read_records(data_dir: pathlib.Path, since_days: int | None):
             if not isinstance(record, dict):
                 malformed += 1
                 continue
+            if record.get("schemaVersion") != KNOWN_SCHEMA_VERSION:
+                # A record from another version of the event. It is counted, and it is
+                # not read as a call: its fields may mean something else.
+                unknown_version += 1
+                continue
             if cutoff is not None:
                 ts = record.get("ts")
                 if isinstance(ts, (int, float)) and ts / 1000 < cutoff:
                     continue
             records.append(record)
-    return records, malformed, files_read
+    return records, malformed, files_read, unknown_version
 
 
 def read_registry(data_dir: pathlib.Path):
@@ -151,12 +177,19 @@ def _tool_names(registry, key: str) -> list[str]:
     return names
 
 
-def render(summary, registry, malformed, files_read, record_count, since_days) -> str:
+def render(summary, registry, malformed, files_read, record_count, since_days, unknown_version=0) -> str:
     lines = []
     window = "all records" if since_days is None else f"last {since_days} day(s)"
     lines.append(f"Toolbox usage — {record_count} record(s) from {files_read} file(s), {window}")
     if malformed:
         lines.append(f"  {malformed} malformed line(s) skipped")
+    if unknown_version:
+        # Named, not folded into the totals: these records are from an event schema
+        # this script does not know, so their fields may mean something else.
+        lines.append(
+            f"  {unknown_version} record(s) of an unknown schema version skipped "
+            f"(this script reads version {KNOWN_SCHEMA_VERSION})"
+        )
     lines.append("")
     if not summary:
         # No calls at all is the case where the registry matters most: "which tools
@@ -222,7 +255,7 @@ def _click_main(argv: list[str]) -> int:
     @click.option("--json", "emit_json", is_flag=True, help="Machine-readable output.")
     def cli(data_dir, since_days, emit_json):
         directory = data_dir or DEFAULT_DATA_DIR
-        records, malformed, files_read = read_records(directory, since_days)
+        records, malformed, files_read, unknown_version = read_records(directory, since_days)
         registry = read_registry(directory)
         summary = summarize(records)
         if emit_json:
@@ -231,11 +264,14 @@ def _click_main(argv: list[str]) -> int:
                 "records": len(records),
                 "files": files_read,
                 "malformed": malformed,
+                "unknownVersion": unknown_version,
                 "tools": summary,
                 "registry": registry,
             }, indent=2, sort_keys=True))
             return 0
-        click.echo(render(summary, registry, malformed, files_read, len(records), since_days))
+        click.echo(
+            render(summary, registry, malformed, files_read, len(records), since_days, unknown_version)
+        )
         return 0
 
     return cli.main(args=argv, standalone_mode=False)
@@ -250,7 +286,7 @@ def _argparse_main(argv: list[str]) -> int:
     parser.add_argument("--json", dest="emit_json", action="store_true")
     args = parser.parse_args(argv)
     directory = args.data_dir or DEFAULT_DATA_DIR
-    records, malformed, files_read = read_records(directory, args.since_days)
+    records, malformed, files_read, unknown_version = read_records(directory, args.since_days)
     registry = read_registry(directory)
     summary = summarize(records)
     if args.emit_json:
@@ -259,11 +295,16 @@ def _argparse_main(argv: list[str]) -> int:
             "records": len(records),
             "files": files_read,
             "malformed": malformed,
+            "unknownVersion": unknown_version,
             "tools": summary,
             "registry": registry,
         }, indent=2, sort_keys=True))
         return 0
-    print(render(summary, registry, malformed, files_read, len(records), args.since_days))
+    print(
+        render(
+            summary, registry, malformed, files_read, len(records), args.since_days, unknown_version
+        )
+    )
     return 0
 
 

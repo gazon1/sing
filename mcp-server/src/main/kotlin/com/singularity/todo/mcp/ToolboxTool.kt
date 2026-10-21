@@ -29,6 +29,19 @@ import kotlinx.serialization.json.put
  * No absolute paths, no remote-config contents, no secrets, no process state. The
  * disabled-tool list is bounded, because a config that disables two hundred tools is a
  * config problem, not something an agent should page through.
+ *
+ * ## How the payload may change
+ *
+ * This payload is a contract with every client that reads it, and clients are not
+ * upgraded with the server. So:
+ *
+ * - a **new** field is allowed — a client that does not know it ignores it;
+ * - a **renamed** field is not — it breaks every client that reads the old name;
+ * - a **removed** field is not — it breaks every client that reads it.
+ *
+ * The shape is pinned by `ToolboxToolTest`, so a rename fails the build rather than
+ * the clients. The same rule holds for the resource URIs, which are pinned by
+ * `ToolboxResourcesTest`.
  */
 class ToolboxTool(private val snapshot: ToolsetSnapshot) {
 

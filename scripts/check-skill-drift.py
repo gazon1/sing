@@ -299,6 +299,19 @@ def cli(ctx: click.Context) -> None:
         if current != expected:
             drifted.append(skill)
 
+    # The flag key space: a second generated block, with the same guarantee as the
+    # first. An operator writes a configuration against these names, so a list that
+    # has drifted from the catalogue is a list that teaches the wrong keys.
+    flag_expected = renderer.render_flag_block()
+    flag_drifted: list[pathlib.Path] = []
+    flag_missing: list[pathlib.Path] = []
+    for path in renderer.FLAG_DOCUMENTS:
+        if not path.is_file():
+            flag_missing.append(path)
+            continue
+        if renderer.current_flag_block(path) != flag_expected:
+            flag_drifted.append(path)
+
     for path in missing:
         click.echo(f'ERROR: {path.relative_to(ROOT)} does not exist — the generated section has '
               f'nowhere to live')
@@ -314,10 +327,25 @@ def cli(ctx: click.Context) -> None:
             click.echo(f'  the skill says: {_first_difference(current, expected)}')
         click.echo(f'  fix with: python3 scripts/render-adr-tools-section.py')
 
+    for path in flag_missing:
+        click.echo(f'ERROR: {path.relative_to(ROOT)} does not exist — the flag key space has '
+              f'nowhere to live')
+
+    for path in flag_drifted:
+        rel = path.relative_to(ROOT)
+        current = renderer.current_flag_block(path)
+        if current is None:
+            click.echo(f'ERROR: {rel} has no "{renderer.FLAG_BEGIN}" block. The flag key space is '
+                  f'generated, not maintained by hand; restore it with:')
+        else:
+            click.echo(f'ERROR: {rel} — the generated flag key space does not match the catalogue.')
+            click.echo(f'  the document says: {_first_difference(current, flag_expected)}')
+        click.echo(f'  fix with: python3 scripts/render-adr-tools-section.py')
+
     for problem in problems:
         click.echo(f'ERROR: {problem}')
 
-    if drifted or missing or problems:
+    if drifted or flag_drifted or missing or flag_missing or problems:
         click.echo('')
         click.echo('A skill that lists tools the code no longer has is worse than no skill: an')
         click.echo('agent reads it and calls something that does not exist, or trusts a promise')
@@ -330,7 +358,8 @@ def cli(ctx: click.Context) -> None:
 
     click.echo(f'check-skill-drift: OK — {len(renderer.SKILLS)} document(s) match the ADR tool surface '
           f'({len(renderer.commands())} command(s), {len(renderer.mcp_adr_tools())} MCP tool(s)), '
-          f'{len(renderer.catalog_entries())} catalogue entr(y/ies) match the tool classes')
+          f'{len(renderer.catalog_entries())} catalogue entr(y/ies) match the tool classes, '
+          f'{len(renderer.flag_keys())} flag key(s) declared')
     raise ctx.exit(0)
 
 

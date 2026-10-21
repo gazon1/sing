@@ -56,7 +56,7 @@ class ReadRecordsTest(unittest.TestCase):
         self._write("2026-10-20-1.jsonl", [json.dumps(_record("create_task"))])
         self._write("2026-10-20-2.jsonl", [json.dumps(_record("list_tasks"))])
 
-        records, malformed, files = usage.read_records(self.dir, None)
+        records, malformed, files, _unknown = usage.read_records(self.dir, None)
 
         self.assertEqual(2, len(records))
         self.assertEqual(0, malformed)
@@ -69,7 +69,7 @@ class ReadRecordsTest(unittest.TestCase):
             [json.dumps(_record("create_task")), '{"ts": 1700, "tool": "half-wri'],
         )
 
-        records, malformed, _ = usage.read_records(self.dir, None)
+        records, malformed, _, _unknown = usage.read_records(self.dir, None)
 
         self.assertEqual(1, len(records), "the good record must survive")
         self.assertEqual(1, malformed, "the truncated line must be counted")
@@ -86,7 +86,7 @@ class ReadRecordsTest(unittest.TestCase):
             ],
         )
 
-        records, _, _ = usage.read_records(self.dir, 1)
+        records, _, _, _unknown = usage.read_records(self.dir, 1)
 
         self.assertEqual(["list_tasks"], [r["tool"] for r in records])
 
@@ -114,6 +114,44 @@ class SummaryTest(unittest.TestCase):
         self.assertIsNone(summary["create_task"]["avgMs"])
 
 
+class UnknownVersionTest(unittest.TestCase):
+    """A record from an event schema this script does not know.
+
+    The records outlive the code that wrote them, so a future version of the event
+    will land in these files. Its fields may mean something else, and a report that
+    counted it as a call would state a number it cannot stand behind.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = pathlib.Path(self._tmp.name)
+
+    def test_a_record_of_an_unknown_version_is_not_counted_as_a_call(self):
+        (self.dir / "2026-10-20-1.jsonl").write_text(
+            json.dumps(_record("create_task", schemaVersion=2)) + "\n",
+            encoding="utf-8",
+        )
+
+        records, _malformed, _files, unknown = usage.read_records(self.dir, None)
+
+        self.assertEqual([], records, "a record this script cannot read is not a call")
+        self.assertEqual(1, unknown)
+
+    def test_the_report_says_how_many_records_it_could_not_read(self):
+        (self.dir / "2026-10-20-1.jsonl").write_text(
+            json.dumps(_record("create_task", schemaVersion=2)) + "\n",
+            encoding="utf-8",
+        )
+        records, malformed, files, unknown = usage.read_records(self.dir, None)
+
+        report = usage.render(
+            usage.summarize(records), None, malformed, files, len(records), None, unknown
+        )
+
+        self.assertIn("unknown schema version", report)
+
+
 class RegistryTest(unittest.TestCase):
     """The registry snapshot is the other half of the answer."""
 
@@ -132,7 +170,7 @@ class RegistryTest(unittest.TestCase):
             }),
             encoding="utf-8",
         )
-        records, _, _ = usage.read_records(self.dir, None)
+        records, _, _, _unknown = usage.read_records(self.dir, None)
         summary = usage.summarize(records)
         registry = usage.read_registry(self.dir)
 
@@ -151,7 +189,7 @@ class RegistryTest(unittest.TestCase):
             json.dumps(_record("old_tool")) + "\n",
             encoding="utf-8",
         )
-        records, _, _ = usage.read_records(self.dir, None)
+        records, _, _, _unknown = usage.read_records(self.dir, None)
         summary = usage.summarize(records)
         registry = usage.read_registry(self.dir)
 
@@ -166,7 +204,7 @@ class RegistryTest(unittest.TestCase):
             json.dumps({"registeredTools": ["create_task"]}),
             encoding="utf-8",
         )
-        records, _, _ = usage.read_records(self.dir, None)
+        records, _, _, _unknown = usage.read_records(self.dir, None)
         summary = usage.summarize(records)
         registry = usage.read_registry(self.dir)
 
@@ -184,7 +222,7 @@ class RegistryTest(unittest.TestCase):
             }),
             encoding="utf-8",
         )
-        records, _, _ = usage.read_records(self.dir, None)
+        records, _, _, _unknown = usage.read_records(self.dir, None)
         summary = usage.summarize(records)
         registry = usage.read_registry(self.dir)
 
@@ -194,7 +232,7 @@ class RegistryTest(unittest.TestCase):
         self.assertIn("old_tool", report)
 
     def test_without_a_registry_the_report_says_so(self):
-        records, _, _ = usage.read_records(self.dir, None)
+        records, _, _, _unknown = usage.read_records(self.dir, None)
         summary = usage.summarize(records)
 
         report = usage.render(summary, usage.read_registry(self.dir), 0, 0, len(records), None)

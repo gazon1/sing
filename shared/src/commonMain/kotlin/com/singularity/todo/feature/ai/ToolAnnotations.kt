@@ -1,4 +1,4 @@
-package com.singularity.todo.mcp
+package com.singularity.todo.feature.ai
 
 /**
  * App-level tool annotations — hints to the LLM about tool behaviour.
