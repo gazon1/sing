@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.state
 
 import com.singularity.todo.core.ui.MviIntent
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
@@ -8,11 +9,14 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
  * UI state for the project editor screen.
  * When [projectId] is null, the screen operates in create mode.
  * When [projectId] is non-null, it operates in edit mode (loads existing project).
+ *
+ * The name and the description are [FieldOwnedText]s, so that every write to them is named:
+ * the field's own text, a seed, or a clear.
  */
 data class ProjectEditorUiState(
     val projectId: ProjectId? = null,
-    val name: String = "",
-    val description: String = "",
+    val name: FieldOwnedText = FieldOwnedText.empty(),
+    val description: FieldOwnedText = FieldOwnedText.empty(),
     val color: Int = DEFAULT_COLOR,
     val icon: String? = null,
     val parentId: ProjectId? = null,
@@ -32,13 +36,16 @@ data class ProjectEditorUiState(
      * The editor seeds the name once, when the project is loaded, and afterwards holds what the
      * user typed, so it never replaces the field's value with one the field never produced: the
      * field's echo guard needs no lifting, and there is no counter to read.
+     *
+     * The promise lives in the type: the only ways to write the value are the field's own
+     * text, a seed and a clear.
      */
-    val nameSource: StaticText get() = StaticText(name)
+    val nameSource: StaticText get() = StaticText(name.text)
 
     /**
      * The description as the field's source; see [nameSource] for why no counter is needed.
      */
-    val descriptionSource: StaticText get() = StaticText(description)
+    val descriptionSource: StaticText get() = StaticText(description.text)
 }
 
 sealed interface ProjectEditorIntent : MviIntent {

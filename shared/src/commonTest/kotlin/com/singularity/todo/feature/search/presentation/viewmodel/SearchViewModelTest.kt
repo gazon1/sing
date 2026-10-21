@@ -169,7 +169,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals("", state.query)
+            assertEquals("", state.query.text)
             assertTrue(state.results.tasks.isEmpty())
             assertTrue(state.results.notes.isEmpty())
             assertTrue(state.savedSearches.isEmpty())
@@ -191,7 +191,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals("", state.query)
+            assertEquals("", state.query.text)
             assertTrue(state.results.tasks.isEmpty())
             assertTrue(state.results.notes.isEmpty())
             assertNull(state.parsedQuery)
@@ -208,7 +208,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals("priority:high", state.query)
+            assertEquals("priority:high", state.query.text)
             assertTrue(state.parsedQuery != null, "parsedQuery must be set for a valid query")
             // A priority: query is mappable to SimpleFilter
             assertTrue(state.activeFilter != null, "priority: query must derive a SimpleFilter")
@@ -230,7 +230,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals("task1 OR task2", state.query)
+            assertEquals("task1 OR task2", state.query.text)
             // activeFilter is null because OR cannot round-trip through SimpleFilter
             assertNull(state.activeFilter, "OR → activeFilter = null (documented signal, not error)")
             assertTrue(state.isSearching, "searching must still be true even when filter is null")
@@ -318,7 +318,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals("state:completed", state.query)
+            assertEquals("state:completed", state.query.text)
             assertEquals(SavedSearchId("ss-1"), state.activeSavedSearchId)
             assertTrue(state.isSearching)
         }
@@ -401,7 +401,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.IdlePrompt, searchContent(state.query, state.results))
+            assertEquals(SearchContent.IdlePrompt, searchContent(state.query.text, state.results))
         }
 
     @Test
@@ -415,7 +415,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.NoResults, searchContent(state.query, state.results))
+            assertEquals(SearchContent.NoResults, searchContent(state.query.text, state.results))
         }
 
     @Test
@@ -429,7 +429,7 @@ class SearchViewModelTest {
             runCurrent()
 
             val state = vm.stateFlow.value
-            assertEquals(SearchContent.Results, searchContent(state.query, state.results))
+            assertEquals(SearchContent.Results, searchContent(state.query.text, state.results))
             assertEquals(listOf("Buy milk"), state.results.tasks.map { it.title })
         }
 

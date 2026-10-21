@@ -9,6 +9,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -60,14 +61,20 @@ class ProjectsViewModel(
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
         initialState = ProjectsUiState.Loading(
-            searchQuery = "",
+            searchQuery = FieldOwnedText.empty(),
             sortOrder = ProjectSortOrder.Name,
         ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
 
-    private val _searchQuery = MutableStateFlow("")
+    /**
+     * The query the list is filtered by.
+     *
+     * It is a [FieldOwnedText]: the only write is the field's own text coming back,
+     * and the write says so.
+     */
+    private val _searchQuery = MutableStateFlow(FieldOwnedText.empty())
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
 
     init {
@@ -82,10 +89,10 @@ class ProjectsViewModel(
                                 completedCount = row.completedCount,
                             )
                         }
-                        val filtered = if (query.isBlank()) {
+                        val filtered = if (query.text.isBlank()) {
                             domainRows
                         } else {
-                            domainRows.filter { it.project.name.contains(query, ignoreCase = true) }
+                            domainRows.filter { it.project.name.contains(query.text, ignoreCase = true) }
                         }
                         val sorted = when (sort) {
                             ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
@@ -129,8 +136,14 @@ class ProjectsViewModel(
         }
     }
 
+    /**
+     * Records what the user typed in the search field.
+     *
+     * The field's own text: the field wrote it, and the field already shows it. So it
+     * is an echo, and the value is written under that name.
+     */
     private fun setSearchQuery(query: String) {
-        _searchQuery.value = query
+        _searchQuery.value = _searchQuery.value.echoed(query)
     }
 
     private fun setSortOrder(order: ProjectSortOrder) {

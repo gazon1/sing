@@ -104,7 +104,7 @@ class TaskCreateDebounceTest {
         // Draft SHOULD be saved now
         val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
         assertNotNull(saved)
-        assertEquals("Buy groceries", saved.title)
+        assertEquals("Buy groceries", saved.title.text)
     }
 
     @Test

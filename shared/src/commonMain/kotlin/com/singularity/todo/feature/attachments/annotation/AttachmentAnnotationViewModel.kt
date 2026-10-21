@@ -14,6 +14,7 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -43,12 +44,17 @@ data class ResolvedAnnotation(val annotation: AttachmentAnnotation, val resoluti
  *
  * Offsets are strings rather than `Int`s because they come out of a text field: a half-typed
  * `-` has no integer value, and the form must survive that without losing the rest.
+ *
+ * The four values are [FieldOwnedText]s, so that every write to them is named: the field's
+ * own text, a seed, or a clear.
  */
 data class AnnotationDraft(
-    val start: String = "0",
-    val end: String = "0",
-    val quote: String = "",
-    val note: String = "",
+    // The offsets start at "0": the form's initial value, and a value that came from
+    // outside the field, so it is seeded rather than echoed.
+    val start: FieldOwnedText = FieldOwnedText.empty().seeded("0"),
+    val end: FieldOwnedText = FieldOwnedText.empty().seeded("0"),
+    val quote: FieldOwnedText = FieldOwnedText.empty(),
+    val note: FieldOwnedText = FieldOwnedText.empty(),
     /** Set while editing an existing annotation; `null` means "create a new one". */
     val editing: AttachmentAnnotationId? = null,
 ) {
@@ -58,17 +64,20 @@ data class AnnotationDraft(
      * The draft is seeded when the editor opens and edited by the user's own keystrokes, so the
      * value is replaced only with one the field never produced: the field's echo guard needs no
      * lifting, and there is no counter to read.
+     *
+     * The promise lives in the type: the only ways to write the value are the field's own
+     * text, a seed and a clear.
      */
-    val startSource: StaticText get() = StaticText(start)
+    val startSource: StaticText get() = StaticText(start.text)
 
     /** The end offset as the field's source; see [startSource] for why no counter is needed. */
-    val endSource: StaticText get() = StaticText(end)
+    val endSource: StaticText get() = StaticText(end.text)
 
     /** The quoted words as the field's source; see [startSource] for why no counter is needed. */
-    val quoteSource: StaticText get() = StaticText(quote)
+    val quoteSource: StaticText get() = StaticText(quote.text)
 
     /** The note as the field's source; see [startSource] for why no counter is needed. */
-    val noteSource: StaticText get() = StaticText(note)
+    val noteSource: StaticText get() = StaticText(note.text)
 }
 
 sealed interface AttachmentAnnotationUiState {
@@ -195,9 +204,11 @@ class AttachmentAnnotationViewModel(
                 it.copy(
                     sheetOpen = true,
                     draft = AnnotationDraft(
-                        start = intent.start.toString(),
-                        end = intent.end.toString(),
-                        quote = intent.quote,
+                        // Seeds: the range came from outside the field, so the field never
+                        // produced it and takes it as it stands.
+                        start = FieldOwnedText.empty().seeded(intent.start.toString()),
+                        end = FieldOwnedText.empty().seeded(intent.end.toString()),
+                        quote = FieldOwnedText.empty().seeded(intent.quote),
                     ),
                 )
             }
@@ -208,10 +219,11 @@ class AttachmentAnnotationViewModel(
                     sheetOpen = true,
                     draft = target?.let {
                         AnnotationDraft(
-                            start = it.annotation.range.start.toString(),
-                            end = it.annotation.range.end.toString(),
-                            quote = it.annotation.range.quote,
-                            note = it.annotation.note,
+                            // Seeds: the stored annotation came from outside the field.
+                            start = FieldOwnedText.empty().seeded(it.annotation.range.start.toString()),
+                            end = FieldOwnedText.empty().seeded(it.annotation.range.end.toString()),
+                            quote = FieldOwnedText.empty().seeded(it.annotation.range.quote),
+                            note = FieldOwnedText.empty().seeded(it.annotation.note),
                             editing = it.annotation.id,
                         )
                     } ?: content.draft,
@@ -220,13 +232,18 @@ class AttachmentAnnotationViewModel(
 
             AttachmentAnnotationIntent.CloseEditor -> editContent { it.copy(draft = null) }
 
-            is AttachmentAnnotationIntent.DraftStartChanged -> editDraft { it.copy(start = intent.value) }
+            // Echoes: the field's own text, which the field already shows.
+            is AttachmentAnnotationIntent.DraftStartChanged ->
+                editDraft { it.copy(start = it.start.echoed(intent.value)) }
 
-            is AttachmentAnnotationIntent.DraftEndChanged -> editDraft { it.copy(end = intent.value) }
+            is AttachmentAnnotationIntent.DraftEndChanged ->
+                editDraft { it.copy(end = it.end.echoed(intent.value)) }
 
-            is AttachmentAnnotationIntent.DraftQuoteChanged -> editDraft { it.copy(quote = intent.value) }
+            is AttachmentAnnotationIntent.DraftQuoteChanged ->
+                editDraft { it.copy(quote = it.quote.echoed(intent.value)) }
 
-            is AttachmentAnnotationIntent.DraftNoteChanged -> editDraft { it.copy(note = intent.value) }
+            is AttachmentAnnotationIntent.DraftNoteChanged ->
+                editDraft { it.copy(note = it.note.echoed(intent.value)) }
 
             AttachmentAnnotationIntent.SubmitEditor -> scope.launch { submitEditor() }
 
@@ -265,8 +282,8 @@ class AttachmentAnnotationViewModel(
     private suspend fun submitEditor() {
         val content = currentState as? AttachmentAnnotationUiState.Content ?: return
         val draft = content.draft ?: return
-        val start = draft.start.toIntOrNull()
-        val end = draft.end.toIntOrNull()
+        val start = draft.start.text.toIntOrNull()
+        val end = draft.end.text.toIntOrNull()
 
         when {
             start == null || end == null ->
@@ -296,7 +313,7 @@ class AttachmentAnnotationViewModel(
                 emitError(
                     errorLabel = "Annotation update failed",
                     errorEvent = AttachmentAnnotationUiEvent::ShowError,
-                ) { repository.update(draft.editing, draft.note) }
+                ) { repository.update(draft.editing, draft.note.text) }
 
             else ->
                 emitError(
@@ -308,9 +325,9 @@ class AttachmentAnnotationViewModel(
                             attachmentId = attachmentId,
                             start = start,
                             end = end,
-                            quote = draft.quote,
+                            quote = draft.quote.text,
                         ),
-                        note = draft.note,
+                        note = draft.note.text,
                     )
                 }
         }

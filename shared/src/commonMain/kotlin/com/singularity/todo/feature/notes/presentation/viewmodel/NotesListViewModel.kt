@@ -7,6 +7,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId
@@ -46,7 +47,7 @@ import kotlinx.datetime.plus
  * @see NotesUiState
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-@Suppress("TooManyFunctions") // 16 functions: undo path adds 4 internal helpers
+@Suppress("TooManyFunctions") // 17 functions: undo path adds 4 internal helpers
 class NotesListViewModel(
     private val repo: NotesRepository,
     // `todayFlow` requires both now (#91). Defaulted rather than required: daily
@@ -62,7 +63,7 @@ class NotesListViewModel(
         initialState = NotesUiState.Loading(
             filter = NoteFilter.All,
             sortOrder = NoteSortOrder.UpdatedDesc,
-            searchQuery = "",
+            searchQuery = FieldOwnedText.empty(),
         ),
         crashReporter = crashReporter,
         scope = scope,
@@ -103,8 +104,11 @@ class NotesListViewModel(
      * keystrokes are what the user still sees in the search field, while the applied
      * query lags behind them by the debounce window. Handing back the applied query
      * would wipe the characters the user had typed but the debounce had not yet run.
+     *
+     * It is a [FieldOwnedText]: every write to it is named, and the only one here is
+     * the field's own text coming back.
      */
-    private val searchQueryFlow = MutableStateFlow("")
+    private val searchQueryFlow = MutableStateFlow(FieldOwnedText.empty())
 
     /**
      * The query actually applied to the repository.
@@ -114,7 +118,7 @@ class NotesListViewModel(
      * for 200 ms on every launch. Only real keystrokes wait.
      */
     private val debouncedQueryFlow = searchQueryFlow
-        .debounce { query -> if (query.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
+        .debounce { query -> if (query.text.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
         .distinctUntilChanged()
 
     private val _selectedIds = MutableStateFlow<Set<NoteId>>(emptySet())
@@ -142,7 +146,7 @@ class NotesListViewModel(
             val notesFlow = combine(filterFlow, debouncedQueryFlow) { f, query -> f to query }
                 .flatMapLatest { (f, query) ->
                     val flow = when {
-                        query.isNotBlank() -> repo.search(query)
+                        query.text.isNotBlank() -> repo.search(query.text)
                         f == NoteFilter.All -> repo.observeAll()
                         f == NoteFilter.Pinned -> repo.watchPinned()
                         else -> repo.watchArchived()
@@ -211,7 +215,7 @@ class NotesListViewModel(
             is NotesIntent.Unarchive -> unarchive(intent.id)
             is NotesIntent.SetFilter -> setFilter(intent.filter)
             is NotesIntent.SetSortOrder -> setSortOrder(intent.order)
-            is NotesIntent.SearchQueryChanged -> searchQueryFlow.value = intent.query
+            is NotesIntent.SearchQueryChanged -> setSearchQuery(intent.query)
             is NotesIntent.EnterSelection -> enterSelectionMode(intent.id)
             is NotesIntent.ToggleSelection -> toggleSelection(intent.id)
             NotesIntent.ExitSelection -> exitSelectionMode()
@@ -223,6 +227,16 @@ class NotesListViewModel(
     }
 
     // ─── Filter / Sort ───────────────────────────────────────────────────────
+
+    /**
+     * Records what the user typed in the search field.
+     *
+     * The field's own text: the field wrote it, and the field already shows it. So it
+     * is an echo, and the value is written under that name.
+     */
+    private fun setSearchQuery(query: String) {
+        searchQueryFlow.value = searchQueryFlow.value.echoed(query)
+    }
 
     private fun setFilter(filter: NoteFilter) {
         filterFlow.value = filter

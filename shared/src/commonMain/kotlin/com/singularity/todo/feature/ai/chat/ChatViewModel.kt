@@ -7,6 +7,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.engine.GenuiOutcome
@@ -47,7 +48,13 @@ class ChatViewModel(
 
     data class State(
         val messages: List<ChatMessage> = emptyList(),
-        val input: String = "",
+        /**
+         * The text of the chat input.
+         *
+         * A [FieldOwnedText], so that every write to it is named: the field's own text, a seed
+         * or a clear.
+         */
+        val input: FieldOwnedText = FieldOwnedText.empty(),
         val isLoading: Boolean = false,
         /** Set when a surface could not be produced, so the screen can say so next to the reply. */
         val surfaceError: String? = null,
@@ -58,8 +65,12 @@ class ChatViewModel(
          * The ViewModel clears the input when the message is sent, so the value is replaced only
          * with one the field never produced: the field's echo guard needs no lifting, and there is
          * no counter to read.
+         *
+         * The promise is in the type of the value, not in this sentence: the input is a
+         * [FieldOwnedText], and the only ways to write one are the field's own text, a seed and a
+         * clear.
          */
-        val inputSource: StaticText get() = StaticText(input)
+        val inputSource: StaticText get() = StaticText(input.text)
     }
 
     sealed interface Intent : MviIntent {
@@ -79,8 +90,8 @@ class ChatViewModel(
 
     override fun onIntent(intent: Intent) {
         when (intent) {
-            is Intent.InputChanged -> updateState { it.copy(input = intent.text) }
-            Intent.Send -> send(_state.value.input)
+            is Intent.InputChanged -> updateState { it.copy(input = it.input.echoed(intent.text)) }
+            Intent.Send -> send(_state.value.input.text)
             Intent.DismissSurfaceError -> updateState { it.copy(surfaceError = null) }
             is Intent.SurfaceAction -> act(intent.name, intent.context)
         }
@@ -119,7 +130,7 @@ class ChatViewModel(
         val assistantId = newId()
         updateState { current ->
             current.copy(
-                input = "",
+                input = current.input.cleared(),
                 isLoading = true,
                 surfaceError = null,
                 messages = current.messages +

@@ -92,17 +92,17 @@ class ProjectsViewModelTest {
         val vm = createVm()
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery)
+        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
 
         vm.onIntent(ProjectsIntent.SetSearchQuery("Work"))
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals("Work", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery)
+        assertEquals("Work", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
 
         vm.onIntent(ProjectsIntent.SetSearchQuery(""))
         advanceTimeBy(1_000)
         runCurrent()
-        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery)
+        assertEquals("", (vm.stateFlow.value as? ProjectsUiState.Content)?.searchQuery?.text)
     }
 
     @Test
@@ -149,7 +149,7 @@ class ProjectsViewModelTest {
         runCurrent()
 
         val error = assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
-        assertEquals("Work", error.searchQuery)
+        assertEquals("Work", error.searchQuery.text)
         assertEquals(ProjectSortOrder.Color, error.sortOrder)
     }
 

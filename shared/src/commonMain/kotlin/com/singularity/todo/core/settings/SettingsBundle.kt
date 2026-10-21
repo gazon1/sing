@@ -8,6 +8,7 @@ import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.schedule.WorkingDays
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import kotlinx.datetime.DayOfWeek
@@ -38,9 +39,9 @@ sealed interface SettingsSection {
     /** AI provider: backend, model, system prompt. */
     data class Ai(
         val provider: LlmProvider = LlmProvider.fromId(SettingsDefaults.Ai.PROVIDER),
-        val baseUrl: String = SettingsDefaults.Ai.BASE_URL,
-        val model: String = SettingsDefaults.Ai.MODEL,
-        val systemPrompt: String = SettingsDefaults.Ai.SYSTEM_PROMPT,
+        val baseUrl: FieldOwnedText = FieldOwnedText.empty().seeded(SettingsDefaults.Ai.BASE_URL),
+        val model: FieldOwnedText = FieldOwnedText.empty().seeded(SettingsDefaults.Ai.MODEL),
+        val systemPrompt: FieldOwnedText = FieldOwnedText.empty().seeded(SettingsDefaults.Ai.SYSTEM_PROMPT),
         val testResult: AiTestResult = AiTestResult.Idle,
         val models: List<String> = emptyList(),
         val isFetchingModels: Boolean = false,
@@ -160,9 +161,22 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     sealed interface Ai : SettingsIntent {
         data class UpdateProvider(val value: LlmProvider) : Ai
-        data class UpdateBaseUrl(val value: String) : Ai
-        data class UpdateModel(val value: String) : Ai
-        data class UpdateSystemPrompt(val value: String) : Ai
+
+        /**
+         * The base URL as the field's own text.
+         *
+         * The value travels as a [FieldOwnedText] so that the *write* is named where the
+         * provenance is known: the screen knows whether it is handing back the field's own
+         * text (an echo) or a value from outside the field (a seed). A bare string would
+         * lose that, and the store could only guess.
+         */
+        data class UpdateBaseUrl(val value: FieldOwnedText) : Ai
+
+        /** The model name; see [UpdateBaseUrl] for why the value carries its write. */
+        data class UpdateModel(val value: FieldOwnedText) : Ai
+
+        /** The system prompt; see [UpdateBaseUrl] for why the value carries its write. */
+        data class UpdateSystemPrompt(val value: FieldOwnedText) : Ai
 
         /** API key — written directly to SecureStorage, never debounced through apply(). */
         data class UpdateApiKey(val value: String) : Ai

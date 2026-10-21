@@ -298,6 +298,38 @@ source, and the source says who may replace the value:
   including a value the field produced earlier. The source carries the count of the
   replacements, and the guard is lifted for the value that arrives with a new count.
 
+**The static promise lives in the owner's type.** `StaticText` says *what the bridge does*
+with a value; it does not say *what the owner may write*. A `String` in the owner's state
+says nothing at all: a reviewer cannot tell a seed from a replacement, and the compiler
+cannot either. So a static owner does not hold a `String`. It holds a `FieldOwnedText`,
+whose writes are named:
+
+| Write | Means |
+|---|---|
+| `seeded(value)` | the owner loads the value from outside — once, on open |
+| `echoed(fieldText)` | the owner hands back what the field produced — a keystroke |
+| `cleared()` / `empty()` | the owner empties the field — the search query is cleared |
+
+The names are the guarantee, not the types: `seeded` and `echoed` both take a `String`, and
+nothing stops an owner from seeding a value the field produced. What the type buys is that
+every write *says which kind it is*, so the honest claim is "every write is named" and not
+"the owner cannot lie". A `FieldOwnedText` is also the thing a static row is checked
+against: the contract test asks the owner for a property of that type, so an owner that
+still holds a plain `String` fails the build.
+
+**The write is named where the provenance is known.** Most owners see the field's own text
+at the place where the field's callback lands, and the value that arrives from outside at
+the place where the upstream loads it — both in the owner. The AI provider settings are the
+exception: their value lives in a persisted store, so the store hands the field's own text
+back after the user typed it, and the store cannot tell that text from a value it loaded.
+Their intent therefore carries a `FieldOwnedText` rather than a string, and the screen —
+which knows — names the write.
+
+`Revisioned<T>` is the other half of the same idea, and it is a different kind of
+counter. `FieldOwnedText` has no count: a static upstream never replaces a value with one
+the field produced, so the echo guard is enough. `Revisioned<T>` carries the count of the
+replacements, because an owned upstream may replace a value the field produced earlier.
+
 **The owner builds the source; the field passes it through.** A field that built its own
 source would be answering a question it cannot know the answer to. The owner is the
 component that holds the value and knows who else writes it — a ViewModel's state, a
@@ -314,7 +346,8 @@ question cannot be left out — the source is required, and its type says what i
 (`shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`) reads *this* table —
 there is no second copy of it in the test — and compares it with the
 code: a file that owns a bridged field and is missing from this table fails the build, a
-row whose owner does not declare a source of the claimed kind fails the build, an owned row
+row whose owner does not declare a source of the claimed kind fails the build, a static row
+whose owner does not hold a `FieldOwnedText` fails the build, an owned row
 whose counter is never declared or never advanced fails the build, a file that builds its
 own source fails the build, and a row whose file no longer exists fails the build. Adding
 a bridged field means adding a row here.
@@ -424,10 +457,17 @@ every other field in the app.
 - **`OwnedText` without a moving count is a lie.** The type says the upstream may replace
   the value with anything; the count says it actually did. An owner that hands out
   `OwnedText(text, 0)` forever has claimed an authority it never uses.
+- **A static owner that holds a plain `String` has lost the promise.** The static kind says
+  the upstream replaces the value only with one the field never produced. A `String` in the
+  owner's state cannot say whether a write was a seed, an echo, or a replacement, so the
+  promise survives only as a sentence in a reviewer's head. Hold a `FieldOwnedText` and name
+  every write: `seeded`, `echoed`, `cleared`.
 
 ## Related
 
 - `docs/decisions/2026-10-19-text-field-state-migration.md` — the ADR this skill encodes
+- `docs/decisions/2026-10-21-the-static-kind-is-a-guarantee.md` — why the static owner's
+  value is a `FieldOwnedText` and not a `String`
 - `openspec/changes/text-field-state-migration/` — the behavioural spec
 - `singularity-todo-compose-overview` — the router over the Compose skills
 - `singularity-todo-desktop-compose-ui-tests` — the desktop harness and its conventions

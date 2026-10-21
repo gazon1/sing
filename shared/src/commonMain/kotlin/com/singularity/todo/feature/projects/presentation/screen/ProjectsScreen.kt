@@ -34,6 +34,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -172,10 +173,10 @@ private fun ProjectsContent(
         // A search that matched nothing is not the same as having no projects —
         // "No projects yet" would push the user to create one they do not need.
         is ProjectsUiState.Empty -> EmptyState(
-            title = if (state.searchQuery.isBlank()) {
+            title = if (state.searchQuery.text.isBlank()) {
                 "No projects yet"
             } else {
-                "No projects match \"${state.searchQuery}\""
+                "No projects match \"${state.searchQuery.text}\""
             },
             testTag = TestTags.PROJECTS_LIST_EMPTY,
             modifier = modifier,
@@ -238,7 +239,7 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
                     ProjectWithCounts(PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()), 12, 8),
                     ProjectWithCounts(PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt()), 0, 0),
                 ),
-                searchQuery = "",
+                searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
             ),
             onNavigateToProject = {},
@@ -255,7 +256,7 @@ private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
         ProjectsContent(
             state = ProjectsUiState.Empty(
-                searchQuery = "",
+                searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
             ),
             onNavigateToProject = {},
@@ -275,7 +276,7 @@ private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
                 projects = listOf(
                     ProjectWithCounts(PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()), 3, 1),
                 ),
-                searchQuery = "",
+                searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
             ),
             onNavigateToProject = {},

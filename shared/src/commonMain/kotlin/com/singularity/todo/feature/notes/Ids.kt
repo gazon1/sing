@@ -5,6 +5,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.OwnedText
 import com.singularity.todo.core.ui.textfields.Revisioned
 import com.singularity.todo.core.ui.textfields.StaticText
@@ -287,14 +288,19 @@ sealed interface NotesUiState {
     /** The order the list is sorted in. */
     val sortOrder: NoteSortOrder
 
-    /** The query the list is filtered by. Empty when nothing is filtered. */
-    val searchQuery: String
+    /**
+     * The query the list is filtered by. Empty when nothing is filtered.
+     *
+     * It is a [FieldOwnedText], so every write to it is named: the field's own
+     * text, a seed, or a clear.
+     */
+    val searchQuery: FieldOwnedText
 
     /** The list has not arrived yet. Carries the filter, the order and the query so far. */
     data class Loading(
         override val filter: NoteFilter,
         override val sortOrder: NoteSortOrder,
-        override val searchQuery: String,
+        override val searchQuery: FieldOwnedText,
     ) : NotesUiState
 
     /** The list is here. */
@@ -302,7 +308,7 @@ sealed interface NotesUiState {
         val list: NotesListState,
         override val filter: NoteFilter,
         override val sortOrder: NoteSortOrder,
-        override val searchQuery: String,
+        override val searchQuery: FieldOwnedText,
     ) : NotesUiState
 
     /**
@@ -316,7 +322,7 @@ sealed interface NotesUiState {
         val message: String,
         override val filter: NoteFilter,
         override val sortOrder: NoteSortOrder,
-        override val searchQuery: String,
+        override val searchQuery: FieldOwnedText,
     ) : NotesUiState
 }
 
@@ -332,5 +338,9 @@ sealed interface NotesUiState {
  * source is what the field is handed. A property of the interface would say the variants
  * have to carry the source too — and then the query and the source would be two values
  * that could disagree.
+ *
+ * The promise is in the type of the value, not in this sentence: the query is a
+ * [FieldOwnedText], and the only ways to write one are the field's own text, a seed and a
+ * clear.
  */
-val NotesUiState.searchQuerySource: StaticText get() = StaticText(searchQuery)
+val NotesUiState.searchQuerySource: StaticText get() = StaticText(searchQuery.text)

@@ -136,6 +136,31 @@ class TextFieldRewriteContractTest {
     }
 
     @Test
+    fun `a static row names an owner whose value names its writes`() {
+        val wrong = registry.filter { it.kind == Kind.STATIC }.mapNotNull { row ->
+            // The static kind is a promise about the upstream's writes: it replaces the
+            // value only with one the field never produced. An owner that holds a bare
+            // string can write to it from anywhere, and the write says nothing. An owner
+            // that holds a `FieldOwnedText` can only write it in the three named ways —
+            // the field's own text, a seed, a clear — so the promise is in the type.
+            val declared = TextFieldShapeScan.properties(row.owner).any { property ->
+                property.type?.bareSourceType == FIELD_OWNED
+            }
+            if (declared) return@mapNotNull null
+            "$row.site -> ${row.owner} holds no $FIELD_OWNED"
+        }.sorted()
+
+        assertTrue(
+            wrong.isEmpty(),
+            "These fields are handed a static source, but the file that owns the value " +
+                "holds no $FIELD_OWNED:\n" +
+                wrong.joinToString("\n") { "  - $it" } +
+                "\n\nA static source is a promise about the upstream's writes, and a " +
+                "promise that lives in a type is one nobody can forget.",
+        )
+    }
+
+    @Test
     fun `the owner a row names declares a source of that kind`() {
         val wrong = registry.mapNotNull { row ->
             val kind = row.kind.sourceType
@@ -375,6 +400,9 @@ class TextFieldRewriteContractTest {
 
         /** The type that carries a value and the count of its replacements. */
         const val REVISIONED = "Revisioned"
+
+        /** The type whose writes are all named. */
+        const val FIELD_OWNED = "FieldOwnedText"
 
         /** The only way a `Revisioned`'s count moves. */
         const val REPLACED_BY = "replacedBy("

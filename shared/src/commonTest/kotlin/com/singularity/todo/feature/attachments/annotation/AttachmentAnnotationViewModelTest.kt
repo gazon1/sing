@@ -147,9 +147,9 @@ class AttachmentAnnotationViewModelTest {
 
         val draft = assertNotNull(ctx.assertIs<AttachmentAnnotationUiState.Content>().draft)
 
-        assertEquals("6", draft.start)
-        assertEquals("10", draft.end)
-        assertEquals("beta", draft.quote)
+        assertEquals("6", draft.start.text)
+        assertEquals("10", draft.end.text)
+        assertEquals("beta", draft.quote.text)
         assertEquals(null, draft.editing, "a new annotation is not an edit")
         vmScope.job?.cancel()
     }
@@ -214,7 +214,7 @@ class AttachmentAnnotationViewModelTest {
         val content = ctx.assertIs<AttachmentAnnotationUiState.Content>()
         assertEquals(emptyList(), repo.calls, "an invalid range must not reach the repository")
         assertNotNull(content.draft, "the form keeps what the user typed")
-        assertEquals("half written", content.draft!!.note)
+        assertEquals("half written", content.draft!!.note.text)
         vmScope.job?.cancel()
     }
 

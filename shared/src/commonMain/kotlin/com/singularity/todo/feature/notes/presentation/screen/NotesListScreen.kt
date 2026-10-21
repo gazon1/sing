@@ -71,6 +71,7 @@ import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
@@ -662,7 +663,7 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
                 ),
                 filter = NoteFilter.All,
                 sortOrder = NoteSortOrder.UpdatedDesc,
-                searchQuery = "",
+                searchQuery = FieldOwnedText.empty(),
             ),
             navigator = LocalNotesNavigator.current,
             onCreateNote = { NoteId.fromString("preview-note-id") },
@@ -680,7 +681,7 @@ private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurf
                 list = NotesListState(),
                 filter = NoteFilter.All,
                 sortOrder = NoteSortOrder.UpdatedDesc,
-                searchQuery = "",
+                searchQuery = FieldOwnedText.empty(),
             ),
             navigator = LocalNotesNavigator.current,
             onCreateNote = { NoteId.fromString("preview-note-id") },

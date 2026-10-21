@@ -110,7 +110,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
         topBar = {
             EditorTopBar(
                 isEditMode = state.isEditMode,
-                canSave = state.name.isNotBlank() && !state.saving,
+                canSave = state.name.text.isNotBlank() && !state.saving,
                 onBack = onBack,
                 onSave = { viewModel.onIntent(ProjectEditorIntent.Save) },
             )
