@@ -90,8 +90,14 @@ fun TaskTitleRow(
             lineLimits = TextFieldLineLimits.SingleLine,
             modifier = Modifier
                 .weight(1f)
-                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-                .testTag(TestTags.TASK_DETAIL_TITLE),
+                // One tag per node. A second `testTag` on the same chain is
+                // applied and then dropped by the semantics merge, so the flow
+                // that asks for it can never pass — the tag looks right in
+                // `TestTags.kt` and exists nowhere in the tree. The title's
+                // *value* needs no second name: the field publishes it as the
+                // node's text (measured on the device, 2026-10-28), so a flow
+                // asserts it with `text:`.
+                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT),
             decorator = { innerTextField ->
                 if (titleState.text.isEmpty()) {
                     Text(

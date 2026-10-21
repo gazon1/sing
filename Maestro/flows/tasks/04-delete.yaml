@@ -20,9 +20,10 @@ tags:
     timeout: 5000
 # The row's title must have carried into the editor — this proves the tap routed
 # to *this* task and not merely that some editor opened.
-# Using task_detail_title id (from TaskTitleRow) rather than text for reliability.
+# The field publishes its value as the node's text (measured on the device),
+# so the value is assertable.
 - assertVisible:
-    id: task_detail_title
+    text: "Buy milk"
 - tapOn:
     id: task_editor_more_menu
 - extendedWaitUntil:

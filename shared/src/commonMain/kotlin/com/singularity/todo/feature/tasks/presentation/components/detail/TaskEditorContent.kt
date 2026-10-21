@@ -286,8 +286,7 @@ private fun TaskEditorContent(
                     isActive = isPinned,
                     onClick = cb.onToggle,
                     modifier = Modifier
-                        .testTag(TestTags.TASK_EDITOR_PIN_ROW)
-                        .testTag(TestTags.TASK_DETAIL_PIN_BUTTON),
+                        .testTag(TestTags.TASK_EDITOR_PIN_ROW),
                 )
             }
 
