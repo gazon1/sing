@@ -34,21 +34,52 @@ class UiAutomationSelectorTest {
     }
 
     /**
-     * Composables that render into their own Android window. A `testTag` inside
-     * one of these does not become a UIAutomator `resource-id`, because the
-     * `testTagsAsResourceId` semantics property is set at the app root and is
-     * not inherited across windows.
+     * The surfaces that render into their own Android window, and the call
+     * shape that opens each one.
      *
-     * `AlertDialog` is only one member of the class — `ModalBottomSheet`,
-     * `DropdownMenu` and `Popup` qualify equally, and the first version of this
-     * rule that only knew about dialogs left the other three behind.
+     * The table is keyed by the **import** that brings the surface in, and not
+     * only by the shape of the call, because a list of call shapes is a list
+     * that rots: the first version of this rule knew about `AlertDialog` only,
+     * and `ModalBottomSheet`, `DropdownMenu` and `Popup` were left behind —
+     * every one of them a window whose tags Maestro could not see.
+     *
+     * Keying by the import is what makes the list checkable. The guard below
+     * reads the imports in the tree and fails when one of them opens a window
+     * and this table has never heard of it, so a surface the rule does not know
+     * is a finding rather than a blind spot.
      */
-    private val windowComposables = listOf(
-        "AlertDialog(",
-        "ModalBottomSheet(",
-        "DropdownMenu(",
-        "Popup(",
+    private val windowSurfaces: Map<String, String> = mapOf(
+        "androidx.compose.ui.window.Dialog" to "Dialog(",
+        "androidx.compose.ui.window.Popup" to "Popup(",
+        "androidx.compose.material3.AlertDialog" to "AlertDialog(",
+        "androidx.compose.material3.BasicAlertDialog" to "BasicAlertDialog(",
+        "androidx.compose.material3.ModalBottomSheet" to "ModalBottomSheet(",
+        "androidx.compose.material3.DropdownMenu" to "DropdownMenu(",
+        "androidx.compose.material3.ExposedDropdownMenu" to "ExposedDropdownMenu(",
+        "androidx.compose.material3.Snackbar" to "Snackbar(",
     )
+
+    private val windowComposables: List<String> = windowSurfaces.values.toList()
+
+    /**
+     * The name of a surface that opens a window.
+     *
+     * The rule cannot know every type Compose will add, but it can know the
+     * shape of the name: a dialog, a popup, a sheet, a dropdown, a snackbar.
+     * An import whose name has that shape is a window until proven otherwise,
+     * and the guard below makes it prove itself.
+     *
+     * Only Compose's own surfaces are windows. A composable of this repository
+     * that happens to be called `ListPickerSheet` is not a window — it is a
+     * composable that *uses* one, and the file-level rule already asks that
+     * window to map its tags. Reading the whole import list would have found
+     * thirty-nine of those and called them unknown windows, which is how a
+     * guard becomes noise and then gets switched off.
+     */
+    private val windowName = Regex("""(Dialog|Popup|Sheet|DropdownMenu|Snackbar)$""")
+
+    /** The package that owns the surfaces which open a window of their own. */
+    private val composeWindowPackages = listOf("androidx.compose.")
 
     private val kotlinFiles: List<Path> = Files.walk(commonMainRoot).use { stream ->
         stream.filter { it.isRegularFile() && it.extension == "kt" }.toList()
@@ -82,14 +113,10 @@ class UiAutomationSelectorTest {
         kotlinFiles.forEach { file ->
             val code = stripComments(file.readText())
             windowComposables.forEach { window ->
-                findOccurrences(code, window).forEach { start ->
-                    scanned++
-                    val span = code.substring(start, windowBodyEnd(code, start + window.length - 1))
-                    if (span.contains("testTag(") && !span.contains("mapTestTagsAsResourceIds")) {
-                        val line = code.substring(0, start).count { it == '\n' } + 1
-                        violations += "${file.fileName}:$line $window"
-                    }
-                }
+                scanned += windowCallSites(code, window).size
+            }
+            windowViolations(code).forEach { violation ->
+                violations += "${file.fileName}:$violation"
             }
         }
 
@@ -108,6 +135,107 @@ class UiAutomationSelectorTest {
                 "is invisible to Maestro. Apply Modifier.mapTestTagsAsResourceIds() to the " +
                 "surface's own modifier. See docs/decisions/2026-10-04-testtag-visibility-helper.md.",
         )
+    }
+
+    /**
+     * The rule must know every window the tree opens.
+     *
+     * The rule's list of window-owning surfaces used to be a list of call
+     * shapes, and a list of call shapes is a list that rots: the first version
+     * of this rule knew `AlertDialog` only, and every other window was left
+     * behind — a blind spot that nothing else sees, and a tagged control in a
+     * window is invisible to Maestro.
+     *
+     * So the list is now checked against the tree. Every import whose name
+     * has the shape of a window — a dialog, a popup, a sheet, a dropdown, a
+     * snackbar — has to be in the table, and the table has to carry the call
+     * shape that opens it. A new window surface therefore fails this test
+     * until somebody says what it is, which is the whole point: a surface the
+     * rule has never heard of is a question, not a silent gap.
+     */
+    @Test
+    fun `the rule knows every window the tree opens`() {
+        val unknown = mutableListOf<String>()
+
+        kotlinFiles.forEach { file ->
+            val code = file.readText()
+            IMPORT.findAll(code).forEach { match ->
+                val path = match.groupValues[1]
+                if (composeWindowPackages.none { path.startsWith(it) }) return@forEach
+                val name = path.substringAfterLast('.')
+                if (!windowName.containsMatchIn(name)) return@forEach
+                if (path !in windowSurfaces) {
+                    unknown += "${file.fileName}: $path"
+                }
+            }
+        }
+
+        assertTrue(
+            unknown.isEmpty(),
+            "the rule does not know these window-owning surfaces (${unknown.size}):\n" +
+                unknown.joinToString("\n") { "  - $it" } +
+                "\n\nA surface that renders into its own Android window needs its own " +
+                "mapTestTagsAsResourceIds(), and a rule that has never heard of it cannot say " +
+                "so. Add it to windowSurfaces with the call shape that opens it — and check " +
+                "that the surface really does open a window before you do.",
+        )
+    }
+
+    /**
+     * The positive control for the window rule.
+     *
+     * A rule that has never caught anything may be broken rather than clean.
+     * The control feeds it one of each shape it claims to know, with a tagged
+     * control and no mapping, and asks it to find every one of them; and it
+     * feeds it the same shapes *with* the mapping, and asks it to find
+     * nothing. A rule that cries wolf is worse than no rule.
+     */
+    @Test
+    fun `the window rule catches every shape it claims to know`() {
+        val shapes = mapOf(
+            "Dialog(" to "androidx.compose.ui.window.Dialog",
+            "Popup(" to "androidx.compose.ui.window.Popup",
+            "AlertDialog(" to "androidx.compose.material3.AlertDialog",
+            "BasicAlertDialog(" to "androidx.compose.material3.BasicAlertDialog",
+            "ModalBottomSheet(" to "androidx.compose.material3.ModalBottomSheet",
+            "DropdownMenu(" to "androidx.compose.material3.DropdownMenu",
+            "ExposedDropdownMenu(" to "androidx.compose.material3.ExposedDropdownMenu",
+            "Snackbar(" to "androidx.compose.material3.Snackbar",
+        )
+
+        shapes.forEach { (shape, import) ->
+            val withoutMapping = """
+                import $import
+
+                fun Surface() {
+                    $shape {
+                        Row { Text("hi").testTag("row_tag") }
+                    }
+                }
+            """.trimIndent()
+            val withMapping = """
+                import $import
+
+                fun Surface() {
+                    $shape {
+                        Row(Modifier.mapTestTagsAsResourceIds()) {
+                            Text("hi").testTag("row_tag")
+                        }
+                    }
+                }
+            """.trimIndent()
+
+            assertTrue(
+                windowViolations(withoutMapping).isNotEmpty(),
+                "the rule did not catch a tagged control inside $shape with no " +
+                    "mapTestTagsAsResourceIds — the shape is not covered any more",
+            )
+            assertTrue(
+                windowViolations(withMapping).isEmpty(),
+                "the rule reported a tagged control inside $shape that does map its tags — " +
+                    "the rule is crying wolf",
+            )
+        }
     }
 
     /**
@@ -410,6 +538,9 @@ class UiAutomationSelectorTest {
 
         /** A parameter name — the shape Kotlin gives to a function parameter. */
         val IDENTIFIER = Regex("""[a-z][A-Za-z0-9_]*""")
+
+        /** An import — the shape a surface arrives in. */
+        val IMPORT = Regex("""^import\s+([\w.]+)""", RegexOption.MULTILINE)
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -431,6 +562,44 @@ class UiAutomationSelectorTest {
             i = code.indexOf(needle, i + needle.length)
         }
         return out
+    }
+
+    /**
+     * The call sites of a window-owning surface, in one file.
+     *
+     * The needle has to start a name, not merely end one: `Dialog(` is the
+     * shape Compose's own window uses, and `ConfirmDialog(` is a composable of
+     * this repository that renders in the same window as its caller. Matching
+     * the tail of the name would make the rule ask a custom composable to map
+     * tags it never owned.
+     */
+    private fun windowCallSites(code: String, needle: String): List<Int> =
+        findOccurrences(code, needle).filter { start ->
+            val before = if (start == 0) ' ' else code[start - 1]
+            !before.isLetterOrDigit() && before != '_' && before != '.'
+        }
+
+    /**
+     * The window-owning call sites of one file that hold a tagged control and
+     * no mapping.
+     *
+     * The scan is a function of the source, not of the tree, so that the
+     * positive control can feed it a shape and be told whether the rule sees
+     * it. A rule whose positive control has to re-implement the rule is a
+     * rule with no positive control.
+     */
+    private fun windowViolations(code: String): List<String> {
+        val violations = mutableListOf<String>()
+        windowComposables.forEach { window ->
+            windowCallSites(code, window).forEach { start ->
+                val span = code.substring(start, windowBodyEnd(code, start + window.length - 1))
+                if (span.contains("testTag(") && !span.contains("mapTestTagsAsResourceIds")) {
+                    val line = code.substring(0, start).count { it == '\n' } + 1
+                    violations += "line $line $window"
+                }
+            }
+        }
+        return violations
     }
 
     /**
