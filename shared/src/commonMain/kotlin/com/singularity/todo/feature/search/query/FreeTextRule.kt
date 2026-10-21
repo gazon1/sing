@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.TextMatchPlan
+import com.singularity.todo.core.search.TextMatchQuery
+
 /**
  * The free-text part of a query — the terms that match no condition rule (§3 G5) —
  * and the one rule that every kind of record is matched against.
@@ -71,5 +74,39 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
         // F2 — every term has to match. Matching is a word-prefix match and is
         // case-insensitive, which is the caller's half of the rule (F3).
         return if (combinesWithOr) satisfied.any { it } else satisfied.all { it }
+    }
+
+    /**
+     * What the full-text index can do for this rule.
+     *
+     * ## Why the decision lives here
+     *
+     * This is the one place that knows what the index can answer. It used to
+     * live in the resolver, which meant every other caller of the index had to
+     * answer the same question again — and answer it again the same way, by
+     * remembering to copy the rule. The rule is what the index is asked about,
+     * so the rule is where the answer belongs.
+     *
+     * ## The three answers
+     *
+     * - A rule of positive terms is narrowed by them. The terms are looked up
+     *   as they are.
+     * - A rule that *requires* a negated term is still narrowed: the index
+     *   finds the records that carry the positive terms, and the rule then
+     *   removes the ones that carry the negated one. The negation stays the
+     *   rule's business — the index has no `NOT`.
+     * - A rule the index cannot answer at all reads the rows: a rule that says
+     *   only what a record must *not* carry, and a rule that makes a negated
+     *   term an alternative of a positive one. The records that match by *not*
+     *   carrying the negated term are exactly the ones a positive lookup throws
+     *   away, so there is nothing to look up.
+     */
+    fun plan(): TextMatchPlan {
+        val positive = terms.filter { !it.negated }.map { it.text }
+        if (positive.isEmpty()) return TextMatchPlan.BroadScan
+        if (combinesWithOr && terms.any { it.negated }) return TextMatchPlan.BroadScan
+        return TextMatchPlan.Narrowed(
+            TextMatchQuery(terms = positive, combinesWithOr = combinesWithOr),
+        )
     }
 }

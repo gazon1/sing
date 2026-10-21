@@ -2,10 +2,10 @@
 
 package com.singularity.todo.feature.notes.data
 
-import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.repository.assertCanWrite
+import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
@@ -30,7 +30,7 @@ import com.singularity.todo.core.database.UnitOfWork
  */
 class NotesRepositoryImpl(
     private val noteDao: NoteDao,
-    private val ftsDao: FtsDao,
+    private val textIndex: SearchTextIndex,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
     private val syncRepository: SyncRepository,
@@ -159,14 +159,8 @@ class NotesRepositoryImpl(
         noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
     }
 
-    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            ftsDao.watchNotes(uid.value, query).map { list -> list.map { it.toNote() } }
-        }
-
-    override fun search(query: String): Flow<List<Note>> = currentUser.observeForCurrentUser { uid ->
-        ftsDao.watchNotes(uid.value, TextMatchQuery(listOf(query))).map { list -> list.map { it.toNote() } }
-    }
+    override fun search(query: String): Flow<List<Note>> =
+        textIndex.observeNotes(TextMatchQuery(listOf(query)))
 
     override suspend fun createWithContent(
         id: NoteId,

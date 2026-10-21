@@ -5,9 +5,11 @@ package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.data.TagsRepositoryImpl
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -53,16 +55,18 @@ class TagsReadIsolationTest {
         deletedAt = deletedAt,
     )
 
-    private fun repository(db: FakeAppDatabase) = TagsRepositoryImpl(
-        tagDao = db.tagDao(),
-        ftsDao = db.ftsDao(),
-        clock = Clock.System,
-        currentUser = FakeProfileAwareCurrentUser(
+    private fun repository(db: FakeAppDatabase): TagsRepository {
+        val currentUser = FakeProfileAwareCurrentUser(
             authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),
-        ),
-        syncRepository = FakeSyncRepository(),
-        unitOfWork = FakeUnitOfWork(),
-    )
+        )
+        return TagsRepositoryImpl(
+            tagDao = db.tagDao(),
+            clock = Clock.System,
+            currentUser = currentUser,
+            syncRepository = FakeSyncRepository(),
+            unitOfWork = FakeUnitOfWork(),
+        )
+    }
 
     @Test
     fun observeTag_returnsOwnTag() = runTest {

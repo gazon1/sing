@@ -64,7 +64,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     single<TaskRepository> {
         TaskRepositoryImpl(
             taskDao = get(),
-            ftsDao = get(),
+            textIndex = get(),
             clock = get(),
             currentUser = get(),
             syncRepository = get(),
@@ -106,6 +106,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     factory {
         SearchUseCase(
+            get(),
             get(),
             get(),
             get(),

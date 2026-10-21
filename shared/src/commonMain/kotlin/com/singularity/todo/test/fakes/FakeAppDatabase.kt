@@ -427,17 +427,25 @@ private class FakeFtsDao(
         }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
     }
 
-    override suspend fun searchTaskTitlesByMatch(userId: String, match: String): List<TaskEntity> =
+    override suspend fun searchTaskTitlesByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): List<TaskEntity> =
         tasks.value.values.filter { t ->
             t.userId == userId && t.archivedAt == null &&
                 matchesFtsExpression(match, listOf(t.title, t.description))
-        }.sortedByDescending { it.updatedAt }.take(20)
+        }.sortedByDescending { it.updatedAt }.take(limit)
 
-    override suspend fun searchNoteTitlesByMatch(userId: String, match: String): List<NoteEntity> =
+    override suspend fun searchNoteTitlesByMatch(
+        userId: String,
+        match: String,
+        limit: Int,
+    ): List<NoteEntity> =
         notes.value.values.filter { n ->
             n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
                 matchesFtsExpression(match, listOf(n.title))
-        }.sortedByDescending { it.updatedAt }.take(20)
+        }.sortedByDescending { it.updatedAt }.take(limit)
 }
 
 private class FakeTaskDao(

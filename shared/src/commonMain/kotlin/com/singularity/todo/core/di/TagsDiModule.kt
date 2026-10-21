@@ -25,7 +25,6 @@ fun tagsModule(): org.koin.core.module.Module = module {
     single<TagsRepository> {
         TagsRepositoryImpl(
             tagDao = get(),
-            ftsDao = get(),
             clock = get(),
             currentUser = get(),
             syncRepository = get(),

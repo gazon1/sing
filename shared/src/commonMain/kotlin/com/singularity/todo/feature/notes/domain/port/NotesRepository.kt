@@ -2,7 +2,6 @@ package com.singularity.todo.feature.notes.domain.port
 
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
@@ -64,15 +63,6 @@ interface NotesRepository :
     /** Search notes for the current user. */
     fun search(query: String): Flow<List<Note>>
 
-    /**
-     * Observes the notes whose title matches [query].
-     *
-     * The lookup goes through the full-text index, so the cost of the search
-     * does not grow with the number of notes. The match is a *word-prefix*
-     * match — the semantics of the index — and the terms are combined the way
-     * [query] says: every term, or any of them.
-     */
-    fun observeByTextMatch(query: TextMatchQuery): Flow<List<Note>>
 
     /** Creates a note with content (autosave path). Returns the saved note. */
     suspend fun createWithContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>

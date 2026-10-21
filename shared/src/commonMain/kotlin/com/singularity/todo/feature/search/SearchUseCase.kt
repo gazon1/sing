@@ -1,7 +1,8 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatch
-import com.singularity.todo.core.search.TextMatchQuery
+import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -10,6 +11,7 @@ import com.singularity.todo.feature.search.query.FreeTextRule
 import com.singularity.todo.feature.search.query.Options
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
+import com.singularity.todo.feature.search.query.titleMatchesFirst
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SingularityQueryParser
 import com.singularity.todo.feature.search.query.SortOrder
@@ -44,6 +46,7 @@ class SearchUseCase(
     private val noteRepo: NotesRepository,
     private val projectRepo: ProjectsRepository,
     private val tagRepo: TagsRepository,
+    private val textIndex: SearchTextIndex,
     private val queryResolver: SearchQueryResolver,
 ) {
     /**
@@ -85,7 +88,7 @@ class SearchUseCase(
     }
 
     private fun buildResultsFlow(resolved: ResolvedSearchQuery): Flow<SearchResults> {
-        val textMatch = resolved.textMatch
+        val plan = resolved.textMatchPlan
 
         // ── Task flow ──────────────────────────────────────────────────────────
         //
@@ -94,16 +97,23 @@ class SearchUseCase(
         // instead of reading every task and looking at each one. The structured
         // conditions narrow them further, and the free-text rule still has the
         // last word — the index finds the candidates, the rule decides.
+        //
+        // A rule the index cannot answer reads the rows instead, and the plan
+        // says so: [TextMatchPlan.BroadScan] is the old path, named.
+        // The rule the free text was parsed into. It is the last word: the index
+        // finds the candidates, the rule decides which of them the answer is.
+        val rule = resolved.freeTextRule
+
         val structuredTaskFlow: Flow<List<Task>> = when {
             resolved.taskFilter != null -> taskRepo.observeByFilter(resolved.taskFilter)
             else -> taskRepo.observeAll()
         }
         val baseTaskFlow: Flow<List<Task>> = when {
-            textMatch == null -> structuredTaskFlow
+            plan !is TextMatchPlan.Narrowed -> structuredTaskFlow
 
-            resolved.taskFilter == null -> taskRepo.observeByTextMatch(textMatch)
+            resolved.taskFilter == null -> textIndex.observeTasks(plan.query)
 
-            else -> combine(structuredTaskFlow, taskRepo.observeByTextMatch(textMatch)) { structured, matched ->
+            else -> combine(structuredTaskFlow, textIndex.observeTasks(plan.query)) { structured, matched ->
                 val matchedIds = matched.mapTo(mutableSetOf()) { task -> task.id }
                 structured.filter { task -> task.id in matchedIds }
             }
@@ -117,6 +127,16 @@ class SearchUseCase(
                 seq
             }
             var result = sortTasks(filtered.toList(), resolved.sortOrder, resolved.sortDescending)
+
+            // A record that carries the word in its title is a better answer than
+            // one that carries it in its body. FTS4 has no bm25 and cannot say
+            // that; the rule can, and the rule is the last word.
+            if (!rule.isEmpty) {
+                result = titleMatchesFirst(result) { task ->
+                    rule.selects { term -> TextMatch.matches(task.title, term) }
+                }
+            }
+
             val offset = resolved.options.offset
             val limit = resolved.options.limit
             if (offset > 0) result = result.drop(offset)
@@ -132,14 +152,12 @@ class SearchUseCase(
         // by its title (the notes repository searches titles only,
         // `watchSearchByTitle`), a project or a tag by its name — and the rule decides
         // which records the terms select.
-        val rule = resolved.freeTextRule
-
         // F5 — a query with no free text selects no note, project or tag. The
         // structured terms of a query are filters over tasks, and there is no
         // free-text part to match anything else with.
-        val noteFlow = textMatchedNotes(textMatch, rule)
-        val projectFlow = textMatchedProjects(textMatch, rule)
-        val tagFlow = textMatchedTags(textMatch, rule)
+        val noteFlow = textMatchedNotes(plan, rule)
+        val projectFlow = textMatchedProjects(plan, rule)
+        val tagFlow = textMatchedTags(plan, rule)
 
         return combine(taskFlow, noteFlow, projectFlow, tagFlow) { tasks, notes, projects, tags ->
             SearchResults(
@@ -158,11 +176,10 @@ class SearchUseCase(
      * narrowing the index can answer, and from every note otherwise; the rule
      * then decides, in both cases.
      */
-    private fun textMatchedNotes(textMatch: TextMatchQuery?, rule: FreeTextRule): Flow<List<Note>> {
-        val source = if (textMatch != null) {
-            noteRepo.observeByTextMatch(textMatch)
-        } else {
-            noteRepo.observeAll()
+    private fun textMatchedNotes(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Note>> {
+        val source = when (plan) {
+            is TextMatchPlan.Narrowed -> textIndex.observeNotes(plan.query)
+            TextMatchPlan.BroadScan -> noteRepo.observeAll()
         }
         return source.map { notes ->
             if (rule.isEmpty) {
@@ -174,11 +191,10 @@ class SearchUseCase(
     }
 
     /** The projects that satisfy the free-text rule. See [textMatchedNotes]. */
-    private fun textMatchedProjects(textMatch: TextMatchQuery?, rule: FreeTextRule): Flow<List<Project>> {
-        val source = if (textMatch != null) {
-            projectRepo.observeByTextMatch(textMatch)
-        } else {
-            projectRepo.observeAll()
+    private fun textMatchedProjects(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Project>> {
+        val source = when (plan) {
+            is TextMatchPlan.Narrowed -> textIndex.observeProjects(plan.query)
+            TextMatchPlan.BroadScan -> projectRepo.observeAll()
         }
         return source.map { projects ->
             if (rule.isEmpty) {
@@ -190,11 +206,10 @@ class SearchUseCase(
     }
 
     /** The tags that satisfy the free-text rule. See [textMatchedNotes]. */
-    private fun textMatchedTags(textMatch: TextMatchQuery?, rule: FreeTextRule): Flow<List<Tag>> {
-        val source = if (textMatch != null) {
-            tagRepo.observeByTextMatch(textMatch)
-        } else {
-            tagRepo.observeAll()
+    private fun textMatchedTags(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Tag>> {
+        val source = when (plan) {
+            is TextMatchPlan.Narrowed -> textIndex.observeTags(plan.query)
+            TextMatchPlan.BroadScan -> tagRepo.observeAll()
         }
         return source.map { tags ->
             if (rule.isEmpty) {

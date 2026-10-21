@@ -6,6 +6,7 @@ package com.singularity.todo.feature.notes
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.CrossUserWriteException
@@ -52,14 +53,15 @@ class NotesRepositorySyncTest {
         tempDir = Files.createTempDirectory("singularity-notes-").toFile()
         db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
         sync = FakeSyncRepository(this)
+        val currentUser = FakeProfileAwareCurrentUser(
+            FakeAuthRepository(Session.Anonymous(user)),
+            scope = backgroundScope,
+        )
         repo = NotesRepositoryImpl(
             noteDao = db.noteDao(),
-            ftsDao = db.ftsDao(),
+            textIndex = db.textIndex(currentUser),
             clock = Clock.System,
-            currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(Session.Anonymous(user)),
-                scope = backgroundScope,
-            ),
+            currentUser = currentUser,
             syncRepository = sync,
             unitOfWork = FakeUnitOfWork(),
         )

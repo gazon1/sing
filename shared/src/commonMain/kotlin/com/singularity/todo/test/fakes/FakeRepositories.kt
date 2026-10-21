@@ -810,21 +810,6 @@ open class FakeTaskRepository(
             }
     }
 
-    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Task>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.onStart { emit(store.state.value) }
-                .map { map ->
-                    map.values.filter { it.userId == uid }
-                        .filter { task -> matchesTextMatch(query, task.title, task.description) }
-                        .sortedWith(
-                            compareBy({
-                                it.dueDate?.toString()
-                                    ?: "\uFFFF"
-                            }, { !it.isPinned }),
-                        )
-                }
-        }
-
     override fun observeByDate(date: kotlinx.datetime.LocalDate): Flow<List<Task>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.onStart { emit(store.state.value) }
@@ -1535,14 +1520,6 @@ class FakeProjectsRepository(
         store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
     }
 
-    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<Project>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid && !it.isDeleted }
-                    .filter { project -> matchesTextMatch(query, project.name) }
-            }
-        }
-
     override suspend fun get(id: ProjectId): Project? {
         val uid = currentUser.scopedUserId.value
         return store[id.value]?.takeIf { it.userId == uid }
@@ -1725,14 +1702,6 @@ class FakeTagsRepository(
     override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
-        }
-
-    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid }
-                    .filter { tag -> matchesTextMatch(query, tag.name) }
-            }
         }
 
     override suspend fun get(id: TagId): com.singularity.todo.feature.tags.Tag? {
@@ -1975,14 +1944,6 @@ open class FakeNotesRepository(
     ): Flow<com.singularity.todo.feature.notes.Note?> = currentUser.observeForCurrentUser { uid ->
         store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
     }
-
-    override fun observeByTextMatch(query: TextMatchQuery): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
-            store.state.map { list ->
-                list.values.filter { it.userId == uid && it.archivedAt == null && it.deletedAt == null }
-                    .filter { note -> matchesTextMatch(query, note.title) }
-            }
-        }
 
     override suspend fun get(id: com.singularity.todo.feature.notes.NoteId): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value

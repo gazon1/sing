@@ -20,6 +20,7 @@ import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.domain.model.UpdateTagGroupInput
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
+import com.singularity.todo.feature.tags.toTag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock

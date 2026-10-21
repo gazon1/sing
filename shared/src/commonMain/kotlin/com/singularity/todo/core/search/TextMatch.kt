@@ -49,6 +49,17 @@ data class TextMatchQuery(val terms: List<String> = emptyList(), val combinesWit
  *
  * The tokenizer is deliberately the same shape as SQLite's `unicode61`: letters
  * and digits are token characters, everything else separates them.
+ *
+ * ## The one difference, and why it is safe
+ *
+ * `unicode61` removes the diacritics of a word — "café" is indexed as "cafe" —
+ * and this matcher does not. So the index finds "café" for the term "cafe" and
+ * the rule does not.
+ *
+ * That difference is in the safe direction: the index offers a candidate the
+ * rule then rejects, and the search answers the same either way. The unsafe
+ * direction — the rule accepting a record the index does not offer — is what
+ * the corpus in `FtsMatcherAgreementTest` holds closed.
  */
 object TextMatch {
 
@@ -85,9 +96,26 @@ object TextMatch {
      *
      * Empty runs are dropped, so a string of punctuation has no tokens and
      * matches no term.
+     *
+     * ## Why the fold is per character
+     *
+     * `String.lowercase()` is the *full* Unicode lowercase mapping, and for one
+     * letter it is not one letter: `İ` (U+0130) maps to `i` followed by a
+     * combining dot. The combining dot is not a letter, so the tokenizer split
+     * "İstanbul" into two tokens — while SQLite's `unicode61` folds it into
+     * one. A search for "stanbul" then matched the rule and not the index, and
+     * the record was lost without a word.
+     *
+     * `Char.lowercaseChar()` is the *simple* mapping — one character in, one
+     * character out — and it is what `unicode61` does. The corpus in
+     * `FtsMatcherAgreementTest` is what keeps the two tokenizers in step.
      */
     fun tokens(text: String): List<String> =
-        text.lowercase().split(SEPARATORS).filter { it.isNotEmpty() }
+        buildString(text.length) {
+            text.forEach { character -> append(character.lowercaseChar()) }
+        }
+            .split(SEPARATORS)
+            .filter { it.isNotEmpty() }
 
     private fun matchesAt(textTokens: List<String>, start: Int, termTokens: List<String>): Boolean {
         for (offset in termTokens.indices) {

@@ -5,11 +5,13 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.ProjectEntity
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.test.fakes.FakeAppDatabase
@@ -78,17 +80,19 @@ class ProjectInheritanceSyncTest {
         externalId = null,
     )
 
-    private fun projects(db: FakeAppDatabase, sync: FakeSyncRepository) = ProjectsRepositoryImpl(
-        projectDao = db.projectDao(),
-        ftsDao = db.ftsDao(),
-        inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
-        clock = Clock.System,
-        currentUser = FakeProfileAwareCurrentUser(
+    private fun projects(db: FakeAppDatabase, sync: FakeSyncRepository): ProjectsRepository {
+        val currentUser = FakeProfileAwareCurrentUser(
             authRepository = FakeAuthRepository(Session.Anonymous(userId)),
-        ),
-        syncRepository = sync,
-        unitOfWork = FakeUnitOfWork(),
-    )
+        )
+        return ProjectsRepositoryImpl(
+            projectDao = db.projectDao(),
+            inheritedTagGroupDao = db.projectInheritedTagGroupDao(),
+            clock = Clock.System,
+            currentUser = currentUser,
+            syncRepository = sync,
+            unitOfWork = FakeUnitOfWork(),
+        )
+    }
 
     private fun tagGroups(db: FakeAppDatabase, sync: FakeSyncRepository) = TagGroupRepositoryImpl(
         tagGroupDao = db.tagGroupDao(),
