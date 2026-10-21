@@ -1593,7 +1593,12 @@ def _registry_gate_commands() -> list[tuple[str, str, str]]:
 #: `sgate` commands that run no check script and therefore back nothing. Listed so
 #: the "this invocation resolves to nothing" report has a known-good baseline; a
 #: name outside this set that resolves to nothing is a typo or a retired gate.
-_NON_GATE_SGATE_COMMANDS = frozenset({"info", "render-registry"})
+#:
+#: `render-static-gates` is here for the same reason as `render-registry`: it
+#: renders a file and checks that the file is current. It backs no check script,
+#: and the gate it *is* — the freshness of the shell registry — is proven by the
+#: file it compares.
+_NON_GATE_SGATE_COMMANDS = frozenset({"info", "render-registry", "render-static-gates"})
 
 #: `sgate` invocations that resolved to no command module, filled by
 #: `reachable_gate_scripts()` and reported by `check_gate_reachability()`. A list

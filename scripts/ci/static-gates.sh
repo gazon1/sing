@@ -16,6 +16,17 @@
 #
 # `advisory` is the only way to be non-blocking.  `|| true` is not an alternative:
 # Part D of scripts/check-gate-wiring.py rejects it.
+#
+# THE REGISTRY BELOW IS GENERATED. The gate lines, and the prose that explains
+# them, live in sgate/gate_manifest.py — one declaration of where every gate
+# runs. The region between the generated markers is rendered from it:
+#
+#   sgate render-static-gates --write    # rewrite the region
+#   sgate render-static-gates --check    # fail if it is stale (it is a gate)
+#
+# Edit the manifest, not this file. The prose moved with the lines it explains,
+# because a comment that says why a gate exists belongs to the declaration of
+# that gate, and a declaration kept in two places is two declarations.
 set -uo pipefail
 # Use BASH_SOURCE[0] (not $0) so cd works correctly both when this file is:
 #   1. executed directly  ($0 = /path/to/static-gates.sh)
@@ -179,6 +190,7 @@ export -f yaml_is_structurally_valid
 # The `|| [[ $? == 0 ]]` guard at the end of this file ensures main() is NOT called
 # when sourced — only when the script runs as a command.
 main() {
+# >>> BEGIN GENERATED: sgate render-static-gates — do not edit by hand >>>
 # The two gate registries against each other, first: everything below is
 # dispatched through one of them, and a gate that exists in one and not the
 # other is a gate that runs on no one — or one that runs without a name.
@@ -313,6 +325,17 @@ gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
 # generator is the registry, so a gate that is added, removed or reclassified
 # changes this table, and this gate is what says so.
 gate blocking "gate registry is current" sgate render-registry --check
+
+# The shell registry itself is generated. The gate lines below used to be
+# written by hand in this file, next to the prose that explains them, and the
+# Python registry carried the same names and modes — two declarations of one
+# fact, kept in step by a check that compared them.
+#
+# Now there is one declaration: `sgate.gate_manifest.PLACEMENTS` says where each
+# gate runs, and this file is rendered from it. `sgate render-static-gates
+# --check` is the gate that says the file is current; after changing the
+# manifest, run `sgate render-static-gates --write`.
+gate blocking "the shell registry is current" sgate render-static-gates --check
 
 # Every gate dispatched through `sgate` is called with `--json` by
 # `sgate run-all`, and the document that lands on stdout is what a consumer
@@ -474,6 +497,7 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # cannot tell "caught the mutation" from "still failing the known violations".
 # That is the whole reason it had no positive control; it has one now.
 gate blocking "script conventions" sgate conventions
+# <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────
 collect_and_report

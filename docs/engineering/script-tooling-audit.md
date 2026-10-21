@@ -413,8 +413,10 @@ cluster wrapper runs them; that membership is **inferred** by regex over the
 wrapper's source (`scripts/src/gate_reachability.py:197`), not declared. Renaming a
 line inside a wrapper would silently drop a gate from the covered set.
 
-**Verdict: CONSOLIDATE (next round, after the inventory)** — one declarative manifest
-generating both surfaces, and cluster membership declared as data.
+**Verdict: CONSOLIDATE** — one declarative manifest generating both surfaces, and
+cluster membership declared as data. **Fixed 2026-10-21 (round 7)**: the shell
+registry is generated from `sgate/gate_manifest.PLACEMENTS`, the freshness of the
+file is a gate, and the cluster membership is declared data.
 
 ### F11 — Two registries of "where does this live"
 
@@ -422,7 +424,11 @@ generating both surfaces, and cluster membership declared as data.
 `Placement(reason, tracked_by)`) and `GRADLE_TASK_PARITY` (11) are three dictionaries
 with different shapes answering the same question.
 
-**Verdict: CONSOLIDATE** — one placement record.
+**Verdict: CONSOLIDATE** — one placement record. **Fixed 2026-10-21 (round 7)**:
+`PLACEMENTS` holds every gate's placement, and `NOT_RUN_IN_STATIC` is a view over
+it rather than a table beside it. `GATE_EXEMPTIONS` and `GRADLE_TASK_PARITY`
+answer different questions — what proves a gate, and where a Gradle task runs —
+and stay where they are.
 
 ### F12 — `measure-baseline-composition.py` has no callers
 
@@ -483,10 +489,10 @@ to fail.
 |---|---|---|---|
 | **Keep** (repo-specific rule, correctly implemented) | 30 | The gate scripts with tests; `workflow_gradle.py`; `source_text.py`; `traceability/spec.py`; `traceability/junit_xml.py`; `check-test-runs.py`; `check-workflow-exit-status.py`; `adr_corpus.py`; `scanning.py` | — |
 | **Fix** (a defect, not a simplification) | 6 | F1, F2, F3, F4, F9, F14 | **all fixed 2026-10-20/21** |
-| **Consolidate** (one authoritative implementation) | 5 | F5, F6, F7, F8 (partial), F10+F11 | open |
+| **Consolidate** (one authoritative implementation) | 5 | F5, F6, F7, F8 (partial), F10+F11 | **all fixed 2026-10-21** |
 | **Delete** | 1 | F1's dead gate (done); plus F8's dead aliases | partly done |
 | **Investigate** | 1 | F12 | open |
-| **Add tests** | 1 | F13 | open |
+| **Add tests** | 1 | F13 | **fixed 2026-10-21** |
 
 ### What the first round of fixes changed
 
@@ -580,13 +586,13 @@ work without reading this document:
 | F5 | [#773](https://github.com/gazon1/sing/issues/773) | three Kotlin comment-strippers become one canonical scanner — **done 2026-10-21** |
 | F6 | [#774](https://github.com/gazon1/sing/issues/774) | two Maestro `tags:` header readers that disagree become one — **done 2026-10-21** |
 | F7 | [#775](https://github.com/gazon1/sing/issues/775) | the third Gradle invocation caller uses the shared parser — **done 2026-10-21** |
-| F8 | [#776](https://github.com/gazon1/sing/issues/776) | dead `emulator` exports and the `maestro` aliases |
+| F8 | [#776](https://github.com/gazon1/sing/issues/776) | dead `emulator` exports and the `maestro` aliases — **done 2026-10-21** |
 | F9 (round 2) | [#769](https://github.com/gazon1/sing/issues/769) | the last two contract holes: `handle_result`, `adr_status_policy` |
 | F9 (round 2) | [#770](https://github.com/gazon1/sing/issues/770) | one owner for stdout: the contract becomes a mode |
 | F9 (round 2) | [#771](https://github.com/gazon1/sing/issues/771) | meta-gate: every gate speaks the JSON contract |
-| F10 + F11 | [#779](https://github.com/gazon1/sing/issues/779) | one manifest of gates and one table of placements |
-| F12 | [#777](https://github.com/gazon1/sing/issues/777) | `measure-baseline-composition.py`: wire it or delete it |
-| F13 | [#778](https://github.com/gazon1/sing/issues/778) | 12 gate scripts have no unit test |
+| F10 + F11 | [#779](https://github.com/gazon1/sing/issues/779) | one manifest of gates and one table of placements — **done 2026-10-21** |
+| F12 | [#777](https://github.com/gazon1/sing/issues/777) | `measure-baseline-composition.py`: wire it or delete it — **done 2026-10-21** |
+| F13 | [#778](https://github.com/gazon1/sing/issues/778) | 12 gate scripts have no unit test — **done 2026-10-21** |
 | — | [#772](https://github.com/gazon1/sing/issues/772) | `sgate run-all` should read the payload, not only the exit code |
 ### What the fourth round of fixes changed (F5, F6, F7)
 
@@ -631,6 +637,46 @@ to Python and took the shell file's job with it. It is a deletion, and it goes w
 the rest of the dead code in the next round rather than in this one.
 
 ADR: `docs/decisions/2026-10-21-one-implementation-per-question.md`.
+
+
+### What the seventh round of fixes changed (F10, F11)
+
+**The registry is generated now.** The shell file was a second declaration of the
+gates: 32 `gate` lines carrying a name, a mode and a command that
+`_registry.GATES` also carried, kept in step by a check that compared them.
+Twenty-two of those lines dispatch through `sgate <command>`, a spelling the
+registry does not hold — it holds what the command means, not how it is
+written — so the file could not be generated from it in the first place.
+
+Now there is one table of placements (`sgate/gate_manifest.PLACEMENTS`), the
+manifest of gates says what each gate *is*, and `scripts/ci/static-gates.sh`
+holds a rendered region. `sgate render-static-gates --check` is the gate that
+says the file is current.
+
+**Before and after, both registries:**
+
+| | Before | After |
+|---|---|---|
+| `scripts/ci/static-gates.sh` — hand-written gate lines | 32 | 0 (33 rendered from the table) |
+| `scripts/ci/static-gates.sh` — rendered gate lines | 0 | 33 |
+| `_registry.GATES` — gate entries | 47 | 48 (the freshness gate joined them) |
+| Placement tables (`NOT_RUN_IN_STATIC`, cluster membership) | 2 tables, one of them inferred | 1 declared table |
+| Gates whose placement is a fact | 32 + 6 + 9 (inferred) | 48 (declared) |
+
+**The prose moved with the gates.** A comment that says why a gate exists is
+part of the declaration of that gate, so it moved into the table and is
+rendered back. The rendering was verified against the file it replaces: the
+table renders the old registry byte for byte, gate lines and prose alike,
+before the freshness gate itself was added.
+
+**The cluster membership is declared.** It used to be inferred by a regex over
+the wrapper's source, so renaming a line inside a wrapper dropped a gate from
+the covered set — silently, because a gate that is not known to run is a gate
+nobody looks for. `CLUSTERS` declares the membership, `covered_scripts` reads
+the declaration, and `check-gate-registries.py` compares it with the wrapper's
+own `MEMBERS` list.
+
+ADR: `docs/decisions/2026-10-21-one-manifest-and-one-placement-table.md`.
 
 
 ## What was measured and rejected

@@ -33,6 +33,7 @@ import click
 from sgate.commands._runner import Result, handle_result, run, run_capture
 from sgate.commands.base import INTERNAL_ERROR, IO_ERROR, register
 from sgate.controls import Control, Edit, GradleTaskParity, Parity
+from sgate.gate_manifest import CLUSTERS, NOT_RUN_IN_STATIC, GateMode, Placement
 from sgate.log import logger
 from sgate.output import gate_fail
 
@@ -43,12 +44,6 @@ GateCommand = click.Command
 # ── Enums ───────────────────────────────────────────────────────────────────────
 
 
-class GateMode(StrEnum):
-    """Whether a gate failure blocks the pipeline or is only advisory."""
-    BLOCKING = "blocking"
-    ADVISORY = "advisory"
-
-
 class CmdType(StrEnum):
     """How the gate is invoked — determines the command construction."""
     PYTHON3 = "python3"          # python3 <script> [args...]
@@ -57,85 +52,6 @@ class CmdType(StrEnum):
     BASH_C = "bash_c"            # bash -c ". {static_gates.sh} && {func}"
     PATH = "path"                # run something on PATH
 
-
-@dataclass(frozen=True)
-class Placement:
-    """Where a registered gate runs when it is not a line in static-gates.sh.
-
-    A reason in prose rots: the step it names gets renamed and the sentence
-    still reads exactly as it did. `tracked_by` is the pointer that resolves —
-    a path, and for a workflow the *name of a step* — and
-    `scripts/check-waiver-references.py` is what says it still resolves.
-    """
-
-    reason: str
-    tracked_by: str
-
-
-#: Registry gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.
-#:
-#: Each maps a gate name to why it runs somewhere else. A registered gate with no
-#: gate line is a gate ``sgate run-all`` never dispatches — and the two registries
-#: are separate files, so that gap is invisible unless something checks it.
-#: ``scripts/check-gate-registries.py`` is that something, and it is a gate.
-#:
-#: The list is short on purpose. Every entry is a claim that a human checked where
-#: the gate runs; a name that is added here because it was inconvenient is a gate
-#: that nobody runs.
-NOT_RUN_IN_STATIC: dict[str, Placement] = {
-    "flaky tests are acknowledged": Placement(
-        reason=(
-            "CI runs it as a step of the `tests` job, after the JUnit XML it reads "
-            "exists: `python3 scripts/check-flaky-tests.py --current shared/build/"
-            "test-results/jvmTest`. It cannot be a gate line: the static job runs "
-            "before any test has run, so the directory it reads does not exist."
-        ),
-        tracked_by=".github/workflows/ci.yml#Late flake pass (advisory)",
-    ),
-    "gates are alive": Placement(
-        reason=(
-            "CI runs it as a step of the `meta` job. It probes every gate named in "
-            "static-gates.sh, so inside that file it would probe the file it is "
-            "probing — a probe that probes itself launches every gate, and every gate "
-            "launches the probe (#529). It also costs a second full pass over the gate "
-            "corpus (63s), which belongs in its own job, parallel with the JVM tests, "
-            "not in the one whose wall time is the sum of its slowest gate."
-        ),
-        tracked_by=".github/workflows/ci.yml#Gates are alive",
-    ),
-    "gate scripts' own unit tests": Placement(
-        reason=(
-            "CI runs them as a step of the `meta` job: `python3 -m unittest discover "
-            "-s scripts/tests`. 1187 assertions in 70 seconds — more than every other "
-            "gate in the static job together — and they are about the gates, not "
-            "about the app, so they belong beside the gates and not behind the JVM "
-            "tests."
-        ),
-        tracked_by=".github/workflows/ci.yml#Gate scripts' own unit tests",
-    ),
-    "instrumented test floor": Placement(
-        reason=(
-            "CI runs it in android-device-tests.yml, the only job with an emulator. It "
-            "needs the instrumented XML that job produces."
-        ),
-        tracked_by=".github/workflows/android-device-tests.yml#Check the instrumented suite's floor",
-    ),
-    "rebase compiles": Placement(
-        reason=(
-            "CI runs it as a step of the `tests` job, after the Gradle invocation it "
-            "compiles: it needs the build output to exist."
-        ),
-        tracked_by=".github/workflows/ci.yml#Post-rebase DI compile",
-    ),
-    "test runs": Placement(
-        reason=(
-            "CI runs it as a step of the `tests` job, against the JUnit XML that "
-            "Gradle has just written, with the run stamp the job records before it "
-            "starts. A gate line would read a directory that does not exist yet."
-        ),
-        tracked_by=".github/workflows/ci.yml#Executed test counts",
-    ),
-}
 
 #: What each module under ``scripts/src/sgate/commands/`` is.
 #:
@@ -176,6 +92,7 @@ COMMAND_MODULES: dict[str, str] = {
     "check_benchmarks": "utility",
     "info": "utility",
     "render_registry": "utility",
+    "render_static_gates": "utility",
     "wiring": "utility",
     "run_all": "driver",
     "suite_docs": "suite",
@@ -640,6 +557,19 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3_M,
         script=Path("sgate"),
         script_args=("render-registry", "--check"),
+    ),
+    # The shell registry is a generated artifact: `scripts/ci/static-gates.sh`
+    # holds a generated region, and this gate says the file is what the
+    # manifest renders today. Without it the two could drift again — the drift
+    # the previous registry check existed to catch, in the shape the check
+    # could no longer see, because the shell file had become a copy nobody
+    # generated.
+    GateSpec(
+        name="the shell registry is current",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3_M,
+        script=Path("sgate"),
+        script_args=("render-static-gates", "--check"),
     ),
     # The JSON contract every gate dispatched through `sgate` is called with.
     #

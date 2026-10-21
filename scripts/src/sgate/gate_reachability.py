@@ -29,6 +29,8 @@ import pathlib
 import re
 from typing import Callable
 
+from sgate.gate_manifest import CLUSTERS
+
 #: `sgate <command>` — a gate delegated to the sgate CLI. The command name may
 #: contain a dash — `sgate run-all` is the driver every surface invokes — and a
 #: character class without one matched the `run` in `run-all`, which resolved to
@@ -173,9 +175,16 @@ def covered_scripts(
 
     Three steps, in order: a script named in a gate command is run by that
     gate; `sgate <name>` runs whatever the registry says that name is, so the
-    command resolves through the registry to a script; and a script that a
-    covered script runs is itself covered — the delegation case, where a cluster
-    gate names its members in its own source.
+    command resolves through the registry to a script; and the members of a
+    cluster are run by the cluster, so a member is covered when its cluster is.
+
+    The cluster membership is *declared* — `sgate.gate_manifest.CLUSTERS` — and
+    not inferred by scanning the wrapper's source for the file names it
+    mentions. The inference was a silent failure: renaming a line inside a
+    wrapper dropped a gate from the covered set, and nothing failed, because a
+    gate that is not known to run is a gate nobody looks for. The declaration
+    is checked against the wrapper's own member list by
+    `scripts/check-gate-registries.py`, so the two cannot disagree quietly.
     """
     covered: set[str] = set()
     for _mode, _name, command in shell_gates:
@@ -189,11 +198,25 @@ def covered_scripts(
             script = getattr(spec, "script", None)
             if script:
                 covered.add(str(script))
-    # A cluster wrapper names its members in its own source — as a command
-    # string in a list, not in command position — and it runs them. The strict
-    # walk above reads command position only, because a prose mention must not
-    # make a retired gate look reachable; here the question is different: a
-    # script a covered script *names* is one the covered script runs.
+
+    # A cluster runs its members: the shell registry names the cluster, and the
+    # cluster runs the members its wrapper declares.
+    for cluster_name, members in CLUSTERS.items():
+        spec = registry_by_name.get(cluster_name)
+        script = getattr(spec, "script", None)
+        if not script or str(script) not in covered:
+            # The cluster itself does not run here, so its members do not either.
+            continue
+        for member in members:
+            member_spec = registry_by_name.get(member)
+            member_script = getattr(member_spec, "script", None)
+            if member_script:
+                covered.add(str(member_script))
+
+    # A covered script that delegates to another script covers that one too —
+    # the delegation case, where a gate script runs another gate. The scan is
+    # for *mentions*, not command position: inside a cluster wrapper the
+    # members are named in a list, not spelled as commands.
     named = re.compile(r"scripts/(?:check|gen)[-_][\w.-]+\.(?:py|sh)")
     frontier = list(covered)
     for _ in range(2):

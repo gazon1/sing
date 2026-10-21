@@ -131,6 +131,82 @@ def _module_classification_problems() -> list[str]:
     return problems
 
 
+def _wrapper_members(script: str) -> list[str] | None:
+    """The member names a cluster wrapper declares, or None if it cannot be read.
+
+    The wrapper is the authority on what it runs: it holds the list it executes.
+    The manifest declares the same list, and the two are compared here — a
+    wrapper that runs a member the manifest does not know, or a manifest that
+    names a member the wrapper does not run, is a gate that runs on no one (or
+    a member that runs on nobody's account).
+    """
+    import importlib.util
+
+    path = ROOT / script
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location(f"_cluster_{path.stem}", path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception:  # noqa: BLE001 — a wrapper that cannot be imported says nothing
+        return None
+    members = getattr(module, "MEMBERS", None)
+    if members is None:
+        return None
+    return [getattr(member, "name", str(member)) for member in members]
+
+
+def _cluster_problems(
+    registry_by_name: dict[str, object],
+) -> list[str]:
+    """Every cluster's declared membership matches the wrapper's own list.
+
+    The membership used to be inferred: a regex over the wrapper's source for
+    the file names it mentions. Renaming a line inside a wrapper then dropped a
+    gate from the covered set — nothing failed, the gate simply stopped being
+    known to run. It is declared now, and this is what holds the declaration to
+    the wrapper.
+    """
+    from sgate.gate_manifest import CLUSTERS
+
+    problems: list[str] = []
+    for cluster, members in sorted(CLUSTERS.items()):
+        spec = registry_by_name.get(cluster)
+        if spec is None:
+            # The registry under test does not have this cluster — a synthetic
+            # registry, or a cluster whose gate is gone. The unit tests cover
+            # the second case; here it would be noise.
+            continue
+        script = str(getattr(spec, "script", "") or "")
+        if not script:
+            problems.append(
+                f"'{cluster}' is a cluster in the manifest but names no script — a "
+                "cluster nobody runs."
+            )
+            continue
+        declared = list(members)
+        wrapper = _wrapper_members(script)
+        if wrapper is None:
+            problems.append(
+                f"'{cluster}' runs {script}, which declares no MEMBERS list — the "
+                "cluster's membership cannot be checked against the wrapper that "
+                "runs it."
+            )
+            continue
+        if sorted(wrapper) != sorted(declared):
+            problems.append(
+                f"'{cluster}' declares members {sorted(declared)} but "
+                f"{script} runs {sorted(wrapper)} — the manifest and the wrapper "
+                "disagree about what the cluster runs. A member the wrapper does "
+                "not run is a gate that runs on no one; a member the manifest does "
+                "not name is a gate nobody looks for."
+            )
+    return problems
+
+
 def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     """
     Return `(violations, warnings, summary)` for the two gate registries.
@@ -221,6 +297,23 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
             "the declaration outlived its gate. Remove the entry: it can hide a gate "
             "that nobody runs."
         )
+
+    # ── The placement table ───────────────────────────────────────────────────
+    # One table says where every gate runs. A gate that runs elsewhere says so,
+    # with the place that runs it — a gate that runs on no one reports success
+    # forever, and a placement without a pointer is a claim nobody can check.
+    for name, placement in sorted(NOT_RUN_IN_STATIC.items()):
+        if placement is None:
+            continue
+        if not placement.reason or not placement.tracked_by:
+            report(
+                f"'{name}' runs somewhere else, but the placement does not say "
+                "where (tracked_by) or why (reason) — a gate that runs on no one "
+                "is a gate that reports success forever."
+            )
+
+    for problem in _cluster_problems(_REGISTRY_BY_NAME):
+        report(problem)
 
     for problem in _module_classification_problems():
         report(problem)
