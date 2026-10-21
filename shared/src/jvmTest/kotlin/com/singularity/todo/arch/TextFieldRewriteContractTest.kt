@@ -135,6 +135,44 @@ class TextFieldRewriteContractTest {
         )
     }
 
+    /**
+     * The field a row names is a field the file has.
+     *
+     * The scan is per file, so it proves that a file declares the shapes it declares —
+     * it cannot prove that the *field* the table names is the field the file has. That
+     * mapping was prose, maintained by hand, and it drifted: a row could name a field
+     * the file has not had for months, and nothing said so.
+     *
+     * So the mapping is checked the only way it can be: by the words the row names, read
+     * against the words the file is made of. An identifier is split into its camel-case
+     * parts — `nameSource` says *name* and *source*, `baseUrl` says *base* and *url* —
+     * and the path counts too, because a file named `NoteEditorScreen.kt` says *note*,
+     * *editor* and *screen*. Every content word of the Field cell has to be one of them.
+     *
+     * The check is a word check, not a proof: "end" is a word of "start, end, quote,
+     * note", and a file with an `endDate` would satisfy it. That is the price of a
+     * textual check, and it is the same price the counter checks pay. It catches the
+     * failure this column actually had — a row that names a field the file does not have
+     * — and it says so in the failure message.
+     */
+    @Test
+    fun `the field a row names is a field the file has`() {
+        val wrong = registry.mapNotNull { row ->
+            val missing = row.fields.fieldWords().filterNot { word -> word in siteWords(row.site) }
+            if (missing.isEmpty()) return@mapNotNull null
+            "${row.site} -> has no ${missing.joinToString(", ")}"
+        }.sorted()
+
+        assertTrue(
+            wrong.isEmpty(),
+            "These rows name a field the file does not have:\n" +
+                wrong.joinToString("\n") { "  - $it" } +
+                "\n\nThe Field column of the rewrite table in " +
+                ".agents/skills/singularity-todo-text-field-states/SKILL.md names the " +
+                "field of that file the contract is about. Name the field the file has.",
+        )
+    }
+
     @Test
     fun `a static row names an owner whose value names its writes`() {
         val wrong = registry.filter { it.kind == Kind.STATIC }.mapNotNull { row ->
@@ -363,7 +401,6 @@ class TextFieldRewriteContractTest {
      * @property site the file that owns the bridged field, relative to
      *   `commonMain/kotlin/com/singularity/todo/`.
      * @property fields the fields the file owns that the contract is about.
-     * @property upstream who may write the value.
      * @property kind the kind of source the site is handed.
      * @property owner the file that builds the source.
      * @property counter the file that declares the revision counter, relative to
@@ -373,7 +410,6 @@ class TextFieldRewriteContractTest {
     private data class Row(
         val site: String,
         val fields: String,
-        val upstream: String,
         val kind: Kind,
         val owner: String,
         val counter: String = "",
@@ -418,26 +454,66 @@ class TextFieldRewriteContractTest {
      * row of this one.
      */
     private fun skillRewriteTable(): List<Row> =
-        SkillTables.table("File", "Field", "Upstream", "Source", "Owner", "Counter", "Advances")
+        SkillTables.table("File", "Field", "Source", "Owner", "Counter", "Advances")
             .mapNotNull { cells ->
                 val site = cells[0].removeSurrounding("`").trim()
                 if (!site.endsWith(".kt")) return@mapNotNull null
-                val source = cells[3].removeSurrounding("`").trim()
+                val source = cells[2].removeSurrounding("`").trim()
                 val kind = Kind.entries.firstOrNull { it.sourceType == source } ?: return@mapNotNull null
                 Row(
                     site = site,
                     fields = cells[1],
-                    upstream = cells[2],
                     kind = kind,
-                    owner = cells[4].removeSurrounding("`").trim().pathOrEmpty(),
-                    counter = cells[5].removeSurrounding("`").trim().pathOrEmpty(),
-                    advances = cells[6].removeSurrounding("`").trim().pathOrEmpty(),
+                    owner = cells[3].removeSurrounding("`").trim().pathOrEmpty(),
+                    counter = cells[4].removeSurrounding("`").trim().pathOrEmpty(),
+                    advances = cells[5].removeSurrounding("`").trim().pathOrEmpty(),
                 )
             }
 
     /** A cell that holds a path, or nothing. */
     private fun String.pathOrEmpty(): String =
         if (this == "-" || isEmpty()) "" else this
+
+    /**
+     * The words the file is made of.
+     *
+     * Every identifier of every declaration, split into its camel-case parts, plus the
+     * path's own words. The declarations come from Konsist, so this is the file's own
+     * vocabulary and not a text search over its source.
+     */
+    private fun siteWords(site: String): Set<String> {
+        val words = mutableSetOf<String>()
+        for (text in TextFieldShapeScan.declarationTexts(site)) {
+            // The comments go first: a word in a KDoc is prose about the file, not a
+            // word the file is made of. Without this, a row could be satisfied by the
+            // name of a thing the file only talks about.
+            val code = KotlinText.stripComments(text)
+            for (match in IDENTIFIER.findAll(code)) {
+                words += match.value.splitCamelCase()
+            }
+        }
+        words += site.splitCamelCase()
+        return words
+    }
+
+    /**
+     * The content words of a Field cell.
+     *
+     * "the annotation draft (start, end, quote, note)" says *annotation*, *draft*,
+     * *start*, *end*, *quote* and *note*. The words that carry no field — the articles,
+     * the possessives — are dropped.
+     */
+    private fun String.fieldWords(): List<String> =
+        lowercase()
+            .replace(NON_WORD, " ")
+            .split(" ")
+            .filter { word -> word.isNotEmpty() && word !in STOP_WORDS }
+
+    /** An identifier split into its camel-case parts, lowercased. */
+    private fun String.splitCamelCase(): List<String> =
+        CAMEL_BOUNDARY.split(this)
+            .map { it.lowercase() }
+            .filter { it.isNotEmpty() }
 
     private companion object {
         /** The bridge, the one file that holds the helper itself. */
@@ -460,6 +536,18 @@ class TextFieldRewriteContractTest {
 
         /** The sealed parent of the two kinds of source. */
         const val TEXT_SOURCE = "TextSource"
+
+        /** An identifier, as the file writes it. */
+        val IDENTIFIER = Regex("""[A-Za-z][A-Za-z0-9]*""")
+
+        /** The boundary between two camel-case parts. */
+        val CAMEL_BOUNDARY = Regex("(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
+        /** Anything that is not a word. */
+        val NON_WORD = Regex("""[^a-z0-9]+""")
+
+        /** The words of a Field cell that name no field. */
+        val STOP_WORDS = setOf("the", "a", "an", "of", "and", "its", "s", "own", "it", "them")
 
         /** The only way a `Revisioned`'s count moves. */
         const val REPLACED_BY = "replacedBy("

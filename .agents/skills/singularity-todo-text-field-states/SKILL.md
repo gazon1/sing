@@ -38,6 +38,31 @@ that uses one of the helpers has to import it, so the import list is the compile
 record of the shape. A file in the helpers' own package could call one without an import
 — which is why the package holds no fields.
 
+### The procedure
+
+The shape is not a taste. It follows from one question: **does anything outside the
+field read or write the text?**
+
+1. **Nothing does** → **local**. The field owns the text. A filter in a sheet that is
+   applied on submit, a one-off search box whose result is read at the moment of use.
+2. **Something does, and the field only shows what it is given** → **anchored**. The
+   field is a display of something else — a dropdown, a read-only value — and the value
+   is never pushed anywhere.
+3. **Something does, and the field is editable** → **bridged**. A ViewModel that has to
+   know the text *while the user types* gets a source, and the source is the answer to
+   "who may rewrite this?".
+
+The order matters. An anchored field that somebody also wants to write is not anchored
+any more — it is bridged, because the person who wants to write it needs the value to
+travel back and forth.
+
+**The procedure has a mechanical trace, and the trace is checked.** A file that calls
+the bridged helper has to import it, so the import list is the compiler's own record of
+the shape: `TextFieldShapeConventionTest` reads that record, and
+`TextFieldRewriteContractTest` reads the rewrite table below. So a field whose shape was
+picked by taste fails the build — and the failure it used to cause was the quiet one: the
+value dropped on the way in, and the screen stopped saving.
+
 ## 2. Write the field
 
 ```kotlin
@@ -385,22 +410,43 @@ comment outside a declaration cannot make a counter move.
 
 Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 
-| File | Field | Upstream | Source | Owner | Counter | Advances |
-|---|---|---|---|---|---|---|
-| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | `feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt` | - | - |
-| `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | `feature/ai/chat/ChatViewModel.kt` | - | - |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/schema/DataModel.kt` | `feature/genui/schema/DataModel.kt` |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
-| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's body | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
-| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | `feature/notes/Ids.kt` | - | - |
-| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | the project ViewModel, which observes the project | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
-| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | the project editor ViewModel | `StaticText` | `feature/projects/presentation/state/ProjectEditorUiState.kt` | - | - |
-| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | `feature/projects/presentation/state/ProjectsUiState.kt` | - | - |
-| `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | `feature/search/SearchViewModel.kt` | - | - |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | `feature/settings/SettingsUiState.kt` | - | - |
-| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (create) | the create draft, which seeds it once | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
+| File | Field | Source | Owner | Counter | Advances |
+|---|---|---|---|---|---|
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | `StaticText` | `feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt` | - | - |
+| `feature/ai/chat/ChatScreen.kt` | the chat input | `StaticText` | `feature/ai/chat/ChatViewModel.kt` | - | - |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the bound text field | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/schema/DataModel.kt` | `feature/genui/schema/DataModel.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
+| `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's body | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | `StaticText` | `feature/notes/Ids.kt` | - | - |
+| `feature/projects/presentation/screen/ProjectDetailHero.kt` | the project's name, the project's description | `OwnedText` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` | `feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt` |
+| `feature/projects/presentation/screen/ProjectEditorScreen.kt` | the project's name, the project's description | `StaticText` | `feature/projects/presentation/state/ProjectEditorUiState.kt` | - | - |
+| `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | `StaticText` | `feature/projects/presentation/state/ProjectsUiState.kt` | - | - |
+| `feature/search/SearchScreen.kt` | the search query | `StaticText` | `feature/search/SearchViewModel.kt` | - | - |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | `StaticText` | `feature/settings/SettingsUiState.kt` | - | - |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (create) | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
+
+**The columns are checked, and the one that was prose is gone.** The **File** column is
+checked against the import list: a row that names a file that no longer owns a bridged
+field fails, and a file that owns one and has no row fails. The **Field** column is
+checked against the file's own identifiers: a row that names a field the file does not
+have fails. The **Source**, **Owner**, **Counter** and **Advances** columns are checked
+against the owner's declarations.
+
+The **Upstream** column is gone. It said, in prose, who may write the value — and prose
+drifts: the column was maintained by hand, the scan was per file, and nothing proved that
+the field the table named was the field the file had. The question it answered is now
+answered twice over, by things that cannot drift:
+
+- the **Source** column says what the upstream may do. A `StaticText` source is a
+  promise that the upstream replaces the value only with one the field never produced; an
+  `OwnedText` says it may replace it with anything, and carries the count of the
+  replacements.
+- the **Owner** column names the file that holds the value — and a file that holds the
+  value is the party that writes it.
+
+So the registry says only what it checks.
 
 The **Owner** column names the file that builds the source — the component that holds the
 value and knows who else writes it. It is the owner the field's answer comes from, and it
