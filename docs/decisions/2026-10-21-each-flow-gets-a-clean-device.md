@@ -156,6 +156,37 @@ debug-only activity — a small change, but a different day's work.
   of its own, a green run is a statement about the app *and* about the
   profiles the flows happened to leave active.
 
+## Amendment, 2026-10-28: the narrow scope is gone
+
+The decision above kept two scopes: a content wipe (the default) and a narrow
+sweep of the rows whose title starts with the run id or with a fixed title.
+The narrow scope is removed.
+
+Its boundary was a **list of titles that somebody had to keep up to date by
+hand**, and the list was already behind the suite: a title it forgot survived
+the run, and the failure that caused was silent — a flow that asserts an empty
+list fails on the *previous* flow's row, and a flow that asserts its own task
+fails because another flow's task is in the way. The nightly run of 2026-10-20
+failed 43 flows across all four shards in exactly that shape, while the same
+flows passed in the smoke suite.
+
+Deriving the list from the flows does not close the hole: it closes for seeded
+fixtures (`seed?task=…`) and not for typed ones (`inputText`), where a title
+and a search query and a credential look the same. A sweep that cannot tell
+them apart either misses rows or deletes another flow's.
+
+So the scope is gone rather than fixed, and `--maestro-cleanup` now takes
+`all` (the default) or `off`. The content wipe is the only scope, and it is
+the one that gives the property this ADR was after: a failure in a run is a
+statement about the app, not about the run before it.
+
+The second half of the leak named in Consequences above — archived tasks and
+saved agendas surviving the reset — is closed by
+`2026-10-28-reset-content-reaches-the-whole-profile.md`.
+
+See `2026-10-28-the-bridge-policy-is-a-file.md` for the other decision this
+round took in the same area — the bridge's whitelist became a policy file.
+
 ## Links
 
 - `scripts/src/emulator/maestro/_fixtures.py` — the sweep and its scopes
