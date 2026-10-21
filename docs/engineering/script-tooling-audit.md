@@ -639,6 +639,42 @@ the rest of the dead code in the next round rather than in this one.
 ADR: `docs/decisions/2026-10-21-one-implementation-per-question.md`.
 
 
+### What the fifth and sixth rounds of fixes changed (F8, F12, F13)
+
+**The fifth round deleted what nothing calls.** The `emulator` package re-exported eight
+names no caller imported (`adb`, `adb_on`, `list_avds`, `probe_device_ready`,
+`Acquisition`, `acquire_device`, `ensure_device`, `Config`) plus five UPPER_CASE
+aliases of configuration constants, and `maestro/_testing.py` carried an `AdbCall`
+helper with no caller. `scripts/maestro-flow-tags.sh` — a shell implementation of the
+Maestro tag reader — had no caller left either, and the properties of the flow corpus
+it was supposed to check were asserted by nobody; both moved into
+`scripts/tests/test_maestro_flow_reader.py`.
+
+A hidden bug surfaced while deleting: the tests patched `ee.LOCK_FILE` (a module
+snapshot) while the code reads `cfg.lock_file`, so every checkout shared one lock file
+at `/tmp/ensure-emulator.lock`. The tests now patch the configuration object, and the
+module went from 5.0 s to 1.2 s.
+
+`scripts/measure-baseline-composition.py` was not deleted: it measures something, and
+the fix was to name its consumer — `just baseline`.
+
+**The sixth round gave twelve gates their own tests.** Twelve gate scripts had no
+unit test: a gate that cannot fail proves nothing, and a gate with no test is a gate
+whose behaviour is pinned by nobody. The new files assert the drift each script
+reports, the case it ignores, and the failure it turns into a non-zero exit — and
+plant the failure, so the test can see it. 191 new tests; the suite went from 1296 to
+1491.
+
+Writing the tests also surfaced four behaviours that are wrong but were not fixed
+there, because each is a behaviour change of its own: `check-rebase-compiles.py`
+matches directory patterns against file paths (so `core/di/` is never DI-sensitive),
+`check-sync-allowlist-regenerated.py --self-test` passes on an up-to-date seed
+although it promises to assert the opposite, `check-hooks-path.py` checks
+`.githooks` instead of the configured path, and `check-gate-registries.py` imported
+`click` twice. Issues #807, #808 and #809 carry the first three; the fourth went
+with the seventh round.
+
+
 ### What the seventh round of fixes changed (F10, F11)
 
 **The registry is generated now.** The shell file was a second declaration of the
