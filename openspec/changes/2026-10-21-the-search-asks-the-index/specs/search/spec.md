@@ -87,6 +87,12 @@ hold a second copy of it.
 second thing to keep in step with the first. The index of words is enough to
 answer a search; the words of the record are not.
 
+#### Scenario: The text is stored once
+- A record's text is stored
+- The database holds the text in the table of the record
+- The index holds the words of the text and the rows they occur in, and not the
+  text itself
+
 ---
 
 ### Requirement: REQ-SEARCH-006
