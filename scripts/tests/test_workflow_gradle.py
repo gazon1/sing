@@ -40,6 +40,32 @@ FOLDED = "./gradlew --continue :shared:jvmTest -Ptest.tags=fast,slow 2>&1 | tee 
 ONE_LINE = "./gw :koverVerify -Ptest.tags=fast,slow\n"
 
 
+class TheJoinIsOneRule(unittest.TestCase):
+    """`join_continuations` is the rule, and it is public so others can share it.
+
+    `check-gate-wiring.py` used to carry its own copy of the continuation
+    regex. A copy is a second answer waiting to drift, so the join became a
+    function other readers call.
+    """
+
+    def test_a_continued_line_becomes_one_line(self):
+        self.assertEqual(
+            wg.join_continuations("./gradlew --continue \\\n  :shared:jvmTest\n"),
+            "./gradlew --continue  :shared:jvmTest\n",
+        )
+
+    def test_a_line_without_a_continuation_is_unchanged(self):
+        text = "./gradlew :shared:jvmTest\n"
+        self.assertEqual(wg.join_continuations(text), text)
+
+    def test_the_invocation_reader_uses_it(self):
+        """The reader and the join cannot disagree: the reader calls it."""
+        joined = wg.join_continuations(CONTINUED)
+        self.assertNotIn("\\\n", joined)
+        (invocation,) = list(wg.iter_invocations(CONTINUED))
+        self.assertIn(':shared:jvmTest', invocation.tasks)
+
+
 class ContinuationsAreOneInvocation(unittest.TestCase):
     def test_a_continued_command_names_all_its_tasks(self):
         invocations = list(wg.iter_invocations(CONTINUED))

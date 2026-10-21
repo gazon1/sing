@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from scanners.maestro_flow import tag_entries
 from traceability import REPO_ROOT, ValidationError
 from traceability.keys import TestKey
 from traceability.spec import ID_PATTERN, Level, ScenarioSpec, Target
@@ -249,10 +250,15 @@ def _method_name(text: str, index: int) -> str | None:
 def scan_maestro(specs: dict[str, ScenarioSpec], root: Path = REPO_ROOT) -> list[Link]:
     """Find ``scenario:<ID>`` tags in Maestro flow headers.
 
-    Parsed from the header block only. ``run-maestro`` matches these
-    tags by exact string comparison, so no new mechanism is needed to filter on
-    them today — the flows are already machine-readable, and this scanner reads
-    the same shape the runner does.
+    Parsed by `scanners.maestro_flow`, the reader the runner itself uses:
+    ``run-maestro`` matches these tags by exact string comparison, so no new
+    mechanism is needed to filter on them today — the flows are already
+    machine-readable, and this scanner reads the same shape the runner does.
+
+    This function used to carry its own reader, which kept a tags block open
+    past the line that closes it. A `- tapOn:` in the commands section was
+    therefore a candidate tag, and a flow's declared tags were a fact the
+    traceability layer and the runner could disagree about.
     """
     flows_dir = root / "Maestro" / "flows"
     links: list[Link] = []
@@ -262,18 +268,7 @@ def scan_maestro(specs: dict[str, ScenarioSpec], root: Path = REPO_ROOT) -> list
 
     for path in sorted(flows_dir.rglob("*.yaml")):
         rel = path.relative_to(root).as_posix()
-        in_tags = False
-        for index, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            stripped = line.strip()
-            if re.fullmatch(r"-{3,}\s*", stripped):
-                in_tags = False
-                continue
-            if stripped.startswith("tags:"):
-                in_tags = True
-                continue
-            if not in_tags or not stripped.startswith("-"):
-                continue
-            tag = stripped.lstrip("-").strip().strip("'\"")
+        for index, tag in tag_entries(path.read_text(encoding="utf-8")):
             if not tag.startswith(SCENARIO_TAG_PREFIX):
                 continue
             scenario = tag[len(SCENARIO_TAG_PREFIX) :].strip()

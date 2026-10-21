@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from emulator.maestro._types import ROOT
+from scanners.maestro_flow import flow_tags_text
 
 # The tag a flow declares to belong to the smoke suite.
 SMOKE_TAG = "smoke"
@@ -20,29 +21,12 @@ def flow_tags(path: Path) -> list[str]:
     in any YAML document. Scanning proceeds document-by-document, bounded by ---
     separators, and stops at the first non-blank, non-comment, non-list-item
     line outside a tags block.
-    """
-    text = path.read_text()
 
-    in_tags = False
-    tags: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("---"):
-            in_tags = False
-            continue
-        if stripped.startswith("tags:"):
-            in_tags = True
-            continue
-        if in_tags:
-            if stripped.startswith("- "):
-                value = stripped[1:].strip().strip("'\"").split("#")[0].strip()
-                if value:
-                    tags.append(value)
-            elif stripped == "" or stripped.startswith("#"):
-                continue
-            else:
-                in_tags = False
-    return tags
+    The reading itself is `scanners.maestro_flow` — the same reader the
+    traceability layer uses. This function used to carry its own copy of the
+    rule, and a flow's tags are a fact three modules acted on.
+    """
+    return flow_tags_text(path.read_text())
 
 
 def flow_has_tag(path: Path, tag: str) -> bool:

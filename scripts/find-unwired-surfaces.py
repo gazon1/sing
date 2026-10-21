@@ -63,6 +63,8 @@ from typing import Callable
 
 import click
 
+from scanners.source_text import strip_code, strip_comments
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Every Gradle module whose source is production code, plus the two app modules.
@@ -95,59 +97,24 @@ SOURCE_ROOTS = [
 ]
 
 # ── Comment stripping ───────────────────────────────────────────────────────
-
-BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.S)
-LINE_COMMENT = re.compile(r"//[^\n]*")
-
-# String and char literals.
 #
-# Every alternative below is written so that no two branches can match the same
-# text. An ambiguous body like `(?:.|\n)*?` or `(?:\\.|[^"\\\n])*` backtracks
-# exponentially on an unterminated literal, and this script reads ~1200 Kotlin
-# files — a single unbalanced quote in one of them is enough to hang the gate.
-# A raw string wins over a plain one so an embedded `"""` is not cut short.
-_RAW_STRING = re.compile(r'""".*?"""', re.S)
-_STRING = re.compile(r'"[^"\\\n]*(?:\\.[^"\\\n]*)*"')
-_CHAR = re.compile(r"'[^'\\\n]*(?:\\.[^'\\\n]*)*'")
-
-
-def strip_string_literals(text: str) -> str:
-    """Blank out string and char literal *contents*, keeping the quotes.
-
-    A log tag reads ``Logger.withTag("AutoSync")`` and a log message reads
-    ``"AutoSync disabled, ignoring trigger $t"``. Neither is a call to
-    `AutoSync`; both are counted as one by a word-boundary scan, which is
-    enough to make a class with no call site look wired.
-
-    The contents are replaced rather than the whole literal so that two
-    adjacent literals on one line stay two tokens and the line count of the
-    file does not shift.
-    """
-    def blank(m: re.Match[str]) -> str:
-        return re.sub(r"[^\n]", " ", m.group(0))
-    text = _RAW_STRING.sub(blank, text)
-    text = _STRING.sub(blank, text)
-    return _CHAR.sub(blank, text)
-
-
-def strip_comments_and_strings(text: str) -> str:
-    """Drop comments, then blank string/char literal contents.
-
-    Order matters: a `//` inside a string literal is not a comment, and a
-    `"//"` inside a comment is not a string. Stripping comments first reads
-    the whole file as code, which is what the callers below want.
-    """
-    return strip_string_literals(strip_comments(text))
-
-
-def strip_comments(text: str) -> str:
-    """Drop comments.
-
-    A KDoc mention like ``[SyncConfigScreen]`` is a text match for the symbol
-    but not a call, and counting it is exactly what lets an unwired screen look
-    wired to a naive grep.
-    """
-    return LINE_COMMENT.sub("", BLOCK_COMMENT.sub("", text))
+# The readers live in `scanners.source_text` — one character walk that knows
+# about nested block comments, raw strings and template literals:
+#
+#   `strip_comments` blanks comments and keeps literal contents;
+#   `strip_code`    blanks comments *and* literal contents.
+#
+# This script used to carry its own pair of regexes. They disagreed with the
+# canonical reader in two ways that mattered here: a block comment ended at
+# the first `*/` (so a nested comment leaked its tail into the corpus), and
+# the strippers *deleted* comment text instead of blanking it, so the line
+# count of a file changed under the detectors that report line numbers.
+#
+# Why literal contents are blanked at all: a log tag reads
+# ``Logger.withTag("AutoSync")`` and a log message reads
+# ``"AutoSync disabled, ignoring trigger $t"``. Neither is a call to
+# `AutoSync`; both are counted as one by a word-boundary scan, which is
+# enough to make a class with no call site look wired.
 
 
 # ── Helpers shared across detectors ────────────────────────────────────────
@@ -573,8 +540,8 @@ def _precompute_dead_symbol(
     # tag are both word-boundary matches for the symbol they name, and both
     # were counted as calls. That let `AutoSync` — which nothing calls, only
     # `Logger.withTag("AutoSync")` mentions — clear the dead-symbol threshold.
-    prod_corpus = "\n".join(strip_comments_and_strings(t) for t in prod_sources.values())
-    test_corpus = "\n".join(strip_comments_and_strings(t) for t in test_sources.values())
+    prod_corpus = "\n".join(strip_code(t) for t in prod_sources.values())
+    test_corpus = "\n".join(strip_code(t) for t in test_sources.values())
 
     for m in re.finditer(r"\b(\w+)\b", prod_corpus):
         name = m.group(1)
@@ -764,7 +731,7 @@ def _constructor_index(
     for path, text in code.items():
         if _is_test_source(path):
             continue
-        stripped = strip_comments_and_strings(text)
+        stripped = strip_code(text)
         for match in _CLASS_DECL.finditer(stripped):
             name = match.group(1)
             body = _balanced_body(stripped, match.end() - 1)
@@ -849,7 +816,7 @@ def _injected_by_constructor(
     for path, text in code.items():
         if _is_test_source(path):
             continue
-        stripped = strip_comments_and_strings(text)
+        stripped = strip_code(text)
 
         # A constructor reference: Koin fills that constructor's parameters.
         for match in _CONSTRUCTOR_REF.finditer(stripped):

@@ -66,6 +66,18 @@ import click
 from sgate.commands.base import run
 import yaml
 
+# `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
+# loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
+# module is invisible; this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+import workflow_gradle as wg  # noqa: E402
+
+if _added:
+    sys.path.remove(_scripts_src)
+
 # Line-buffer both streams: a killed run used to leave a 0-byte log, because
 # stdout is block-buffered on redirect and this file prints one line per gate.
 # The last line printed is then the step that was still running — which is the
@@ -1277,8 +1289,12 @@ def _gate_invocations(text: str) -> dict[str, list[str]]:
     Line continuations are joined first: `ci.yml` wraps its long invocations,
     and a regex over raw lines would read `--require shared:jvmTest,\n  desktopApp:test`
     as two different calls.
+
+    The join is `workflow_gradle.join_continuations` — the same rule the
+    Gradle-invocation reader uses. This file used to carry its own copy of
+    the regex, and two copies of one rule are two answers.
     """
-    joined = re.sub(r"\\\n\s*", " ", text)
+    joined = wg.join_continuations(text)
     out: dict[str, list[str]] = {}
     # `[^\n|]*` rather than a character class alternation with `\n`: the latter
     # is greedy across lines and swallowed every invocation between this one and

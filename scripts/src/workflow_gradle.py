@@ -115,6 +115,22 @@ _TEST_SUFFIX = re.compile(r"^(?:[A-Za-z0-9_.-]+:)*(?:[A-Za-z0-9_.-]*[Tt]est)$")
 _KOVER = re.compile(r"^:?(?:[A-Za-z0-9_.-]+:)*kover[A-Za-z0-9]*$")
 
 
+def join_continuations(text: str) -> str:
+    """Join the lines a trailing backslash continues onto one line.
+
+    A command written across ``\\`` lines is one command, and a reader that
+    splits the text first sees two. The join happens *before* any split, so
+    the question "which tasks does this invocation name" has one answer
+    instead of one per reader.
+
+    This is the whole rule: a backslash at the end of a line, the newline,
+    and the indentation that follows it become a single space. The regex is
+    the module's own; it used to be copied into `check-gate-wiring.py`, and a
+    copy is a second answer waiting to drift.
+    """
+    return _LINE_CONTINUATION.sub(" ", text)
+
+
 @dataclass(frozen=True, slots=True)
 class Invocation:
     """One Gradle invocation found in a surface."""
@@ -164,7 +180,7 @@ def iter_invocations(text: str, origin: str = "") -> Iterator[Invocation]:
     written across ``\\`` lines is one invocation wherever its tasks are. This is
     the defect the module exists to prevent; do not split first.
     """
-    joined = _LINE_CONTINUATION.sub(" ", text)
+    joined = join_continuations(text)
     for line_no, line in enumerate(joined.splitlines(), start=1):
         if _FULL_LINE_COMMENT.match(line):
             continue
@@ -223,6 +239,7 @@ __all__ = [
     "Invocation",
     "Step",
     "is_test_task",
+    "join_continuations",
     "iter_invocations",
     "iter_steps",
 ]

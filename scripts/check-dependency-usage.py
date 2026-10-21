@@ -51,6 +51,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import click
+from scanners.source_text import strip_comments
 from sgate.commands.base import run
 from sgate.commands.base import IO_ERROR, VALIDATION_FAILURE
 
@@ -81,13 +82,6 @@ IMPORT_RE = re.compile(r"^\s*import\s+([\w.]+)", re.MULTILINE)
 # A dotted token in code — `a.b.C.Factory()`, `com.mikepenz.markdown.m3`. `\b`
 # at both ends keeps it from matching inside a longer identifier.
 _FQN_RE = re.compile(r"\b([a-z][\w]*(?:\.[a-zA-Z_]\w*){2,})\b")
-
-_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-_LINE_COMMENT_RE = re.compile(r"//[^\n]*")
-
-
-def _strip_comments(text: str) -> str:
-    return _LINE_COMMENT_RE.sub("", _BLOCK_COMMENT_RE.sub("", text))
 
 # A jar entry is a package-bearing class file. Metadata jars ship
 # `.kotlin_metadata` and `META-INF` only, so they contribute nothing and are
@@ -312,6 +306,11 @@ def _qualified_references() -> set[str]:
     Comments are stripped first: prose naming a package ("the JVM-only
     `okio.IOException`") is not a use of it, and the gate has to survive being
     described in a KDoc that mentions the very package under discussion.
+
+    The reader is `scanners.source_text.strip_comments`, which knows that a
+    `//` inside a string literal is not a comment. The regex this used to
+    carry did not, so one such line silently hid every real reference on it
+    — the gate under-reported usage, and a dependency in use looked unused.
     """
     prefixes: set[str] = set()
     for mod in MODULES_WITH_ROOT:
@@ -319,7 +318,7 @@ def _qualified_references() -> set[str]:
         if not src.is_dir():
             continue
         for kt in src.rglob("*.kt"):
-            code = _strip_comments(kt.read_text(encoding="utf-8", errors="ignore"))
+            code = strip_comments(kt.read_text(encoding="utf-8", errors="ignore"))
             for token in _FQN_RE.findall(code):
                 # `a.b.C.Factory` is a use of `a.b`; keep every dotted prefix.
                 parts = token.split(".")
