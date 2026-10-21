@@ -264,8 +264,10 @@ changing what a selector sees.
 by the JVM tier, as long as the assertion waits for the popup (a sheet animates in) and
 does not assume the popup's nodes are in the main tree. The recurrence picker is the
 worked example: `TestTags.RECURRENCE_OPTION_*` are assertable from the desktop tier, and
-`TASK-REC-01` is carried on Android as well
-(`Maestro/flows/tasks/17-create-daily-recurring.yaml`).
+`TASK-REC-01` is carried on **both** tiers — the desktop test chooses the rule and
+commits it, and the Maestro flow
+(`Maestro/flows/tasks/17-create-daily-recurring.yaml`) drives the rest of the journey on
+the device.
 
 **What a wrong row costs.** The `DropdownMenu` row used to say *no* for the desktop tier,
 and it was never measured — the truth is *yes*. A wrong row does not merely cost a

@@ -120,22 +120,26 @@ fun TaskEditorSheetsHost(
         }
 
         // ── Recurrence ──────────────────────────────────────────────────────
-        is TaskEditorSheet.Recurrence -> TaskEditorSheetHost(
-            title = "Repeat",
-            onClose = onSheetDismiss,
-            testTagConfirm = TestTags.SHEET_CONFIRM,
-        ) {
-            RecurrencePickerSheet(
-                currentSpec = model.recurrence,
-                anchorDate = model.dueDate
-                    ?: now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
-                onApply = { spec ->
-                    callbacks.recurrence?.onChange?.invoke(spec)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
-        }
+        //
+        // The picker brings its own chrome — the title, the × and the ✓ that commits
+        // the rule — because the rule it commits is a *pending* choice: the user picks
+        // a type, and the ✓ is what turns that choice into a rule. The host that
+        // wraps the other sheets has no ✓ at all, because those sheets apply their
+        // choice the moment it is made.
+        //
+        // Wrapping the picker in that host gave the sheet two headers and two sheets,
+        // and left the ✓ untagged: `sheet_confirm` was declared in the tag registry
+        // and tapped by the Maestro flow, but no element ever carried it.
+        is TaskEditorSheet.Recurrence -> RecurrencePickerSheet(
+            currentSpec = model.recurrence,
+            anchorDate = model.dueDate
+                ?: now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+            onApply = { spec ->
+                callbacks.recurrence?.onChange?.invoke(spec)
+                onSheetDismiss()
+            },
+            onDismiss = onSheetDismiss,
+        )
 
         // ── Checklist ────────────────────────────────────────────────────────
         is TaskEditorSheet.Checklist -> TaskEditorSheetHost(

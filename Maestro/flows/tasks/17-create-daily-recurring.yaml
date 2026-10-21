@@ -9,11 +9,20 @@
 # token in a Kotlin `@DisplayName`: a reader — human or scanner — can tell an id
 # from prose. The scanner rejects the tag if the id has no spec file.
 #
-# Why Android carries this half of the scenario: the recurrence picker is a
-# `ModalBottomSheet`, and Compose Multiplatform renders sheets into a separate
-# semantics root on desktop, so no JVM Compose test can reach a selector inside
-# it. Maestro drives the real UI, so the selection step is verifiable here. The
-# desktop Compose test covers the composer's entry point instead.
+# Why Android carries this half of the scenario: the second half is a journey
+# through the agenda — save the task, complete it once, find the next occurrence
+# dated a day later — and Maestro drives the real UI, so that part is verifiable
+# here. The desktop Compose test carries the composer half: it opens the picker,
+# chooses Daily, commits it, and asserts that the row reports the rule.
+#
+# The claim this flow used to make — that "Compose Multiplatform renders sheets
+# into a separate semantics root on desktop, so no JVM Compose test can reach a
+# selector inside it" — was measured on a broken row: the editor opened a sheet
+# state that nothing rendered, so nothing inside the sheet was found, and a bug
+# was read as a platform fact. The measurement today is in
+# `docs/decisions/2026-10-21-the-popups-open-their-own-windows-too.md`: a popup
+# opens its own window, its content is in the scene, and the cross-root search
+# finds it.
 appId: com.singularity.todo
 name: tasks-create-daily-recurring
 tags:

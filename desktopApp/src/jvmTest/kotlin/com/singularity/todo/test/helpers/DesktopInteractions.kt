@@ -104,6 +104,20 @@ fun DesktopComposeUiTest.clickTagScrolled(tag: String) {
 }
 
 /**
+ * Waits for a node with [tag] and clicks the first match.
+ *
+ * A popup on desktop is composed in two windows while it animates — the one it animates
+ * into and the one it animates out of — so its buttons are in the tree twice, and a
+ * single-node selector refuses to choose. Both copies are the same button, and either
+ * of them presses it.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clickTagFirst(tag: String) {
+    awaitAnyDisplayed(tag)
+    onAllNodes(hasTestTag(tag), useUnmergedTree = true).onFirst().performClick()
+}
+
+/**
  * Clicks a sheet's close button.
  *
  * A `ModalBottomSheet` on desktop is composed in two windows — the one it animates into
@@ -115,11 +129,7 @@ fun DesktopComposeUiTest.clickTagScrolled(tag: String) {
  * content description and is composed behind the editor.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.clickSheetClose() {
-    val buttons = onAllNodes(hasTestTag(TestTags.EDITOR_SHEET_CLOSE), useUnmergedTree = true)
-    check(buttons.fetchSemanticsNodes().isNotEmpty()) { "no sheet close button in the tree" }
-    buttons.onFirst().performClick()
-}
+fun DesktopComposeUiTest.clickSheetClose() = clickTagFirst(TestTags.EDITOR_SHEET_CLOSE)
 
 /** [clickTagScrolled] for a node that only has to be *present*, not pressed. */
 @OptIn(ExperimentalTestApi::class)
