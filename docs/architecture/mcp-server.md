@@ -222,6 +222,9 @@ The fingerprints say *that* something changed; the version says *whether the sha
 client knows is the shape this server speaks*. A client that reads a renamed field would
 otherwise conclude that a tool does not exist, and would have no way to tell.
 
+The version is also in the `initialize` response's `instructions` — so a client knows
+which contract it has connected to **before** the first call, rather than after.
+
 The response carries no absolute path, no secret and no remote-config content, and the
 disabled-tool list is bounded.
 
@@ -268,6 +271,11 @@ specifications. Both go through the corpus rules in `config/docs/adr-corpus.json
 archive is unreachable, the backlog is marked as backlog, and an empty result is
 distinguishable from a corpus that was not searched at all.
 
+The answer carries its own version (`SearchEnvelope.schemaVersion`): the envelope is a
+contract with an agent, and the corpus policy moved the directories underneath it, so a
+client that reads a field it does not know has to be able to tell a newer server from a
+misreading.
+
 The *document* corpora have their own policy, `config/docs/document-corpus.json`: the
 roots of every scope, how deep the walk goes, and what a document is. It is read by the
 search engine (`DocumentCorpusConfig`) and by the Python reader
@@ -304,8 +312,17 @@ versions it knows:
   version existed has no version and its lists are strings — that is version 0. An entry
   that fits neither shape of the version it claims is counted, not guessed at.
 
+The record's *vocabulary* is declared once, in `config/docs/tool-call-records.json`:
+the schema version, the outcomes (`OK`, `BUSINESS_ERROR`, `INTERNAL_ERROR`), the
+sources and the retention. The Kotlin writer is checked against it by a test, and the
+report reads it — so an outcome the report does not know is counted as **unknown** and
+named, never as an error. A reader that does not know the vocabulary cannot tell an
+error from a word it has not read.
+
 The report says what it could not read: the entries that did not match their version's
-shape, the versions it does not know, and the records the time window excluded. It also
+shape, the versions it does not know, the outcomes it does not know, and the records
+the time window excluded. The window is the **retention** — the writers delete what is
+older, so "all the records" is already a bound, and the report names it. It also
 reports the error *rate* per tool — a share of the calls, not a second count, because
 "3 errors" beside "calls: 3" is a division a reader may not do.
 
@@ -565,8 +582,10 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | `adr-core/src/commonMain/kotlin/.../tools/AdrSearch.kt` | the search engine, the scopes and the envelope |
 | `adr-core/src/commonMain/kotlin/.../tools/DocumentCorpus.kt` | the document corpora policy, read by the search |
 | `config/docs/document-corpus.json` | the roots of every document scope, the depth bound, what a document is |
+| `config/docs/tool-call-records.json` | the record's version, its vocabulary and its retention |
 | `scripts/document_corpus.py` | the Python reader of that policy — compared with the Kotlin one |
 | `scripts/mcp-toolbox-usage.py` | the local report over the call records |
+| `scripts/changed-modules.py` | which checks a change makes worth running |
 | `docs/testing/gate-costs.md` | what the verification loop costs, measured and published |
 | `mcp-server/src/test/kotlin/.../mcp/McpServerEndToEndTest.kt` | End-to-end protocol test via the stdio transport |
 | `mcp-server/src/test/kotlin/.../mcp/ToolRegistrarTest.kt` | the kill switch, at the place it is applied |

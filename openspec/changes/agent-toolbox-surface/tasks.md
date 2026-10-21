@@ -129,6 +129,33 @@ ADR: `2026-10-21-a-payload-says-which-version-it-is`,
 `2026-10-21-the-document-corpora-have-a-policy`,
 `2026-10-21-the-cost-of-the-loop-is-measured`.
 
+## The fifth wave
+
+- [x] The record's vocabulary is declared once — `config/docs/tool-call-records.json`:
+      the schema version, the outcomes, the sources, the retention
+- [x] The writer is checked against the policy (`ToolCallRecordPolicyTest`), and the
+      report reads the same file
+- [x] An outcome the report does not know is counted as **unknown** and named, never as
+      an error — the rule "anything that is not ok is an error" was a rule about
+      everything, and it was wrong about everything it did not recognise
+- [x] The report's default window is the retention, and the report names the span it
+      looked at
+- [x] `SearchEnvelope` carries `schemaVersion` — the search's answer says which
+      version of the answer it is
+- [x] The surface contract version is in the `initialize` response, so a client learns
+      it before the first call
+- [x] The CI loop is priced: the published page carries the last CI run's jobs
+- [x] `script-conventions` was declared twice in the sabotage controls, and
+      `GATE_CONTROLS` declared the same key twice — both gone, and a test says a
+      control may not be written twice
+- [x] The JSON-contract gate probes its gates concurrently (58.9 s → 33.6 s on the
+      same machine), and it is invoked three times per loop
+- [x] `just tests::affected` — the checks a change makes worth running, computed from
+      the module graph the build files declare
+
+ADR: `2026-10-21-the-answers-declare-what-they-are`,
+`2026-10-21-the-loop-is-priced-on-both-sides`.
+
 ## Verification
 
 - [x] `:shared:jvmTest` — the full suite; the nine failures it reported were all from

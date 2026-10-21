@@ -27,6 +27,7 @@ sys.path.insert(0, str(SCRIPTS / "src"))
 from click.testing import CliRunner  # noqa: E402
 
 import sgate  # noqa: E402
+import sgate.commands.gate_costs as costs  # noqa: E402
 from sgate.commands.gate_costs import (  # noqa: E402
     REGRESSION_FACTOR,
     compare,
@@ -141,6 +142,16 @@ class GateCostsTest(unittest.TestCase):
         verdict = compare(measurement, baseline)
         self.assertEqual(verdict["slower"], [])
 
+    def test_the_environment_difference_is_named(self):
+        """"Another machine" is true but useless when the difference is one interpreter."""
+        measurement = {"environment": {"os": "linux", "python": "3.14.8"}, "steps": {}}
+        baseline = {"environment": {"os": "linux", "python": "3.12.15"}, "steps": {}}
+
+        verdict = compare(measurement, baseline)
+
+        self.assertFalse(verdict["comparable"])
+        self.assertEqual(["python: 3.12.15 → 3.14.8"], verdict["differences"])
+
     def test_a_measurement_from_another_machine_concludes_nothing(self):
         """A duration from another machine is not a regression."""
         measurement = {"environment": {"os": "linux", "cpus": 8}, "steps": {"a": 9000}}
@@ -210,6 +221,91 @@ class GateCostsTest(unittest.TestCase):
     def test_the_regression_factor_is_a_factor(self):
         """Three times the baseline, not three times the average of nothing."""
         self.assertEqual(REGRESSION_FACTOR, 3)
+
+
+class CiCostTest(unittest.TestCase):
+    """The CI side of the loop: the last run's jobs, read from the runner's own record.
+
+    These numbers are not comparable with the local ones — a hosted runner is not
+    this machine — so they are published as a record of one run, with no median and
+    no baseline.
+    """
+
+    def test_a_job_duration_is_read_from_its_two_timestamps(self):
+        duration = costs._duration_ms(
+            '2026-10-21T10:00:00Z', '2026-10-21T10:01:30Z'
+        )
+
+        self.assertEqual(90_000, duration)
+
+    def test_a_job_that_has_not_finished_has_no_duration(self):
+        self.assertIsNone(costs._duration_ms('2026-10-21T10:00:00Z', None))
+
+    def test_a_timestamp_it_cannot_read_is_not_a_duration(self):
+        self.assertIsNone(costs._duration_ms('not a timestamp', 'also not'))
+
+    def test_without_gh_there_is_no_ci_measurement(self):
+        """No `gh` is not a crash: the command says so and stops."""
+        original = costs.shutil.which
+        costs.shutil.which = lambda name: None
+        try:
+            self.assertIsNone(costs.read_ci_run())
+        finally:
+            costs.shutil.which = original
+
+
+class PublishedPageTest(unittest.TestCase):
+    """The published page: the local loop and the CI one, both priced."""
+
+    def test_the_ci_section_is_published_when_the_baseline_carries_one(self):
+        baseline = {
+            "schemaVersion": 1,
+            "recordedAt": "2026-10-21T10:00:00Z",
+            "environment": {"os": "Linux"},
+            "gates": {},
+            "steps": {},
+            "ci": {
+                "runId": 1,
+                "url": "https://example.invalid/run/1",
+                "createdAt": "2026-10-21T09:00:00Z",
+                "jobs": {"JVM tests, detekt, coverage": 1_890_000},
+            },
+        }
+
+        text = costs.render_document(baseline)
+
+        self.assertIn("### The last CI run", text)
+        self.assertIn("JVM tests, detekt, coverage", text)
+        self.assertIn("31 min 30 s", text)
+
+    def test_without_a_ci_run_the_section_is_absent(self):
+        baseline = {
+            "schemaVersion": 1,
+            "recordedAt": "2026-10-21T10:00:00Z",
+            "environment": {},
+            "gates": {},
+            "steps": {},
+        }
+
+        text = costs.render_document(baseline)
+
+        self.assertNotIn("### The last CI run", text)
+
+    def test_recording_the_local_loop_keeps_the_ci_record(self):
+        """The CI side is a record, not a baseline: a re-record must not lose it."""
+        baseline = {
+            "schemaVersion": 1,
+            "recordedAt": "2026-10-21T10:00:00Z",
+            "environment": {},
+            "gates": {"a gate": {"samples": [100], "medianMs": 100}},
+            "steps": {},
+            "ci": {"runId": 1, "jobs": {"a job": 1000}},
+        }
+        measurement = {"environment": {}, "gates": {}, "steps": {}}
+
+        recorded = costs._record(baseline, measurement)
+
+        self.assertEqual(baseline["ci"], recorded["ci"])
 
 
 if __name__ == "__main__":

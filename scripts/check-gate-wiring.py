@@ -604,16 +604,6 @@ SABOTAGE_ONLY_GATES = [
     # now, the floor is zero, and the control below plants exactly the shape the
     # gate exists to catch.
     ScriptGate(
-        name="script-conventions",
-        cmd=[sys.executable, "scripts/check-script-conventions.py"],
-        sabotage_path="scripts/check-workflow-exit-status.py",
-        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
-        why=(
-            "R2.1 says gate scripts use Click, and the check has to catch the "
-            "regression that breaks it: a gate script that reaches for argparse again"
-        ),
-    ),
-    ScriptGate(
         name="unwired-surfaces",
         cmd=[sys.executable, "scripts/find-unwired-surfaces.py", "--quiet"],
         sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt",

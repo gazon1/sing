@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+
+  "_comment_schema": "The version of a tool-call record's shape. A record of another version is counted and named by the reader, never read as a call — its fields may mean something else.",
+
+  "schemaVersion_note": "The writer stamps this on every record; the reader compares it with this number.",
+
+  "retentionDays": 30,
+
+  "_comment_retention": "How long a record is kept. The writers delete what is older; the reader uses this as the window it reports over, and says so — 'all records' would mean 'all the records that still exist', which is not the same thing.",
+
+  "outcomes": ["OK", "BUSINESS_ERROR", "INTERNAL_ERROR"],
+
+  "_comment_outcomes": "The closed set of outcomes a call can have. The writer owns the spelling; the reader is strict about it, and an outcome it does not know is counted as unknown — not as an error, which would be a confident statement about a vocabulary it has not read.",
+
+  "sources": ["MCP", "IN_APP"],
+
+  "_comment_sources": "Who made the call. Two instrumentation points, one event schema.",
+
+  "events": ["tool_call", "session_start"],
+
+  "_comment_events": "What the record is about."
+}

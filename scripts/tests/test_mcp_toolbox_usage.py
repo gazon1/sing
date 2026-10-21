@@ -27,6 +27,10 @@ SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
 def _load(name: str, filename: str):
     spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
     module = importlib.util.module_from_spec(spec)
+    # The module has to be registered before it is executed: the report declares a
+    # dataclass, and under Python 3.14 `dataclasses` looks the module up in
+    # `sys.modules` while it is being created.
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -34,11 +38,17 @@ def _load(name: str, filename: str):
 usage = _load('mcp_toolbox_usage', 'mcp-toolbox-usage.py')
 
 
-def _record(tool: str, outcome: str = "ok", ts: int = 1_700_000_000_000, **extra) -> dict:
+def _record(tool: str, outcome: str = "ok", ts: int | None = None, **extra) -> dict:
+    """A record as the writer writes it.
+
+    The timestamp defaults to *now*: the report's default window is the retention, so
+    a fixed epoch in the past would age out of every window and the test would be
+    about the window rather than about the record.
+    """
     record = {
         "schemaVersion": 1,
         "event": "tool_call",
-        "ts": ts,
+        "ts": int(time.time() * 1000) if ts is None else ts,
         "source": "MCP",
         "tool": tool,
         "outcome": outcome,
@@ -158,6 +168,75 @@ class SummaryTest(unittest.TestCase):
         self.assertEqual(1, entry["ok"])
         self.assertEqual(1, entry["errors"])
         self.assertEqual(50.0, entry["errorRate"])
+
+    def test_an_outcome_the_policy_does_not_declare_is_unknown_not_an_error(self):
+        """Unknown is not failure.
+
+        The reader used to call everything it did not recognise an error, which is a
+        confident statement about a vocabulary it has not read. A future outcome —
+        or a typo — has to be counted separately and named.
+        """
+        summary = usage.summarize([
+            _record("create_task", outcome="OK"),
+            _record("create_task", outcome="CANCELLED"),
+            _record("create_task", outcome="CANCELLED"),
+        ])
+
+        entry = summary["create_task"]
+        self.assertEqual(1, entry["ok"])
+        self.assertEqual(0, entry["errors"], "an unknown outcome is not an error")
+        self.assertEqual(2, entry["unknown"])
+        self.assertEqual({"CANCELLED": 2}, entry["unknownOutcomes"])
+        self.assertEqual(0.0, entry["errorRate"], "the error rate counts errors only")
+
+    def test_the_report_names_the_outcomes_it_cannot_read(self):
+        records = [_record("create_task", outcome="CANCELLED")]
+        summary = usage.summarize(records)
+
+        report = usage.render(summary, None, 0, 1, len(records), None, 0, 0)
+
+        self.assertIn("Outcomes this report does not know", report)
+        self.assertIn("CANCELLED", report)
+
+
+class PolicyTest(unittest.TestCase):
+    """The policy the reader works by."""
+
+    def test_the_policy_is_read_from_the_repository(self):
+        policy = usage.load_policy()
+
+        self.assertEqual(1, policy.schema_version)
+        self.assertEqual(30, policy.retention_days)
+        self.assertIn("OK", policy.outcomes)
+        self.assertIn("BUSINESS_ERROR", policy.outcomes)
+        self.assertIn("INTERNAL_ERROR", policy.outcomes)
+
+    def test_the_default_window_is_the_retention(self):
+        """'All records' is not a window: the writer deletes what is older."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            records_dir = root / "tool-calls"
+            records_dir.mkdir()
+            now = int(time.time() * 1000)
+            (records_dir / "old.jsonl").write_text(
+                json.dumps(_record("create_task", ts=now - 40 * 24 * 3600 * 1000)) + "\n",
+                encoding="utf-8",
+            )
+            (records_dir / "new.jsonl").write_text(
+                json.dumps(_record("list_tasks", ts=now)) + "\n",
+                encoding="utf-8",
+            )
+
+            records, _, _, _, outside = usage.read_records(records_dir, None)
+
+            self.assertEqual(["list_tasks"], [r["tool"] for r in records])
+            self.assertEqual(1, outside, "the record the retention excluded is counted")
+
+    def test_the_report_states_the_window_it_looked_at(self):
+        report = usage.render({}, None, 0, 0, 0, None, 0, 0)
+
+        self.assertIn("the last 30 day(s)", report)
+        self.assertIn("retention", report)
 
     def test_the_error_rate_is_a_share_of_the_calls(self):
         """Three errors beside three calls is a division a reader may not do."""

@@ -120,7 +120,26 @@ data class SearchEnvelope(
     val hits: List<AdrSearchHit> = emptyList(),
     val warnings: List<String> = emptyList(),
     val error: String? = null,
-)
+    /**
+     * The version of the envelope's shape.
+     *
+     * The envelope is a contract with an agent: "where is the rule about X?" is
+     * answered by this document, and an agent that reads a field it does not know
+     * cannot tell a field added later from a shape it is misreading. The corpus policy
+     * moved the directories around under it, so the answer needs to say which version
+     * of the answer it is.
+     *
+     * The version is bumped when the shape changes in a way a client can observe: a
+     * renamed field, a removed field, a changed meaning. A new field is not a bump —
+     * the payload may only grow.
+     */
+    val schemaVersion: Int = SCHEMA_VERSION,
+) {
+    companion object {
+        /** The version of the envelope's shape. */
+        const val SCHEMA_VERSION = 1
+    }
+}
 
 /**
  * The search over the project's knowledge.

@@ -48,8 +48,11 @@ from __future__ import annotations
 import json
 import os
 import platform
+import shutil
 import statistics
+import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -57,6 +60,9 @@ import click
 import sgate
 from sgate.commands.base import CLEAN, CONFIG_ERROR, IO_ERROR, VALIDATION_FAILURE, register
 from sgate.log import logger
+
+#: The repository whose CI runs are measured. The command runs where the code does.
+CI_REPOSITORY = "gazon1/sing"
 
 #: The version of the baseline and of the measurement file this command reads.
 SCHEMA_VERSION = 1
@@ -210,6 +216,10 @@ def write_baseline(baseline: dict[str, object]) -> None:
         "gates": _sorted_entries(baseline.get("gates")),
         "steps": _sorted_entries(baseline.get("steps")),
     }
+    if baseline.get("ci"):
+        # The CI side is a record, not a baseline: it travels with the file, and a
+        # re-recording of the local loop must not throw it away.
+        ordered["ci"] = baseline["ci"]
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(ordered, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -295,7 +305,38 @@ def _render_block(baseline: dict[str, object]) -> str:
             median = entry.get("medianMs") if isinstance(entry, dict) else None
             lines.append(f"| {title}: {name} | {_format_ms(median)} |")
     lines.append("")
+    lines.extend(_render_ci_block(baseline))
     return "\n".join(lines)
+
+
+def _render_ci_block(baseline: dict[str, object]) -> list[str]:
+    """The CI side of the loop: the last run's jobs and what each took.
+
+    Not a median and not a baseline: a hosted runner is not this machine, and the
+    comparison this file refuses to make across machines is the same one. So the
+    numbers are published as a record of one run, with the run it came from.
+    """
+    ci = baseline.get("ci")
+    if not isinstance(ci, dict):
+        return []
+    jobs = ci.get("jobs")
+    if not isinstance(jobs, dict) or not jobs:
+        return []
+    lines = ["### The last CI run", ""]
+    created = ci.get("createdAt")
+    url = ci.get("url")
+    if created or url:
+        where = f" — {created}" if created else ""
+        if url:
+            where += f" — {url}"
+        lines.append(f"The CI loop is the one that blocks merges, so it is priced too{where}.")
+        lines.append("")
+    lines.append("| Job | Duration |")
+    lines.append("|------|----------|")
+    for name in sorted(jobs):
+        lines.append(f"| {name} | {_format_ms(jobs[name])} |")
+    lines.append("")
+    return lines
 
 
 def _format_ms(milliseconds: object) -> str:
@@ -335,7 +376,18 @@ def compare(measurement: dict[str, object], baseline: dict[str, object]) -> dict
     findings: list[dict[str, object]] = []
     baseline_environment = baseline.get("environment")
     recorded = isinstance(baseline_environment, dict) and bool(baseline_environment)
-    comparable = recorded and _same_environment(measurement.get("environment", {}), baseline_environment)
+    measurement_environment = measurement.get("environment", {})
+    comparable = recorded and _same_environment(measurement_environment, baseline_environment)
+    differences: list[str] = []
+    if recorded and not comparable:
+        # The comparison refuses to draw a conclusion it cannot support, and it says
+        # *why*: "another machine" is true but useless when the difference is one
+        # interpreter version.
+        for key in sorted(set(measurement_environment) | set(baseline_environment or {})):
+            current = measurement_environment.get(key)
+            was = (baseline_environment or {}).get(key)
+            if current != was:
+                differences.append(f"{key}: {was} → {current}")
     for kind in ("steps", "gates"):
         measured = measurement.get(kind)
         baseline_entries = baseline.get(kind)
@@ -365,9 +417,105 @@ def compare(measurement: dict[str, object], baseline: dict[str, object]) -> dict
     return {
         "recorded": recorded,
         "comparable": comparable,
+        "differences": differences,
         "findings": findings,
         "slower": [f for f in findings if f["verdict"] == "slower"],
     }
+
+
+# ── The CI side of the loop ─────────────────────────────────────────────────────
+
+
+def _gh(*args: str) -> str | None:
+    """The output of a `gh` command, or None when there is no answer.
+
+    `gh` is how this repository is reached from a terminal — the same tool the
+    release and issue scripts use — so asking it about a run costs nothing extra.
+    """
+    binary = shutil.which("gh")
+    if binary is None:
+        return None
+    try:
+        result = subprocess.run(
+            [binary, *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            stdin=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
+    """The last CI run: its jobs and how long each took.
+
+    The CI loop is the one that blocks merges, and it was unpriced: the local loop
+    was measured, the loop that decides was not. The durations are free — the
+    runner wrote them down — so the measurement is a reading, not a guess.
+
+    These numbers are **not** comparable with the local ones: a hosted runner is
+    not this machine, and the local baseline refuses to compare across machines for
+    the same reason. So they are published as "the last run", with no median and no
+    baseline: a record, not a threshold.
+    """
+    listed = _gh(
+        "run", "list",
+        "--repo", repository,
+        "--workflow", "ci.yml",
+        "--limit", "1",
+        "--json", "databaseId,url,createdAt,conclusion",
+    )
+    if listed is None:
+        return None
+    try:
+        runs = json.loads(listed)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(runs, list) or not runs:
+        return None
+    run = runs[0]
+    if not isinstance(run, dict):
+        return None
+
+    detailed = _gh(
+        "run", "view", str(run.get("databaseId", "")),
+        "--repo", repository,
+        "--json", "jobs",
+    )
+    jobs: dict[str, int] = {}
+    if detailed is not None:
+        try:
+            document = json.loads(detailed)
+        except json.JSONDecodeError:
+            document = {}
+        for job in document.get("jobs", []) if isinstance(document, dict) else []:
+            name = job.get("name")
+            duration = _duration_ms(job.get("startedAt"), job.get("completedAt"))
+            if isinstance(name, str) and duration is not None:
+                jobs[name] = duration
+    return {
+        "runId": run.get("databaseId"),
+        "url": run.get("url"),
+        "createdAt": run.get("createdAt"),
+        "conclusion": run.get("conclusion"),
+        "jobs": jobs,
+    }
+
+
+def _duration_ms(started: object, completed: object) -> int | None:
+    """How long a job took, in milliseconds, from two timestamps."""
+    if not isinstance(started, str) or not isinstance(completed, str):
+        return None
+    try:
+        first = datetime.fromisoformat(started.replace("Z", "+00:00"))
+        second = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return int((second - first).total_seconds() * 1000)
 
 
 # ── The command ──────────────────────────────────────────────────────────────────
@@ -375,19 +523,22 @@ def compare(measurement: dict[str, object], baseline: dict[str, object]) -> dict
 
 @click.command("gate-costs")
 @click.option("--record", is_flag=True, help="Record the measured cycle into the committed baseline.")
+@click.option("--record-ci", is_flag=True, help="Record the last CI run's job durations into the baseline.")
 @click.option("--render", is_flag=True, help="Render the published document from the baseline.")
 @click.option("--check", is_flag=True, help="Fail if the published document is not what the baseline says.")
 @click.option("--json", "emit_json", is_flag=True, help="Emit machine-readable output to stdout.")
-def gate_costs(record: bool, render: bool, check: bool, emit_json: bool) -> None:
+def gate_costs(record: bool, record_ci: bool, render: bool, check: bool, emit_json: bool) -> None:
     """Report, record, and publish what the verification loop costs.
 
     With no flag, the last measured cycle is printed next to the baseline, and
     anything that got much slower is named.
 
     --record writes the measurement into the committed baseline and re-renders the
-    published page. --render re-renders the page from the baseline alone. --check is
-    the gate: it fails when the published page is not what the baseline says, which
-    is a question a CI runner can answer without a local measurement.
+    published page. --record-ci writes the last CI run's job durations into the same
+    baseline: the loop that blocks merges was unpriced while the local one was
+    measured. --render re-renders the page from the baseline alone. --check is the
+    gate: it fails when the published page is not what the baseline says, which is
+    a question a CI runner can answer without a local measurement.
 
     Exit codes:
       0 = clean (report produced, or --check passed)
@@ -397,6 +548,29 @@ def gate_costs(record: bool, render: bool, check: bool, emit_json: bool) -> None
     """
     measurement = read_measurement()
     baseline = read_baseline()
+
+    if record_ci:
+        run = read_ci_run()
+        if run is None:
+            if emit_json:
+                click.echo(json.dumps({"passed": False, "status": "no-ci-run"}))
+            else:
+                logger.error("no CI run could be read — is `gh` installed and authenticated?")
+            raise SystemExit(IO_ERROR)
+        recorded = dict(baseline)
+        recorded["ci"] = run
+        write_baseline(recorded)
+        write_document(render_document(recorded))
+        if emit_json:
+            click.echo(json.dumps({
+                "passed": True,
+                "status": "recorded",
+                "runId": run.get("runId"),
+                "jobs": len(run.get("jobs", {})),
+            }))
+        else:
+            logger.info("recorded the last CI run and re-rendered the published page")
+        raise SystemExit(CLEAN)
 
     if check:
         expected = render_document(baseline)
@@ -464,6 +638,8 @@ def _record(baseline: dict[str, object], measurement: dict[str, object]) -> dict
         "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "environment": measurement.get("environment", {}),
     }
+    if baseline.get("ci"):
+        recorded["ci"] = baseline["ci"]
     for kind in ("gates", "steps"):
         entries = baseline.get(kind) if isinstance(baseline.get(kind), dict) else {}
         measured = measurement.get(kind) if isinstance(measurement.get(kind), dict) else {}
@@ -516,7 +692,12 @@ def _print_report(
         lines.append("No baseline recorded yet — every measurement above is new.")
     elif not verdict["comparable"]:
         lines.append("")
-        lines.append("The baseline was measured on another machine, so the comparison says nothing.")
+        lines.append(
+            "The baseline was measured in a different environment, so the comparison "
+            "says nothing:"
+        )
+        for difference in verdict.get("differences", []):
+            lines.append(f"  {difference}")
     slower = verdict["slower"]
     if slower:
         lines.append("")

@@ -23,7 +23,7 @@ The block below is generated. A hand-edited number is a failing gate, not a fact
 
 <!-- BEGIN GENERATED: sgate gate-costs -->
 
-Recorded on 2026-10-21T12:59:57Z — cpus=16, javaHome=/usr/lib/jvm/java-25-openjdk, os=Linux, python=3.14.8.
+Recorded on 2026-10-21T15:00:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-openjdk, os=Linux, python=3.12.15.
 
 | What | Median |
 |------|--------|
@@ -78,4 +78,21 @@ Recorded on 2026-10-21T12:59:57Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Gate: waiver references resolve | 1.3 s |
 | Gate: workflow env context resolves | 920 ms |
 | Gate: workflow steps keep their exit status | 1.1 s |
+
+### The last CI run
+
+The CI loop is the one that blocks merges, so it is priced too — 2026-10-21T13:39:52Z — https://github.com/gazon1/sing/actions/runs/39609950342.
+
+| Job | Duration |
+|------|----------|
+| Android (free) | 3 min 24 s |
+| Android (pro) | 4 min 15 s |
+| CI gate | 4.0 s |
+| Gate tooling | 4 min 03 s |
+| JVM tests, detekt, coverage | 31 min 29 s |
+| Static gates | 4 min 17 s |
+| adr-gate | 1 min 58 s |
+| changes | 6.0 s |
+| nightly-alert | — |
+| spec-create | — |
 <!-- END GENERATED: sgate gate-costs -->
