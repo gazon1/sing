@@ -267,10 +267,9 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/tags/components/AddTagDialog.kt` | local | the tag's name |
 | `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | anchored | the interval amount, the day of month |
 | `feature/tasks/presentation/components/detail/SubtasksSection.kt` | local | the new subtask |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | bridged | the description |
 | `feature/tasks/presentation/components/detail/TaskDetailProposalSection.kt` | local | the proposal's text |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | bridged | the title, the description — the detail editor's are owned, the create editor's are static |
 | `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | local | the estimate |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | bridged | the title |
 | `feature/timetracking/presentation/components/TimeEntryEditorSheet.kt` | local | the note |
 
 A local field is still *seeded* from a parameter — the rename dialog's current name, the
@@ -297,6 +296,15 @@ source, and the source says who may replace the value:
 - **`OwnedText`** — the upstream owns the value and may replace it with anything,
   including a value the field produced earlier. The source carries the count of the
   replacements, and the guard is lifted for the value that arrives with a new count.
+
+**The kind is a property of the parameter, not a question the receiver answers.** A
+component that serves both kinds — the task editor serves the create draft and the detail
+draft — cannot say which kind of upstream it holds, so it is split: `TaskEditorContent`
+takes an `OwnedText`, `TaskCreateEditorContent` takes a `StaticText`, and the shared body
+takes the bridged states and never asks. The bridge has the same shape: two overloads, one
+per kind, and **no overload that takes the sealed parent and dispatches on it**. A caller
+holding the wrong kind does not compile, and a reader of the call site sees the kind
+without opening the type.
 
 **The static promise lives in the owner's type.** `StaticText` says *what the bridge does*
 with a value; it does not say *what the owner may write*. A `String` in the owner's state
@@ -375,10 +383,8 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/projects/presentation/screen/ProjectsScreen.kt` | the projects search query | the projects ViewModel, which clears it | `StaticText` | `feature/projects/presentation/state/ProjectsUiState.kt` | - | - |
 | `feature/search/SearchScreen.kt` | the search query | the search ViewModel, which clears it | `StaticText` | `feature/search/SearchViewModel.kt` | - | - |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | the base URL, the model, the system prompt | the settings ViewModel, which loads them from disk | `StaticText` | `feature/settings/SettingsUiState.kt` | - | - |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | the task's description (create) | the create draft, which seeds it once | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
-| `feature/tasks/presentation/components/detail/TaskTitleRow.kt` | the task's title (create) | the create draft, which seeds it once | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (detail) | the task coordinator, which observes the task | `OwnedText` | `feature/tasks/presentation/state/TaskDetailUiState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` | `feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt` |
+| `feature/tasks/presentation/components/detail/TaskEditorContent.kt` | the task's title, the task's description (create) | the create draft, which seeds it once | `StaticText` | `feature/tasks/presentation/state/TaskCreateUiState.kt` | - | - |
 
 The **Owner** column names the file that builds the source — the component that holds the
 value and knows who else writes it. It is the owner the field's answer comes from, and it
@@ -472,12 +478,19 @@ every other field in the app.
   owner's state cannot say whether a write was a seed, an echo, or a replacement, so the
   promise survives only as a sentence in a reviewer's head. Hold a `FieldOwnedText` and name
   every write: `seeded`, `echoed`, `cleared`.
+- **A parameter of the sealed parent is a runtime question.** `TextSource` in a parameter
+  means the receiver has to decide which kind it was given, and the decision is a `when`
+  somewhere far from the place that knows. Split the component instead: one half takes an
+  `OwnedText`, the other a `StaticText`, and the caller that holds the wrong kind does not
+  compile.
 
 ## Related
 
 - `docs/decisions/2026-10-19-text-field-state-migration.md` — the ADR this skill encodes
 - `docs/decisions/2026-10-21-the-static-kind-is-a-guarantee.md` — why the static owner's
   value is a `FieldOwnedText` and not a `String`
+- `docs/decisions/2026-10-21-the-kind-of-the-source-is-a-property-of-the-parameter.md` —
+  why a component that serves two kinds of upstream is split
 - `openspec/changes/text-field-state-migration/` — the behavioural spec
 - `singularity-todo-compose-overview` — the router over the Compose skills
 - `singularity-todo-desktop-compose-ui-tests` — the desktop harness and its conventions

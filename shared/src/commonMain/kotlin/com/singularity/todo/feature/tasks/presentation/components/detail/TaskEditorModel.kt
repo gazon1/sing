@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import com.singularity.todo.core.attachments.Attachment
-import com.singularity.todo.core.ui.textfields.StaticText
-import com.singularity.todo.core.ui.textfields.TextSource
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
@@ -21,10 +19,12 @@ import kotlinx.datetime.LocalTime
  * In View mode, initialize from [TaskDetailUi][com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi].
  * In Create mode, initialize from the create draft.
  *
+ * The title and the description are **not** here: they are bridged fields, and the kind of
+ * their source — static or owned — is a compile-time property of the editor's parameter. A
+ * field of kind `TextSource` here would erase that kind and make the editor decide it at
+ * runtime, which is what the split exists to prevent.
+ *
  * @param taskId null in Create mode, non-null in View mode. Used by sheets to load sub-data (checklist, attachments).
- * @param titleSource Current title, as the field's source. The owner builds it, and its type
- *   says who may replace the title.
- * @param descriptionSource Current description, as the field's source.
  * @param priority Current priority.
  * @param dueDate Current due date (null = not set).
  * @param dueTime Current due time (null = not set).
@@ -41,8 +41,6 @@ import kotlinx.datetime.LocalTime
  */
 data class TaskEditorModel(
     val taskId: TaskId? = null,
-    val titleSource: TextSource = StaticText(""),
-    val descriptionSource: TextSource = StaticText(""),
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: LocalDate? = null,
     val dueTime: LocalTime? = null,

@@ -19,8 +19,8 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.Attachm
 import com.singularity.todo.feature.tasks.presentation.components.detail.ChecklistCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.RowCallbacks
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskCreateEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorCallbacks
-import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSaveBar
 import com.singularity.todo.feature.tasks.presentation.components.detail.ToggleCallbacks
@@ -98,11 +98,9 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
     val checklistItems = state.draft.checklist.toChecklistItems()
     val attachmentItems = state.draft.attachments.toAttachments(now)
 
-    TaskEditorContent(
+    TaskCreateEditorContent(
         model = TaskEditorModel(
             taskId = null,
-            titleSource = state.draft.titleSource,
-            descriptionSource = state.draft.descriptionSource,
             priority = state.draft.priority,
             dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
             dueTime = state.draft.dueTime,
@@ -118,12 +116,12 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             dependsOn = emptySet(),
             availableTasks = emptyList(),
         ),
+        onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
+        onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
         callbacks = TaskEditorCallbacks(
             onBack = guardedBack,
-            onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
             // Create mode: no task exists yet, so there is nothing to complete.
             onCheckToggle = null,
-            onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
             priority = RowCallbacks(
                 onChange = { vm.onIntent(TaskCreateIntent.SetPriority(it)) },
                 onClick = { sheets.show(TaskEditorSheet.Priority) },
@@ -187,7 +185,8 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             },
             menuItems = emptyList(),
         ),
-        isCompleted = false,
+        titleSource = state.draft.titleSource,
+        descriptionSource = state.draft.descriptionSource,
         now = now,
     )
 }
