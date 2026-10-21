@@ -5,7 +5,6 @@ package com.singularity.todo.feature.projects
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.ProjectEntity
-import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl

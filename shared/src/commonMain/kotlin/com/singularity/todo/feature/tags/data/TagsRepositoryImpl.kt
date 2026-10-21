@@ -1,16 +1,10 @@
 package com.singularity.todo.feature.tags.data
 
 import com.singularity.todo.core.database.SyncColumns
-import com.singularity.todo.core.database.FtsDao
 import com.singularity.todo.core.database.TagDao
 import com.singularity.todo.core.database.TagEntity
-import com.singularity.todo.core.database.toInstant
-import com.singularity.todo.core.database.toInstantOrNull
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
-import com.singularity.todo.core.search.TextMatchQuery
-import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.Tag
@@ -112,7 +106,6 @@ class TagsRepositoryImpl(
         }
     }
 }
-
 
 fun Tag.toEntity(): TagEntity = TagEntity(
     id = id.value,

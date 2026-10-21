@@ -85,6 +85,16 @@ fun DesktopComposeUiTest.mainRootNodeCount(): Int =
 fun DesktopComposeUiTest.countNodesWithTagInMainRoot(tag: String): Int =
     semanticsRoots().firstOrNull()?.countNodesWithTag(tag) ?: 0
 
+/**
+ * The number of nodes in each root of the scene, in tree order.
+ *
+ * The per-root sizes are what tell a popup's own window apart from the app's:
+ * a root that grows while a menu is open is the menu's window, and a root that
+ * stays at zero is a window that was opened and closed.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.rootSizes(): List<Int> = semanticsRoots().map { it.countNodes() }
+
 /** This node and every node below it. */
 private fun SemanticsNode.countNodes(): Int = 1 + children.sumOf { it.countNodes() }
 

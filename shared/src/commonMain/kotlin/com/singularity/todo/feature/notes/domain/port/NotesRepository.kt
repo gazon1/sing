@@ -63,7 +63,6 @@ interface NotesRepository :
     /** Search notes for the current user. */
     fun search(query: String): Flow<List<Note>>
 
-
     /** Creates a note with content (autosave path). Returns the saved note. */
     suspend fun createWithContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
 

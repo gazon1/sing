@@ -106,7 +106,6 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      */
     fun observeByFilter(filter: TaskFilter): Flow<List<Task>>
 
-
     /**
      * Returns tasks scheduled for exactly [date], ordered by pin status then due time.
      * Re-subscribes automatically when the user changes.
