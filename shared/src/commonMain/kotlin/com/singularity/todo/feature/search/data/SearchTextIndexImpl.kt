@@ -11,6 +11,7 @@ import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.toTag
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -45,7 +46,7 @@ class SearchTextIndexImpl(
             ftsDao.watchNotes(uid.value, query).map { rows -> rows.map { it.toNote() } }
         }
 
-    override fun observeProjects(query: TextMatchQuery): Flow<List<com.singularity.todo.feature.projects.domain.model.Project>> =
+    override fun observeProjects(query: TextMatchQuery): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             ftsDao.watchProjects(uid.value, query).map { rows -> rows.map { it.toProject() } }
         }

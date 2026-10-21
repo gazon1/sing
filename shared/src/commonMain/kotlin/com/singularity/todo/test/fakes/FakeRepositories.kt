@@ -54,7 +54,6 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays

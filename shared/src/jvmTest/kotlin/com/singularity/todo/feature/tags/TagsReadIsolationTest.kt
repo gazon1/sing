@@ -5,7 +5,6 @@ package com.singularity.todo.feature.tags
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.TagEntity
-import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.tags.TagId
