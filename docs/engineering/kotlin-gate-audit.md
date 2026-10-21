@@ -57,20 +57,20 @@ checking anything.
 
 | Файл | Правило | Техника | Позитивный контроль | ADR | Классификация |
 |---|---|---|---|---|---|
-| `ArchitectureTest.kt` | 20 правил: границы слоёв фичи, тема, koog-импорты, JVM-API в commonMain, DI-импорты, `Blocking()` в репозиториях, ownership-скоуп DAO-мутаций, user-скоуп чтений, nav3 backStack, `SyncEngine`/`OutboxService`/`SyncBootstrapper` | Konsist `scopeFromExternalDirectory(commonMain)` + regex по `file.text` | — | 2026-09-26-konsist, 2026-09-27-di-module, 2026-09-27-write-layer, 2026-10-03-nav3, 2026-10-05-materialkolor | **fix** (F1, F2) |
-| `AtBackendConfinedTest.kt` | `at(1)`-демон удалён и остаётся удалённым; AT-аннотированный код не исполняется в запертом контексте | Regex-скан по исходникам + позитивный контроль на трёх формах | ✅ (3) | 2026-10-06-notification-port, 2026-10-07-desktop-reminders | keep |
+| `ArchitectureTest.kt` | 20 правил: границы слоёв фичи, тема, koog-импорты, JVM-API в commonMain, DI-импорты, `Blocking()` в репозиториях, ownership-скоуп DAO-мутаций, user-скоуп чтений, nav3 backStack, `SyncEngine`/`OutboxService`/`SyncBootstrapper` | Konsist `scopeFromExternalDirectory(commonMain)` + regex по `file.text` | — | 2026-09-26-konsist-architecture-tests, 2026-09-27-di-module-aggregator-narrative, 2026-09-27-write-layer-soundness, 2026-10-03-nav3-backstack-top-vs-start-dispatch, 2026-10-05-materialkolor-seed-palette-and-resolved-dark-flag | **fix** (F1, F2) |
+| `AtBackendConfinedTest.kt` | `at(1)`-демон удалён и остаётся удалённым; AT-аннотированный код не исполняется в запертом контексте | Regex-скан по исходникам + позитивный контроль на трёх формах | ✅ (3) | 2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs, 2026-10-07-desktop-reminders-systemd-user-timers | keep |
 | `CachedIdentityReadArchitectureTest.kt` | Чтение кэшированной identity (`scopedUserId`, `currentUserId`) внутри реактивного блока запрещено | AST-подобный обход тела `flow { }`/`combine { }` + скан продакшена | ✅ (11 синтетических случаев) | 2026-10-04-derived-identity-flows | keep |
 | `CapabilityFlagTest.kt` | Флаг возможности может быть константой, только если на месте сказано, почему это так | Regex по KDoc-описанию флага + проверка наличия пояснения | — | — | **investigate** (F9) |
-| `ClassBodyScannerAgreementTest.kt` | Kotlin- и Python-сканеры «должен ли класс исполняться JUnit» дают одинаковый вердикт на каждом реальном тест-классе | Сравнение `RunnableTestMember` против `scripts/src/scanners/test_classes.py` | ✅ (5) | 2026-10-19-ast-grep | keep |
+| `ClassBodyScannerAgreementTest.kt` | Kotlin- и Python-сканеры «должен ли класс исполняться JUnit» дают одинаковый вердикт на каждом реальном тест-классе | Сравнение `RunnableTestMember` против `scripts/src/scanners/test_classes.py` | ✅ (5) | 2026-10-19-ast-grep-for-kotlin-parsing-in-python-gates | keep |
 | `CommonMainJvmApiTest.kt` | Ни одного `java.*` / `javax.*` / `android.*` в `commonMain` | Regex по строкам + baseline | ✅ (5 строк-примеров) | — | keep |
-| `CrashReportingWiringTest.kt` | ViewModel, который может упасть, обязан принимать `CrashReportingPort`; ViewModel не конструирует порт сам | Regex по `init`-блокам + «воронка» от каталога ViewModel'ов | ✅ (2) | 2026-10-05-no-direct-dispatchers, 2026-10-05-positive-tests | keep |
+| `CrashReportingWiringTest.kt` | ViewModel, который может упасть, обязан принимать `CrashReportingPort`; ViewModel не конструирует порт сам | Regex по `init`-блокам + «воронка» от каталога ViewModel'ов | ✅ (2) | 2026-10-05-no-direct-dispatchers-rule-was-a-no-op, 2026-10-05-positive-tests-for-every-detekt-rule | keep |
 | `CrossProfileReadRegistryTest.kt` | Санкционированный список кросс-профильных чтений закреплён и не может сгнить | Сверка списка с реальными методами DAO + проверка, что метод всё ещё используется путём re-arm | ✅ (4) | — | keep |
 | `CrossUserWriteRegistryTest.kt` | Санкционированный список кросс-пользовательских записей закреплён | Сверка списка с реальными методами репозитория | ✅ (3) | — | **fix** (F7) |
 | `DetektSourceSetsAreAllScannedTest.kt` | Каждый source set, объявленный модулем, должен сканироваться detekt | Чтение `build.gradle.kts` + сравнение со списком detekt | ✅ (3) | — | keep |
-| `DiFacadeTest.kt` | `core/di/Modules.kt` — фасад-агрегатор: биндинги живут только в per-domain `*DiModule.kt` | Regex по тексту `Modules.kt` + список известных фасадных функций | ✅ (6) | 2026-09-27-di-module | keep |
+| `DiFacadeTest.kt` | `core/di/Modules.kt` — фасад-агрегатор: биндинги живут только в per-domain `*DiModule.kt` | Regex по тексту `Modules.kt` + список известных фасадных функций | ✅ (6) | 2026-09-27-di-module-aggregator-narrative | keep |
 | `DroppedResultIsReportedTest.kt` | `Result`, который никто не посмотрел, либо обработан, либо отрепорчен там, где произведён | Резолв типа возврата по объявлению + разбор тела метода | ✅ (11) | — | keep |
 | `EnqueueSiteIsScannedTest.kt` | Множество мест, которые сканируют write-правила, равно множеству мест, которые enqueue'ят | Сопоставление glob'а write-правил с реальными call-site'ами | ✅ (6) | — | keep |
-| `EntityMapperCompletenessTest.kt` | Каждый параметр конструктора `@Entity` обязан появиться в маперере `toX()` | Разбор `Entities.kt` + `toX()`-функций, сверка множеств | ✅ (9) | 2026-09-30-draft-save, 2026-10-03-entity-mapper | keep |
+| `EntityMapperCompletenessTest.kt` | Каждый параметр конструктора `@Entity` обязан появиться в маперере `toX()` | Разбор `Entities.kt` + `toX()`-функций, сверка множеств | ✅ (9) | 2026-09-30-draft-save-failure-and-testtag-honesty, 2026-10-03-entity-mapper-completeness | keep |
 | `ExtensionServiceRegistrationTest.kt` | Каждый зарегистрированный JUnit `Extension` резолвится в реальный загружаемый класс | Чтение `META-INF/services/...` + `Class.forName` | — | — | keep (проверка «список непуст» есть) |
 | `KotlinTextFixtureTest.kt` | Kotlin-половина общей таблицы фикстур «где заканчивается этот блок» | Чтение `config/test-fixtures/kotlin-brace-matching.txt` + сверка с `KotlinText.blockBody` | ✅ (16) | — | keep |
 | `KotlinTextTest.kt` | Собственные правила Kotlin-лексера, закреплённые по случаям | Модульные тесты лексера | ✅ (8) | — | keep |
@@ -82,23 +82,23 @@ checking anything.
 | `ScopedReadQueryIsolationTest.kt` | Каждый `SELECT`, читающий профиле-владельческую таблицу, обязан скоупиться по профилю | Regex по `Daos.kt` + вывод scoped-таблиц из `Entities.kt` | ✅ (7 модульных + анти-вакуумный порог) | — | **fix** (F3) |
 | `ScopedWriteQueryIsolationTest.kt` | Каждый `UPDATE`/`DELETE` в DAO обязан скоупиться по пользователю | Regex по `@Query` во всех commonMain-файлах | ✅ (12) | — | keep (см. F3) |
 | `SelectorSerializerCoverageTest.kt` | Каждый вариант `Selector` обязан иметь запись в реестре сериализаторов | Сопоставление sealed-иерархии с реестром | — | — | keep |
-| `SharedHarnessConventionsTest.kt` | Конвенции тест-харнесса `shared`: `awaitState` вместо `advanceUntilIdle`, `runVmTest` для ViewModel, никаких `stateIn`/`koinInject`/MockK | Regex по `shared/src/{jvmTest,commonTest}` | ✅ (19) | 2026-10-27-vm-test-scope | keep |
+| `SharedHarnessConventionsTest.kt` | Конвенции тест-харнесса `shared`: `awaitState` вместо `advanceUntilIdle`, `runVmTest` для ViewModel, никаких `stateIn`/`koinInject`/MockK | Regex по `shared/src/{jvmTest,commonTest}` | ✅ (19) | 2026-10-27-vm-test-scope-exemption | keep |
 | `SingleOfKotlinDefaultsTest.kt` | `singleOf`/`factoryOf`/`viewModelOf` не должны указывать на класс с Kotlin-дефолтами (Koin их не применяет) | Regex по call-site'ам + разбор primary-конструктора | ✅ (7) | — | keep |
-| `SubprocessConfinedTest.kt` | Каждый subprocess в репозитории порождается только через `Subprocess` | Regex по вызовам spawn + проверка allowlist-файла | ✅ (2) | 2026-10-07-closing-child-streams | keep |
+| `SubprocessConfinedTest.kt` | Каждый subprocess в репозитории порождается только через `Subprocess` | Regex по вызовам spawn + проверка allowlist-файла | ✅ (2) | 2026-10-07-closing-child-streams-sends-sigpipe | keep |
 | `SyncedEntityDeleteIsSoftTest.kt` | Каждый репозиторий, куда диспетчеризует pull-обработчик `DELETED`, обязан удалять мягко | Разбор тела `delete` + таблица диспетчеризации | ✅ (12) | — | keep |
 | `SyncedWriteEnqueuesTest.kt` | Запись в synced-таблицу обязана enqueue-ить patch | Regex по DAO-вызовам + сверка с таблицами | ✅ (4) | — | keep |
-| `SyncEngineTakesNoFeatureTypesTest.kt` | Sync-движок не принимает фичевые типы | Сверка сигнатур `SyncEngine` с core-портами | ✅ (1) | 2026-10-06-sync-engine | keep |
+| `SyncEngineTakesNoFeatureTypesTest.kt` | Sync-движок не принимает фичевые типы | Сверка сигнатур `SyncEngine` с core-портами | ✅ (1) | 2026-10-06-the-sync-engine-needs-the-repositories-and-the-repositories-need-the-engine | keep |
 | `SyncPeriodicTriggerWiringTest.kt` | Один периодический драйвер на платформу, и никакой platform sniffing | Чтение `PlatformModule.*.kt` + проверка, что в sync core нет платформенных типов | — | — | keep (анти-вакуумный порог есть) |
 | `SyncTransportIdentityTest.kt` | Ни один метод транспорта не принимает owner id от вызывающего | Regex по сигнатурам транспорта | ✅ (3) | — | keep |
-| `SyncWriteIsAtomicTest.kt` | Каждый patch enqueue-ится внутри unit of work | Разбор тела метода + обход графа вызовов | ✅ (6) | 2026-10-05-who-owns-a-row | keep |
+| `SyncWriteIsAtomicTest.kt` | Каждый patch enqueue-ится внутри unit of work | Разбор тела метода + обход графа вызовов | ✅ (6) | 2026-10-05-who-owns-a-row-and-the-patch-that-describes-it | keep |
 | `TestTagCoverageTest.kt` | Каждый тест-класс несёт `@Tag`, и каждое значение тега выбирается CI | Скан тест-классов + проверка `includeTags` в build-скриптах | ✅ (1) | 2026-09-25-test-suite-tag-defaults | keep |
-| `TestTagsWiringTest.kt` | Каждая константа `TestTags` обязана применяться к composable | Regex по `Modifier.testTag` + сверка с `TestTags.kt` | — | 2026-09-30-draft-save, 2026-09-30-test-infra, 2026-10-04-undo-snackbar | keep |
+| `TestTagsWiringTest.kt` | Каждая константа `TestTags` обязана применяться к composable | Regex по `Modifier.testTag` + сверка с `TestTags.kt` | — | 2026-09-30-draft-save-failure-and-testtag-honesty, 2026-09-30-test-infra-known-gaps, 2026-10-04-undo-snackbar-and-popup-testtags | keep |
 | `TextFieldRewriteContractTest.kt` | Кто имеет право переписывать текстовое поле, и как код это говорит | Чтение таблицы контрактов в SKILL.md + сверка с владельцами | ✅ (6) | — | keep |
 | `TextFieldShapeConventionTest.kt` | Каждое текстовое поле классифицировано (local / bridged / anchored), и классификация совпадает с кодом | Konsist-импорты (форма выведена из импортов, не из текста) + сверка с таблицей в SKILL.md | — | — | keep |
-| `UiAutomationSelectorTest.kt` | Селектор — контракт: не строится из display-метки, и тег окна экспонирует свои `testTags` | Regex по `testTag` / `Modifier.semantics` | ✅ (3) | 2026-10-04-testtag-visibility | keep |
+| `UiAutomationSelectorTest.kt` | Селектор — контракт: не строится из display-метки, и тег окна экспонирует свои `testTags` | Regex по `testTag` / `Modifier.semantics` | ✅ (3) | 2026-10-04-testtag-visibility-helper | keep |
 | `UnannotatedTestMemberTest.kt` | Каждый неприватный член тест-класса несёт аннотацию | Разбор тел тест-классов + поиск аннотаций | ✅ (11) | — | keep |
 | `VendorSdkConfinementTest.kt` | Supabase SDK встречается только в транспортном и auth-seam'ах | Regex по импортам + сверка с allowlist | ✅ (3) | — | keep |
-| `ViewModelInitOrderTest.kt` | Порядок инициализации свойств внутри ViewModel'ов | Разбор порядка объявлений vs `init`-блоков | ✅ (6) | 2026-09-30-vm-init-property | keep |
+| `ViewModelInitOrderTest.kt` | Порядок инициализации свойств внутри ViewModel'ов | Разбор порядка объявлений vs `init`-блоков | ✅ (6) | 2026-09-30-vm-init-property-declaration-order | keep |
 | `ViewModelTestCoverageTest.kt` | Каждый production-ViewModel имеет тест — или стоит в списке с причиной | Сверка каталога ViewModel'ов с тест-классами + `KNOWN_UNCOVERED` | ✅ (4) | 2026-10-04-mr5-retro-gate | **investigate** (F8) |
 
 ### Helpers
@@ -428,7 +428,7 @@ ADR-ссылка обязательна — это прямо написано �
 
 Все упомянутые слаги существуют — «висячих» ссылок на несуществующие ADR в
 `arch/` нет, кроме `2026-10-04-mr5-retro-gate` (это `docs/plans/`, файл есть) и
-`2026-10-06-notification-port-deleted-because-it-cancelled-` в
+`2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs` в
 `AtBackendConfinedTest.kt:14,88` — обрывок слага из-за переноса строки; полное имя
 `2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs`
 существует, но именно в таком виде слаг не резолвится.
@@ -622,10 +622,12 @@ Kotlin-выражений. `TextFieldShapeScan.kt` — второй Konsist-по
 - Maestro-корпусы: Kotlin видит 221 flow-id + 5 helper-id; Python — те же 221 flow-id,
   helpers пропускает (`validate-maestro-selectors.py:409`); множества совпадают
   полностью.
-- ADR-ссылки: полный перечень 48 файлов; все упомянутые слаги существуют, кроме
-  `2026-10-04-mr5-retro-gate` (это `docs/plans/`, файл существует) и обрывка
-  `2026-10-06-notification-port-deleted-because-it-cancelled-`
-  (`AtBackendConfinedTest.kt:14,88` — перенос строки).
+- ADR-ссылки: полный перечень 48 файлов; все упомянутые слаги существуют. Два
+  особых случая: `2026-10-04-mr5-retro-gate` — это `docs/plans/`, не решение,
+  хотя файл существует; и
+  `2026-10-06-notification-port-deleted-because-it-cancelled-other-peoples-jobs`,
+  который в `AtBackendConfinedTest.kt:14,88` разорван переносом строки — как
+  текст он не является слагом, поэтому гейт ссылок его не видит.
 - Мёртвые path-ссылки: 1 (`CrossUserWriteRegistryTest.kt:50`).
 - Покрытие Python-инструментарием: `scripts/ci/static-gates.sh` — 30 gate-строк,
   ни одна не ссылается на `arch/`; `_registry.py` — ни одной записи; `config/docs/test-runs-baseline.txt`
