@@ -374,7 +374,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/agenda/presentation/screen/SavedAgendaContent.kt` | the saved agenda's name | the agenda ViewModel | `StaticText` | `feature/agenda/presentation/viewmodel/SavedAgendaViewModel.kt` | - | - |
 | `feature/ai/chat/ChatScreen.kt` | the chat input | the chat ViewModel, which clears it after sending | `StaticText` | `feature/ai/chat/ChatViewModel.kt` | - | - |
 | `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | the annotation ViewModel, which seeds it on open | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
-| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/surface/SurfaceController.kt` | `feature/genui/surface/SurfaceController.kt` |
+| `feature/genui/render/material3/input/TextFieldRenderer.kt` | the surface's text field | the surface's server, through the data context | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/schema/DataModel.kt` | `feature/genui/schema/DataModel.kt` |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's body | the note itself (a proposal applied to it, a sync) | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | the notes ViewModel, which clears it | `StaticText` | `feature/notes/Ids.kt` | - | - |
@@ -390,8 +390,14 @@ The **Owner** column names the file that builds the source — the component tha
 value and knows who else writes it. It is the owner the field's answer comes from, and it
 is the file the source is read out of. The GenUI renderer used to be the one row whose
 owner was the field site itself; it is not any more — the data context builds the source
-and hands it out whole, because the context is what knows both the value and the server's
+and hands it out whole, because the context is what knows the value and the server's
 count of writes.
+
+The GenUI's count is kept in the **data model**, per path, next to the value it counts:
+the count says "this value was replaced from outside", and it is the count of *this
+path's* rewrites. It used to be a counter beside the surfaces — one per surface, moved by
+a write to any path of it — which is why the Counter and Advances columns point at the
+data model now.
 
 The **Counter** column names the file that declares the count; the **Advances** column
 names the file that moves it. They are often the same file, and they are not always: the

@@ -6,17 +6,20 @@ import com.singularity.todo.core.ui.textfields.OwnedText
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.schema.DataModel
+import com.singularity.todo.feature.genui.schema.PathValue
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.Surface
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.component
 import com.singularity.todo.feature.genui.surface.rootRef
 import com.singularity.todo.feature.genui.surface.value
+import com.singularity.todo.feature.genui.surface.valueAt
+import com.singularity.todo.feature.genui.surface.valueAtFlow
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -82,23 +85,12 @@ class DefaultDataContext(
     fun value(path: UiPath): Flow<JsonElement?> = controller.value(surfaceId, path)
 
     /**
-     * The number of server-driven writes to this surface's data model.
-     *
-     * A bound field uses it as the bridge's *rewrite token*: the counter changes when the
-     * server replaced a value, and the bridge then applies that value even when it
-     * equals something the field pushed earlier. Without it, a server rewrite to a value
-     * the field had already sent is dropped as an echo — which is the right call for a
-     * lagging model and the wrong one for a deliberate rewrite.
-     */
-    fun serverRevision(): Flow<Long> = controller.serverRevision(surfaceId)
-
-    /**
      * The source of a field bound to [path].
      *
      * The context builds the source, because the context is what knows the value and the
      * server's count of writes. A renderer that built the source itself would be
      * answering a question it cannot know the answer to: only the *server's* writes are a
-     * rewrite, and the count that says so belongs to the context, not to the field.
+     * rewrite, and the count that says so belongs to the value, not to the surface.
      *
      * The source is built once per path and kept, so that a recomposition does not
      * restart the observation: the flow stays the same object, and the field keeps the
@@ -111,15 +103,8 @@ class DefaultDataContext(
         val existing = sources[path]
         if (existing != null && existing.fallback == fallback) return existing
         val created = BoundTextSource(
-            current = sourceOf(
-                value = controller.snapshot(surfaceId)?.dataModel?.get(path),
-                revision = controller.currentServerRevision(surfaceId),
-                fallback = fallback,
-            ),
-            updates = combine(
-                controller.value(surfaceId, path),
-                controller.serverRevision(surfaceId),
-            ) { value, revision -> sourceOf(value, revision, fallback) },
+            current = controller.valueAt(surfaceId, path).toSource(fallback),
+            updates = controller.valueAtFlow(surfaceId, path).map { it.toSource(fallback) },
             fallback = fallback,
         )
         sources[path] = created
@@ -132,8 +117,12 @@ class DefaultDataContext(
      * The text is the value at the path, or the fallback while the model holds nothing
      * there — the field's own initial text, which the caller knows and the context does
      * not.
+     *
+     * The count is the count of *this path's* rewrites, and it comes with the value: the
+     * two are read together, so a source can never carry a count that belongs to another
+     * write.
      */
-    private fun sourceOf(value: JsonElement?, revision: Long, fallback: String): OwnedText =
+    private fun PathValue.toSource(fallback: String): OwnedText =
         OwnedText((value as? JsonPrimitive)?.content ?: fallback, revision)
 
     /**
