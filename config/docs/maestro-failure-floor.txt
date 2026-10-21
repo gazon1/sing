@@ -1,0 +1,30 @@
+# The number of Maestro flows allowed to fail, per scope.
+#
+# This file is the measurement's floor: the debt the repository has accepted,
+# written down where a diff can show it shrinking. The gate
+# (`scripts/ci/check-maestro-results.py`) fails when a run fails MORE flows
+# than the number here, and passes when it fails fewer — so the debt ratchets
+# in one direction only, and an improvement never has to be argued for.
+#
+# The floor is data, not a constant in the gate's code, and nothing rewrites
+# it: lowering it is a deliberate edit to this file, in the commit that says
+# what was fixed. A floor a script regenerates is a floor that moves by
+# itself, and the diff that shows the debt shrinking has to be somebody's
+# decision.
+#
+# Format: one `<scope> <max-failing-flows>` per line. `#` starts a comment.
+#
+# Scopes:
+#   full  — every flow in the catalogue (config/docs/maestro-flows.txt); the
+#           nightly's four shards together.
+#   smoke — the flows that declare the `smoke` tag; the suite a pull request
+#           runs. The tag, not the directory: 22 of the 29 smoke flows live
+#           outside Maestro/flows/smoke/, and the runner filters on the tag.
+#
+# Measured 2026-10-21 by a full local run of all 94 flows: 55 passed, 39
+# failed, 10 of the failures in the smoke subset. The numbers below are that
+# run's failure counts, so the gate passes today and fails the first time the
+# debt grows.
+
+full 39
+smoke 10

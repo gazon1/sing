@@ -1,0 +1,52 @@
+# spec-kit issue record — hand-written: a Maestro failure group measured by
+# scripts/ci/check-maestro-results.py.
+#
+# Not imported from an OpenSpec change. The importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand: the measurement it carries
+# would not survive the next `--replace` otherwise.
+---
+version: '1.0'
+type: maestro-failure
+slug: maestro-failure-element-not-found
+date: '2026-10-21'
+title: 'Maestro: no visible element carried the id the flow waited for'
+status: open
+change_type: active
+speckit_imported: false
+adr_refs: []
+tags:
+- maestro
+- e2e-debt
+documents: {}
+specs_dir: ''
+is_stub: false
+openspec_path: ''
+measurement:
+  gate: scripts/ci/check-maestro-results.py
+  scope: full
+  group: 'No visible element found: id: <id>'
+  flows: 7
+  measured_on: '2026-10-21'
+  floor: config/docs/maestro-failure-floor.txt
+elements:
+- element: attachments_add_file_row
+  flows: 5
+  messages:
+  - 'No visible element found: id: attachments_add_file_row'
+- element: settings_tab_backup
+  flows: 1
+  messages:
+  - 'No visible element found: id: settings_tab_backup'
+- element: top_bar_back_button
+  flows: 1
+  messages:
+  - 'No visible element found: id: top_bar_back_button'
+affected_flows:
+- Maestro/flows/agenda/04-saved-view-results.yaml
+- Maestro/flows/attachments/01-add-url.yaml
+- Maestro/flows/attachments/02-delete.yaml
+- Maestro/flows/attachments/03-empty-url-rejected.yaml
+- Maestro/flows/attachments/04-persistence.yaml
+- Maestro/flows/attachments/05-renders-correctly.yaml
+- Maestro/flows/backup/01-round-trip.yaml

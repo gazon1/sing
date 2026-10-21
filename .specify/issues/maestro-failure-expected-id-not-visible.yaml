@@ -1,0 +1,131 @@
+# spec-kit issue record — hand-written: a Maestro failure group measured by
+# scripts/ci/check-maestro-results.py.
+#
+# Not imported from an OpenSpec change. The importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand: the measurement it carries
+# would not survive the next `--replace` otherwise.
+---
+version: '1.0'
+type: maestro-failure
+slug: maestro-failure-expected-id-not-visible
+date: '2026-10-21'
+title: 'Maestro: an element the flow asserted to be visible was not on screen'
+status: open
+change_type: active
+speckit_imported: false
+adr_refs: []
+tags:
+- maestro
+- e2e-debt
+documents: {}
+specs_dir: ''
+is_stub: false
+openspec_path: ''
+measurement:
+  gate: scripts/ci/check-maestro-results.py
+  scope: full
+  group: 'Assertion is false: id: <id> is visible'
+  flows: 26
+  measured_on: '2026-10-21'
+  floor: config/docs/maestro-failure-floor.txt
+elements:
+- element: task_detail_title
+  flows: 4
+  messages:
+  - 'Assertion is false: id: task_detail_title is visible'
+- element: agenda_section_today
+  flows: 2
+  messages:
+  - 'Assertion is false: id: agenda_section_today is visible'
+- element: auth_attach_email_input
+  flows: 2
+  messages:
+  - 'Assertion is false: id: auth_attach_email_input is visible'
+- element: auth_confirmation_headline
+  flows: 2
+  messages:
+  - 'Assertion is false: id: auth_confirmation_headline is visible'
+- element: auth_save_server_button
+  flows: 2
+  messages:
+  - 'Assertion is false: id: auth_save_server_button is visible'
+- element: saved_agenda_empty_title
+  flows: 2
+  messages:
+  - 'Assertion is false: id: saved_agenda_empty_title is visible'
+- element: agenda_section_no_date
+  flows: 1
+  messages:
+  - 'Assertion is false: id: agenda_section_no_date is visible'
+- element: agenda_section_upcoming
+  flows: 1
+  messages:
+  - 'Assertion is false: id: agenda_section_upcoming is visible'
+- element: auth_error_text
+  flows: 1
+  messages:
+  - 'Assertion is false: id: auth_error_text is visible'
+- element: calendar_sync_system_unavailable
+  flows: 1
+  messages:
+  - 'Assertion is false: id: calendar_sync_system_unavailable is visible'
+- element: dialog_date_picker_ok
+  flows: 1
+  messages:
+  - 'Assertion is false: id: dialog_date_picker_ok is visible'
+- element: recurrence_option_daily
+  flows: 1
+  messages:
+  - 'Assertion is false: id: recurrence_option_daily is visible'
+- element: snackbar_action
+  flows: 1
+  messages:
+  - 'Assertion is false: id: snackbar_action is visible'
+- element: task_editor_title_input
+  flows: 1
+  messages:
+  - 'Assertion is false: id: task_editor_title_input is visible'
+- element: task_item_pokupki
+  flows: 1
+  messages:
+  - 'Assertion is false: id: task_item_pokupki is visible'
+- element: task_item_r5530242440_taskwithdesc2026
+  flows: 1
+  messages:
+  - 'Assertion is false: id: task_item_r5530242440_taskwithdesc2026 is visible'
+- element: task_item_renameme
+  flows: 1
+  messages:
+  - 'Assertion is false: id: task_item_renameme is visible'
+- element: task_item_savedalpha2026
+  flows: 1
+  messages:
+  - 'Assertion is false: id: task_item_savedalpha2026 is visible'
+affected_flows:
+- Maestro/flows/agenda/02-saved-views-open.yaml
+- Maestro/flows/agenda/06-full-lifecycle.yaml
+- Maestro/flows/auth/02-signin-wrong-password.yaml
+- Maestro/flows/auth/03-signup-toggle.yaml
+- Maestro/flows/auth/06-signup-unconfirmed.yaml
+- Maestro/flows/auth/07-account-attach.yaml
+- Maestro/flows/auth/08-signup-network-error.yaml
+- Maestro/flows/auth/09-signin-network-error.yaml
+- Maestro/flows/auth/10-attach-account-validation-error.yaml
+- Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
+- Maestro/flows/lifecycle/03-rotate-in-editor.yaml
+- Maestro/flows/search/02-cyrillic.yaml
+- Maestro/flows/search/04-filter-description.yaml
+- Maestro/flows/search/05-filter-pinned.yaml
+- Maestro/flows/search/07-saved-search.yaml
+- Maestro/flows/tasks/03-due-date-cancel.yaml
+- Maestro/flows/tasks/04-delete.yaml
+- Maestro/flows/tasks/06-delete-undo.yaml
+- Maestro/flows/tasks/08-date-buckets.yaml
+- Maestro/flows/tasks/09-rename-empty.yaml
+- Maestro/flows/tasks/14-prefill-from-today.yaml
+- Maestro/flows/tasks/15-prefill-from-inbox.yaml
+- Maestro/flows/tasks/17-create-daily-recurring.yaml
+- Maestro/flows/tasks/18-time-tracking-start-stop.yaml
+- Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml
+- Maestro/flows/tasks/open-task-detail.yaml

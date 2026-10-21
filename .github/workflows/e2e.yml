@@ -390,6 +390,45 @@ jobs:
         run: |
           echo "::warning::E2E smoke failed. This is an advisory gate — it does not block release." && echo "::warning::See https://github.com/gazon1/sing/issues/721 (owner: gazon1)"
 
+  # The run's own verdict, measured. The e2e job above already fails when a
+  # flow fails; this job says how much debt there is, groups it by cause, and
+  # fails when the debt grew past the floor the repository owns
+  # (config/docs/maestro-failure-floor.txt).
+  #
+  # It runs after the shards, on their combined reports. The floor is a number
+  # for the whole suite, so the measurement has to be the whole suite: a gate
+  # that ran inside one of the four nightly shards would measure a quarter of
+  # the suite against the whole suite's floor and pass on debt it could not
+  # see.
+  maestro-results:
+    needs: [plan, e2e]
+    # always() so that a red shard still gets measured — the measurement
+    # matters most when the run failed. needs.plan.result so that a skipped
+    # plan (a pull request without the run-maestro label) skips this job
+    # instead of downloading nothing and failing on it, and
+    # needs.e2e.result so that a skipped shard job (the APK build failed, so
+    # there was no run to measure) skips it too.
+    if: ${{ always() && !cancelled() && needs.plan.result == 'success' && needs.e2e.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-python-tools
+        with:
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+
+      - name: Collect the shards' reports
+        uses: actions/download-artifact@v7
+        with:
+          pattern: maestro-junit-${{ needs.plan.outputs.suite }}-*
+          path: build/maestro-results
+          merge-multiple: true
+
+      - name: Maestro results gate
+        run: python3 scripts/ci/check-maestro-results.py --scope "${{ needs.plan.outputs.suite }}"
+
   # Nobody reads a red cron run. Open an issue instead, so the nightly failure has
   # somewhere to land other than a scrollback buffer.
   nightly-alert:

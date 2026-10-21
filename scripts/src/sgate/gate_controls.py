@@ -537,6 +537,40 @@ def _setup_measure_flake_rate(root: Path) -> None:
         (d / "TEST-A.xml").write_text(suite.format(n="one", b=body))
     (root / "empty-baseline.txt").write_text("", encoding="utf-8")
 
+def _setup_maestro_results(root: Path) -> None:
+    """A Maestro run that failed a flow, and a flow that never reported at all.
+
+    The input of this gate does not exist in a clean checkout — the JUnit XML
+    is written by a run on an emulator — so the control synthesises it. The
+    fixture holds both ways the measurement can lie: a flow that failed while
+    the floor allows no failure, and a flow the run produced no report for.
+    """
+    flows = [
+        "Maestro/flows/smoke/01-launch-today.yaml",
+        "Maestro/flows/tasks/create-task.yaml",
+    ]
+    results = root / "results"
+    results.mkdir(parents=True, exist_ok=True)
+    (root / "catalogue.txt").write_text("\n".join(flows) + "\n", encoding="utf-8")
+    (root / "floor.txt").write_text("full 0\n", encoding="utf-8")
+    suite = (
+        '<testsuite name="Test Suite" tests="1" failures="{f}">'
+        '<testcase classname="{n}" name="{n}" file="{flow}" status="{s}">{b}</testcase>'
+        "</testsuite>"
+    )
+    # One flow failed ...
+    (results / "01-launch-today.xml").write_text(
+        suite.format(
+            n="01-launch-today",
+            flow=flows[0],
+            f=1,
+            s="ERROR",
+            b="<failure>No visible element found: id: attachments_add_file_row</failure>",
+        ),
+        encoding="utf-8",
+    )
+    # ... and the second flow produced no report at all.
+
 FIXTURE_GATES = [
     FixtureGate(
         name="flaky-tests",
@@ -546,8 +580,7 @@ FIXTURE_GATES = [
         needs_clean_run=False,
     ),
     FixtureGate(
-        name="measure-flake-rate",
-        cmd=[
+        name="measure-flake-rate",        cmd=[
             sys.executable,
             "scripts/measure-flake-rate.py",
             "--current", "{tmp}/run-01", "{tmp}/run-02",
@@ -571,6 +604,24 @@ FIXTURE_GATES = [
     # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
     # control `detekt-rule-coverage-floor`, which raises the constant and
     # requires the Gradle task to fail — see the note at the top of Part C.
+    FixtureGate(
+        name="maestro-results",
+        cmd=[
+            sys.executable,
+            "scripts/ci/check-maestro-results.py",
+            "--scope", "full",
+            "--results-dir", "{tmp}/results",
+            "--catalogue", "{tmp}/catalogue.txt",
+            "--floor", "{tmp}/floor.txt",
+        ],
+        setup=_setup_maestro_results,
+        why=(
+            "a Maestro run that failed a flow the floor does not allow, and a flow "
+            "the run produced no report for — the two ways a run can quietly stop "
+            "being the run the repository promised"
+        ),
+        needs_clean_run=False,
+    ),
 ]
 
 def control_from_edit(edit) -> Control:
