@@ -120,4 +120,19 @@ interface ProposalItemDao {
         val claimed = claimItem(userId, id, status, decidedAt, actor, reason)
         return if (claimed > 0) getItem(id) else null
     }
+
+    /**
+     * Hard-deletes every item of [userId]'s proposals.
+     *
+     * `ai_proposal_item` has no `user_id` of its own — ownership lives on the parent
+     * proposal — so the scope goes through a subquery, exactly as every other write
+     * on this table does.
+     */
+    @Query(
+        """
+        DELETE FROM ai_proposal_item
+        WHERE proposal_id IN (SELECT id FROM ai_proposal WHERE user_id = :userId)
+        """,
+    )
+    suspend fun deleteAllForUser(userId: String): Int
 }

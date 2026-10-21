@@ -1090,6 +1090,17 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
     override suspend fun listAllForUser(userId: String): List<TagEntity> =
         store.value.values.filter { it.userId == userId }
 
+    /**
+     * The profile wipe reaches every row the profile owns, trashed ones included.
+     * A fake that swept only the live rows would hide the defect the wipe exists
+     * to fix.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
+
     override suspend fun listByGroupForUser(groupId: String, userId: String): List<TagEntity> =
         store.value.values.filter { it.groupId == groupId && it.userId == userId && it.deletedAt == null }
 
@@ -1433,6 +1444,15 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun listAllForUser(userId: String): List<AttachmentEntity> =
         store.value.values.filter { it.userId == userId }
 
+    /**
+     * The profile wipe reaches every row the profile owns, trashed ones included.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
+
     private fun mutate(id: String, fn: (AttachmentEntity) -> AttachmentEntity) {
         store.update { current ->
             val existing = current[id] ?: return@update current
@@ -1467,6 +1487,15 @@ private class FakeAttachmentAnnotationDao(
 
     override suspend fun listAllForUser(userId: String): List<AttachmentAnnotationEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The profile wipe reaches every row the profile owns, trashed ones included.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 
     override suspend fun upsert(entity: AttachmentAnnotationEntity) {
         store.update { it + (entity.id to entity) }
@@ -1542,6 +1571,15 @@ private class FakeProjectReminderDao(
 
     override suspend fun listAllForUser(userId: String): List<ProjectReminderEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The profile wipe reaches every row the profile owns.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 private class FakeReminderDao(
@@ -1616,6 +1654,15 @@ private class FakeReminderDao(
 
     override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskReminderEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The profile wipe reaches every row the profile owns.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 // ─── CalendarSyncTaskMapDao ───────────────────────────────────────────────────────
@@ -2069,6 +2116,15 @@ private class FakeSavedSearchDao(private val store: MutableStateFlow<Map<String,
 
     override suspend fun listAllForUser(userId: String): List<SavedSearchEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The profile wipe reaches every row the profile owns.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 // ─── TagGroupDao ───────────────────────────────────────────────────────────────
@@ -2101,6 +2157,15 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
 
     override suspend fun listAllForUser(userId: String): List<TagGroupEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The profile wipe reaches every row the profile owns, trashed ones included.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 // ─── ProjectInheritedTagGroupDao ───────────────────────────────────────────────
@@ -2234,6 +2299,15 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
 
     override suspend fun listAllForUser(userId: String): List<TimeEntryEntity> =
         store.value.values.filter { it.userId == userId }
+
+    /**
+     * The profile wipe reaches every row the profile owns, trashed ones included.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = store.value.values.filter { it.userId == userId }
+        store.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
+    }
 }
 
 /**
@@ -2292,6 +2366,15 @@ private class FakeProposalDao(private val proposals: MutableStateFlow<Map<String
         if (before.userId != userId) return 0
         proposals.update { it + (id to before.copy(status = status, updatedAt = updatedAt)) }
         return 1
+    }
+
+    /**
+     * The profile wipe reaches every proposal of the profile.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val doomed = proposals.value.values.filter { it.userId == userId }
+        proposals.update { map -> map.filterValues { it.userId != userId } }
+        return doomed.size
     }
 }
 
@@ -2370,6 +2453,18 @@ private class FakeProposalItemDao(
             .sortedByDescending { it.decidedAt ?: 0L }
             .take(limit)
             .map { it.fingerprint }
+    }
+
+    /**
+     * The profile wipe reaches every item of the profile's proposals. The items
+     * carry no owner column, so ownership comes from the parent proposal — the
+     * same subquery the real statement uses.
+     */
+    override suspend fun deleteAllForUser(userId: String): Int {
+        val ownerIds = proposals.value.values.filter { it.userId == userId }.map { it.id }.toSet()
+        val doomed = items.value.values.filter { it.proposalId in ownerIds }
+        items.update { map -> map.filterValues { it.proposalId !in ownerIds } }
+        return doomed.size
     }
 }
 

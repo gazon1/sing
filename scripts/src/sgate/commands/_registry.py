@@ -499,6 +499,19 @@ _REGISTERED: tuple[GateSpec, ...] = (
         # — and fails when the debt grows. It runs where the reports are:
         # the `maestro-results` job of e2e.yml, after the shards.
     ),
+    GateSpec(
+        name="profile reset inventory is true",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/ci/check-profile-reset-inventory.py"),
+        # The E2E suite isolates one flow from the next by wiping the app's
+        # content between flows. The list of tables that wipe reaches is a list
+        # of exceptions, and a list of exceptions rots silently: a table added
+        # to the Room schema is not a row in a document, so the document keeps
+        # claiming the wipe reaches the whole profile while the code has
+        # stopped reaching it. This gate holds the schema, the wipe's own list
+        # and the inventory document to each other.
+    ),
     # ── Docs / agent-facing text ───────────────────────────────────────────────────
     GateSpec(
         name="doc dead refs",
@@ -717,6 +730,7 @@ _REGISTERED: tuple[GateSpec, ...] = (
 # by script path, because display names are prose and one script can
 # back two gates with two different controls.
 GATE_CONTROLS: dict[str, Control] = {
+    'profile-reset-inventory': Control(kind='sabotage', proves='scripts/ci/check-profile-reset-inventory.py', argv=('{python}', 'scripts/ci/check-profile-reset-inventory.py'), path='docs/architecture/wipe-inventory.md', edit=Edit(kind='replace', old='| `sync_state` | not profile content |', new='| `sync_state` | wiped |', count=1), why='the document claiming more than the code does is the failure this gate exists for: the ADR that describes the profile reset says it reaches the whole profile, and the code reached five things. The probe makes the inventory call the sync cursor profile content — a table whose deletion would make the next pull restore everything the reset just removed. The code does not wipe it, so the document and the code now disagree, and the gate must say so.'),
     'release-tags': Control(kind='sabotage', proves='scripts/check-release-tags.py', argv=('{python}', 'scripts/check-release-tags.py'), path='config/docs/releases-snapshot.json', edit=Edit(kind='replace', old='    "v0.2.1-rc.1"\n  ],', new='    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],', count=1), why='a tag that produced no release is the failure this gate exists for: `meta` proved the tag was on main with a green CI run, `publish` still did not run, and nothing said so. The probe appends exactly such a tag — recorded as neither released nor excused.'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),

@@ -267,6 +267,14 @@ class ArchitectureTest {
          */
         private val CORE_DAO_WRITE_ALLOWLIST = setOf(
             "core/backup/BackupImporter.kt",
+            // The profile reset is a cross-repository operation by definition: it
+            // empties the profile, including the tables whose repository has no
+            // bulk delete. Every one of those deletes is scoped to the profile's
+            // user id, so it cannot cross a profile — the property the rule
+            // protects is kept, and the ownership it asks for is meaningless for
+            // a reset that owns nothing. The tables it reaches and the ones it
+            // leaves are in `docs/architecture/wipe-inventory.md`.
+            "core/wipe/ProfileContentResetter.kt",
         )
 
         /**
@@ -555,7 +563,9 @@ class ArchitectureTest {
             offenders,
             "core/ must not write DAOs directly unless it *is* the repository for that DAO, " +
                 "or it is a documented allowlist entry (BackupImporter restores for an arbitrary " +
-                "userId, which ambient-scoped repositories cannot express).",
+                "userId, which ambient-scoped repositories cannot express; the profile reset is " +
+                "a cross-repository operation that owns nothing and deletes only the profile's " +
+                "own rows).",
         ) { it }
     }
 

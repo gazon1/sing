@@ -164,6 +164,21 @@ PLACEMENTS: dict[str, Placement] = {
         kind=PlacementKind.STATIC,
         command='sgate room_schema_integrity',
     ),
+    "profile reset inventory is true": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/ci/check-profile-reset-inventory.py',
+        note="""# The E2E suite isolates one flow from the next by wiping the app's content
+# between flows, and the list of tables that wipe reaches is a list of
+# exceptions. Exceptions rot silently: a table added to the Room schema is not a
+# row in a document, so the document keeps claiming the wipe reaches the whole
+# profile while the code has stopped reaching it — and the next flow finds the
+# leftover row and blames the test.
+#
+# So the schema, the wipe's own list and the inventory document are held to
+# each other. A table nobody decided about fails; a table the document names and
+# the schema no longer has fails; a table the code wipes and the document calls
+# "not profile content" fails.""",
+    ),
     "git hooks path is per-worktree": Placement(
         kind=PlacementKind.STATIC,
         command='sgate git_hooks_path_is_per_worktree',

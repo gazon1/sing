@@ -185,6 +185,29 @@ class TagGroupRepositoryImpl(
         tagGroupDao.upsert(tagGroup.toEntity())
         return tagGroup
     }
+
+    // ─── Profile wipe ────────────────────────────────────────────────────────────
+
+    /**
+     * Deletes every tag group of the active profile — trashed ones included.
+     *
+     * The tombstone of each row is pushed before the delete, so the server converges
+     * on the same set the device lost. The member tags are not released here the way
+     * a single-group delete releases them: the profile wipe takes the tags too, so
+     * there is nothing left to re-point.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val doomed = tagGroupDao.listAllForUser(uid)
+            val removed = tagGroupDao.deleteAllForUser(uid)
+            val now = clock.now()
+            doomed.forEach { row ->
+                syncRepository.enqueue(row.toTagGroup().copy(deletedAt = now))
+            }
+            removed
+        }
+    }
 }
 
 // ─── Mappers (internal, used within the same module) ─────────────────────────

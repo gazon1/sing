@@ -235,6 +235,9 @@ class TagGroupsViewModelTest {
 
             override suspend fun upsert(tagGroup: TagGroup): TagGroup = error("not used by TagGroupsViewModel")
 
+            override suspend fun deleteAllForCurrentProfile(): Result<Int> =
+                error("not used by TagGroupsViewModel")
+
             override fun observeInheritedByProject(projectId: ProjectId): Flow<Set<TagGroupId>> =
                 error("not used by TagGroupsViewModel")
 

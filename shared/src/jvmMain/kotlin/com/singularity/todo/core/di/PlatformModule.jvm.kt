@@ -122,6 +122,10 @@ actual fun platformModule(): Module = module {
     single { get<AppDatabase>().calendarSyncStateDao() }
     single { get<AppDatabase>().googleEventShadowDao() }
     single { get<AppDatabase>().calendarImportEventDao() }
+    // Bound on desktop for the same reason as the three above: the profile wipe
+    // resolves it by type, and a desktop graph without it throws
+    // NoDefinitionFoundException the moment the wipe runs.
+    single { get<AppDatabase>().calendarSyncTaskMapDao() }
     single { get<AppDatabase>().timeEntryDao() }
     single { get<AppDatabase>().proposalDao() }
     single { get<AppDatabase>().proposalItemDao() }

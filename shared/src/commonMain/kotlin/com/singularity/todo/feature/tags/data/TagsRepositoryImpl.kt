@@ -93,6 +93,28 @@ class TagsRepositoryImpl(
         tagDao.watchByIdForUser(id.value, uid.value).map { it?.toTag() }
     }
 
+    // ── Profile wipe ────────────────────────────────────────────────────────────
+
+    /**
+     * Deletes every tag of the active profile — trashed ones included.
+     *
+     * The tombstone of each row is pushed before the delete, so the server converges
+     * on the same set the device lost. The snapshot is taken *before* the delete:
+     * afterwards the rows are gone and there is nothing left to describe.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val doomed = tagDao.listAllForUser(uid)
+            val removed = tagDao.deleteAllForUser(uid)
+            val now = clock.now()
+            doomed.forEach { row ->
+                syncRepository.enqueue(row.toTag().copy(deletedAt = now))
+            }
+            removed
+        }
+    }
+
     // ── SoftDeletable ───────────────────────────────────────────────────────────
 
     override suspend fun restore(id: TagId): Result<Unit> = runCatchingCancellable {

@@ -1761,6 +1761,19 @@ class FakeTagsRepository(
         store.upsert(tag)
         return tag
     }
+
+    /**
+     * Removes every tag of the current user, trashed ones included.
+     *
+     * The trashed ones matter: the production bulk delete does not filter them out,
+     * and a fake that kept them would let a test pass where production leaks.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val doomed = store.state.value.values.filter { it.userId == uid }
+        doomed.forEach { store.remove(it.id.value) }
+        doomed.size
+    }
 }
 
 // ─── AttachmentRepository ────────────────────────────────────────────────────
@@ -2863,6 +2876,16 @@ class FakeTagGroupRepository(private val currentUser: ProfileAwareCurrentUser = 
     override suspend fun upsert(tagGroup: TagGroup): TagGroup {
         store.upsert(tagGroup)
         return tagGroup
+    }
+
+    /**
+     * Removes every tag group of the current user, trashed ones included.
+     */
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> {
+        val uid = currentUser.scopedUserId.value
+        val doomed = store.state.value.values.filter { it.userId == uid }
+        doomed.forEach { store.remove(it.id.value) }
+        return Result.success(doomed.size)
     }
 
     /**

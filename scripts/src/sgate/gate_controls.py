@@ -180,6 +180,16 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="profile-reset-inventory",
+        cmd=[sys.executable, "scripts/ci/check-profile-reset-inventory.py"],
+        why=(
+            "a table added to the Room schema is not a row in a document, so the "
+            "document that says the profile reset reaches the whole profile stays "
+            "true in the prose while the code has stopped reaching it — and the next "
+            "E2E flow finds the leftover row and blames the test"
+        ),
+    ),
+    ScriptGate(
         name="detekt-registrations",
         cmd=["./scripts/check-detekt-registrations.sh"],
         why="a RuleSetId with no detekt.yml block never loads, so the rule never runs",

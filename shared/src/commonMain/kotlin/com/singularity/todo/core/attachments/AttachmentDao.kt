@@ -46,4 +46,13 @@ interface AttachmentDao {
 
     @Query("SELECT * FROM attachments WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<AttachmentEntity>
+
+    /**
+     * Hard-deletes every attachment of [userId] — soft-deleted rows included.
+     *
+     * `watchAll` filters on `deleted_at IS NULL`, so a sweep built on it leaves the
+     * trashed attachments behind.
+     */
+    @Query("DELETE FROM attachments WHERE user_id = :userId")
+    suspend fun deleteAllForUser(userId: String): Int
 }

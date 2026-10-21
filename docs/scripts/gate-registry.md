@@ -40,6 +40,7 @@ sche... | — | — |
 | releases describe themselves | blocking | check-release-tags.py — every release must be able to describe itself. | — | — |
 | maestro selectors valid | blocking | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
 | maestro results are within the floor | blocking | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
+| profile reset inventory is true | blocking | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
 | doc dead refs | blocking | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
 | doc links | blocking | doc links | — | — |
 | GitHub workflows are valid | blocking | GitHub workflows are valid | — | — |

@@ -223,6 +223,18 @@ gate blocking "ci workflow shape is declared" python3 scripts/check-ci-workflow-
 gate blocking "waiver references resolve" sgate waiver_references_resolve
 gate blocking "declared dependencies are used" sgate declared_dependencies_are_used
 gate blocking "room schema integrity" sgate room_schema_integrity
+# The E2E suite isolates one flow from the next by wiping the app's content
+# between flows, and the list of tables that wipe reaches is a list of
+# exceptions. Exceptions rot silently: a table added to the Room schema is not a
+# row in a document, so the document keeps claiming the wipe reaches the whole
+# profile while the code has stopped reaching it — and the next flow finds the
+# leftover row and blames the test.
+#
+# So the schema, the wipe's own list and the inventory document are held to
+# each other. A table nobody decided about fails; a table the document names and
+# the schema no longer has fails; a table the code wipes and the document calls
+# "not profile content" fails.
+gate blocking "profile reset inventory is true" python3 scripts/ci/check-profile-reset-inventory.py
 # A gate that dies instead of reporting is indistinguishable from a gate that
 # passes, for every consumer that reads only the exit code. This found a real
 # one on its first run: check-kiwi-inventory-ratchet.py crashed with
