@@ -222,43 +222,42 @@ Canonical tags (add new ones to `Maestro/config.yaml` comment block):
 
 ---
 
-## Choosing a Tier: Sheets Are Maestro-Only
+## Choosing a Tier: A Sheet Opens Its Own Window
 
-**A `ModalBottomSheet` cannot be asserted from a desktop JVM Compose test.** Pick the
-tier from this table *before* writing selectors.
+**A `ModalBottomSheet` opens a second window on desktop, and its content is reachable
+from a JVM test — but not from the main tree.** Pick the tier from this table *before*
+writing selectors.
 
 | Surface | Desktop `jvmTest` | Maestro (Android) |
 |---|---|---|
 | Regular composable | yes | yes |
 | `AlertDialog` | **yes** | yes |
-| `ModalBottomSheet` | **no** | yes |
+| `ModalBottomSheet` | **yes, through the scene's roots** | yes |
 | `DropdownMenu` | no | yes |
 
-Measured, not assumed (`#152`). On desktop, `ModalBottomSheet` resolves to
-`ModalBottomSheetDialog`, whose skiko actual is a `Dialog` — a **separate window**,
-not an overlay inside the main one. A JVM test's `onRoot()` sees only the main
-window, so the sheet's semantics nodes are not merely merged away, they are in
-another root entirely:
+Measured, not assumed (`#152`, re-measured when the editor's sheet state was fixed).
+On desktop, `ModalBottomSheet` resolves to `ModalBottomSheetDialog`, whose skiko actual
+is a `Dialog` — a **separate window**, not an overlay inside the main one. The scene
+therefore has **two semantics roots** while the sheet is open, and the two are not the
+same tree:
 
-- `onAllNodesWithTag(…).fetchSemanticsNodes(false)` — the cross-root search — also
-  returns nothing;
-- the main tree is **byte-identical** before and after the click, 98 nodes both
-  times, same tags and same texts. Nothing is added and nothing changes;
-- the click itself is fine. The pin row in the same editor flips
-  `Not pinned` → `Pinned` under the identical test, so this is not a
-  click-does-not-land problem.
+- the main tree — the app's own window — is **unchanged** when the sheet opens: same
+  node count, same tags, same texts;
+- the sheet's nodes live in the **second root**, and the cross-root search finds them.
+  `onNodeWithTag(…)` and `onAllNodesWithTag(…)` both look across the scene's roots, so a
+  sheet's `testTag` is assertable from a JVM test;
+- a helper that counts a tag *in the main root* finds nothing, because the sheet is not
+  in that root.
 
-`AlertDialog` is the contrast that makes this a sheet rule rather than a dialog
-rule: it goes through `BasicAlertDialog`, which has no `Dialog` wrapper on skiko and
-renders in the main tree. `SavedAgendaEditFlowTest` asserts
-`TestTags.Dialog.CONFIRM` from inside one, and that test passes.
+`SheetReachabilityTest` pins all three claims, so a Compose upgrade that folds the sheet
+back into the main window fails the test instead of silently changing what a selector
+sees.
 
-**What this means in practice.** If a behaviour lives inside a sheet, the JVM tier
-cannot cover it, and the honest coverage-matrix cell is a Maestro flow — not a
-`○` hole and not a test that fails for an hour before anyone learns why. The
-recurrence picker is the worked example: `TestTags.RECURRENCE_OPTION_*` exist, the
-desktop test can reach the *row* that opens the sheet but nothing inside it, and
-`TASK-REC-01` is therefore carried on Android only
+**What this means in practice.** A behaviour that lives inside a sheet *can* be covered by
+the JVM tier, as long as the assertion waits for the sheet (it animates in) and does not
+assume the sheet's nodes are in the main tree. The recurrence picker is the worked
+example: `TestTags.RECURRENCE_OPTION_*` are assertable from the desktop tier, and
+`TASK-REC-01` is carried on Android as well
 (`Maestro/flows/tasks/17-create-daily-recurring.yaml`).
 
 **Do not** add `testTag`s to sheet content expecting a JVM test to use them. Either
