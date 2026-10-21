@@ -17,12 +17,14 @@ import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickSheetClose
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.typeIntoTag
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import kotlinx.coroutines.flow.first
 import org.junit.jupiter.api.Tag
@@ -135,6 +137,48 @@ class CreateTaskFlowTest {
         clickTag(TestTags.PRIORITY_OPTION_HIGH)
 
         assertTextDisplayed("High priority")
+    }
+
+    /**
+     * The create editor's checklist row opens the checklist.
+     *
+     * The create screen wired a checklist to the editor — the callbacks, the intents, the
+     * draft's items — but nothing drew a row that opened the sheet. The wiring was there
+     * and the user had nothing to press.
+     *
+     * The second half matters as much: an item added in the sheet has to show up in the
+     * row that opened it, or the sheet opens onto a list that never changes.
+     */
+    @Test
+    fun the_checklist_row_opens_the_checklist_and_shows_what_was_added() = runDesktopAppTest(checkA11y = true) {
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+        clickTagScrolled(TestTags.TASK_EDITOR_CHECKLIST_ROW)
+        typeIntoTag(TestTags.CHECKLIST_ADD_INPUT, "Buy milk")
+        clickTag(TestTags.CHECKLIST_ADD_BUTTON)
+
+        assertTagDisplayed(TestTags.checklistItem("", "Buy milk"))
+
+        clickSheetClose()
+
+        assertTextDisplayed("Checklist (1)")
+    }
+
+    /**
+     * The editor shows the rows it was given.
+     *
+     * A bundle the editor was handed but never drew is a feature the user cannot reach,
+     * and nothing else said so.
+     */
+    @Test
+    fun the_editor_shows_the_checklist_and_the_attachments_rows() = runDesktopAppTest(checkA11y = true) {
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+        scrollToTag(TestTags.TASK_EDITOR_CHECKLIST_ROW)
+        assertTagDisplayed(TestTags.TASK_EDITOR_CHECKLIST_ROW)
+
+        scrollToTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW)
+        assertTagDisplayed(TestTags.TASK_EDITOR_ATTACHMENTS_ROW)
     }
 
     /**

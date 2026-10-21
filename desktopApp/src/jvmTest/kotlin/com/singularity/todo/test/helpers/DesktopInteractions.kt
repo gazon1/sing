@@ -2,6 +2,8 @@ package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -9,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Clicks a node with contentDescription [desc]. Waits for it to appear first.
@@ -98,6 +101,24 @@ fun DesktopComposeUiTest.submitTag(tag: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.clickTagScrolled(tag: String) {
     awaitTag(tag).performScrollTo().performClick()
+}
+
+/**
+ * Clicks a sheet's close button.
+ *
+ * A `ModalBottomSheet` on desktop is composed in two windows — the one it animates into
+ * and the one it animates out of — so its buttons are in the tree twice and a
+ * single-node selector refuses to choose. Both copies are the same button, and either
+ * of them dismisses the sheet.
+ *
+ * The tag is the sheet's own, because the calendar panel's close button has the same
+ * content description and is composed behind the editor.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clickSheetClose() {
+    val buttons = onAllNodes(hasTestTag(TestTags.EDITOR_SHEET_CLOSE), useUnmergedTree = true)
+    check(buttons.fetchSemanticsNodes().isNotEmpty()) { "no sheet close button in the tree" }
+    buttons.onFirst().performClick()
 }
 
 /** [clickTagScrolled] for a node that only has to be *present*, not pressed. */

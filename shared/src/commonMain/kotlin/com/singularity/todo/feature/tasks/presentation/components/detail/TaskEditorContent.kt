@@ -20,6 +20,8 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Folder
@@ -135,6 +137,10 @@ private fun TaskEditorContent(
     estimateCallbacks: RowCallbacks<Int?>? = null,
     dependsOn: Set<TaskId> = emptySet(),
     availableTasks: List<Task> = emptyList(),
+    checklistCount: Int = 0,
+    attachmentsCount: Int = 0,
+    checklistCallbacks: ChecklistCallbacks? = null,
+    attachmentsCallbacks: AttachmentsCallbacks? = null,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
@@ -192,6 +198,38 @@ private fun TaskEditorContent(
                     },
                     isActive = true,
                     onClick = { sheets.show(TaskEditorSheet.Dependencies) },
+                )
+            }
+
+            // Checklist row
+            //
+            // The row is drawn when the caller gives the editor a checklist to edit —
+            // the create flow does, the detail flow does not (it lists the items under
+            // the fields instead). A row that is not drawn is a row that cannot be
+            // pressed; what it opened was the sheet, and the sheet is where the items
+            // are added, because that is the only surface with an input for them.
+            checklistCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.AutoMirrored.Filled.ListAlt,
+                    label = if (checklistCount > 0) "Checklist ($checklistCount)" else "Checklist",
+                    isActive = checklistCount > 0,
+                    onClick = cb.onOpen,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_CHECKLIST_ROW),
+                )
+            }
+
+            // Attachments row
+            attachmentsCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.Filled.AttachFile,
+                    label = if (attachmentsCount > 0) {
+                        "Attachments ($attachmentsCount)"
+                    } else {
+                        "Attachments"
+                    },
+                    isActive = attachmentsCount > 0,
+                    onClick = cb.onOpen,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
                 )
             }
 
@@ -483,6 +521,10 @@ private fun TaskEditorScaffold(
         estimateCallbacks = callbacks.estimate,
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
+        checklistCount = model.checklist.size,
+        attachmentsCount = model.attachments.size,
+        checklistCallbacks = callbacks.checklist,
+        attachmentsCallbacks = callbacks.attachments,
         extraSections = callbacks.extraSections,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,

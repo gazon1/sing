@@ -14,9 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
@@ -43,6 +43,14 @@ fun TaskAttributeCard(
     containerColor: Color =
         if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
     trailingContent: (@Composable () -> Unit)? = null,
+    /**
+     * Tag for the **label**, not for the card.
+     *
+     * On Android the label is its own view, so a flow can address it — the recurrence
+     * flow does, and `Maestro/TAGS.md` lists it. On desktop the label is folded into the
+     * clickable card, and the merged tree a desktop test sees does not carry the label's
+     * tag: a test that means "the row" must pass the tag through [modifier] instead.
+     */
     testTag: String? = null,
 ) {
     Surface(

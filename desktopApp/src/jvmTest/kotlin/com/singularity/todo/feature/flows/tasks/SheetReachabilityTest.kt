@@ -7,11 +7,12 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickContentDescription
-import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.countNodesWithTagInAnyRoot
 import com.singularity.todo.test.helpers.countNodesWithTagInMainRoot
 import com.singularity.todo.test.helpers.mainTreeSize
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -54,16 +55,21 @@ class SheetReachabilityTest {
     fun a_sheet_opens_its_own_window_and_the_main_tree_does_not_change() = runDesktopAppTest {
         clickContentDescription(DesktopShell.FAB_ADD_TASK)
         awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+
+        // The editor's attribute list scrolls, and the pin row sits below the fold
+        // of the 1024x768 test window — a node that is composed but out of view is
+        // "not displayed", which is a different failure from "not there".
+        scrollToTag(TestTags.TASK_EDITOR_PIN_ROW)
         assertTextDisplayed("Not pinned")
 
         // Control: a click that changes state in the main tree, proving clicks
         // reach composables in this editor at all.
-        clickTag(TestTags.TASK_EDITOR_PIN_ROW)
+        clickTagScrolled(TestTags.TASK_EDITOR_PIN_ROW)
         assertTextDisplayed("Pinned")
         assertTextNotExists("Not pinned")
 
         val beforeSheet = mainTreeSize()
-        clickTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
+        clickTagScrolled(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
         // The sheet animates in, so the wait comes before the measurements: a
         // one-shot count right after the click races the sheet's own window and

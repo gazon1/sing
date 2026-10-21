@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
@@ -80,7 +81,7 @@ fun TaskEditorSheetHost(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onClose) {
+                IconButton(onClick = onClose, modifier = Modifier.testTag(TestTags.EDITOR_SHEET_CLOSE)) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "Close",

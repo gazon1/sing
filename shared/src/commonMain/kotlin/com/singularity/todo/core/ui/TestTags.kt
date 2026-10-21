@@ -166,6 +166,19 @@ object TestTags {
     /** Priority row in the task editor attribute list. */
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
+    // The × button of a task editor's sheet.
+    //
+    // The sheet's × has the content description "Close", and so does the calendar
+    // panel's — the calendar is composed behind the editor, so a test that means "the
+    // sheet's close" finds two buttons and refuses to choose.
+    const val EDITOR_SHEET_CLOSE = "editor_sheet_close"
+
+    /** Checklist row in the task editor attribute list. */
+    const val TASK_EDITOR_CHECKLIST_ROW = "task_editor_checklist_row"
+
+    /** Attachments row in the task editor attribute list. */
+    const val TASK_EDITOR_ATTACHMENTS_ROW = "task_editor_attachments_row"
+
     /** Start-date row in the task editor attribute list. */
     const val TASK_EDITOR_START_DATE_ROW = "task_editor_start_date_row"
 
@@ -184,11 +197,11 @@ object TestTags {
     /** Estimate row in the task editor attribute list. */
     const val TASK_EDITOR_ESTIMATE_ROW = "task_editor_estimate_row"
 
-    /** "No tasks available" empty text in the dependency picker sheet. */
-    const val DEPENDENCY_PICKER_EMPTY = "dependency_picker_empty"
-
     /** "Repeats" label text inside the recurrence row of the task editor. */
     const val TASK_EDITOR_RECURRENCE_LABEL = "task_editor_recurrence_label"
+
+    /** "No tasks available" empty text in the dependency picker sheet. */
+    const val DEPENDENCY_PICKER_EMPTY = "dependency_picker_empty"
 
     /**
      * First-run suggestion card in the task detail view.
