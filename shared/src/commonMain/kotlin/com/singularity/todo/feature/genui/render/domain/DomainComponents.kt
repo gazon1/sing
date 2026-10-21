@@ -53,12 +53,12 @@ private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modi
     val title: String = ctx.resolveText(card.title)
     val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
     val dueText: String? = if (card.duePath != null) {
-        ctx.value(card.duePath).collectAsStateWithLifecycle(initialValue = null).value.text()
+        ctx.valueWithoutCount(card.duePath).collectAsStateWithLifecycle(initialValue = null).value.text()
     } else {
         null
     }
     val projectName: String? = if (card.projectPath != null) {
-        ctx.value(card.projectPath).collectAsStateWithLifecycle(initialValue = null).value.text()
+        ctx.valueWithoutCount(card.projectPath).collectAsStateWithLifecycle(initialValue = null).value.text()
     } else {
         null
     }
@@ -96,7 +96,7 @@ private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modi
 private fun DueDateView(due: UiNode.DueDate, ctx: DataContext, modifier: Modifier) {
     val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
     val bound: JsonElement? = if (due.path != null) {
-        ctx.value(due.path).collectAsStateWithLifecycle(initialValue = null).value
+        ctx.valueWithoutCount(due.path).collectAsStateWithLifecycle(initialValue = null).value
     } else {
         null
     }
@@ -111,7 +111,7 @@ private fun DueDateView(due: UiNode.DueDate, ctx: DataContext, modifier: Modifie
 @Composable
 private fun ProjectChipView(chip: UiNode.ProjectChip, ctx: DataContext, modifier: Modifier) {
     val bound: JsonElement? = if (chip.path != null) {
-        ctx.value(chip.path).collectAsStateWithLifecycle(initialValue = null).value
+        ctx.valueWithoutCount(chip.path).collectAsStateWithLifecycle(initialValue = null).value
     } else {
         null
     }
