@@ -1,6 +1,8 @@
 package com.singularity.todo.test.helpers
 
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.isRoot
@@ -72,5 +74,21 @@ fun DesktopComposeUiTest.semanticsTree(maxDepth: Int = 25): String {
 fun DesktopComposeUiTest.mainRootNodeCount(): Int =
     semanticsRoots().firstOrNull()?.countNodes() ?: 0
 
+/**
+ * The number of nodes carrying [tag] in the app's **main** window — the first root.
+ *
+ * The counterpart of [countNodesWithTagInAnyRoot] for the window that a sheet must
+ * *not* touch: a sheet's content is in its own root, so this counts nothing while a
+ * sheet is open.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.countNodesWithTagInMainRoot(tag: String): Int =
+    semanticsRoots().firstOrNull()?.countNodesWithTag(tag) ?: 0
+
 /** This node and every node below it. */
 private fun SemanticsNode.countNodes(): Int = 1 + children.sumOf { it.countNodes() }
+
+/** This node and every node below it that carries [tag]. */
+private fun SemanticsNode.countNodesWithTag(tag: String): Int =
+    (if (config.getOrNull(SemanticsProperties.TestTag) == tag) 1 else 0) +
+        children.sumOf { it.countNodesWithTag(tag) }

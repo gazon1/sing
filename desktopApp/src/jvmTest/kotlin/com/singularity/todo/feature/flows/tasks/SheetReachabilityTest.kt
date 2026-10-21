@@ -9,6 +9,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.countNodesWithTagInAnyRoot
+import com.singularity.todo.test.helpers.countNodesWithTagInMainRoot
 import com.singularity.todo.test.helpers.mainTreeSize
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.DisplayName
@@ -18,31 +19,39 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The tier rule from `Maestro/CONVENTIONS.md` — a `ModalBottomSheet` is not
- * reachable from a desktop JVM test — pinned as a test so it fails loudly if a
- * Compose upgrade makes sheets reachable.
+ * The tier rule from `Maestro/CONVENTIONS.md` — a `ModalBottomSheet` opens its own
+ * window on desktop — pinned as a test so it fails loudly if a Compose upgrade changes
+ * what a selector sees.
  *
- * This deliberately asserts that the sheet is **unreachable**. It is not a
- * skipped "cannot test" placeholder: the behaviour is the point, and a future
- * Compose release that renders a sheet into the main window would break this test
- * and send the author back to the convention, which is the correct outcome. The
- * alternative — leaving the convention as prose — is how it silently went stale
- * the first time.
+ * ## What changed, and why this test used to be wrong
  *
- * The "click works" half matters as much as the "sheet is invisible" half. A test
- * that only asserted non-reachability would pass just as happily against an
- * editor where the click did nothing at all, which is the failure mode that costs
- * the hour.
+ * The rule used to be "a sheet cannot be asserted from a desktop JVM test". It was
+ * measured on the task editor's recurrence row, and the measurement was taken while
+ * that row did nothing at all: the row opened a sheet state that nothing rendered.
+ * The sheet never opened, so nothing inside it was found, and the conclusion drawn was
+ * a platform fact. It was a bug wearing the costume of a platform fact.
  *
- * @see Maestro/CONVENTIONS.md "Choosing a Tier: Sheets Are Maestro-Only"
+ * The editor's rows work now — one state, opened by the row and rendered by the host —
+ * and the sheet's content is reachable from the desktop tier after all. What is left
+ * of the platform fact is the part that is true: the sheet opens **its own window**, so
+ * the main tree does not change and the sheet's nodes are not in it.
+ *
+ * The three claims below are the ones worth pinning, because a Compose upgrade that
+ * folds the sheet back into the main tree would change what every selector sees:
+ *
+ * 1. the main tree does not change when the sheet opens;
+ * 2. the sheet's option is **not** in the main tree;
+ * 3. the sheet's option **is** in the scene — a second root.
+ *
+ * @see Maestro/CONVENTIONS.md "Choosing a Tier: A Sheet Opens Its Own Window"
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class SheetReachabilityTest {
 
     @Test
-    @DisplayName("a ModalBottomSheet stays outside the desktop semantics tree")
-    fun a_sheet_is_unreachable_but_the_click_is_real() = runDesktopAppTest {
+    @DisplayName("a ModalBottomSheet opens its own window, and the main tree does not change")
+    fun a_sheet_opens_its_own_window_and_the_main_tree_does_not_change() = runDesktopAppTest {
         clickContentDescription(DesktopShell.FAB_ADD_TASK)
         awaitTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
         assertTextDisplayed("Not pinned")
@@ -56,9 +65,12 @@ class SheetReachabilityTest {
         val beforeSheet = mainTreeSize()
         clickTag(TestTags.TASK_EDITOR_RECURRENCE_ROW)
 
-        // The sheet adds nothing at all: not a tag, not its own text, no new node.
-        // Equality (not just absence) is the strong claim — a Popup-based sheet
-        // would still add a node, and the convention would then be wrong.
+        // The sheet animates in, so the wait comes before the measurements: a
+        // one-shot count right after the click races the sheet's own window and
+        // measures a scene that has not opened yet.
+        awaitTag(TestTags.RECURRENCE_OPTION_DAILY)
+
+        // The main tree is unchanged: the sheet is not an overlay inside it.
         assertEquals(
             beforeSheet,
             mainTreeSize(),
@@ -68,8 +80,15 @@ class SheetReachabilityTest {
         )
         assertEquals(
             0,
+            countNodesWithTagInMainRoot(TestTags.RECURRENCE_OPTION_DAILY),
+            "the sheet's option was found in the main tree; the sheet is supposed " +
+                "to open its own window",
+        )
+        assertEquals(
+            1,
             countNodesWithTagInAnyRoot(TestTags.RECURRENCE_OPTION_DAILY),
-            "a sheet option was found by the cross-root search; see the convention",
+            "the sheet's option was not found in the scene; a sheet opens its own " +
+                "window, and that window is part of the scene",
         )
         assertTrue(
             mainTreeSize() > 0,

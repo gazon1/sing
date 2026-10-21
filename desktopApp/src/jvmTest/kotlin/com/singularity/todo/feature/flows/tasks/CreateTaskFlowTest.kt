@@ -15,8 +15,10 @@ import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagEnabled
 import com.singularity.todo.test.helpers.assertTagNotEnabled
 import com.singularity.todo.test.helpers.assertTagTextEquals
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.typeIntoTag
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
@@ -97,6 +99,42 @@ class CreateTaskFlowTest {
         // The hamburger has no testTag, so wait on the editor leaving instead.
         awaitTagGone(TestTags.TASK_EDITOR_TITLE_INPUT)
         assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
+    }
+
+    /**
+     * The create editor's sheets open.
+     *
+     * The screen opened its sheets through a state of its own, and the editor rendered
+     * the sheets from a state of its own — two states, so a tap on the priority row
+     * opened a sheet nobody was watching and the row did nothing at all.
+     *
+     * The row and the host must look at the same state. Without this assertion the
+     * editor's rows were inert in the create flow and no test said so.
+     */
+    @Test
+    fun tapping_the_priority_row_opens_the_priority_sheet() = runDesktopAppTest(checkA11y = true) {
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+
+        assertTagDisplayed(TestTags.PRIORITY_OPTION_HIGH)
+    }
+
+    /**
+     * The sheet writes back to the row that opened it.
+     *
+     * The other half of the same contract: a sheet that appears but writes nowhere is
+     * as broken as a sheet that never appears, and only the value on the row tells the
+     * two apart.
+     */
+    @Test
+    fun the_priority_sheet_writes_the_value_back_to_the_row() = runDesktopAppTest(checkA11y = true) {
+        clickContentDescription(DesktopShell.FAB_ADD_TASK)
+
+        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+        clickTag(TestTags.PRIORITY_OPTION_HIGH)
+
+        assertTextDisplayed("High priority")
     }
 
     /**

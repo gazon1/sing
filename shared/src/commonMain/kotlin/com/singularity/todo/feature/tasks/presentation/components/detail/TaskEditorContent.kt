@@ -77,13 +77,10 @@ import kotlin.time.Instant
  *   is worse than no checkbox.
  * @param descriptionState The description's field state, bridged by the caller.
  * @param priority Current priority value.
- * @param onPrioritySelect Called when a priority is selected in the sheet.
  * @param onPriorityClear Called when the priority X button is tapped. Pass null in Create mode (no X shown).
  * @param dueDate Current due date (null means not set).
  * @param dueTime Current due time (null means not set).
- * @param onDueDateSelect Called when a date is selected in the date picker sheet.
  * @param onDueDateClear Called when the due date X button is tapped. Pass null in Create mode.
- * @param onDueTimeSelect Called when a time is selected in the time picker sheet.
  * @param showDueDate Controls whether the due date row is rendered.
  * @param onPriorityClick Click on the Priority row opens the priority picker sheet.
  * @param onDueDateClick Click on the Due Date row opens the date picker sheet.
@@ -101,27 +98,25 @@ import kotlin.time.Instant
  * @param dependsOn IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
  * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
- * @param onSetDependencies Called when the user confirms a new set of dependencies.
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
  * @param menuItems List of dropdown menu items. Shown when non-empty. Typically Archive/Delete in View mode.
  * @param onBack Called when the back button is tapped.
+ * @param sheets The state the rows open their sheets through. Resolved by the caller, so the
+ *   row that opens a sheet and the host that renders it share one state.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TaskEditorContent(
+private fun TaskEditorContent(
     taskId: String,
     titleState: TextFieldState,
     isCompleted: Boolean,
     onCheckToggle: (() -> Unit)?,
     descriptionState: TextFieldState,
     priority: TaskPriority,
-    onPrioritySelect: (TaskPriority) -> Unit,
     onPriorityClear: (() -> Unit)?,
     dueDate: LocalDate?,
     dueTime: LocalTime?,
-    onDueDateSelect: (LocalDate?) -> Unit,
     onDueDateClear: (() -> Unit)?,
-    onDueTimeSelect: (LocalTime?) -> Unit,
     showDueDate: Boolean = true,
     onPriorityClick: (() -> Unit)? = null,
     onDueDateClick: (() -> Unit)? = null,
@@ -141,17 +136,12 @@ fun TaskEditorContent(
     dependsOn: Set<TaskId> = emptySet(),
     availableTasks: List<Task> = emptyList(),
     extraSections: (@Composable () -> Unit)?,
-    onSetDependencies: ((Set<TaskId>) -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
     menuItems: List<TaskEditorMenuItem>,
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
-    now: Instant,
-    sheets: DialogState<TaskEditorSheet>? = null,
+    sheets: DialogState<TaskEditorSheet>,
 ) {
-    // Use the passed sheet state if provided (caller owns the lifecycle),
-    // otherwise create a local one (for use cases that don't need external control).
-    val dialogState = sheets ?: rememberDialogState<TaskEditorSheet>()
     var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -201,14 +191,14 @@ fun TaskEditorContent(
                         "${dependsOn.size} dependency${if (dependsOn.size > 1) "s" else ""}"
                     },
                     isActive = true,
-                    onClick = { dialogState.show(TaskEditorSheet.Dependencies) },
+                    onClick = { sheets.show(TaskEditorSheet.Dependencies) },
                 )
             }
 
             // Priority row
             TaskEditorPriorityRow(
                 priority = priority,
-                onPriorityClick = onPriorityClick ?: { dialogState.show(TaskEditorSheet.Priority) },
+                onPriorityClick = onPriorityClick ?: { sheets.show(TaskEditorSheet.Priority) },
                 onPriorityClear = onPriorityClear,
             )
 
@@ -216,7 +206,7 @@ fun TaskEditorContent(
             estimateCallbacks?.let { cb ->
                 TaskEditorEstimateRow(
                     estimateMinutes = estimateMinutes,
-                    onEstimateClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Estimate) },
+                    onEstimateClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Estimate) },
                     onEstimateClear = cb.onClear,
                 )
             }
@@ -226,7 +216,7 @@ fun TaskEditorContent(
                 TaskEditorDueDateRow(
                     dueDate = dueDate,
                     dueTime = dueTime,
-                    onDueDateClick = onDueDateClick ?: { dialogState.show(TaskEditorSheet.Date) },
+                    onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
                     labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
                 )
@@ -238,7 +228,7 @@ fun TaskEditorContent(
                     startDate = startDate,
                     startTime = startTime,
                     callbacks = cb,
-                    onStartDateClick = { dialogState.show(TaskEditorSheet.StartDate) },
+                    onStartDateClick = { sheets.show(TaskEditorSheet.StartDate) },
                 )
             }
 
@@ -248,7 +238,7 @@ fun TaskEditorContent(
                     icon = Icons.Filled.Folder,
                     label = project?.value ?: "No project",
                     isActive = project != null,
-                    onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Project) },
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
                     trailingContent = if (cb.onClear != null && project != null) {
                         {
                             Icon(
@@ -271,7 +261,7 @@ fun TaskEditorContent(
                     icon = Icons.AutoMirrored.Filled.Label,
                     label = if (tags.isEmpty()) "Add tags" else "${tags.size} tag${if (tags.size > 1) "s" else ""}",
                     isActive = tags.isNotEmpty(),
-                    onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Tags) },
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Tags) },
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_TAGS_ROW),
                 )
             }
@@ -282,7 +272,7 @@ fun TaskEditorContent(
                     icon = Icons.Filled.Repeat,
                     label = recurrence?.let { "Repeats" } ?: "No repeat",
                     isActive = recurrence != null,
-                    onClick = cb.onClick ?: { dialogState.show(TaskEditorSheet.Recurrence) },
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Recurrence) },
                     testTag = TestTags.TASK_EDITOR_RECURRENCE_LABEL,
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_RECURRENCE_ROW),
                 )
@@ -334,66 +324,6 @@ fun TaskEditorContent(
             }
         }
     }
-
-    // Sheets
-    TaskEditorSheetsHost(
-        model = TaskEditorModel(
-            taskId = null,
-            priority = priority,
-            dueDate = dueDate,
-            dueTime = dueTime,
-            startDate = startDate,
-            startTime = startTime,
-            project = project,
-            tags = tags,
-            checklist = emptyList(),
-            attachments = emptyList(),
-            recurrence = recurrence,
-            isPinned = isPinned,
-            estimateMinutes = estimateMinutes,
-            dependsOn = dependsOn,
-            availableTasks = availableTasks,
-        ),
-        callbacks = TaskEditorCallbacks(
-            onBack = onBack,
-            onCheckToggle = onCheckToggle,
-            priority = RowCallbacks(
-                onChange = onPrioritySelect,
-                onClick = onPriorityClick,
-                onClear = onPriorityClear,
-            ),
-            dueDate = DateRowCallbacks(
-                onChangeDate = onDueDateSelect,
-                onChangeTime = onDueTimeSelect,
-                onClick = onDueDateClick,
-                onClear = onDueDateClear,
-            ),
-            startDate = startDateCallbacks,
-            project = projectCallbacks,
-            tags = tagsCallbacks,
-            recurrence = recurrenceCallbacks,
-            pin = pinCallbacks,
-            estimate = estimateCallbacks,
-            dependencies = RowCallbacks(
-                onChange = { onSetDependencies?.invoke(it) },
-                onClick = null,
-                onClear = null,
-            ),
-            checklist = null,
-            attachments = null,
-            onTimeEntryAdd = null,
-            onTimeEntrySave = null,
-            bottomBar = null,
-            menuItems = menuItems,
-        ),
-        activeSheet = dialogState.active,
-        // Passed down so the time-entry sheet's "now" default comes from the one
-        // place that resolved the clock, rather than from a clock this screen
-        // reaches for itself (#91). `now` is required, so a caller that has not
-        // decided what "now" is cannot compile.
-        now = now,
-        onSheetDismiss = { dialogState.dismiss() },
-    )
 }
 
 @Composable
@@ -491,6 +421,13 @@ fun TaskCreateEditorContent(
  *
  * The fields are already bridged by the caller, so this is where the two kinds meet: the
  * editor renders what it is given and never asks which kind of upstream it has.
+ *
+ * The scaffold also owns the sheets. There is exactly one state, and the row that opens a
+ * sheet and the host that renders it share it — the state the caller's rows show into is
+ * the state the host reads. The editor used to build a second model and a second callback
+ * bundle for the host, which meant the host answered from values the editor no longer had:
+ * a task id of `null` for a task that exists, and an empty checklist for a draft that had
+ * items.
  */
 @Composable
 private fun TaskEditorScaffold(
@@ -501,6 +438,11 @@ private fun TaskEditorScaffold(
     isCompleted: Boolean,
     now: Instant,
 ) {
+    // `remember` runs on every composition, the choice happens after it: a conditional
+    // `remember` would change the slot's identity when the caller's state arrives.
+    val ownSheets = rememberDialogState<TaskEditorSheet>()
+    val sheets = callbacks.sheets ?: ownSheets
+
     TaskEditorContent(
         taskId = model.taskId?.value ?: "",
         titleState = titleState,
@@ -508,13 +450,10 @@ private fun TaskEditorScaffold(
         onCheckToggle = callbacks.onCheckToggle,
         descriptionState = descriptionState,
         priority = model.priority,
-        onPrioritySelect = callbacks.priority.onChange,
         onPriorityClear = callbacks.priority.onClear,
         dueDate = model.dueDate,
         dueTime = model.dueTime,
-        onDueDateSelect = callbacks.dueDate.onChangeDate,
         onDueDateClear = callbacks.dueDate.onClear,
-        onDueTimeSelect = callbacks.dueDate.onChangeTime,
         showDueDate = true,
         onPriorityClick = callbacks.priority.onClick,
         onDueDateClick = callbacks.dueDate.onClick,
@@ -534,13 +473,23 @@ private fun TaskEditorScaffold(
         dependsOn = model.dependsOn,
         availableTasks = model.availableTasks,
         extraSections = callbacks.extraSections,
-        onSetDependencies = callbacks.dependencies?.onChange,
         bottomBar = callbacks.bottomBar,
         menuItems = callbacks.menuItems,
         onBack = callbacks.onBack,
         onAiClick = callbacks.onAiClick,
+        sheets = sheets,
+    )
+
+    TaskEditorSheetsHost(
+        model = model,
+        callbacks = callbacks,
+        activeSheet = sheets.active,
+        // Passed down so the time-entry sheet's "now" default comes from the one
+        // place that resolved the clock, rather than from a clock this screen
+        // reaches for itself (#91). `now` is required, so a caller that has not
+        // decided what "now" is cannot compile.
         now = now,
-        sheets = callbacks.sheets,
+        onSheetDismiss = { sheets.dismiss() },
     )
 }
 
@@ -579,21 +528,17 @@ private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, u
         onCheckToggle = null,
         descriptionState = TextFieldState(""),
         priority = TaskPriority.None,
-        onPrioritySelect = {},
         onPriorityClear = null,
         dueDate = null,
         dueTime = null,
-        onDueDateSelect = {},
         onDueDateClear = null,
-        onDueTimeSelect = {},
         dependsOn = emptySet(),
         availableTasks = emptyList(),
         extraSections = null,
-        onSetDependencies = null,
         bottomBar = null,
         menuItems = emptyList(),
         onBack = {},
-        now = PreviewSamples.now,
+        sheets = rememberDialogState(),
     )
 }
 
@@ -608,17 +553,13 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         onCheckToggle = null,
         descriptionState = TextFieldState("Milk, eggs, bread"),
         priority = TaskPriority.High,
-        onPrioritySelect = {},
         onPriorityClear = {},
         dueDate = today,
         dueTime = LocalTime(14, 30),
-        onDueDateSelect = {},
         onDueDateClear = {},
-        onDueTimeSelect = {},
         dependsOn = emptySet(),
         availableTasks = emptyList(),
         extraSections = null,
-        onSetDependencies = null,
         bottomBar = null,
         menuItems = listOf(
             TaskEditorMenuItem("Archive", onClick = {}),
@@ -626,7 +567,7 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
 
         ),
         onBack = {},
-        now = PreviewSamples.now,
+        sheets = rememberDialogState(),
     )
 }
 
@@ -642,17 +583,13 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         onCheckToggle = null,
         descriptionState = TextFieldState(""),
         priority = TaskPriority.Urgent,
-        onPrioritySelect = {},
         onPriorityClear = {},
         dueDate = today,
         dueTime = null,
-        onDueDateSelect = {},
         onDueDateClear = {},
-        onDueTimeSelect = {},
         dependsOn = setOf(sampleTask.id),
         availableTasks = listOf(sampleTask),
         extraSections = null,
-        onSetDependencies = {},
         bottomBar = null,
         menuItems = listOf(
             TaskEditorMenuItem("Archive", onClick = {}),
@@ -660,6 +597,6 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
 
         ),
         onBack = {},
-        now = PreviewSamples.now,
+        sheets = rememberDialogState(),
     )
 }

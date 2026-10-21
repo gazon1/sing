@@ -15,7 +15,7 @@
     <ID>CyclomaticComplexMethod:SimpleFilterMapper.kt:SimpleFilterMapper$fun toQuery: Result&lt;Query&gt;</ID>
     <ID>CyclomaticComplexMethod:TaskCreateViewModel.kt:TaskCreateViewModel$override fun onIntent</ID>
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
-    <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
+    <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TaskEditorContent</ID>
     <ID>EmptyFunctionBlock:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:NoopCalendarSyncRepositoryImpl.kt:NoopCalendarSyncRepositoryImpl${}</ID>
     <ID>EndOfSentenceFormat:BackupCodec.kt:BackupCodec$* Creates a zip archive at `destPath` containing: * - `MANIFEST.json` — [manifestBytes] * - `payload.json` — [payloadBytes] * - `attachments/$name` — one entry per [attachments] pair (name → bytes)</ID>
@@ -86,7 +86,7 @@
     <ID>LongMethod:SettingsImporter.kt:SettingsImporter$open suspend fun importFromJson: ImportResult</ID>
     <ID>LongMethod:SimpleFilterSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimpleFilterSheet</ID>
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
-    <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorContent</ID>
+    <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
     <ID>LoopWithTooManyJumpStatements:CountdownStateMachine.kt:CountdownStateMachine$while</ID>
