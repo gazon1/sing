@@ -175,6 +175,11 @@ fun RecurrencePickerSheet(
         title = "Repeat",
         onClose = onDismiss,
         onConfirm = { onApply(spec) },
+        // The ✓ commits the pending rule, so it is the button a flow has to press.
+        // The tag was declared in the registry and tapped by the Maestro flow while
+        // no element carried it — the sheet that hosts the picker rendered a header
+        // without a ✓, and the picker's own ✓ had no tag.
+        testTagConfirm = TestTags.SHEET_CONFIRM,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
