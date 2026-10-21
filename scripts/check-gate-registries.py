@@ -80,7 +80,6 @@ if str(_SRC) not in sys.path:
 #: The registry, resolved once per run so `sgate <name>` can be traced to a script.
 _REGISTRY_BY_NAME: dict[str, object] = {}
 
-import click
 
 class RegistryUnavailable(RuntimeError):
     """A registry could not be read — an infrastructure failure, not a verdict."""
