@@ -81,11 +81,15 @@ import kotlinx.coroutines.runBlocking
 fun main(args: Array<String>): Unit = runBlocking {
     val profileId = args.parseProfileArg()
     if (!bootstrapKoin(profileId)) return@runBlocking
-    if (!verifyDatabase()) return@runBlocking
+
+    // Every dependency is read from the container here, once, and passed on as an
+    // argument. The server's own code does not know where they came from.
+    val dependencies = ServerDependencies.fromKoin()
+    if (!verifyDatabase(dependencies)) return@runBlocking
 
     System.err.println("singularity-todo MCP server started")
 
-    val server = buildServer()
+    val server = buildServer(dependencies, toolConfiguration, sessionContext)
     installShutdownHook(server)
 
     val transport = StdioServerTransport(
@@ -223,7 +227,14 @@ the same rule, `core/ai/filterTools`.
 
 Until 2026-10-20 the switch did nothing anywhere: the tool ID the rule keys on could not
 be resolved, so no flag ever matched a tool. The rule was fixed at its owner and the ID
-is pinned by a test — see ADR `2026-10-20-the-kill-switch-was-never-applied`.
+is pinned by a test — see ADR `2026-10-20-the-kill-switch-was-never-applied`. The ID is
+now the name the tool is registered under, so the flag key, the catalogue entry and the
+name the agent calls are one fact with one owner.
+
+A flag that names **no** tool is reported, not dropped: `describe_toolbox` lists it under
+`unmatchedFlags`, and the server logs it at startup. A flag that matched nothing did not
+switch anything off, and the operator who set it believes otherwise — so the server says
+so rather than staying quiet about it.
 
 The policy is **fail-open** and says so: when the configuration cannot be read, every tool
 is enabled — including one an operator meant to disable. `configurationStatus` reports
@@ -339,6 +350,24 @@ have called tools that do not exist — the same defect the catalogue carried, o
 The catalogue's `adr` domain is checked against the tool classes by
 `scripts/check-skill-drift.py`, so a row that stops being true is caught by the build.
 
+### The surface is also read from the compiler
+
+The gate reads the tool surface out of the Kotlin *sources*, because a gate that runs a
+compiler is a gate nobody runs. That has one weakness: a regex that misreads a class does
+not fail — it reads less, and the gate reports a surface smaller than the code.
+
+So the same surface is exported from the **compiled** classes:
+
+```bash
+./gradlew :shared:exportToolSurface   # writes config/docs/tool-surface.json
+```
+
+The export is committed and a test says it is current, and the gate compares what it
+parsed with what the compiler saw. The three facts line up: the code declares the
+surface, the export is that surface written down, the gate's parser is that surface read
+back out of the sources. A parser that misreads a class breaks the last link, and the
+gate says so.
+
 ## Pagination
 
 All `list` tools use opaque cursor pagination. Page size: 50.
@@ -400,9 +429,9 @@ command = ["./mcp-server/build/install/mcp-server/bin/mcp-server", "--profile=ai
 ## Graceful Shutdown — WAL Flush
 
 ```kotlin
-// In Main.kt shutdown hook:
-private suspend fun flushWalCheckpoint() {
-    val driver = GlobalContext.get().get<SqlDriver>()
+// In Main.kt shutdown hook — the driver comes from the resolved dependencies,
+// not from the container: the server's own code does not reach for the container.
+private suspend fun flushWalCheckpoint(driver: SqlDriver) {
     // PASSIVE — never TRUNCATE (blocks writers, can deadlock Android)
     driver.execute(null, "PRAGMA wal_checkpoint(PASSIVE)", 0)
 }

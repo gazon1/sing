@@ -7,6 +7,7 @@ that is never seen failing is indistinguishable from a generator that is not wir
 """
 
 import importlib.util
+import json
 import pathlib
 import shutil
 import sys
@@ -332,6 +333,57 @@ class ToolboxParityTest(unittest.TestCase):
         )
         problems = drift.toolbox_problems()
         self.assertTrue(any('more than once' in p for p in problems), problems)
+
+
+class ExportedSurfaceTest(unittest.TestCase):
+    """The parser against the compiler.
+
+    The gate reads the tool surface out of the Kotlin sources, because a gate that runs
+    a compiler is a gate nobody runs. `config/docs/tool-surface.json` is the same
+    surface as the *compiled* classes saw it, exported by `:shared:exportToolSurface`.
+
+    Comparing the two is what makes the gate honest: a regex that misreads a class does
+    not fail — it reads less, and the gate reports a surface smaller than the code. The
+    export says what the class really declares, so a parser that reads less is caught.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='tool-surface-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        # The gate module is shared by every test in the file, so a test that points it
+        # at a planted export must point it back. A leak here would make an unrelated
+        # test report a missing export, which is a failure nobody could explain.
+        self.addCleanup(setattr, drift, 'TOOL_SURFACE_JSON', drift.TOOL_SURFACE_JSON)
+
+    def _export_with(self, tool_name: str, **changes) -> pathlib.Path:
+        """A copy of the committed export with the given tool's fields changed."""
+        data = json.loads(drift.TOOL_SURFACE_JSON.read_text(encoding='utf-8'))
+        for tool in data['tools']:
+            if tool['name'] == tool_name:
+                tool.update(changes)
+        target = self.tmp / 'tool-surface.json'
+        target.write_text(json.dumps(data), encoding='utf-8')
+        return target
+
+    def test_the_committed_surface_is_the_one_the_gate_reads(self):
+        self.assertEqual(drift.surface_problems(), [])
+
+    def test_a_tool_the_export_has_and_the_sources_do_not_is_reported(self):
+        export = self._export_with('list_tasks', name='list_tasks_renamed')
+        drift.TOOL_SURFACE_JSON = export
+        problems = drift.surface_problems()
+        self.assertTrue(any('list_tasks' in p for p in problems), problems)
+
+    def test_a_description_the_gate_read_differently_is_reported(self):
+        export = self._export_with('list_tasks', description='A different description.')
+        drift.TOOL_SURFACE_JSON = export
+        problems = drift.surface_problems()
+        self.assertTrue(any('reading the source wrongly' in p for p in problems), problems)
+
+    def test_a_missing_export_is_reported(self):
+        drift.TOOL_SURFACE_JSON = self.tmp / 'absent.json'
+        problems = drift.surface_problems()
+        self.assertTrue(any('has not been exported' in p for p in problems), problems)
 
 
 class TargetSetTest(unittest.TestCase):

@@ -54,6 +54,8 @@
 
 - [x] The three ADRs
 - [x] The ADR for the kill switch that was never applied
+- [x] The ADR for the gate that reads the surface the compiler saw
+- [x] The ADR for the server that takes its dependencies as arguments
 - [x] This change
 - [x] The issue registry — `scripts/openspec-import-all.py`
 - [x] The digest refreshed
@@ -73,15 +75,15 @@
 - [x] `:desktopApp:test --tests "*ToolSurfaceWiringTest*"`
 - [x] `scripts/check-skill-drift.py` and its positive controls
 - [x] `scripts/mcp-toolbox-usage.py` — its own tests
-- [x] `bash scripts/ci/static-gates.sh` — 29 of 30 gates pass; the one that does not
-      is the registry agreement, and it fails on `main` as well (see below)
-- [ ] `:mcp-server:test` and the detekt runs
+- [x] `bash scripts/ci/static-gates.sh` — 30 of 30 gates pass. The one that did not
+      when the change was written (`gate registries agree`) was fixed upstream while it
+      was in flight
+- [x] `:mcp-server:test` and the detekt runs — every module, not only `shared` and
+      `desktopApp` (see the note below: two modules were never linted locally, and CI
+      found nine findings in them)
 
 ### Known pre-existing failures, not caused by this change
 
-- **`gate registries agree`** — the shell registry makes `script conventions` blocking
-  while the Python registry makes it advisory. Both are the committed versions; the
-  disagreement is on `main` before this change.
 - **`test_check_gate_wiring` / `test_gate_wiring_advisory` cannot be imported** under
   Python 3.14: `dataclasses` looks the module up in `sys.modules` while `importlib`
   loads it without registering it. Neither file is touched by this change.

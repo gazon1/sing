@@ -1,17 +1,11 @@
 package com.singularity.todo.mcp
 
-import ai.koog.agents.core.tools.Tool
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.config.RemoteConfigPort
-import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.observability.ToolCallContext
-import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.version.appVersion
-import com.singularity.todo.feature.ai.tools.AdrStorage
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
@@ -28,7 +22,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
-import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.io.File
@@ -65,18 +58,19 @@ fun main(args: Array<String>): Unit = runBlocking {
     val profileId = args.parseProfileArg()
 
     if (!bootstrapKoin(profileId)) return@runBlocking
-    if (!verifyDatabase()) return@runBlocking
+    val dependencies = ServerDependencies.fromKoin()
+    if (!verifyDatabase(dependencies)) return@runBlocking
     // After Koin is up and DB is reachable, ensure default + agent profiles exist
     // and point DataStore at the agent profile when --profile=ai-agent (or any
     // other agent-like flag) was passed. This makes subsequent tool calls write
     // under the AI Agent's UUID instead of Personal's.
-    bootstrapProfiles(profileId)
+    bootstrapProfiles(dependencies, profileId)
 
     // The remote configuration is read once, here, and the answer is handed to the
     // registrar. Reading it per tool call would let the exposed toolbox change under a
     // running client; reading it once means the toolbox a client sees is the toolbox the
     // server announced.
-    val toolConfiguration = readToolConfiguration()
+    val toolConfiguration = readToolConfiguration(dependencies)
     log.i {
         "Tool configuration: ${toolConfiguration.status}, " +
             "${toolConfiguration.flags.count { it.value == false }} tool(s) disabled"
@@ -85,7 +79,7 @@ fun main(args: Array<String>): Unit = runBlocking {
     log.i { "singularity-todo MCP server started" }
 
     val sessionContext = SessionContextHolder()
-    val server = buildServer(toolConfiguration, sessionContext)
+    val server = buildServer(dependencies, toolConfiguration, sessionContext)
     installShutdownHook(server)
 
     val transport = StdioServerTransport(
@@ -131,8 +125,8 @@ private fun bootstrapKoin(profileId: String?): Boolean = try {
  * Eagerly opens the Room database and runs a single SELECT to surface schema/migration
  * problems at startup instead of mid-session.
  */
-private suspend fun verifyDatabase(): Boolean = try {
-    GlobalContext.get().get<AppDatabase>().profileDao().count()
+private suspend fun verifyDatabase(dependencies: ServerDependencies): Boolean = try {
+    dependencies.database.profileDao().count()
     true
 } catch (e: CancellationException) {
     throw e
@@ -157,9 +151,9 @@ private suspend fun verifyDatabase(): Boolean = try {
  * them under the AI Agent's scoped userId so they become visible after switching
  * in the UI. Safe to run repeatedly: only touches rows owned by `user_id = LOCAL_UID`.
  */
-private suspend fun bootstrapProfiles(profileCliArg: String?) {
+private suspend fun bootstrapProfiles(dependencies: ServerDependencies, profileCliArg: String?) {
     try {
-        val bootstrapper: ProfileBootstrapper = GlobalContext.get().get()
+        val bootstrapper: ProfileBootstrapper = dependencies.profileBootstrapper
         val activateName = when (profileCliArg?.lowercase()) {
             "ai-agent", "agent" -> "AI Agent"
             "default", "personal", null -> null
@@ -175,8 +169,7 @@ private suspend fun bootstrapProfiles(profileCliArg: String?) {
         // newUserId = "{agent}/{agent}/{user}" — an id no profile matches, leaving
         // every migrated row unreachable. Whether that happened depended on dispatcher
         // timing. The session is not touched by the switch, so this read is exact.
-        val localUserId: String = GlobalContext.get()
-            .get<ProfileAwareCurrentUser>()
+        val localUserId: String = dependencies.currentUser
             .liveLocalUserId
             .first()
             .value
@@ -253,8 +246,8 @@ private fun retromigrateRowsToAgentScope(profileId: String, localUserId: String,
  * status travels with the flags all the way to `describe_toolbox`, so an operator can
  * see that the switch was *not* applied rather than assume it was.
  */
-private suspend fun readToolConfiguration(): ToolConfiguration = try {
-    val snapshot = GlobalContext.get().get<RemoteConfigPort>().snapshot()
+private suspend fun readToolConfiguration(dependencies: ServerDependencies): ToolConfiguration = try {
+    val snapshot = dependencies.remoteConfig.snapshot()
     ToolConfiguration(
         flags = snapshot.mcpToolFlags,
         status = ToolsetSnapshot.statusOf(snapshot, Clock.System.now().toEpochMilliseconds()),
@@ -279,6 +272,7 @@ data class ToolConfiguration(
 )
 
 private fun buildServer(
+    dependencies: ServerDependencies,
     configuration: ToolConfiguration,
     sessionContext: SessionContextHolder,
 ): Server {
@@ -305,24 +299,32 @@ private fun buildServer(
     )
     val registrar = ToolRegistrar(
         server = server,
-        tools = GlobalContext.get().get<List<Tool<*, *>>>(),
+        tools = dependencies.tools,
         toolFlags = configuration.flags,
         configurationStatus = configuration.status,
         configurationFetchedAtEpochMillis = configuration.fetchedAtEpochMillis,
-        recorder = GlobalContext.get().getOrNull<ToolCallRecorder>(),
+        recorder = dependencies.recorder,
         sessionContext = { sessionContext.current() },
     )
     registrar.registerAll()
     ToolboxTool(registrar.snapshot).register(server)
     ToolboxResources(
         snapshot = registrar.snapshot,
-        storage = GlobalContext.get().getOrNull<AdrStorage>(),
+        storage = dependencies.adrStorage,
     ).register(server)
-    RegistrySnapshot.write(registrar.snapshot)
+    RegistrySnapshot.write(registrar.snapshot, dependencies.dataDirectory)
     log.i {
         "Toolbox: ${registrar.snapshot.registered.size} tool(s) registered, " +
             "${registrar.snapshot.disabled.size} disabled, " +
             "fingerprint ${registrar.snapshot.identity.activeToolsetFingerprint}"
+    }
+    if (registrar.snapshot.unmatchedFlags.isNotEmpty()) {
+        // A flag that names no tool switched nothing off. The operator who set it
+        // believes it did, so the server says so rather than staying quiet.
+        log.w {
+            "Remote configuration names ${registrar.snapshot.unmatchedFlags.size} tool(s) " +
+                "this server does not expose: ${registrar.snapshot.unmatchedFlags.joinToString()}"
+        }
     }
     return server
 }

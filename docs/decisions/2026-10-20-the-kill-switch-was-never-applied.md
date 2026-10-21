@@ -94,6 +94,43 @@ C was not taken now. It is the better shape, and it removes a reflection from a 
 path, but it changes the contract of every tool class and every flag key at once — a
 larger change than this one, and it should not ride along with a defect fix.
 
+## Addendum — the reflection is gone (2026-10-20, later the same day)
+
+C's *substance* was taken after all, in the narrow form it needed: the name is not read
+out of the bytecode at all.
+
+`filterTools` keys the flags by `tool.descriptor.name` — the name Koog registers the
+tool under, the name the catalogue declares, and the name the agent calls. There is
+nothing to look up, and nothing to look up *wrongly*. The reflection and the function
+that carried it are deleted.
+
+What made this safe is an invariant that was already enforced and had never been
+written down: the runtime wiring test resolves the real Koin list on the JVM and on
+Android and compares it with the catalogue, so *the descriptor's name is the catalogue's
+name* is checked on both platforms, every build. `AiToolFiltersTest` now states the
+other half — that the descriptor's name is the class's `NAME` constant, for both shapes
+of class — and the flag key is the same string everywhere.
+
+The flag key is therefore one fact with one owner. The earlier shape had two: a constant
+in the bytecode and a string in a configuration, and the gate between them was a
+reflection that failed silently.
+
+## Addendum — a flag that matched nothing is reported (2026-10-20)
+
+The switch works now, and the second half of the operator's picture was still missing: a
+flag that names **no** tool. It matches nothing, so it switches nothing off — and the
+operator who set it believes the tool is off, while it is exposed and callable.
+
+`describe_toolbox` now lists those flags under `unmatchedFlags`, and the server logs them
+at startup. They are not "disabled tools": a flag that matched nothing did not disable
+anything, and reporting it as a disabled tool would be a different kind of lie.
+
+The distinction is the whole point. Three facts, three answers:
+
+- a flag that names a tool and says `false` — the tool is **disabled**;
+- a flag that names nothing — the flag is **unmatched**, and the operator is told;
+- no configuration at all — the status is **unavailable**, and the policy is fail-open.
+
 ## Rationale
 
 The defect is not that the constant was in an unexpected place. It is that a lookup that

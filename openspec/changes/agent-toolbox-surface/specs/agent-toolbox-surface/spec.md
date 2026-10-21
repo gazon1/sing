@@ -63,6 +63,8 @@ therefore SHALL NOT appear in `tools/list` and SHALL NOT be callable.
 - The remote configuration holds a flag for a tool that is not registered
 - The server starts, and every registered tool stays registered — a flag that matches no
   tool changes nothing, and it is not reported as a disabled tool
+- The flag is reported as unmatched, and the server says so at startup: the operator who
+  set it believes a tool is off, and it is not
 
 #### Scenario: The flag is global
 - The remote configuration is switched off for one profile

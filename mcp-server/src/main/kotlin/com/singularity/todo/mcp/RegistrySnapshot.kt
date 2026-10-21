@@ -1,12 +1,10 @@
 package com.singularity.todo.mcp
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.platform.HostEnvironmentPort
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.koin.core.context.GlobalContext
 import java.io.File
 
 /**
@@ -27,10 +25,9 @@ object RegistrySnapshot {
     private const val TAG = "RegistrySnapshot"
 
     @Suppress("TooGenericExceptionCaught")
-    fun write(snapshot: ToolsetSnapshot) {
+    fun write(snapshot: ToolsetSnapshot, dataDirectory: String) {
         try {
-            val host = GlobalContext.get().get<HostEnvironmentPort>()
-            val dir = File(host.applicationDataDirectory(), DIRECTORY)
+            val dir = File(dataDirectory, DIRECTORY)
             dir.mkdirs()
             File(dir, FILE_NAME).writeText(payload(snapshot).toString())
         } catch (e: Throwable) {
