@@ -23,6 +23,7 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is noise. |
 | `scripts/check-hooks-path.py` | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#519). |
 | `scripts/check-instrumented-test-floor.py` | check-instrumented-test-floor.py — the instrumented suite's floor, and the ratchet on it. |
+| `scripts/check-issue-registry.py` | check-issue-registry.py — every OpenSpec change has an entry in the issue registry. |
 | `scripts/check-link-grammar.py` | check-link-grammar.py — the link grammar has one home. |
 | `scripts/check-maestro-flow-catalogue.py` | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. |
 | `scripts/check-maestro-keyboard-commands.py` | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to hide. |
@@ -105,6 +106,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gatekit.markdown` | sgate.gates.markdown — reading the tables a document claims things in. |
 | `sgate.gatekit.paths` | where a gate is allowed to write. |
 | `sgate.gatekit.rules` | sgate.gates.rules — a document-against-the-code rule that is data. |
+| `sgate.gatekit.tables` | a document table checked against the code. |
 | `sgate.gates` | gate registry loader. |
 | `sgate.log` | loguru logger configured for sgate. |
 | `sgate.models` | typed JSON payloads for gate results. |
