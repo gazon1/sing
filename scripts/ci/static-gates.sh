@@ -725,6 +725,12 @@ gate blocking "maestro keyboard commands have something to hide" python3 scripts
 # A swipe may be a share of the screen, or the element that scrolls. Both mean
 # the same gesture on every display.
 gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-screen-geometry.py
+# The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
+gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
+# The compiler makes the when over the sealed hierarchy exhaustive. It cannot see the delegation: the group of destinations that stands for a record is handed to another when, and that one ends in a runtime error.
+gate blocking "every destination has a content key" sgate every_destination_has_a_content_key
+# The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+gate blocking "the tool catalogue is current" sgate the_tool_catalogue_is_current
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

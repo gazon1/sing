@@ -72,3 +72,6 @@ sche... | — | — |
 | test runs | blocking | check-test-runs.py — fail when a test run executed fewer tests than the basel... | — | — |
 | instrumented test floor | blocking | check-instrumented-test-floor.py — the instrumented suite's floor, and the ra... | — | — |
 | script conventions | blocking | check-script-conventions.py — enforce naming, docstring, and import conventio... | — | — |
+| the link grammar has one home | blocking | check-link-grammar.py — the link grammar has one home. | 0=the: grammar has one home, 1=a: file outside the home names the scheme | — |
+| every destination has a content key | blocking | check-stable-content-key.py — every destination has a content key, and the co... | 0=every: destination is covered, 1=a: destination is delegated without being named, or named without existing | — |
+| the tool catalogue is current | blocking | check-tools-catalog.py — the catalogue of the gate scripts. | 0=the: catalogue is current (or was written), 1=the: catalogue is not what the scripts say today, 2=the: catalogue could not be read or written | — |

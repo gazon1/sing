@@ -847,6 +847,30 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
+        # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
+        GateSpec(
+            name="the link grammar has one home",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-link-grammar.py"),
+            script_args=("--check",),
+        ),
+        # The compiler makes the when over the sealed hierarchy exhaustive. It cannot see the delegation: the group of destinations that stands for a record is handed to another when, and that one ends in a runtime error.
+        GateSpec(
+            name="every destination has a content key",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-stable-content-key.py"),
+            script_args=("--check",),
+        ),
+        # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+        GateSpec(
+            name="the tool catalogue is current",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-tools-catalog.py"),
+            script_args=("--check",),
+        ),
 )
 
 
@@ -1174,6 +1198,54 @@ GATE_CONTROLS: dict[str, Control] = {
             "never opens — so the gate has to catch a claim the code does not support"
         ),
     ),
+        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
+        'link-grammar': Control(
+            kind='sabotage',
+            proves='scripts/check-link-grammar.py',
+            argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
+            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/domain/model/CalendarSyncEvent.kt',
+            edit=Edit(
+                kind='replace',
+                old='package com.singularity.todo.feature.calendar_sync.domain.model',
+                new='package com.singularity.todo.feature.calendar_sync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
+                count=1,
+            ),
+            why=(
+                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
+            ),
+        ),
+        # a destination that is delegated but not named compiles, compiles, and fails at runtime on the first screen that opens it
+        'stable-content-key': Control(
+            kind='sabotage',
+            proves='scripts/check-stable-content-key.py',
+            argv=('{python}', 'scripts/check-stable-content-key.py', '--check',),
+            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/StableContentKey.kt',
+            edit=Edit(
+                kind='replace',
+                old='    is AppDestination.TasksGraph,\n    is AppDestination.TasksByProject,',
+                new='    is AppDestination.AiChat,\n    is AppDestination.TasksGraph,\n    is AppDestination.TasksByProject,',
+                count=1,
+            ),
+            why=(
+                'a destination that is delegated but not named compiles, compiles, and fails at runtime on the first screen that opens it'
+            ),
+        ),
+        # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
+        'tools-catalog': Control(
+            kind='sabotage',
+            proves='scripts/check-tools-catalog.py',
+            argv=('{python}', 'scripts/check-tools-catalog.py', '--check',),
+            path='scripts/check-dead-settings.py',
+            edit=Edit(
+                kind='replace',
+                old='Find persisted settings that are collected, displayed, and read by no feature.',
+                new='Find persisted settings that no feature reads.',
+                count=1,
+            ),
+            why=(
+                'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
 }
 
 
