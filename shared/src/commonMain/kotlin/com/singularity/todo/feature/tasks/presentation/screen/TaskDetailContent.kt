@@ -187,6 +187,14 @@ fun TaskDetailContent(
                             estimateMinutes = ui.task.estimateMinutes,
                             dependsOn = ui.dependsOn,
                             availableTasks = ui.availableTasks,
+                            // The attachments sheet reads the model's list, and the
+                            // sheet is where an attachment is deleted. The detail
+                            // kept its attachments out of the model — the section
+                            // below the fields had them — so the sheet said "no
+                            // attachments yet" on a task that had them, and there
+                            // was nothing to delete from the one place that
+                            // deletes.
+                            attachments = ui.attachments,
                         ),
                         titleSource = ui.titleSource,
                         descriptionSource = ui.descriptionSource,
