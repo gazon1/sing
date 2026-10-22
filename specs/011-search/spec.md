@@ -84,6 +84,12 @@ scenarios:
     priority: P1
     status: confirmed
     targets: [desktop]
+  - id: SEARCH-10
+    title: The contains mode finds the term in the middle of a word
+    area: feature.search
+    priority: P1
+    status: confirmed
+    targets: [android]
 ```
 
 ## Requirements

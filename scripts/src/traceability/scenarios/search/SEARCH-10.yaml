@@ -1,0 +1,22 @@
+# Scenario specification for SEARCH-10.
+
+id: SEARCH-10
+title: The contains mode finds the term in the middle of a word
+area: feature.search
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  A task exists whose title holds the word "airport". Nothing else carries the
+  word, so both answers are unambiguous.
+steps:
+  - Open the quick search from the menu sheet.
+  - Type "port".
+  - Observe the results.
+  - Choose the "Contains" mode on the switch under the search field.
+  - Observe the results.
+expected: >-
+  The word mode does not find the task: a term matches the beginning of a word
+  and not its middle. The contains mode finds it: the term occurs in the
+  middle of the word, and the mode that answered is stated on the screen next
+  to the switch.
