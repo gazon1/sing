@@ -76,7 +76,11 @@ jobs:
   static:
     name: Static gates
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # The suite runs the gates and then the control phase — the harness that
+    # proves each gate can fail. The phase edits the tree the gates read, so it
+    # runs after them and alone; that is minutes on top of the suite, and a
+    # timeout that fires mid-phase leaves a checkout with a sabotaged file.
+    timeout-minutes: 25
     needs: [changes]
     # The detekt auto-correct step pushes the corrected tree to
     # `detekt-auto-fix/<job>/<run-id>` so a human can review and merge it —
