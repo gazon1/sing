@@ -42,23 +42,11 @@ tags:
       id: settings_tab_interface
     timeout: 10000
 # The Backup tab is below the fold in the settings nav rail, and the rail is
-# the only thing that has to scroll to reach it. scrollUntilVisible cannot do
-# that: it swipes the screen centre, which is the content pane, not the 80dp
-# rail on the left edge (docs/decisions/2026-09-29-settings-rail-not-scrollable.md).
-# So the rail is swiped on its own element — the gesture lands on the rail
-# whatever the viewport is, where hardcoded pixels fall off a short screen.
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
+# the only thing that has to scroll to reach it. The scroll lives in a helper:
+# the gesture that moves the rail is not the obvious one — see
+# Maestro/helpers/settings-rail-scroll.yaml for the two recipes that turned
+# out to do nothing on a device.
+- runFlow: ../../helpers/settings-rail-scroll.yaml
 - extendedWaitUntil:
     visible:
       id: settings_tab_backup
@@ -122,18 +110,7 @@ tags:
       id: settings_tab_interface
     timeout: 10000
 # Same rail scroll for the second Settings→Backup navigation (after restore).
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
+- runFlow: ../../helpers/settings-rail-scroll.yaml
 - extendedWaitUntil:
     visible:
       id: settings_tab_backup
