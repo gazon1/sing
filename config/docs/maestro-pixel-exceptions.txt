@@ -1,0 +1,44 @@
+# Maestro flows that may name a point in pixels.
+#
+# The rule (`scripts/check-maestro-screen-geometry.py`): a flow must not
+# address a point in pixels. A point is a claim about the display it was
+# measured on — a point at y=2000 is off-screen on a 720×1600 phone, the
+# gesture never happens, and the flow fails on a screen it never claimed to
+# know about.
+#
+# This file is the exceptions registry. A flow listed here may name a pixel,
+# and it must say why: the second column is the reason, and a blank reason is
+# a finding, because "no reason" is not a reason.
+#
+# Format: one `<path-relative-to-Maestro> <reason>` per line. `#` starts a
+# comment. The path is relative to `Maestro/`, so a helper is
+# `helpers/settings-account-tab.yaml`.
+#
+# The gate also fails when a listed flow no longer names a pixel: a stale
+# exception is a claim that is no longer true, and it hides the day the flow
+# is fixed.
+#
+# ── The settings navigation rail ──────────────────────────────────────────
+#
+# The rail is a `Column(verticalScroll)` inside the settings screen, and
+# Maestro's swipe does not scroll it — neither a swipe addressed to the rail
+# element nor a swipe at a point inside it (measured 2026-10-28 on an API 36
+# emulator at 1080×2400: the tabs did not move, while the same gesture sent
+# through `adb shell input swipe` moved the rail by 730px). The menu sheet
+# scrolls under the same gesture, so this is the rail and not the gesture.
+#
+# Until that is fixed, the rail is scrolled by a point, and the point is
+# tuned to the CI emulator. The flows below are therefore a claim about the
+# emulator and not about the app: see issue #941.
+flows/settings/03-cycle-tabs.yaml the settings rail does not scroll under a Maestro swipe, so the point is tuned to the CI emulator
+flows/smoke/06-session-anonymous.yaml the settings rail does not scroll under a Maestro swipe, so the point is tuned to the CI emulator
+helpers/settings-account-tab.yaml the settings rail does not scroll under a Maestro swipe, so the point is tuned to the CI emulator
+
+# ── The date picker sheet ─────────────────────────────────────────────────
+#
+# The date picker's action row sits at the bottom of the sheet's scrolling
+# column, and the sheet is a `ModalBottomSheet` whose content is a plain
+# `Column` with the scroll on the `SheetScaffold` — a point inside the sheet
+# is the only way to reach the row (measured 2026-10-28: a swipe on the
+# sheet's own element scrolls the calendar, not the column that holds OK).
+flows/agenda/01-smart-lists.yaml the sheet's action row is only reachable by a point inside the sheet

@@ -365,6 +365,29 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="maestro-keyboard-commands",
+        cmd=[sys.executable, "scripts/check-maestro-keyboard-commands.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        why=(
+            "a `hideKeyboard` with nothing to hide is a BACK keypress: the editors "
+            "are dialogs, so BACK dismisses them and the flow fails on an element "
+            "the editor was holding — a red run that blames the app for a command "
+            "the flow itself got wrong"
+        ),
+    ),
+    ScriptGate(
+        name="maestro-screen-geometry",
+        cmd=[sys.executable, "scripts/check-maestro-screen-geometry.py"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        why=(
+            "a flow that names a pixel is a claim about one display - the swipe "
+            "only happens on a screen at least that tall, so the flow is green on "
+            "the CI emulator and meaningless on a phone"
+        ),
+    ),
+    ScriptGate(
         name="ui-wait-budgets",
         cmd=[sys.executable, "scripts/check-ui-wait-budgets.py"],
         # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);

@@ -652,6 +652,35 @@ PLACEMENTS: dict[str, Placement] = {
         ),
         tracked_by=".github/workflows/android-device-tests.yml#Check the instrumented suite's floor",
     ),
+    "maestro keyboard commands have something to hide": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-maestro-keyboard-commands.py',
+        note="""
+# A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
+#
+# Measured on a phone (2026-10-28): a flow's second `hideKeyboard` dismissed the
+# editor dialog, and the run failed on an element the editor was holding. The
+# editors are dialogs, so BACK closes them — the command that means "dismiss" and
+# the command that means "hide the keyboard" are the same key.
+#
+# So a `hideKeyboard` follows a text input, one per text input, and never
+# follows anything else.""",
+    ),
+    "maestro flows do not name a pixel": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-maestro-screen-geometry.py',
+        note="""
+# A flow that names a pixel is a claim about one display.
+
+# Measured on a phone (2026-10-28): the flows that scrolled the settings rail
+# by pixel never reached the trailing tabs, and the flows that tapped the menu
+# sheet's last item tapped the system navigation bar instead. On the CI
+# emulator they are green - a statement about the emulator that reads like a
+# statement about the app.
+
+# A swipe may be a share of the screen, or the element that scrolls. Both mean
+# the same gesture on every display.""",
+    ),
     "maestro results are within the floor": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(

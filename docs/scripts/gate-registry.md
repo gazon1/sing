@@ -40,6 +40,8 @@ sche... | — | — |
 | workflow steps keep their exit status | blocking | check-workflow-exit-status.py — a `run:` block must not swallow its exit status. | — | — |
 | releases describe themselves | blocking | check-release-tags.py — every release must be able to describe itself. | — | — |
 | maestro selectors valid | blocking | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
+| maestro keyboard commands have something to hide | blocking | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
+| maestro flows do not name a pixel | blocking | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
 | maestro results are within the floor | blocking | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
 | profile reset inventory is true | blocking | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
 | doc dead refs | blocking | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |

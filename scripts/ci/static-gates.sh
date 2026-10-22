@@ -537,6 +537,29 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # cannot tell "caught the mutation" from "still failing the known violations".
 # That is the whole reason it had no positive control; it has one now.
 gate blocking "script conventions" sgate conventions
+
+# A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
+#
+# Measured on a phone (2026-10-28): a flow's second `hideKeyboard` dismissed the
+# editor dialog, and the run failed on an element the editor was holding. The
+# editors are dialogs, so BACK closes them — the command that means "dismiss" and
+# the command that means "hide the keyboard" are the same key.
+#
+# So a `hideKeyboard` follows a text input, one per text input, and never
+# follows anything else.
+gate blocking "maestro keyboard commands have something to hide" python3 scripts/check-maestro-keyboard-commands.py
+
+# A flow that names a pixel is a claim about one display.
+
+# Measured on a phone (2026-10-28): the flows that scrolled the settings rail
+# by pixel never reached the trailing tabs, and the flows that tapped the menu
+# sheet's last item tapped the system navigation bar instead. On the CI
+# emulator they are green - a statement about the emulator that reads like a
+# statement about the app.
+
+# A swipe may be a share of the screen, or the element that scrolls. Both mean
+# the same gesture on every display.
+gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-screen-geometry.py
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

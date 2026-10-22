@@ -17,19 +17,25 @@ tags:
 - tapOn:
     id: tasks_fab
 
-# Verify editor opened
-- extendedWaitUntil:
-    visible:
+# The editor is open. The editor restores its draft — and with it the place it
+# was left — so the title input can start below the fold. Scrolling up to it
+# says both: the editor is open, and the flow starts at the top of it.
+- scrollUntilVisible:
+    element:
       id: task_editor_title_input
-    timeout: 5000
+    direction: UP
+    timeout: 8000
 
-# ── Attribute rows ─────────────────────────────────────────────────────
+# ── The attribute rows ─────────────────────────────────────────────────
 #
-# Every attribute row exists in the editor, but the editor is taller than a
-# phone viewport: a row that is below the fold is not on the screen at all,
-# and "not on the screen" is not the same claim as "not in the editor". So
-# each row is scrolled into view before it is asserted — the flow below says
-# what it means, and the scroll is how the row gets there.
+# The editor is taller than a phone viewport, so a row below the fold is not
+# on the screen at all. Asserting it anyway is an assertion about the
+# viewport, not about the editor — and it fails on a phone while passing on
+# the CI emulator, which is the whole problem with a claim that only one
+# display can settle.
+#
+# So every row is scrolled into view first and asserted after. The scroll is
+# what makes the assertion mean "the editor has this row".
 - scrollUntilVisible:
     element:
       id: task_editor_priority_row
@@ -37,6 +43,7 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_priority_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_due_row
@@ -44,6 +51,7 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_due_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_start_date_row
@@ -51,6 +59,7 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_start_date_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_project_row
@@ -58,6 +67,7 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_project_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_tags_row
@@ -65,6 +75,7 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_tags_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_recurrence_row
@@ -72,6 +83,7 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_recurrence_row
+
 - scrollUntilVisible:
     element:
       id: task_editor_pin_row
@@ -79,7 +91,13 @@ tags:
     timeout: 8000
 - assertVisible:
     id: task_editor_pin_row
+
 # ── Fill title ─────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_title_input
+    direction: UP
+    timeout: 8000
 - tapOn:
     id: task_editor_title_input
 # The create screen restores its draft, so the field still holds the previous
