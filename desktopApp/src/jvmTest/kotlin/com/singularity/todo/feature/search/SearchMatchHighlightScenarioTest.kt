@@ -3,16 +3,18 @@ package com.singularity.todo.feature.search
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.text.AnnotatedString
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.TextMatchRange
+import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import com.singularity.todo.test.helpers.semanticsRoots
+import com.singularity.todo.test.helpers.visit
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -62,10 +64,7 @@ class SearchMatchHighlightScenarioTest {
             }
         }
 
-        val title = onNodeWithText("Architecture of the house").fetchSemanticsNode()
-            .config.getOrNull(SemanticsProperties.Text)
-            .orEmpty()
-            .first { it.text == task.title }
+        val title = textShown(task.title)
 
         val span = title.spanStyles.single()
         assertEquals(0, span.start, "the match starts at the first character of the title")
@@ -86,15 +85,33 @@ class SearchMatchHighlightScenarioTest {
             }
         }
 
-        val title = onNodeWithText("The plan").fetchSemanticsNode()
-            .config.getOrNull(SemanticsProperties.Text)
-            .orEmpty()
-            .first { it.text == task.title }
+        val title = textShown(task.title)
 
         assertTrue(
             title.spanStyles.isEmpty(),
             "the title does not carry the word, so nothing is drawn in it: ${title.spanStyles}",
         )
+    }
+
+    /**
+     * The text the scene shows, as the scene holds it.
+     *
+     * The text of a node is an [AnnotatedString], and the spans are the match:
+     * the emphasis is not a colour that a test could read, it is a range over
+     * the characters — so the range is what the test looks at.
+     */
+    private fun textShown(text: String): AnnotatedString {
+        var found: AnnotatedString? = null
+        for (root in semanticsRoots()) {
+            root.visit { node ->
+                if (found == null) {
+                    val shown = node.config.getOrNull(SemanticsProperties.Text)
+                    found = shown?.firstOrNull { it.text == text }
+                }
+            }
+            if (found != null) break
+        }
+        return found ?: error("the scene shows no text '$text'")
     }
 
     /** A task with the given title — the card under test is the card the search draws. */
