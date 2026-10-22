@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -59,7 +60,7 @@ fun ChecklistEditorSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (items.isEmpty()) {
-                Text(
+                SelectableText(
                     text = "No checklist items yet",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

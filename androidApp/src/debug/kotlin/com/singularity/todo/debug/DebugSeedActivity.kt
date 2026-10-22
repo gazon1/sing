@@ -17,6 +17,7 @@ import com.singularity.todo.test.stubs.TestAuthStubs
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -46,6 +47,16 @@ import kotlinx.datetime.toLocalDateTime
  *   filter is applied; the parameter was asked for by such a flow and silently
  *   ignored, which made the flow assert against a task that had none.
  * - `note=<title>`           — seeds a note (one note with that title)
+ * - `linkTo=<title>`         — makes the seeded note's body link to the task with
+ *   that title. The link is written the way the app writes one — an anchor whose
+ *   href is `task://<id>` — so the note is one the editor could have produced, and
+ *   the link machinery reads it as a link. The target is named rather than
+ *   addressed by id, because the caller cannot know the id the app gave the task
+ *   it seeded a moment earlier.
+ * - `id=<id>` — the id the seeded task carries. A seed that names an id owns it:
+ *   the row the flow addresses by that id is the row the seed writes. It is what
+ *   makes a deep link addressable — `singularity://task/<id>` names an id, and a
+ *   flow cannot know the id the app generated.
  * - `project=<name>`         — seeds a project (one project with that name)
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
@@ -207,7 +218,21 @@ class DebugSeedActivity :
         when {
             params.containsKey("task") -> seedTask(params, writer)
 
-            params.containsKey("note") -> writer.writeNote(NoteSeed(title = params["note"]!!))
+            params.containsKey("note") -> {
+                val spec = NoteSeed(title = params["note"]!!)
+                val linkTo = params["linkTo"]
+                if (linkTo == null) {
+                    writer.writeNote(spec)
+                } else {
+                    val result = writer.writeNoteLinkingToTask(spec, linkTo)
+                    result.missingLinkTarget?.let { missing ->
+                        android.util.Log.w(
+                            "DebugSeedActivity",
+                            "No task titled '$missing' to link to; seeding the note without the link",
+                        )
+                    }
+                }
+            }
 
             params.containsKey("project") -> writer.writeProject(
                 ProjectSeed(
@@ -237,6 +262,7 @@ class DebugSeedActivity :
                 dueDate = params["due"]?.let { resolveDate(it) },
                 stamp = stamp,
                 dependsOnTitle = params["blockedBy"],
+                id = params["id"]?.let(TaskId::fromString),
             ),
         )
         android.util.Log.i("DebugSeedActivity", "task '$title' was ${result.outcome}")

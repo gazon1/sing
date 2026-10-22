@@ -1,0 +1,64 @@
+# A link inside a note takes the reader to the task it names.
+#
+# The note's body holds an anchor whose href is the shared grammar's URL
+# (`task://<id>`) and whose label is the task's title. Tapping it must open
+# that task — not a browser, not an error, and not the note again.
+#
+# The fixture is seeded rather than typed: a link carries an id, and the id the
+# app generates is not one a flow can know. The seed writes the link the way the
+# editor writes one, so the note under test is a note the app itself could have
+# produced.
+appId: com.singularity.todo
+name: notes-internal-link-navigation
+tags:
+  - regression
+  - notes
+---
+- runFlow: ../../helpers/launch-clean.yaml
+# The task the note links to.
+- openLink: "todo-debug://seed?task=Buy%20milk"
+# The note that links to the task. The link target is named, not addressed by
+# id: the task was seeded a moment ago and the flow cannot know its id.
+- openLink: "todo-debug://seed?note=Link%20source&linkTo=Buy%20milk"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+- tapOn:
+    id: nav_menu_button
+- scrollUntilVisible:
+    element:
+      id: menu_notes
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_notes
+- extendedWaitUntil:
+    visible:
+      id: notes_quick_add_input
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: note_item_by_title_link_source
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: note_item_by_title_link_source
+# The preview is where the body is rendered.
+- extendedWaitUntil:
+    visible:
+      id: note_action_edit
+    timeout: 8000
+# The link's label is the task's title. It is the only place that text is on
+# screen, so a tap on it is a tap on the link and not on the note's title.
+- tapOn:
+    text: "Buy milk"
+# The task's editor is what the task screen is.
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# The title proves the link led to *this* task and not merely that an editor
+# opened.
+- assertVisible:
+    text: "Buy milk"

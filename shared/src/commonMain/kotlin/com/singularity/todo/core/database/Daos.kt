@@ -402,19 +402,40 @@ interface TaskDao {
     suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
 
     /**
-     * Returns tasks that link TO [taskId] via `task://<id>` URL scheme, for the current user.
-     * Uses a LIKE substring match on the JSON-encoded `outgoing_links` column.
+     * Returns tasks whose `outgoing_links` hold [url] — the whole link — for the current user.
+     *
+     * The match is **exact**: the stored `outgoing_links` JSON array must hold [url] as one
+     * of its elements, character for character — same scheme, same identifier, same case.
+     * The query walks the array with `json_each` and compares the elements with `=`, so a
+     * `%` or `_` inside an identifier stays a literal character.
+     *
+     * It used to be a `LIKE` substring match, which was wrong in three ways at once:
+     * `LIKE` is case-insensitive for ASCII, it reads `%` and `_` as wildcards (and the
+     * identifier grammar allows `_`), and the pattern had no closing delimiter — so a
+     * stored `task://abc` also answered a query for `task://ABC`, `task://a_c` and
+     * `task://abcd`.
+     *
+     * @param url the whole link to look for, e.g. `task://<id>`, built by the caller from
+     *   the shared link grammar (`InternalLinks.urlFor`) — the bare identifier is not a
+     *   link, and the scheme is part of the URL: a query for `task://abc` does not match
+     *   a stored `note://abc`.
      */
     @Query(
         """
         SELECT * FROM tasks
         WHERE user_id = :userId
         AND archived_at IS NULL
-        AND outgoing_links LIKE '%task://' || :taskId || '%'
+        AND EXISTS (
+            SELECT 1
+            FROM json_each(
+                CASE WHEN json_valid(tasks.outgoing_links) THEN tasks.outgoing_links ELSE '[]' END
+            ) AS link
+            WHERE link.value = :url
+        )
         LIMIT 20
         """,
     )
-    suspend fun getBacklinkTasks(taskId: String, userId: String): List<TaskEntity>
+    suspend fun getBacklinkTasks(url: String, userId: String): List<TaskEntity>
 
     @Query("SELECT * FROM tasks WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<TaskEntity>
@@ -627,17 +648,33 @@ interface NoteDao {
     @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
     suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
 
-    /** Notes that link TO the given noteId via note:// URL scheme, for the current user only. */
+    /**
+     * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
+     *
+     * The match is **exact**: the stored `outgoing_links` JSON array must hold [url] as one
+     * of its elements, character for character. See [TaskDao.getBacklinkTasks] for why the
+     * `LIKE` substring match this replaces was wrong.
+     *
+     * @param url the whole link to look for, e.g. `note://<id>`, built by the caller from
+     *   the shared link grammar (`InternalLinks.urlFor`) — the bare identifier is not a
+     *   link, and the scheme is part of the URL.
+     */
     @Query(
         """
         SELECT * FROM notes
         WHERE user_id = :userId
         AND deleted_at IS NULL
-        AND outgoing_links LIKE '%note://' || :noteId || '%'
+        AND EXISTS (
+            SELECT 1
+            FROM json_each(
+                CASE WHEN json_valid(notes.outgoing_links) THEN notes.outgoing_links ELSE '[]' END
+            ) AS link
+            WHERE link.value = :url
+        )
         LIMIT 20
-    """,
+        """,
     )
-    suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity>
+    suspend fun getBacklinkNotes(url: String, userId: String): List<NoteEntity>
 
     /**
      * Returns notes attached to the given taskId (notes.task_id = :taskId), for the current user.
@@ -656,9 +693,17 @@ interface NoteDao {
     fun watchByTaskForUser(taskId: String, userId: String): Flow<List<NoteEntity>>
 
     /**
-     * Returns notes that link TO the given taskId via `task://<id>` URL scheme, for the current user.
+     * Returns notes whose `outgoing_links` hold [url] — the whole link — for the current user.
      * [watchByTaskForUser] should be preferred for new code — this method is kept for backward
      * compatibility with existing wikilink-only notes.
+     *
+     * The match is **exact**: the stored `outgoing_links` JSON array must hold [url] as one
+     * of its elements, character for character. See [TaskDao.getBacklinkTasks] for why the
+     * `LIKE` substring match this replaces was wrong.
+     *
+     * @param url the whole link to look for, e.g. `task://<id>`, built by the caller from
+     *   the shared link grammar (`InternalLinks.urlFor`) — the bare identifier is not a
+     *   link, and the scheme is part of the URL.
      *
      * @deprecated Use [watchByTaskForUser] which uses the indexed task_id column.
      */
@@ -667,11 +712,17 @@ interface NoteDao {
         SELECT * FROM notes
         WHERE user_id = :userId
         AND deleted_at IS NULL
-        AND outgoing_links LIKE '%task://' || :taskId || '%'
+        AND EXISTS (
+            SELECT 1
+            FROM json_each(
+                CASE WHEN json_valid(notes.outgoing_links) THEN notes.outgoing_links ELSE '[]' END
+            ) AS link
+            WHERE link.value = :url
+        )
         LIMIT 20
         """,
     )
-    suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity>
+    suspend fun getNotesLinkingToTask(url: String, userId: String): List<NoteEntity>
 
     // ── Templates and daily notes ───────────────────────────────────────────────
 

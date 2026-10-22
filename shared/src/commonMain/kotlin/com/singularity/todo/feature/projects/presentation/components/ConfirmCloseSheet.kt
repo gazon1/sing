@@ -4,6 +4,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.text.SelectableText
 
 /**
  * Confirmation sheet for closing a project.
@@ -21,7 +22,7 @@ fun ConfirmCloseSheet(openTaskCount: Int, onConfirm: () -> Unit, onDismiss: () -
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Close project?") },
-        text = { Text(confirmCloseText(openTaskCount)) },
+        text = { SelectableText(text = confirmCloseText(openTaskCount)) },
         confirmButton = {
             TextButton(onClick = onConfirm) { Text("Close project") }
         },
@@ -54,7 +55,7 @@ fun ConfirmBlockedCloseDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Some tasks are not finished") },
-        text = { Text(confirmBlockedCloseText(blockedTaskTitles, openTaskCount)) },
+        text = { SelectableText(text = confirmBlockedCloseText(blockedTaskTitles, openTaskCount)) },
         confirmButton = {
             TextButton(onClick = onConfirm) { Text("Close anyway") }
         },

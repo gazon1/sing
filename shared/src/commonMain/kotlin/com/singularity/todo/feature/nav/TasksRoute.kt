@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.nav
 
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
@@ -24,8 +25,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface TasksRoute : AppNavKey {
 
+    /**
+     * A task's detail screen.
+     *
+     * [sourceViewId] is the saved agenda view the task was opened from, when there was
+     * one. The task's detail screen is the only place that can set a reminder about the
+     * task, and the reminder is what points back at the list the person was looking at.
+     */
     @Serializable
-    data class Detail(val taskId: TaskId) : TasksRoute
+    data class Detail(val taskId: TaskId, val sourceViewId: SavedAgendaViewId? = null) : TasksRoute
 
     @Serializable
     data class Create(val initialDueDate: LocalDate? = null, val sectionPrefillKey: String? = null) : TasksRoute

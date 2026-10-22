@@ -147,7 +147,9 @@ the action `inputText` depends on and broke entry outright.
 |---|---|
 | `task=<title>` | a task |
 | `task=<title>&due=…` | task due `today` / `tomorrow` / `-1d` / `2026-10-01` |
+| `task=<title>&id=<id>` | a task that carries the named id — a deep link names an id, and a flow cannot know the id the app generated |
 | `note=<title>` | a note |
+| `note=<title>&linkTo=<task title>` | a note whose body links to the task of that title — the link is written as an anchor with the grammar's URL (`task://<id>`), so the note is one the editor could have produced |
 | `project=<name>` | a project |
 | `profile=<name>` | a project profile and switches to it |
 

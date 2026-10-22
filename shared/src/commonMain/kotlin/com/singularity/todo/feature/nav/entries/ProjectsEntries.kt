@@ -5,6 +5,7 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.ProjectsRoute
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.nav.toProjectsRoute
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
 
@@ -19,7 +20,7 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
  * @param stacks the stacks the platform hoists.
  */
 fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Plans> {
+    entry<AppDestination.Plans>(clazzContentKey = { it.stableContentKey() }) {
         ProjectsNavGraph(
             start = ProjectsRoute.List,
             onExitGraph = nav.graphExit,
@@ -27,21 +28,21 @@ fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks
         )
     }
 
-    entry<AppDestination.ProjectEditor> { route ->
+    entry<AppDestination.ProjectEditor>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Editor(route.projectId),
             onExitGraph = nav.graphExit,
         )
     }
 
-    entry<AppDestination.ProjectDetail> { route ->
+    entry<AppDestination.ProjectDetail>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Detail(route.projectId),
             onExitGraph = nav.graphExit,
         )
     }
 
-    entry<AppDestination.ProjectsGraph> { route ->
+    entry<AppDestination.ProjectsGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = route.start.toProjectsRoute(),
             onExitGraph = nav.graphExit,

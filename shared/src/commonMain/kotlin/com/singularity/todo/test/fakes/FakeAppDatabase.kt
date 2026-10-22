@@ -70,6 +70,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 import kotlin.time.Instant
 
 /**
@@ -819,9 +822,9 @@ private class FakeTaskDao(
     override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkTasks(taskId: String, userId: String): List<TaskEntity> =
+    override suspend fun getBacklinkTasks(url: String, userId: String): List<TaskEntity> =
         store.value.values.filter { t ->
-            t.userId == userId && t.archivedAt == null && t.outgoingLinks.contains("task://$taskId")
+            t.userId == userId && t.archivedAt == null && storedLinks(t.outgoingLinks).contains(url)
         }.take(20)
 
     // ── Profile-scoped wipe ───────────────────────────────────────────────────
@@ -978,14 +981,14 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     override suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(outgoingLinks = linksJson, updatedAt = updatedAt) }
 
-    override suspend fun getBacklinkNotes(noteId: String, userId: String): List<NoteEntity> =
+    override suspend fun getBacklinkNotes(url: String, userId: String): List<NoteEntity> =
         store.value.values.filter { n ->
-            n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("note://$noteId")
+            n.userId == userId && n.deletedAt == null && storedLinks(n.outgoingLinks).contains(url)
         }.take(20)
 
-    override suspend fun getNotesLinkingToTask(taskId: String, userId: String): List<NoteEntity> =
+    override suspend fun getNotesLinkingToTask(url: String, userId: String): List<NoteEntity> =
         store.value.values.filter { n ->
-            n.userId == userId && n.deletedAt == null && n.outgoingLinks.contains("task://$taskId")
+            n.userId == userId && n.deletedAt == null && storedLinks(n.outgoingLinks).contains(url)
         }.take(20)
 
     // ── Templates and daily notes ─────────────────────────────────────────────
@@ -2960,3 +2963,12 @@ private class FakeOwnerEraseDao(
     override suspend fun countProfiles(ownerId: String): Int =
         profiles.value.values.count { it.userId == ownerId }
 }
+
+/**
+ * The links held by a JSON-array column (`outgoing_links`), decoded.
+ *
+ * A value that is not a JSON array has no links — the same answer the SQL gives, where
+ * `json_each` over an unparsable value is skipped instead of failing the whole query.
+ */
+private fun storedLinks(json: String): List<String> =
+    runCatching { Json.decodeFromString(ListSerializer(String.serializer()), json) }.getOrDefault(emptyList())

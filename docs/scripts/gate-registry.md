@@ -25,7 +25,7 @@ sche... | — | — |
 | git hooks path is per-worktree | advisory | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
 | unwired surfaces | blocking | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
-| selectable text coverage | advisory | Find text surfaces that are neither selectable nor classified. | — | — |
+| selectable text coverage | blocking | Find text surfaces that are neither selectable nor classified. | — | — |
 | detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
 | detekt rule registry | blocking | detekt rule registry | — | — |

@@ -60,3 +60,44 @@ Both are `suspend` functions returning `List<T>` directly (not `Flow`). They are
 **Join table `task_outgoing_links`**: Would require separate insert/delete vs. single JSON column write. Rejected for simplicity.
 
 **Compute backlinks on read (no column)**: Scan all task descriptions on every read. Rejected — O(n) per request vs. O(1) with stored column.
+
+## Addendum — the match is exact, and the URL comes from the scheme table (2026-10-22)
+
+The design above made the read path a `LIKE` over the JSON column:
+
+```sql
+outgoing_links LIKE '%task://' || :taskId || '%'
+```
+
+Three things were wrong with it, and each of them was a defect rather than a shortcut.
+
+1. **The pattern matched more than the link.** `LIKE '%task://abc%'` also matches
+   `task://abcd`, and it matches a link that merely *contains* the id — a text like
+   `see task://abc in the log`. A backlink list that shows a link which is not a link
+   to that task is worse than no backlink list.
+2. **The id was interpolated into a pattern without escaping.** `%` and `_` are
+   wildcards in `LIKE`, so an id holding one of them matched something else.
+3. **The scheme was written as a literal in the query.** `task://` appeared in SQL, in
+   the Kotlin that built the pattern, and in `core/links` — three places to keep in
+   step, and the SQL copy was the one nothing tested.
+
+The column keeps carrying the URL — the format a person sees and the format the
+extractor writes is not changing. What changed is how the column is *read*:
+
+```sql
+EXISTS (SELECT 1 FROM json_each(outgoing_links) WHERE value = :url)
+```
+
+`json_each` turns the JSON array into rows of whole values, and the comparison is `=`
+against the whole URL. The URL itself is built by `InternalLinks.urlFor` from
+`InternalLinkSchemes`, so the query no longer knows what a scheme looks like.
+
+The cost is that the comparison cannot use an index on the column. For a column of
+a person's own links — a handful of entries on one row — that is the right trade: an
+exact answer over a cheap scan beats a fast answer over a wrong one.
+
+The same change reached the three queries that had the pattern, and the prefix the
+migration needed: the migration that backfills `notes.task_id` derives its prefix and
+its length from `InternalLinkSchemes` instead of writing `9` and `'task://'` as
+numbers and literals.
+

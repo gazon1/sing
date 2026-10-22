@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
@@ -95,7 +96,11 @@ private fun TagGroupCard(group: TagGroup, onDelete: () -> Unit) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Delete tag group?") },
-            text = { Text("Tags in this group will be ungrouped. The tags themselves are kept.") },
+            text = {
+                SelectableText(
+                    text = "Tags in this group will be ungrouped. The tags themselves are kept.",
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {

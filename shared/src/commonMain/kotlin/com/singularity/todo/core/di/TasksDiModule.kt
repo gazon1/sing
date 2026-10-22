@@ -141,7 +141,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
-    viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
+    viewModel { (route: com.singularity.todo.feature.nav.TasksRoute.Detail) ->
         TaskDetailCoordinator(
             deps = TaskDetailDeps(
                 core = TaskCoreDeps(
@@ -179,7 +179,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 ),
                 context = TaskContextDeps(clock = get()),
             ),
-            taskId = taskId,
+            taskId = route.taskId,
+            sourceViewId = route.sourceViewId,
             crashReporter = get(),
         )
     }

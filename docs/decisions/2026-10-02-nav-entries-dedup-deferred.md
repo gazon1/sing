@@ -152,3 +152,35 @@ The decorator is now applied on both platforms, from one common implementation.
 Links: ADR `2026-10-21-nav3-1-2-0-upgrade` (the upgrade that brought the artifact),
 `shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/entries/`,
 `docs/navigation.md`.
+
+## Addendum (2026-10-22) — the tasks entry is no longer a real difference
+
+The bullet above — "The task's `TasksGraph` entry stays platform-specific: Desktop seeds the
+pushed graph's stack itself and pushes the detail route onto it. That one is a real
+difference" — no longer holds, and the reason it was written down is gone.
+
+The difference it described had two parts: Desktop seeded the pushed graph's stack itself,
+and Desktop pushed the detail route onto that seed. The second part was the defect: a
+placeholder seed with the requested route on top put a screen nobody asked for underneath the
+one they did, and dropped the parameters the route carried. With the seed now being the
+requested route (ADR `2026-10-03-nav3-backstack-top-vs-start-dispatch`, addendum of
+2026-10-22), the push is gone.
+
+What is left of the difference is the stack's *backing* — Desktop keeps it in memory,
+Android keeps it in saved state — and that difference was never the entry's to make. It
+belongs to the `rememberAppNavBackStack` seam, which picks the right backing per platform
+and is already called by every other graph. The entry keeps its platform-specific shape for
+now, because the OpenSpec change that covers this work says so, and because the two files
+are now guarded by a rule that fails when they ask for different routes
+(`NavStackSeedTest`).
+
+The general rule this ADR already states still stands, and this case is the next one to
+answer it: **the platform difference is a seam, not a reason for a second copy of the
+graph.** When the tasks entry is next touched, the honest move is to move it into the
+common contributors and let `TasksNavGraph` ask `rememberAppNavBackStack` for its stack —
+the copy in `JvmNavEntries.kt` and the copy in `AndroidNavEntries.kt` are now identical
+except for the line that creates the stack.
+
+Links: ADR `2026-10-03-nav3-backstack-top-vs-start-dispatch` (addendum 2026-10-22),
+`shared/src/jvmTest/kotlin/com/singularity/todo/feature/nav/NavStackSeedTest.kt`,
+OpenSpec change `the-desktop-task-stack-starts-elsewhere`.

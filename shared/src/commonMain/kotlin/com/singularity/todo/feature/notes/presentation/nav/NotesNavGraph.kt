@@ -13,6 +13,7 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotePreviewScreen
 import com.singularity.todo.feature.notes.presentation.screen.NotesListScreen
@@ -65,7 +66,7 @@ fun NotesNavGraph(
  */
 @Composable
 internal fun notesScreenEntryProvider() = entryProvider {
-    entry<NotesRoute.List> { NotesListScreen(it) }
-    entry<NotesRoute.Preview> { route -> NotePreviewScreen(route) }
-    entry<NotesRoute.Editor> { route -> NoteEditorScreen(route) }
+    entry<NotesRoute.List>(clazzContentKey = { it.stableContentKey() }) { NotesListScreen(it) }
+    entry<NotesRoute.Preview>(clazzContentKey = { it.stableContentKey() }) { route -> NotePreviewScreen(route) }
+    entry<NotesRoute.Editor>(clazzContentKey = { it.stableContentKey() }) { route -> NoteEditorScreen(route) }
 }

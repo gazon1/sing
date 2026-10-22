@@ -1,6 +1,8 @@
 package com.singularity.todo.core.seed
 
 import com.singularity.todo.core.error.fold
+import com.singularity.todo.core.links.InternalLinkSchemes
+import com.singularity.todo.core.links.InternalLinks
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -80,6 +82,11 @@ class SeedWriter(
      *
      * A task that does not exist yet is created.
      *
+     * A seed that *names* an id ([TaskSeed.id]) owns it: the row the flow will
+     * address by that id has to be the row the seed writes, so a row of the same
+     * title under a different id is not that row — it leaves the live set and the
+     * named one takes its place.
+     *
      * @throws IllegalArgumentException when the title is not a valid task title.
      */
     suspend fun writeTask(spec: TaskSeed): TaskSeedResult {
@@ -89,16 +96,27 @@ class SeedWriter(
         val trashed = tasks.observeByFilter(TaskFilter.Trash).first().filter { it.title == input.title }
         val keeper = live.firstOrNull() ?: trashed.firstOrNull()
 
-        val saved = if (keeper == null) {
-            tasks.create(
+        // The keeper is reusable only when the seed does not name an id, or when the
+        // row already carries the named id. A row of the same title under a
+        // different id is a different row — a flow that addresses the seed by the
+        // named id would be looking at the wrong one.
+        val keeperUsable = keeper != null && (spec.id == null || keeper.id == spec.id)
+
+        val saved = if (keeper == null || !keeperUsable) {
+            val created = tasks.create(
                 TaskDomain.buildTask(
                     input = input,
-                    id = TaskId.generate(),
+                    id = spec.id ?: TaskId.generate(),
                     createdAt = spec.stamp,
                     updatedAt = spec.stamp,
                     userId = currentUser.current,
                 ),
             ).getOrThrow()
+            // The row the seed replaces leaves the live set: two live rows with one
+            // name is a state no flow can assert on. A trashed row is already out
+            // of it and is left alone.
+            keeper?.takeIf { !it.isTrashed }?.let { tasks.softDelete(it.id).getOrThrow() }
+            created
         } else {
             // A row that a previous run trashed is the row the seed is about: it is
             // brought back rather than duplicated, so the fixture keeps one identity.
@@ -126,7 +144,7 @@ class SeedWriter(
 
         return TaskSeedResult(
             id = saved.id,
-            outcome = if (keeper == null) SeedOutcome.Created else SeedOutcome.Updated,
+            outcome = if (keeper == null || !keeperUsable) SeedOutcome.Created else SeedOutcome.Updated,
             missingDependency = applyDependency(spec, saved.id),
         )
     }
@@ -146,6 +164,45 @@ class SeedWriter(
         }
         val created = notes.createNoteWithTitle(spec.title).getOrThrow()
         return SeedResult(id = created, outcome = SeedOutcome.Created)
+    }
+
+    /**
+     * Makes the profile hold exactly one live note named [NoteSeed.title] whose body
+     * links to the task named [taskTitle].
+     *
+     * The link is written the way the app itself writes one: an anchor whose href is
+     * the shared grammar's URL (`task://<id>`) and whose label is the target's title.
+     * The seed does not invent a format of its own — the note it produces is one the
+     * editor could have produced, and it is the note the link machinery reads.
+     *
+     * The outgoing links are written too, so a note that links to a task is a note the
+     * backlink query finds. A link that exists only in the body would be a link the
+     * app cannot answer a question about.
+     *
+     * @param taskTitle the title of the task the note links to. It is named rather
+     *   than addressed by id because a caller that seeds the task first cannot know
+     *   the id the app gave it.
+     * @return the id of the note, whether it was created or replaced, and the title of
+     *   the link target when there was no such task.
+     */
+    suspend fun writeNoteLinkingToTask(spec: NoteSeed, taskTitle: String): NoteSeedResult {
+        val target = tasks.observeAll().first()
+            .firstOrNull { it.title == taskTitle && !it.isTrashed }
+        val existing = notes.observeAll().first()
+            .firstOrNull { it.title == spec.title && !it.isDeleted && !it.isArchived }
+        val noteId = existing?.id ?: notes.createNoteWithTitle(spec.title).getOrThrow()
+        val outcome = if (existing == null) SeedOutcome.Created else SeedOutcome.Updated
+
+        if (target == null) {
+            return NoteSeedResult(id = noteId, outcome = outcome, missingLinkTarget = taskTitle)
+        }
+
+        val url = InternalLinks.urlFor(InternalLinkSchemes.TASK, target.id.value)
+        val html = "<p><a href=\"${escapeHtml(url)}\">${escapeHtml(target.title)}</a></p>"
+        val markdown = "[${target.title}]($url)"
+        notes.updateContent(noteId, spec.title, markdown, html).getOrThrow()
+        notes.setOutgoingLinks(noteId, listOf(url)).getOrThrow()
+        return NoteSeedResult(id = noteId, outcome = outcome, missingLinkTarget = null)
     }
 
     /**
@@ -216,6 +273,20 @@ class SeedWriter(
             left = { error -> throw IllegalArgumentException("Invalid input: $error") },
             right = { it },
         )
+
+    /**
+     * Escapes the characters that would end an HTML attribute or an element.
+     *
+     * A title is a person's text, and a person's text can hold a quote or an
+     * ampersand. The seed writes it into an attribute, so it has to be escaped
+     * there — otherwise a title holding `"` closes the attribute and the note's
+     * body is no longer the body the seed meant to write.
+     */
+    private fun escapeHtml(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
 }
 
 /**
@@ -227,6 +298,10 @@ class SeedWriter(
  *   when the seed ran.
  * @param dependsOnTitle the title of the task this one depends on. A dependency on
  *   an incomplete task is what makes a task *blocked*.
+ * @param id the id the seeded row carries. A seed that names an id owns it: the row
+ *   the flow addresses by that id has to be the row the seed writes. It is what
+ *   makes a link to the task addressable — a deep link names an id, and a flow
+ *   cannot know the id the app generated.
  */
 data class TaskSeed(
     val title: String,
@@ -235,6 +310,7 @@ data class TaskSeed(
     val priority: TaskPriority = TaskPriority.None,
     val stamp: Instant,
     val dependsOnTitle: String? = null,
+    val id: TaskId? = null,
 )
 
 /** What a note seed defines. */
@@ -270,3 +346,12 @@ data class SeedResult<out Id>(val id: Id, val outcome: SeedOutcome)
  *   to be told rather than left to time out on an assertion.
  */
 data class TaskSeedResult(val id: TaskId, val outcome: SeedOutcome, val missingDependency: String? = null)
+
+/**
+ * The result of writing a seeded note.
+ *
+ * @param missingLinkTarget the title of the link target that could not be found. The
+ *   note was written without the link, so the flow that asked for a linked note has
+ *   to be told rather than left to time out on an assertion.
+ */
+data class NoteSeedResult(val id: NoteId, val outcome: SeedOutcome, val missingLinkTarget: String? = null)

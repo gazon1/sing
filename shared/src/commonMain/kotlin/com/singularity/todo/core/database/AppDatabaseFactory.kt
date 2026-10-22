@@ -77,6 +77,9 @@ object AppDatabaseFactory {
                 // can only describe a schema change. See Migration37To38.
                 Migration37To38(),
                 Migration38To39(),
+                // Rewrites the stored links so the one grammar reads them, and
+                // backfills the note-to-task relation that was never filled.
+                Migration44To45(),
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),

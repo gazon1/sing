@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 
 /**
  * Files settings — shows storage location, attachment management, and log export.
@@ -142,7 +143,7 @@ private fun logExportSubtitle(state: EphemeralState.LogExport): String = when {
 @Composable
 private fun AttachmentLimitsSection() {
     SettingsSection(title = "Attachment Limits") {
-        Text(
+        SelectableText(
             text = "Attachments are linked to tasks and notes and are stored locally on your device.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

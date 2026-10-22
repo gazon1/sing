@@ -10,6 +10,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationViewModel
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
+import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
@@ -205,8 +206,8 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> = mapOf(
     ProjectDetailViewModel::class to listOf(ProjectId("project-1")),
     // ProjectEditorViewModel(id)
     ProjectEditorViewModel::class to listOf(ProjectId("project-1")),
-    // TaskDetailCoordinator(taskId)
-    TaskDetailCoordinator::class to listOf(TaskId("task-1")),
+    // TaskDetailCoordinator(route) — the route carries the task and the view it came from
+    TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1"))),
     // TaskCreateViewModel(initialDueDate, sectionPrefillKey)
     TaskCreateViewModel::class to listOf(LocalDate(2026, 9, 16), "section-1"),
     // AgendaViewModel(definition)

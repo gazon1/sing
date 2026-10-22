@@ -19,9 +19,33 @@ open class AgendaNavigator(
     protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
 
-    /** Navigate to the task detail screen in the outer tasks graph. */
+    /**
+     * Navigate to the task detail screen in the outer tasks graph.
+     *
+     * The saved view the person was in travels with the route: the agenda is the only
+     * place that knows it, and a reminder set on the task points back at that view.
+     * From a tab that is not a saved view there is nothing to point at, and the
+     * reminder carries no view.
+     */
     open fun openTask(taskId: TaskId) {
-        onExitGraph(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(taskId)))
+        onExitGraph(
+            AppDestination.TasksGraph(
+                AppDestination.TasksStartRoute.Detail(taskId, currentSavedViewId()),
+            ),
+        )
+    }
+
+    /**
+     * The saved view the agenda is showing, if it is showing one.
+     *
+     * Both screens that list a saved view's tasks count: the results screen is where a
+     * person reads the list, and the editor is where they change it. A task opened
+     * from either was opened from that view.
+     */
+    private fun currentSavedViewId(): SavedAgendaViewId? = when (val top = backStack.lastOrNull()) {
+        is AgendaStartRoute.SavedAgendaResults -> top.viewId
+        is AgendaStartRoute.SavedAgendaEdit -> top.viewId
+        else -> null
     }
 
     /** Show the task context menu (bottom sheet or popup). */

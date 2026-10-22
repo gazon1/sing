@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
@@ -203,7 +204,7 @@ private fun ServerConfigForm(
     ) {
         Text(text = "Connect your server", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
+        SelectableText(
             text = "Paste the project URL and the anon key from your Supabase project settings. " +
                 "The anon key is publishable, not a secret.",
             style = MaterialTheme.typography.bodySmall,

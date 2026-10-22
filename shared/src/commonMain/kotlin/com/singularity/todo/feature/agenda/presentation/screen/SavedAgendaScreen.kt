@@ -34,6 +34,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.ConfigurableSelector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorOption
@@ -326,8 +327,8 @@ private fun RegexpInputSheet(
         title = { Text("By text pattern") },
         text = {
             Column {
-                Text(
-                    "Tasks whose title matches this regular expression (case-insensitive).",
+                SelectableText(
+                    text = "Tasks whose title matches this regular expression (case-insensitive).",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(12.dp))

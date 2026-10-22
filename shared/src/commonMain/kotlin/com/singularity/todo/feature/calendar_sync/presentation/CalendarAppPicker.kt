@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 
 /**
@@ -35,7 +36,7 @@ fun CalendarAppPicker(
 ) {
     SettingsSection(title = "Calendar App", modifier = modifier) {
         if (availableApps.isEmpty()) {
-            Text(
+            SelectableText(
                 text = "No calendar apps found — using system default",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

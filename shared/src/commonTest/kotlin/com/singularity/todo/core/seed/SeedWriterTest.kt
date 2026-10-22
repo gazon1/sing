@@ -1,7 +1,10 @@
 package com.singularity.todo.core.seed
 
+import com.singularity.todo.core.links.InternalLinkSchemes
+import com.singularity.todo.core.links.InternalLinks
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -133,6 +137,54 @@ class SeedWriterTest {
         assertEquals(SeedOutcome.Created, first.outcome)
         assertEquals(SeedOutcome.Updated, second.outcome)
         assertEquals(1, projects.observeAll().first().count { it.name == "Work" })
+    }
+
+    @Test
+    fun `a task seed that names an id owns it`() = runTest {
+        val result = writer.writeTask(
+            TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
+        )
+
+        assertEquals(TaskId.fromString("fixed01"), result.id)
+        assertEquals(TaskId.fromString("fixed01"), liveTasks("Link target").single().id)
+    }
+
+    @Test
+    fun `a task seed that names an id replaces the row of the same title under another id`() = runTest {
+        val first = writer.writeTask(TaskSeed(title = "Link target", stamp = stamp))
+        val second = writer.writeTask(
+            TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
+        )
+
+        assertEquals(TaskId.fromString("fixed01"), second.id)
+        // The row the seed replaced leaves the live set: two live rows with one name
+        // is a state no flow can assert on.
+        assertEquals(listOf(TaskId.fromString("fixed01")), liveTasks("Link target").map { it.id })
+    }
+
+    @Test
+    fun `a note seed that links to a task writes the link the grammar defines`() = runTest {
+        val task = writer.writeTask(TaskSeed(title = "Link target", stamp = stamp))
+
+        val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), "Link target")
+
+        assertNull(result.missingLinkTarget)
+        val note = notes.observeAll().first().single { it.id == result.id }
+        val url = InternalLinks.urlFor(InternalLinkSchemes.TASK, task.id.value)
+        assertEquals(listOf(url), note.outgoingLinks)
+        assertTrue(
+            note.bodyHtml.orEmpty().contains("href=\"$url\""),
+            "the body must carry the link the grammar defines; it carried ${note.bodyHtml}",
+        )
+    }
+
+    @Test
+    fun `a note seed whose link target does not exist says so`() = runTest {
+        val result = writer.writeNoteLinkingToTask(NoteSeed(title = "Link source"), "Nowhere")
+
+        assertEquals("Nowhere", result.missingLinkTarget)
+        val note = notes.observeAll().first().single { it.id == result.id }
+        assertEquals(emptyList(), note.outgoingLinks)
     }
 
     /** The rows the task list shows: the ones that are neither trashed nor completed. */

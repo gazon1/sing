@@ -240,6 +240,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "dialog_title_archive",
     # Note items — desktop/seed
     "note_item_by_title_meeting_notes",
+    "note_item_by_title_link_source",
     # agendaSectionTemplate(...)
     "agenda_section_template_by_tag",
     "agenda_section_template_due_date",

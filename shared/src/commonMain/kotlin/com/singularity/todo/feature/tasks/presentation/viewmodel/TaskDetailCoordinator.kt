@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -76,6 +77,13 @@ import kotlinx.coroutines.launch
 class TaskDetailCoordinator(
     private val deps: TaskDetailDeps,
     private val taskId: TaskId,
+    /**
+     * The saved agenda view the task was opened from, when there was one.
+     *
+     * It is what a reminder set on this task points back to, so it has to reach the
+     * place where the reminder is written.
+     */
+    private val sourceViewId: SavedAgendaViewId? = null,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<TaskDetailUiState, TaskDetailIntent.Domain, TaskDetailUiEvent>(
@@ -160,6 +168,7 @@ class TaskDetailCoordinator(
 
     private val reminders = TaskRemindersSlot(
         taskId = taskId,
+        sourceViewId = sourceViewId,
         core = deps.core,
         scheduling = deps.scheduling,
         context = deps.context,
