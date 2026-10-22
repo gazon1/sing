@@ -135,8 +135,6 @@ class TaskEntitySlot(
 
             TaskDetailIntent.Domain.ApplyToAllOccurrences -> applyToAllOccurrences(task)
 
-            TaskDetailIntent.Domain.DeleteSeries -> deleteSeries(task)
-
             TaskDetailIntent.Domain.DetachFromSeries -> detachFromSeries(task)
         }
     }
@@ -180,13 +178,6 @@ class TaskEntitySlot(
         core.updateSeries.updateSeries(seriesId) {
             it.copy(dueTime = task.dueTime, isPinned = task.isPinned)
         }.onFailure { onError("Failed to apply to all occurrences") }
-    }
-
-    /** Archives every member of the series. Deleting one member archives only it. */
-    private fun deleteSeries(task: Task) = scope.launch {
-        val seriesId = task.seriesId ?: return@launch
-        core.updateSeries.archiveSeries(seriesId)
-            .onFailure { onError("Failed to delete the series") }
     }
 
     /**

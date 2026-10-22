@@ -39,6 +39,7 @@ object CalendarTaskMapper {
             isLink = task.kind == TaskKind.Note,
             emoji = task.emoji,
             accentColor = task.accentColor,
+            isSeries = task.seriesId != null,
         )
     }
 }

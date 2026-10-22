@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.components.SeriesMarker
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 
@@ -79,6 +80,12 @@ fun TaskChip(
         }
         task.emoji?.let {
             Text(it, fontSize = 12.sp)
+            Spacer(Modifier.width(4.dp))
+        }
+        if (task.isSeries) {
+            // The mark of a series: the chip has no room for a word, and the
+            // icon says what the row is.
+            SeriesMarker(dates = 1, compact = true)
             Spacer(Modifier.width(4.dp))
         }
         val decoration = when {

@@ -44,6 +44,7 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
+import com.singularity.todo.core.ui.components.formatDateCount
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.rememberDialogState
@@ -127,6 +128,16 @@ fun TaskDetailContent(
                         title = "Task deleted",
                         actionLabel = "Undo",
                         onAction = { coordinator.onIntent(TaskDetailIntent.Domain.Restore) },
+                    ),
+                )
+
+                is TaskDetailUiEvent.UndoDeleteSeries -> notifications.send(
+                    Notification.Undo(
+                        title = "Серия удалена · ${formatDateCount(event.dates)}",
+                        actionLabel = "Вернуть",
+                        onAction = {
+                            coordinator.onIntent(TaskDetailIntent.Domain.RestoreSeries(event.taskIds))
+                        },
                     ),
                 )
 

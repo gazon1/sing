@@ -407,6 +407,7 @@ private fun AgendaTaskRow(
         isSelected = isSelected,
         blockedBy = task.blockedBy,
         isBlocked = rowItem.isBlocked,
+        seriesDates = rowItem.seriesDates,
     )
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).

@@ -18,6 +18,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
@@ -218,12 +219,17 @@ internal class TaskSource(initial: Task? = null) {
     }
 }
 
-internal fun task(id: String = "t1", title: String = "Test task"): Task = Task(
+internal fun task(
+    id: String = "t1",
+    title: String = "Test task",
+    seriesId: TaskSeriesId? = null,
+): Task = Task(
     id = TaskId(id),
     title = title,
     userId = TEST_USER,
     createdAt = SLOT_NOW,
     updatedAt = SLOT_NOW,
+    seriesId = seriesId,
 )
 
 /** Slot scopes run on the test dispatcher; collectors still need a real-time pump. */

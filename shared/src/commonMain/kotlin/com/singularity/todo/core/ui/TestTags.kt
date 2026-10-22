@@ -808,6 +808,9 @@ object TestTags {
 
         /** The button that takes this occurrence out of the series. */
         const val DETACH = "task_series_detach"
+
+        /** The mark that says the row is one date of a series. */
+        const val MARKER = "task_series_marker"
     }
 
     // ─── Editor Overflow menu ─────────────────────────────────────────────

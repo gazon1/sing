@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Tests for [CalendarTaskMapper.toCalendarTaskUi].
@@ -36,6 +37,7 @@ class CalendarTaskMapperTest {
         completedAt: kotlin.time.Instant? = null,
         emoji: String? = null,
         accentColor: Long? = null,
+        seriesId: com.singularity.todo.feature.tasks.domain.model.TaskSeriesId? = null,
     ): Task = Task(
         id = TaskId.fromString(id),
         title = title,
@@ -61,7 +63,28 @@ class CalendarTaskMapperTest {
         createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         userId = testUserId,
+        seriesId = seriesId,
     )
+
+    // ─── series ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a task of a series maps to a chip of a series`() {
+        val task = makeTask(seriesId = com.singularity.todo.feature.tasks.domain.model.TaskSeriesId("s1"))
+
+        val ui = CalendarTaskMapper.toCalendarTaskUi(task, today)
+
+        assertTrue(ui.isSeries, "the chip has to say that the row is one date of a work")
+    }
+
+    @Test
+    fun `a task that stands alone maps to a chip without the mark`() {
+        val task = makeTask()
+
+        val ui = CalendarTaskMapper.toCalendarTaskUi(task, today)
+
+        assertFalse(ui.isSeries)
+    }
 
     // ─── status mapping ─────────────────────────────────────────────────────
 

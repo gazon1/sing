@@ -77,7 +77,7 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
                 )
             }
 
-            if (task.dueLabel != null || task.project != null || task.isBlocked) {
+            if (task.dueLabel != null || task.project != null || task.isBlocked || task.seriesDates != null) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(
                     dueLabel = task.dueLabel,
@@ -85,6 +85,7 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
                     isRecurring = task.isRecurring,
                     isOverdue = task.isOverdue && !task.isCompleted,
                     isBlocked = task.isBlocked && !task.isCompleted,
+                    seriesDates = task.seriesDates,
                 )
             }
         }
