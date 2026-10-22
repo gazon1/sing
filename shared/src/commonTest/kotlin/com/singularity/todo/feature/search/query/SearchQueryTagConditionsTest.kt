@@ -86,7 +86,7 @@ class SearchQueryTagConditionsTest {
         val resolver = resolver(resolving = setOf("work"))
         val query = SingularityQueryParser("tag:work tag:missing").parse()
 
-        val resolved = resolver.resolve(query, USER_ID)
+        val resolved = resolver.resolve(query, USER_ID, SearchMode.Word)
 
         assertTrue(resolved.unknownTagNames.contains("missing"), "the name that resolves to nothing is tracked")
         assertTrue(resolved.resolvedTagIds.contains("tag_work"), "the name that resolved is tracked too")
@@ -101,7 +101,7 @@ class SearchQueryTagConditionsTest {
         val resolver = resolver(resolving = setOf("work", "urgent"))
         val query = SingularityQueryParser("tag:work tag:urgent").parse()
 
-        val resolved = resolver.resolve(query, USER_ID)
+        val resolved = resolver.resolve(query, USER_ID, SearchMode.Word)
 
         assertTrue(
             resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"), TagId("tag_urgent"))))).any(),

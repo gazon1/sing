@@ -128,7 +128,7 @@ class SearchPlanShareTest {
 
     private suspend fun measure(corpus: Corpus): Measured {
         val query = SingularityQueryParser(corpus.query).parse()
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         return Measured(corpus, resolved.textMatchPlan, !resolved.freeTextRule.isEmpty)
     }
 

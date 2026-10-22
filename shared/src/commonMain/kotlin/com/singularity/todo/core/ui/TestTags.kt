@@ -453,6 +453,15 @@ object TestTags {
     // ─── Search ─────────────────────────────────────────────────────────────
     const val SEARCH_INPUT = "search_input"
 
+    /** The "Word" segment of the search mode switch — the word-prefix rule. */
+    const val SEARCH_MODE_WORD = "search_mode_word"
+
+    /** The "Contains" segment of the search mode switch — the term occurs anywhere. */
+    const val SEARCH_MODE_CONTAINS = "search_mode_contains"
+
+    /** The caption that says what the contains mode costs. */
+    const val SEARCH_MODE_CONTAINS_NOTE = "search_mode_contains_note"
+
     /** "Enter a search query" placeholder in the search screen (shown when query is blank). */
     const val SEARCH_EMPTY_PLACEHOLDER = "search_empty_placeholder"
 

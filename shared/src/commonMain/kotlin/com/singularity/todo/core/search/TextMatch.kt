@@ -26,6 +26,10 @@ data class TextMatchQuery(val terms: List<String> = emptyList(), val combinesWit
 /**
  * Word-prefix matching — the semantics the full-text index implements.
  *
+ * Beside it, [contains] holds the other rule the search can be asked with —
+ * "does the text carry the term *somewhere*" — which no index of words can
+ * answer, and which the contains mode uses where it reads the rows.
+ *
  * ## Why prefix, and not "contains"
  *
  * The index is an inverted index: it stores *tokens* (words), not character
@@ -100,6 +104,35 @@ object TextMatch {
      * them.
      */
     fun matchesAny(texts: Iterable<String?>, term: String): Boolean = texts.any { matches(it, term) }
+
+    /**
+     * True when [term] occurs **anywhere** in [text] — the escape-hatch rule.
+     *
+     * ## What this is for
+     *
+     * The word-prefix rule above is the rule of the indexed mode: the index
+     * stores words, so it can find the beginning of one and nothing else
+     * ("port" does not find "airport"). This function answers the other
+     * question — "does the text carry the term *somewhere*" — and it is
+     * answered by reading the rows, because no index of words can answer it.
+     *
+     * ## Why it lives next to the word-prefix rule and not instead of it
+     *
+     * A matcher that said "contains" would quietly disagree with the index
+     * that produced its candidates. This one never has to: it is used where
+     * the index produces no candidates at all — the contains mode reads the
+     * rows and filters them with this rule. The two rules are two questions,
+     * and the mode says which one is being asked.
+     *
+     * The comparison is case-insensitive, like the word-prefix rule.
+     *
+     * @param text the searchable text of a record; `null` matches nothing.
+     * @param term the term to look for. An empty term matches nothing.
+     */
+    fun contains(text: String?, term: String): Boolean {
+        if (text.isNullOrEmpty() || term.isEmpty()) return false
+        return text.contains(term, ignoreCase = true)
+    }
 
     /**
      * The tokens of [text]: runs of letters and digits, case-folded.
