@@ -20,7 +20,7 @@
 
 Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один.
 `main` двигается параллельными траншами — чужие изменения принимай как данность и
-перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main | head`.
+перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main`.
 
 **Механическая защита от divergence (#268):**
 - `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
@@ -29,6 +29,24 @@
   ветки и без рефа `origin/main`, поэтому гейт падал на каждом прогоне настройкой раннера,
   а не расхождением. Локально ту же проверку делает `pre-rebase` — на тот ref, на который
   собираешься переносить коммиты.
+
+## Worktree: делегату — свой, канонический checkout — владельцу
+
+**Делегированная задача (субагент) получает свой worktree.** Канонический checkout
+принадлежит сессии, которая его заняла: две сессии в одном дереве — это две правки
+в одном рабочем дереве и ветка, занятая чужой работой.
+
+```bash
+git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
+```
+
+- **Не переключай ветку в чужом worktree** (`lugworm`, `bonefish`, `gudgeon`, `damselfish`,
+  `wip-fixes`, `lancetfish` — там `main`, и ветка занята). Свою ветку — только в своём worktree.
+- `./gw` даёт worktree приватный `GRADLE_USER_HOME`: `./gradlew --stop` в одном worktree убивает
+  демоны всех остальных, а общий `~/.gradle` — общая блокировка кэша модулей.
+- **Два Gradle-вызова одновременно не запускай** — ни два своих, ни свой и чужой: блокируется
+  общий кэш, и падает не та сборка, которую ждут.
+- Свой временный worktree сноси через `git worktree remove --force <path>`; чужой — не трогай.
 
 ## Структура
 
@@ -221,7 +239,12 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 
 > **Эмулятор**: `ensure-emulator` — единственная точка входа за устройством; свой `adb devices | awk`
 > найдёт только уже поднятый девайс. Пин `SERIAL=…` recovery не выключает. Не подкручивайте `-gpu` —
-> дефолтный host GPU периодически падает в gfxstream (скилл `singularity-todo-emulator-launch`).
+> дефолтный host GPU периодически падает в gfxstream.
+>
+> **Читай скилл `singularity-todo-emulator-launch` целиком, а не по памяти.** Там рецепт запуска,
+> `settings put secure show_ime_with_hard_keyboard 0` после **каждого** перезапуска AVD и разбор
+> падений gfxstream по сигнатуре. Без этой строки клавиатура остаётся поднятой, и все замеры
+> флоу после рестарта неверны — так потеряно 6 замеров в одной сессии (2026-10-28).
 
 ## 🤖 Coroutine test failures
 
@@ -241,6 +264,10 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**; **грубые изменения Room
    schema** без `SCHEMA_VERSION` + `AutoMigration`
+8. **Пайпить вывод команды в `tail`/`head`** — `cmd | tail -3` убивает `cmd` сигналом SIGPIPE:
+   код выхода пайпа — это код выхода `tail`, а не команды, и `git push` уходит с 141, не
+   отправив ничего. Перенаправляй в файл (`cmd > /tmp/probe/push.log 2>&1`) и читай файл.
+   Замер: 6 пушей в одной сессии ушли с 141 и «успешным» кодом выхода.
 
 ## 🧠 Decision log
 

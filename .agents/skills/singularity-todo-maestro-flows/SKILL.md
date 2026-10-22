@@ -278,6 +278,26 @@ tapOn id: <target_item>
 **Items that are always visible without scrolling:**
 - `menu_archive`, `menu_search` — visible on most phone screens
 
+### `wm size` changes the logical size, not the physical one
+
+`adb shell wm size 720x1600` on the AVD **does not resize the display**. The
+physical panel stays 1080×2400; the override changes only the *logical* size the
+system reports — and Maestro resolves percentage coordinates (`"50%, 80%"`)
+against the logical size. So the override silently moves every percentage
+coordinate to a different physical place: a scroll meant to reach the bottom of
+the settings rail stops halfway, and a tap lands on the system navigation bar
+instead of the row.
+
+Measured on this AVD (2026-10-28): the health drill-down flows were run at
+720×1600 to match the phone, and every percentage scroll in them was wrong.
+
+**Do not override `wm size` on the AVD.** If a flow needs a phone-sized
+viewport, run it on a phone-sized AVD; if an override is already in place,
+`adb shell wm size reset` restores the physical size before the run. A
+percentage is the portable form of a coordinate — and it is only portable
+while the logical size is the real one (`scripts/check-maestro-screen-geometry.py`
+is what keeps the flows on percentages in the first place).
+
 ## Maestro 2.10 syntax quirks
 
 Verified against the installed CLI (2.10.0) — these fail at flow-parse or
