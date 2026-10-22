@@ -113,6 +113,7 @@ when the answer is "excluded".
 | `core/ui/components/EmptyState.kt` | selectable | the empty state's title and subtitle are a message; the action keeps its own gesture |
 | `core/ui/components/MessageBubble.kt` | linkified | the assistant's answer is prose, and prose is where links turn up |
 | `feature/genui/render/material3/atoms/TextRenderer.kt` | linkified | a generated screen's text; the model's own words may carry links |
+| `feature/proposals/presentation/ReviewScreen.kt` | selectable | the empty review is a message the person reads |
 | `feature/agenda/presentation/screen/SavedAgendaContent.kt` | selectable | the missing-view report is a message the person reads |
 | `feature/agenda/presentation/screen/SavedAgendaScreen.kt` | selectable | the dialog explains the pattern it matches; the mode names stay labels |
 | `feature/ai/usage/AiUsageScreen.kt` | selectable | the model id and the tool name; the token counts are not |

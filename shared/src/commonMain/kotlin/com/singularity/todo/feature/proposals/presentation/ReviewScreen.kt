@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -48,12 +49,11 @@ fun ReviewScreen(modifier: Modifier = Modifier) {
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
+            SelectableText(
                 text = "Nothing to review",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             )
-            Text(
+            SelectableText(
                 text = "Changes the assistant proposes show up here, waiting for you.",
                 style = MaterialTheme.typography.bodyMedium,
             )
