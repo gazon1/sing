@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-nav3-nested-graphs
-description: 'Full architecture of Nav3 two-level nested navigation in this KMP project: expect/actual *NavGraph pattern, sealed Route hierarchies, Local*Navigator providers, entryProvider wiring, and how the outer AppNavHost integrates nested graphs. Covers both the per-feature graph pattern (TasksNavGraph, ProjectsNavGraph) and the singleton graph pattern (AgendaNavGraph — same graph reused for 3 tabs with different start routes). Use when adding a new feature screen, modifying an existing nested graph, or adding a new route type to any sealed Route hierarchy.'
+description: 'Full architecture of Nav3 two-level nested navigation in this KMP project: the common *NavGraph pattern with three platform seams (rememberAppNavBackStack, SystemBackHandler, rememberAppEntryDecorators), sealed Route hierarchies, Local*Navigator providers, per-feature entry contributors, and how the outer shell integrates nested graphs. Covers both the per-feature graph pattern (TasksNavGraph, ProjectsNavGraph) and the singleton graph pattern (AgendaNavGraph — same graph reused for 3 tabs with different start routes). Use when adding a new feature screen, modifying an existing nested graph, or adding a new route type to any sealed Route hierarchy.'
 ---
 
 # Nav3 Nested Graphs — Architecture
@@ -55,18 +55,28 @@ feature/nav/                        ← ALL route keys (one package, sealed root
 └── Nav3SavedState.kt               — shared appNavSavedStateConfig
 
 feature/<feature>/presentation/nav/ ← graphs + navigators (per feature)
-├── <Feature>NavGraph.kt            — expect declarations (commonMain)
-├── <Feature>NavGraph.android.kt    — actual: appNavSavedStateConfig + rememberNavBackStack
-└── <Feature>NavGraph.jvm.kt        — actual: rememberInMemoryNavBackStack
+└── <Feature>NavGraph.kt                — ONE implementation, commonMain
+
+feature/nav/ ← the seams and the entry contributors
+├── Nav3SavedState.kt                   — rememberAppNavBackStack (expect) + the saved-state config
+├── SystemBackHandler.kt                — the system back gesture (expect)
+├── NavEntryDecorators.kt               — rememberAppEntryDecorators
+├── AppNavStacks.kt                     — the stacks the platform hoists
+└── entries/                            — one contributor per feature
+    ├── AppEntries.kt  AgendaEntries.kt  CalendarEntries.kt
+    ├── NotesEntries.kt  ProjectsEntries.kt  SearchEntries.kt
+    └── SettingsEntries.kt
 ```
+
+**There is no `*NavGraph.android.kt` / `*NavGraph.jvm.kt`.** The platform
+differences are seams, and a seam is one function — not a second copy of the
+graph. See "Three Seams" below.
 
 **Example: Tasks (Detail + Create only — after AgendaEngine MR1)**
 ```
 feature/nav/TasksRoute.kt               — route key (sealed interface, in feature/nav/)
 feature/tasks/presentation/nav/
-├── TasksNavGraph.kt                    — expect fun TasksNavGraph(...)
-├── TasksNavGraph.android.kt            — Android actual
-└── TasksNavGraph.jvm.kt                — JVM actual
+└── TasksNavGraph.kt                    — the whole graph, in commonMain
 ```
 > After AgendaEngine MR1, TasksNavGraph only handles Detail + Create screens.
 > Inbox/Today/Upcoming tabs now use `AgendaNavGraph(start = AgendaStartRoute.Inbox/Today/Upcoming)`.
@@ -75,9 +85,12 @@ feature/tasks/presentation/nav/
 ```
 feature/nav/AgendaStartRoute.kt         — route key (in feature/nav/)
 feature/agenda/presentation/nav/
-├── AgendaNavGraph.kt                   — expect fun AgendaNavGraph(start: AgendaStartRoute, ...)
-├── AgendaNavGraph.android.kt           — Android actual
-└── AgendaNavGraph.jvm.kt               — JVM actual
+├── AgendaNavGraph.kt                   — the whole graph, in commonMain
+└── AgendaContextMenuHost.kt            — the host type
+shared/src/androidMain/.../agenda/presentation/nav/
+└── AgendaContextMenuHost.android.kt    — the bottom sheet
+shared/src/jvmMain/.../agenda/presentation/nav/
+└── AgendaContextMenuHost.jvm.kt        — the popup
 ```
 > AgendaNavGraph is mounted 3 times at the top level (one per tab) with different `start` values.
 > The `start: AgendaStartRoute` parameter makes a single graph reusable for all variants.
@@ -127,102 +140,101 @@ data object Settings : AppNavKey
 
 ---
 
-## The Expect/Actual Pattern
+## The Common Pattern and Three Seams
 
-### commonMain: `*NavGraph.kt`
+A nested graph is **one implementation in commonMain**. The platform differences
+are three seams and one parameter.
+
+### Seam 1 — the stack's storage: `rememberAppNavBackStack`
 
 ```kotlin
-// AgendaNavGraph.kt
+// commonMain — Nav3SavedState.kt
 @Composable
-expect fun AgendaNavGraph(
+expect fun <T : NavKey> rememberAppNavBackStack(start: T): NavBackStack<T>
+```
+
+Android is saved-state backed (the stack survives process death); Desktop is in
+memory (there is no process death, and no saveable-state registry to write into).
+
+### Seam 2 — the system back gesture: `SystemBackHandler`
+
+```kotlin
+// commonMain — SystemBackHandler.kt
+@Composable
+expect fun SystemBackHandler(enabled: Boolean, onBack: () -> Unit)
+```
+
+Android delegates to the platform's `BackHandler`; Desktop does nothing — there
+is no system back gesture to intercept.
+
+### Seam 3 — the ViewModel store per entry: `rememberAppEntryDecorators`
+
+```kotlin
+// commonMain — NavEntryDecorators.kt
+@Composable
+fun <T : NavKey> rememberAppEntryDecorators(): List<NavEntryDecorator<T>> =
+    listOf(rememberViewModelStoreNavEntryDecorator())
+```
+
+**Both platforms.** Without it an entry resolves the store of whatever is above
+it, so two entries of the same graph share one store — and Koin keys a ViewModel
+by its class alone, not by its parameters, so the second screen silently reuses
+the first one's ViewModel with the first one's parameters. Desktop used to omit
+the decorator on the belief that "each NavDisplay entry already has proper
+per-entry ViewModel scoping"; `NestedEntryViewModelScopeTest` measured it and the
+belief was wrong.
+
+### Parameter — a platform gesture: `AgendaContextMenuHost`
+
+The agenda's context menu is a gesture (a long press on Android, a right click on
+Desktop), so the host is a parameter and the graph stays in common code.
+
+### The graph itself
+
+```kotlin
+// feature/agenda/presentation/nav/AgendaNavGraph.kt — commonMain
+@Composable
+fun AgendaNavGraph(
     start: AgendaStartRoute,
     onExitGraph: (AppDestination?) -> Unit,
+    contextMenuHost: AgendaContextMenuHost,
     modifier: Modifier = Modifier,
-)
-
-@Composable
-expect fun agendaEntryProvider(): (AgendaStartRoute) -> NavEntry<AgendaStartRoute>
+    backStack: NavBackStack<AgendaStartRoute>? = null,
+) {
+    val stack: NavBackStack<AgendaStartRoute> = backStack ?: rememberAppNavBackStack(start)
+    val navigator = remember(stack, onExitGraph) {
+        AgendaNavigator(backStack = stack, onExitGraph = onExitGraph)
+    }
+    CompositionLocalProvider(LocalAgendaNavigator provides navigator) {
+        SystemBackHandler(enabled = stack.size <= 1) { onExitGraph(null) }
+        NavDisplay(
+            backStack = stack,
+            modifier = modifier,
+            onBack = { onExitGraph(null) },
+            entryDecorators = rememberAppEntryDecorators(),
+            entryProvider = agendaScreenEntryProvider(contextMenuHost),
+        )
+    }
+}
 ```
 
 The `onExitGraph: (AppDestination?) -> Unit` callback handles cross-feature navigation:
 - `onExitGraph(AppDestination.ProjectDetail(id))` → outer graph navigates to that destination
 - `onExitGraph(null)` → outer graph handles back (exit nested graph)
 
-### Android: `*NavGraph.android.kt`
+### What is left platform-specific
 
-```kotlin
-import com.singularity.todo.feature.nav.appNavSavedStateConfig
-
-@Composable
-actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: ..., modifier: ...) {
-    val savedStateConfig = appNavSavedStateConfig   // shared constant — do not rebuild per graph
-
-    @Suppress("UNCHECKED_CAST")
-    val backStack: NavBackStack<AgendaStartRoute> = rememberNavBackStack(savedStateConfig, start)
-        as NavBackStack<AgendaStartRoute>
-
-    val navigator = remember(backStack, onExitGraph) {
-        AgendaNavigator(backStack, onExitGraph)
-    }
-
-    CompositionLocalProvider(LocalAgendaNavigator provides navigator) {
-        BackHandler(enabled = backStack.size <= 1) { onExitGraph(null) }
-        NavDisplay(
-            backStack = backStack,
-            onBack = { navigator.back() },
-            entryDecorators = listOf(rememberViewModelStoreNavEntryDecorator()),
-            entryProvider = entryProvider {
-                entry<AgendaStartRoute.Inbox>     { AgendaScreen(AgendaPresets.Inbox) }
-                entry<AgendaStartRoute.Today>     { AgendaScreen(AgendaPresets.Today) }
-                entry<AgendaStartRoute.Upcoming>  { AgendaScreen(AgendaPresets.Upcoming) }
-                entry<AgendaStartRoute.Project>   { AgendaScreen(AgendaPresets.byProject(it.id)) }
-                entry<AgendaStartRoute.Tag>       { AgendaScreen(AgendaPresets.byTag(it.id)) }
-            },
-        )
-    }
-}
-```
-
-### JVM: `*NavGraph.jvm.kt`
-
-```kotlin
-import com.singularity.todo.feature.nav.rememberInMemoryNavBackStack
-
-@Composable
-actual fun AgendaNavGraph(start: AgendaStartRoute, onExitGraph: ..., modifier: ...) {
-    val backStack: NavBackStack<AgendaStartRoute> = rememberInMemoryNavBackStack(start)
-
-    val navigator = remember(backStack, onExitGraph) {
-        AgendaNavigator(backStack, onExitGraph)
-    }
-
-    CompositionLocalProvider(LocalAgendaNavigator provides navigator) {
-        NavDisplay(
-            backStack = backStack,
-            onBack = { navigator.back() },
-            entryProvider = entryProvider {
-                entry<AgendaStartRoute.Inbox>     { AgendaScreen(AgendaPresets.Inbox) }
-                entry<AgendaStartRoute.Today>     { AgendaScreen(AgendaPresets.Today) }
-                entry<AgendaStartRoute.Upcoming>  { AgendaScreen(AgendaPresets.Upcoming) }
-                entry<AgendaStartRoute.Project>   { AgendaScreen(AgendaPresets.byProject(it.id)) }
-                entry<AgendaStartRoute.Tag>       { AgendaScreen(AgendaPresets.byTag(it.id)) }
-            },
-        )
-    }
-}
-```
-
-**Key differences:**
-
-| Aspect | Android | JVM |
+| Aspect | Android | Desktop |
 |---|---|---|
-| Back stack | `rememberNavBackStack(appNavSavedStateConfig, start)` | `rememberInMemoryNavBackStack(start)` |
-| Serializers | Shared `appNavSavedStateConfig` covers every route | Not needed |
-| BackHandler | Yes — intercept system back at start route | No — desktop has no system back |
-| ViewModelStore decorator | `rememberViewModelStoreNavEntryDecorator()` | Not needed |
-| Process death survival | ✅ Yes | ❌ No (in-memory only) |
+| Stack storage | saved state | in memory |
+| System back | the platform's `BackHandler` | a no-op |
+| ViewModel store | per entry | per entry |
+| Top-level graph stacks | each graph owns its own | hoisted into the shell's composition |
+| Agenda context menu | a bottom sheet | a popup |
+| The tasks graph entry | in the platform assembler | in the platform assembler |
 
----
+The last two rows are the only ones that are *not* a seam, and they are the only
+`entry<>` blocks left outside the common contributors.
 
 ## Local*Navigator Pattern
 
@@ -255,47 +267,63 @@ fun AgendaScreen(definition: AgendaDefinition, ...) {
 
 ---
 
-## Outer AppNavHost Wiring
+## Outer Wiring — the entry contributors
 
-The outer `AppNavHost` integrates nested graphs via `entryProvider`:
+The app's entry provider is built by the platform's **assembler**, which collects
+the per-feature contributors:
 
 ```kotlin
-// AppNavHost.kt
-NavDisplay(
-    backStack = navState.backStack,
-    onBack = { navigator.back() },
-    entryProvider = entryProvider {
-        // Pattern B: singleton AgendaNavGraph for 3 tabs
-        entry<AppDestination.Inbox> {
-            AgendaNavGraph(start = AgendaStartRoute.Inbox, onExitGraph = { ... })
-        }
-        entry<AppDestination.Today> {
-            AgendaNavGraph(start = AgendaStartRoute.Today, onExitGraph = { ... })
-        }
-        entry<AppDestination.Upcoming> {
-            AgendaNavGraph(start = AgendaStartRoute.Upcoming, onExitGraph = { ... })
-        }
-        // Pattern A: per-feature graphs
-        entry<AppDestination.AgendaGraph> { route ->
-            AgendaNavGraph(
-                start = route.start.toAgendaStartRoute(),
-                onExitGraph = { dest -> ... },
-            )
-        }
-        entry<AppDestination.TasksGraph> { route ->
-            TasksNavGraph(
-                start = route.start.toTasksRoute(),
-                onExitGraph = { ... },
-            )
-        }
+// shared/src/jvmMain/.../feature/nav/JvmNavEntries.kt
+@Composable
+fun createJvmEntryProvider(nav: NavCallbacks, ...): (AppDestination) -> NavEntry<AppDestination> {
+    // Desktop hoists the top-level graph stacks into the shell's composition, so
+    // they survive an entry leaving NavDisplay's visible set.
+    val stacks = AppNavStacks(
+        projects = remember { NavBackStack<ProjectsRoute>(ProjectsRoute.List) },
         // ...
-    },
-)
+    )
+    return entryProvider {
+        appEntries(nav, pomodoroTimer, pomodoroTaskList)
+        agendaEntries(nav, stacks, desktopAgendaContextMenuHost())
+        calendarEntries(nav, stacks, today)
+        notesEntries(nav, stacks)
+        projectsEntries(nav, stacks)
+        searchEntries(nav, stacks)
+        settingsEntries(nav, stacks)
+
+        // The one platform-specific entry: Desktop seeds the pushed graph's stack
+        // itself and pushes the detail route onto it.
+        entry<AppDestination.TasksGraph> { route -> /* ... */ }
+    }
+}
 ```
 
-`AppDestination.AgendaGraph(val start: AgendaStartRoute)` carries the inner start route so the outer graph can launch the nested agenda at any inner destination (e.g. deep link from a notification).
+A contributor is an extension on the entry-provider scope, in the feature's own
+file — or in `feature/nav/entries/` when the feature has no nav package of its own:
 
----
+```kotlin
+// feature/nav/entries/ProjectsEntries.kt
+fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
+    entry<AppDestination.Plans> {
+        ProjectsNavGraph(
+            start = ProjectsRoute.List,
+            onExitGraph = nav.graphExit,
+            backStack = stacks.projects,
+        )
+    }
+    entry<AppDestination.ProjectDetail> { route ->
+        ProjectsNavGraph(
+            start = ProjectsRoute.Detail(route.projectId),
+            onExitGraph = nav.graphExit,
+        )
+    }
+}
+```
+
+`AppNavKey` is the single sealed root and must not grow parallel hierarchies (ADR
+`2026-09-29-single-sealed-navkey-root`). New screens are leaves of `AppDestination`
+— and they are registered **in their own feature's contributor**, not in both
+platform files. `AppEntryParityTest` holds the set of registered destinations.
 
 ## Adding a New Route Type
 
@@ -313,19 +341,23 @@ covered automatically. **The failure mode is declaring the route against
 `NavKey`** — that compiles, tests green, and crashes the screen on open. Extend
 `AppNavKey` (directly or via an intermediate sealed interface).
 
-### 3. JVM: no changes needed
+### 3. No platform changes needed
 
-`rememberInMemoryNavBackStack(start)` works for any `T : NavKey` — no serializer registration.
+`rememberAppNavBackStack(start)` works for any `T : NavKey` on both platforms — the
+seam picks the storage.
 
 ### 4. Add `entry { }` in `entryProvider`
 
-In both `*NavGraph.android.kt` and `*NavGraph.jvm.kt`:
+In the graph's **one** file — `feature/<feature>/presentation/nav/<Feature>NavGraph.kt`,
+in commonMain:
 ```kotlin
 entryProvider = entryProvider {
     // ... existing entries
     entry<AgendaStartRoute.NewRoute> { route -> AgendaScreen(AgendaPresets.bySomething(route.id)) }
 },
 ```
+
+There is no second file to edit, and no platform to forget.
 
 ### 5. Add the preset in `AgendaPresets`
 
@@ -412,9 +444,22 @@ the shape of the duplicate-registration crash.
 The shared config serializes every leaf; a route without `@Serializable` fails
 at config build (`subclassesOfSealed` needs standard serializers).
 
-### ❌ Using `LocalViewModelStoreOwner` directly on Android
+### ❌ Using `LocalViewModelStoreOwner` directly
 
-On Android, `LocalViewModelStoreOwner` resolves to `ComponentActivity` inside `NavDisplay`. Always use `rememberViewModelStoreNavEntryDecorator()` to scope ViewModels to the correct `NavEntry`. This is already handled in all existing `*NavGraph.android.kt` files — don't remove it.
+Inside a `NavDisplay`, `LocalViewModelStoreOwner` resolves to whatever is above it —
+the `ComponentActivity` on Android, the window on Desktop. Always use
+`rememberAppEntryDecorators()` to scope ViewModels to the correct `NavEntry`. This is
+handled by every graph in commonMain — don't remove it, and don't add a graph without it.
+
+This was not a belief on Desktop: it was measured. `NestedEntryViewModelScopeTest` showed
+that a Desktop entry inherited the outer store, so two entries of one graph shared one
+ViewModel — and Koin keys a ViewModel by its class alone, not by its parameters.
+
+### ❌ Writing a second `*NavGraph.android.kt` / `*NavGraph.jvm.kt`
+
+The platform differences are seams. A second copy of the graph is how the agenda's
+context menu ended up on five sections on Android and eight on Desktop, and how the
+Desktop graphs ended up without the ViewModel-store decorator.
 
 ### ❌ Cross-feature navigation via `onExitGraph(AppDestination.X)` for routes that live in the same nested graph
 
@@ -431,3 +476,8 @@ On Android, `LocalViewModelStoreOwner` resolves to `ComponentActivity` inside `N
 - `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` — why JVM uses in-memory
 - `docs/decisions/2026-09-16-nav3-type-asymmetry-adr.md` — the Android cast
 - `docs/decisions/2026-09-16-agenda-engine.md` — AgendaEngine design decision
+- `docs/decisions/2026-10-02-nav-entries-dedup-deferred.md` — the addendum of 2026-10-21:
+  why the deduplication was possible after all (the UI artifact's common variant)
+- `docs/decisions/2026-10-21-agenda-context-menu-parity.md` — the gesture is the
+  platform's, the list of sections is the app's
+- `docs/navigation.md` — the map of every destination and where it is registered

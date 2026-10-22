@@ -43,12 +43,7 @@ import kotlin.time.Clock
 @Composable
 fun AgendaNavContent(
     route: AgendaStartRoute,
-    contextMenuHost: @Composable (
-        taskUi: TaskUi,
-        offset: DpOffset,
-        onDismiss: () -> Unit,
-        onIntent: (AgendaIntent) -> Unit,
-    ) -> Unit = { _, _, _, _ -> },
+    contextMenuHost: AgendaContextMenuHost = { _, _, _, _ -> },
 ) {
     when (route) {
         is AgendaStartRoute.Inbox -> AgendaScreen(

@@ -6,8 +6,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.singularity.todo.feature.agenda.AgendaLinkSpec
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -79,13 +82,19 @@ class AndroidNotifier(
      *            For reminders this is `"reminder:${userId}:${reminderId}"`.
      * @param title Notification title.
      * @param body Notification body text.
-     * @param viewId Optional SavedAgendaViewId deeplink target — carried as an extra in the
-     *               launch PendingIntent and read by [MainActivity] to navigate to the correct view.
+     * @param viewId Optional SavedAgendaViewId deeplink target — carried as the intent's
+     *               data URI and resolved by the deep-link registry on the way in.
      */
     override fun post(tag: String, title: String, body: String, viewId: String?) {
         if (!isSupported) return
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (viewId != null) {
+                // The link travels as a URI, not as a private extra: the URI is the
+                // format the registry matches, and the manifest filter for
+                // `singularity://view` makes the same link openable from outside
+                // the app. The extra stays for the migration window — an older
+                // build of the app may still be the one reading the notification.
+                data = Uri.parse(AgendaLinkSpec.uri(SavedAgendaViewId.fromString(viewId)))
                 putExtra(EXTRA_DEEPLINK_VIEW_ID, viewId)
             }
         }

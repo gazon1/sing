@@ -10,3 +10,8 @@ actual fun <T : NavKey> rememberNavBackStackTyped(
     @Suppress("UNUSED_PARAMETER") savedStateConfig: SavedStateConfiguration,
     start: T,
 ): NavBackStack<T> = rememberInMemoryNavBackStack(start)
+
+/** Desktop: the nested graph's stack lives in memory — there is no process death here. */
+@Composable
+actual fun <T : NavKey> rememberAppNavBackStack(start: T): NavBackStack<T> =
+    rememberInMemoryNavBackStack(start)

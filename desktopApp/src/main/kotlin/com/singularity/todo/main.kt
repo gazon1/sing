@@ -2,6 +2,7 @@ package com.singularity.todo
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.window.singleWindowApplication
+import androidx.navigation3.runtime.deeplink.DeepLinkRequest
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
@@ -9,6 +10,9 @@ import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.work.BackgroundWorkBootstrapper
+import com.singularity.todo.feature.auth.AuthLinkSpec
+import com.singularity.todo.feature.nav.deeplink.DeepLinkRegistry
+import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import okio.Path
 import okio.Path.Companion.toPath
@@ -124,20 +128,51 @@ fun main(args: Array<String>) {
         // (default is 25%), saving ~80 MB on a 512 MB heap.
         Surface {
             LocalDesktopImageLoader()
-            val magicEmail = args.firstOrNull { it.startsWith("--deeplink-magic-email=") }
-                ?.substringAfter("=")
-                ?.takeIf { it.isNotBlank() }
-            val magicToken = args.firstOrNull { it.startsWith("--deeplink-magic-token=") }
-                ?.substringAfter("=")
-                ?.takeIf { it.isNotBlank() }
-            App(
-                deeplinkViewId = null,
-                deeplinkTaskId = null,
-                deeplinkMagicEmail = magicEmail,
-                deeplinkMagicToken = magicToken,
-            )
+            App(deepLinkTarget = resolveDeepLinkTarget(args))
         }
     }
+}
+
+/**
+ * Resolves the deep link the launch arguments carry.
+ *
+ * `--deeplink=<uri>` is the general form: the same registry the Android entry
+ * point uses, so a link that opens on Android opens on Desktop too. The older
+ * `--deeplink-magic-email` / `--deeplink-magic-token` pair is kept and folded
+ * into the same registry — it is the same link, spelled in two pieces.
+ *
+ * A URI that matches no registered link is not an error: the app opens on its
+ * start tab.
+ *
+ * @param args the process arguments.
+ * @return the target to open, or `null` when no link was given.
+ */
+private fun resolveDeepLinkTarget(args: Array<String>): DeepLinkTarget? {
+    val uri = args.firstOrNull { it.startsWith("--deeplink=") }
+        ?.substringAfter("=")
+        ?.takeIf { it.isNotBlank() }
+        ?: legacyMagicLinkUri(args)
+        ?: return null
+    val request = runCatching { DeepLinkRequest(uri) }.getOrNull() ?: return null
+    return runCatching { GlobalContext.get().get<DeepLinkRegistry>().resolve(request) }.getOrNull()
+}
+
+/**
+ * The magic link, spelled as two arguments instead of one URI.
+ *
+ * Kept because scripts that launched the app this way still exist; it produces
+ * the same URI the registry matches, so both spellings take the same path.
+ */
+private fun legacyMagicLinkUri(args: Array<String>): String? {
+    val email = args.firstOrNull { it.startsWith("--deeplink-magic-email=") }
+        ?.substringAfter("=")
+        ?.takeIf { it.isNotBlank() }
+        ?: return null
+    val token = args.firstOrNull { it.startsWith("--deeplink-magic-token=") }
+        ?.substringAfter("=")
+        ?.takeIf { it.isNotBlank() }
+        .orEmpty()
+    return AuthLinkSpec.uri(email, token)
 }
 
 /**

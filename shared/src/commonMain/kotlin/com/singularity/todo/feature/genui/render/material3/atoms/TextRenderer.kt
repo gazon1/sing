@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.genui.render.material3.atoms
 
-import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
+import com.singularity.todo.core.ui.text.LinkifiedText
 import com.singularity.todo.core.ui.theme.GenUiToneColors
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.render.ComponentRegistry
@@ -21,7 +21,10 @@ internal fun ComponentRegistry.registerText(): Unit = register("text") { node, c
     // The value is a template, not a string: it may name data that arrives in a later message, so
     // it is resolved at draw time. Everything else about the component stays as declared.
     val resolved: String = ctx.resolveText(t.value)
-    Text(
+    // A generated screen is prose, and prose is where links turn up. The text is linkified so
+    // those are tappable; with no links in it, the rendering is a plain text — the semantics
+    // and the tests of the generated surfaces stay as they were.
+    LinkifiedText(
         text = resolved,
         color = toneColor(t.tone),
         modifier = modifier.genuiTag(

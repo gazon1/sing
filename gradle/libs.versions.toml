@@ -67,7 +67,12 @@ openai-client = "4.1.0"
 materialkolor = "5.0.1"
 
 # Navigation 3 (KMP multiplatform)
-nav3 = "1.1.1"
+nav3 = "1.2.0"
+# The JetBrains multiplatform UI line lags the androidx line by one release. The
+# androidx line has no desktop variant at all, so the JetBrains root is the only
+# artifact that can put `NavDisplay` into commonMain: on Android it redirects to
+# `androidx.navigation3:navigation3-ui`, on Desktop it carries the port.
+nav3-ui = "1.2.0-rc01"
 nav3-lifecycle-vm = "2.11.0"
 
 # Supabase
@@ -218,17 +223,17 @@ openai-client = { module = "com.aallam.openai:openai-client", version.ref = "ope
 materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 
 # Navigation 3
+# androidx publishes the runtime/ui at 1.2.0, but the JetBrains multiplatform UI artifact
+# (org.jetbrains.androidx.navigation3:navigation3-ui-desktop) lags behind at 1.2.0-rc01.
+# The two must stay compatible: the desktop UI is compiled against the 1.2.0-rc01 runtime,
+# so the runtime resolution below is pinned down to that line by Gradle's conflict rules.
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3" }
 androidx-navigation3-ui-android = { module = "androidx.navigation3:navigation3-ui-android", version.ref = "nav3" }
 androidx-navigation3-runtime-android = { module = "androidx.navigation3:navigation3-runtime-android", version.ref = "nav3" }
 androidx-navigation3-runtime-desktop = { module = "androidx.navigation3:navigation3-runtime-desktop", version.ref = "nav3" }
-androidx-navigation3-ui-desktop = { module = "org.jetbrains.androidx.navigation3:navigation3-ui-desktop", version.ref = "nav3" }
+androidx-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "nav3-ui" }
+androidx-navigation3-ui-desktop = { module = "org.jetbrains.androidx.navigation3:navigation3-ui-desktop", version.ref = "nav3-ui" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "nav3-lifecycle-vm" }
-
-# Koin Navigation 3 DSL (multiplatform metadata — koinEntryProvider is in this artifact)
-koin-compose-navigation3 = { module = "io.insert-koin:koin-compose-navigation3", version.ref = "koin" }
-# Koin Navigation 3 DSL (Android AAR — contains the actual navigation{} function for androidJvm)
-koin-compose-navigation3-android = { module = "io.insert-koin:koin-compose-navigation3-android", version.ref = "koin" }
 
 # Supabase
 auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }

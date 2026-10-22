@@ -91,10 +91,10 @@ fun AgendaScreen(definition: AgendaDefinition, modifier: Modifier = Modifier) {
 
 ### 3. Register entries in NavGraph
 
-Both Android and JVM `AgendaNavGraph.*.kt` must register the new screens:
+The common `AgendaNavGraph.kt` must register the new screens:
 
 ```kotlin
-// In entryProvider { } block — both Android and JVM
+// In the entryProvider { } block of the common graph
 entry<AgendaStartRoute.SavedAgendaList> { SavedAgendaListScreen() }
 entry<AgendaStartRoute.SavedAgendaEdit> { route ->
     SavedAgendaEditScreen(viewId = SavedAgendaViewId.fromString(route.viewId))
@@ -148,7 +148,7 @@ Use a **top-bar IconButton** when the destination is a secondary screen accessed
 
 - `AgendaScreen.kt` — Koin wrapper with `onSavedViewsClick = { navigator.openSavedAgendaList() }`
 - `AgendaContent.kt` — `onSavedViewsClick: (() -> Unit)? = null`
-- `AgendaNavGraph.android.kt` / `AgendaNavGraph.jvm.kt` — entry registration
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/nav/AgendaNavGraph.kt` — entry registration
 - `docs/decisions/2026-09-16-agenda-mr3-saved-views-ui.md` — decision record
 
 ## See Also

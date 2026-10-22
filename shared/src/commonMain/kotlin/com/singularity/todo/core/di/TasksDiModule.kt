@@ -42,6 +42,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseC
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
+import com.singularity.todo.feature.tasks.presentation.nav.TaskDeepLink
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
@@ -216,4 +217,10 @@ fun tasksModule(): org.koin.core.module.Module = module {
             crashReporter = get(),
         )
     }
+
+    // ─── Deep link ──────────────────────────────────────────────────────
+    // The task link is owned by this feature: it declares the URI template and
+    // the mapping to the task detail screen. The registry that collects the
+    // links lives in `feature/nav/deeplink`.
+    single { TaskDeepLink() }
 }

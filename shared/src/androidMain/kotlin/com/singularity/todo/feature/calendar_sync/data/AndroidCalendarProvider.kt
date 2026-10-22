@@ -10,6 +10,7 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.error.CalendarSyncException
 import com.singularity.todo.feature.calendar_sync.error.translateExceptions
+import com.singularity.todo.feature.tasks.domain.TaskLinkSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
@@ -148,9 +149,9 @@ class AndroidCalendarProvider(
                         while (cursor.moveToNext()) {
                             val eventId = cursor.getLong(idIdx)
                             val desc = cursor.getString(descIdx) ?: ""
-                            val taskId = extractTaskId(desc)
+                            val taskId = TaskLinkSpec.taskIdFromUri(desc)
                             if (taskId != null) {
-                                result[taskId] = eventId
+                                result[taskId.value] = eventId
                             }
                         }
                     }
@@ -158,13 +159,6 @@ class AndroidCalendarProvider(
                 }
             }.recoverCatching { throw it }
         }
-
-    private fun extractTaskId(description: String): String? {
-        val marker = "${CalendarSyncEvent.DEEP_LINK_SCHEME}://${CalendarSyncEvent.DEEP_LINK_HOST}/"
-        val idx = description.indexOf(marker)
-        if (idx < 0) return null
-        return description.substring(idx + marker.length).takeWhile { it.isLetterOrDigit() || it == '-' }
-    }
 
     private fun toContentValues(
         syncEvent: CalendarSyncEvent,

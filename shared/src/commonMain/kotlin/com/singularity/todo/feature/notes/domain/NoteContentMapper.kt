@@ -1,9 +1,7 @@
 package com.singularity.todo.feature.notes.domain
 
 import com.mohamedrejeb.richeditor.model.RichTextState
-import com.singularity.todo.feature.notes.LinkRef
-import com.singularity.todo.feature.notes.LinkSchemes
-import com.singularity.todo.feature.notes.extractOutgoingLinks
+import com.singularity.todo.feature.notes.domain.logic.extractOutgoingLinks
 
 /**
  * Pure HTML↔Markdown and outgoing-link conversions.
@@ -37,10 +35,5 @@ object NoteContentMapper {
      * Extracts `note://...` / `task://...` URLs from the editor HTML,
      * ready for [com.singularity.todo.feature.notes.domain.port.NotesRepository.setOutgoingLinks].
      */
-    fun outgoingLinkUrls(html: String): List<String> = extractOutgoingLinks(html).map { ref ->
-        when (ref) {
-            is LinkRef.Note -> "${LinkSchemes.NOTE_PREFIX}${ref.noteId}"
-            is LinkRef.Task -> "${LinkSchemes.TASK_PREFIX}${ref.taskId}"
-        }
-    }
+    fun outgoingLinkUrls(html: String): List<String> = extractOutgoingLinks(html).map { it.url }
 }

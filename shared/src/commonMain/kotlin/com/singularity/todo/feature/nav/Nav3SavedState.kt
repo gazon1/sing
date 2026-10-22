@@ -82,3 +82,21 @@ expect fun <T : NavKey> rememberNavBackStackTyped(
     savedStateConfig: SavedStateConfiguration,
     start: T,
 ): NavBackStack<T>
+
+/**
+ * The back stack of a nested graph, chosen by the platform.
+ *
+ * Android — saved-state backed, so the stack survives process death. Desktop — in
+ * memory, because there is no process death to survive and no saveable-state
+ * registry to write into.
+ *
+ * One seam instead of a branch in every graph: seven nested graphs each wrote the
+ * same platform decision out in full, and the Desktop copy was a second
+ * implementation of the same idea. The two differed in more than the storage —
+ * Android's stack was keyed on the start route, the Desktop one was not — so a
+ * graph written for one platform quietly behaved differently on the other.
+ *
+ * @param start the seed route the stack starts with.
+ */
+@Composable
+expect fun <T : NavKey> rememberAppNavBackStack(start: T): NavBackStack<T>

@@ -44,6 +44,7 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
@@ -269,7 +270,7 @@ private fun SimpleResultCard(title: String, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
-        Text(text = title, modifier = Modifier.padding(12.dp))
+        SelectableText(text = title, modifier = Modifier.padding(12.dp))
     }
 }
 

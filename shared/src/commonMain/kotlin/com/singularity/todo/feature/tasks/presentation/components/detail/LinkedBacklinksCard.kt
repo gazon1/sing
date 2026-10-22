@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -111,10 +113,10 @@ private fun BacklinkSection(
                             modifier = Modifier.size(14.dp),
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(
+                        SelectableText(
                             text = title,
+                            style = LocalTextStyle.current.copy(fontSize = 14.sp),
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

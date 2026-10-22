@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.monthAbbreviation
+import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.text.SelectableTextGroup
+import com.singularity.todo.core.ui.text.UnselectableContent
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -97,20 +101,23 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
                 modifier = Modifier.size(TaskSpacing.iconSize),
             )
             Spacer(Modifier.width(TaskSpacing.lg))
-            Text(
-                text = "Logbook",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onAddNote) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add note to logbook",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(TaskSpacing.iconSize),
+            SelectableTextGroup(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Logbook",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                 )
+            }
+            UnselectableContent {
+                IconButton(onClick = onAddNote) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Add note to logbook",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(TaskSpacing.iconSize),
+                    )
+                }
             }
         }
     }
@@ -164,20 +171,23 @@ private fun LogbookLoadedCard(
                     modifier = Modifier.size(TaskSpacing.iconSize),
                 )
                 Spacer(Modifier.width(TaskSpacing.lg))
-                Text(
-                    text = "Logbook (${entries.size})",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onAddNote) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "Add note to logbook",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(TaskSpacing.iconSize),
+                SelectableTextGroup(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Logbook (${entries.size})",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                     )
+                }
+                UnselectableContent {
+                    IconButton(onClick = onAddNote) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Add note to logbook",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(TaskSpacing.iconSize),
+                        )
+                    }
                 }
             }
 
@@ -217,11 +227,10 @@ private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier =
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
+        SelectableText(
             text = note.title.ifBlank { "(untitled)" },
+            style = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.Normal),
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -247,11 +256,10 @@ private fun LogbookTimeEntryRow(
         )
         Spacer(Modifier.width(8.dp))
         val duration = entry.durationMs?.let { formatElapsed(it) } ?: "running"
-        Text(
+        SelectableText(
             text = "${entry.kind.name.lowercase()} · $duration",
+            style = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.Normal),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Normal,
             modifier = Modifier.weight(1f),
         )
     }

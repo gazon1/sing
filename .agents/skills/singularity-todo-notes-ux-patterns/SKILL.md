@@ -304,9 +304,13 @@ task://{taskId}   → displayed as [[Task Title]] in editor
 
 **Storage:** Links are stored as `<a href="note://...">` in `RichTextState` HTML. The richeditor library serializes `RichSpanStyle.Link` automatically.
 
-**Extraction:** `OutgoingLinksExtractor.extractOutgoingLinks(html)` parses the HTML with a regex to find all `note://` and `task://` hrefs, deduplicates, and returns `List<LinkRef>`. Persisted to `NoteEntity.outgoing_links` column on every save.
+**Extraction:** `extractOutgoingLinks(html)` (in `feature/notes/domain/logic/`) parses the HTML with a regex to find all `note://` and `task://` hrefs, deduplicates, and returns `List<InternalLinkTarget>`. Persisted to `NoteEntity.outgoing_links` column on every save. The scheme and the identifier rule are not this file's — they are `shared/src/commonMain/kotlin/com/singularity/todo/core/links/InternalLinks.kt`'s, and this file only knows the *shape of the editor's output*. There used to be a second copy of this extractor, in the notes package, that returned a second type; both are gone.
 
-**Insertion:** `RichTextState.addLinkToSelection(url)` inserts a link span at the current cursor/selection.
+**Reading a link:** `InternalLinks.parse(url)` reads one, and `InternalLinks.findIn(text)` finds the links in a piece of text. A scheme that is not ours is not ours: `xnote://id` opens nothing.
+
+**Insertion:** `RichTextState.addLinkToSelection(url)` inserts a link span at the current cursor/selection. The URL is built with `LinkKind.urlFor(id)`, which reads the scheme from `core/links`.
+
+**Tapping a link in the preview:** the note preview wraps its body in a selection container and hands `rememberAppUriHandler` *its own* callback — a note links to another note, and moving between the two inside the notes graph is that screen's business, not the app-wide handler's. The body is therefore selectable and its links still work exactly as before.
 
 **InternalLinkPickerSheet:** Generic merged sheet. Caller (NoteEditorScreen) provides `onSearch` that merges `searchNotes` + `searchTasks` results into `List<LinkResult>`.
 

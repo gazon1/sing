@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.settings.SettingsUiState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -114,7 +115,7 @@ fun AiProviderSettingsScreen(
                 ) {
                     LlmProvider.entries.forEach { provider ->
                         DropdownMenuItem(
-                            text = { Text(provider.id) },
+                            text = { SelectableText(text = provider.id) },
                             onClick = {
                                 onIntent(SettingsIntent.Ai.UpdateProvider(provider))
                                 // Auto-fill default base URL when switching to a provider
@@ -215,7 +216,7 @@ fun AiProviderSettingsScreen(
                     ) {
                         state.aiEphemeral.models.forEach { model ->
                             DropdownMenuItem(
-                                text = { Text(model) },
+                                text = { SelectableText(text = model) },
                                 onClick = {
                                     // The model list came from the server: a value from
                                     // outside the field, so the field never produced it.

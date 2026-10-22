@@ -139,13 +139,17 @@ kotlin {
 			implementation(libs.koin.core)
 			implementation(libs.koin.compose)
 			implementation(libs.koin.compose.viewmodel)
-			implementation(libs.koin.compose.navigation3)
 
 			// Navigation 3 multiplatform runtime (NavKey, NavBackStack, NavEntry)
 			// Platform-specific implementations (entryProvider, rememberNavBackStack) are in
 			// the platform AARs: navigation3-runtime-android (androidMain).
-			// koin-compose-navigation3 (multiplatform metadata) is in commonMain for koinEntryProvider.
 			implementation(libs.androidx.navigation3.runtime)
+			// Navigation 3 UI (NavDisplay) — the JetBrains KMP root, so `NavDisplay` is
+			// available in commonMain: on Android it redirects to the androidx artifact,
+			// on Desktop it carries the Compose Multiplatform port. The androidx line
+			// publishes no desktop variant, so this is the only way to put a nested
+			// graph's NavDisplay into common code.
+			implementation(libs.androidx.navigation3.ui)
 
             // Ktor
             implementation(libs.ktor.client.core)
@@ -206,12 +210,6 @@ kotlin {
             // Koin Android
             implementation(libs.koin.android)
 
-            // Koin Navigation 3 DSL
-            // koin-compose-navigation3 (multiplatform): provides koinEntryProvider in commonMain
-            // Note: the navigation{} DSL is NOT accessible from commonMain or androidMain in this
-            // Koin version due to classpath resolution issues with the multiplatform metadata JAR.
-            // Instead, entries are registered via koinEntryProvider() called from AndroidShellNav3.
-            implementation(libs.koin.compose.navigation3)
             // navigation3-runtime-android: rememberNavBackStack, NavBackStack, NavEntry, entryProvider
             // navigation3-ui-android: NavDisplay
             implementation(libs.androidx.navigation3.runtime.android)

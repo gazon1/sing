@@ -31,6 +31,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.formatMonthDayTime
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 
@@ -107,7 +108,7 @@ fun TimeTrackingSection(
                         // `startEntry` cannot succeed, and "it was refused
                         // because there is no signed-in user" is a true and
                         // useful thing to assert.
-                        Text(
+                        SelectableText(
                             text = state.message,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,

@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.notes.domain.model
 
-import com.singularity.todo.feature.notes.LinkSchemes
+import com.singularity.todo.core.links.InternalLinkSchemes
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -86,8 +86,8 @@ class NoteBodyTest {
     @Test
     fun `outgoingLinks extracts note and task links`() {
         val body = NoteBody(
-            "<p>See <a href=\"${LinkSchemes.NOTE_PREFIX}n1\">note 1</a> and " +
-                "<a href=\"${LinkSchemes.TASK_PREFIX}t1\">task 1</a></p>",
+            "<p>See <a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">note 1</a> and " +
+                "<a href=\"${InternalLinkSchemes.TASK_PREFIX}t1\">task 1</a></p>",
         )
         assertEquals(2, body.outgoingLinks.size)
         assertTrue(body.outgoingLinks.any { it.contains("note://n1") })
@@ -97,8 +97,8 @@ class NoteBodyTest {
     @Test
     fun `outgoingLinks deduplicates`() {
         val body = NoteBody(
-            "<a href=\"${LinkSchemes.NOTE_PREFIX}n1\">link1</a>" +
-                "<a href=\"${LinkSchemes.NOTE_PREFIX}n1\">link1 again</a>",
+            "<a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">link1</a>" +
+                "<a href=\"${InternalLinkSchemes.NOTE_PREFIX}n1\">link1 again</a>",
         )
         assertEquals(1, body.outgoingLinks.size)
     }

@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.notes.domain.model
 
-import com.singularity.todo.feature.notes.LinkSchemes
 import com.singularity.todo.feature.notes.domain.logic.extractOutgoingLinks
 import kotlinx.serialization.Serializable
 
@@ -67,12 +66,7 @@ value class NoteBody(val html: String) {
      * Collection properties use union semantics (not LWW) per the sync skill.
      */
     val outgoingLinks: List<String>
-        get() = extractOutgoingLinks(html).map { ref ->
-            when (ref) {
-                is LinkRef.Note -> "${LinkSchemes.NOTE_PREFIX}${ref.noteId}"
-                is LinkRef.Task -> "${LinkSchemes.TASK_PREFIX}${ref.taskId}"
-            }
-        }
+        get() = extractOutgoingLinks(html).map { it.url }
 
     companion object {
         /** Empty body (no content). */
@@ -90,12 +84,6 @@ value class NoteBody(val html: String) {
          */
         fun fromMarkdown(markdown: String): NoteBody = NoteBody(markdownToHtml(markdown))
     }
-}
-
-/** A resolved outgoing link extracted from [NoteBody.html]. */
-sealed interface LinkRef {
-    data class Note(val noteId: String) : LinkRef
-    data class Task(val taskId: String) : LinkRef
 }
 
 /** Strips HTML tags from a string. */

@@ -46,7 +46,6 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,14 +61,15 @@ import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.ui.components.rememberOverlayState
+import com.singularity.todo.core.ui.text.SelectableTextGroup
+import com.singularity.todo.core.ui.text.rememberAppUriHandler
 import com.singularity.todo.core.ui.detail.ConfirmationSheet
 import com.singularity.todo.feature.nav.NotesRoute
-import com.singularity.todo.feature.notes.LinkSchemes
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.extractPreviewText
-import com.singularity.todo.feature.notes.parseLinkUrl
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
@@ -407,27 +407,23 @@ private fun NotePreviewBody(
             .collect { richTextState.setHtml(it) }
     }
 
-    val uriHandler = LocalUriHandler.current
-    val interceptedUriHandler = remember(uriHandler, onNavigateToNote, onNavigateToTask) {
-        object : androidx.compose.ui.platform.UriHandler {
-            override fun openUri(uri: String) {
-                val (prefix, id) = parseLinkUrl(uri) ?: run {
-                    uriHandler.openUri(uri)
-                    return
-                }
-                when (prefix) {
-                    LinkSchemes.NOTE_PREFIX -> onNavigateToNote(NoteId.fromString(id))
-                    LinkSchemes.TASK_PREFIX -> onNavigateToTask(TaskId.fromString(id))
-                    else -> uriHandler.openUri(uri)
-                }
-            }
+    // The note body is prose the person wrote, so it is selectable. A link inside it
+    // is read by the app's own handler — which is given *this screen's* callbacks, not
+    // the app-wide one: a note links to another note, and moving between the two
+    // inside the notes graph is this screen's business.
+    val appUriHandler = rememberAppUriHandler { link ->
+        when (link.target.scheme) {
+            InternalLinkSchemes.NOTE -> onNavigateToNote(NoteId.fromString(link.target.id))
+            InternalLinkSchemes.TASK -> onNavigateToTask(TaskId.fromString(link.target.id))
         }
     }
 
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalUriHandler provides interceptedUriHandler,
+        LocalUriHandler provides appUriHandler,
     ) {
-        RichText(state = richTextState, modifier = modifier)
+        SelectableTextGroup {
+            RichText(state = richTextState, modifier = modifier)
+        }
     }
 }
 

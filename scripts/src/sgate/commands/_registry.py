@@ -384,6 +384,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-dead-settings.py"),
         script_args=("--quiet",),
     ),
+    GateSpec(
+        name="selectable text coverage",
+        mode=GateMode.ADVISORY,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-selectable-text-coverage.py"),
+        script_args=("--quiet",),
+    ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
     GateSpec(
         name="detekt rules config is current",
@@ -927,6 +934,18 @@ GATE_CONTROLS: dict[str, Control] = {
 # Each names what does the proving instead: "no control" is only acceptable when
 # something else is, and the reader has to be told what.
 GATE_EXEMPTIONS: dict[str, Control] = {
+    'scripts/check-selectable-text-coverage.py': Control(
+        kind='exempt',
+        proves='scripts/check-selectable-text-coverage.py',
+        tracked_by='shared/src/jvmTest/kotlin/com/singularity/todo/arch/SelectableTextConventionTest.kt',
+        reason=(
+            'an advisory gate has no failing state to prove: it reports the prose that no '
+            'registry row covers and passes, so a sabotage control could only assert that '
+            'it still passes. The proving is the blocking reader of the same registry — '
+            'SelectableTextConventionTest — which fails when a file uses a text widget and '
+            'is not in the inventory table, and when a row does not match the code.'
+        ),
+    ),
     'scripts/check-gate-wiring.py': Control(kind='exempt', proves='scripts/check-gate-wiring.py', tracked_by='scripts/tests/test_check_gate_wiring.py', reason='this file. Its controls are its own Parts, and its self-tests (scripts/tests/test_check_gate_wiring.py) pin each part; a registry that had to sabotage itself to prove itself would be circular.'),
     'scripts/check-provenance.py': Control(kind='exempt', proves='scripts/check-provenance.py', tracked_by='scripts/tests/test_check_provenance.py', reason='provenance audit for Apache-2.0 / FSL-1.1 publication; runs locally before publication commits, not as a CI gate; the sabotage control is the provenance-registry.tsv itself'),
     'scripts/check-pro-licence-boundary.py': Control(kind='exempt', proves='scripts/check-pro-licence-boundary.py', tracked_by='scripts/tests/test_check_pro_licence_boundary.py', reason='Apache-2.0 / pro licence boundary check; runs locally before publication commits, not as a CI gate; the sabotage control is the direction check itself'),

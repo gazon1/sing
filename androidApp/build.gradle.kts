@@ -48,6 +48,12 @@ dependencies {
     // Koin
     implementation(libs.koin.android)
 
+    // Navigation 3 — the deep-link request type lives in the runtime, and the
+    // Activity turns the incoming intent into one. `:shared` declares nav3 as
+    // `implementation`, so it is not visible transitively.
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.runtime.android)
+
     // DateTime — required because shared uses kotlinx.datetime.LocalDate in Task models
     implementation(libs.kotlinx.datetime)
 

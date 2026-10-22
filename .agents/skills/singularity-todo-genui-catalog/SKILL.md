@@ -152,6 +152,12 @@ database, or the clock.
 - **Severities decide what the user sees.** `COMPONENT` drops one node, `ADVISORY` reports and keeps
   everything, `MESSAGE` drops the message. A forward reference to a component a later message defines
   is `ADVISORY` — dropping it would empty a surface that was about to fill in.
+- **A text component carries the model's own words, so it carries links.** The `text` atom renders
+  through `LinkifiedText`: a documentation link in a generated answer is tappable, and a `note://` or
+  `task://` link opens the note or the task *inside* the app. With no links in it, the rendering is a
+  plain text — the semantics and the tests of the generated surfaces stay as they were. The internal
+  links go through `LocalInternalLinkHandler`, the app-wide handler the root provides, so the atom
+  does not have to know how to navigate.
 
 ## When the catalog renders nothing, and nothing tells you
 

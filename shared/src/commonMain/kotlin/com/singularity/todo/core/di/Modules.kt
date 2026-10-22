@@ -22,6 +22,7 @@ import com.singularity.todo.feature.profile.presentation.AccountSettingsViewMode
 import com.singularity.todo.feature.profile.presentation.ChangePasswordViewModel
 import com.singularity.todo.feature.proposals.proposalModule
 import com.singularity.todo.feature.genui.di.genuiModule
+import com.singularity.todo.feature.nav.deeplink.deepLinkModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
@@ -55,6 +56,7 @@ fun domainModule(): List<Module> = buildList {
     add(searchModule())
     add(calendarModule())
     add(agendaModule())
+    add(deepLinkModule())
     add(proposalModule())
     add(calendarSyncModule())
     add(backgroundWorkModule())

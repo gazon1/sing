@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar_sync.domain.logic
 
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.reminders.Reminder
+import com.singularity.todo.feature.tasks.domain.TaskLinkSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -72,17 +73,20 @@ object CalendarEventMapper {
                 }
         }
 
-        // Strip any existing deep-link to avoid doubling on re-sync
+        // Strip any existing deep-link to avoid doubling on re-sync.
+        // The link format is owned by the tasks feature — the calendar sync only
+        // writes it, it does not define it.
+        val deepLink = TaskLinkSpec.uri(task.id)
         val rawDescription = task.description
             ?: ""
-        val strippedDescription = rawDescription.substringBefore(CalendarSyncEvent.deepLink(task.id))
+        val strippedDescription = rawDescription.substringBefore(deepLink)
             .trimEnd()
         val description = buildString {
             if (strippedDescription.isNotBlank()) {
                 append(strippedDescription)
                 append("\n\n")
             }
-            append(CalendarSyncEvent.deepLink(task.id))
+            append(deepLink)
         }
 
         val event = CalendarSyncEvent(

@@ -44,6 +44,7 @@ import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.DataSeriesColors
 import com.singularity.todo.core.ui.theme.DataStatusColors
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
@@ -462,7 +463,7 @@ private fun ProjectTimeRow(
             drawCircle(color = color)
         }
         Spacer(Modifier.width(8.dp))
-        Text(
+        SelectableText(
             text = name,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
