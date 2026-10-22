@@ -23,6 +23,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -204,6 +205,12 @@ class SearchUseCase(
      * answer. See [FreeTextRule.accepts].
      */
     private fun textMatchedNotes(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<IndexedRecord<Note>>> {
+        // A rule with no terms selects no note, and the answer is known before
+        // the question is asked. Reading the table to learn that is a read of
+        // every note of the profile — and a live one: it runs again on every
+        // change to the notes.
+        if (rule.isEmpty) return flowOf(emptyList())
+
         val source: Flow<List<IndexedRecord<Note>>> = when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeNotes(plan.query)
 
@@ -212,11 +219,7 @@ class SearchUseCase(
             }
         }
         return source.map { notes ->
-            if (rule.isEmpty) {
-                emptyList()
-            } else {
-                notes.filter { note -> rule.accepts(plan) { term -> TextMatch.matches(note.record.title, term) } }
-            }
+            notes.filter { note -> rule.accepts(plan) { term -> TextMatch.matches(note.record.title, term) } }
         }
     }
 
@@ -225,6 +228,8 @@ class SearchUseCase(
         plan: TextMatchPlan,
         rule: FreeTextRule,
     ): Flow<List<IndexedRecord<Project>>> {
+        if (rule.isEmpty) return flowOf(emptyList())
+
         val source: Flow<List<IndexedRecord<Project>>> = when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeProjects(plan.query)
 
@@ -233,18 +238,16 @@ class SearchUseCase(
             }
         }
         return source.map { projects ->
-            if (rule.isEmpty) {
-                emptyList()
-            } else {
-                projects.filter { project ->
-                    rule.accepts(plan) { term -> TextMatch.matches(project.record.name, term) }
-                }
+            projects.filter { project ->
+                rule.accepts(plan) { term -> TextMatch.matches(project.record.name, term) }
             }
         }
     }
 
     /** The tags that satisfy the free-text rule. See [textMatchedNotes]. */
     private fun textMatchedTags(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<IndexedRecord<Tag>>> {
+        if (rule.isEmpty) return flowOf(emptyList())
+
         val source: Flow<List<IndexedRecord<Tag>>> = when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeTags(plan.query)
 
@@ -253,11 +256,7 @@ class SearchUseCase(
             }
         }
         return source.map { tags ->
-            if (rule.isEmpty) {
-                emptyList()
-            } else {
-                tags.filter { tag -> rule.accepts(plan) { term -> TextMatch.matches(tag.record.name, term) } }
-            }
+            tags.filter { tag -> rule.accepts(plan) { term -> TextMatch.matches(tag.record.name, term) } }
         }
     }
 
