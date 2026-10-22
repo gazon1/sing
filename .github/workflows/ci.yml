@@ -468,6 +468,23 @@ jobs:
             exit 3
           fi
 
+      # The `slow` classes the full run owes the reader.
+      #
+      # The run floor above requires the `fast` classes, because `fast` is what
+      # a local run executes; the `slow` classes are the ones the default local
+      # run excludes. A test the local loop never runs is a test whose breakage
+      # nobody local ever sees: `McpServerEndToEndTest` sat broken on `main`
+      # for exactly that reason — tagged slow, broken since the read surface
+      # changed the shape of its answer, and found by CI rather than by anyone
+      # holding the tree.
+      #
+      # Placed here for the same reason the normalisation below is placed here:
+      # every later Gradle invocation can re-run a test task and overwrite the
+      # report this reads. A check that reads a report after it has been
+      # overwritten measures the wrong run.
+      - name: Slow tests ran
+        run: python3 scripts/check-slow-tests-ran.py
+
       # desktop only, deliberately. The android target's results come from
       # :androidApp:connectedDebugAndroidTest, which no CI job runs, and
       # --maestro would demand a `scenario:` tag on every flow that claims android —
