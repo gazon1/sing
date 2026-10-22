@@ -61,16 +61,27 @@ imports.
 Several gates compare a table in a document with the code it names. They share
 a library and a rule format:
 
-* `sgate.gates.markdown` — the tables a document claims things in;
-* `sgate.gates.kotlin` — what the sources declare and mention;
-* `sgate.gates.findings` — a finding, and how sure the gate is;
-* `sgate.gates.cli` — the flags and the exit code every gate has;
-* `sgate.gates.rules` — the comparison itself.
+* `sgate.gatekit.markdown` — the tables a document claims things in;
+* `sgate.gatekit.kotlin` — what the sources declare and mention;
+* `sgate.gatekit.findings` — a finding, and how sure the gate is;
+* `sgate.gatekit.cli` — the flags and the exit code every gate has;
+* `sgate.gatekit.rules` — the comparison of a deep-link table with the code;
+* `sgate.gatekit.tables` — the table a document claims things in: where it
+  starts, what its rows name, the verdict vocabulary, and the comparison in
+  both directions;
+* `sgate.gatekit.paths` — where a gate is allowed to write.
 
 The **rule** is data: `config/gates/navigation-doc-sync.yaml` says which
 table of which document, which columns, and the naming convention that ties a
-row to the code. A second table that follows the same convention needs a YAML
-file and nothing else.
+row to the code; `config/gates/platform-reference-ports.yaml` and
+`config/gates/text-field-transformations.yaml` say the shape of the tables of
+the ports reference and of the text-field skill. A second table that follows
+the same convention needs a YAML file and nothing else.
+
+What stays in the gate is what is the gate's own business: how the code is
+read. The ports gate knows that a port is an interface the platform module
+binds; the transformation gate knows that a transformation is a function that
+returns one.
 
 A finding is either **blocking** (a fact the code contradicts) or
 **advisory** (a claim read out of prose). Only a blocking finding fails a

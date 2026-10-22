@@ -83,6 +83,7 @@ if str(_SRC) not in sys.path:
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
 from sgate.gatekit.tables import (  # noqa: E402
     TableRule,
+    cell_identifier,
     compare_names,
     rows_at_header,
     unknown_verdicts,
@@ -269,21 +270,13 @@ def parse_table(document: str) -> list[Row]:
             break
         rows.append(
             Row(
-                port=_identifier(cells[0]),
-                jvm=_identifier(cells[1]),
-                android=_identifier(cells[2]),
+                port=cell_identifier(cells[0]),
+                jvm=cell_identifier(cells[1]),
+                android=cell_identifier(cells[2]),
                 checked=cells[3].strip().lower(),
             )
         )
     return rows
-
-
-def _identifier(cell: str) -> str:
-    """The identifier a cell names, or `-` when the cell names none."""
-    cleaned = cell.replace("`", "").strip()
-    if not cleaned or cleaned == "-":
-        return ""
-    return cleaned.split()[0]
 
 
 def check(rows: list[Row], ports: set[str], root: Path) -> list[Finding]:
