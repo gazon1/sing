@@ -83,7 +83,12 @@ DEFAULT_GATE_TIMEOUT = 300
 #: The budget for the control phase. It runs a gate twice per control — once
 #: on the clean tree, once on the sabotaged one — so it needs more room than a
 #: single gate.
-CONTROLS_PHASE_TIMEOUT = 1800
+#:
+#: It stays under the static job's own cap, because that cap is the real
+#: ceiling: a phase budget above it buys nothing, the job is killed instead of
+#: the phase, and the checkout is left with a sabotaged file in it. The
+#: relationship is asserted by `test_the_budget_fits_inside_the_static_job`.
+CONTROLS_PHASE_TIMEOUT = 1200
 
 #: Gates whose own work needs more than the default budget, and why.
 #:
@@ -98,10 +103,12 @@ CONTROLS_PHASE_TIMEOUT = 1800
 #: with the same tree and the same code. A gate that needs the build does not
 #: fit in a budget that was chosen for gates that do not.
 #:
-#: The budget stays under the job's own ten-minute cap, so a gate that hangs is
+#: The budget stays under the static job's own cap, so a gate that hangs is
 #: killed by the runner rather than by the job. The static job now restores the
 #: Gradle cache, which is what actually makes this gate fast; this number is the
-#: floor under a cold cache, not the plan.
+#: floor under a cold cache, not the plan. The cap itself moved to 25 minutes
+#: when the job started running the control phase as well; the budget and the
+#: cap are asserted against each other by the gate suite's own tests.
 #:
 #: The gate still fails if it finds anything. The budget buys the gate time to
 #: finish; it does not buy it a pass.

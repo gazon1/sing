@@ -2,6 +2,7 @@
 """Unit tests for sgate.gates — gate registry loader."""
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -178,21 +179,51 @@ class TestTheGateBudget(unittest.TestCase):
             )
 
     def test_the_budget_fits_inside_the_static_job(self):
-        """The job's own ten-minute cap is the real ceiling.
+        """The job's own cap is the real ceiling.
 
         A budget above it buys nothing: the job would be killed instead of the
-        gate, and the log would say so less clearly.
+        gate, and the log would say so less clearly. The cap is read from the
+        workflow rather than written here, because the static job also runs the
+        control phase and the two have to move together — a hard-coded number
+        in the test is a number that goes stale the moment the job changes.
         """
-        from sgate.commands.run_all import GATE_TIMEOUTS
+        from sgate.commands.run_all import CONTROLS_PHASE_TIMEOUT, GATE_TIMEOUTS
 
         workflow = Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
         text = workflow.read_text(encoding="utf-8")
-        self.assertIn("timeout-minutes: 10", text)
+        cap = self._static_job_timeout(text)
+        self.assertIsNotNone(cap, "the static job declares no timeout-minutes")
         for name, budget in GATE_TIMEOUTS.items():
             self.assertLess(
-                budget, 600,
+                budget, cap * 60,
                 f"the budget for {name!r} exceeds the static job's own cap",
             )
+        self.assertLess(
+            CONTROLS_PHASE_TIMEOUT, cap * 60,
+            "the control phase's budget exceeds the static job's own cap — the job "
+            "would be killed mid-phase, leaving a sabotaged checkout behind",
+        )
+
+    @staticmethod
+    def _static_job_timeout(text: str) -> int | None:
+        """The static job's own cap, in minutes.
+
+        The job block is read rather than the first `timeout-minutes` in the
+        file: another job's cap is not this job's ceiling, and the file has
+        six of them.
+        """
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            if line != "  static:":
+                continue
+            for candidate in lines[index + 1:]:
+                if candidate.strip() and not candidate.startswith("    "):
+                    return None
+                match = re.search(r"timeout-minutes:\s*(\d+)", candidate)
+                if match:
+                    return int(match.group(1))
+            return None
+        return None
 
 
 class TestTheRunnerReadsTheVerdict(unittest.TestCase):
