@@ -42,19 +42,30 @@ A change is registered when it is created, and the registry is checked.
    "recorded on a change" as a later bookkeeping step; the record is part of
    the change.
 2. **A blocking gate covers the fact**: `scripts/check-issue-registry.py`,
-   registered as *issue registry covers every change*. It checks both
-   directions — every change has a record, and every record points back at its
-   change. A record that points at another change is worse than no record,
-   because it looks like coverage.
+   registered as *issue registry covers every change*. It finds three things:
+   a change with no record, a record that names a different change, and two
+   changes claiming one slug. A record that names another change is worse than
+   no record, because it looks like coverage.
 3. **The gate covers live and archived changes.** An archived change is still a
    decision, and the registry is where the decision is written down.
-4. **The recorded path is compared by its last segment.** Moving a change into
-   `archive/` is a rename the registry does not follow: the archived
-   `the-search-asks-the-index` still records the path it had before the move.
-   Requiring that path to resolve would make every archive operation a second,
-   unrelated edit — and the record's meaning does not change when the change
-   is filed away.
-5. **The gate has a positive control.** Its sabotage points a record at
+4. **The record is matched by slug, not by path.** Archiving a change renames
+   it: this repository files a change as `openspec/changes/<slug>` and archives
+   it as `openspec/changes/archive/<date>-<slug>` — the move *adds* a date
+   prefix to the directory. The registry entry is named after the slug, which
+   the date prefix does not change, and its recorded path still names the
+   place the change lived before the move. So a record is accepted when the
+   path it names sits under `openspec/changes/` (or `openspec/changes/archive/`)
+   and ends in a directory whose slug is the slug of the change being checked.
+   Comparing the raw path instead would fail on the next ordinary archive
+   operation — and the first version of this gate did exactly that.
+5. **The gate checks one direction, and says so.** It walks the changes and
+   looks up their records. It does not walk the records: most of the registry
+   is history — records whose change was archived long ago, under a path the
+   repository no longer has — and a reverse check would report hundreds of
+   them. A list of hundreds of known-old records is a baseline, not a rule.
+   The direction that is checked is the one that can still go wrong for work
+   that is happening now.
+6. **The gate has a positive control.** Its sabotage points a record at
    another change, and the gate has to fail. A gate that is only ever run
    against a clean tree is a gate whose failure nobody has seen.
 
@@ -71,19 +82,33 @@ A change is registered when it is created, and the registry is checked.
 - **Compare the recorded path in full.** Rejected, and see point 4: it turns
   every archive into a second edit and makes the gate's answer depend on where
   a change was filed rather than on what the record is about.
+- **Check the registry in both directions.** Rejected, and see point 5: the
+  other direction is history, and a baseline of hundreds of known-old records
+  is not a rule. The direction that can still go wrong is the one that is
+  checked.
 
 ## Consequences
 
 - A new change needs one command after its directory appears:
-  `python3 scripts/openspec-import-all.py`. The gate's failure message says
-  so.
-- The registry and `openspec/changes/` cannot drift apart without a red gate,
-  in either direction.
-- The gate is cheap: it reads 96 directories and 96 small files, and it runs in
-  the static-gate sweep, which is about a minute in total.
+  `python3 scripts/openspec-import-all.py`. A record that names another change
+  is rewritten by the same script with `--replace` — without it the importer
+  skips a record that already exists, which is exactly the case that needs
+  rewriting. The gate's failure message says which command is which.
+- A change cannot enter `openspec/changes/` without a record, and a record
+  cannot name another change without a red gate. The opposite drift — a record
+  whose change is long gone — is history, and is not checked; see point 5.
+- The gate is cheap: it reads the change directories and the records that name
+  them, and it runs in the static-gate sweep, which is about a minute in total.
 - The four gaps this found are closed in the same change, by running the import
   script — the point of the gate is not to catch the past, but the past is now
   in the record too.
+- The first version of this gate compared raw paths and promised a tolerance
+  for archiving that it did not deliver: the repository's archive convention
+  adds a date prefix to the directory, so the next archive operation would
+  have been a red CI run. The rule is now the slug, and the test that was
+  supposed to cover the case used an already-dated example and covered
+  nothing. A reviewer found both; the second version of the gate and the test
+  that exercises the real convention are in the same branch.
 
 ## Links
 

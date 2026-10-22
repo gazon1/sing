@@ -6,14 +6,21 @@ and nothing failed while it happened. So the gate has to be right in the cases
 that matter, and the cases that matter are the ones a clean tree never shows:
 
   - a change with no registry entry is a finding — the gap the gate was written for;
-  - a registry entry that points at another change is a finding — a record of
+  - a registry entry that names another change is a finding — a record of
     something else is worse than no record, because it looks like coverage;
   - an archived change counts — the registry is the source of truth for what
     was decided, and an archived change is still a decision;
-  - a date-prefixed directory drops the prefix for the entry's name, and an
-    entry whose recorded path still names the change is fine even after the
-    change moved into `archive/` — the path is compared by its last segment,
-    because moving a change is a rename the registry does not follow.
+  - **archiving must not break the record**. The repository files a change as
+    `openspec/changes/<slug>` and archives it as
+    `openspec/changes/archive/<date>-<slug>`: the move *adds* a date prefix to
+    the directory, while the record is named after the slug and keeps the path
+    the change lived at. A gate that compares raw paths fails on the next
+    ordinary archive operation — and the first version of this gate did.
+  - a record that names a directory that does not exist is a finding: the
+    comparison is by slug *and* by where the path lives, so
+    `openspec/changes/nowhere/<slug>` is not a path to a change.
+  - two changes claiming one slug are a finding — one record cannot be the
+    record of both, and the second would pass on the first one's record.
 
 The tests write their own tree: a gate exercised only against the data of one
 particular repository is a gate whose behaviour nobody knows when the tree
@@ -61,6 +68,14 @@ class IssueRegistryTest(unittest.TestCase):
 
     def _change(self, name: str) -> pathlib.Path:
         change = self.changes / name
+        (change / 'specs').mkdir(parents=True)
+        (change / 'proposal.md').write_text('# proposal\n', encoding='utf-8')
+        return change
+
+    def _archived_change(self, name: str) -> pathlib.Path:
+        archive = self.changes / 'archive'
+        archive.mkdir(exist_ok=True)
+        change = archive / name
         (change / 'specs').mkdir(parents=True)
         (change / 'proposal.md').write_text('# proposal\n', encoding='utf-8')
         return change
@@ -113,14 +128,36 @@ class IssueRegistryTest(unittest.TestCase):
         self.assertEqual([], missing)
         self.assertEqual(1, len(mispointed), 'a record that points at nothing points at nothing')
 
+    def test_an_entry_pointing_at_a_directory_that_does_not_exist_is_a_finding(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        self._entry('the-backup-keeps-the-verb', 'openspec/changes/nowhere/the-backup-keeps-the-verb')
+
+        missing, mispointed = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual(
+            1,
+            len(mispointed),
+            'a path under openspec/changes that is not a change directory names nothing',
+        )
+
+    def test_an_entry_pointing_outside_the_changes_tree_is_a_finding(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        self._entry('the-backup-keeps-the-verb', 'docs/decisions/the-backup-keeps-the-verb')
+
+        missing, mispointed = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual(1, len(mispointed), 'a path outside the changes tree is not a change')
+
     # ── the shapes of a change directory ───────────────────────────────────────
 
     def test_an_archived_change_counts(self) -> None:
-        archived = self.changes / 'archive'
-        archived.mkdir()
-        change = archived / '2026-10-21-the-search-asks-the-index'
-        (change / 'specs').mkdir(parents=True)
-        self._entry('the-search-asks-the-index', 'openspec/changes/2026-10-21-the-search-asks-the-index')
+        self._archived_change('2026-10-21-the-search-asks-the-index')
+        self._entry(
+            'the-search-asks-the-index',
+            'openspec/changes/2026-10-21-the-search-asks-the-index',
+        )
 
         missing, mispointed = mod.find_problems(self.changes, self.issues)
 
@@ -129,25 +166,59 @@ class IssueRegistryTest(unittest.TestCase):
 
     def test_a_date_prefix_is_dropped_for_the_entry_name(self) -> None:
         self._change('2026-10-09-detekt-class-signature-gotcha')
-        self._entry('detekt-class-signature-gotcha', 'openspec/changes/2026-10-09-detekt-class-signature-gotcha')
+        self._entry(
+            'detekt-class-signature-gotcha',
+            'openspec/changes/2026-10-09-detekt-class-signature-gotcha',
+        )
 
         missing, mispointed = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual([], mispointed)
 
-    def test_a_record_may_keep_the_path_it_had_before_the_move_to_archive(self) -> None:
-        # The archived change still records the path it had before the move, and
-        # requiring that path to resolve would make every archive a second edit.
-        archived = self.changes / 'archive'
-        archived.mkdir()
-        change = archived / '2026-10-21-the-search-asks-the-index'
-        (change / 'specs').mkdir(parents=True)
-        self._entry('the-search-asks-the-index', 'openspec/changes/2026-10-21-the-search-asks-the-index')
+    def test_archiving_a_change_does_not_break_its_record(self) -> None:
+        # The repository's convention: a change is filed as
+        # `openspec/changes/<slug>` and archived as
+        # `openspec/changes/archive/<date>-<slug>`. The move adds a date prefix
+        # to the *directory*; the record is named after the slug and keeps the
+        # path the change lived at. The gate compares slugs, so the next
+        # ordinary archive operation is not a red CI run.
+        self._archived_change('2026-10-22-android-test-hardening')
+        self._entry('android-test-hardening', 'openspec/changes/android-test-hardening')
 
         missing, mispointed = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
+        self.assertEqual(
+            [],
+            mispointed,
+            'a record may keep the path it had before the change was filed away',
+        )
+
+    def test_a_record_regenerated_after_the_move_is_accepted_too(self) -> None:
+        self._archived_change('2026-10-22-android-test-hardening')
+        self._entry(
+            'android-test-hardening',
+            'openspec/changes/archive/2026-10-22-android-test-hardening',
+        )
+
+        missing, mispointed = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mispointed)
+
+    def test_two_changes_claiming_one_slug_are_a_finding(self) -> None:
+        self._change('close-rule-consolidation')
+        self._archived_change('close-rule-consolidation')
+        self._entry('close-rule-consolidation', 'openspec/changes/close-rule-consolidation')
+
+        missing, mispointed = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual(
+            1,
+            len(missing),
+            'one record cannot be the record of two changes wearing one slug',
+        )
         self.assertEqual([], mispointed)
 
     def test_an_empty_changes_directory_is_clean(self) -> None:

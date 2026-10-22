@@ -90,9 +90,10 @@ ctx.assertIs<UiState.Content>()
 awaitState { vm.state.value is UiState.Content }   // виртуальное время, не delay()
 ```
 
-**Тест VM — через `testVm`/`runVmTest`**, и это гейт (`SharedHarnessConventionsTest`): свой
-scope руками = падение. Исключения и их причины — `EXEMPT_VM_TEST` в том же файле (повестка:
-поток часов не кончается → виртуальное время не доводится до idle, scope не может быть тестовым).
+**Тест VM — через харнесс** (`testVm` из `test/helpers/RunVmTest.kt`), и это гейт:
+`SharedHarnessConventionsTest`, правило «runVmTest is used for ViewModel tests» — свой scope
+руками = падение. Исключения и их причины — `EXEMPT_VM_TEST` в том же файле (повестка: поток
+часов не кончается → виртуальное время не доводится до idle, scope не может быть тестовым).
 
 ### BAN list
 
@@ -151,9 +152,9 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 ```
 
 **Пуш в ветку PR — без `--no-verify`.** `pre-push` hook (`.githooks/pre-push`) проверяет
-**пушимое дерево** (структурные гейты + `detekt --auto-correct`): ≈2 мин и ловит то, что CI
-ловит через 40 минут. Пропуск хука стоил одного красного CI-прогона: 53 замечания detekt, из
-которых ~45 `--auto-correct` починил бы сам. `--no-verify` — только для WIP-коммитов.
+**пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть
+находок). Пропуск хука отправляет ту же находку в CI — минуты вместо получаса. `--no-verify` —
+только для WIP-коммитов.
 
 **Находки detekt — одним файлом:** `shared/build/reports/detekt/detekt.xml` (путь, строка, правило);
 консоль Gradle даёт только счётчик. **Правило и его подоплёка — в комментариях

@@ -308,9 +308,15 @@ gate blocking "selectable text coverage" sgate selectable_text_coverage
 # at them and nothing says they are this branch's work.
 #
 # The fix is one command, the same one that writes the record:
-# `python3 scripts/openspec-import-all.py`. The gate checks both directions of
-# the fact: every change has a record, and every record points back at its
-# change.
+# `python3 scripts/openspec-import-all.py` — and `--replace` for a record that
+# names another change, because without it the importer skips a record that
+# already exists.
+#
+# The gate walks the changes and looks up their records; it does not walk the
+# records, because most of the registry is history. What it checks is the
+# direction that can still go wrong for work happening now: a change with no
+# record, a record that names a different change, and two changes claiming one
+# slug.
 gate blocking "issue registry covers every change" python3 scripts/check-issue-registry.py --quiet
 
 # Workflow + YAML lint, two real tools over the corpus the gates above only
