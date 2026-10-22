@@ -27,7 +27,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -76,6 +78,16 @@ fun AttachmentsSheet(
     TaskEditorSheetHost(
         title = "Attachments",
         onClose = onDismiss,
+        // The sheet opens to its content rather than to half a screen: it
+        // holds two fields, a row of buttons and the list of attachments, and
+        // the half-height leaves the list squeezed into the bottom of the
+        // screen — where the system navigation bar is.
+        //
+        // See docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Add URL
