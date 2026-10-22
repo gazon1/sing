@@ -108,6 +108,7 @@ settings_tab_backup tab
 settings_tab_interface tab
 settings_tab_notifications tab
 snackbar_action button
+snackbar_message text
 statistics_tab_health tab
 statistics_tab_tasks tab
 subtask_item_${RUN_ID}_child_task_one item

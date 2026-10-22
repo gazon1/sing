@@ -45,6 +45,9 @@ tags:
       id: profile_create_name_input
     timeout: 5000
 - inputText: "Work"
+# The keyboard covers the dialog's buttons: the confirm button was not on the
+# screen, so the tap could not reach it. The keyboard is dismissed first.
+- hideKeyboard
 - tapOn:
     id: dialog_confirm
 - extendedWaitUntil:

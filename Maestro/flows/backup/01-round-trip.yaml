@@ -58,16 +58,20 @@ tags:
       id: backup_create_button
     timeout: 8000
 
-# 3. Create a backup. The dialog is system-owned so no testTag on its confirm.
+# 3. Create a backup.
 #
-# The result dialog is asserted structurally (`result_dialog`) rather than by
-# its copy. The ViewModel emits "Backup created", and the message is translated
-# on this device, so a text match either rots or silently never passes.
+# The result is a snackbar, not a dialog — the ViewModel emits
+# `BackupUiEvent.ShowSnackbar("Backup created")`. The flow used to wait for a
+# `result_dialog` that the screen has never shown, so it could not pass; and
+# it used to wait for the message text, which is the translator's and reads
+# "Резервная копия создана" on this device. The snackbar's message is
+# addressed by its tag, which says "a snackbar was shown" without saying what
+# it said.
 - tapOn:
     id: backup_create_button
 - extendedWaitUntil:
     visible:
-      id: result_dialog
+      id: snackbar_message
     timeout: 8000
 
 # 4. Clear app data (wiping all tasks), then relaunch.
@@ -123,10 +127,14 @@ tags:
     timeout: 8000
 - tapOn:
     id: backup_restore_button
+# The restore reports itself in a snackbar too. The text the flow used to wait
+# for ("Restore completed") is not the text the app emits ("Restore complete"),
+# and it is translated on this device besides — so the tag is what the flow
+# waits for.
 - extendedWaitUntil:
     visible:
-      text: "Restore completed"
-    timeout: 30000
+      id: snackbar_message
+    timeout: 8000
 
 # 7. Task is back.
 - tapOn:
