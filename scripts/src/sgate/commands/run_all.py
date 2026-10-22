@@ -329,6 +329,30 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         )
 
 
+def _failure_line(result: GateResult) -> str:
+    """The one line of a failing gate's output that names the failure.
+
+    A gate that failed says why in one of three places: its own error (the
+    verdict contradicts its exit code), a line that matches `FAILURE_LINE`, or
+    the tail of its output. The first is the most precise, the second is what
+    almost every gate uses, and the third is the fallback for a gate that
+    failed without saying so — in which case the exit code is the only thing
+    there is, and the line says that rather than inventing a reason.
+    """
+    if result.error:
+        return result.error
+    for text in (result.stdout, result.stderr):
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped and FAILURE_LINE.search(stripped):
+                return stripped
+    if result.exit_code == 127:
+        return "the command was not found (exit 127)"
+    if result.exit_code == 124:
+        return "the gate timed out (exit 124)"
+    return f"the gate exited {result.exit_code} without saying why"
+
+
 def _write_gate_run(results: list[GateResult]) -> None:
     """Record how long each gate took.
 
@@ -354,10 +378,12 @@ def _write_gate_run(results: list[GateResult]) -> None:
 
 @click.command("run-all")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
+@click.option("--summary", "summary_only", is_flag=True,
+              help="Print one line per failing gate instead of the full report")
 @click.option("--concurrency", "-j", default=8, show_default=True, help="Number of parallel workers")
 @click.option("--gate", "gate_filters", multiple=True,
               help="Run only gates whose name contains any of these substrings")
-def run_all(emit_json: bool, concurrency: int,
+def run_all(emit_json: bool, summary_only: bool, concurrency: int,
             gate_filters: tuple[str, ...]) -> None:
     """Run all gates from static-gates.sh registry in parallel.
 
@@ -474,6 +500,38 @@ def run_all(emit_json: bool, concurrency: int,
     # Human-readable
     from rich.panel import Panel
     from rich.table import Table
+
+    if summary_only:
+        # One line per failing gate, and nothing else.
+        #
+        # The full report prints a table of every gate and a panel of every failing
+        # gate's output — which is right for a human reading a terminal and wrong
+        # for an agent that has to decide what to do next: the table is forty rows
+        # of "pass", and the panels repeat what the gate already said. What a
+        # reader needs from a failing run is the list of failures and, for each,
+        # the line that names it.
+        for r in results:
+            if r.passed:
+                continue
+            reason = _failure_line(r)
+            click.echo(f"FAIL  {r.name}: {reason}")
+        advisory_failed = [r for r in advisory if not r.passed]
+        if advisory_failed:
+            # An advisory failure does not fail the build, so it does not belong
+            # in the exit code — but it is a failure, and a summary that printed
+            # "FAIL <name>" and then "OK" would read as a contradiction.
+            click.echo(
+                f"WARN  {len(advisory_failed)} advisory gate(s) failed (they do not block): "
+                f"{', '.join(r.name for r in advisory_failed)}"
+            )
+        if overall_ok:
+            click.echo(f"OK    {len(blocking)} blocking gate(s) passed")
+        else:
+            click.echo(
+                f"FAIL  {len(blocking_failed)}/{len(blocking)} blocking gate(s) failed: "
+                f"{', '.join(r.name for r in blocking_failed)}"
+            )
+        raise SystemExit(0 if overall_ok else 1)
 
     if overall_ok:
         summary = f"[green]✓ All {len(blocking)} blocking gates passed[/green]"

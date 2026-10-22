@@ -1,0 +1,277 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
+package com.singularity.todo.feature.proposals
+
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProjectField
+import com.singularity.todo.feature.proposals.domain.model.ProposedNote
+import com.singularity.todo.feature.proposals.domain.model.ProposedProject
+import com.singularity.todo.feature.proposals.domain.model.ProposedTask
+import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProposalRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
+import com.singularity.todo.test.fakes.TestUsers
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+/**
+ * The creations and the field changes the write path gained.
+ *
+ * ## What is new here
+ *
+ * A creation is a change like any other: it is proposed, the user decides, and
+ * the thing comes into being with the id the proposal named. A project can be
+ * changed, because the vocabulary grew a shape for it. A task's tags can be
+ * *set*, not only added to and taken from.
+ *
+ * ## The properties that matter
+ *
+ * - The thing that comes into being is the thing the proposal talked about: the
+ *   id in the proposal is the id in the database.
+ * - A creation that cannot be parsed does not half-apply: the item stays pending
+ *   and the reason is in the result.
+ * - "Set the tags" replaces the set. It does not add to it.
+ */
+@Tag("fast")
+class CreationProposalTest {
+
+    private val clock = FakeClock()
+    private val user = TestUsers.DEFAULT
+
+    private val proposals = FakeProposalRepository(clock)
+    private val tasks = FakeTaskRepository()
+    private val tags = FakeTagsRepository()
+    private val checklist = FakeChecklistRepository()
+    private val timeTracking = FakeTimeTrackingRepository(clock)
+    private val notes = FakeNotesRepository()
+    private val projectsFake = FakeProjectsRepository(FakeProfileAwareCurrentUser(user))
+    private val projects: ProjectsRepository = projectsFake
+    private val deleteProject = DeleteProjectUseCase(projects, tasks)
+
+    private val useCase = ApplyProposalItemUseCase(
+        proposals = proposals,
+        tasks = tasks,
+        notes = notes,
+        projects = projects,
+        tags = tags,
+        planner = ProposalPlanner(clock),
+        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
+    )
+
+    // ── The creations ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `a confirmed creation brings the task into being with the id the proposal named`() = runTest {
+        val futureId = TaskId.generate()
+        val itemId = seedProposal(
+            kind = ProposalItemKind.CreateTask(
+                ProposedTask(title = "Buy groceries", priority = "High", dueDate = "2026-09-15"),
+            ),
+            target = futureId.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        val created = tasks.tasks.value[futureId.value]
+        assertNotNull(created, "the task exists")
+        assertEquals("Buy groceries", created.title)
+        assertEquals(futureId, created.id)
+        assertEquals(user, created.userId)
+    }
+
+    @Test
+    fun `a confirmed creation brings the project into being`() = runTest {
+        val futureId = ProjectId.generate()
+        val itemId = seedProposal(
+            kind = ProposalItemKind.CreateProject(ProposedProject(name = "Kitchen", color = 0xFF112233.toInt())),
+            target = futureId.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        val created = projects.get(futureId)
+        assertNotNull(created, "the project exists")
+        assertEquals("Kitchen", created.name)
+    }
+
+    @Test
+    fun `a confirmed creation brings the note into being`() = runTest {
+        val futureId = NoteId.generate()
+        val itemId = seedProposal(
+            kind = ProposalItemKind.CreateNote(ProposedNote(title = "Agenda", bodyHtml = "<p>Agenda</p>")),
+            target = futureId.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        val created = notes.get(futureId)
+        assertNotNull(created, "the note exists")
+        assertEquals("Agenda", created.title)
+    }
+
+    @Test
+    fun `a creation whose date cannot be read does not create anything`() = runTest {
+        val futureId = TaskId.generate()
+        val itemId = seedProposal(
+            kind = ProposalItemKind.CreateTask(ProposedTask(title = "Broken", dueDate = "the fifteenth")),
+            target = futureId.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isFailure, "the confirmation failed")
+        assertTrue(
+            tasks.tasks.value[futureId.value] == null,
+            "nothing was created",
+        )
+    }
+
+    @Test
+    fun `a creation with a priority the model spelled in lower case applies`() = runTest {
+        val futureId = TaskId.generate()
+        val itemId = seedProposal(
+            kind = ProposalItemKind.CreateTask(ProposedTask(title = "Urgent thing", priority = "high")),
+            target = futureId.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        assertEquals(TaskPriority.High, tasks.tasks.value[futureId.value]?.priority)
+    }
+
+    // ── The field changes ──────────────────────────────────────────────────────
+
+    @Test
+    fun `a confirmed project field change rewrites the project`() = runTest {
+        val project = Project(
+            id = ProjectId.generate(),
+            name = "Old name",
+            color = 0,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = user,
+        )
+        projectsFake.seed(project)
+
+        val itemId = seedProposal(
+            kind = ProposalItemKind.SetProjectField(ProjectField.Name, "New name"),
+            target = project.id.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        assertEquals("New name", projects.get(project.id)?.name)
+    }
+
+    @Test
+    fun `a confirmed tag set replaces the tags rather than adding to them`() = runTest {
+        val task = Task(
+            id = TaskId.generate(),
+            title = "Tagged",
+            tags = listOf(TagId("old")),
+            userId = user,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+        )
+        tasks.seed(task)
+
+        val itemId = seedProposal(
+            kind = ProposalItemKind.SetTaskTags(listOf("new")),
+            target = task.id.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        val tagsAfter = tasks.tasks.value[task.id.value]?.tags.orEmpty().map { it.value }
+        assertEquals(listOf("new"), tagsAfter)
+    }
+
+    @Test
+    fun `a confirmed due time change rewrites the task`() = runTest {
+        val task = Task(
+            id = TaskId.generate(),
+            title = "Timed",
+            userId = user,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+        )
+        tasks.seed(task)
+
+        val itemId = seedProposal(
+            kind = ProposalItemKind.SetTaskField(TaskField.DueTime, "14:30"),
+            target = task.id.value,
+        )
+
+        val result = useCase.confirm(itemId, user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        assertEquals(14, tasks.tasks.value[task.id.value]?.dueTime?.hour)
+        assertEquals(30, tasks.tasks.value[task.id.value]?.dueTime?.minute)
+    }
+
+    // ── Fixtures ──────────────────────────────────────────────────────────────
+
+    /** Seeds a one-item proposal for [kind] and returns the item id. */
+    private suspend fun seedProposal(kind: ProposalItemKind, target: String): ProposalItemId {
+        val proposalId = ProposalId.generate()
+        val item = ProposalItem(
+            id = ProposalItemId.generate(),
+            proposalId = proposalId,
+            kind = kind,
+            targetId = target,
+            humanSummary = "summary",
+            status = ProposalItemStatus.Pending,
+            fingerprint = ProposalFingerprint.of(kind, target),
+        )
+        proposals.save(
+            AiProposal(
+                id = proposalId,
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = target,
+                userId = user,
+                source = ProposalSource.Agent,
+                status = ProposalStatus.Pending,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                items = listOf(item),
+            ),
+        )
+        return item.id
+    }
+}

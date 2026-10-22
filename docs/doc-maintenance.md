@@ -242,6 +242,7 @@ reading that ADR first.
 |---|---|---|
 | `AGENTS.md` | Agent cheatsheet (auto-loaded) | All contributors |
 | `ARCHITECTURE.md` | Full design doc | All contributors |
+| `CODING_STANDARDS.md` | Judgement rules a reviewing agent applies (read at review, not at implementation) | All contributors |
 | `README.md` | Project intro + quickstart | All contributors |
 | `docs/architecture/*.md` | How each subsystem works *now* | Whoever changes it |
 | `docs/decisions/DIGEST.md` | Auto-generated orientation layer | `refresh-decisions-digest.sh` |

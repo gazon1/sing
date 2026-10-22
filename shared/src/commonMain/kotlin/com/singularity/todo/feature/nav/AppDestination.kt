@@ -92,8 +92,8 @@ sealed interface AppDestination : AppNavKey {
      * nothing is applied until it is made.
      */
     @Serializable
-    data object Review : AppDestination {
-        override val title = "Review"
+    data object Proposals : AppDestination {
+        override val title = "Proposals"
     }
 
     @Serializable
@@ -352,7 +352,7 @@ val AppDestination.icon: ImageVector
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
         is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
         AppDestination.Search -> Icons.Filled.Search
-        AppDestination.Review -> Icons.Filled.FactCheck
+        AppDestination.Proposals -> Icons.Filled.FactCheck
         AppDestination.Archive -> Icons.Filled.Check
         AppDestination.Settings -> Icons.Filled.Settings
         AppDestination.AiUsage -> Icons.Filled.BarChart
@@ -407,7 +407,7 @@ object DestinationKind {
         AppDestination.Statistics,
         AppDestination.Notes,
         AppDestination.AiChat,
-        AppDestination.Review,
+        AppDestination.Proposals,
         AppDestination.Search,
         AppDestination.Archive,
         AppDestination.ProfileSwitcher,

@@ -25,6 +25,7 @@ sche... | — | — |
 | git hooks path is per-worktree | advisory | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
 | unwired surfaces | blocking | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
+| a write tool proposes before it writes | blocking | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
 | selectable text coverage | blocking | Find text surfaces that are neither selectable nor classified. | — | — |
 | issue registry covers every change | blocking | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
 | the tag catalogue matches the tags | blocking | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |

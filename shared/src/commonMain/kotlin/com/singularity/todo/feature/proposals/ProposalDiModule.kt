@@ -6,7 +6,8 @@ import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
-import com.singularity.todo.feature.proposals.presentation.ReviewViewModel
+import com.singularity.todo.feature.proposals.presentation.ProposalsViewModel
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -48,6 +49,7 @@ fun proposalModule(): Module = module {
             checklist = get<ChecklistRepository>(),
             timeTracking = get<TimeTrackingRepository>(),
             notes = get<NotesRepository>(),
+            projects = get<ProjectsRepository>(),
             deleteProject = get<DeleteProjectUseCase>(),
             clock = get<Clock>(),
         )
@@ -58,18 +60,19 @@ fun proposalModule(): Module = module {
             proposals = get(),
             tasks = get(),
             notes = get(),
+            projects = get(),
             tags = get(),
             planner = get(),
             dispatch = get(),
         )
     }
 
-    // The review screen: the proposals waiting for a decision. An explicit lambda
+    // The proposals screen: the proposals waiting for a decision. An explicit lambda
     // rather than `viewModelOf`, because the ViewModel has defaults for the crash
     // reporter and the scope, and Koin's reflective resolution does not apply Kotlin
     // default arguments.
     viewModel {
-        ReviewViewModel(
+        ProposalsViewModel(
             proposals = get(),
             applyProposalItem = get(),
             currentUser = get(),

@@ -11,6 +11,10 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.ProjectField
+import com.singularity.todo.feature.proposals.domain.model.ProposedNote
+import com.singularity.todo.feature.proposals.domain.model.ProposedProject
+import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskField
 import com.singularity.todo.feature.proposals.domain.model.stringOrNull
@@ -82,64 +86,116 @@ internal fun ProposalItemEntity.toDomainOrNull(): ProposalItem? {
  */
 internal fun decodeKind(raw: String): ProposalItemKind? = runCatching {
     val obj = payloadJson.parseToJsonElement(raw) as JsonObject
-    when (obj.stringOrNull("type")) {
-        "SetTaskField" -> ProposalItemKind.SetTaskField(
-            field = TaskField.valueOf(obj.requireString("field")),
-            value = obj.stringOrNull("value").orEmpty(),
-        )
-
-        "AddTags" -> ProposalItemKind.AddTags(obj.list("names"))
-
-        "RemoveTags" -> ProposalItemKind.RemoveTags(obj.list("tagIds"))
-
-        "AddChecklistItems" -> ProposalItemKind.AddChecklistItems(obj.list("texts"))
-
-        "AddSubtasks" -> ProposalItemKind.AddSubtasks(obj.list("titles"))
-
-        "AddTimeEntries" -> ProposalItemKind.AddTimeEntries(
-            obj.stringOrNull("entries")
-                .orEmpty()
-                .split(ProposalPayloadSep.RECORD)
-                .filter { it.isNotEmpty() }
-                .mapNotNull { record ->
-                    val parts = record.split(ProposalPayloadSep.FIELD)
-                    if (parts.size < 2) return@mapNotNull null
-                    val start = parts[0].toLongOrNull() ?: return@mapNotNull null
-                    val end = parts[1].toLongOrNull() ?: return@mapNotNull null
-                    ProposedTimeEntry(
-                        startedAt = start,
-                        endedAt = end,
-                        note = parts.getOrNull(2)?.takeIf { it.isNotEmpty() },
-                    )
-                },
-        )
-
-        "SetNoteField" -> ProposalItemKind.SetNoteField(
-            field = NoteField.valueOf(obj.requireString("field")),
-            value = obj.stringOrNull("value").orEmpty(),
-        )
-
-        "DeleteNote" -> ProposalItemKind.DeleteNote(
-            reason = obj.stringOrNull("reason"),
-        )
-
-        "ExtractActions" -> ProposalItemKind.ExtractActions(obj.list("actions"))
-
-        "DeleteTask" -> ProposalItemKind.DeleteTask(
-            reason = obj.stringOrNull("reason"),
-        )
-
-        "DeleteProject" -> ProposalItemKind.DeleteProject(
-            reason = obj.stringOrNull("reason"),
-        )
-
-        "DeleteTag" -> ProposalItemKind.DeleteTag(
-            reason = obj.stringOrNull("reason"),
-        )
-
-        else -> return null
-    }
+    decodeTaskKind(obj) ?: decodeEntityKind(obj) ?: decodeCreationKind(obj) ?: decodeDeletionKind(obj)
 }.getOrNull()
+
+/**
+ * The kinds a task carries: its fields, its tags, its checklist, its subtasks, its time.
+ *
+ * Split by group rather than one long `when`: a single `when` over the whole
+ * vocabulary is a function nobody can read, and the compiler stops pointing at
+ * the place a new kind has to be taught.
+ */
+private fun decodeTaskKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
+    "SetTaskField" -> ProposalItemKind.SetTaskField(
+        field = TaskField.valueOf(obj.requireString("field")),
+        value = obj.stringOrNull("value").orEmpty(),
+    )
+
+    "SetTaskTags" -> ProposalItemKind.SetTaskTags(obj.list("tagIds"))
+
+    "AddTags" -> ProposalItemKind.AddTags(obj.list("names"))
+
+    "RemoveTags" -> ProposalItemKind.RemoveTags(obj.list("tagIds"))
+
+    "AddChecklistItems" -> ProposalItemKind.AddChecklistItems(obj.list("texts"))
+
+    "AddSubtasks" -> ProposalItemKind.AddSubtasks(obj.list("titles"))
+
+    "AddTimeEntries" -> ProposalItemKind.AddTimeEntries(decodeTimeEntries(obj))
+
+    else -> null
+}
+
+/** The kinds a note or a project carries. */
+private fun decodeEntityKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
+    "SetNoteField" -> ProposalItemKind.SetNoteField(
+        field = NoteField.valueOf(obj.requireString("field")),
+        value = obj.stringOrNull("value").orEmpty(),
+    )
+
+    "SetProjectField" -> ProposalItemKind.SetProjectField(
+        field = ProjectField.valueOf(obj.requireString("field")),
+        value = obj.stringOrNull("value").orEmpty(),
+    )
+
+    else -> null
+}
+
+/** The kinds that bring something into being. */
+private fun decodeCreationKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
+    "CreateTask" -> ProposalItemKind.CreateTask(decodeProposedTask(obj))
+    "CreateProject" -> ProposalItemKind.CreateProject(decodeProposedProject(obj))
+    "CreateNote" -> ProposalItemKind.CreateNote(decodeProposedNote(obj))
+    "ExtractActions" -> ProposalItemKind.ExtractActions(obj.list("actions"))
+    else -> null
+}
+
+/** The kinds that take something away. */
+private fun decodeDeletionKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
+    "DeleteNote" -> ProposalItemKind.DeleteNote(reason = obj.stringOrNull("reason"))
+    "DeleteTask" -> ProposalItemKind.DeleteTask(reason = obj.stringOrNull("reason"))
+    "DeleteProject" -> ProposalItemKind.DeleteProject(reason = obj.stringOrNull("reason"))
+    "DeleteTag" -> ProposalItemKind.DeleteTag(reason = obj.stringOrNull("reason"))
+    else -> null
+}
+
+/** The packed time entries of an `AddTimeEntries` item. */
+private fun decodeTimeEntries(obj: JsonObject): List<ProposedTimeEntry> = obj.stringOrNull("entries")
+    .orEmpty()
+    .split(ProposalPayloadSep.RECORD)
+    .filter { it.isNotEmpty() }
+    .mapNotNull { record ->
+        val parts = record.split(ProposalPayloadSep.FIELD)
+        if (parts.size < 2) return@mapNotNull null
+        val start = parts[0].toLongOrNull() ?: return@mapNotNull null
+        val end = parts[1].toLongOrNull() ?: return@mapNotNull null
+        ProposedTimeEntry(
+            startedAt = start,
+            endedAt = end,
+            note = parts.getOrNull(2)?.takeIf { it.isNotEmpty() },
+        )
+    }
+
+/** The task a `CreateTask` item brings into being. */
+private fun decodeProposedTask(obj: JsonObject): ProposedTask = ProposedTask(
+    title = obj.stringOrNull("title").orEmpty(),
+    description = obj.stringOrNull("description"),
+    priority = obj.stringOrNull("priority") ?: "None",
+    kind = obj.stringOrNull("kind") ?: "Task",
+    projectId = obj.stringOrNull("projectId"),
+    parentTaskId = obj.stringOrNull("parentTaskId"),
+    tagIds = obj.list("tagIds"),
+    dueDate = obj.stringOrNull("dueDate"),
+    dueTime = obj.stringOrNull("dueTime"),
+    someday = obj.stringOrNull("someday") == "true",
+)
+
+/** The project a `CreateProject` item brings into being. */
+private fun decodeProposedProject(obj: JsonObject): ProposedProject = ProposedProject(
+    name = obj.stringOrNull("name").orEmpty(),
+    description = obj.stringOrNull("description"),
+    color = obj.stringOrNull("color")?.toIntOrNull() ?: 0xFF2196F3.toInt(),
+    icon = obj.stringOrNull("icon"),
+)
+
+/** The note a `CreateNote` item brings into being. */
+private fun decodeProposedNote(obj: JsonObject): ProposedNote = ProposedNote(
+    title = obj.stringOrNull("title").orEmpty(),
+    bodyHtml = obj.stringOrNull("bodyHtml"),
+    isFolder = obj.stringOrNull("isFolder") == "true",
+    parentNoteId = obj.stringOrNull("parentNoteId"),
+)
 
 /** Serializes a kind for storage. */
 internal fun ProposalItemKind.toJsonString(): String = toJsonObject().toString()

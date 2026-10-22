@@ -244,6 +244,26 @@ PLACEMENTS: dict[str, Placement] = {
         kind=PlacementKind.STATIC,
         command='sgate settings_read_by_a_feature',
     ),
+    "a write tool proposes before it writes": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-ai-write-tools.py',
+        note="""# The write path is half a write path.
+#
+# A proposal is a change nobody has agreed to yet: the user reads it and decides.
+# Four delete tools and `write_task_proposal` work that way. Eight tools —
+# `create_task`, `update_task`, `create_project`, `update_project`, `create_note`,
+# `update_note`, `create_tag`, `decompose_and_create` — write to the user's data
+# immediately. The model can create a task without the user ever seeing a
+# proposal for it: the same act, two treatments, decided by which tool the model
+# happened to pick.
+#
+# This gate measures the state rather than deciding it. Every direct writer is
+# listed in `config/docs/ai-direct-writes.txt` with the reason it writes
+# directly, so each exception is a decision somebody wrote down instead of an
+# accident. A new direct writer fails the gate until it either proposes or
+# someone says why it may not. A listed tool that no longer writes fails it too:
+# a stale entry hides the fact that the work was done.""",
+    ),
     "selectable text coverage": Placement(
         kind=PlacementKind.STATIC,
         command='sgate selectable_text_coverage',

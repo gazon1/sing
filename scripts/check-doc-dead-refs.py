@@ -73,6 +73,10 @@ TOP_LEVEL_FILES = [
     "skills-lock.json", "SKILL-MECHANICS.md", "CLAUDE.md", "LICENSE",
     "gradlew", "gradlew.bat", "package.json",
     "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
+    # The judgement rules a reviewing agent applies. A root-level document like
+    # this one is cited from AGENTS.md, and an uncited-from-the-index file is
+    # exactly the case the allowlist above exists for.
+    "CODING_STANDARDS.md",
 ]
 
 # Per-module build files live beside their module's source, not in an indexed dir.

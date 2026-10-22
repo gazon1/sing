@@ -62,8 +62,6 @@ import re
 import sys
 
 import click
-from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run
-from sgate.repo import STATIC_GATES_SH
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -73,9 +71,20 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: against this repository before anything is read from it. A gate that compared
 #: this checkout's shell registry with another checkout's Python registry would
 #: report drift that does not exist, and hide drift that does.
+#:
+#: This block comes *before* the `sgate` imports on purpose. Python resolves an
+#: import once, at the first line that asks for it, so a path fix that comes
+#: after `from sgate... import` fixes nothing: the package is already bound to
+#: the sibling worktree's copy, and the gate reads the wrong registry while
+#: believing it read the right one. (Measured 2026-10-22: the gate compared
+#: this checkout's shell registry with `gulper`'s Python registry, and reported
+#: drift that did not exist.)
 _SRC = ROOT / "scripts" / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
+
+from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
+from sgate.repo import STATIC_GATES_SH  # noqa: E402
 
 #: The registry, resolved once per run so `sgate <name>` can be traced to a script.
 _REGISTRY_BY_NAME: dict[str, object] = {}

@@ -1,7 +1,8 @@
 ---
 title: "The review is a place you can go"
 date: 2026-10-22
-status: accepted
+status: superseded
+superseded-by: 2026-10-22-the-screen-is-called-proposals
 tags: [ai, proposals, ui, navigation]
 ---
 

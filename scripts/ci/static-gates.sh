@@ -67,7 +67,14 @@ gate() {
   # `set +e` inside ensures the command's rc is captured, not propagated.
   (
     set +e
-    "$@" >"$out_file" 2>&1
+    # The gate scripts import `sgate`, and `sgate` is installed as an editable
+    # package — which, on a host with several worktrees, is whichever checkout
+    # was installed last. A gate that read another checkout's registry would
+    # compare this repository's shell registry with a foreign Python registry
+    # and report drift that does not exist. The local `scripts/src` goes first
+    # on the path, so every gate below reads *this* checkout's code.
+    PYTHONPATH="${PWD}/scripts/src${PYTHONPATH:+:${PYTHONPATH}}" \
+      "$@" >"$out_file" 2>&1
     local rc=$?
     echo "$rc" >"$rc_file"
   ) &
@@ -285,6 +292,23 @@ gate blocking "profile reset inventory is true" python3 scripts/ci/check-profile
 gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree
 gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature
+# The write path is half a write path.
+#
+# A proposal is a change nobody has agreed to yet: the user reads it and decides.
+# Four delete tools and `write_task_proposal` work that way. Eight tools —
+# `create_task`, `update_task`, `create_project`, `update_project`, `create_note`,
+# `update_note`, `create_tag`, `decompose_and_create` — write to the user's data
+# immediately. The model can create a task without the user ever seeing a
+# proposal for it: the same act, two treatments, decided by which tool the model
+# happened to pick.
+#
+# This gate measures the state rather than deciding it. Every direct writer is
+# listed in `config/docs/ai-direct-writes.txt` with the reason it writes
+# directly, so each exception is a decision somebody wrote down instead of an
+# accident. A new direct writer fails the gate until it either proposes or
+# someone says why it may not. A listed tool that no longer writes fails it too:
+# a stale entry hides the fact that the work was done.
+gate blocking "a write tool proposes before it writes" python3 scripts/check-ai-write-tools.py
 # The prose a person cannot copy.
 #
 # The inventory table in the selectable-text skill says which surfaces render

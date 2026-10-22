@@ -1,0 +1,174 @@
+# Coding standards
+
+The rules a **reviewing** agent applies when it reads a diff. They are the rules
+that no gate checks, because a gate can only check what has a shape.
+
+Everything here has a machine-checked counterpart somewhere, and the counterpart
+is named. A rule whose check does not exist yet is a rule the review must carry
+alone — those are the ones worth reading twice.
+
+Read `AGENTS.md` first: it is the operating manual, and this file does not
+repeat it.
+
+---
+
+## The review reads the change, not the diff
+
+A diff shows what changed. A review has to answer what the change *does* — and
+those are different questions. The three cases that cost a reviewer the most:
+
+1. **A change that adds a surface and wires nothing to it.** The code compiles,
+   the tests pass, and nobody can reach it. The repository has a gate for this
+   (`scripts/find-unwired-surfaces.py`), but the gate only knows about the
+   surfaces it knows about.
+2. **A change that removes a caller and leaves the callee.** The dead code is
+   still exercised by its own test, so the suite stays green and the behaviour
+   nobody uses stays alive.
+3. **A change that makes a message say less.** The feature works; the sentence
+   that tells the user what happened got shorter, and now it says nothing that
+   can be acted on.
+
+Ask, for every added public entry point: **who calls it?** If the answer is
+"nobody yet", that is either a follow-up the diff names or a surface that ships
+dead.
+
+---
+
+## Write tools propose; they do not write
+
+A tool the assistant can call writes to a user's data. The write path in this
+repository is a **proposal**: the change is held, the user reads it, the user
+decides. That is the whole point of the proposal model, and it is checked by
+`scripts/check-ai-write-tools.py`.
+
+A reviewing agent holds this line even where the gate cannot:
+
+- **A tool that writes directly needs a written reason.** The registry is
+  `config/docs/ai-direct-writes.txt`; an entry there says *why* this tool may
+  not propose yet. A new direct writer without an entry is a finding, and the
+  fix is either to convert the tool or to write the reason down.
+- **The registry must shrink.** A tool that was converted has its entry
+  deleted. A registry that only grows is a work queue nobody is working
+  through.
+- **The assistant's words must match what happened.** A tool that proposed a
+  change says the change was *proposed*. It does not say the task was changed,
+  and it does not say it was saved. The user has not agreed to anything yet.
+
+---
+
+## A gate that cannot fail is a gate that reports success forever
+
+Every gate in this repository has a **positive control**: a mutation that makes
+it fail, checked by `scripts/check-gate-wiring.py`. A gate nobody has tried to
+break is a gate nobody knows can fail.
+
+A reviewing agent applies the same standard to the diff it is reading:
+
+- **A new gate needs a control.** A gate whose input is a committed file gets a
+  sabotage of that file; a gate whose input is synthesised gets a fixture. If
+  the diff adds a gate and no control, the gate is a green light wired to
+  nothing.
+- **A gate must be able to say no.** A gate that reports success on an empty
+  input, or that swallows its own findings, is worse than no gate: it converts
+  "not checked" into "checked and green".
+- **A registry is checked, not written.** When a diff adds a list — a table, a
+  catalogue, a set of names — ask what checks it against the code. A list that
+  nothing checks is a sentence that reads like a fact.
+
+---
+
+## The message says what happened
+
+The repository's naming convention (`2026-10-20-green-means-one-thing.md`) is
+one sentence: **green means one thing**. In practice:
+
+- A message that names the cause beats a message that names the category.
+  "There is no task with id `t-42`" beats "Task not found".
+- A refusal says which part of the request was wrong and what the valid
+  alternatives are. "That operation is not one of these: `set_due_date`,
+  `set_priority`" is actionable; "invalid operation" is not.
+- A failure is reported where it happened, not flattened into a generic error
+  at the edge.
+
+A reviewer checks the messages of the diff, not only the code paths — the
+message is the part a user reads.
+
+---
+
+## Text a person may want to copy is selectable
+
+The convention table in
+`.agents/skills/singularity-todo-selectable-text/SKILL.md` says, per file,
+whether its text is `selectable`, `excluded`, or `prose`, and it is checked by
+`scripts/check-selectable-text-coverage.py`.
+
+For a diff that adds a screen or a card:
+
+- **Text that states a fact, a title, or a message is `selectable`.** A person
+  reading "Nothing to review" may want to paste it into a bug report.
+- **A control's label is `excluded`** — a button's text is a gesture, not a
+  message.
+- **A shared component that renders selectable text makes its callers
+  selectable too.** A screen that renders the shared empty state is
+  `excluded` *for that text*, and the screen's own text decides the rest.
+
+When a file changes its text, its row in that table changes with it. The table
+is a claim about the code, and the gate compares the two.
+
+---
+
+## One implementation per question
+
+Two answers to the same question drift. The repository has a decision for most
+of them: one card for a proposal, one search implementation, one event bus
+consumer, one registry per subject.
+
+A reviewing agent watches for the version that is not a gate:
+
+- A second card that renders a proposal, when one already renders it — the
+  second copy will not get the fix.
+- A second place that decides the same thing, where the two can disagree.
+- A private copy of a shared component, because the shared one does not quite
+  fit yet. The fit is a change to the shared one; the copy is a change to the
+  truth.
+
+---
+
+## The conventions that a change must not break
+
+These are checked; a reviewer verifies the check was run rather than
+re-deriving them.
+
+| Rule | Checked by |
+|---|---|
+| Fakes, not mocks; mocks only for outgoing calls | `AGENTS.md`, review |
+| Every test class carries `@Tag` (`fast`, or `slow` when it crosses a process boundary) | `TestTagCoverageTest` |
+| No `delay()` in tests — virtual time and `awaitState` | `AGENTS.md`, review |
+| ViewModels take an injected `AutoCloseableCoroutineScope`; never `viewModelScope` | detekt + review |
+| No pass-through use cases | `PassThroughUseCase` detekt rule |
+| No `stateIn` in a ViewModel | `AGENTS.md`, review |
+| No `runBlocking` in production code | detekt + review |
+| `catch (CancellationException)` before a general `catch` | detekt |
+| A swallowed exception keeps its cause | detekt `SwallowedException` |
+| Room schema changes bump `SCHEMA_VERSION` and add a migration | `scripts/check-room-schema-integrity.py` |
+| New ports bind in both `PlatformModule.*.kt` | `scripts/check-platform-reference-ports.py` |
+
+---
+
+## What the reviewer reports
+
+A finding is a **defect with a place and a consequence**, not a preference.
+Three parts:
+
+1. **Where.** `file:line`, and the symbol.
+2. **What is wrong.** The consequence — what a user or a caller gets that
+   they should not get.
+3. **What would make it right.** The fix, or the question that has to be
+   answered first.
+
+A finding that cannot be acted on is not a finding. "Consider extracting this"
+is a preference; "this function is called from two places that disagree about
+the unit, so the second caller multiplies by 1000" is a finding.
+
+And the reviewer says when the diff is fine. A review that produces findings to
+prove it looked is as useless as a gate that never fails.

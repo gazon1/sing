@@ -126,6 +126,11 @@ that other checkout. Give each checkout its own venv:
 uv itself is not on PATH. The venv location can be overridden with
 SINGULARITY_TOOLS_VENV.)
 
+If the gate CLI is the one that was reported missing, run the installer *in this
+checkout*: the package is installed editable, so the venv points at whichever
+checkout installed it last, and the gate suite then runs that checkout's
+registry instead of this one's — a different set of gates, reported green.
+
 The same tools are installed in CI by .github/actions/setup-python-tools, so a run
 that passes here and fails there is a version difference, not a missing install.
 MSG

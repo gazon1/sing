@@ -24,36 +24,44 @@ known-mechanical migrations). Use `git commit` messages for that.
 ## Tool surface (the 30 tools, grouped)
 
 Task lifecycle:
-- `create_task(title, …)` — primary write. Optional: `description, priority,
-  projectId, parentTaskId, tagIds, dueDate, dueTime, someday`.
+- `create_task(title, …)` — **proposes** a task; the user confirms it. Optional:
+  `description, priority, projectId, parentTaskId, tagIds, dueDate, dueTime,
+  someday`. The answer carries `proposalCreated` and `proposalId`, not a
+  `taskId` — nothing exists until the user says yes.
 - `list_tasks(userId?, projectId?, limit?)` — read. Note: server writes under
   the `ai-agent` profile's user (`4a1f6802-…`); list with that userId or
   use `list_tasks({projectId: "..."})` to filter.
-- `search_tasks(query, userId?, limit?)` — full-text by title.
+- `search_tasks(query, userId?, limit?)` — the app's own search: free text over
+  titles, descriptions and tag names, plus `tag:`, `project:`, `priority:`,
+  `due:`, `has:description`, `pinned`, and a leading minus that negates a term.
+  The same query language the search screen uses.
 - `get_task(taskId)` — single record (uses field name `taskId`, not `id`).
-- `update_task(taskId, …)` — patch; null keeps field, `""` clears `dueDate`.
+- `update_task(taskId, …)` — **proposes** the change; null keeps field, `""`
+  clears `dueDate`. The answer carries `proposalCreated` and `proposalId`.
 - `delete_task(taskId, reason?)` — creates a **proposal** to archive the task; the
   user confirms it. It does not delete anything on its own.
 
 Projects + tags:
-- `create_project(name, color?, icon?, description?, colorHex?)` — pass
-  `colorHex: "#RRGGBB"` (preferred) OR `color: 4283215696` (ARGB int).
-- `create_tag(name, color?, colorHex?)` — same color contract.
+- `create_project(name, color?, icon?, description?, colorHex?)` — **proposes** a
+  project; the user confirms it. Pass `colorHex: "#RRGGBB"` (preferred) OR
+  `color: 4283215696` (ARGB int).
+- `create_tag(name, color?, colorHex?)` — same color contract. This one still
+  writes directly; a tag is the vocabulary, not the user's work.
 - `list_tasks({projectId: "..."})` ≡ `list_linked_tasks(projectId)` — same query.
 
 Decomposition:
 - `decompose_task(title, description?)` — **plan only**. Returns
   `{"subTasks": ["…"]}`. Does NOT write to DB. Use for read-only planning.
 - `decompose_and_create(title, description?, priority?, projectId?,
-  tagIds?, parentTaskId?)` — **plan + create in one call**. When the LLM
-  is unreachable it returns `planSource: "empty"` with `subTaskIds: []`;
-  fall back to a hand-rolled list and call `create_task` yourself.
-  Today the returned sub-tasks do NOT inherit `parentTaskId` automatically —
-  pass `parentTaskId` to `decompose_and_create` so it lands on each sub-task.
+  tagIds?, parentTaskId?)` — **plan + propose in one call**. The answer carries
+  `proposalCreated`, `proposalId` and `proposedTaskCount`; the user confirms it.
+  When the LLM is unreachable it returns `planSource: "empty"` with nothing
+  proposed; fall back to a hand-rolled list and call `create_task` per item.
+  Pass `parentTaskId` so the proposed sub-tasks land under it.
 
 Notes:
-- `create_note(title?, bodyMarkdown?, isFolder?, parentNoteId?)` — optional
-  everything; default `title = ""` for empty notes.
+- `create_note(title?, bodyMarkdown?, isFolder?, parentNoteId?)` — **proposes** a
+  note; the user confirms it. Optional everything; default `title = ""`.
 
 ADRs (decisions log):
 - `write_adr(slug, title, tags?, body)` — slug is the filename stem
@@ -102,9 +110,10 @@ Describing the toolbox itself:
 
 ```
 1. create_project(name="MCP dogfooding — <topic>")
-   → store projectId
+   → proposes the project; the user confirms it, and the proposal names the
+     id the project will have — store that projectId
 2. create_tag(name="mcp-<topic>", colorHex="#4CAF50")
-   → store tagId
+   → store tagId (this one writes directly)
 3. create_task(
      title="<root task>",
      description="<what + how to verify>",
@@ -112,14 +121,15 @@ Describing the toolbox itself:
      projectId=projectId,
      tagIds=[tagId],
    )
-   → store topTaskId
+   → proposes the task; the user confirms it, and the proposal names the id
+     the task will have — store that topTaskId
 4. decompose_and_create(
      title=<same root title>,
      parentTaskId=topTaskId,
      projectId=projectId,
      tagIds=[tagId],
    )
-   → subTaskIds[]
+   → proposes every sub-task of the decomposition
    If planSource=="empty" (LLM down): hand-roll a sub-task list and call
    create_task(...) per sub-task with the same projectId + tagIds +
    parentTaskId.
@@ -190,7 +200,7 @@ SecureStorage. As a result all `*-tool-uses-promptExecutor` calls return
 `[InternalError]`. Two safe patterns:
 
 1. Use `decompose_and_create` — it catches the failure and returns
-   `planSource: "empty"` + `subTaskIds: []`. Then you provide your own
+   `planSource: "empty"` with nothing proposed. Then you provide your own
    sub-task list and call `create_task` per item.
 2. Read tools directly with `search_tasks`, `list_tasks`, `list_adrs` —
    these are pure DB reads and work without any LLM.
@@ -212,8 +222,13 @@ your own response from inputs already on the DB.
 4. **Dispose tasks after smoke tests** — when verifying, delete test rows
    with `delete_task` so they don't pollute the persistent plan.
 5. **Do not promote a plan to source-of-truth.** The MCP creates real DB
-   rows. Errors propagate: a typo in `projectId` → `Task.projectId`
+   rows — for the tools that write, and for the proposals the user confirms.
+   Errors propagate: a typo in `projectId` → `Task.projectId`
    becomes `null` silently. Validate by `list_tasks` after writes.
+6. **A proposal is not a row.** `create_task`, `update_task`, `create_project`,
+   `create_note` and `decompose_and_create` propose; the user confirms. Say
+   "proposed", not "created" — and do not go looking for a task id the answer
+   did not carry.
 6. **`get_task` uses `taskId` not `id`** — the decompiled signature says
    `callTool(name="get_task", arguments={taskId: "..."})`. The earlier
    iteration of this skill used `id` and got `[InternalError] Field 'taskId'

@@ -5,6 +5,11 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.TaskField
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -14,7 +19,7 @@ import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Tag
@@ -27,10 +32,15 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 /**
- * Unit tests for write tools: CreateTaskTool, UpdateTaskTool, DeleteTaskTool, CreateNoteTool.
- * Tests idempotency, not-found handling, and basic happy paths.
+ * Unit tests for the write tools: the tools that change the user's data.
  *
- * All tools use FakeRepositories so tests run fast without Room/SQLite.
+ * ## What they assert
+ *
+ * The write tools propose. Every test here says so twice: once about the tool's
+ * own answer (a proposal was created, not a task) and once about the user's
+ * data (nothing was written). The second half is the one that matters — a tool
+ * that reports "I proposed it" and then writes anyway has not been moved onto
+ * the proposal path at all.
  */
 @Tag("fast")
 class WriteToolsTest {
@@ -69,116 +79,195 @@ class WriteToolsTest {
         )
     }
 
+    /** The proposals waiting for a decision. */
+    private suspend fun pendingProposals(): List<AiProposal> =
+        fakeProposalRepo.watchProposalsByStatus(ProposalStatus.Pending).first()
+
     // ─── CreateTaskTool ─────────────────────────────────────────────────────────
 
     @Test
-    fun `CreateTaskTool creates a task and returns taskId`() = runTest {
-        val tool = CreateTaskTool(fakeTaskRepo, clock, profileAwareUser)
-        val input = CreateTaskInput(title = "Buy groceries")
-        val outputJson = tool.execute(input)
+    fun `CreateTaskTool proposes a task instead of creating one`() = runTest {
+        val tool = CreateTaskTool(fakeProposalRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(CreateTaskInput(title = "Buy groceries"))
 
         val output = Json.decodeFromString(CreateTaskOutput.serializer(), outputJson)
-        assertNotNull(output.taskId)
+        assertTrue(output.proposalCreated)
+        assertNotNull(output.proposalId)
+        assertNull(output.error)
         assertEquals("Buy groceries", output.title)
+
+        // The user's data is untouched: the task waits for the user.
+        assertTrue(fakeTaskRepo.tasks.value.values.none { it.title == "Buy groceries" })
+
+        val proposal = pendingProposals().single()
+        assertEquals(AiProposal.TARGET_KIND_TASK, proposal.targetKind)
+        val item = proposal.items.single()
+        val kind = item.kind as ProposalItemKind.CreateTask
+        assertEquals("Buy groceries", kind.task.title)
     }
 
     @Test
-    fun `CreateTaskTool persists task in repository`() = runTest {
-        val tool = CreateTaskTool(fakeTaskRepo, clock, profileAwareUser)
-        tool.execute(CreateTaskInput(title = "Write tests"))
-
-        val allTasks = fakeTaskRepo.tasks.value
-        assertTrue(allTasks.values.any { it.title == "Write tests" })
-    }
-
-    @Test
-    fun `CreateTaskTool accepts all optional fields`() = runTest {
-        val tool = CreateTaskTool(fakeTaskRepo, clock, profileAwareUser)
-        val input = CreateTaskInput(
-            title = "Complex Task",
-            description = "A description",
-            priority = "High",
-            kind = "Task",
-            projectId = "proj-1",
-            tagIds = listOf("tag-1", "tag-2"),
-            dueDate = "2026-09-15",
-            dueTime = "14:00",
-            someday = true,
+    fun `CreateTaskTool carries every field into the proposal`() = runTest {
+        val tool = CreateTaskTool(fakeProposalRepo, profileAwareUser, clock)
+        tool.execute(
+            CreateTaskInput(
+                title = "Complex Task",
+                description = "A description",
+                priority = "High",
+                kind = "Task",
+                projectId = "proj-1",
+                tagIds = listOf("tag-1", "tag-2"),
+                dueDate = "2026-09-15",
+                dueTime = "14:00",
+                someday = true,
+            ),
         )
-        val outputJson = tool.execute(input)
-        val output = Json.decodeFromString(CreateTaskOutput.serializer(), outputJson)
 
-        val created = fakeTaskRepo.tasks.value[output.taskId]
-        assertNotNull(created)
-        assertEquals("Complex Task", created.title)
-        assertEquals("A description", created.description)
-        assertEquals(TaskPriority.High, created.priority)
-        assertEquals(TaskKind.Task, created.kind)
-        assertEquals("2026-09-15", created.dueDate.toString())
-        assertEquals(com.singularity.todo.core.database.LocalTimeFormats.parse("14:00:00"), created.dueTime)
-        assertTrue(created.someday)
+        val kind = pendingProposals().single().items.single().kind as ProposalItemKind.CreateTask
+        assertEquals("A description", kind.task.description)
+        assertEquals("High", kind.task.priority)
+        assertEquals("proj-1", kind.task.projectId)
+        assertEquals(listOf("tag-1", "tag-2"), kind.task.tagIds)
+        assertEquals("2026-09-15", kind.task.dueDate)
+        assertEquals("14:00", kind.task.dueTime)
+        assertTrue(kind.task.someday)
+    }
+
+    @Test
+    fun `CreateTaskTool refuses a task without a title`() = runTest {
+        val tool = CreateTaskTool(fakeProposalRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(CreateTaskInput(title = "   "))
+
+        val output = Json.decodeFromString(CreateTaskOutput.serializer(), outputJson)
+        assertFalse(output.proposalCreated)
+        assertNotNull(output.error)
+        assertTrue(pendingProposals().isEmpty())
+    }
+
+    @Test
+    fun `CreateTaskTool carries a priority the model spelled in lower case`() = runTest {
+        val tool = CreateTaskTool(fakeProposalRepo, profileAwareUser, clock)
+        tool.execute(CreateTaskInput(title = "Buy groceries", priority = "high"))
+
+        // The task holds "High". A proposal that carries "high" would fail to
+        // apply, and a proposal the user approved and could not apply is a
+        // proposal that burned the user's attention for nothing.
+        val kind = pendingProposals().single().items.single().kind as ProposalItemKind.CreateTask
+        assertEquals("High", kind.task.priority)
+    }
+
+    @Test
+    fun `CreateTaskTool names a priority that does not exist`() = runTest {
+        val tool = CreateTaskTool(fakeProposalRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(CreateTaskInput(title = "Buy groceries", priority = "VeryHigh"))
+
+        val output = Json.decodeFromString(CreateTaskOutput.serializer(), outputJson)
+        assertFalse(output.proposalCreated)
+        assertNotNull(output.error)
+        assertTrue(pendingProposals().isEmpty())
     }
 
     // ─── UpdateTaskTool ─────────────────────────────────────────────────────────
 
     @Test
-    fun `UpdateTaskTool updates title and priority`() = runTest {
-        val tool = UpdateTaskTool(fakeTaskRepo, clock)
-        val input = UpdateTaskInput(
-            taskId = existingTaskId.value,
-            title = "Renamed Task",
-            priority = "High",
+    fun `UpdateTaskTool proposes the changed fields and writes nothing`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(
+            UpdateTaskInput(
+                taskId = existingTaskId.value,
+                title = "Renamed Task",
+                priority = "High",
+            ),
         )
-        val outputJson = tool.execute(input)
 
         val output = Json.decodeFromString(UpdateTaskOutput.serializer(), outputJson)
+        assertTrue(output.proposalCreated)
         assertEquals(existingTaskId.value, output.taskId)
-        assertTrue(output.updated)
 
-        val updated = fakeTaskRepo.tasks.value[existingTaskId.value]
-        assertNotNull(updated)
-        assertEquals("Renamed Task", updated.title)
-        assertEquals(TaskPriority.High, updated.priority)
-        assertEquals("Seed description", updated.description)
+        // The task is the one the user had, not the one the model asked for.
+        val untouched = fakeTaskRepo.tasks.value[existingTaskId.value]
+        assertNotNull(untouched)
+        assertEquals("Existing Task", untouched.title)
+        assertEquals(TaskPriority.Medium, untouched.priority)
+
+        val kinds = pendingProposals().single().items.map { it.kind }
+        assertEquals(
+            listOf(
+                ProposalItemKind.SetTaskField(TaskField.Title, "Renamed Task"),
+                ProposalItemKind.SetTaskField(TaskField.Priority, "High"),
+            ),
+            kinds,
+        )
     }
 
     @Test
-    fun `UpdateTaskTool returns updated=false for non-existent task`() = runTest {
-        val tool = UpdateTaskTool(fakeTaskRepo, clock)
-        val input = UpdateTaskInput(taskId = "non-existent-id", title = "Should not change")
-        val outputJson = tool.execute(input)
+    fun `UpdateTaskTool proposes nothing when the task already has the values`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(
+            UpdateTaskInput(taskId = existingTaskId.value, title = "Existing Task"),
+        )
+
+        val output = Json.decodeFromString(UpdateTaskOutput.serializer(), outputJson)
+        assertFalse(output.proposalCreated)
+        assertNotNull(output.error)
+        assertTrue(pendingProposals().isEmpty())
+    }
+
+    @Test
+    fun `UpdateTaskTool says so when there is no such task`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(UpdateTaskInput(taskId = "non-existent-id", title = "Should not change"))
 
         val output = Json.decodeFromString(UpdateTaskOutput.serializer(), outputJson)
         assertEquals("non-existent-id", output.taskId)
-        assertFalse(output.updated)
+        assertFalse(output.proposalCreated)
+        assertNotNull(output.error)
+        assertTrue(pendingProposals().isEmpty())
     }
 
     @Test
-    fun `UpdateTaskTool partial update preserves other fields`() = runTest {
-        val tool = UpdateTaskTool(fakeTaskRepo, clock)
-        val original = fakeTaskRepo.tasks.value[existingTaskId.value]!!
+    fun `UpdateTaskTool names a priority it cannot read`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(
+            UpdateTaskInput(taskId = existingTaskId.value, priority = "VeryHigh"),
+        )
 
-        tool.execute(UpdateTaskInput(taskId = existingTaskId.value, title = "New Title"))
-
-        val updated = fakeTaskRepo.tasks.value[existingTaskId.value]!!
-        assertEquals("New Title", updated.title)
-        assertEquals(original.description, updated.description)
-        assertEquals(original.priority, updated.priority)
-        assertEquals(original.kind, updated.kind)
-        assertEquals(original.dueDate, updated.dueDate)
-        assertEquals(original.someday, updated.someday)
+        val output = Json.decodeFromString(UpdateTaskOutput.serializer(), outputJson)
+        assertFalse(output.proposalCreated)
+        assertNotNull(output.error)
+        assertTrue(pendingProposals().isEmpty())
     }
 
     @Test
-    fun `UpdateTaskTool updatedAt changes on each update`() = runTest {
-        val tool = UpdateTaskTool(fakeTaskRepo, clock)
-        val original = fakeTaskRepo.tasks.value[existingTaskId.value]!!.updatedAt
+    fun `UpdateTaskTool proposes the whole tag set when the tags differ`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        tool.execute(UpdateTaskInput(taskId = existingTaskId.value, tagIds = listOf("tag-1", "tag-2")))
 
-        delay(1)
-        tool.execute(UpdateTaskInput(taskId = existingTaskId.value, title = "Updated"))
+        val kind = pendingProposals().single().items.single().kind
+        assertEquals(ProposalItemKind.SetTaskTags(listOf("tag-1", "tag-2")), kind)
+    }
 
-        val updated = fakeTaskRepo.tasks.value[existingTaskId.value]!!
-        assertTrue(updated.updatedAt >= original)
+    @Test
+    fun `UpdateTaskTool proposes a priority the model spelled in lower case`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        tool.execute(UpdateTaskInput(taskId = existingTaskId.value, priority = "urgent"))
+
+        val kind = pendingProposals().single().items.single().kind
+        assertEquals(ProposalItemKind.SetTaskField(TaskField.Priority, "Urgent"), kind)
+    }
+
+    @Test
+    fun `UpdateTaskTool proposes nothing when the priority is the one the task has`() = runTest {
+        val tool = UpdateTaskTool(fakeProposalRepo, fakeTaskRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(
+            UpdateTaskInput(taskId = existingTaskId.value, priority = "medium"),
+        )
+
+        // The task holds "Medium"; "medium" is the same priority, so there is
+        // nothing to propose.
+        val output = Json.decodeFromString(UpdateTaskOutput.serializer(), outputJson)
+        assertFalse(output.proposalCreated)
+        assertTrue(pendingProposals().isEmpty())
     }
 
     // ─── DeleteTaskTool ─────────────────────────────────────────────────────────
@@ -226,40 +315,71 @@ class WriteToolsTest {
     // ─── CreateNoteTool ─────────────────────────────────────────────────────────
 
     @Test
-    fun `CreateNoteTool creates a note`() = runTest {
-        val tool = CreateNoteTool(fakeNotesRepo, clock, profileAwareUser)
+    fun `CreateNoteTool proposes a note instead of creating one`() = runTest {
+        val tool = CreateNoteTool(fakeProposalRepo, profileAwareUser, clock)
         val input = CreateNoteInput(title = "Meeting Notes", bodyMarkdown = "# Agenda")
         val outputJson = tool.execute(input)
 
         val output = Json.decodeFromString(CreateNoteOutput.serializer(), outputJson)
-        assertNotNull(output.noteId)
+        assertTrue(output.proposalCreated)
+        assertNotNull(output.proposalId)
         assertEquals("Meeting Notes", output.title)
 
-        val created = fakeNotesRepo.notes[output.noteId]
-        assertNotNull(created)
-        // bodyMarkdown is stored as canonical HTML via NoteContentMapper.toHtml
-        assertNull(created.bodyMarkdown, "bodyMarkdown should be null — content stored in bodyHtml")
-        assertNotNull(created.bodyHtml, "bodyHtml should be set via NoteContentMapper.toHtml")
+        // The user's notes are untouched.
+        assertTrue(fakeNotesRepo.notes.values.none { it.title == "Meeting Notes" })
+
+        val kind = pendingProposals().single().items.single().kind as ProposalItemKind.CreateNote
+        assertEquals("Meeting Notes", kind.note.title)
+        // The body is stored as canonical HTML, so the proposal carries the HTML.
+        assertNotNull(kind.note.bodyHtml)
     }
 
     @Test
-    fun `CreateNoteTool creates a folder`() = runTest {
-        val tool = CreateNoteTool(fakeNotesRepo, clock, profileAwareUser)
-        val input = CreateNoteInput(title = "My Folder", isFolder = true)
-        val outputJson = tool.execute(input)
+    fun `CreateNoteTool proposes a folder`() = runTest {
+        val tool = CreateNoteTool(fakeProposalRepo, profileAwareUser, clock)
+        tool.execute(CreateNoteInput(title = "My Folder", isFolder = true))
 
-        val output = Json.decodeFromString(CreateNoteOutput.serializer(), outputJson)
-        val created = fakeNotesRepo.notes[output.noteId]
-        assertNotNull(created)
-        assertTrue(created.isFolder)
+        val kind = pendingProposals().single().items.single().kind as ProposalItemKind.CreateNote
+        assertTrue(kind.note.isFolder)
     }
 
     @Test
-    fun `CreateNoteTool uses scoped userId from profile`() = runTest {
-        val tool = CreateNoteTool(fakeNotesRepo, clock, profileAwareUser)
+    fun `CreateNoteTool owns the proposal with the scoped userId`() = runTest {
+        val tool = CreateNoteTool(fakeProposalRepo, profileAwareUser, clock)
         tool.execute(CreateNoteInput(title = "Scoped Note"))
 
-        val created = fakeNotesRepo.notes.values.first { it.title == "Scoped Note" }
-        assertEquals(userId, created.userId)
+        assertEquals(userId, pendingProposals().single().userId)
+    }
+
+    // ─── UpdateNoteTool ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `UpdateNoteTool proposes the changed fields and writes nothing`() = runTest {
+        val noteId = com.singularity.todo.feature.notes.NoteId.generate()
+        fakeNotesRepo.seed(
+            com.singularity.todo.feature.notes.Note(
+                id = noteId,
+                title = "Old title",
+                bodyMarkdown = null,
+                bodyHtml = "<p>Old body</p>",
+                isFolder = false,
+                parentNoteId = null,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                userId = userId,
+            ),
+        )
+
+        val tool = UpdateNoteTool(fakeProposalRepo, fakeNotesRepo, profileAwareUser, clock)
+        val outputJson = tool.execute(UpdateNoteInput(noteId = noteId.value, title = "New title"))
+
+        val output = Json.decodeFromString(UpdateNoteOutput.serializer(), outputJson)
+        assertTrue(output.proposalCreated)
+
+        // The note is the one the user had.
+        assertEquals("Old title", fakeNotesRepo.notes[noteId.value]?.title)
+
+        val kind = pendingProposals().single().items.single().kind
+        assertEquals(ProposalItemKind.SetNoteField(NoteField.Title, "New title"), kind)
     }
 }

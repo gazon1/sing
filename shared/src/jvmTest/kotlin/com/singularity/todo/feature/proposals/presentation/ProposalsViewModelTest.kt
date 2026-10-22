@@ -45,7 +45,7 @@ import kotlin.test.assertTrue
  * reaches the app's own use case.
  */
 @Tag("fast")
-class ReviewViewModelTest {
+class ProposalsViewModelTest {
 
     private val clock = FakeClock()
 
@@ -68,16 +68,17 @@ class ReviewViewModelTest {
         proposals = proposals,
         tasks = tasks,
         notes = notes,
+        projects = projects,
         tags = tags,
         planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, deleteProject, clock),
+        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
     )
 
     // The scope is the test's background scope, so the collector runs on the test
     // scheduler — `runCurrent` decides when it has read the repository — and the
     // endless collection it starts is cancelled with the test instead of outliving
     // it.
-    private fun viewModel(scope: CoroutineScope) = ReviewViewModel(
+    private fun viewModel(scope: CoroutineScope) = ProposalsViewModel(
         proposals = proposals,
         applyProposalItem = useCase,
         currentUser = FakeProfileAwareCurrentUser(user),
@@ -94,7 +95,7 @@ class ReviewViewModelTest {
         val state = viewModel.stateFlow.value
         assertEquals(1, state.proposals.size, "the proposal is there")
         assertEquals(1, state.proposals.first().items.size, "with its change")
-        assertEquals("Set the priority to High", state.proposals.first().items.first().summary)
+        assertEquals("Set the priority to High", state.proposals.first().items.first().humanSummary)
     }
 
     @Test
@@ -104,7 +105,7 @@ class ReviewViewModelTest {
         val viewModel = viewModel(backgroundScope)
         runCurrent()
 
-        viewModel.onIntent(ReviewIntent.Confirm(itemId))
+        viewModel.onIntent(ProposalsIntent.Confirm(itemId))
         runCurrent()
 
         val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
@@ -118,7 +119,7 @@ class ReviewViewModelTest {
         val viewModel = viewModel(backgroundScope)
         runCurrent()
 
-        viewModel.onIntent(ReviewIntent.Reject(itemId))
+        viewModel.onIntent(ProposalsIntent.Reject(itemId))
         runCurrent()
 
         val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
@@ -132,11 +133,39 @@ class ReviewViewModelTest {
         val viewModel = viewModel(backgroundScope)
         runCurrent()
 
-        viewModel.onIntent(ReviewIntent.Confirm(itemId))
+        viewModel.onIntent(ProposalsIntent.Confirm(itemId))
         runCurrent()
 
         val state = viewModel.stateFlow.value
         assertTrue(state.proposals.isEmpty(), "the decided change is gone")
+    }
+
+    @Test
+    fun `the user accepts the whole proposal`() = runTest {
+        seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ProposalsIntent.ConfirmAll(ProposalId.fromString(proposalId)))
+        runCurrent()
+
+        val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
+        assertEquals(ProposalItemStatus.Confirmed, items.first().status, "every change is applied")
+    }
+
+    @Test
+    fun `the user dismisses the whole proposal`() = runTest {
+        seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ProposalsIntent.Dismiss(ProposalId.fromString(proposalId)))
+        runCurrent()
+
+        val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
+        assertEquals(ProposalItemStatus.Rejected, items.first().status, "every change is turned down")
     }
 
     private val proposalId = "prop-1"

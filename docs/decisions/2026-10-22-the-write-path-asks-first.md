@@ -1,7 +1,8 @@
 ---
 title: "The write path asks first"
 date: 2026-10-22
-status: accepted
+status: superseded
+superseded-by: 2026-10-22-the-write-path-has-one-shape
 tags: [ai, tools, proposals, contract, safety]
 ---
 
