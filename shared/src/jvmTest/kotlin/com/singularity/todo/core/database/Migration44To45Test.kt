@@ -80,18 +80,7 @@ class Migration44To45Test {
     }
 
     private fun insertTask(connection: SQLiteConnection, id: String) {
-        connection.execSQL(
-            """
-            INSERT INTO tasks (
-                id, user_id, title, priority, kind, someday, is_pinned,
-                created_at, updated_at, server_version, sync_status
-            )
-            VALUES (
-                '$id', 'u1', 'Task $id', 'None', 'Task', 0, 0,
-                1000, 1000, 0, 'LOCAL_ONLY'
-            )
-            """.trimIndent(),
-        )
+        insertLegacyTask(connection, id = id)
     }
 
     private fun insertNote(connection: SQLiteConnection, id: String, links: String, taskId: String? = null) {
@@ -123,18 +112,10 @@ class Migration44To45Test {
             // A note that links to nothing at all.
             insertNote(connection, "n4", "[]")
             // A task whose description links to a note and to something unreadable.
-            connection.execSQL(
-                """
-                INSERT INTO tasks (
-                    id, user_id, title, priority, kind, someday, is_pinned, outgoing_links,
-                    created_at, updated_at, server_version, sync_status
-                )
-                VALUES (
-                    't3', 'u1', 'Task t3', 'None', 'Task', 0, 0,
-                    '["note://n1","task://bad id"]',
-                    1000, 1000, 0, 'LOCAL_ONLY'
-                )
-                """.trimIndent(),
+            insertLegacyTask(
+                connection,
+                id = "t3",
+                columns = mapOf("outgoing_links" to """["note://n1","task://bad id"]"""),
             )
         }
         return AppDatabaseFactory.build(createSqlDriver(), dbPath)

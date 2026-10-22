@@ -147,7 +147,19 @@ class MyViewModel(
 **`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
 **Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
-recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR `2026-10-04-configuration-cache-hardening` §A3.
+recompiles and re-executes; `--rerun-tasks` — только отладочная костыль. ADR `2026-10-04-configuration-cache-hardening` §A3.
+
+**Добавил `TestTag` → пересобери каталог.** `Maestro/TAGS.md` — золотой файл: его
+сгенерированная часть сверяется с `TestTags.kt`, и расхождение падает в
+`TestTagsCatalogJvmTest` — то есть на полном JVM-прогоне (≈40 мин). Пересборка:
+
+```bash
+./gradlew :shared:jvmTest -PupdateGoldens=true   # переписывает сгенерированную часть TAGS.md
+```
+
+`scripts/check-test-tags-catalog.py` делает ту же сверку за секунды, без JVM, —
+он и стоит в гейтах; полный прогон нужен, чтобы *переписать* файл, а не чтобы
+*узнать*, что он устарел.
 
 ## expect/actual порты
 
@@ -184,6 +196,32 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
 
 > `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
+
+**Порядок detekt.** Сначала `:shared:detekt` — там почти весь код, и замечание там
+останавливает проверку через две минуты, а не через четыре модуля:
+
+```bash
+./gradlew :shared:detekt                                  # сначала — 90% кода
+./gradlew :desktopApp:detekt :androidApp:detekt :mcp-server:detekt   # потом остальные
+```
+
+**Компилируй сразу после связной правки.** Правка, которая тянет за собой соседний
+файл (сигнатура, интерфейс, DI-биндинг), проверяется компиляцией в ту же минуту:
+`./gradlew :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`).
+Открытие полного прогона на сломанной компиляции стоит сорока минут ожидания,
+и диагностика «упало в тестах» уводит не туда: компиляция падает раньше и падает
+другой строкой.
+
+**Гейтовый venv принадлежит checkout'у.** `sgate` — editable-установка `scripts/src/`,
+поэтому венв, поставленный в другом worktree, меряет *тот* checkout: гейт зелёный,
+а проверял он чужое дерево. `bash scripts/ci/preflight-gate-tools.sh` печатает, чей
+это checkout (строка `sgate`; `FOREIGN` — не тот). Свой венв на checkout:
+
+```bash
+SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
+    bash scripts/ci/setup-local-tools.sh
+export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
+```
 
 ## CI/CD
 
@@ -230,6 +268,12 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 **Android:** `mcp__android_emulator__android_{preflight,build_and_run,ui_status,screenshot,ui_describe,
 ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия, `android_logs` для крашей.
 **Desktop:** `./gradlew :desktopApp:test` или `xvfb-run -a ./gradlew :desktopApp:run`.
+
+**Desktop-тесты — по скиллу `singularity-todo-desktop-compose-ui-tests`:** харнесс,
+ожидания, диагностический bundle и — отдельным разделом — компонентные тесты
+(экран в изоляции): размер окна, `ModalBottomSheet` в своём окне, long-press через
+`SemanticsActions.OnLongClick`. Читай его до написания теста: ответы на «как
+дождаться узла» и «почему long-press не срабатывает» лежат там, а не в коде.
 
 **Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` · `find-usages` ·
 `render-compose-preview` · `version-lookup` · `open-file`; **Journeys:** `android journey create|run <name>`.
