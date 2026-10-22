@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.search.query
 
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.TEST_TZ
@@ -119,11 +118,7 @@ class SearchPlanShareTest {
     private val userId = "user_1"
 
     /** The plan a query of the corpus is given, and what it costs. */
-    private data class Measured(
-        val corpus: Corpus,
-        val plan: TextMatchPlan,
-        val hasTerms: Boolean,
-    ) {
+    private data class Measured(val corpus: Corpus, val plan: TextMatchPlan, val hasTerms: Boolean) {
         /** The rows are read and looked at in memory. */
         val scansTheRows: Boolean get() = plan is TextMatchPlan.BroadScan && hasTerms
 
