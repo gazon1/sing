@@ -36,6 +36,7 @@ _gate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_gate)
 
 check_cli_framework = _gate.check_cli_framework
+check_package_resolution = _gate.check_package_resolution
 find_argparse_import = _gate.find_argparse_import
 
 
@@ -152,3 +153,93 @@ class AFileThatDoesNotParseIsAViolation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PackageResolutionRules(unittest.TestCase):
+    """R2.4, R2.5, R2.6 — how a gate script resolves the package it imports."""
+
+    def setUp(self):
+        self.directory = pathlib.Path(tempfile.mkdtemp())
+
+    def write(self, name: str, source: str) -> pathlib.Path:
+        path = self.directory / name
+        path.write_text(source, encoding="utf-8")
+        return path
+
+    def errors(self) -> list[str]:
+        return check_package_resolution(self.directory)
+
+    def test_the_root_may_not_come_from_the_installed_package(self):
+        """R2.4 — the repository belongs to the script."""
+        self.write(
+            "check-bad.py",
+            "from sgate.repo import ROOT\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.4" in error for error in errors), errors)
+
+    def test_a_path_from_the_installed_package_is_the_same_violation(self):
+        self.write(
+            "check-bad.py",
+            "import sgate.repo\n\nvalue = sgate.repo.ROOT\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.4" in error for error in errors), errors)
+
+    def test_a_checkout_specific_import_needs_the_bootstrap(self):
+        """R2.5 — the manifest of the gates describes *this* checkout."""
+        self.write(
+            "check-bad.py",
+            "from sgate.gate_manifest import PLACEMENTS\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
+
+    def test_a_bootstrap_before_the_import_satisfies_the_rule(self):
+        self.write(
+            "check-good.py",
+            "import pathlib\nimport sys\n\n"
+            "_SRC = pathlib.Path(__file__).resolve().parent / 'src'\n"
+            "if str(_SRC) not in sys.path:\n"
+            "    sys.path.insert(0, str(_SRC))\n\n"
+            "from sgate.gate_manifest import PLACEMENTS\n",
+        )
+        self.assertEqual(self.errors(), [])
+
+    def test_a_bootstrap_after_the_import_is_a_violation(self):
+        """R2.6 — an import that happens first is already bound."""
+        self.write(
+            "check-bad.py",
+            "import pathlib\nimport sys\n\n"
+            "from sgate.gate_manifest import PLACEMENTS\n\n"
+            "_SRC = pathlib.Path(__file__).resolve().parent / 'src'\n"
+            "if str(_SRC) not in sys.path:\n"
+            "    sys.path.insert(0, str(_SRC))\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.6" in error for error in errors), errors)
+
+    def test_the_public_api_needs_no_bootstrap(self):
+        """The public API is the same in every checkout — that is the point."""
+        self.write(
+            "check-good.py",
+            "from sgate import run\n",
+        )
+        self.assertEqual(self.errors(), [])
+
+    def test_a_bootstrap_of_another_directory_is_not_a_bootstrap(self):
+        """`scripts/` is not the package root; the package lives in `scripts/src`."""
+        self.write(
+            "check-bad.py",
+            "import pathlib\nimport sys\n\n"
+            "_SCRIPTS = pathlib.Path(__file__).resolve().parent\n"
+            "if str(_SCRIPTS) not in sys.path:\n"
+            "    sys.path.insert(0, str(_SCRIPTS))\n\n"
+            "from sgate.gate_manifest import PLACEMENTS\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
+
+    def test_the_real_scripts_directory_has_no_violation(self):
+        """The repository obeys the rules it declares."""
+        self.assertEqual(check_package_resolution(SCRIPTS), [])

@@ -80,9 +80,26 @@ import json
 import pathlib
 import sys
 
-import click
-from sgate.commands.base import run
-from sgate.repo import ROOT
+# The gate suite is a package of this repository. This script is run as
+# `python3 scripts/check-waiver-references.py`, and the `sgate` the interpreter
+# finds may be an editable install of *another* checkout — so this repository's
+# own `scripts/src` goes in front of it. The same thing
+# `scripts/check-gate-wiring.py` does for `workflow_gradle`.
+_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent.parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
+
+import click  # noqa: E402
+from sgate.commands.base import run  # noqa: E402
+
+#: The root of *this* checkout, derived from where this script lives.
+#:
+#: It is not taken from `sgate.repo`: that module belongs to whichever `sgate`
+#: the interpreter found, and on a machine with several checkouts that is a
+#: different tree. A gate that certifies another checkout's wiring while
+#: reporting the verdict as this checkout's is a gate that reports success
+#: forever — the wiring it checked was never this wiring.
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 #: The gate registry and the wiring twin live here, relative to the repo root.
 REGISTRY_MODULE = "sgate.commands._registry"

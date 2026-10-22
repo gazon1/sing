@@ -5,12 +5,13 @@ What this gate enforces (2026-10-20, audited):
   R5.1: Gate script names match `check-<gate-name>.py` (kebab-case)
   R5.2: Shell wrappers that only exec/python3 are deleted (no pass-through wrappers)
   R2.1: Gate scripts use Click, not argparse
+  R2.4: A gate script locates the repository itself, never through the
+        installed package (R2.4-R2.6, added 2026-10-22)
 
 What it declares but does not enforce:
   R5.3: All imports use absolute imports (no relative `from .foo import`)
   R5.4: Gate scripts that implement a decision reference the ADR in a comment
   R2.2: Every gate command accepts --check and --json flags
-  R2.3: No manual PYTHONPATH manipulation (paths via sgate.repo)
   R3.x: the output/exit-code conventions (R3.1-R3.7)
 
 Why the list is short
@@ -156,6 +157,173 @@ def check_json_flag(scripts_dir: Path) -> list[str]:
     return []
 
 
+#: The modules of the `sgate` package that carry facts about *this* checkout:
+#: the manifest of the gates, the registry, the shared vocabulary of a gate.
+#: Read from an installed package, they describe a different tree — a sibling
+#: worktree on the same machine, installed as an editable package under the
+#: same name.
+CHECKOUT_SPECIFIC_MODULES = (
+    "sgate.commands._registry",
+    "sgate.gate_controls",
+    "sgate.gate_manifest",
+    "sgate.gatekit",
+    "sgate.gates",
+    "sgate.repo",
+)
+
+def _is_bootstrap(statement: ast.stmt, source: str) -> bool:
+    """Whether a statement puts the package root on `sys.path`.
+
+    The package root is the directory named `src` — `scripts/src`, the
+    directory that holds the `sgate` package. A bootstrap of some other
+    directory (`scripts/`, for a sibling module) is a different thing and does
+    not count.
+
+    A function or a class is not a bootstrap: the `sys.path.insert` inside it
+    happens when it is called, which is after every module-level import has
+    already been bound.
+    """
+    if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return False
+    segment = ast.get_source_segment(source, statement)
+    if segment is None:
+        return False
+    if "sys.path.insert" not in segment and "sys.path[:0]" not in segment:
+        return False
+    return "src" in segment.lower()
+
+
+def _imported_sgate_modules(statement: ast.stmt) -> list[str]:
+    """The `sgate` modules an import statement names."""
+    modules: list[str] = []
+    if isinstance(statement, ast.ImportFrom):
+        if statement.module and statement.module.split(".")[0] == "sgate":
+            modules.append(statement.module)
+    elif isinstance(statement, ast.Import):
+        for alias in statement.names:
+            if alias.name.split(".")[0] == "sgate":
+                modules.append(alias.name)
+    return modules
+
+
+def _is_checkout_specific(module: str) -> bool:
+    return any(
+        module == name or module.startswith(name + ".") for name in CHECKOUT_SPECIFIC_MODULES
+    )
+
+
+def check_package_resolution(scripts_dir: Path) -> list[str]:
+    """R2.4, R2.5, R2.6 — how a gate script resolves the package it imports.
+
+    R2.4: a gate script takes the repository root — and any path into the
+    repository — from its own location, never from the installed package. A
+    gate that reads the installed package's root reads *another checkout's*
+    root: on a machine with several clones, the installed `sgate` is whichever
+    one was installed last. Such a gate certified a tree nobody was working
+    on, and reported success.
+
+    R2.5: a gate script that imports a module carrying this checkout's facts
+    must have this checkout's package root on `sys.path` *before* that import.
+
+    R2.6: a bootstrap that comes after the import it was meant to serve is a
+    no-op for that import — the name was already bound. The rule is checked
+    separately because the mistake is invisible: the script runs, and it runs
+    against the wrong tree.
+    """
+    errors: list[str] = []
+    paths = sorted(scripts_dir.glob("check-*.py")) + sorted((scripts_dir / "ci").glob("*.py"))
+    for path in paths:
+        source = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            tree = ast.parse(source)
+        except SyntaxError as exc:
+            errors.append(f"{path.name}: does not parse as Python ({exc.msg}) — cannot check it")
+            continue
+
+        errors.extend(_check_root_from_package(path, tree))
+        errors.extend(_check_bootstrap_order(path, tree, source))
+    return errors
+
+
+def _check_root_from_package(path: Path, tree: ast.Module) -> list[str]:
+    """R2.4 — the repository is located by the script, not by the package."""
+    errors: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "sgate.repo":
+            names = ", ".join(alias.name for alias in node.names)
+            errors.append(
+                f"{path.name}:{node.lineno}: takes {names} from the installed package (R2.4) — "
+                "the repository belongs to the script, not to whatever `sgate` is installed"
+            )
+        elif isinstance(node, ast.Attribute) and node.attr in ("ROOT", "SRC"):
+            value = node.value
+            if (
+                isinstance(value, ast.Attribute)
+                and value.attr == "repo"
+                and isinstance(value.value, ast.Name)
+                and value.value.id == "sgate"
+            ):
+                errors.append(
+                    f"{path.name}:{node.lineno}: reads the repository root from the installed "
+                    "package (R2.4) — locate the repository from the script's own location"
+                )
+    return errors
+
+
+def _check_bootstrap_order(path: Path, tree: ast.Module, source: str) -> list[str]:
+    """R2.5 and R2.6 — the bootstrap precedes the import it serves."""
+    errors: list[str] = []
+    module_bootstrap = None
+    module_first_import = None
+    for statement in tree.body:
+        if _is_bootstrap(statement, source) and module_bootstrap is None:
+            module_bootstrap = statement.lineno
+        for module in _imported_sgate_modules(statement):
+            if module_first_import is None:
+                module_first_import = statement.lineno
+            if _is_checkout_specific(module) and module_bootstrap is None:
+                errors.append(
+                    f"{path.name}:{statement.lineno}: imports `{module}` without this checkout's "
+                    "package root on `sys.path` (R2.5)"
+                )
+
+    if module_bootstrap is not None and module_first_import is not None:
+        if module_bootstrap > module_first_import:
+            errors.append(
+                f"{path.name}:{module_bootstrap}: the bootstrap of the package root comes after "
+                f"the import at line {module_first_import} (R2.6) — an import that happens first "
+                "is already bound to the installed package"
+            )
+
+    errors.extend(_check_scoped_imports(path, tree, source, module_bootstrap is not None))
+    return errors
+
+
+def _check_scoped_imports(
+    path: Path, tree: ast.Module, source: str, module_has_bootstrap: bool
+) -> list[str]:
+    """R2.5 inside a function: the import and its bootstrap share a scope.
+
+    A bootstrap at module level covers the imports inside the functions: the
+    path is already on `sys.path` by the time the function runs.
+    """
+    errors: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        bootstrap = None
+        for statement in node.body:
+            if _is_bootstrap(statement, source) and bootstrap is None:
+                bootstrap = statement.lineno
+            for module in _imported_sgate_modules(statement):
+                if _is_checkout_specific(module) and bootstrap is None and not module_has_bootstrap:
+                    errors.append(
+                        f"{path.name}:{statement.lineno}: imports `{module}` without this "
+                        "checkout's package root on `sys.path` (R2.5)"
+                    )
+    return errors
+
+
 @click.command()
 @click.option("--check", is_flag=True, help="Dry-run: report without a non-zero exit.")
 @click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
@@ -168,6 +336,7 @@ def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     all_errors.extend(check_cli_framework(scripts_dir))
     all_errors.extend(check_naming_and_structure(scripts_dir))
     all_errors.extend(check_json_flag(scripts_dir))
+    all_errors.extend(check_package_resolution(scripts_dir))
 
     if emit_json:
         click.echo(json.dumps(
