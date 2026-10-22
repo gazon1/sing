@@ -90,6 +90,13 @@ ctx.assertIs<UiState.Content>()
 awaitState { vm.state.value is UiState.Content }   // виртуальное время, не delay()
 ```
 
+**Тест VM — через харнесс** (`testVm` из `shared/src/commonTest/.../test/helpers/RunVmTest.kt`),
+и это гейт: `SharedHarnessConventionsTest`, правило «runVmTest is used for ViewModel tests» —
+свой scope руками = падение. Исключения и их причины — `EXEMPT_VM_TEST` в
+`shared/src/jvmTest/.../arch/SharedHarnessConventionsTest.kt` (карта «файл → причина»;
+типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
+не может быть тестовым).
+
 ### BAN list
 
 | Запрещено | Почему | Альтернатива |
@@ -146,6 +153,18 @@ just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
 ```
 
+**Пуш в ветку PR — без `--no-verify`.** `pre-push` hook (`.githooks/pre-push`) проверяет
+**пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть
+находок). Пропуск хука отправляет ту же находку в CI — минуты вместо получаса. `--no-verify` —
+только для WIP-коммитов.
+
+**Находки detekt — одним файлом:** `shared/build/reports/detekt/detekt.xml` (путь, строка, правило);
+консоль Gradle даёт только счётчик. **Правило и его подоплёка — в комментариях
+`config/detekt/detekt.yml`**: там, почему порог такой; кастомные правила — в `detekt-rules/`
+(напр. `NoDroppedUiStateProperty`: свойство состояния — обязательный параметр **каждого**
+варианта, дефолт запрещён). `ClassSignature` — сигнатура data class, влезающая в строку, пишется
+в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
+
 > `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
 
 ## CI/CD
@@ -164,6 +183,10 @@ A–G мета-гейта и рецепты — скилл `singularity-todo-qua
 (регрессия в самих гейтах, ≈20 мс). Floor = **минимальный** легитимный прогон: падение —
 расследовать, не регенерировать.
 
+**Перед PR — ревью отдельным агентом** (`code-review-pr-workflow`): он получает диф, а не код,
+и у него нет давления контекста реализации — поэтому он ловит то, чего не ловит гейт (контракт
+состояния, алиас, запись в реестр issues). Гейт ловит механику; ревью ловит смысл.
+
 ## 🤖 Dogfooding: MCP Server
 
 Агенты подключаются к `:mcp-server` через stdio и правят задачи/проекты/заметки/теги/ADR.
@@ -181,7 +204,7 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 
 - **Behavior change** → workflow `openspec-change`; **ADR-only** (нет spec-level изменения) → `adr-create`; **не нужен:** bug fix, test-only, dep update, doc-only, rename без контрактного изменения
 - Hooks: после implement — `singularity-adr validate` (`.specify/extensions.yml`); после правок ADR — `./scripts/refresh-decisions-digest.sh`
-- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`
+- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта).
 - Constitution: `.specify/constitutions/singularity-todo.md`
 
 ## 🔧 Run-loop (UI-верификация)

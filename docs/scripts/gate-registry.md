@@ -26,6 +26,7 @@ sche... | — | — |
 | unwired surfaces | blocking | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
 | selectable text coverage | blocking | Find text surfaces that are neither selectable nor classified. | — | — |
+| issue registry covers every change | blocking | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
 | detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
 | detekt rule registry | blocking | detekt rule registry | — | — |

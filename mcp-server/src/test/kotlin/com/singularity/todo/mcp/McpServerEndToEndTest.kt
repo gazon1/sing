@@ -381,7 +381,10 @@ class McpServerEndToEndTest {
             val getJson = Json.parseToJsonElement(
                 (getResult.content.first() as io.modelcontextprotocol.kotlin.sdk.types.TextContent).text,
             ).jsonObject
-            val gotTitle = getJson["title"]?.jsonPrimitive?.content
+            // The read surface answers with what it found and, if it found something,
+            // the task in full: {"found": true, "task": { …, "title": … }}. The
+            // title lives in the task, not at the top of the answer.
+            val gotTitle = getJson["task"]?.jsonObject?.get("title")?.jsonPrimitive?.content
                 ?: fail("tasks.get response missing title: ${getResult.content}")
 
             assertEquals(

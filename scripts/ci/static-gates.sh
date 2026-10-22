@@ -298,6 +298,26 @@ gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # comparison is. The inventory is closed now, so the remaining findings are
 # decisions rather than gaps, and the empty list is the assertion.
 gate blocking "selectable text coverage" sgate selectable_text_coverage
+# The registry is the source of truth for a change, and nothing checked it.
+#
+# Four changes landed in main without an entry in `.specify/issues/`: the close
+# rule consolidation and the three that followed it. Nothing failed — the specs
+# validated, CI was green — and the registry simply did not mention them. A
+# change the registry does not know about is a change the next session cannot
+# find: the decision, the spec and the tasks are in the tree, but nothing points
+# at them and nothing says they are this branch's work.
+#
+# The fix is one command, the same one that writes the record:
+# `python3 scripts/openspec-import-all.py` — and `--replace` for a record that
+# names another change, because without it the importer skips a record that
+# already exists.
+#
+# The gate walks the changes and looks up their records; it does not walk the
+# records, because most of the registry is history. What it checks is the
+# direction that can still go wrong for work happening now: a change with no
+# record, a record that names a different change, and two changes claiming one
+# slug.
+gate blocking "issue registry covers every change" python3 scripts/check-issue-registry.py --quiet
 
 # Workflow + YAML lint, two real tools over the corpus the gates above only
 # parse. actionlint checks GitHub Actions *semantics* — expressions, action
