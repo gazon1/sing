@@ -140,10 +140,7 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * count and the value it counts are two facts about the same thing, and the type
      * that carries both is the one the fields carry their own count in.
      */
-    private data class Document(
-        val json: JsonObject,
-        val revisions: Map<String, Revisioned<JsonElement?>>,
-    )
+    private data class Document(val json: JsonObject, val revisions: Map<String, Revisioned<JsonElement?>>)
 
     /**
      * The value at [path] and the count of the server's rewrites of it, as one pair.
