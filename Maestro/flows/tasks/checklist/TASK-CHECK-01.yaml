@@ -44,9 +44,14 @@ tags:
 - runFlow: ../../../helpers/launch-clean.yaml
 - tapOn:
     id: nav_tab_today
+# A section header renders only when the section has a task, and the runner
+# wipes the content before the flow, so the agenda is empty here: there is no
+# header to find, and waiting for one is a claim about nothing. The shell
+# affordance the flow needs next is what is waited for instead; the section
+# header is asserted later, after the flow has put a task in it.
 - extendedWaitUntil:
     visible:
-      id: agenda_section_today
+      id: tasks_fab
     timeout: 8000
 
 # Open composer via FAB

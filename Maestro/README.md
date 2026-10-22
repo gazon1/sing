@@ -160,6 +160,25 @@ asked for it finds its save button gone. Measured on a real phone; see
 **Assert the field value before tapping save.** Catch dropped keystrokes at
 the real cause — the `assertVisible`/`inputText` round-trip.
 
+**Never name a pixel — unless you say why.** A swipe to `105, 2000` is a
+claim about the display it was measured on: on a 720×1600 phone the start
+point is off-screen, the swipe never happens, and the flow fails on a screen it
+never claimed to know about. A green run of that flow on the CI emulator is a
+statement about the emulator. Address the gesture instead — a share of the
+screen (`start: "50%, 88%"`) or the element that scrolls
+(`swipe: {direction: UP, element: {id: menu_sheet}}`). A flow that cannot say
+it any other way belongs in `config/docs/maestro-pixel-exceptions.txt`, with
+the reason written down: the gate
+`scripts/check-maestro-screen-geometry.py` fails on a pixel that nobody
+explained, on an exception with no reason, and on an exception for a flow that
+no longer needs it.
+
+**Assert what the flow's own data puts on the screen.** A section header
+renders only when the section has a task, and the runner wipes the content
+before the flow, so an empty agenda has no section header to find: waiting for
+one waits for nothing. Either put a task in the section first, or assert the
+affordance the flow needs next.
+
 **Put the tag on a node that survives the merge.** A Material3 `Card` is a
 `Surface`, and a Surface merges its descendants: a tag below the card is
 visible in the unmerged semantics tree only, where Maestro — which drives the

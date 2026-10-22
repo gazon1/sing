@@ -24,10 +24,22 @@ tags:
 # Open the hamburger menu.
 - tapOn:
     id: nav_menu_button
-# The menu sheet opens with Statistics already on screen. Scrolling it with
-# scrollUntilVisible pushed the entry down into the system navigation bar,
-# where the tap landed on the system HOME button and left the app — which is
-# why the tab was never on screen to be found.
+# The menu sheet is taller than a phone viewport, and its trailing items sit
+# under the system navigation bar: a tap there lands on the system HOME
+# button and leaves the app, which is why the tab was never on screen to be
+# found. Scrolling it with scrollUntilVisible pushed the entry *down* into the
+# same bar, so the sheet is scrolled by hand instead — and the swipe is
+# a share of the screen, so it means the same thing on a 1080×2400 emulator
+# and a 720×1600 phone.
+- extendedWaitUntil:
+    visible:
+      id: menu_sheet
+    timeout: 5000
+- swipe:
+    start: "50%, 80%"
+    end: "50%, 30%"
+    duration: 1000
+- waitForAnimationToEnd
 - extendedWaitUntil:
     visible:
       id: menu_statistics
