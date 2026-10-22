@@ -171,6 +171,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                     generateChecklist = get(),
                     decomposeTask = get(),
                     pickTime = get(),
+                    firstStep = get(),
                 ),
                 context = TaskContextDeps(clock = get()),
             ),

@@ -1,0 +1,180 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
+package com.singularity.todo.feature.proposals.presentation
+
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeProposalRepository
+import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
+import com.singularity.todo.test.fakes.TestUsers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+/**
+ * The review screen's ViewModel.
+ *
+ * Two things have to be true: the screen shows what is waiting, and the user's word
+ * reaches the app's own use case.
+ */
+@Tag("fast")
+class ReviewViewModelTest {
+
+    private val clock = FakeClock()
+
+    // The fakes scope every read to their own current user, which defaults to
+    // TestUsers.DEFAULT. Fixtures must be stamped with the same id or they seed
+    // successfully and are then invisible to the code under test.
+    private val user = TestUsers.DEFAULT
+    private val taskId = TaskId("t1")
+
+    private val proposals = FakeProposalRepository(clock)
+    private val tasks = FakeTaskRepository()
+    private val tags = FakeTagsRepository()
+    private val checklist = FakeChecklistRepository()
+    private val timeTracking = FakeTimeTrackingRepository(clock)
+    private val notes = FakeNotesRepository()
+    private val projects: ProjectsRepository = FakeProjectsRepository(FakeProfileAwareCurrentUser(user))
+    private val deleteProject = DeleteProjectUseCase(projects, tasks)
+
+    private val useCase = ApplyProposalItemUseCase(
+        proposals = proposals,
+        tasks = tasks,
+        notes = notes,
+        tags = tags,
+        planner = ProposalPlanner(clock),
+        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, deleteProject, clock),
+    )
+
+    // The scope is the test's background scope, so the collector runs on the test
+    // scheduler — `runCurrent` decides when it has read the repository — and the
+    // endless collection it starts is cancelled with the test instead of outliving
+    // it.
+    private fun viewModel(scope: CoroutineScope) = ReviewViewModel(
+        proposals = proposals,
+        applyProposalItem = useCase,
+        currentUser = FakeProfileAwareCurrentUser(user),
+        scope = AutoCloseableCoroutineScope(scope.coroutineContext),
+    )
+
+    @Test
+    fun `the waiting changes are shown`() = runTest {
+        seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        val state = viewModel.stateFlow.value
+        assertEquals(1, state.proposals.size, "the proposal is there")
+        assertEquals(1, state.proposals.first().items.size, "with its change")
+        assertEquals("Set the priority to High", state.proposals.first().items.first().summary)
+    }
+
+    @Test
+    fun `the user applies a change`() = runTest {
+        val itemId = seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ReviewIntent.Confirm(itemId))
+        runCurrent()
+
+        val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
+        assertEquals(ProposalItemStatus.Confirmed, items.first().status, "the change is applied")
+    }
+
+    @Test
+    fun `the user turns a change down`() = runTest {
+        val itemId = seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ReviewIntent.Reject(itemId))
+        runCurrent()
+
+        val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
+        assertEquals(ProposalItemStatus.Rejected, items.first().status, "nothing is applied")
+    }
+
+    @Test
+    fun `a decided change is no longer waiting`() = runTest {
+        val itemId = seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ReviewIntent.Confirm(itemId))
+        runCurrent()
+
+        val state = viewModel.stateFlow.value
+        assertTrue(state.proposals.isEmpty(), "the decided change is gone")
+    }
+
+    private val proposalId = "prop-1"
+
+    /** Seeds the task the proposal is about, and a one-item proposal for it. */
+    private suspend fun seedProposal(): ProposalItemId {
+        tasks.seed(
+            Task(
+                id = taskId,
+                title = "Original",
+                userId = user,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+            ),
+        )
+        val id = ProposalId.fromString(proposalId)
+        val item = ProposalItem(
+            id = ProposalItemId.fromString("item-1"),
+            proposalId = id,
+            kind = ProposalItemKind.SetTaskField(TaskField.Priority, "High"),
+            targetId = taskId.value,
+            humanSummary = "Set the priority to High",
+            status = ProposalItemStatus.Pending,
+            fingerprint = "set-priority-high",
+        )
+        proposals.save(
+            AiProposal(
+                id = id,
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = taskId.value,
+                userId = user,
+                source = ProposalSource.Detail,
+                status = ProposalStatus.Pending,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                items = listOf(item),
+            ),
+        )
+        return item.id
+    }
+}

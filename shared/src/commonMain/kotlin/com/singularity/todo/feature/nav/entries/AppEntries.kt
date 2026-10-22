@@ -14,6 +14,7 @@ import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.profile.ProfileSwitcherScreen
 import com.singularity.todo.feature.profile.presentation.ChangePasswordScreen
+import com.singularity.todo.feature.proposals.presentation.ReviewScreen
 import com.singularity.todo.feature.statistics.StatisticsScreen
 
 /**
@@ -46,6 +47,10 @@ fun EntryProviderScope<AppDestination>.appEntries(
 
     entry<AppDestination.AiChat> {
         ChatScreen()
+    }
+
+    entry<AppDestination.Review> {
+        ReviewScreen()
     }
 
     entry<AppDestination.Archive> {

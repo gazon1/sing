@@ -119,6 +119,7 @@ class AppEntryParityTest {
             "Calendar",
             "Notes",
             "AiChat",
+            "Review",
             "Search",
             "Archive",
             "Settings",

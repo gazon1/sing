@@ -6,6 +6,7 @@ import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateChecklistUseCase
 import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
+import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
@@ -125,6 +126,7 @@ data class TaskAiDeps(
     val generateChecklist: GenerateChecklistUseCase? = null,
     val decomposeTask: DecomposeTaskUseCase? = null,
     val pickTime: PickTimeUseCase? = null,
+    val firstStep: FirstStepUseCase? = null,
 )
 
 /**

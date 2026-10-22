@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Repeat
@@ -80,6 +81,18 @@ sealed interface AppDestination : AppNavKey {
     @Serializable
     data object Search : AppDestination {
         override val title = "Search"
+    }
+
+    /**
+     * The proposals waiting for a decision.
+     *
+     * A change the assistant proposed and the user has not seen yet. The screen lists
+     * them and lets the user apply or turn them down — one decision per change, and
+     * nothing is applied until it is made.
+     */
+    @Serializable
+    data object Review : AppDestination {
+        override val title = "Review"
     }
 
     @Serializable
@@ -324,6 +337,7 @@ val AppDestination.icon: ImageVector
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
         is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
         AppDestination.Search -> Icons.Filled.Search
+        AppDestination.Review -> Icons.Filled.FactCheck
         AppDestination.Archive -> Icons.Filled.Check
         AppDestination.Settings -> Icons.Filled.Settings
         AppDestination.AiUsage -> Icons.Filled.BarChart
@@ -378,6 +392,7 @@ object DestinationKind {
         AppDestination.Statistics,
         AppDestination.Notes,
         AppDestination.AiChat,
+        AppDestination.Review,
         AppDestination.Search,
         AppDestination.Archive,
         AppDestination.ProfileSwitcher,

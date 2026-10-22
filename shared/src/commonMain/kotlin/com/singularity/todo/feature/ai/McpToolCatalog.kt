@@ -14,6 +14,7 @@ import com.singularity.todo.feature.ai.tools.DeleteProjectTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
 import com.singularity.todo.feature.ai.tools.ExtractActionsTool
+import com.singularity.todo.feature.ai.tools.FirstStepTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
 import com.singularity.todo.feature.ai.tools.GetNoteTool
@@ -42,6 +43,7 @@ import com.singularity.todo.feature.ai.tools.UpdateProjectTool
 import com.singularity.todo.feature.ai.tools.UpdateTaskTool
 import com.singularity.todo.feature.ai.tools.WeeklyPlanTool
 import com.singularity.todo.feature.ai.tools.WriteAdrTool
+import com.singularity.todo.feature.ai.tools.WriteTaskProposalTool
 import kotlin.reflect.KClass
 
 /**
@@ -168,8 +170,20 @@ object McpToolCatalog {
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
+            name = "write_task_proposal",
+            toolClass = WriteTaskProposalTool::class,
+            domain = "tasks",
+            annotations = ToolAnnotations(),
+        ),
+        ToolEntry(
             name = "search_tasks",
             toolClass = SearchTasksTool::class,
+            domain = "tasks",
+            annotations = ToolAnnotations(readOnlyHint = true),
+        ),
+        ToolEntry(
+            name = "first_step",
+            toolClass = FirstStepTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),

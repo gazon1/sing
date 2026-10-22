@@ -243,6 +243,14 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
                     actions.onAiAction?.invoke(TaskAiAction.SuggestTime)
                     actions.onDismiss()
                 }
+                item(
+                    id = "ai_first_step",
+                    label = "Find the first step",
+                    enabled = actions.onAiAction != null && hasAiContext,
+                ) {
+                    actions.onAiAction?.invoke(TaskAiAction.FirstStep)
+                    actions.onDismiss()
+                }
             },
         )
 

@@ -38,6 +38,7 @@ class ScreenFamilyTest {
         assertFamily(ScreenFamily.Calendar, AppDestination.Calendar)
         assertFamily(ScreenFamily.Notes, AppDestination.Notes)
         assertFamily(ScreenFamily.AiChat, AppDestination.AiChat)
+        assertFamily(ScreenFamily.AiChat, AppDestination.Review)
         assertFamily(ScreenFamily.Search, AppDestination.Search)
         assertFamily(ScreenFamily.Archive, AppDestination.Archive)
         assertFamily(ScreenFamily.Settings, AppDestination.Settings)

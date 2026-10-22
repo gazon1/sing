@@ -24,6 +24,7 @@ import com.singularity.todo.feature.ai.tools.DeleteProjectTool
 import com.singularity.todo.feature.ai.tools.DeleteTagTool
 import com.singularity.todo.feature.ai.tools.DeleteTaskTool
 import com.singularity.todo.feature.ai.tools.ExtractActionsTool
+import com.singularity.todo.feature.ai.tools.FirstStepTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
 import com.singularity.todo.feature.ai.tools.GetNoteTool
@@ -53,6 +54,7 @@ import com.singularity.todo.feature.ai.tools.UpdateTaskTool
 import com.singularity.todo.feature.ai.tools.WeeklyPlanTool
 import com.singularity.todo.feature.ai.tools.UpdateAdrTool
 import com.singularity.todo.feature.ai.tools.WriteAdrTool
+import com.singularity.todo.feature.ai.tools.WriteTaskProposalTool
 import com.singularity.todo.feature.ai.usage.AiUsageViewModel
 import com.singularity.todo.feature.ai.use_cases.DecomposeTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.ExtractActionsUseCase
@@ -61,6 +63,7 @@ import com.singularity.todo.feature.ai.use_cases.GenerateDescriptionUseCase
 import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.PickTimeUseCase
 import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
+import com.singularity.todo.feature.ai.use_cases.FirstStepUseCase
 import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
@@ -149,6 +152,7 @@ actual fun aiToolsModule(): Module = module {
     // ─── AI Use Cases ───
 
     factoryOf(::RefineTaskUseCase)
+    factoryOf(::FirstStepUseCase)
     factoryOf(::GenerateDescriptionUseCase)
     factoryOf(::DecomposeTaskUseCase)
     factoryOf(::GenerateChecklistUseCase)
@@ -173,6 +177,7 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::SmartRewriteTool)
     factoryOf(::GenerateDescriptionTool)
     factoryOf(::DecomposeTaskTool)
+    factoryOf(::FirstStepTool)
     factoryOf(::DecomposeAndCreateTool)
     factoryOf(::GenerateChecklistTool)
     factoryOf(::PickTimeTool)
@@ -190,6 +195,7 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::GetTaskTool)
     factoryOf(::ListLinkedTasksTool)
     factoryOf(::ListTasksTool)
+    factoryOf(::WriteTaskProposalTool)
     factoryOf(::SearchTasksTool)
     factoryOf(::CreateTaskTool)
     factoryOf(::UpdateTaskTool)
@@ -221,6 +227,7 @@ actual fun aiToolsModule(): Module = module {
             get<SmartRewriteTool>(),
             get<GenerateDescriptionTool>(),
             get<DecomposeTaskTool>(),
+            get<FirstStepTool>(),
             get<GenerateChecklistTool>(),
             get<PickTimeTool>(),
             get<ClusterTasksTool>(),
@@ -237,6 +244,7 @@ actual fun aiToolsModule(): Module = module {
             get<GetTaskTool>(),
             get<ListLinkedTasksTool>(),
             get<ListTasksTool>(),
+            get<WriteTaskProposalTool>(),
             get<SearchTasksTool>(),
             get<CreateTaskTool>(),
             get<UpdateTaskTool>(),

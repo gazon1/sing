@@ -156,6 +156,8 @@ class TaskAiSlot(
             )
         }
 
+        TaskAiAction.FirstStep -> firstStepItem(task, proposalId)
+
         TaskAiAction.SuggestTime -> {
             val suggestion = withUseCase(ai.pickTime, "PickTime") { pick ->
                 pick(task.title, task.description).getOrThrow()
@@ -171,6 +173,26 @@ class TaskAiSlot(
                 ),
             )
         }
+    }
+
+    /**
+     * The first physical action of the task, proposed as a change.
+     *
+     * The checkable outcome travels in the line the user reads: a step nobody can
+     * check is a step nobody can be finished with.
+     */
+    private suspend fun firstStepItem(task: Task, proposalId: ProposalId): List<ProposalItem> {
+        val step = withUseCase(ai.firstStep, "FirstStep") { first ->
+            first(task.title, task.description).getOrThrow()
+        }
+        return listOf(
+            newItem(
+                kind = ProposalItemKind.AddSubtasks(listOf(step.action)),
+                proposalId = proposalId,
+                targetId = task.id.value,
+                summary = "First step: ${step.action} — done when ${step.doneWhen}",
+            ),
+        )
     }
 
     private fun newItem(
