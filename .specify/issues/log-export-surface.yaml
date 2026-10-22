@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/log-export-surface/proposal.md
-  design: openspec/changes/log-export-surface/design.md
-  adr: openspec/changes/log-export-surface/adr.md
   tasks: openspec/changes/log-export-surface/tasks.md
 specs_dir: openspec/changes/log-export-surface/specs
 is_stub: false

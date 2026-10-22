@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-dropped-result-is-reported-where-it-happens/proposal.md
-  design: openspec/changes/a-dropped-result-is-reported-where-it-happens/design.md
-  adr: openspec/changes/a-dropped-result-is-reported-where-it-happens/adr.md
   tasks: openspec/changes/a-dropped-result-is-reported-where-it-happens/tasks.md
 specs_dir: openspec/changes/a-dropped-result-is-reported-where-it-happens/specs
 is_stub: false

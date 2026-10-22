@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted/proposal.md
-  design: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted/design.md
-  adr: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted/adr.md
   tasks: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted/tasks.md
 specs_dir: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted/specs
 is_stub: false

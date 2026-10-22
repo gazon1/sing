@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-auth-outcome-is-reported-not-thrown/proposal.md
-  design: openspec/changes/archive/2026-10-07-auth-outcome-is-reported-not-thrown/design.md
-  adr: openspec/changes/archive/2026-10-07-auth-outcome-is-reported-not-thrown/adr.md
   tasks: openspec/changes/archive/2026-10-07-auth-outcome-is-reported-not-thrown/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-auth-outcome-is-reported-not-thrown/specs
 is_stub: false

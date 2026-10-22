@@ -20,8 +20,6 @@ tags:
 - field
 documents:
   proposal: openspec/changes/the-genui-count-travels-with-the-value/proposal.md
-  design: openspec/changes/the-genui-count-travels-with-the-value/design.md
-  adr: openspec/changes/the-genui-count-travels-with-the-value/adr.md
   tasks: openspec/changes/the-genui-count-travels-with-the-value/tasks.md
 specs_dir: openspec/changes/the-genui-count-travels-with-the-value/specs
 is_stub: false

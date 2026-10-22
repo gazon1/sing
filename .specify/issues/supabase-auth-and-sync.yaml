@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-06-supabase-auth-and-sync/proposal.md
   design: openspec/changes/archive/2026-10-06-supabase-auth-and-sync/design.md
-  adr: openspec/changes/archive/2026-10-06-supabase-auth-and-sync/adr.md
   tasks: openspec/changes/archive/2026-10-06-supabase-auth-and-sync/tasks.md
 specs_dir: openspec/changes/archive/2026-10-06-supabase-auth-and-sync/specs
 is_stub: false

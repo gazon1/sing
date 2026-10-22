@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/theme-mode-offers-system-light-and-dark/proposal.md
-  design: openspec/changes/theme-mode-offers-system-light-and-dark/design.md
-  adr: openspec/changes/theme-mode-offers-system-light-and-dark/adr.md
   tasks: openspec/changes/theme-mode-offers-system-light-and-dark/tasks.md
 specs_dir: openspec/changes/theme-mode-offers-system-light-and-dark/specs
 is_stub: false

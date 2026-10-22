@@ -13,9 +13,7 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/detekt-tooling-honesty/proposal.md
-  design: openspec/changes/detekt-tooling-honesty/design.md
-  adr: openspec/changes/detekt-tooling-honesty/adr.md
   tasks: openspec/changes/detekt-tooling-honesty/tasks.md
-specs_dir: openspec/changes/detekt-tooling-honesty/specs
+specs_dir: null
 is_stub: false
 openspec_path: openspec/changes/detekt-tooling-honesty

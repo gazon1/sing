@@ -18,8 +18,6 @@ tags:
 - compose
 documents:
   proposal: openspec/changes/the-sheet-state-is-not-defaulted/proposal.md
-  design: openspec/changes/the-sheet-state-is-not-defaulted/design.md
-  adr: openspec/changes/the-sheet-state-is-not-defaulted/adr.md
   tasks: openspec/changes/the-sheet-state-is-not-defaulted/tasks.md
 specs_dir: openspec/changes/the-sheet-state-is-not-defaulted/specs
 is_stub: false

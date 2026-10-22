@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-20-version-gate-read-timeout/proposal.md
-  design: openspec/changes/archive/2026-10-20-version-gate-read-timeout/design.md
-  adr: openspec/changes/archive/2026-10-20-version-gate-read-timeout/adr.md
   tasks: openspec/changes/archive/2026-10-20-version-gate-read-timeout/tasks.md
 specs_dir: openspec/changes/archive/2026-10-20-version-gate-read-timeout/specs
 is_stub: false

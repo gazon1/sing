@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-write-tool-reports-the-write-it-did-not-perform/proposal.md
-  design: openspec/changes/a-write-tool-reports-the-write-it-did-not-perform/design.md
-  adr: openspec/changes/a-write-tool-reports-the-write-it-did-not-perform/adr.md
   tasks: openspec/changes/a-write-tool-reports-the-write-it-did-not-perform/tasks.md
 specs_dir: openspec/changes/a-write-tool-reports-the-write-it-did-not-perform/specs
 is_stub: false

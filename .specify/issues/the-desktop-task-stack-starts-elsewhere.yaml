@@ -17,8 +17,6 @@ tags:
 - parity
 documents:
   proposal: openspec/changes/archive/2026-10-22-the-desktop-task-stack-starts-elsewhere/proposal.md
-  design: openspec/changes/archive/2026-10-22-the-desktop-task-stack-starts-elsewhere/design.md
-  adr: openspec/changes/archive/2026-10-22-the-desktop-task-stack-starts-elsewhere/adr.md
   tasks: openspec/changes/archive/2026-10-22-the-desktop-task-stack-starts-elsewhere/tasks.md
 specs_dir: openspec/changes/archive/2026-10-22-the-desktop-task-stack-starts-elsewhere/specs
 is_stub: false

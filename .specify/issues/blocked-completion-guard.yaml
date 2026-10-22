@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/blocked-completion-guard/proposal.md
   design: openspec/changes/blocked-completion-guard/design.md
-  adr: openspec/changes/blocked-completion-guard/adr.md
   tasks: openspec/changes/blocked-completion-guard/tasks.md
 specs_dir: openspec/changes/blocked-completion-guard/specs
 is_stub: false

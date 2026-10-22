@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-04-navigation-open-policy/proposal.md
   design: openspec/changes/archive/2026-10-04-navigation-open-policy/design.md
-  adr: openspec/changes/archive/2026-10-04-navigation-open-policy/adr.md
   tasks: openspec/changes/archive/2026-10-04-navigation-open-policy/tasks.md
 specs_dir: openspec/changes/archive/2026-10-04-navigation-open-policy/specs
 is_stub: false

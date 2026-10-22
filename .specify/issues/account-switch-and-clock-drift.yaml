@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/account-switch-and-clock-drift/proposal.md
-  design: openspec/changes/account-switch-and-clock-drift/design.md
-  adr: openspec/changes/account-switch-and-clock-drift/adr.md
   tasks: openspec/changes/account-switch-and-clock-drift/tasks.md
 specs_dir: openspec/changes/account-switch-and-clock-drift/specs
 is_stub: false

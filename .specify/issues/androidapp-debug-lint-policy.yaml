@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy/proposal.md
   design: openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy/design.md
-  adr: openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy/adr.md
   tasks: openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy/specs
 is_stub: false

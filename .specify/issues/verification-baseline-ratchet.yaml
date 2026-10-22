@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/verification-baseline-ratchet/proposal.md
-  design: openspec/changes/verification-baseline-ratchet/design.md
-  adr: openspec/changes/verification-baseline-ratchet/adr.md
   tasks: openspec/changes/verification-baseline-ratchet/tasks.md
 specs_dir: openspec/changes/verification-baseline-ratchet/specs
 is_stub: false

@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/agent-toolbox-surface/proposal.md
   design: openspec/changes/agent-toolbox-surface/design.md
-  adr: openspec/changes/agent-toolbox-surface/adr.md
   tasks: openspec/changes/agent-toolbox-surface/tasks.md
 specs_dir: openspec/changes/agent-toolbox-surface/specs
 is_stub: false

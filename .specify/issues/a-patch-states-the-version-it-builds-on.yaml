@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-a-patch-states-the-version-it-builds-on/proposal.md
-  design: openspec/changes/archive/2026-10-07-a-patch-states-the-version-it-builds-on/design.md
-  adr: openspec/changes/archive/2026-10-07-a-patch-states-the-version-it-builds-on/adr.md
   tasks: openspec/changes/archive/2026-10-07-a-patch-states-the-version-it-builds-on/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-a-patch-states-the-version-it-builds-on/specs
 is_stub: false

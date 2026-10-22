@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/close-rule-consolidation/proposal.md
   design: openspec/changes/close-rule-consolidation/design.md
-  adr: openspec/changes/close-rule-consolidation/adr.md
   tasks: openspec/changes/close-rule-consolidation/tasks.md
 specs_dir: openspec/changes/close-rule-consolidation/specs
 is_stub: false

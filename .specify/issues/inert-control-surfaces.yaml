@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/inert-control-surfaces/proposal.md
-  design: openspec/changes/inert-control-surfaces/design.md
-  adr: openspec/changes/inert-control-surfaces/adr.md
   tasks: openspec/changes/inert-control-surfaces/tasks.md
 specs_dir: openspec/changes/inert-control-surfaces/specs
 is_stub: false

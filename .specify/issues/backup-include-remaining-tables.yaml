@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/backup-include-remaining-tables/proposal.md
   design: openspec/changes/backup-include-remaining-tables/design.md
-  adr: openspec/changes/backup-include-remaining-tables/adr.md
   tasks: openspec/changes/backup-include-remaining-tables/tasks.md
 specs_dir: openspec/changes/backup-include-remaining-tables/specs
 is_stub: false

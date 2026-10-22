@@ -18,8 +18,6 @@ tags:
 - toolchain
 documents:
   proposal: openspec/changes/the-next-layer-of-contracts/proposal.md
-  design: openspec/changes/the-next-layer-of-contracts/design.md
-  adr: openspec/changes/the-next-layer-of-contracts/adr.md
   tasks: openspec/changes/the-next-layer-of-contracts/tasks.md
 specs_dir: openspec/changes/the-next-layer-of-contracts/specs
 is_stub: false

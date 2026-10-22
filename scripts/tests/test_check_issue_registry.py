@@ -91,20 +91,22 @@ class IssueRegistryTest(unittest.TestCase):
     def test_a_change_without_an_entry_is_a_finding(self) -> None:
         self._change('the-backup-keeps-the-verb')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual(1, len(missing), 'a change with no registry entry is the gap')
         self.assertIn('the-backup-keeps-the-verb', missing[0])
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
     def test_a_registered_change_is_clean(self) -> None:
         self._change('the-backup-keeps-the-verb')
         self._entry('the-backup-keeps-the-verb', 'openspec/changes/the-backup-keeps-the-verb')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
     # ── the other direction: a record of something else ────────────────────────
 
@@ -112,7 +114,7 @@ class IssueRegistryTest(unittest.TestCase):
         self._change('the-backup-keeps-the-verb')
         self._entry('the-backup-keeps-the-verb', 'openspec/changes/some-other-change')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual(1, len(mispointed), 'a record of another change is not coverage')
@@ -123,7 +125,7 @@ class IssueRegistryTest(unittest.TestCase):
             "slug: the-backup-keeps-the-verb\n", encoding='utf-8'
         )
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual(1, len(mispointed), 'a record that points at nothing points at nothing')
@@ -132,7 +134,7 @@ class IssueRegistryTest(unittest.TestCase):
         self._change('the-backup-keeps-the-verb')
         self._entry('the-backup-keeps-the-verb', 'openspec/changes/nowhere/the-backup-keeps-the-verb')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual(
@@ -145,7 +147,7 @@ class IssueRegistryTest(unittest.TestCase):
         self._change('the-backup-keeps-the-verb')
         self._entry('the-backup-keeps-the-verb', 'docs/decisions/the-backup-keeps-the-verb')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual(1, len(mispointed), 'a path outside the changes tree is not a change')
@@ -159,10 +161,11 @@ class IssueRegistryTest(unittest.TestCase):
             'openspec/changes/2026-10-21-the-search-asks-the-index',
         )
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing, 'an archived change is still a decision')
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
     def test_a_date_prefix_is_dropped_for_the_entry_name(self) -> None:
         self._change('2026-10-09-detekt-class-signature-gotcha')
@@ -171,10 +174,11 @@ class IssueRegistryTest(unittest.TestCase):
             'openspec/changes/2026-10-09-detekt-class-signature-gotcha',
         )
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
     def test_archiving_a_change_does_not_break_its_record(self) -> None:
         # The repository's convention: a change is filed as
@@ -186,7 +190,7 @@ class IssueRegistryTest(unittest.TestCase):
         self._archived_change('2026-10-22-android-test-hardening')
         self._entry('android-test-hardening', 'openspec/changes/android-test-hardening')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual(
@@ -194,6 +198,7 @@ class IssueRegistryTest(unittest.TestCase):
             mispointed,
             'a record may keep the path it had before the change was filed away',
         )
+        self.assertEqual([], dangling)
 
     def test_a_record_regenerated_after_the_move_is_accepted_too(self) -> None:
         self._archived_change('2026-10-22-android-test-hardening')
@@ -202,17 +207,18 @@ class IssueRegistryTest(unittest.TestCase):
             'openspec/changes/archive/2026-10-22-android-test-hardening',
         )
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
     def test_two_changes_claiming_one_slug_are_a_finding(self) -> None:
         self._change('close-rule-consolidation')
         self._archived_change('close-rule-consolidation')
         self._entry('close-rule-consolidation', 'openspec/changes/close-rule-consolidation')
 
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual(
             1,
@@ -220,12 +226,88 @@ class IssueRegistryTest(unittest.TestCase):
             'one record cannot be the record of two changes wearing one slug',
         )
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
     def test_an_empty_changes_directory_is_clean(self) -> None:
-        missing, mispointed = mod.find_problems(self.changes, self.issues)
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
 
         self.assertEqual([], missing)
         self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
+
+    # ── the record's own links ─────────────────────────────────────────────────
+
+    def test_a_record_naming_a_document_that_is_not_there_is_a_finding(self) -> None:
+        # The importer used to write all four document names — proposal, design,
+        # adr, tasks — whether the change had them or not, so a record pointed at
+        # a design.md that was never written. A record is a link to the change,
+        # and a link to a file that is not there is a link to nothing.
+        self._change('the-backup-keeps-the-verb')
+        (self.issues / 'the-backup-keeps-the-verb.yaml').write_text(
+            ENTRY_TEMPLATE.format(
+                slug='the-backup-keeps-the-verb',
+                path='openspec/changes/the-backup-keeps-the-verb',
+            )
+            + 'documents:\n'
+            + '  proposal: openspec/changes/the-backup-keeps-the-verb/proposal.md\n'
+            + '  design: openspec/changes/the-backup-keeps-the-verb/design.md\n',
+            encoding='utf-8',
+        )
+
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mispointed)
+        self.assertEqual(1, len(dangling), 'a record naming a document that is not there')
+        self.assertIn('design', dangling[0])
+
+    def test_a_record_naming_the_documents_that_exist_is_clean(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        (self.issues / 'the-backup-keeps-the-verb.yaml').write_text(
+            ENTRY_TEMPLATE.format(
+                slug='the-backup-keeps-the-verb',
+                path='openspec/changes/the-backup-keeps-the-verb',
+            )
+            + 'documents:\n'
+            + '  proposal: openspec/changes/the-backup-keeps-the-verb/proposal.md\n',
+            encoding='utf-8',
+        )
+
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
+
+    def test_a_record_naming_a_specs_directory_that_is_not_there_is_a_finding(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        (self.issues / 'the-backup-keeps-the-verb.yaml').write_text(
+            ENTRY_TEMPLATE.format(
+                slug='the-backup-keeps-the-verb',
+                path='openspec/changes/the-backup-keeps-the-verb',
+            )
+            + 'specs_dir: openspec/changes/the-backup-keeps-the-verb/specs\n',
+            encoding='utf-8',
+        )
+        (self.changes / 'the-backup-keeps-the-verb' / 'specs').rmdir()
+
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mispointed)
+        self.assertEqual(1, len(dangling), 'a record naming a specs directory that is not there')
+
+    def test_a_record_with_no_documents_block_is_clean(self) -> None:
+        # The legacy shape: a record that says nothing about documents. It says
+        # no more than it can be held to.
+        self._change('the-backup-keeps-the-verb')
+        self._entry('the-backup-keeps-the-verb', 'openspec/changes/the-backup-keeps-the-verb')
+
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mispointed)
+        self.assertEqual([], dangling)
 
 
 if __name__ == '__main__':

@@ -59,15 +59,24 @@ baseline, not a rule. What is checked is the direction that can still go wrong
 for work that is happening now: a change with no record, a record that names
 a different change, and two changes claiming one slug.
 
+The record's own links
+----------------------
+A record is a link to the change, not a claim about it, so the documents it
+names have to be there. The importer used to write all four names — proposal,
+design, adr, tasks — whether the change had them or not, so a record pointed
+at a `design.md` that was never written. The importer now writes only the
+documents that exist, and this gate holds it to that: a record naming a
+document that is not there is a link to nothing.
+
 The fix
 -------
 A missing record is created by:
 
     python3 scripts/openspec-import-all.py
 
-A record that names another change is rewritten by the same script with
-`--replace` — without it the importer skips a record that already exists,
-which is exactly the case that needs rewriting.
+A record that names another change, or a document that is not there, is
+rewritten by the same script with `--replace` — without it the importer skips
+a record that already exists, which is exactly the case that needs rewriting.
 
 Usage:
     python3 scripts/check-issue-registry.py            # report
@@ -127,6 +136,40 @@ def recorded_path(entry: pathlib.Path) -> str | None:
     return match.group(1) if match else None
 
 
+def recorded_documents(entry: pathlib.Path) -> dict[str, str]:
+    """The documents a registry entry names, as written in its `documents:` block.
+
+    The block is read with a pattern rather than a YAML parser on purpose: the
+    gate has to keep working on a tree where the parser is not installed, and
+    the block is a flat mapping of names to paths.
+    """
+    try:
+        text = entry.read_text(encoding='utf-8')
+    except OSError:
+        return {}
+    block = re.search(r'^documents:\s*$\n((?:[ \t]+.*\n?)*)', text, re.M)
+    if not block:
+        return {}
+    documents: dict[str, str] = {}
+    for line in block.group(1).splitlines():
+        pair = re.match(r'\s+([A-Za-z_][\w-]*):\s*(\S+)', line)
+        if pair:
+            documents[pair.group(1)] = pair.group(2)
+    return documents
+
+
+def recorded_specs_dir(entry: pathlib.Path) -> str | None:
+    """The `specs_dir` a registry entry records, if it records one that is set."""
+    try:
+        text = entry.read_text(encoding='utf-8')
+    except OSError:
+        return None
+    match = re.search(r'^specs_dir:\s*(\S+)', text, re.M)
+    if not match or match.group(1) in ('null', '~', "''", '""'):
+        return None
+    return match.group(1)
+
+
 def slug_of_recorded_path(recorded: str) -> str | None:
     """The slug a recorded path names, or None when it names no change at all.
 
@@ -148,16 +191,21 @@ def slug_of_recorded_path(recorded: str) -> str | None:
 def find_problems(
     changes_dir: pathlib.Path,
     issues_dir: pathlib.Path,
-) -> tuple[list[str], list[str]]:
-    """The changes without a registry entry, and the entries pointing elsewhere.
+) -> tuple[list[str], list[str], list[str]]:
+    """The changes without a registry entry, the entries pointing elsewhere,
+    and the entries naming a document that is not there.
 
-    The two lists are separate because they are different failures with
-    different fixes: a missing entry is created by the import script, and a
-    mispointed one is rewritten by it with `--replace`.
+    The three lists are separate because they are different failures with
+    different fixes: a missing entry is created by the import script, a
+    mispointed one is rewritten by it with `--replace`, and an entry that
+    names a document the change never had is rewritten by the same command —
+    the importer writes only the documents that exist.
     """
     missing: list[str] = []
     mispointed: list[str] = []
+    dangling: list[str] = []
     seen_slugs: dict[str, list[str]] = {}
+    root = changes_dir.parent.parent
 
     for change in change_directories(changes_dir):
         slug = slug_for(change.name)
@@ -184,6 +232,22 @@ def find_problems(
                 f'{recorded_slug!r} instead'
             )
 
+        # A record is a link to the change, not a claim about it. Every
+        # document it names has to be there: a record that points at a
+        # design.md the change never had sends the next session to a file
+        # that was never written.
+        for name, path in sorted(recorded_documents(entry).items()):
+            if not (root / path).exists():
+                dangling.append(
+                    f'{issues_dir.name}/{slug}.yaml names the {name} {path!r}, which does not exist'
+                )
+        specs_dir = recorded_specs_dir(entry)
+        if specs_dir and not (root / specs_dir).exists():
+            dangling.append(
+                f'{issues_dir.name}/{slug}.yaml names the specs directory {specs_dir!r}, '
+                f'which does not exist'
+            )
+
     # Two directories claiming one slug are two changes wearing one record's
     # name: the second one would pass this gate on the first one's record.
     for slug, names in sorted(seen_slugs.items()):
@@ -193,37 +257,47 @@ def find_problems(
                 f'one record cannot be the record of both'
             )
 
-    return missing, mispointed
+    return missing, mispointed, dangling
 
 
 @click.command()
 @click.option('--quiet', is_flag=True)
+@click.option(
+    '--root',
+    default=None,
+    help='the tree to check (default: the repository this script lives in)',
+)
 @click.pass_context
-def cli(ctx: click.Context, quiet: bool) -> None:
-    changes = change_directories(CHANGES_DIR)
+def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
+    tree = pathlib.Path(root).resolve() if root else ROOT
+    changes_dir = tree / 'openspec' / 'changes'
+    issues_dir = tree / '.specify' / 'issues'
+    changes = change_directories(changes_dir)
     if not changes:
         if not quiet:
-            click.echo(f'check-issue-registry: no changes under {CHANGES_DIR.relative_to(ROOT)} — nothing to record')
+            click.echo(f'check-issue-registry: no changes under {changes_dir} — nothing to record')
         raise ctx.exit(CLEAN)
 
-    missing, mispointed = find_problems(CHANGES_DIR, ISSUES_DIR)
+    missing, mispointed, dangling = find_problems(changes_dir, issues_dir)
 
     for problem in missing:
         click.echo(f'ERROR: no registry entry: {problem}')
     for problem in mispointed:
         click.echo(f'ERROR: registry entry points elsewhere: {problem}')
+    for problem in dangling:
+        click.echo(f'ERROR: registry entry names a document that is not there: {problem}')
 
-    if missing or mispointed:
+    if missing or mispointed or dangling:
         click.echo('')
         click.echo(
             'check-issue-registry: the registry is the source of truth for a change, and a '
             'change without an entry is a change the next session cannot find.'
         )
         click.echo('  fix with — python3 scripts/openspec-import-all.py')
-        if mispointed:
+        if mispointed or dangling:
             click.echo(
-                '  a record that names another change is rewritten by — '
-                'python3 scripts/openspec-import-all.py --replace'
+                '  an entry that names another change, or a document that is not there, is '
+                'rewritten by — python3 scripts/openspec-import-all.py --replace'
             )
         raise ctx.exit(VALIDATION_FAILURE)
 

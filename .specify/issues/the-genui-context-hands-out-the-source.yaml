@@ -19,8 +19,6 @@ tags:
 - source
 documents:
   proposal: openspec/changes/the-genui-context-hands-out-the-source/proposal.md
-  design: openspec/changes/the-genui-context-hands-out-the-source/design.md
-  adr: openspec/changes/the-genui-context-hands-out-the-source/adr.md
   tasks: openspec/changes/the-genui-context-hands-out-the-source/tasks.md
 specs_dir: openspec/changes/the-genui-context-hands-out-the-source/specs
 is_stub: false

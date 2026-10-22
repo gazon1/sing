@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-test-run-is-judged-by-its-results/proposal.md
-  design: openspec/changes/archive/2026-10-07-test-run-is-judged-by-its-results/design.md
-  adr: openspec/changes/archive/2026-10-07-test-run-is-judged-by-its-results/adr.md
   tasks: openspec/changes/archive/2026-10-07-test-run-is-judged-by-its-results/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-test-run-is-judged-by-its-results/specs
 is_stub: false

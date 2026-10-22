@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-20-baseline-write-pipeline/proposal.md
-  design: openspec/changes/archive/2026-10-20-baseline-write-pipeline/design.md
-  adr: openspec/changes/archive/2026-10-20-baseline-write-pipeline/adr.md
   tasks: openspec/changes/archive/2026-10-20-baseline-write-pipeline/tasks.md
 specs_dir: openspec/changes/archive/2026-10-20-baseline-write-pipeline/specs
 is_stub: false

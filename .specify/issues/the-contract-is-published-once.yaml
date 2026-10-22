@@ -18,8 +18,6 @@ tags:
 - documentation
 documents:
   proposal: openspec/changes/the-contract-is-published-once/proposal.md
-  design: openspec/changes/the-contract-is-published-once/design.md
-  adr: openspec/changes/the-contract-is-published-once/adr.md
   tasks: openspec/changes/the-contract-is-published-once/tasks.md
 specs_dir: openspec/changes/the-contract-is-published-once/specs
 is_stub: false
