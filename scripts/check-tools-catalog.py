@@ -41,9 +41,9 @@ if _SCRIPTS_SRC not in sys.path:
 from sgate.commands.base import run
 from sgate.gatekit.cli import gate_command
 from sgate.gatekit.findings import BLOCKING, Finding
+from sgate.gatekit.paths import generated_path
 
 ROOT = Path(__file__).resolve().parent.parent
-CATALOG = ROOT / "docs" / "tools" / "catalog.md"
 CATALOG_RELATIVE = "docs/tools/catalog.md"
 
 #: The tools that are not gate scripts but are part of the same surface.
@@ -69,6 +69,18 @@ EXTRA_TOOLS = [
         "Prints the detekt findings by rule and by place, instead of XML per finding.",
     ),
 ]
+
+
+def catalog_path(root: Path) -> Path:
+    """Where the catalogue lives — one function, so the check and the write agree.
+
+    The path is checked to be inside the repository. It used to be counted
+    from `__file__` by hand, and the count was wrong once: the catalogue was
+    written one directory above the repository, while the check compared
+    against a file inside it and called the catalogue current. The path that
+    changed was the one nobody read.
+    """
+    return generated_path(root, CATALOG_RELATIVE)
 
 
 def first_line_of_docstring(path: Path) -> str:
@@ -124,7 +136,7 @@ def render(root: Path) -> str:
 
 def check(root: Path) -> list[Finding]:
     """The difference between the catalogue and the scripts it describes."""
-    catalog = root / CATALOG_RELATIVE
+    catalog = catalog_path(root)
     current = catalog.read_text(encoding="utf-8") if catalog.exists() else ""
     expected = render(root)
     if current == expected:
@@ -139,9 +151,10 @@ def check(root: Path) -> list[Finding]:
 
 
 def write() -> int:
-    """Write the catalogue."""
-    CATALOG.parent.mkdir(parents=True, exist_ok=True)
-    CATALOG.write_text(render(ROOT), encoding="utf-8")
+    """Write the catalogue — into this repository, or nowhere."""
+    catalog = catalog_path(ROOT)
+    catalog.parent.mkdir(parents=True, exist_ok=True)
+    catalog.write_text(render(ROOT), encoding="utf-8")
     print(f"wrote {CATALOG_RELATIVE}")
     return 0
 

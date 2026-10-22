@@ -28,6 +28,7 @@ from sgate.gatekit.findings import (
     blocking_findings,
 )
 from sgate.gatekit.markdown import code_spans, rows_matching, table_rows, type_names
+from sgate.gatekit.paths import assert_inside, generated_path, is_inside
 from sgate.gatekit.kotlin import (
     declared_classes,
     declared_objects,
@@ -44,8 +45,11 @@ __all__ = [
     "blocking_findings",
     "code_spans",
     "declared_classes",
+    "assert_inside",
     "declared_objects",
     "gate_command",
+    "generated_path",
+    "is_inside",
     "kotlin_files",
     "link_matchers",
     "link_specs",
