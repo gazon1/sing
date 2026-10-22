@@ -5,9 +5,9 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.TaskCognitiveLoad
 import com.singularity.todo.feature.tasks.domain.logic.TaskCognitiveLoadCalculator
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
@@ -41,7 +41,7 @@ internal object TaskToolSupport {
     fun context(tasks: List<Task>, clock: Clock, zone: TimeZone): SelectorContext = SelectorContext(
         today = clock.now().toLocalDateTime(zone).date,
         now = clock.now(),
-        blockedIds = TaskComputed.blockedIds(tasks),
+        blockedIds = Blocking.blockedTaskIds(tasks),
         // A task completed an hour ago may still carry an old `updatedAt`, so the
         // finished moment counts as the last movement. The statistics screen uses the
         // same rule, and a reader told "stagnant" by one screen and "fine" by the
@@ -102,8 +102,7 @@ internal object TaskToolSupport {
         checklistRepository: ChecklistRepository,
     ): TaskDetail {
         val checklist = checklistRepository.watchByTask(task.id.value).firstOrNull().orEmpty()
-        val blockers = allTasks
-            .filter { it.id in task.dependsOn }
+        val blockers = Blocking.activeBlockers(task, allTasks)
             .map { it.title }
 
         val steps = subtaskCount(task, allTasks) + checklist.size

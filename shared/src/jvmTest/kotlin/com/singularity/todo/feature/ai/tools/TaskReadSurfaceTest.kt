@@ -62,7 +62,7 @@ class TaskReadSurfaceTest {
         someday: Boolean = false,
         pinned: Boolean = false,
         archived: Boolean = false,
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         updatedAt: Instant = Instant.parse("2026-03-01T00:00:00Z"),
     ): Task = Task(
         id = TaskId(id),
@@ -75,7 +75,7 @@ class TaskReadSurfaceTest {
         someday = someday,
         isPinned = pinned,
         archivedAt = if (archived) Instant.parse("2026-03-05T00:00:00Z") else null,
-        dependsOn = dependsOn,
+        blockedBy = blockedBy,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
         updatedAt = updatedAt,
         userId = TestUsers.DEFAULT,
@@ -143,7 +143,7 @@ class TaskReadSurfaceTest {
     fun `blocked is the app's blocked`() = runTest {
         val repo = FakeTaskRepository()
         repo.seed(
-            task("waiting", dependsOn = setOf(TaskId("prerequisite"))),
+            task("waiting", blockedBy = setOf(TaskId("prerequisite"))),
             task("prerequisite"),
             task("free"),
         )
@@ -234,7 +234,7 @@ class TaskReadSurfaceTest {
         val repo = FakeTaskRepository()
         repo.seed(
             task("late", dueDate = LocalDate(2026, 3, 1)),
-            task("waiting", dependsOn = setOf(TaskId("prerequisite"))),
+            task("waiting", blockedBy = setOf(TaskId("prerequisite"))),
             task("prerequisite"),
             task("fine"),
         )
@@ -300,7 +300,7 @@ class TaskReadSurfaceTest {
             task(
                 "waiting",
                 priority = TaskPriority.Low,
-                dependsOn = setOf(TaskId("prerequisite")),
+                blockedBy = setOf(TaskId("prerequisite")),
                 updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
             ),
             task("prerequisite", updatedAt = Instant.parse("2026-01-01T00:00:00Z")),
