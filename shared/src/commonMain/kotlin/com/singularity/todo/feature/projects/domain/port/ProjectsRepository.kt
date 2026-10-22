@@ -10,6 +10,11 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Contract for projects persistence.
  */
+// 13 functions: the project's whole contract in one place. Splitting it into
+// a live-projects contract and a closed-projects contract would move a
+// boundary nobody asked for — every caller that touches a project touches
+// both sides of it.
+@Suppress("TooManyFunctions")
 interface ProjectsRepository :
     GenericUserScopedRepository<Project, ProjectId>,
     SoftDeletable<Project, ProjectId> {

@@ -110,7 +110,7 @@ class TaskCompletionSlotTest {
         slot.onIntent(TaskDetailIntent.Domain.ToggleComplete)
         runCurrent()
 
-        assertEquals(TaskId("t1"), fakes.recurringCompleted)
+        assertEquals(TaskId("t1"), fakes.recurringCalled, "the recurring close goes through the use case")
         assertNull(
             fakes.taskRepo.tasks.value["t1"]?.completedAt,
             "a recurring task must not be completed in place",
@@ -216,6 +216,11 @@ class TaskCompletionSlotTest {
         runCurrent()
 
         assertEquals(1, blocked.requests.size, "rolling a recurrence forward is still closing the task")
+        assertEquals(
+            TaskId("t1"),
+            fakes.recurringCalled,
+            "the write is what refuses — the question comes after it, not before it",
+        )
         assertNull(fakes.recurringCompleted, "nothing may be written before the confirmation")
     }
 

@@ -641,7 +641,8 @@ private class FakeTaskDao(
         taskIds: List<String>,
         userId: String,
         verb: String,
-    ): List<String> = depRefs.value        .filter { ref ->
+    ): List<String> = depRefs.value
+        .filter { ref ->
             ref.taskId in taskIds &&
                 ref.verb == verb &&
                 store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true

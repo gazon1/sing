@@ -73,6 +73,7 @@ class ProjectsViewModel(
         initialState = ProjectsUiState.Loading(
             searchQuery = FieldOwnedText.empty(),
             sortOrder = ProjectSortOrder.Name,
+            closedProjects = emptyList(),
         ),
         crashReporter = crashReporter,
         scope = scope,
@@ -111,7 +112,6 @@ class ProjectsViewModel(
                             ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
                             ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
                         }
-                        val closedProjects = closed
                         if (sorted.isEmpty()) {
                             // The query and the sort order travel with the empty state:
                             // they describe the filter that produced it, and the screen
@@ -122,14 +122,14 @@ class ProjectsViewModel(
                             ProjectsUiState.Empty(
                                 searchQuery = query,
                                 sortOrder = sort,
-                                closedProjects = closedProjects,
+                                closedProjects = closed,
                             )
                         } else {
                             ProjectsUiState.Content(
                                 projects = sorted,
                                 searchQuery = query,
                                 sortOrder = sort,
-                                closedProjects = closedProjects,
+                                closedProjects = closed,
                             )
                         }
                     }
@@ -137,17 +137,32 @@ class ProjectsViewModel(
                 .catch { cause ->
                     // The failure carries the query and the sort order: the screen still
                     // shows the search field and the sort control, and a state that
-                    // reset them would clear what the user had typed.
+                    // reset them would clear what the user had typed. The closed
+                    // projects travel with it for the same reason: they are on the
+                    // screen, and a failure is not a reason to take them away.
                     setState(
                         ProjectsUiState.Error(
                             message = cause.toMessage(),
                             searchQuery = _searchQuery.value,
                             sortOrder = _sortOrder.value,
+                            closedProjects = closedProjectsOnScreen(),
                         ),
                     )
                 }
                 .collect { setState(it) }
         }
+    }
+
+    /**
+     * The closed projects the screen is showing right now.
+     *
+     * A failure is not a reason to take them away: they are still closed, and the
+     * way back to them is still there.
+     */
+    private fun closedProjectsOnScreen(): List<Project> = when (val state = currentState) {
+        is ProjectsUiState.Content -> state.closedProjects
+        is ProjectsUiState.Empty -> state.closedProjects
+        else -> emptyList()
     }
 
     override fun onIntent(intent: ProjectsIntent) {

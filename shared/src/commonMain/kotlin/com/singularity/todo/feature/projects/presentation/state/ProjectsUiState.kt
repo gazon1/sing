@@ -59,7 +59,7 @@ sealed interface ProjectsUiState {
     data class Loading(
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project> = emptyList(),
+        override val closedProjects: List<Project>,
     ) : ProjectsUiState
 
     /**
@@ -72,7 +72,7 @@ sealed interface ProjectsUiState {
     data class Empty(
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project> = emptyList(),
+        override val closedProjects: List<Project>,
     ) : ProjectsUiState
 
     /** The list holds projects. */
@@ -80,7 +80,7 @@ sealed interface ProjectsUiState {
         val projects: List<ProjectWithCounts>,
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project> = emptyList(),
+        override val closedProjects: List<Project>,
     ) : ProjectsUiState
 
     /**
@@ -95,7 +95,7 @@ sealed interface ProjectsUiState {
         val message: String,
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project> = emptyList(),
+        override val closedProjects: List<Project>,
     ) : ProjectsUiState
 }
 

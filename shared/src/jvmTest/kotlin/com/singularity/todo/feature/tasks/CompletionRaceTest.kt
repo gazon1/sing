@@ -156,7 +156,7 @@ class CompletionRaceTest {
      */
     private fun reopenOnAnotherConnection(taskId: String) {
         val connection = createSqlDriver().open(dbPath)
-        connection.use { it ->
+        connection.use {
             it.prepare(
                 "UPDATE tasks SET completed_at = NULL, updated_at = 500 " +
                     "WHERE id = ? AND user_id = ?",

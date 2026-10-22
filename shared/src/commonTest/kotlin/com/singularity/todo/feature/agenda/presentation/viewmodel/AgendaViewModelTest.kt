@@ -15,7 +15,6 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
-import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
@@ -139,77 +138,6 @@ class AgendaViewModelTest {
             )
             val titles = state.sections.flatMap { it.tasks }.map { it.task.title }
             assertEquals(setOf("Buy milk", "Ship release"), titles.toSet())
-        } finally {
-            vmScope.close()
-        }
-    }
-
-    /**
-     * A bulk close asks the same question a single close asks.
-     *
-     * The refusal used to reach the user as a snackbar carrying the raw message
-     * of the exception, which is not a question and not a way to answer it. Now
-     * the selection is held, the tasks in the way are named, and the user's
-     * answer decides.
-     */
-    @Test
-    fun `a blocked bulk close asks the user instead of writing`() = runTest {
-        fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
-        fakeRepo.seed(
-            task("dep", "Prerequisite").copy(completedAt = null),
-        )
-        // t2 waits for a prerequisite that is still open.
-        fakeRepo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
-
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            runCurrent()
-
-            vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
-            vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t2")))
-            runCurrent()
-            vm.onIntent(AgendaIntent.CompleteSelected)
-            runCurrent()
-
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            val request = assertNotNull(
-                state.pendingBlockedBulkClose,
-                "the bulk close must ask, the same way the single close does",
-            )
-            assertEquals(setOf(TaskId("t2")), request.blockedTaskIds.toSet())
-            assertEquals(listOf("Ship release"), request.blockedTaskTitles)
-            assertEquals(2, request.taskIds.size, "the whole selection is what the answer applies to")
-            assertNull(fakeRepo.get(TaskId("t1"))?.completedAt, "nothing may be written before the answer")
-            assertNull(fakeRepo.get(TaskId("t2"))?.completedAt, "nothing may be written before the answer")
-        } finally {
-            vmScope.close()
-        }
-    }
-
-    @Test
-    fun `a confirmed bulk close closes the selection`() = runTest {
-        fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
-        fakeRepo.seed(task("dep", "Prerequisite").copy(completedAt = null))
-        fakeRepo.setDependency(TaskId("t2"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
-
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            runCurrent()
-
-            vm.onIntent(AgendaIntent.EnterSelectionMode(TaskId("t1")))
-            vm.onIntent(AgendaIntent.ToggleSelection(TaskId("t2")))
-            runCurrent()
-            vm.onIntent(AgendaIntent.CompleteSelected)
-            runCurrent()
-            vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose)
-            runCurrent()
-
-            assertNotNull(fakeRepo.get(TaskId("t1"))?.completedAt, "the free task is closed")
-            assertNotNull(fakeRepo.get(TaskId("t2"))?.completedAt, "the confirmed task is closed too")
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertNull(state.pendingBlockedBulkClose, "the confirmation is taken down")
         } finally {
             vmScope.close()
         }

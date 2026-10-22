@@ -71,12 +71,26 @@ open class CompleteRecurringTaskUseCase(
         return when (spec.base) {
             RecurrenceSpec.RecurrenceBase.FROM_DUE ->
                 // Anchor: task's due date (or today if no due date)
-                rollForward(task, spec, calculator.nextOccurrence(spec, task.dueDate ?: today), now, completeIt = true, force = force)
+                rollForward(
+                    task = task,
+                    spec = spec,
+                    nextDue = calculator.nextOccurrence(spec, task.dueDate ?: today),
+                    now = now,
+                    completeIt = true,
+                    force = force,
+                )
 
             RecurrenceSpec.RecurrenceBase.FROM_COMPLETION -> {
                 // Anchor: completion timestamp
                 val completedDate = task.completedAt?.toLocalDateTime(zone)?.date ?: today
-                rollForward(task, spec, calculator.nextOccurrence(spec, completedDate), now, completeIt = false, force = force)
+                rollForward(
+                    task = task,
+                    spec = spec,
+                    nextDue = calculator.nextOccurrence(spec, completedDate),
+                    now = now,
+                    completeIt = false,
+                    force = force,
+                )
             }
 
             RecurrenceSpec.RecurrenceBase.CATCH_UP -> {
@@ -86,7 +100,14 @@ open class CompleteRecurringTaskUseCase(
 
                 // No missed occurrences — just roll forward normally
                 if (missed == 0) {
-                    return rollForward(task, spec, calculator.nextOccurrence(spec, anchor), now, completeIt = true, force = force)
+                    return rollForward(
+                        task = task,
+                        spec = spec,
+                        nextDue = calculator.nextOccurrence(spec, anchor),
+                        now = now,
+                        completeIt = true,
+                        force = force,
+                    )
                 }
 
                 // Generate N-1 historical copies for the missed occurrences (oldest first),

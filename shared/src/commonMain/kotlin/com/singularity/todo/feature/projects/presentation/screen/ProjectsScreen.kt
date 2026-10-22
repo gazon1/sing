@@ -315,6 +315,7 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
                 ),
                 searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
+                closedProjects = emptyList(),
             ),
             onNavigateToProject = {},
             onCreateProject = {},
@@ -333,6 +334,7 @@ private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
             state = ProjectsUiState.Empty(
                 searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
+                closedProjects = emptyList(),
             ),
             onNavigateToProject = {},
             onCreateProject = {},
@@ -354,6 +356,7 @@ private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
                 ),
                 searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
+                closedProjects = emptyList(),
             ),
             onNavigateToProject = {},
             onCreateProject = {},

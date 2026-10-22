@@ -110,7 +110,11 @@ const val BLOCKED_BULK_COMPLETION_TITLE = "Some tasks are blocked"
  */
 fun blockedBulkCompletionText(blockedTaskTitles: List<String>, totalCount: Int): String {
     val blocked = blockedTaskTitles.size
-    val subject = if (blocked == 1) "1 of the $totalCount selected tasks" else "$blocked of the $totalCount selected tasks"
+    val subject = if (blocked == 1) {
+        "1 of the $totalCount selected tasks"
+    } else {
+        "$blocked of the $totalCount selected tasks"
+    }
     if (blockedTaskTitles.isEmpty()) return "$subject has unfinished prerequisites."
     return "$subject has unfinished prerequisites:\n" +
         blockedTaskTitles.joinToString(separator = "\n") { "• $it" }

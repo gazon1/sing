@@ -461,11 +461,7 @@ fun TaskTagDto.toEntity(): TaskTagCrossRef = TaskTagCrossRef(taskId = taskId, ta
  * carried: a backup written before this field existed is a graph of blocks.
  */
 @Serializable
-data class TaskDependencyDto(
-    val taskId: String,
-    val dependsOnTaskId: String,
-    val verb: String = "BLOCKS",
-)
+data class TaskDependencyDto(val taskId: String, val dependsOnTaskId: String, val verb: String = "BLOCKS")
 
 fun TaskDependencyCrossRef.toDto(): TaskDependencyDto =
     TaskDependencyDto(

@@ -57,6 +57,11 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *        at runtime; future MRs will support switching definitions.
  * @param scope CoroutineScope for all coroutine work. Tests pass `this` (TestScope).
  */
+// 18 functions: one handler per intent — the house shape of this screen. The
+// bulk-close path adds two of them (the question, and the confirmed close),
+// and a handler per intent is what keeps the intents from growing a private
+// helper each.
+@Suppress("TooManyFunctions")
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
 class AgendaViewModel(
     private val deps: AgendaDeps,
