@@ -392,15 +392,19 @@ jobs:
       # now Gradle's again. `scripts/check-workflow-exit-status.py` fails if a `run:`
       # block in any workflow pipes without this, so the pipe cannot come back.
       #
-      # `:adr-cli:test` and `:adr-core:jvmTest` are here because they were not
-      # anywhere. Both modules hold a `@Tag("slow")` class, and neither test task
-      # ran in CI at all — which is the exact shape the `Slow tests ran` step
-      # exists to refuse: a test the local loop never runs, and CI never runs
-      # either, is a test whose breakage nobody ever sees. The step reads their
-      # reports, so the reports have to exist.
+      # `:adr-cli:test` and `:adr-core:jvmTest` run in their own invocation
+      # below, not here, and that is deliberate. Both modules hold a
+      # `@Tag("slow")` class, and neither test task ran in CI at all — the
+      # exact shape the `Slow tests ran` step exists to refuse: a test the
+      # local loop never runs, and CI never runs either, is a test whose
+      # breakage nobody ever sees.
       #
-      # They are not in `koverReport`'s `dependsOn`, so they run and are read,
-      # and they do not change what the coverage floor measures.
+      # Their own invocation is what keeps them out of the coverage aggregate.
+      # Kover's aggregation plugin picks up whichever `Test` tasks happen to be
+      # in the task graph, so naming them here would add the ADR modules — 93
+      # covered lines of 1008 — to the aggregate the coverage floor measures,
+      # and the floor would move. They are tooling, like `:detekt-rules`, which
+      # the settings file skips for the same reason.
 
       - name: Gradle (tests + coverage + detekt)
         run: |
@@ -412,7 +416,6 @@ jobs:
             koverReport \
             koverHtml \
             :detekt-rules:test \
-            :adr-cli:test :adr-core:jvmTest \
             :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
             -Ptest.tags=fast,slow \
             -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail \
@@ -478,23 +481,6 @@ jobs:
             echo "::error::a test source set produced no JUnit report at all — nothing ran, so no floor was compared"
             exit 3
           fi
-
-      # The `slow` classes the full run owes the reader.
-      #
-      # The run floor above requires the `fast` classes, because `fast` is what
-      # a local run executes; the `slow` classes are the ones the default local
-      # run excludes. A test the local loop never runs is a test whose breakage
-      # nobody local ever sees: `McpServerEndToEndTest` sat broken on `main`
-      # for exactly that reason — tagged slow, broken since the read surface
-      # changed the shape of its answer, and found by CI rather than by anyone
-      # holding the tree.
-      #
-      # Placed here for the same reason the normalisation below is placed here:
-      # every later Gradle invocation can re-run a test task and overwrite the
-      # report this reads. A check that reads a report after it has been
-      # overwritten measures the wrong run.
-      - name: Slow tests ran
-        run: python3 scripts/check-slow-tests-ran.py
 
       # desktop only, deliberately. The android target's results come from
       # :androidApp:connectedDebugAndroidTest, which no CI job runs, and
@@ -568,6 +554,53 @@ jobs:
             --current shared/build/test-results/jvmTest \
             --previous /tmp/prev-run \
             --summary "$GITHUB_STEP_SUMMARY"
+
+      # The two ADR modules, in their own Gradle invocation. See the note above
+      # the main invocation: a test task in the kover invocation would join the
+      # coverage aggregate and move the floor, and the point of running them is
+      # that their slow classes execute at all.
+      #
+      # Placement is load-bearing, and it is the placement rule of
+      # `check-build-output-readers.py`: a step that reads build output has to
+      # read it before any Gradle invocation that can rewrite it. This is the
+      # second test-capable invocation in the job, so every reader — the
+      # annotations, the traceability normaliser, the matrix, the flake pass —
+      # has to sit above it. It cannot sit right after the main run for the
+      # same reason: that would put a re-run risk between the readers and the
+      # numbers they took.
+      #
+      # It cannot reach the shared or desktop test tasks either: `:adr-cli`
+      # depends on `:adr-core` and `:core-base`, never on `:shared` — the
+      # dependency edge is the point of that build file. So the reports this
+      # invocation writes are its own, and the readers above have already
+      # measured theirs.
+      - name: ADR module tests
+        run: |
+          set -o pipefail
+          ./gradlew --no-build-cache --no-parallel \
+            :adr-cli:test :adr-core:jvmTest \
+            -Ptest.tags=fast,slow \
+            2>&1 | tee adr-tests.log
+
+      # The `slow` classes the full run owes the reader.
+      #
+      # The run floor above requires the `fast` classes, because `fast` is what
+      # a local run executes; the `slow` classes are the ones the default local
+      # run excludes. A test the local loop never runs is a test whose breakage
+      # nobody local ever sees: `McpServerEndToEndTest` sat broken on `main`
+      # for exactly that reason — tagged slow, broken since the read surface
+      # changed the shape of its answer, and found by CI rather than by anyone
+      # holding the tree.
+      #
+      # Placed after the ADR invocation because it reads what both invocations
+      # wrote: the slow classes live in six source sets, two of them in the ADR
+      # modules, and a check that ran before their reports existed would report
+      # them as missing. It is placed before every Gradle invocation below it,
+      # because each of those can re-run a test task and overwrite the report
+      # this reads — a check that reads a report after it has been overwritten
+      # measures the wrong run.
+      - name: Slow tests ran
+        run: python3 scripts/check-slow-tests-ran.py
 
       # Detekt passed before this point — if DI/import files changed in a rebase,
       # this catches a compile break that `jvmTest` (already green) might miss.

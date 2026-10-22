@@ -131,10 +131,11 @@ scan of the whole tree is the point of both.
   open change from before this rule is in the baseline.
 - A PR that adds a change has to bring the review with it. That is the rule
   `AGENTS.md` already stated, now enforced.
-- The registry records changed in bulk: 100 of them lost the `design.md` and
-  `adr.md` lines they never had, 7 records' `specs_dir` became `null` (the
-  change has no `specs/`), and one record's path was corrected to where the
-  change was archived. The diff is mechanical and is what
+- The registry records changed in bulk: 101 records changed, 101 of them
+  lost the `adr.md` line they never had and 82 lost the `design.md` line they
+  never had, 7 records' `specs_dir` became `null` (the change has no
+  `specs/`), and one record's path was corrected to where the change was
+  archived. The diff is mechanical and is what
   `python3 scripts/openspec-import-all.py --replace` writes.
 - A `slow` class that is renamed, moved, or deleted changes the full run's
   report, and the CI step reads that report right after the run.
@@ -180,6 +181,34 @@ The review also found that the success message claimed more than the code did
 the baseline remedy contradicted the rule that the baseline only shrinks. Both
 are fixed: the gate now reports the split, and the remedy says that adding an
 entry is an edit in the diff.
+
+A second pass over the fixes found one more blocking defect, and it was the
+one this repository already has a name for: **a gate that cannot pass**. The
+slow gate matched a Kotlin Multiplatform suite by its name, and a KMP suite
+is named `ClassName[target]` — so every slow class in a KMP module read as
+"did not run", and the CI step would have failed on every run of the tree it
+was written to protect. The suffix is stripped now.
+
+The second pass also found that the scaffold exemption keyed on a leftover
+placeholder *line*, which an author could have left in place while writing
+the proposal up; the exemption now compares the proposal with the workflow's
+own template, line for line, so it ends when the proposal is written. And it
+found that the spec-create workflow wrote a registry record naming a
+`design.md` and a `tasks.md` it never creates — the same defect the importer
+had, in the workflow; the workflow now names only the document it writes, and
+its `specs_dir` is written as `null` when the change has no `specs/` — the
+same word the importer uses, because a record that names a directory that
+never existed is the finding the registry gate exists to report.
+
+The ADR invocation in CI also had to move. It is the second test-capable
+Gradle invocation in the job, and `check-build-output-readers.py` requires
+every step that reads build output to read it *before* an invocation that can
+rewrite it — so the ADR invocation sits below the traceability normaliser,
+the matrix and the flake pass, and the `slow` gate sits below the ADR
+invocation because it reads what both invocations wrote. The dependency edge
+that makes this safe is the one `:adr-cli`'s build file exists to enforce: it
+depends on `:adr-core` and `:core-base`, never on `:shared`, so the ADR
+invocation cannot rewrite the reports the readers above it measured.
 
 ## Links
 

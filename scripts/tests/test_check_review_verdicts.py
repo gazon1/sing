@@ -226,18 +226,43 @@ class ReviewVerdictsTest(unittest.TestCase):
 
         self.assertEqual([], problems)
 
+    def _scaffold_template(self) -> list[str]:
+        """Copy the spec-create workflow into the tree and return its template.
+
+        The gate compares a proposal with the template the workflow itself
+        writes, so a test that builds a scaffold without the workflow is
+        testing a tree that cannot exist. The workflow is copied from the
+        repository rather than written out here, so the template the test
+        asserts against is the one the workflow really writes.
+        """
+        source = pathlib.Path(__file__).resolve().parent.parent.parent / mod.SCAFFOLD_WORKFLOW
+        target = self.root / mod.SCAFFOLD_WORKFLOW
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.read_text(encoding='utf-8'), encoding='utf-8')
+        template = mod.scaffold_template(self.root)
+        self.assertIsNotNone(template, 'the workflow the gate compares against must be there')
+        return template or []
+
+    def _proposal(self, change: pathlib.Path, template: list[str], title: str) -> None:
+        """Write the proposal the workflow writes, with the title filled in."""
+        lines = list(template)
+        for index, line in enumerate(lines):
+            if line.startswith('# '):
+                lines[index] = f'# {title}'
+                break
+        (change / 'proposal.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
     def test_a_scaffold_change_is_exempt_until_it_is_written_up(self) -> None:
         # The spec-create workflow writes the change and leaves the template in
         # place. Nobody has written it up, so nobody has reviewed it, and there
         # is nothing to have reviewed yet.
+        template = self._scaffold_template()
         change = self.changes / '2026-10-22-a-new-idea'
         change.mkdir()
         (change / '.openspec.yaml').write_text(
             'schema: adr-workflow\nslug: a-new-idea\n', encoding='utf-8'
         )
-        (change / 'proposal.md').write_text(
-            '# A new idea\n\n_Describe the problem or opportunity here._\n', encoding='utf-8'
-        )
+        self._proposal(change, template, 'A new idea')
 
         problems, _, scaffolds, counted = mod.find_problems(self.changes, self.reviews, set())
 
@@ -246,14 +271,15 @@ class ReviewVerdictsTest(unittest.TestCase):
         self.assertEqual(1, counted['scaffolds'])
 
     def test_a_written_up_scaffold_needs_a_verdict(self) -> None:
+        template = self._scaffold_template()
         change = self.changes / '2026-10-22-a-new-idea'
         change.mkdir()
         (change / '.openspec.yaml').write_text(
             'schema: adr-workflow\nslug: a-new-idea\n', encoding='utf-8'
         )
-        (change / 'proposal.md').write_text(
-            '# A new idea\n\nThe problem, written up.\n', encoding='utf-8'
-        )
+        self._proposal(change, template, 'A new idea')
+        with (change / 'proposal.md').open('a', encoding='utf-8') as handle:
+            handle.write('\nThe problem, written up.\n')
 
         problems, _, scaffolds, _ = mod.find_problems(self.changes, self.reviews, set())
 

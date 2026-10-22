@@ -71,19 +71,51 @@ DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 #: A date prefix on a change directory — the convention for a new change.
 DATE_PREFIX = re.compile(r'^\d{4}-\d{2}-\d{2}-')
 
-#: The line the spec-create workflow leaves in a proposal it has just written.
-#: A change whose proposal still says this is scaffolding, not a decision:
-#: nobody has written it up, so nobody has reviewed it, and there is nothing
-#: to have reviewed yet. The exemption ends when the author writes the
-#: proposal — the placeholder is gone with it.
-#:
-#: The text comes from `.specify/workflows/openspec-change/workflow.yml`.
-#: If that template changes, the scaffold stops being exempt and the gate
-#: asks for a verdict — the failure mode is stricter, not looser.
-SCAFFOLD_PLACEHOLDER = '_Describe the problem or opportunity here'
-
 #: The marker the spec-create workflow leaves next to the proposal.
 SCAFFOLD_MARKER = '.openspec.yaml'
+
+#: The workflow that writes the scaffold, and therefore the template a
+#: scaffold is compared against.
+SCAFFOLD_WORKFLOW = '.specify/workflows/openspec-change/workflow.yml'
+
+#: The heredoc the workflow writes the proposal with.
+SCAFFOLD_HEREDOC = 'PROPOSAL'
+
+
+def scaffold_template(tree: pathlib.Path) -> list[str] | None:
+    """The lines the spec-create workflow writes into a proposal.
+
+    Read from the workflow itself rather than kept here, so the template and
+    the check cannot drift apart: a change to the workflow's proposal changes
+    what a scaffold looks like, and the gate follows it.
+
+    None when the workflow is not where it is expected — the gate then cannot
+    recognise a scaffold, and says so by asking for a verdict. The failure
+    mode of a missing template is a stricter rule, not a looser one.
+    """
+    workflow = tree / SCAFFOLD_WORKFLOW
+    if not workflow.is_file():
+        return None
+    try:
+        text = workflow.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+
+    start = text.find(f"<< '{SCAFFOLD_HEREDOC}'")
+    if start == -1:
+        return None
+    body = text[text.find('\n', start) + 1:].splitlines()
+
+    # The closing marker is indented in the workflow file, like the body it
+    # closes, so the block ends at the first line that *is* the marker.
+    lines: list[str] = []
+    for line in body:
+        if line.strip() == SCAFFOLD_HEREDOC:
+            break
+        lines.append(line)
+    indents = [len(line) - len(line.lstrip()) for line in lines if line.strip()]
+    common = min(indents) if indents else 0
+    return [line[common:] if line.strip() else '' for line in lines]
 
 
 def active_changes(changes_dir: pathlib.Path) -> list[str]:
@@ -126,14 +158,44 @@ def archived_changes(changes_dir: pathlib.Path) -> list[str]:
     )
 
 
-def is_scaffold(change_dir: pathlib.Path) -> bool:
-    """Whether a change is still the scaffold the spec-create workflow wrote."""
+def is_scaffold(change_dir: pathlib.Path, template: list[str] | None) -> bool:
+    """Whether a change is still the scaffold the spec-create workflow wrote.
+
+    The proposal is compared with the workflow's own template, line for line.
+    A proposal that still carries a leftover placeholder *line* is not enough
+    to be a scaffold: what makes a scaffold a scaffold is that nothing has
+    been written into it yet, and a comparison with the template says exactly
+    that. It also means the exemption ends by itself when the author writes
+    the proposal, whether or not they delete the line the template left.
+    """
+    if template is None:
+        return False
     if not (change_dir / SCAFFOLD_MARKER).is_file():
         return False
     proposal = change_dir / 'proposal.md'
     if not proposal.is_file():
         return False
-    return SCAFFOLD_PLACEHOLDER in proposal.read_text(encoding='utf-8', errors='replace')
+    written = proposal.read_text(encoding='utf-8', errors='replace').splitlines()
+    return _same_scaffold(written, template)
+
+
+def _same_scaffold(written: list[str], template: list[str]) -> bool:
+    """Whether a proposal is the template, with only its title filled in."""
+    def meaningful(lines: list[str]) -> list[str]:
+        return [line.rstrip() for line in lines if line.strip()]
+
+    written_lines = meaningful(written)
+    template_lines = meaningful(template)
+    if len(written_lines) != len(template_lines):
+        return False
+    for actual, expected in zip(written_lines, template_lines):
+        if actual == expected:
+            continue
+        # The title is the only part the workflow fills in.
+        if expected.startswith('# ') and actual.startswith('# '):
+            continue
+        return False
+    return True
 
 
 def read_baseline(path: pathlib.Path) -> set[str]:
@@ -210,6 +272,7 @@ def find_problems(
     the scaffolds that are exempt, and what was checked."""
     problems: list[str] = []
     directories = change_directories(changes_dir)
+    template = scaffold_template(changes_dir.parent.parent)
     changes = sorted(directories)
     archived = set(archived_changes(changes_dir))
     scaffolds: list[str] = []
@@ -219,7 +282,7 @@ def find_problems(
         review = reviews_dir / f'{slug}.md'
         if not review.is_file():
             change_dir = directories.get(slug)
-            if change_dir is not None and is_scaffold(change_dir):
+            if change_dir is not None and is_scaffold(change_dir, template):
                 scaffolds.append(slug)
                 counted['scaffolds'] += 1
                 continue
@@ -228,7 +291,7 @@ def find_problems(
                 continue
             problems.append(
                 f'{slug} has no review verdict — write {reviews_dir.name}/{slug}.md, '
-                f'or accept the change in the baseline'
+                f'or add the change to the baseline by hand'
             )
             continue
         counted['verdicts'] += 1

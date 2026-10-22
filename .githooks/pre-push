@@ -289,7 +289,8 @@ if [ "$GATES_FAILED" = "1" ]; then
 fi
 
 echo ""
-echo "=== Structural gates OK ==="
+echo "=== Structural gates OK (against the pushed tree; a rule the pushed tree"
+echo "    does not have is skipped, not checked) ==="
 echo ""
 
 # ── detekt auto-correct ─────────────────────────────────────────────────

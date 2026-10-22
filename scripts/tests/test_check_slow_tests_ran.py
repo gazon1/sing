@@ -149,44 +149,14 @@ class SlowTestsRanTest(unittest.TestCase):
         # *every* slow class; this test is what makes the word true, and it
         # fails the day a slow class appears in a root the gate does not map.
         repo = pathlib.Path(__file__).resolve().parent.parent.parent
-        mapped = {source for source, _ in mod.SOURCES}
-        scanner = mod._scanner()
 
-        unmapped: list[str] = []
-        for root in _test_roots(repo):
-            relative = str(root.relative_to(repo))
-            if relative in mapped:
-                continue
-            for source_file in sorted(root.rglob('*Test.kt')):
-                source = source_file.read_text(encoding='utf-8', errors='replace')
-                for name in scanner.test_classes_in(source):
-                    if scanner.read_tag(source, name) == 'slow':
-                        unmapped.append(f'{relative}:{name}')
+        unmapped = mod.unmapped_slow_classes(repo, {source for source, _ in mod.SOURCES})
 
         self.assertEqual(
             [],
             unmapped,
             'a slow class in a root the gate does not map is a class nobody checks',
         )
-
-
-def _test_roots(repo: pathlib.Path) -> list[pathlib.Path]:
-    """Every test source root the repository has."""
-    roots: list[pathlib.Path] = []
-    for module in sorted(repo.iterdir()):
-        if not (module / 'build.gradle.kts').is_file():
-            continue
-        sources = module / 'src'
-        if not sources.is_dir():
-            continue
-        for candidate in sorted(sources.iterdir()):
-            if not candidate.is_dir():
-                continue
-            if not (candidate.name.endswith('Test') or candidate.name == 'test'):
-                continue
-            if (candidate / 'kotlin').is_dir():
-                roots.append(candidate / 'kotlin')
-    return roots
 
 
 if __name__ == '__main__':

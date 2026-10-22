@@ -234,6 +234,10 @@ def find_problems(
     dangling: list[str] = []
     seen_slugs: dict[str, list[str]] = {}
     root = changes_dir.parent.parent
+    # One scan of the archive, not one per change: the archive holds every
+    # change that was ever filed away, and rescanning it for each of the
+    # open ones is the kind of cost that hides inside a gate nobody times.
+    archived = archived_by_slug(changes_dir)
 
     for change in change_directories(changes_dir):
         slug = slug_for(change.name)
@@ -269,18 +273,18 @@ def find_problems(
         # archiving moves the change and renames it, and the record keeps the
         # path the change had before the move. That is resolved by slug, the
         # same way the record itself is matched to its change.
-        archived = archived_by_slug(changes_dir).get(slug, [])
+        archived_directories = archived.get(slug, [])
         for name, path in sorted(recorded_documents(entry).items()):
             if (root / path).exists():
                 continue
-            if _document_survived_in_archive(archived, path):
+            if _document_survived_in_archive(archived_directories, path):
                 continue
             dangling.append(
                 f'{issues_dir.name}/{slug}.yaml names the {name} {path!r}, which does not exist'
             )
         specs_dir = recorded_specs_dir(entry)
         if specs_dir and not (root / specs_dir).exists():
-            if not _document_survived_in_archive(archived, specs_dir):
+            if not _document_survived_in_archive(archived_directories, specs_dir):
                 dangling.append(
                     f'{issues_dir.name}/{slug}.yaml names the specs directory {specs_dir!r}, '
                     f'which does not exist'

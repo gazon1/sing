@@ -41,6 +41,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -67,10 +68,11 @@ SOURCES = (
     ('adr-core/src/jvmTest/kotlin', 'adr-core/build/test-results/jvmTest'),
 )
 
-#: The fewest slow classes the check must look at. Below this, the gate is
-#: looking at a tree it does not understand — the two modules that were
-#: missing from the list above held two slow classes each, and the gate
-#: reported 96 of the repository's 98 without noticing.
+#: The fewest slow classes the check must look at. It is a backstop, not the
+#: completeness guard: a module dropping out of the mapping is caught by
+#: `unmapped_slow_classes`, which compares the mapping with the repository.
+#: This floor catches the case where the gate is looking at a tree it does
+#: not understand at all.
 MIN_SLOW_CLASSES = 10
 
 
@@ -124,9 +126,64 @@ def reported_suites(results_dir: pathlib.Path) -> dict[str, int]:
         name = root.get('name')
         if not name:
             continue
-        key = name.rsplit('.', 1)[-1]
+        # A Kotlin Multiplatform suite is named `<ClassName>[<target>]` —
+        # `ArchitectureTest[jvm]` — while the scanner yields the bare class
+        # name. Without stripping the target suffix, every slow class in a
+        # KMP module reads as "did not run" although it ran, and the gate
+        # fails on every run of the very tree it is meant to protect.
+        key = name.rsplit('.', 1)[-1].split('[')[0]
         suites[key] = suites.get(key, 0) + int(root.get('skipped', 0) or 0)
     return suites
+
+
+def test_roots(tree: pathlib.Path) -> list[pathlib.Path]:
+    """Every test source root the tree has, nested projects included.
+
+    A nested Gradle project is a module like any other: `tools/*` are
+    included builds, and a slow class in one of them runs nowhere in CI —
+    the same hole the mapping once had in two top-level modules.
+    """
+    roots: list[pathlib.Path] = []
+    for dirpath, dirnames, filenames in os.walk(tree):
+        dirnames[:] = [d for d in dirnames if d not in ('build', '.gradle', '.git')]
+        if 'build.gradle.kts' not in filenames:
+            continue
+        sources = pathlib.Path(dirpath) / 'src'
+        if not sources.is_dir():
+            continue
+        for candidate in sorted(sources.iterdir()):
+            if not candidate.is_dir():
+                continue
+            if not (candidate.name.endswith('Test') or candidate.name == 'test'):
+                continue
+            kotlin = candidate / 'kotlin'
+            if kotlin.is_dir():
+                roots.append(kotlin)
+    return roots
+
+
+def unmapped_slow_classes(root: pathlib.Path, mapped: set[str]) -> list[str]:
+    """The slow classes that live in a root the mapping does not cover.
+
+    The rule says *every* slow class. A root that is not in the mapping is a
+    root whose slow classes nobody checks, so the gate reports them by name
+    rather than counting them somewhere and hoping.
+    """
+    scanner = _scanner()
+    unmapped: list[str] = []
+    for source_root in test_roots(root):
+        try:
+            relative = str(source_root.relative_to(root))
+        except ValueError:
+            continue
+        if relative in mapped:
+            continue
+        for source_file in sorted(source_root.rglob('*Test.kt')):
+            source = source_file.read_text(encoding='utf-8', errors='replace')
+            for name in scanner.test_classes_in(source):
+                if scanner.read_tag(source, name) == 'slow':
+                    unmapped.append(f'{relative}:{name}')
+    return sorted(unmapped)
 
 
 def find_problems(root: pathlib.Path) -> tuple[list[str], list[str]]:
@@ -177,6 +234,21 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
 
     for problem in problems:
         click.echo(f'ERROR: {problem}')
+
+    unmapped = unmapped_slow_classes(tree, {source for source, _ in SOURCES})
+    for entry in unmapped:
+        click.echo(
+            f'ERROR: {entry} is tagged slow and lives in a root the gate does not map — '
+            f'it would run nowhere and be checked by nothing'
+        )
+    if unmapped:
+        click.echo('')
+        click.echo(
+            'check-slow-tests-ran: a slow class in a root the gate does not map is a class '
+            'nobody checks. Map the root (and make its test task run) or the rule is not the '
+            'rule it says it is.'
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
     if len(checked) < MIN_SLOW_CLASSES:
         click.echo(
