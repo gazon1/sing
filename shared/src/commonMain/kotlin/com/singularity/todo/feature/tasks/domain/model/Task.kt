@@ -136,7 +136,16 @@ data class Task(
      * Computed via [com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isBlocked]
      * using the full task list in scope (VM `combine`).
      *
+     * ## Only the blocking edges are here
+     *
+     * The dependency table records the *kind* of every relationship. This set
+     * holds only the relationships that block the task: a task that "follows
+     * up" on another is not waiting for it, and reporting it as waiting is the
+     * bug this narrowing fixes. The graph itself keeps every edge — the cycle
+     * analysis, the backup export and the typed read still see them all.
+     *
      * @see 2026-09-18-task-dependencies
+     * @see 2026-10-21-blocked-completion-guard
      */
     val dependsOn: Set<TaskId> = emptySet(),
     /**

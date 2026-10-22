@@ -7,8 +7,10 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.FirstRun
 import com.singularity.todo.feature.tasks.presentation.state.FirstRunResolver
@@ -87,6 +89,25 @@ class TaskDetailCoordinator(
     private val retryVersion = MutableStateFlow(0)
 
     /**
+     * Every task the user can see.
+     *
+     * The slots need it to answer "which prerequisites of this task are still
+     * open" — a prerequisite that is finished, discarded, or gone is not in the
+     * way, and the answer has to come from the same list the badge was computed
+     * from, or the two would disagree.
+     */
+    private val allTasks = MutableStateFlow<List<Task>>(emptyList())
+
+    /**
+     * A close that was refused until the user confirms it.
+     *
+     * State, not an event: the dialog has to survive a rotation, and a one-shot
+     * event is gone by the time the screen comes back — the user would be left
+     * with a task that silently refused to close.
+     */
+    private val pendingBlockedClose = MutableStateFlow<BlockedCloseRequest?>(null)
+
+    /**
      * Whether the repository has ANSWERED — separates "no answer yet" from "answered
      * and absent". The top-level combine reads this, not [taskFlow]: [taskFlow] starts
      * on a seeded null, so a combine fed directly by it emits `Error("Not found")` in
@@ -98,6 +119,17 @@ class TaskDetailCoordinator(
     private fun reportError(message: String) = tryEmit(TaskDetailUiEvent.Error(message))
     private fun reportSaved(message: String) = tryEmit(TaskDetailUiEvent.Saved(message))
 
+    /**
+     * Publishes a close that was refused until the user confirms it.
+     *
+     * The slot that refused the close raises this; the coordinator owns the state,
+     * because two slots can refuse (the task on this screen and its subtasks) and
+     * there must be exactly one place where the pending confirmation lives.
+     */
+    private fun raiseBlockedClose(request: BlockedCloseRequest) {
+        pendingBlockedClose.value = request
+    }
+
     private val draft = TaskDraftSlot(deps.core, deps.context, vmScope, taskFlow, ::reportError)
 
     private val entity = TaskEntitySlot(taskId, deps.core, deps.children, vmScope, taskFlow, ::reportError)
@@ -107,8 +139,10 @@ class TaskDetailCoordinator(
         context = deps.context,
         scope = vmScope,
         taskFlow = taskFlow,
+        allTasks = allTasks,
         onError = ::reportError,
         onSaved = ::reportSaved,
+        onBlockedClose = ::raiseBlockedClose,
     )
 
     private val children = TaskChildrenSlot(
@@ -118,8 +152,10 @@ class TaskDetailCoordinator(
         context = deps.context,
         scope = vmScope,
         taskFlow = taskFlow,
+        allTasks = allTasks,
         onError = ::reportError,
         onSaved = ::reportSaved,
+        onBlockedClose = ::raiseBlockedClose,
     )
 
     private val reminders = TaskRemindersSlot(
@@ -216,6 +252,9 @@ class TaskDetailCoordinator(
     init {
         addCloseable(scope)
         scope.launch {
+            deps.core.taskRepo.observeByFilter(TaskFilter.All).collect { allTasks.value = it }
+        }
+        scope.launch {
             combine(flowOf(taskId), retryVersion) { id, _ -> id }
                 .flatMapLatest { deps.core.taskRepo.observe(it) }
                 .catch { reportError(it.message ?: "Error") }
@@ -236,7 +275,19 @@ class TaskDetailCoordinator(
                 logbook.state,
                 extrasState,
                 proposalsCollector?.state ?: flowOf(emptyList()),
-            ) { load, draftState, entityState, childrenState, reminderState, backlinkState, logState, extras, _ ->
+                pendingBlockedClose,
+            ) {
+                load,
+                draftState,
+                entityState,
+                childrenState,
+                reminderState,
+                backlinkState,
+                logState,
+                extras,
+                _,
+                blocked,
+                ->
                 when (load) {
                     is TaskLoad.Pending -> TaskDetailUiState.Loading
 
@@ -251,6 +302,7 @@ class TaskDetailCoordinator(
                         backlinkState = backlinkState,
                         logState = logState,
                         extras = extras,
+                        pendingBlockedClose = blocked,
                     )
                 }
             }
@@ -276,6 +328,7 @@ class TaskDetailCoordinator(
         backlinkState: TaskBacklinksState,
         logState: TaskLogbookState,
         extras: TaskDetailExtras,
+        pendingBlockedClose: BlockedCloseRequest?,
     ): TaskDetailUiState.Loaded = TaskDetailUiState.Loaded(
         ui = TaskDetailUi(
             task = task,
@@ -302,6 +355,7 @@ class TaskDetailCoordinator(
             },
         ),
         extras = extras,
+        pendingBlockedClose = pendingBlockedClose,
     )
 
     private fun resolveFirstRun(childrenState: TaskChildrenState, task: Task?): FirstRun = when {
@@ -332,6 +386,17 @@ class TaskDetailCoordinator(
     override fun onIntent(intent: TaskDetailIntent.Domain) {
         when (intent) {
             is TaskDetailIntent.Domain.ToggleComplete -> completion.onIntent(intent)
+
+            // The task being confirmed may be the task on this screen or one of its
+            // subtasks, so both slots are told. Each one acts only if the id is its
+            // own, so handing it to both is safe.
+            is TaskDetailIntent.Domain.ConfirmBlockedClose -> {
+                pendingBlockedClose.value = null
+                completion.onIntent(intent)
+                children.onIntent(intent)
+            }
+
+            is TaskDetailIntent.Domain.DismissBlockedClose -> pendingBlockedClose.value = null
 
             is TaskDetailIntent.Domain.TitleChanged,
             is TaskDetailIntent.Domain.DescriptionChanged,

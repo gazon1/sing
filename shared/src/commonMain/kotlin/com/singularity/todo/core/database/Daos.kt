@@ -679,7 +679,16 @@ interface NoteDao {
 
 @Dao
 interface ProjectDao {
-    @Query("SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC")
+    /**
+     * The projects the project list shows: the live ones, and only the open ones.
+     *
+     * A closed project leaves this list the way an archived task leaves the agenda
+     * — it is finished, not deleted, and it is still readable by id.
+     */
+    @Query(
+        "SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND closed_at IS NULL " +
+            "ORDER BY sort_order ASC, name ASC",
+    )
     fun watchAll(userId: String): Flow<List<ProjectEntity>>
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
@@ -690,7 +699,8 @@ interface ProjectDao {
     suspend fun getByIdForUser(id: String, userId: String): ProjectEntity?
 
     @Query(
-        "SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 ORDER BY sort_order ASC, name ASC",
+        "SELECT * FROM projects WHERE parent_id = :parentId AND user_id = :userId AND is_deleted = 0 " +
+            "AND closed_at IS NULL ORDER BY sort_order ASC, name ASC",
     )
     fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>>
 
@@ -701,12 +711,22 @@ interface ProjectDao {
                SUM(CASE WHEN t.completed_at IS NOT NULL THEN 1 ELSE 0 END) AS completed_count
         FROM projects p
         LEFT JOIN tasks t ON t.project_id = p.id AND t.archived_at IS NULL
-        WHERE p.user_id = :userId AND p.is_deleted = 0
+        WHERE p.user_id = :userId AND p.is_deleted = 0 AND p.closed_at IS NULL
         GROUP BY p.id
         ORDER BY p.sort_order ASC, p.name ASC
     """,
     )
     fun watchAllWithCounts(userId: String): Flow<List<ProjectWithCountRow>>
+
+    /**
+     * Closes a project: stamps the moment its work was declared finished.
+     *
+     * A narrow UPDATE, not a row rewrite — the project may have been renamed on
+     * another device since this one read it, and rewriting the row would put the
+     * old name back.
+     */
+    @Query("UPDATE projects SET closed_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
+    suspend fun closeForUser(id: String, ts: Long, userId: String): Int
 
     @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int
@@ -737,7 +757,10 @@ interface ProjectDao {
     suspend fun touchUpdatedAtForUser(id: String, ts: Long, userId: String): Int
 
     /** Case-insensitive lookup by name, used to resolve project names in query conditions. */
-    @Query("SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND lower(name) = lower(:name) LIMIT 1")
+    @Query(
+        "SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND closed_at IS NULL " +
+            "AND lower(name) = lower(:name) LIMIT 1",
+    )
     suspend fun findByNameForUser(userId: String, name: String): ProjectEntity?
 
     @Upsert

@@ -42,6 +42,7 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
     fun onOpenInheritedTagGroupsSheet() = block(ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet)
     fun onOpenDeleteSheet() = block(ProjectDetailIntent.Routing.OpenDeleteSheet)
     fun onOpenArchiveSheet() = block(ProjectDetailIntent.Routing.OpenArchiveSheet)
+    fun onOpenCloseSheet() = block(ProjectDetailIntent.Routing.OpenCloseSheet)
     fun onOpenReminderSheet() = block(ProjectDetailIntent.Routing.OpenReminderSheet)
     fun onOpenAttachmentSheet() = block(ProjectDetailIntent.Routing.OpenAttachmentSheet)
     fun onNavigateToChild(projectId: ProjectId) = block(ProjectDetailIntent.Routing.NavigateToChild(projectId))
@@ -78,6 +79,12 @@ value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Uni
     fun onToggleArchive() = block(ProjectDetailIntent.Domain.ToggleArchive)
 
     fun onDelete() = block(ProjectDetailIntent.Domain.Delete)
+
+    fun onCloseProject() = block(ProjectDetailIntent.Domain.CloseProject)
+
+    fun onConfirmCloseProject() = block(ProjectDetailIntent.Domain.ConfirmCloseProject)
+
+    fun onDismissCloseProject() = block(ProjectDetailIntent.Domain.DismissCloseProject)
 
     // ── Tasks ─────────────────────────────────────────────────────────────
 

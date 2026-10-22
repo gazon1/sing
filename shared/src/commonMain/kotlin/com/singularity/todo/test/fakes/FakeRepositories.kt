@@ -824,10 +824,14 @@ open class FakeTaskRepository(
             .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId == uid } }
     }
 
-    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> = dao.getDependencyIdsForTask(taskId.value)
-        .map { ids ->
-            ids.map { TaskId.fromString(it) }
-                .toSet()
+    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
+        currentUser.observeForCurrentUser { uid ->
+            dao.observeTypedDependenciesForUser(taskId.value, uid.value)
+                .map { rows ->
+                    rows.filter { it.verb == DependencyVerb.BLOCKS.name }
+                        .map { TaskId.fromString(it.dependsOnTaskId) }
+                        .toSet()
+                }
         }
 
     override fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>> = dao.getBlockingTaskIdsForTask(taskId.value)
@@ -1512,7 +1516,9 @@ class FakeProjectsRepository(
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.filter { it.userId == uid && !it.isDeleted } }
+        store.state.map { list ->
+            list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+        }
     }
 
     override fun observe(id: ProjectId): Flow<Project?> = currentUser.observeForCurrentUser { uid ->
@@ -1664,6 +1670,18 @@ class FakeProjectsRepository(
         val uid = currentUser.scopedUserId.value
         return store.values()
             .firstOrNull { it.idempotencyKey == key && it.userId == uid }
+    }
+
+    override suspend fun close(id: ProjectId, closedAt: Long): Result<Unit> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val existing = store[id.value]?.takeIf { it.userId == uid }
+            ?: error("Project $id not found or not owned by user")
+        store.upsert(
+            existing.copy(
+                closedAt = kotlin.time.Instant.fromEpochMilliseconds(closedAt),
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(closedAt),
+            ),
+        )
     }
 }
 

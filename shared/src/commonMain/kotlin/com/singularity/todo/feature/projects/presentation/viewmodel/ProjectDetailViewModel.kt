@@ -12,11 +12,14 @@ import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.projects.domain.usecase.ProjectCloseOutcome
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
+import com.singularity.todo.feature.projects.presentation.state.ProjectCloseConfirmation
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
@@ -61,6 +64,7 @@ class ProjectDetailViewModel(
     private val taskRepo: TaskRepository,
     private val tagGroupRepo: TagGroupRepository,
     private val deleteProject: DeleteProjectUseCase,
+    private val closeProject: CloseProjectUseCase,
     private val updateProject: UpdateProjectUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val createTaskUseCase: CreateTaskUseCase,
@@ -94,6 +98,15 @@ class ProjectDetailViewModel(
     // state two writers and open a lost-update window.
 
     private val hideCompletedFlow = MutableStateFlow(false)
+
+    /**
+     * A project close that was refused until the user confirms it.
+     *
+     * State, not an event: the confirmation has to survive a rotation, and a
+     * one-shot event is gone by the time the screen comes back — the user would be
+     * left with a project that silently refused to close.
+     */
+    private val pendingCloseConfirmation = MutableStateFlow<ProjectCloseConfirmation?>(null)
 
     /**
      * Hides tasks blocked by unfinished dependencies.
@@ -301,22 +314,31 @@ class ProjectDetailViewModel(
                 }
             }
             combine(
-                projectState,
-                parentOptionsFlow,
-                availableTasksFlow,
-                reminderOffsetsFlow,
-                tagGroupOptionsFlow,
-            ) { state, parentOptions, availableTasks, offsets, tagGroups ->
+                combine(
+                    projectState,
+                    parentOptionsFlow,
+                    availableTasksFlow,
+                    reminderOffsetsFlow,
+                    tagGroupOptionsFlow,
+                ) { state, parentOptions, availableTasks, offsets, tagGroups ->
+                    if (state is ProjectDetailUiState.Content) {
+                        state.copy(
+                            parentOptions = parentOptions,
+                            availableTasks = availableTasks,
+                            tagGroups = tagGroups,
+                            ui = state.ui.copy(
+                                reminderOffsetMinutes = offsets.current,
+                                defaultReminderOffset = offsets.default,
+                            ),
+                        )
+                    } else {
+                        state
+                    }
+                },
+                pendingCloseConfirmation,
+            ) { state, pending ->
                 if (state is ProjectDetailUiState.Content) {
-                    state.copy(
-                        parentOptions = parentOptions,
-                        availableTasks = availableTasks,
-                        tagGroups = tagGroups,
-                        ui = state.ui.copy(
-                            reminderOffsetMinutes = offsets.current,
-                            defaultReminderOffset = offsets.default,
-                        ),
-                    )
+                    state.copy(pendingCloseConfirmation = pending)
                 } else {
                     state
                 }
@@ -352,7 +374,14 @@ class ProjectDetailViewModel(
      *
      * Routing-интенты ([ProjectDetailIntent.Routing]) обрабатываются экраном
      * и сюда не попадают.
+     *
+     * CyclomaticComplexMethod is suppressed for the same reason as in
+     * [com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator]:
+     * this is a dispatch table for a sealed hierarchy, and splitting it up would
+     * move the routing away from the list of routes. The three close intents
+     * grew it past the limit, and they are routes like any other.
      */
+    @Suppress("CyclomaticComplexMethod")
     override fun onIntent(intent: ProjectDetailIntent.Domain) {
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
@@ -408,6 +437,17 @@ class ProjectDetailViewModel(
                     .onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete failed"))) }
             }
 
+            // ── Close ──────────────────────────────────────────────────────
+            is ProjectDetailIntent.Domain.CloseProject -> vmScope.launch {
+                runClose(force = false)
+            }
+
+            is ProjectDetailIntent.Domain.ConfirmCloseProject -> vmScope.launch {
+                runClose(force = true)
+            }
+
+            is ProjectDetailIntent.Domain.DismissCloseProject -> pendingCloseConfirmation.value = null
+
             // ── Tasks ──────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.CreateTask -> {
                 val trimmed = intent.title.trim()
@@ -441,6 +481,33 @@ class ProjectDetailViewModel(
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    /**
+     * Closes the project and the tasks that are still open in it.
+     *
+     * When one of those tasks has an unfinished prerequisite, the use case writes
+     * nothing and answers [ProjectCloseOutcome.NeedsConfirmation]; the confirmation
+     * is published in the state, and the user's answer comes back as
+     * [ProjectDetailIntent.Domain.ConfirmCloseProject] — which retries with the
+     * check forced.
+     */
+    private suspend fun runClose(force: Boolean) {
+        if (force) pendingCloseConfirmation.value = null
+        closeProject.close(projectId, force)
+            .onSuccess { outcome ->
+                when (outcome) {
+                    is ProjectCloseOutcome.Closed ->
+                        emit(ProjectDetailUiEvent.NavigateBack)
+
+                    is ProjectCloseOutcome.NeedsConfirmation ->
+                        pendingCloseConfirmation.value = ProjectCloseConfirmation(
+                            blockedTaskTitles = outcome.blockedTasks.map { it.title },
+                            openTaskCount = outcome.openTaskCount,
+                        )
+                }
+            }
+            .onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Close failed"))) }
+    }
 
     /**
      * Applies a mutation to the current project and persists via [updateProject].

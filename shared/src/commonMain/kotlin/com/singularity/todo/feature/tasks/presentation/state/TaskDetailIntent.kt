@@ -39,6 +39,29 @@ sealed interface TaskDetailIntent : MviIntent {
         // ── Hero ────────────────────────────────────────────────────────────
 
         data object ToggleComplete : Domain, TaskCompletionIntent
+
+        /**
+         * The user confirmed closing a task whose prerequisites are still open.
+         *
+         * Nothing was written when the confirmation was raised — the close
+         * happens here, and only here.
+         *
+         * Implements both slot markers on purpose: the task being closed may be
+         * the task on this screen or one of its subtasks, and the two are
+         * written by two different slots. Each one acts only if the id is its
+         * own, so handing it to both is safe.
+         */
+        data class ConfirmBlockedClose(val taskId: TaskId) :
+            Domain,
+            TaskCompletionIntent,
+            TaskChildrenIntent
+
+        /**
+         * The user backed out of closing a task whose prerequisites are still open.
+         *
+         * Nothing was written, so this only closes the confirmation.
+         */
+        data object DismissBlockedClose : Domain
         data class TitleChanged(val title: String) :
             Domain,
             TaskDraftIntent

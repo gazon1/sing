@@ -27,6 +27,14 @@ class CurrentProjectContent(
     val parentId: ProjectId?,
     val dueDate: kotlinx.datetime.LocalDate?,
     val isArchived: Boolean,
+    /**
+     * How many of the project's tasks are still open.
+     *
+     * The close sheet says it out loud: closing a project closes its open tasks
+     * too, and a cascade the user did not ask for one task at a time deserves to
+     * be counted before it happens.
+     */
+    val openTaskCount: Int = 0,
     val childProjects: List<Project>,
     val reminderOffset: ReminderOffset?,
     /**

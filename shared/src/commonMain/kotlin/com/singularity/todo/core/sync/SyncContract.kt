@@ -154,6 +154,9 @@ object SyncContract {
         "createdAt",
         "updatedAt",
         "deletedAt",
+        // A project whose work is finished. Travels with the project so another
+        // device learns that it is closed instead of showing it as open.
+        "closedAt",
         // Sync metadata
         "serverVersion",
         "hlc",
