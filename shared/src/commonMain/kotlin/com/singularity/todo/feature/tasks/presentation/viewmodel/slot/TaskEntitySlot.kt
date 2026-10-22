@@ -110,7 +110,7 @@ class TaskEntitySlot(
     }
 
     private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
-        core.taskRepo.setDependencies(task.id, intent.dependsOn)
+        core.taskRepo.setDependencies(task.id, intent.blockedBy)
             .onFailure { onError("Failed to set dependencies") }
     }
 }

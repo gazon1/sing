@@ -53,7 +53,7 @@ import kotlinx.datetime.toLocalDateTime
  *   timestamps. A task stamped "now" is never stagnant (the health window is 21
  *   days without movement), so a flow that needs the *stagnant* bucket has to
  *   seed a task whose timestamps lie in the past.
- * - `dependsOn=<title>` — makes the seeded task depend on an existing task
+ * - `blockedBy=<title>` — makes the seeded task depend on an existing task
  *   named `<title>`. A dependency on an incomplete task is what makes a task
  *   *blocked*. The dependency is named by title because a deep link cannot know
  *   an id it has not created itself — seed the dependency first.
@@ -219,7 +219,7 @@ class DebugSeedActivity :
                 description = params["desc"],
                 dueDate = params["due"]?.let { resolveDate(it) },
                 stamp = stamp,
-                dependsOnTitle = params["dependsOn"],
+                dependsOnTitle = params["blockedBy"],
             ),
         )
         android.util.Log.i("DebugSeedActivity", "task '$title' was ${result.outcome}")

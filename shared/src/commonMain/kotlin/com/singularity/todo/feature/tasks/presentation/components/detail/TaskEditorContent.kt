@@ -97,7 +97,7 @@ import kotlin.time.Instant
  * @param recurrenceCallbacks Callbacks for the recurrence row. Null = row is hidden.
  * @param isPinned Whether the task is pinned.
  * @param pinCallbacks Callbacks for the pin toggle row. Null = row is hidden.
- * @param dependsOn IDs of tasks this task depends on.
+ * @param blockedBy IDs of tasks this task depends on.
  * @param availableTasks Tasks available for dependency selection.
  * @param extraSections Optional composable for View-mode-only sections (checklist, project, tags, timestamps, etc.).
  * @param bottomBar Optional bottom bar content. Typically [TaskSaveBar] in Create mode, null in View mode.
@@ -135,7 +135,7 @@ private fun TaskEditorContent(
     pinCallbacks: ToggleCallbacks? = null,
     estimateMinutes: Int? = null,
     estimateCallbacks: RowCallbacks<Int?>? = null,
-    dependsOn: Set<TaskId> = emptySet(),
+    blockedBy: Set<TaskId> = emptySet(),
     availableTasks: List<Task> = emptyList(),
     checklistCount: Int = 0,
     attachmentsCount: Int = 0,
@@ -186,8 +186,8 @@ private fun TaskEditorContent(
             extraSections?.invoke()
 
             // Dependencies card
-            if (dependsOn.isNotEmpty() && availableTasks.isNotEmpty()) {
-                val depTitles = dependsOn.mapNotNull { depId ->
+            if (blockedBy.isNotEmpty() && availableTasks.isNotEmpty()) {
+                val depTitles = blockedBy.mapNotNull { depId ->
                     availableTasks.find { it.id == depId }?.title?.ifBlank { null }
                 }
                 TaskAttributeCard(
@@ -195,7 +195,7 @@ private fun TaskEditorContent(
                     label = if (depTitles.isNotEmpty()) {
                         depTitles.joinToString(", ")
                     } else {
-                        "${dependsOn.size} dependency${if (dependsOn.size > 1) "s" else ""}"
+                        "${blockedBy.size} dependency${if (blockedBy.size > 1) "s" else ""}"
                     },
                     isActive = true,
                     onClick = { sheets.show(TaskEditorSheet.Dependencies) },
@@ -531,7 +531,7 @@ private fun TaskEditorScaffold(
         pinCallbacks = callbacks.pin,
         estimateMinutes = model.estimateMinutes,
         estimateCallbacks = callbacks.estimate,
-        dependsOn = model.dependsOn,
+        blockedBy = model.blockedBy,
         availableTasks = model.availableTasks,
         checklistCount = model.checklist.size,
         attachmentsCount = model.attachments.size,
@@ -598,7 +598,7 @@ private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, u
         dueDate = null,
         dueTime = null,
         onDueDateClear = null,
-        dependsOn = emptySet(),
+        blockedBy = emptySet(),
         availableTasks = emptyList(),
         extraSections = null,
         bottomBar = null,
@@ -623,7 +623,7 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         dueDate = today,
         dueTime = LocalTime(14, 30),
         onDueDateClear = {},
-        dependsOn = emptySet(),
+        blockedBy = emptySet(),
         availableTasks = emptyList(),
         extraSections = null,
         bottomBar = null,
@@ -653,7 +653,7 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         dueDate = today,
         dueTime = null,
         onDueDateClear = {},
-        dependsOn = setOf(sampleTask.id),
+        blockedBy = setOf(sampleTask.id),
         availableTasks = listOf(sampleTask),
         extraSections = null,
         bottomBar = null,

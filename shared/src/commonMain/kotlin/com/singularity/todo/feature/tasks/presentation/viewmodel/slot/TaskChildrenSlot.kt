@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
-import com.singularity.todo.feature.tasks.domain.logic.activeBlockers
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -123,23 +123,33 @@ class TaskChildrenSlot(
 
     private fun toggleSubtask(subtask: Task, force: Boolean = false) {
         val completing = subtask.completedAt == null
-        if (completing && !force) {
-            val blockers = activeBlockers(subtask, allTasks.value)
-            if (blockers.isNotEmpty()) {
-                onBlockedClose(
-                    BlockedCloseRequest(
-                        taskId = subtask.id,
-                        taskTitle = subtask.title,
-                        blockerTitles = blockers.map { it.title },
-                    ),
-                )
-                return
-            }
-        }
-        val completedAt = if (subtask.completedAt == null) context.clock.now() else null
         scope.launch {
-            core.updateTask(subtask.id) { it.copy(completedAt = completedAt) }
-                .onFailure { onError("Save failed") }
+            if (completing) {
+                // The write decides: it refuses while a prerequisite is open,
+                // and the refusal is part of the statement rather than a check
+                // that runs before it.
+                val completed = core.taskRepo.complete(subtask.id, force).getOrElse {
+                    onError("Save failed")
+                    return@launch
+                }
+                if (!completed) {
+                    val blockers = Blocking.activeBlockers(subtask, allTasks.value)
+                    if (blockers.isEmpty()) {
+                        onError("Save failed")
+                        return@launch
+                    }
+                    onBlockedClose(
+                        BlockedCloseRequest(
+                            taskId = subtask.id,
+                            taskTitle = subtask.title,
+                            blockerTitles = blockers.map { it.title },
+                        ),
+                    )
+                }
+            } else {
+                core.completion.reopen(subtask.id)
+                    .onFailure { onError("Save failed") }
+            }
         }
     }
 

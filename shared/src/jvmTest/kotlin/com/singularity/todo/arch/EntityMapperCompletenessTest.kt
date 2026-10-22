@@ -20,7 +20,7 @@ import kotlin.test.fail
  * to `ChecklistRepositoryImpl` and intentionally omits `createdAt`/`updatedAt`/`rowVersion`
  * — the repository manages those via `existing?.createdAt` in `toEntity()`.
  *
- * Supplemental parameters (`tags`, `dependsOn`) are passed to mappers but are NOT entity
+ * Supplemental parameters (`tags`, `blockedBy`) are passed to mappers but are NOT entity
  * columns — they are loaded from join tables by the repository and merged separately.
  * The phantom-param check uses [SUPPLEMENTAL_PARAMS] to exclude these intentionally.
  *
@@ -88,7 +88,7 @@ abstract class EntityMapperCompletenessTest {
          * These are loaded from join tables by the repository and merged separately.
          * The "phantom param" check excludes these so they don't false-positive.
          */
-        private val SUPPLEMENTAL_PARAMS = setOf("tags", "dependsOn")
+        private val SUPPLEMENTAL_PARAMS = setOf("tags", "blockedBy")
 
         /**
          * Entities whose mapper intentionally drops a nullable field.
@@ -206,7 +206,7 @@ abstract class EntityMapperCompletenessTest {
          *
          * Format: "mapperName" to ("EntityName" to setOf(accessed entity field names))
          *
-         * Supplemental params (tags, dependsOn) are NOT included here — they are
+         * Supplemental params (tags, blockedBy) are NOT included here — they are
          * handled via SUPPLEMENTAL_PARAMS to avoid false phantom-param positives.
          */
         private val MAPPER_ENTITY_FIELDS_ACCESSED = mapOf(
@@ -268,7 +268,7 @@ abstract class EntityMapperCompletenessTest {
          * Used only for the phantom-param check.
          */
         private val MAPPER_ALL_PARAMS = mapOf(
-            "toTask" to ("TaskEntity" to setOf("tags", "dependsOn")),
+            "toTask" to ("TaskEntity" to setOf("tags", "blockedBy")),
             "toNote" to ("NoteEntity" to setOf()),
             "toProject" to ("ProjectEntity" to setOf()),
             "toTag" to ("TagEntity" to setOf()),

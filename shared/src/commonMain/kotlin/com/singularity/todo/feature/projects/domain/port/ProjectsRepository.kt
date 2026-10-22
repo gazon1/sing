@@ -77,4 +77,15 @@ interface ProjectsRepository :
      * @param closedAt the moment the work was declared finished.
      */
     suspend fun close(id: ProjectId, closedAt: Long): Result<Unit>
+
+    /**
+     * Opens a closed project again: its work is not finished after all.
+     *
+     * The reverse of [close], and as narrow — a project that is not closed is
+     * left alone.
+     *
+     * @param id the project to open.
+     * @param updatedAt the moment the project was opened.
+     */
+    suspend fun reopen(id: ProjectId, updatedAt: Long): Result<Unit>
 }

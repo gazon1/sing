@@ -113,7 +113,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             recurrence = state.draft.recurrence,
             isPinned = state.draft.isPinned,
             estimateMinutes = null,
-            dependsOn = emptySet(),
+            blockedBy = emptySet(),
             availableTasks = emptyList(),
         ),
         onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },

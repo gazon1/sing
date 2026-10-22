@@ -89,7 +89,7 @@ class CalendarEventMapperTest {
         someday = false,
         archivedAt = null,
         isPinned = false,
-        dependsOn = emptySet(),
+        blockedBy = emptySet(),
         createdAt = instantOfEpochMs(0),
         updatedAt = instantOfEpochMs(0),
         userId = UserId("u1"),

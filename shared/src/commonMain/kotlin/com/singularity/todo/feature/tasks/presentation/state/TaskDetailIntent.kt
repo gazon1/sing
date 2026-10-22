@@ -159,7 +159,7 @@ sealed interface TaskDetailIntent : MviIntent {
 
         // ── Dependencies ─────────────────────────────────────────────────────
 
-        data class SetDependencies(val dependsOn: Set<TaskId>) :
+        data class SetDependencies(val blockedBy: Set<TaskId>) :
             Domain,
             TaskEntityIntent
 

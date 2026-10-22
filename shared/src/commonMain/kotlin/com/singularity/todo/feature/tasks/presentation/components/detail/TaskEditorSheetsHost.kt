@@ -174,7 +174,7 @@ fun TaskEditorSheetsHost(
 
         // ── Dependencies ────────────────────────────────────────────────────
         is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
-            currentDeps = model.dependsOn,
+            currentDeps = model.blockedBy,
             availableTasks = model.availableTasks,
             onApply = { newDeps ->
                 callbacks.dependencies?.onChange?.invoke(newDeps)

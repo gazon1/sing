@@ -112,7 +112,7 @@ class StatisticsViewModel(
         // ── Task health ───────────────────────────────────────────────────────
         // A separate collector rather than a step inside the one above, because that
         // one maps tasks to `(id, epochMillis)` pairs and throws the `Task` away — health
-        // needs `dependsOn`, `archivedAt` and the timestamps, so it cannot be folded in
+        // needs `blockedBy`, `archivedAt` and the timestamps, so it cannot be folded in
         // without widening the statistics snapshot's inputs.
         //
         // Stagnation window is read from SettingsRepository so it can be changed at runtime.

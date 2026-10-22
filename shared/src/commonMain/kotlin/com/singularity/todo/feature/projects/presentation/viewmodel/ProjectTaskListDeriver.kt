@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -45,8 +45,8 @@ internal object ProjectTaskListDeriver {
      * Ids of tasks blocked by an unfinished dependency, resolved against the
      * **full** task list.
      *
-     * Never computed against a filtered list. `TaskComputed.blockedIds` resolves
-     * each `dependsOn` id through a map built from whatever list it is given; a
+     * Never computed against a filtered list. `Blocking.blockedTaskIds` resolves
+     * each `blockedBy` id through a map built from whatever list it is given; a
      * dependency a filter has hidden is simply absent from that map and reads as
      * "not blocking". So the function's contract is that it receives the complete
      * list, and it is the caller's job to honour it — which is why [visible]
@@ -61,7 +61,7 @@ internal object ProjectTaskListDeriver {
      *
      * Only consulted when the filter is on, so the default view pays nothing.
      */
-    fun blockedIds(allTasks: List<Task>): Set<TaskId> = TaskComputed.blockedIds(allTasks)
+    fun blockedIds(allTasks: List<Task>): Set<TaskId> = Blocking.blockedTaskIds(allTasks)
 
     /**
      * Tasks passing both filters, in repository order.

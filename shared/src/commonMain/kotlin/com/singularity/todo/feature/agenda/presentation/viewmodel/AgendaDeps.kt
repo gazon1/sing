@@ -7,6 +7,7 @@ import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 
 /**
@@ -35,6 +36,11 @@ data class AgendaDeps(
     val reminderScheduler: ReminderScheduler,
     val currentUser: ProfileAwareCurrentUser,
     val taskMutations: TaskMutationsUseCase,
+    /**
+     * The rule of closing a task: the write refuses while a prerequisite is
+     * open, and a task that comes back to work brings its project with it.
+     */
+    val completion: TaskReopenUseCase,
     val workScheduleSettings: WorkScheduleSettingsRepository,
     val greetingSettings: GreetingSettingsRepository,
 )

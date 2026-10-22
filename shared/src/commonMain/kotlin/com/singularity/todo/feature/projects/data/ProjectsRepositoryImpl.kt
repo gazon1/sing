@@ -244,6 +244,24 @@ class ProjectsRepositoryImpl(
             enqueueFresh(id)
         }
     }
+
+    override suspend fun reopen(id: ProjectId, updatedAt: Long): Result<Unit> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val rows = projectDao.reopenForUser(id.value, updatedAt, uid)
+            if (rows > 0) {
+                // closedAt is a serialised field of Project, so the open has to sync too.
+                enqueueFresh(id)
+            } else if (projectDao.getByIdForUser(id.value, uid) == null) {
+                throw IllegalArgumentException("Project $id not found or not owned by user")
+            }
+            // No rows, but the project is there: it was opened in the meantime —
+            // on another device, or by another task of the same project coming
+            // back to work. The state the caller asked for is the state the
+            // server already has, so the lost race resolves to that state
+            // rather than to an error about a write nobody needed.
+        }
+    }
 }
 
 internal fun ProjectEntity.toProject(): Project = Project(

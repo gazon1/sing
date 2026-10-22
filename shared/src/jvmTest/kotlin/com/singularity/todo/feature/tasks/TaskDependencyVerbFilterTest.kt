@@ -96,7 +96,7 @@ class TaskDependencyVerbFilterTest {
 
         val loaded = repo.observe(TaskId("t1")).first()
 
-        assertEquals(setOf(TaskId("dep")), loaded?.dependsOn)
+        assertEquals(setOf(TaskId("dep")), loaded?.blockedBy)
     }
 
     @Test
@@ -109,8 +109,8 @@ class TaskDependencyVerbFilterTest {
         val loaded = repo.observe(TaskId("t1")).first()
 
         assertTrue(
-            loaded?.dependsOn.isNullOrEmpty(),
-            "a task that follows up on another is not waiting for it: ${loaded?.dependsOn}",
+            loaded?.blockedBy.isNullOrEmpty(),
+            "a task that follows up on another is not waiting for it: ${loaded?.blockedBy}",
         )
     }
 
@@ -125,8 +125,8 @@ class TaskDependencyVerbFilterTest {
 
         val listed = repo.observeByFilter(TaskFilter.All).first().associateBy { it.id }
 
-        assertTrue(listed[TaskId("t1")]?.dependsOn.isNullOrEmpty())
-        assertEquals(setOf(TaskId("dep")), listed[TaskId("t2")]?.dependsOn)
+        assertTrue(listed[TaskId("t1")]?.blockedBy.isNullOrEmpty())
+        assertEquals(setOf(TaskId("dep")), listed[TaskId("t2")]?.blockedBy)
     }
 
     @Test
@@ -136,9 +136,12 @@ class TaskDependencyVerbFilterTest {
         repo.create(task("t1", "Follower"))
         repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
 
-        val typed = repo.observeTypedDependencies(TaskId("t1")).first()
+        // The typed read is the graph's own read: the repository no longer offers
+        // a typed observer (nothing outside the graph needed one), so the test asks
+        // the table that holds the edges.
+        val typed = db.taskDao().observeTypedDependenciesForUser("t1", alice.value).first()
 
         assertEquals(1, typed.size, "the graph keeps every edge: ${typed.map { it.verb }}")
-        assertEquals(DependencyVerb.FOLLOWS_UP, typed.single().verb)
+        assertEquals(DependencyVerb.FOLLOWS_UP.name, typed.single().verb)
     }
 }

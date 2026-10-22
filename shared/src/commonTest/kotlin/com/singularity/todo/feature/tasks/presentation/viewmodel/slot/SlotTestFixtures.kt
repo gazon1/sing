@@ -19,6 +19,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
@@ -128,6 +129,7 @@ internal class SlotFakes(
         updateTask = UpdateTaskUseCase(taskRepo, FakeClock(SLOT_NOW)),
         createTask = CreateTaskUseCase(taskRepo, FakeClock(SLOT_NOW), currentUser),
         completeRecurring = stubCompleteRecurring,
+        completion = TaskReopenUseCase(taskRepo, projectsRepo, FakeClock(SLOT_NOW)),
     )
 
     fun children() = TaskChildrenDeps(

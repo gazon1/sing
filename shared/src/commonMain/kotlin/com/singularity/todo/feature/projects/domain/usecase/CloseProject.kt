@@ -1,13 +1,12 @@
 package com.singularity.todo.feature.projects.domain.usecase
 
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.tasks.domain.logic.activeBlockersByTask
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import kotlinx.coroutines.flow.first
 import kotlin.time.Clock
 
@@ -57,6 +56,21 @@ sealed interface ProjectCloseOutcome {
  * [com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase.bulkComplete]
  * uses for a bulk operation.
  *
+ * ## Why the cascade is one transaction
+ *
+ * The cascade writes several rows: the open tasks, then the project. A failure
+ * between them would leave half the work closed and the project open — a state that
+ * matches neither what the user asked for nor what the app promised. So the writes
+ * share one transaction ([UnitOfWork]): either the project and its tasks are closed
+ * together, or nothing is.
+ *
+ * ## Why the reads are targeted
+ *
+ * The cascade used to read the whole task list — every task the user has — to
+ * answer "is this task blocked". The answer only ever concerned the project's own
+ * tasks, so the read now asks about those tasks only: the project's tasks, and the
+ * prerequisites of those tasks. The answer is the same; the cost is not.
+ *
  * ## Why this is a use case and not a view-model branch
  *
  * The rule — "a project with a blocked task cannot be closed without a
@@ -65,16 +79,16 @@ sealed interface ProjectCloseOutcome {
  * project gets the same answer.
  *
  * @param projectRepo the project store.
- * @param taskRepo the task store, read for the project's tasks and the whole list.
- * @param updateTask the read-modify-write task update, so the cascade does not
- *   rewrite a row it read a while ago.
+ * @param taskRepo the task store, read for the project's tasks and their
+ *   prerequisites.
  * @param clock the moment the project and its tasks are closed.
+ * @param unitOfWork the transaction the cascade's writes share.
  */
 class CloseProjectUseCase(
     private val projectRepo: ProjectsRepository,
     private val taskRepo: TaskRepository,
-    private val updateTask: UpdateTaskUseCase,
     private val clock: Clock,
+    private val unitOfWork: UnitOfWork,
 ) {
 
     /**
@@ -86,24 +100,15 @@ class CloseProjectUseCase(
      */
     suspend fun close(projectId: ProjectId, force: Boolean = false): Result<ProjectCloseOutcome> =
         runCatchingCancellable {
-            // The whole list, because "is this task blocked" is a question about
-            // other tasks — and the same list the blocked badge was computed from,
-            // so the badge and the confirmation cannot disagree.
-            val allTasks = taskRepo.observeByFilter(TaskFilter.All).first()
+            // The project's own tasks, not the whole task list: a question about
+            // ten tasks does not need an answer about ten thousand.
             val projectTasks = taskRepo.observeByFilter(TaskFilter.ByProject(projectId)).first()
             val openTasks = projectTasks.filter { it.completedAt == null }
-            // One index for the whole list, so the cost is O(n + edges) rather than
-            // the quadratic cost of resolving every task's prerequisites on its own.
-            val blockersByTask = activeBlockersByTask(allTasks)
 
-            // Fail-fast: every task has to exist before any of them is written.
-            openTasks.forEach { task ->
-                if (!taskRepo.exists(task.id)) {
-                    throw IllegalArgumentException("Task ${task.id} not found")
-                }
-            }
-
-            val blocked = openTasks.filter { blockersByTask.containsKey(it.id) }
+            // The prerequisites of those tasks, resolved by the database rather
+            // than by walking the task list here.
+            val blockedIds = taskRepo.blockedTaskIds(openTasks.map { it.id })
+            val blocked = openTasks.filter { it.id in blockedIds }
             if (blocked.isNotEmpty() && !force) {
                 return@runCatchingCancellable ProjectCloseOutcome.NeedsConfirmation(
                     blockedTasks = blocked,
@@ -112,13 +117,16 @@ class CloseProjectUseCase(
             }
 
             val now = clock.now()
-            openTasks.forEach { task ->
-                // `completedAt` directly, and not the recurring-task path: a project
-                // that is being closed does not schedule another occurrence of its
-                // work for tomorrow.
-                updateTask(task.id) { it.copy(completedAt = now) }.getOrThrow()
+            unitOfWork.write {
+                openTasks.forEach { task ->
+                    // `completedAt` directly, and not the recurring-task path: a
+                    // project that is being closed does not schedule another
+                    // occurrence of its work for tomorrow.
+                    val completed = taskRepo.complete(task.id, force = true).getOrThrow()
+                    check(completed) { "Task ${task.id} could not be closed" }
+                }
+                projectRepo.close(projectId, now.toEpochMilliseconds()).getOrThrow()
             }
-            projectRepo.close(projectId, now.toEpochMilliseconds()).getOrThrow()
             ProjectCloseOutcome.Closed(projectId, openTasks.size)
         }
 }

@@ -167,7 +167,7 @@ class TaskChildrenSlotTest {
     fun `a subtask with an unfinished prerequisite is not closed and asks instead`() = runTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
-        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"), dependsOn = setOf(TaskId("dep")))
+        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"), blockedBy = setOf(TaskId("dep")))
         fakes.taskRepo.seed(task("t1"), dep, child)
         val source = TaskSource(task("t1"))
         val blocked = mutableListOf<BlockedCloseRequest>()
@@ -195,7 +195,7 @@ class TaskChildrenSlotTest {
     fun `confirming the request closes the subtask`() = runTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
-        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"), dependsOn = setOf(TaskId("dep")))
+        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"), blockedBy = setOf(TaskId("dep")))
         fakes.taskRepo.seed(task("t1"), dep, child)
         val source = TaskSource(task("t1"))
         val blocked = mutableListOf<BlockedCloseRequest>()

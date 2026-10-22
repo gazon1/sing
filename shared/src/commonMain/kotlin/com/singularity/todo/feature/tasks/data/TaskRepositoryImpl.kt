@@ -22,7 +22,6 @@ import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.blockingDependencyIdsForUser
@@ -71,7 +70,7 @@ class TaskRepositoryImpl(
         ) { entity, depIds, tagIds ->
             if (entity?.userId == uid.value) {
                 entity.toTask(
-                    dependsOn = depIds.map { TaskId.fromString(it) }.toSet(),
+                    blockedBy = depIds.map { TaskId.fromString(it) }.toSet(),
                     tags = tagIds.map { TagId.fromString(it) },
                 )
             } else {
@@ -159,30 +158,6 @@ class TaskRepositoryImpl(
         )
     }
 
-    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
-        taskDao.blockingDependencyIdsForUser(taskId.value, uid.value)
-            .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
-    }
-
-    override fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
-        taskDao.getBlockingTaskIdsForUser(taskId.value, uid.value)
-            .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
-    }
-
-    override fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>> =
-        currentUser.observeForCurrentUser { uid ->
-            taskDao.observeTypedDependenciesForUser(taskId.value, uid.value)
-                .map { rows ->
-                    rows.map { row ->
-                        TaskDependency(
-                            ownerTaskId = TaskId.fromString(row.taskId),
-                            dependencyTaskId = TaskId.fromString(row.dependsOnTaskId),
-                            verb = DependencyVerb.valueOf(row.verb),
-                        )
-                    }
-                }
-        }
-
     override suspend fun create(item: Task): Result<Task> = runCatchingCancellable {
         unitOfWork.write {
             val currentUid = currentUser.scopedUserId.value
@@ -251,7 +226,7 @@ class TaskRepositoryImpl(
             .first()
             .map { TaskId.fromString(it) }
             .toSet()
-        syncRepository.enqueue(row.toTask(tags = tags, dependsOn = deps))
+        syncRepository.enqueue(row.toTask(tags = tags, blockedBy = deps))
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
@@ -296,7 +271,7 @@ class TaskRepositoryImpl(
             doomed.forEach { row ->
                 val task = row.toTask(
                     tags = tagRefs[row.id].orEmpty(),
-                    dependsOn = depRefs[row.id].orEmpty(),
+                    blockedBy = depRefs[row.id].orEmpty(),
                 )
                 syncRepository.enqueue(task.copy(archivedAt = task.archivedAt ?: now))
             }
@@ -329,20 +304,48 @@ class TaskRepositoryImpl(
         }
     }
 
-    override suspend fun toggleComplete(id: TaskId): Result<Unit> = runCatchingCancellable {
+    override suspend fun complete(id: TaskId, force: Boolean): Result<Boolean> = runCatchingCancellable {
         unitOfWork.write {
-            val task = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value)
-                ?: throw IllegalArgumentException("Task not found: ${id.value}")
-            val ts = clock.now().toEpochMilliseconds()
             val uid = currentUser.scopedUserId.value.value
-            val rows = if (task.completedAt != null) {
-                taskDao.markIncompleteForUser(id.value, ts, uid)
-            } else {
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = if (force) {
                 taskDao.markCompleteForUser(id.value, ts, uid)
+            } else {
+                taskDao.markCompleteIfNotBlockedForUser(id.value, ts, uid, DependencyVerb.BLOCKS.name)
             }
+            if (rows > 0) {
+                enqueueFresh(id)
+                true
+            } else {
+                // Zero rows means either that the task is not ours (or is gone)
+                // or that the write was refused because a prerequisite is still
+                // open. The two are told apart by asking whether the task is
+                // there at all.
+                val exists = taskDao.getByIdForUser(id.value, uid) != null
+                if (exists) {
+                    false
+                } else {
+                    throw IllegalArgumentException("Task $id not found or not owned by current user")
+                }
+            }
+        }
+    }
+
+    override suspend fun reopen(id: TaskId): Result<Unit> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val ts = clock.now().toEpochMilliseconds()
+            val rows = taskDao.markIncompleteForUser(id.value, ts, uid)
             require(rows > 0) { "Task $id not found or not owned by current user" }
             enqueueFresh(id)
         }
+    }
+
+    override suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId> {
+        if (taskIds.isEmpty()) return emptySet()
+        val uid = currentUser.scopedUserId.value.value
+        val ids = taskDao.blockedTaskIdsForUser(taskIds.map { it.value }, uid, DependencyVerb.BLOCKS.name)
+        return ids.map { TaskId.fromString(it) }.toSet()
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> = runCatchingCancellable {
@@ -446,7 +449,7 @@ class TaskRepositoryImpl(
                 taskDao.upsertDependencyForUser(taskId.value, depId, verb, uid)
             }
 
-            // Same as setTags: `dependsOn` is part of the synced payload.
+            // Same as setTags: `blockedBy` is part of the synced payload.
             enqueueFresh(taskId)
         }
     }

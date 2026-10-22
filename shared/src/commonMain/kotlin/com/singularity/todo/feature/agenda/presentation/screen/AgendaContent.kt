@@ -365,7 +365,7 @@ private fun AgendaTaskRow(
         isCompleted = task.completedAt != null,
         isOverdue = isOverdue,
         isSelected = isSelected,
-        dependsOn = task.dependsOn,
+        blockedBy = task.blockedBy,
         isBlocked = rowItem.isBlocked,
     )
 

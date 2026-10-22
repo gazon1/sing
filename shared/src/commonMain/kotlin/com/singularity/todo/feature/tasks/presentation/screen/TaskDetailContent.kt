@@ -174,7 +174,7 @@ fun TaskDetailContent(
                             recurrence = ui.task.recurrence,
                             isPinned = ui.task.isPinned,
                             estimateMinutes = ui.task.estimateMinutes,
-                            dependsOn = ui.dependsOn,
+                            blockedBy = ui.blockedBy,
                             availableTasks = ui.availableTasks,
                         ),
                         titleSource = ui.titleSource,

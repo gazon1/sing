@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 
 /**
@@ -14,6 +13,12 @@ import kotlinx.datetime.LocalDate
  * Derived values must be computed through [com.singularity.todo.core.tree.cascadeUp] —
  * never as stored fields on entities.
  *
+ * ## What is not here
+ *
+ * The blocking rule is not here: it has its own owner, [Blocking], because it
+ * answers more than a yes/no — it has to say *which* prerequisites are in the
+ * way, and the answer is used to ask the user a question.
+ *
  * ## Usage
  *
  * ```kotlin
@@ -22,6 +27,7 @@ import kotlinx.datetime.LocalDate
  * ```
  *
  * @see com.singularity.todo.core.tree.cascadeUp
+ * @see Blocking
  */
 object TaskComputed {
 
@@ -65,56 +71,5 @@ object TaskComputed {
         val afterStart = task.startDate?.let { today >= it } ?: true
         val beforeEnd = task.endDate?.let { today <= it } ?: true
         return afterStart && beforeEnd
-    }
-
-    /**
-     * A task is blocked when it has unsatisfied dependencies.
-     *
-     * ## Implementation (MR-1)
-     *
-     * Checks whether **any** task in [allTasks] that is referenced by [task]'s
-     * `dependsOn` set is not yet completed. Returns `false` when the set is empty.
-     *
-     * The [allTasks] list must contain every task for the current user — it is
-     * supplied by the ViewModel's `combine` so the predicate remains pure.
-     *
-     * @see 2026-09-18-task-dependencies
-     */
-    fun isBlocked(task: Task, allTasks: List<Task>): Boolean {
-        if (task.dependsOn.isEmpty()) return false
-        val allTasksById = allTasks.associateBy { it.id }
-        return task.dependsOn.any { depId ->
-            val dep = allTasksById[depId]
-            dep != null && !dep.isCompleted && !dep.isTrashed
-        }
-    }
-
-    /**
-     * The ids of every blocked task in [allTasks], resolved with a single index.
-     *
-     * The batch form of [isBlocked]: identical semantics, but O(n + edges)
-     * instead of O(n²), because the lookup table is built once rather than once
-     * per task.
-     *
-     * [isBlocked] rebuilds that index on **every call**, so calling it once per
-     * task over a list of *n* is quadratic. Measured on this repo's test
-     * hardware: ~90ms at n=1000, ~300ms at n=2000, ~1.1s at n=4000 — a visible
-     * stall, since the agenda evaluator calls it twice per rendered row. Reach
-     * for this instead whenever the answer is needed for a whole list.
-     *
-     * A dependency missing from [allTasks] does **not** block, matching
-     * [isBlocked].
-     */
-    fun blockedIds(allTasks: List<Task>): Set<TaskId> {
-        if (allTasks.none { it.dependsOn.isNotEmpty() }) return emptySet()
-        val byId = allTasks.associateBy { it.id }
-        return allTasks
-            .filter { task ->
-                task.dependsOn.any { depId ->
-                    val dep = byId[depId]
-                    dep != null && !dep.isCompleted && !dep.isTrashed
-                }
-            }
-            .mapTo(mutableSetOf()) { it.id }
     }
 }

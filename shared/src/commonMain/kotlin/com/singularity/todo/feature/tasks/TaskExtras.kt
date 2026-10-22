@@ -61,7 +61,7 @@ internal fun TaskDao.withExtras(uid: UserId, source: Flow<List<TaskEntity>>): Fl
         rows.map { entity ->
             entity.toTask(
                 tags = extras.tagsByTask[entity.id].orEmpty().map { TagId.fromString(it) },
-                dependsOn = extras.depsByTask[entity.id].orEmpty().map { TaskId.fromString(it) }.toSet(),
+                blockedBy = extras.depsByTask[entity.id].orEmpty().map { TaskId.fromString(it) }.toSet(),
             )
         }
     }

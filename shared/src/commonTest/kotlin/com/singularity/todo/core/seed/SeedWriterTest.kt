@@ -74,7 +74,7 @@ class SeedWriterTest {
     @Test
     fun `a task an earlier run completed and trashed is seeded back into the live set`() = runTest {
         val first = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
-        tasks.toggleComplete(first.id).getOrThrow()
+        tasks.complete(first.id).getOrThrow()
         tasks.softDelete(first.id).getOrThrow()
 
         val second = writer.writeTask(TaskSeed(title = "PinnedTask2026", stamp = stamp))
@@ -98,7 +98,7 @@ class SeedWriterTest {
 
         assertNull(blocked.missingDependency)
         val blocker = liveTasks("Blocker").single()
-        assertEquals(setOf(blocker.id), tasks.observeDependencies(blocked.id).first())
+        assertEquals(setOf(blocker.id), tasks.observe(blocked.id).first()?.blockedBy)
     }
 
     @Test
@@ -112,7 +112,7 @@ class SeedWriterTest {
         )
 
         assertEquals("Blocker", blocked.missingDependency)
-        assertEquals(emptySet(), tasks.observeDependencies(blocked.id).first())
+        assertEquals(emptySet(), tasks.observe(blocked.id).first()?.blockedBy)
     }
 
     @Test
