@@ -60,14 +60,31 @@ flag.
 
 ## Navigation
 
-expect/actual NavGraphs: `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
-`SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph`, each
-with its paired `*EntryProvider`.
+The seven nested NavGraphs — `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
+`SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph` — are
+**common**, one implementation each, in
+`feature/<name>/presentation/nav/<Name>NavGraph.kt`. The platform differences are
+three seams:
+
+| Seam | Android | Desktop |
+|---|---|---|
+| `rememberAppNavBackStack` | saved-state backed | in memory |
+| `SystemBackHandler` | the system back gesture | a no-op |
+| `rememberAppEntryDecorators` | the ViewModel-store decorator | the same — both platforms scope the store per entry |
+
+plus the agenda's `contextMenuHost`: a gesture, so a platform's business (a bottom
+sheet on Android, a popup on Desktop).
 
 `AppNavKey` is the single sealed root and must not grow parallel hierarchies (ADR
 `2026-09-29-single-sealed-navkey-root`). New screens are leaves of `AppDestination` —
-for example `AppDestination.AttachmentViewer(attachmentId)`, added to both
-`AndroidNavEntries.kt` and `JvmNavEntries.kt`.
+for example `AppDestination.AttachmentViewer(attachmentId)` — and are registered in
+the **contributor of their own feature** under `feature/nav/entries/`, not in both
+`AndroidNavEntries.kt` and `JvmNavEntries.kt`. Those two files are assemblers: they
+collect the contributors, supply the platform's context menu, and hold the platform's
+own bits (the hoisted stacks on Desktop, the tasks graph entry).
+
+A new screen *inside* a nested graph goes into that graph's `entryProvider` — one
+file, not two. `AppEntryParityTest` holds the set of registered destinations.
 
 ## Platform-specific patterns
 

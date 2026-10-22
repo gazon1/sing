@@ -16,3 +16,8 @@ actual fun <T : NavKey> rememberNavBackStackTyped(
     @Suppress("UNCHECKED_CAST")
     return rememberNavBackStack(savedStateConfig, start) as NavBackStack<T>
 }
+
+/** Android: the nested graph's stack is saved-state backed, so it survives process death. */
+@Composable
+actual fun <T : NavKey> rememberAppNavBackStack(start: T): NavBackStack<T> =
+    rememberNavBackStackTyped(navSavedStateConfig(), start)

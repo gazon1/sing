@@ -84,3 +84,71 @@ once.
 
 Links: ADR `2026-10-04-navigation-policy` (the policy that made the allow-lists disappear),
 `shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/NavStartRoutes.kt`.
+
+---
+
+## Addendum (2026-10-21) — the premise was wrong; the deduplication happened
+
+**The decision above is reversed.** Not because the platform differences turned out to be
+incidental, but because the ADR's second reason was false: "No shared `@Composable` layer
+exists." One did — it was one artifact away.
+
+`androidx.navigation3:navigation3-ui` publishes **no desktop variant**. The Compose
+Multiplatform port lives in a separate artifact, `org.jetbrains.androidx.navigation3:navigation3-ui`,
+whose Android variant is a *redirect* to the androidx artifact and whose Desktop variant
+carries the port. That one artifact puts `NavDisplay` into `commonMain`, which is what made
+"a shared `@Composable` layer" possible at all. The ADR never checked whether the UI artifact
+had a common variant; it checked the runtime's.
+
+The other two reasons survive, and are now *seams* rather than blockers:
+
+1. **NavBackStack management** → the seam `rememberAppNavBackStack`. Android is saved-state
+   backed, Desktop is in memory, and the graphs ask the seam instead of branching.
+2. **The remaining delta is small** → it was small, and the small parts were hoisted stacks
+   (Desktop) and the tasks graph entry. Both are now *parameters*: the hoisted stacks arrive
+   as `AppNavStacks`, and the tasks graph entry stays in the two platform files.
+
+What the addendum of 2026-10-04 called "the entry bodies are not redundant" was true of the
+*bodies* and irrelevant to the conclusion: the bodies could have been common all along, once
+`NavDisplay` was reachable from `commonMain`.
+
+### What the deduplication cost
+
+Two seams and one measurement:
+
+- `rememberAppNavBackStack` — the stack's storage.
+- `SystemBackHandler` — the system back gesture. It replaced two `expect`/`actual` triples
+  (`TasksBackHandler`, `ProjectsBackHandler`) that each said the same thing twice.
+- `rememberAppEntryDecorators` — the ViewModel-store decorator. **This one was not a
+  difference at all; it was a bug.**
+
+### The bug the measurement found
+
+The Desktop graphs had no ViewModel-store decorator, and their KDoc claimed that "each
+NavDisplay entry already has proper per-entry ViewModel scoping" on Desktop. Nothing in nav3
+provides that scoping — `rememberViewModelStoreNavEntryDecorator` is the only thing that does.
+`NestedEntryViewModelScopeTest` measured it: on Desktop, a nested entry inherits the store of
+whatever is above it.
+
+Koin keys a ViewModel by its class alone, **not** by the parameters. Two entries sharing a
+store therefore get the *same* ViewModel instance: the second screen silently reuses the first
+one's state, with the first one's parameters. On Android the decorator hid this; on Desktop it
+was live.
+
+The decorator is now applied on both platforms, from one common implementation.
+
+### Consequences
+
+- **Always** put a nested graph's `NavDisplay` in `commonMain`. The platform difference is a
+  seam, not a reason for a second copy of the graph.
+- **Never** assume a nav3 artifact has no common variant. Check the *root* module of the
+  multiplatform line, not the platform variant.
+- **Never** let a platform file claim a scoping behaviour that was never measured.
+  `NestedEntryViewModelScopeTest` exists because a comment was not a measurement.
+- The task's `TasksGraph` entry stays platform-specific: Desktop seeds the pushed graph's
+  stack itself and pushes the detail route onto it. That one is a real difference, and it is
+  now the *only* `entry<>` block left outside the common contributors.
+
+Links: ADR `2026-10-21-nav3-1-2-0-upgrade` (the upgrade that brought the artifact),
+`shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/entries/`,
+`docs/navigation.md`.

@@ -41,6 +41,10 @@ sourceSets {
         dependencies {
             implementation(libs.compose.ui.test)
             implementation(libs.compose.ui.tooling.preview)
+            // NavDisplay — the nested-entry ViewModel scope test renders one.
+            // :shared declares nav3 as `implementation`, so it is not visible
+            // transitively here.
+            implementation(libs.androidx.navigation3.ui.desktop)
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.koin.core)

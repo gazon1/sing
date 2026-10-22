@@ -144,6 +144,12 @@ kotlin {
 			// Platform-specific implementations (entryProvider, rememberNavBackStack) are in
 			// the platform AARs: navigation3-runtime-android (androidMain).
 			implementation(libs.androidx.navigation3.runtime)
+			// Navigation 3 UI (NavDisplay) — the JetBrains KMP root, so `NavDisplay` is
+			// available in commonMain: on Android it redirects to the androidx artifact,
+			// on Desktop it carries the Compose Multiplatform port. The androidx line
+			// publishes no desktop variant, so this is the only way to put a nested
+			// graph's NavDisplay into common code.
+			implementation(libs.androidx.navigation3.ui)
 
             // Ktor
             implementation(libs.ktor.client.core)

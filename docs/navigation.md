@@ -1,12 +1,24 @@
 # Navigation map (Nav3 multi-back-stack)
 
 Inventory of every navigation key: **where it lives (container), what opens it, and what its
-inner start route is**. Source of truth: `AndroidNavEntries.kt` (androidMain) and
-`JvmNavEntries.kt` (jvmMain) — both declare the same 18 `entry<>` blocks; they differ only
-in stack persistence (saved-state vs in-memory) and in the JVM `TasksGraph` in-memory stack
-seeding.
+inner start route is**.
 
-Architecture rationale: ADR `2026-10-04-navigation-policy.md` + skill
+Source of truth: the entry **contributors** in `feature/nav/entries/` — one file per
+feature, in common code. `AndroidNavEntries.kt` (androidMain) and `JvmNavEntries.kt`
+(jvmMain) are *assemblers*: they collect the contributors, supply the platform's context
+menu, and hold the platform's own bits (the hoisted stacks on Desktop, the tasks graph
+entry). Together they declare 22 `entry<>` blocks — the same 22 on both platforms;
+`AppEntryParityTest` holds that.
+
+The seven nested graphs (tasks, projects, notes, calendar, search, settings, agenda) are
+**one common implementation each**: `feature/<name>/presentation/nav/<Name>NavGraph.kt` in
+commonMain. The platform differences are two seams — `rememberAppNavBackStack` (saved-state
+on Android, in-memory on Desktop) and `SystemBackHandler` (the system back gesture on
+Android, a no-op on Desktop) — plus the agenda's context menu host, which is a gesture and
+therefore a platform's business.
+
+Architecture rationale: ADR `2026-10-04-navigation-policy.md`, ADR
+`2026-10-21-nav3-1-2-0-upgrade.md`, ADR `2026-10-21-deep-link-registry.md` + skill
 `singularity-todo-nav3-nested-graphs`.
 
 ## Containers
@@ -45,13 +57,13 @@ Tab reselect emits `Nav3State.reselectEvents`; reselect never mutates a stack
 
 | Key | Inner start | Opened from (sources) | Notes |
 |---|---|---|---|
-| `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute())` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | `fromString` unpacking of `Detail.taskId` lives in the entry converter today (→ B2 typed id) |
+| `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute())` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | the deep link names the tab too — see *Deep links* below |
 | `TasksByProject(projectId)` | *(no `entry<>` declared)* | **no production opener — unwired surface** (see `ProjectDetailUi` "see all") | candidate for follow-up issue |
 | `ProjectDetail(projectId)` | `ProjectsNavGraph(Detail)` | `TasksNavigator.openProject`, `SearchNavigator.openProject` | allow-list previously permitted from Tasks/Agenda contexts only |
 | `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | plans FAB, project detail edit | |
-| `ProjectsGraph(start)` | `ProjectsNavGraph(start.toProjectsRoute())` | projects deep link | |
+| `ProjectsGraph(start)` | `ProjectsNavGraph(start.toProjectsRoute())` | *(no production opener — there is no projects deep link)* | |
 | `NotesGraph(start)` | `NotesNavGraph(start.toNotesRoute())` | `TasksNavigator.openNote*`, `SearchNavigator.openNote`, task→linked-note | previously **swallowed** by the Tasks allow-list (REQ-NAV-002) |
-| `CalendarGraph(start)` | `CalendarNavGraph` | calendar deep link | |
+| `CalendarGraph(start)` | `CalendarNavGraph` | *(no production opener — there is no calendar deep link)* | |
 | `AgendaGraph(start ≠ tab starts)` | `AgendaNavGraph(start)` | `ProjectsNavigator.openAgendaForProject`, `SearchNavigator.openTag`, saved-view deep link `deeplinkViewId` | tab instances are top-level; `Project`/`Tag`/saved-view starts are pushed |
 
 **Deprecated app-level members with no `entry<>`** (removed in B4 after live-ref grep):
@@ -64,6 +76,31 @@ descriptive error): bare nested start routes — `TasksStartRoute.*`,
 `ProjectsStartRoute.*`, `NotesStartRoute.*`, `CalendarStartRoute.*`,
 `AgendaStartRoute.*` — and inner routes (`TasksRoute`, `NotesRoute`, `ProjectsRoute`,
 `CalendarRoute`, lone `Settings`/`Search`) addressed without their graph wrapper.
+
+## Deep links
+
+A link resolves to **two** keys — a tab and a screen — and opens the screen on
+that tab, with that tab's stack rebuilt as exactly `[tab, screen]`. "Back" from
+a linked screen therefore returns to the tab's own screen, not to whatever the
+app was showing before.
+
+The grammar of each link is declared by the feature that owns it, and one
+registry answers "what does this URI open?" from an explicit ordered list.
+
+| Link | Owner | Tab | Screen |
+|---|---|---|---|
+| `singularity://task/{taskId}` | tasks — `TaskLinkSpec` | `AgendaGraph(Today)` | `TasksGraph(Detail(taskId))` |
+| `singularity://view/{viewId}` | agenda — `AgendaLinkSpec` | `AgendaGraph(Today)` | `AgendaGraph(SavedAgendaEdit(viewId))` |
+| `singularity://verify?email=&token=` | auth — `AuthLinkSpec` | `AgendaGraph(Today)` | `MagicLinkConfirm(email, token)` |
+
+- The registry: `feature/nav/deeplink/` — `DeepLinkTarget`, `AppDeepLink`,
+  `DeepLinkRegistry`, `deepLinkModule()`.
+- The matchers: `TaskDeepLink`, `AgendaDeepLink`, `AuthDeepLink`, each beside
+  its spec.
+- The producer (calendar sync) and the matcher (the tasks feature) read the same
+  `TaskLinkSpec`, so the format of the task link has one home.
+- An unknown link is a quiet no-op: the app stays on its start tab.
+- ADR `2026-10-21-deep-link-registry.md`.
 
 ## Cross-feature emitters (the `onExitGraph(dest)` producers)
 
@@ -88,9 +125,37 @@ delegates to `Navigator.open`, which resolves via `NavigationPolicy`.
 | Aspect | Android | Desktop JVM |
 |---|---|---|
 | Stack persistence | `rememberNavBackStack(navSavedStateConfig(), key)` (process death) | `rememberInMemoryNavBackStack(key)` (ADR `2026-09-16`) |
+| Where the difference lives | the seam `rememberAppNavBackStack` | the same seam, other side |
+| System back gesture | `SystemBackHandler` → the platform's `BackHandler` | `SystemBackHandler` → a no-op |
+| ViewModel store per entry | `rememberAppEntryDecorators` | the same — both platforms scope the store per entry |
+| Top-level graph stacks | each graph owns its own | hoisted into the shell's composition (ADR `2026-10-01-desktop-nav-followup`, Bug 3) |
 | `TasksGraph` inner stack | graph dispatch by stack top (ADR `2026-10-03-nav3-backstack-top-vs-start-dispatch`) | seeded `rememberInMemoryNavBackStack`, `Detail` start pushed eagerly |
+| Agenda context menu | a bottom sheet, opened by a long press | a popup, opened by a right click |
 | Shell chrome | bottom bar + menu bottom sheet | drawer + window menu bar |
-| Deep link | `singularity://task/{id}`, saved-view id → `App.kt` `LaunchedEffect` | none |
+| Deep link | `singularity://task/{id}`, `singularity://view/{id}`, `singularity://verify?…` → the deep-link registry | `singularity://…` via `--deeplink=<uri>`, resolved by the same registry |
+
+### Where a nested graph is registered
+
+The nested graphs are **common** — one implementation each. A new screen is
+registered in the contributor of its own feature:
+
+| Feature | Contributor |
+|---|---|
+| tasks | the `TasksGraph` entry in the platform assembler (platform-specific — see below) |
+| projects | `feature/nav/entries/ProjectsEntries.kt` |
+| notes | `feature/nav/entries/NotesEntries.kt` |
+| calendar | `feature/nav/entries/CalendarEntries.kt` |
+| search | `feature/nav/entries/SearchEntries.kt` |
+| settings | `feature/nav/entries/SettingsEntries.kt` |
+| agenda | `feature/nav/entries/AgendaEntries.kt` |
+| the app's own screens | `feature/nav/entries/AppEntries.kt` |
+
+A new screen inside a nested graph goes into that graph's `entryProvider` in
+`feature/<name>/presentation/nav/<Name>NavGraph.kt` — **one** file, not two.
+
+The tasks graph entry is the one exception: it stays in the platform assemblers,
+because Desktop seeds the pushed graph's stack itself and pushes the detail route
+onto it, so that the right frame renders immediately.
 
 ## Baseline (B0, 2026-10-04, before policy change)
 
