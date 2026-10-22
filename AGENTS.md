@@ -40,8 +40,8 @@
 git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
 ```
 
-- **Не переключай ветку в чужом worktree** (`lugworm`, `bonefish`, `gudgeon`, `damselfish`,
-  `wip-fixes`, `lancetfish` — там `main`, и ветка занята). Свою ветку — только в своём worktree.
+- **Не переключай ветку в чужом worktree** — список чужих: `git worktree list` (там, где `main`,
+  ветка занята). Свою ветку — только в своём worktree.
 - `./gw` даёт worktree приватный `GRADLE_USER_HOME`: `./gradlew --stop` в одном worktree убивает
   демоны всех остальных, а общий `~/.gradle` — общая блокировка кэша модулей.
 - **Два Gradle-вызова одновременно не запускай** — ни два своих, ни свой и чужой: блокируется
