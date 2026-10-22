@@ -199,7 +199,7 @@ internal object TextFieldShapeScan {
      * mirrors the packages.
      *
      * The paths are relative to `com/singularity/todo/`, so the root package
-     * has to be put back: `core/ui/Thing.kt` is in
+     * has to be put back: a file under `core.ui` is in
      * `com.singularity.todo.core.ui`, and a package without its root names a
      * package that does not exist.
      */
