@@ -28,6 +28,16 @@ import kotlinx.coroutines.flow.Flow
  * The index answers "which records carry this word"; it does not answer
  * "what is a task".
  *
+ * ## The records come with the place the word was found
+ *
+ * Every record the index returns comes with the ranges of the match — where in
+ * the record the word was found. The index is the only one that knows: it
+ * holds the tokenizer and the column the token is in, and a search that shows
+ * the word in the result has to be told where it is.
+ *
+ * The alternative — asking the rule in Kotlin where the word is — is a second
+ * answer to a question the index has already answered. See [IndexedRecord].
+ *
  * ## The user
  *
  * The index is scoped to the current user, like the repositories it replaces.
@@ -36,17 +46,17 @@ import kotlinx.coroutines.flow.Flow
  */
 interface SearchTextIndex {
 
-    /** The tasks whose title or description carry the word. */
-    fun observeTasks(query: TextMatchQuery): Flow<List<Task>>
+    /** The tasks whose title or description carry the word, and where they carry it. */
+    fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>>
 
-    /** The notes whose title carries the word. */
-    fun observeNotes(query: TextMatchQuery): Flow<List<Note>>
+    /** The notes whose title carries the word, and where they carry it. */
+    fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>>
 
-    /** The projects whose name carries the word. */
-    fun observeProjects(query: TextMatchQuery): Flow<List<Project>>
+    /** The projects whose name carries the word, and where they carry it. */
+    fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>>
 
-    /** The tags whose name carries the word. */
-    fun observeTags(query: TextMatchQuery): Flow<List<Tag>>
+    /** The tags whose name carries the word, and where they carry it. */
+    fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>>
 
     /**
      * The tasks whose title carries the word, most recently updated first.

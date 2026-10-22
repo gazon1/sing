@@ -85,7 +85,11 @@ class TaskRepositoryImpl(
         // index is scoped to the current user itself, so this path does not go
         // through the scoping below.
         if (filter is TaskFilter.Search) {
+            // The index answers with the record and the place the word was
+            // found; a filter asks for the record, and the position is the
+            // search screen's business.
             return textIndex.observeTasks(TextMatchQuery(listOf(filter.query)))
+                .map { rows -> rows.map { it.record } }
         }
         return currentUser.observeForCurrentUser { uid ->
             val today = LocalDate.fromEpochDays(

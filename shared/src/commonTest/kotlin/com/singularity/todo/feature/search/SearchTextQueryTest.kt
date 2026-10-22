@@ -79,14 +79,14 @@ class SearchTextQueryTest {
     fun `a query that matches a task title returns that task`() = runTest {
         val results = search("milk")
 
-        assertEquals(listOf("Buy milk"), results.tasks.map { it.title })
+        assertEquals(listOf("Buy milk"), results.tasks.map { it.record.title })
     }
 
     @Test
     fun `a query that matches a task description returns that task`() = runTest {
         val results = search("quarterly")
 
-        assertEquals(listOf("Write report"), results.tasks.map { it.title })
+        assertEquals(listOf("Write report"), results.tasks.map { it.record.title })
     }
 
     @Test
@@ -102,7 +102,7 @@ class SearchTextQueryTest {
         // The description holds both words, so the task matches the rule.
         val results = search("quarterly numbers")
 
-        assertEquals(listOf("Write report"), results.tasks.map { it.title })
+        assertEquals(listOf("Write report"), results.tasks.map { it.record.title })
     }
 
     @Test
@@ -120,7 +120,7 @@ class SearchTextQueryTest {
         // decides, and no task is dropped for failing to contain the query string.
         val results = search("priority:high")
 
-        assertEquals(listOf("Plan release"), results.tasks.map { it.title })
+        assertEquals(listOf("Plan release"), results.tasks.map { it.record.title })
     }
 
     @Test

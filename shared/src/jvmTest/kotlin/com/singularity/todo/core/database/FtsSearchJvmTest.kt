@@ -79,7 +79,7 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.id })
+        assertEquals(listOf("t1"), found.map { it.task.id })
     }
 
     @Test
@@ -88,7 +88,7 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.id })
+        assertEquals(listOf("t1"), found.map { it.task.id })
     }
 
     @Test
@@ -98,7 +98,7 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.id })
+        assertEquals(listOf("t1"), found.map { it.task.id })
     }
 
     @Test
@@ -136,7 +136,7 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchNotes("u1", TextMatchQuery(listOf("laun"))).first()
 
-        assertEquals(listOf("n1"), found.map { it.id })
+        assertEquals(listOf("n1"), found.map { it.note.id })
     }
 
     @Test
@@ -161,7 +161,7 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchProjects("u1", TextMatchQuery(listOf("reno"))).first()
 
-        assertEquals(listOf("p1"), found.map { it.id })
+        assertEquals(listOf("p1"), found.map { it.project.id })
     }
 
     @Test
@@ -180,7 +180,7 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchTags("u1", TextMatchQuery(listOf("deep"))).first()
 
-        assertEquals(listOf("g1"), found.map { it.id })
+        assertEquals(listOf("g1"), found.map { it.tag.id })
     }
 
     @Test
@@ -189,6 +189,6 @@ class FtsSearchJvmTest {
 
         val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("мол"))).first()
 
-        assertEquals(listOf("t1"), found.map { it.id })
+        assertEquals(listOf("t1"), found.map { it.task.id })
     }
 }

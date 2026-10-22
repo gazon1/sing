@@ -37,6 +37,17 @@ import kotlinx.coroutines.flow.flowOf
  * a [TextMatchQuery] are the *semantic* one, and they are what a caller uses. A
  * query with no searchable term matches nothing — and saying so is not the same
  * as matching everything.
+ *
+ * ## The row carries the position
+ *
+ * Every query here answers with a row *and* the position of the match inside
+ * it, read from FTS4's `offsets()`. The index knows where the word is — it is
+ * the only one that does — and a search that shows the word in the result has
+ * to be told where it is.
+ *
+ * The position travels as the raw answer of `offsets()`, a string of integers.
+ * Reading it — turning bytes into the characters of the text — needs the text
+ * of the column, and only the reader has it. See [FtsOffsets].
  */
 @Dao
 interface FtsDao {
@@ -46,7 +57,7 @@ interface FtsDao {
      */
     @Query(
         """
-        SELECT t.* FROM tasks t
+        SELECT t.*, offsets(tasks_fts) AS match_offsets FROM tasks t
         JOIN tasks_fts ON t.rowid = tasks_fts.docid
         WHERE tasks_fts MATCH :match
           AND t.user_id = :userId
@@ -54,14 +65,14 @@ interface FtsDao {
         ORDER BY t.due_date ASC, t.is_pinned DESC
         """,
     )
-    fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskEntity>>
+    fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskMatchRow>>
 
     /**
      * The notes whose title match the index.
      */
     @Query(
         """
-        SELECT n.* FROM notes n
+        SELECT n.*, offsets(notes_fts) AS match_offsets FROM notes n
         JOIN notes_fts ON n.rowid = notes_fts.docid
         WHERE notes_fts MATCH :match
           AND n.user_id = :userId
@@ -71,14 +82,14 @@ interface FtsDao {
         LIMIT 20
         """,
     )
-    fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteEntity>>
+    fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteMatchRow>>
 
     /**
      * The projects whose name match the index.
      */
     @Query(
         """
-        SELECT p.* FROM projects p
+        SELECT p.*, offsets(projects_fts) AS match_offsets FROM projects p
         JOIN projects_fts ON p.rowid = projects_fts.docid
         WHERE projects_fts MATCH :match
           AND p.user_id = :userId
@@ -86,14 +97,14 @@ interface FtsDao {
         ORDER BY p.sort_order ASC, p.name ASC
         """,
     )
-    fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectEntity>>
+    fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectMatchRow>>
 
     /**
      * The tags whose name match the index.
      */
     @Query(
         """
-        SELECT t.* FROM tags t
+        SELECT t.*, offsets(tags_fts) AS match_offsets FROM tags t
         JOIN tags_fts ON t.rowid = tags_fts.docid
         WHERE tags_fts MATCH :match
           AND t.user_id = :userId
@@ -101,7 +112,7 @@ interface FtsDao {
         ORDER BY t.sort_order ASC, t.name ASC
         """,
     )
-    fun watchTagsByMatch(userId: String, match: String): Flow<List<TagEntity>>
+    fun watchTagsByMatch(userId: String, match: String): Flow<List<TagMatchRow>>
 
     /**
      * The tasks whose title matches the index — the first twenty, most recently
@@ -109,7 +120,7 @@ interface FtsDao {
      */
     @Query(
         """
-        SELECT t.* FROM tasks t
+        SELECT t.*, offsets(tasks_fts) AS match_offsets FROM tasks t
         JOIN tasks_fts ON t.rowid = tasks_fts.docid
         WHERE tasks_fts MATCH :match
           AND t.user_id = :userId
@@ -118,7 +129,7 @@ interface FtsDao {
         LIMIT :limit
         """,
     )
-    suspend fun searchTaskTitlesByMatch(userId: String, match: String, limit: Int): List<TaskEntity>
+    suspend fun searchTaskTitlesByMatch(userId: String, match: String, limit: Int): List<TaskMatchRow>
 
     /**
      * The notes whose title matches the index — the first twenty, most recently
@@ -126,7 +137,7 @@ interface FtsDao {
      */
     @Query(
         """
-        SELECT n.* FROM notes n
+        SELECT n.*, offsets(notes_fts) AS match_offsets FROM notes n
         JOIN notes_fts ON n.rowid = notes_fts.docid
         WHERE notes_fts MATCH :match
           AND n.user_id = :userId
@@ -136,7 +147,7 @@ interface FtsDao {
         LIMIT :limit
         """,
     )
-    suspend fun searchNoteTitlesByMatch(userId: String, match: String, limit: Int): List<NoteEntity>
+    suspend fun searchNoteTitlesByMatch(userId: String, match: String, limit: Int): List<NoteMatchRow>
 
     // ── The semantic surface ────────────────────────────────────────────────
     //
@@ -148,7 +159,7 @@ interface FtsDao {
     /**
      * The tasks whose title or description match [query].
      */
-    fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskEntity>> =
+    fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskMatchRow>> =
         FtsMatchQuery.expression(query)
             ?.let { match -> watchTasksByMatch(userId, match) }
             ?: flowOf(emptyList())
@@ -156,7 +167,7 @@ interface FtsDao {
     /**
      * The notes whose title match [query].
      */
-    fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteEntity>> =
+    fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteMatchRow>> =
         FtsMatchQuery.expression(query)
             ?.let { match -> watchNotesByMatch(userId, match) }
             ?: flowOf(emptyList())
@@ -164,7 +175,7 @@ interface FtsDao {
     /**
      * The projects whose name match [query].
      */
-    fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectEntity>> =
+    fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectMatchRow>> =
         FtsMatchQuery.expression(query)
             ?.let { match -> watchProjectsByMatch(userId, match) }
             ?: flowOf(emptyList())
@@ -172,7 +183,7 @@ interface FtsDao {
     /**
      * The tags whose name match [query].
      */
-    fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagEntity>> =
+    fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagMatchRow>> =
         FtsMatchQuery.expression(query)
             ?.let { match -> watchTagsByMatch(userId, match) }
             ?: flowOf(emptyList())
@@ -181,7 +192,7 @@ interface FtsDao {
      * The tasks whose title matches [query] — the first [limit], most recently
      * updated first.
      */
-    suspend fun searchTaskTitles(userId: String, query: TextMatchQuery, limit: Int): List<TaskEntity> =
+    suspend fun searchTaskTitles(userId: String, query: TextMatchQuery, limit: Int): List<TaskMatchRow> =
         FtsMatchQuery.expression(query)
             ?.let { match -> searchTaskTitlesByMatch(userId, match, limit) }
             ?: emptyList()
@@ -190,7 +201,7 @@ interface FtsDao {
      * The notes whose title matches [query] — the first [limit], most recently
      * updated first.
      */
-    suspend fun searchNoteTitles(userId: String, query: TextMatchQuery, limit: Int): List<NoteEntity> =
+    suspend fun searchNoteTitles(userId: String, query: TextMatchQuery, limit: Int): List<NoteMatchRow> =
         FtsMatchQuery.expression(query)
             ?.let { match -> searchNoteTitlesByMatch(userId, match, limit) }
             ?: emptyList()

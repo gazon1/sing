@@ -1,0 +1,19 @@
+# Scenario specification for SEARCH-09.
+
+id: SEARCH-09
+title: The result shows the word that was matched
+area: feature.search
+priority: P1
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task exists whose title holds the word "architecture". Nothing else carries
+  the word, so the result is unambiguously the seeded task.
+steps:
+  - Search for "arch".
+  - Observe the result.
+expected: >-
+  The result shows the word in the title as the match: the index says where the
+  word is, and the search draws it there. A result that matched in its
+  description and not in its title shows no match in its title, because the
+  title does not carry the word.

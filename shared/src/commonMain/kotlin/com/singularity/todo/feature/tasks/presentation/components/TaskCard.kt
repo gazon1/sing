@@ -32,6 +32,10 @@ import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.highlightedText
+import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.core.search.TextMatchRange
+import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
@@ -44,6 +48,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
  *
  * @param body    Main content slot — defaults to [DefaultTaskCardBody].
  * @param trailing Actions slot — defaults to [DefaultTaskCardTrailing].
+ * @param matchRanges Where the search matched this task, if it was found by
+ *   one. The card draws the range that falls in the title; a match in the
+ *   description is not drawn in the title, because the title does not carry it.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -53,7 +60,8 @@ fun TaskCard(
     onLongClick: () -> Unit = {},
     actions: TaskCardActions = TaskCardActions(),
     modifier: Modifier = Modifier,
-    body: @Composable RowScope.() -> Unit = { DefaultTaskCardBody(task, actions) },
+    matchRanges: List<TextMatchRange> = emptyList(),
+    body: @Composable RowScope.() -> Unit = { DefaultTaskCardBody(task, actions, matchRanges) },
     trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
 ) {
     Card(
@@ -86,11 +94,15 @@ fun TaskCard(
  * can use [Modifier.weight] inside the slot.
  */
 @Composable
-internal fun RowScope.DefaultTaskCardBody(task: Task, actions: TaskCardActions) {
+internal fun RowScope.DefaultTaskCardBody(
+    task: Task,
+    actions: TaskCardActions,
+    matchRanges: List<TextMatchRange> = emptyList(),
+) {
     actions.onToggle?.let { onToggle ->
         ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
     }
-    TaskText(task = task, modifier = Modifier.weight(1f))
+    TaskText(task = task, modifier = Modifier.weight(1f), matchRanges = matchRanges)
     if (task.parentTaskId != null) {
         SubtaskChip()
     }
@@ -127,10 +139,14 @@ private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: S
 }
 
 @Composable
-private fun TaskText(task: Task, modifier: Modifier = Modifier) {
+private fun TaskText(
+    task: Task,
+    modifier: Modifier = Modifier,
+    matchRanges: List<TextMatchRange> = emptyList(),
+) {
     Column(modifier = modifier) {
         Text(
-            text = task.title,
+            text = highlightedText(task.title, matchRanges.inColumn(SearchColumn.TITLE)),
             style = MaterialTheme.typography.bodyLarge,
             textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
             maxLines = 2,

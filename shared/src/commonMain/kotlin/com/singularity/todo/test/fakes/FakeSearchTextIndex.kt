@@ -1,5 +1,6 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.notes.Note
@@ -32,6 +33,18 @@ import kotlinx.coroutines.flow.map
  * (`FtsMatcherAgreementTest`), which runs against a real SQLite. See
  * `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
  *
+ * ## The one thing the fake cannot answer
+ *
+ * The production index also says *where* it found the word — the position of
+ * the match, read from the index itself. The fake has no index and no
+ * tokenizer to read the position from, so it answers with no ranges at all.
+ *
+ * That is not a gap in the fake to be papered over with a second
+ * implementation of "where the word is": the position is the index's answer,
+ * and a rule in Kotlin that guessed it would be a second answer to a question
+ * only the index can answer. The position is asserted where the index is —
+ * against a real SQLite, in `FtsOffsetsTest`.
+ *
  * The fake reads the repositories rather than a store of its own, so the
  * records it answers with are the records the repositories hold — a test that
  * puts a task into the fake repository and asks the index for it gets that
@@ -44,29 +57,33 @@ class FakeSearchTextIndex(
     private val tagRepo: FakeTagsRepository,
 ) : SearchTextIndex {
 
-    override fun observeTasks(query: TextMatchQuery): Flow<List<Task>> =
+    override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> =
         taskRepo.observeAll().map { tasks ->
             tasks.filter { task -> matchesTextMatch(query, task.title, task.description) }
+                .map { task -> IndexedRecord(task, emptyList()) }
         }
 
-    override fun observeNotes(query: TextMatchQuery): Flow<List<Note>> =
+    override fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>> =
         noteRepo.observeAll().map { notes ->
             notes.filter { note -> matchesTextMatch(query, note.title) }
+                .map { note -> IndexedRecord(note, emptyList()) }
         }
 
-    override fun observeProjects(query: TextMatchQuery): Flow<List<Project>> =
+    override fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>> =
         projectRepo.observeAll().map { projects ->
             projects.filter { project -> matchesTextMatch(query, project.name) }
+                .map { project -> IndexedRecord(project, emptyList()) }
         }
 
-    override fun observeTags(query: TextMatchQuery): Flow<List<Tag>> =
+    override fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>> =
         tagRepo.observeAll().map { tags ->
             tags.filter { tag -> matchesTextMatch(query, tag.name) }
+                .map { tag -> IndexedRecord(tag, emptyList()) }
         }
 
     override suspend fun recentTaskTitles(query: TextMatchQuery, limit: Int): List<Task> =
-        observeTasks(query).first().take(limit)
+        observeTasks(query).first().map { it.record }.take(limit)
 
     override suspend fun recentNoteTitles(query: TextMatchQuery, limit: Int): List<Note> =
-        observeNotes(query).first().take(limit)
+        observeNotes(query).first().map { it.record }.take(limit)
 }

@@ -82,7 +82,7 @@ class SearchUseCaseFtsTest {
 
         assertEquals(
             listOf("t1"),
-            found.tasks.map { it.id.value },
+            found.tasks.map { it.record.id.value },
             "the index answers the positive terms, and the rule must not filter them again",
         )
     }
@@ -95,7 +95,7 @@ class SearchUseCaseFtsTest {
 
         assertEquals(
             listOf("t1"),
-            found.tasks.map { it.id.value },
+            found.tasks.map { it.record.id.value },
             "the negated term is the rule's business, and the rule still holds it",
         )
     }
@@ -108,7 +108,7 @@ class SearchUseCaseFtsTest {
 
         assertEquals(
             listOf("t1"),
-            found.tasks.map { it.id.value },
+            found.tasks.map { it.record.id.value },
             "a phrase is the words next to each other — the index asks for the phrase, and so does the rule",
         )
     }
@@ -121,7 +121,7 @@ class SearchUseCaseFtsTest {
 
         assertEquals(
             emptyList(),
-            found.tasks.map { it.id.value },
+            found.tasks.map { it.record.id.value },
             "a term matches the beginning of a word, not its middle",
         )
     }

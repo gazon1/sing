@@ -12,6 +12,9 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.FtsDao
+import com.singularity.todo.core.database.NoteMatchRow
+import com.singularity.todo.core.database.ProjectMatchRow
+import com.singularity.todo.core.database.TagMatchRow
 import com.singularity.todo.core.database.LlmUsageDao
 import com.singularity.todo.core.database.LlmUsageEntity
 import com.singularity.todo.core.database.NoteDao
@@ -37,6 +40,7 @@ import com.singularity.todo.core.database.TagGroupEntity
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskMatchRow
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.search.TextMatchQuery
@@ -407,76 +411,82 @@ private class FakeFtsDao(
     private val tags: MutableStateFlow<Map<String, TagEntity>>,
 ) : FtsDao {
 
-    override fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskEntity>> = tasks.map { map ->
+    override fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskMatchRow>> = tasks.map { map ->
         map.values.filter { t ->
             t.userId == userId && t.archivedAt == null &&
                 matchesTextMatch(query, t.title, t.description)
         }.sortedWith(compareBy({ t -> t.dueDate ?: "\uFFFF" }, { t -> !t.isPinned }))
+            .map { entity -> TaskMatchRow(entity, offsets = null) }
     }
 
-    override fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteEntity>> = notes.map { map ->
+    override fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteMatchRow>> = notes.map { map ->
         map.values.filter { n ->
             n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
                 matchesTextMatch(query, n.title)
         }.sortedByDescending { it.updatedAt }.take(20)
+            .map { entity -> NoteMatchRow(entity, offsets = null) }
     }
 
-    override fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectEntity>> =
+    override fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectMatchRow>> =
         projects.map { map ->
             map.values.filter { p ->
                 p.userId == userId && !p.isDeleted && matchesTextMatch(query, p.name)
             }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                .map { entity -> ProjectMatchRow(entity, offsets = null) }
         }
 
-    override fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagEntity>> = tags.map { map ->
+    override fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagMatchRow>> = tags.map { map ->
         map.values.filter { t ->
             t.userId == userId && t.deletedAt == null && matchesTextMatch(query, t.name)
         }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+            .map { entity -> TagMatchRow(entity, offsets = null) }
     }
 
     override suspend fun searchTaskTitles(
         userId: String,
         query: TextMatchQuery,
         limit: Int,
-    ): List<TaskEntity> =
+    ): List<TaskMatchRow> =
         tasks.value.values.filter { t ->
             t.userId == userId && t.archivedAt == null &&
                 matchesTextMatch(query, t.title, t.description)
         }.sortedByDescending { it.updatedAt }.take(limit)
+            .map { entity -> TaskMatchRow(entity, offsets = null) }
 
     override suspend fun searchNoteTitles(
         userId: String,
         query: TextMatchQuery,
         limit: Int,
-    ): List<NoteEntity> =
+    ): List<NoteMatchRow> =
         notes.value.values.filter { n ->
             n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
                 matchesTextMatch(query, n.title)
         }.sortedByDescending { it.updatedAt }.take(limit)
+            .map { entity -> NoteMatchRow(entity, offsets = null) }
 
-    override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskEntity>> =
+    override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskMatchRow>> =
         noExpression("watchTasksByMatch")
 
-    override fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteEntity>> =
+    override fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteMatchRow>> =
         noExpression("watchNotesByMatch")
 
-    override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectEntity>> =
+    override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectMatchRow>> =
         noExpression("watchProjectsByMatch")
 
-    override fun watchTagsByMatch(userId: String, match: String): Flow<List<TagEntity>> =
+    override fun watchTagsByMatch(userId: String, match: String): Flow<List<TagMatchRow>> =
         noExpression("watchTagsByMatch")
 
     override suspend fun searchTaskTitlesByMatch(
         userId: String,
         match: String,
         limit: Int,
-    ): List<TaskEntity> = noExpression("searchTaskTitlesByMatch")
+    ): List<TaskMatchRow> = noExpression("searchTaskTitlesByMatch")
 
     override suspend fun searchNoteTitlesByMatch(
         userId: String,
         match: String,
         limit: Int,
-    ): List<NoteEntity> = noExpression("searchNoteTitlesByMatch")
+    ): List<NoteMatchRow> = noExpression("searchNoteTitlesByMatch")
 
     /**
      * The raw surface is not implemented, and says so.

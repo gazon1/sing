@@ -45,6 +45,10 @@ import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.text.highlightedText
+import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.core.search.TextMatchRange
+import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
@@ -222,39 +226,46 @@ private fun SearchResultsList(
     ) {
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
-            items(results.tasks.take(5), key = { it.id.value }) { task ->
+            items(results.tasks.take(5), key = { it.record.id.value }) { hit ->
                 TaskCard(
-                    task = task,
-                    onClick = { navigator.openTask(task.id) },
+                    task = hit.record,
+                    onClick = { navigator.openTask(hit.record.id) },
+                    matchRanges = hit.ranges,
                     actions = TaskCardActions(
-                        onPin = { onPin(task.id) },
-                        onAiClick = { navigator.openTask(task.id) },
+                        onPin = { onPin(hit.record.id) },
+                        onAiClick = { navigator.openTask(hit.record.id) },
                     ),
                 )
             }
         }
         if (results.notes.isNotEmpty()) {
             item { SectionHeader("Notes") }
-            items(results.notes.take(5), key = { it.id.value }) { note ->
+            items(results.notes.take(5), key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
-                    title = note.title.ifBlank { "Untitled" },
-                    onClick = { navigator.openNote(note.id) },
+                    title = hit.record.title.ifBlank { "Untitled" },
+                    onClick = { navigator.openNote(hit.record.id) },
+                    matchRanges = hit.ranges.inColumn(SearchColumn.TITLE),
                 )
             }
         }
         if (results.projects.isNotEmpty()) {
             item { SectionHeader("Projects") }
-            items(results.projects.take(5), key = { it.id.value }) { project ->
+            items(results.projects.take(5), key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
-                    title = project.name,
-                    onClick = { navigator.openProject(project.id) },
+                    title = hit.record.name,
+                    onClick = { navigator.openProject(hit.record.id) },
+                    matchRanges = hit.ranges.inColumn(SearchColumn.NAME),
                 )
             }
         }
         if (results.tags.isNotEmpty()) {
             item { SectionHeader("Tags") }
-            items(results.tags.take(5), key = { it.id.value }) { tag ->
-                SimpleResultCard(title = tag.name, onClick = { navigator.openTag(tag.id) })
+            items(results.tags.take(5), key = { it.record.id.value }) { hit ->
+                SimpleResultCard(
+                    title = hit.record.name,
+                    onClick = { navigator.openTag(hit.record.id) },
+                    matchRanges = hit.ranges.inColumn(SearchColumn.NAME),
+                )
             }
         }
     }
@@ -265,12 +276,27 @@ private fun SectionHeader(title: String) {
     Text(text = title, style = MaterialTheme.typography.titleSmall)
 }
 
+/**
+ * A result that is a title and nothing else — a note, a project, a tag.
+ *
+ * @param title the title to draw.
+ * @param onClick what to do when the card is clicked.
+ * @param matchRanges where the search matched this record, in the text that is
+ *   drawn here.
+ */
 @Composable
-private fun SimpleResultCard(title: String, onClick: () -> Unit) {
+private fun SimpleResultCard(
+    title: String,
+    onClick: () -> Unit,
+    matchRanges: List<TextMatchRange> = emptyList(),
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
-        SelectableText(text = title, modifier = Modifier.padding(12.dp))
+        SelectableText(
+            text = highlightedText(title, matchRanges),
+            modifier = Modifier.padding(12.dp),
+        )
     }
 }
 
