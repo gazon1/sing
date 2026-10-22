@@ -22,13 +22,22 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
 fi
 
 echo "=== Pre-commit: compiling shared (main + test) ==="
-./gradlew :shared:compileKotlinJvm :shared:compileTestKotlinJvm --no-daemon --quiet || {
+# Through ./gw, so the build uses this worktree's private GRADLE_USER_HOME
+# instead of the shared ~/.gradle — a bare ./gradlew raises a daemon in the
+# shared home, where any worktree's `--gradlew --stop` can kill it.
+#
+# The slot pool is switched OFF here (SINGULARITY_GRADLE_SLOTS_DIR=0): a commit
+# must not sit in a queue for up to 30 minutes behind somebody else's build.
+# That is a deliberate trade — a commit waits for a CPU slot but never for the
+# pool — and it is stated here so it reads as a decision rather than an
+# oversight. See docs/decisions/2026-10-22-gradle-memory-budget.md.
+SINGULARITY_GRADLE_SLOTS_DIR=0 "$ROOT/gw" :shared:compileKotlinJvm :shared:compileTestKotlinJvm --no-daemon --quiet || {
     echo "shared:compileKotlinJvm or :shared:compileTestKotlinJvm FAILED"
     exit 1
 }
 
 echo "=== Pre-commit: compiling desktop ==="
-./gradlew :desktopApp:compileKotlin --no-daemon --quiet || {
+SINGULARITY_GRADLE_SLOTS_DIR=0 "$ROOT/gw" :desktopApp:compileKotlin --no-daemon --quiet || {
     echo ":desktopApp:compileKotlin FAILED"
     exit 1
 }
