@@ -2,8 +2,14 @@
 title: "Blocking is resolved per-list, not per-task"
 date: 2026-10-05
 tags: [tasks, performance, dependencies, agenda]
-status: accepted
+status: superseded
+superseded-by: 2026-10-22-the-blocking-rule-has-one-owner
 ---
+
+> **Superseded in part (2026-10-22).** The performance lesson stands — resolve
+> blocking once per evaluation, not once per task. The *owner* moved: `Blocking`
+> answers every form of the question now, and `TaskComputed.blockedIds` is gone.
+> See `2026-10-22-the-blocking-rule-has-one-owner`.
 
 ## Context
 
