@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.search.query.SearchMode
 
 /**
@@ -67,7 +68,10 @@ fun SearchModeSwitch(
         }
 
         if (mode == SearchMode.Contains) {
-            Text(
+            // Selectable: the sentence explains what the mode costs, and a person
+            // who wants to quote it — to somebody else, or to themselves later —
+            // can take it as it is written.
+            SelectableText(
                 text = "Contains mode reads every record — slower than the word search.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier

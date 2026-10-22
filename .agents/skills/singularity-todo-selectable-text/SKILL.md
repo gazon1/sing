@@ -138,6 +138,7 @@ when the answer is "excluded".
 | `feature/projects/presentation/components/ConfirmDeleteSheet.kt` | selectable | the dialog body names the project; the title and the buttons stay labels |
 | `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
 | `feature/search/SearchScreen.kt` | selectable | the titles of the note, project and tag results |
+| `feature/search/presentation/SearchModeSwitch.kt` | selectable | the sentence that says what the contains mode costs; the two segment labels stay labels |
 | `feature/settings/screens/AgendaSettingsScreen.kt` | selectable | the empty state says where to create a view |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | selectable | the provider and model ids; the key and the endpoint are input fields and stay as they are |
 | `feature/settings/screens/FilesSettingsScreen.kt` | selectable | the explanation of where attachments are stored |

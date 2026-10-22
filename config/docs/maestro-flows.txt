@@ -81,6 +81,7 @@ Maestro/flows/search/05-filter-pinned.yaml
 Maestro/flows/search/06-no-results.yaml
 Maestro/flows/search/07-saved-search.yaml
 Maestro/flows/search/08-word-prefix.yaml
+Maestro/flows/search/09-contains-mode.yaml
 Maestro/flows/settings/01-theme-toggle.yaml
 Maestro/flows/settings/02-notifications.yaml
 Maestro/flows/settings/03-cycle-tabs.yaml
