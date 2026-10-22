@@ -21,10 +21,10 @@
 #           runs. The tag, not the directory: 22 of the 29 smoke flows live
 #           outside Maestro/flows/smoke/, and the runner filters on the tag.
 #
-# Measured 2026-10-21 by a full local run of all 94 flows: 55 passed, 39
-# failed, 10 of the failures in the smoke subset. The numbers below are that
-# run's failure counts, so the gate passes today and fails the first time the
-# debt grows.
+# Measured 2026-10-22 by a full run of all 94 flows on the device
+# (RMX3938, API 35): 64 passed, 30 failed, 7 of the failures in the smoke
+# subset. The numbers below are that run's failure counts, so the gate passes
+# today and fails the first time the debt grows.
 
-full 39
-smoke 10
+full 30
+smoke 7
