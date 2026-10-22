@@ -29,10 +29,10 @@ was never checked against itself.
    reconciled them.
 2. **The chain is continuous.** For every `N` in `first+1 … SCHEMA_VERSION`,
    there is an `AutoMigration(from = N-1, to = N)` in `AppDatabase.kt` **or** the
-   pair is listed in `MANUAL_MIGRATIONS`. There is exactly one such manual pair,
-   `31 -> 32`, and it is named in `AppDatabaseFactory.addMigrations`; this script
-   asserts that too, so the list cannot drift away from the code. A version
-   nobody migrated across is the same crash as a missing column.
+   pair is listed in `MANUAL_MIGRATIONS`. Each such manual pair is named in
+   `AppDatabaseFactory.addMigrations`; this script asserts that too, so the list
+   cannot drift away from the code. A version nobody migrated across is the same
+   crash as a missing column.
 3. **Entities and exports agree on the head.** The set of `tableName`s in the
    head `NN.json` equals the set of entity table names in `AppDatabase.kt`'s
    `entities = [...]` list. This catches an entity added to the annotation
@@ -114,6 +114,7 @@ MANUAL_MIGRATIONS: dict[tuple[int, int], str] = {
     (38, 39): "Migration38To39",
     (42, 43): "Migration42To43",
     (44, 45): "Migration44To45",
+    (45, 46): "Migration45To46",
 }
 
 # The list as it was declared, captured before any self-test plants a defect.
