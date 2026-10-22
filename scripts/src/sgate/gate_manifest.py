@@ -223,13 +223,12 @@ PLACEMENTS: dict[str, Placement] = {
 # their text with a widget that makes it selectable, and which are excluded on
 # purpose. The blocking reader of that table is a JVM test, so it cannot be a
 # line here — this gate is the half that needs no JVM: it finds the prose that
-# no row covers and prints it.
+# no row covers.
 #
-# It is advisory because it has to guess what "prose" means from the text of a
-# call, and a guess is wrong in more ways than a comparison is. It reports and
-# passes; when the inventory is closed it becomes a blocking gate whose empty
-# list is the assertion.""",
-    ),
+# It was advisory while the inventory was open: it had to guess what "prose"
+# means from the text of a call, and a guess is wrong in more ways than a
+# comparison is. The inventory is closed now, so the remaining findings are
+# decisions rather than gaps, and the empty list is the assertion."""),
     "GitHub workflows are valid": Placement(
         kind=PlacementKind.STATIC,
         command='github_workflows_valid',

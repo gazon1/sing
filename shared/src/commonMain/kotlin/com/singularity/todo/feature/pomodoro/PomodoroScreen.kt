@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
 
@@ -156,8 +157,8 @@ private fun TaskChipRow(
         }
         Spacer(Modifier.height(24.dp))
     } else if (!isSupported) {
-        Text(
-            "Focus tasks are not available on desktop",
+        SelectableText(
+            text = "Focus tasks are not available on desktop",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag(TestTags.Pomodoro.TASKS_UNSUPPORTED),
         )

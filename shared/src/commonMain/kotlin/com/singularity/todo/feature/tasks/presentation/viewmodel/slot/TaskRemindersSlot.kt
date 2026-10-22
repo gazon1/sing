@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderType
@@ -33,6 +34,14 @@ import kotlinx.coroutines.launch
  */
 class TaskRemindersSlot(
     private val taskId: TaskId,
+    /**
+     * The saved agenda view the task was opened from, when there was one.
+     *
+     * It is written onto the reminder, and the reminder's notification carries it as
+     * the tap target: the person who sets a reminder from a saved view expects the
+     * notification to bring them back to that view.
+     */
+    private val sourceViewId: SavedAgendaViewId? = null,
     private val core: TaskCoreDeps,
     private val scheduling: TaskSchedulingDeps,
     private val context: TaskContextDeps,
@@ -98,6 +107,7 @@ class TaskRemindersSlot(
             offsetMinutes = -offset.minutes,
             fireAt = fireAt,
             recurringPattern = null,
+            viewId = sourceViewId,
         )
         scheduling.reminderRepo.upsert(reminder)
             .onSuccess { scheduling.reminderScheduler.schedule(reminder) }

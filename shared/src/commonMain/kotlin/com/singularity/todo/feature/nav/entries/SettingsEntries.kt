@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
 
 /**
@@ -13,7 +14,7 @@ import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
  * @param stacks the stacks the platform hoists.
  */
 fun EntryProviderScope<AppDestination>.settingsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Settings> {
+    entry<AppDestination.Settings>(clazzContentKey = { it.stableContentKey() }) {
         SettingsNavGraph(
             navCallbacks = nav,
             backStack = stacks.settings,

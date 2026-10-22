@@ -90,3 +90,59 @@ For `Create`, the pattern works because `start` and `stack.seed` are both `Creat
 - Fix applied in `shared/src/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt`
 - `NavDisplay` dispatch: `nav3.ui.NavDisplay` source
 - `rememberInMemoryNavBackStack`: `shared/src/commonMain/kotlin/com/singularity/todo/feature/nav/Nav3SavedState.kt`
+
+## Addendum (2026-10-22) — the repair was the bug; the seed is the route that was asked for
+
+**The decision above is reversed.** The seed of a nested graph's stack is now the route the
+outer graph asked for, and the requested route is never pushed onto the stack again:
+
+```kotlin
+entry<AppDestination.TasksGraph> { route ->
+    val startRoute = route.start.toTasksRoute(route.initialDueDate)
+    val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(startRoute)
+    TasksNavGraph(start = startRoute, onExitGraph = nav.graphExit, backStack = tasksStack)
+}
+```
+
+The renderer rule in the Context section is still true and is not what changed:
+`NavDisplay` renders `backStack.top`. What changed is that the seed is no longer a route
+nobody asked for.
+
+**Why the repair was the bug.** The seed `Create(null)` with the requested route pushed on
+top put a screen the person never opened underneath the one they did. Three things followed
+from that, and none of them was visible in the three tests that prompted the original fix:
+
+- Back from a task's detail screen uncovered the placeholder — an empty editor — instead of
+  leaving the graph. The person pressed back and got a screen they had never opened.
+- The parameters the route carried were dropped. The editor read the *seed*, not the route,
+  so the date a tab was already showing and the section a saved view was showing were both
+  lost. The seed was a route of the same kind with default parameters, so nothing about the
+  type said so — which is why the fix looked complete while it was not.
+- The stack was two entries deep, so "the stack holds the requested route" was false. The
+  OpenSpec requirement the original fix was written against ("`backStack.add()` before
+  rendering") was a description of the defect, not of the contract.
+
+**The rule now.** The seed of a nested graph's stack is the very expression the graph is
+started with. Not a route of the same type, not a placeholder with default parameters — the
+same expression. A stack seeded with anything else renders a screen the person did not ask
+for, and there is no type check that can tell the two apart once the next route grows a
+field.
+
+**The enforcement named above never ran.** The Policy section names the Konsist test
+`nav3 backStack seed mismatch requires explicit add for Detail routes` as the rule's
+enforcement. That test's Konsist scope is `commonMain` — and the file it wanted to check,
+`JvmNavEntries.kt`, lives in `jvmMain`. The test found no file, returned early, and passed.
+A gate that reads no files passes; that is the same shape of defect as the one it was
+written to catch, one layer up.
+
+The rule is now `NavStackSeedTest`
+(`shared/src/jvmTest/kotlin/com/singularity/todo/feature/nav/NavStackSeedTest.kt`), which
+reads the source roots the build hands it (`commonMain.root`, `jvmMain.root`,
+`androidMain.root`) and therefore sees the platform files that carry the entries. It
+compares *expressions* rather than route types, which is what makes it survive the next
+route that grows a field; it also asserts that the two platforms ask for the same route,
+and that neither of them pushes it twice.
+
+The dead rule was removed from `ArchitectureTest.kt` rather than left in place: a rule that
+cannot see the file it is about is a comment that looks like a check.
+

@@ -13,14 +13,18 @@ copy from. The registry test (`SelectableTextConventionTest`) catches the case
 where a surface *uses a widget* and is not listed; this scan catches the case
 where a surface uses *no widget at all* and nobody wrote it down.
 
-Why this is advisory and the other one is blocking
---------------------------------------------------
+Why this scan and the registry test are different gates
+-------------------------------------------------------
 The registry test compares two exact facts — a file's imports and the table's row —
 and can be wrong in only one way, so it blocks. This scan has to guess what "prose"
 means from the text of a call, so it can be wrong in many ways: a literal that looks
-like a sentence may be a test tag, a format string, a key. It therefore prints the
-list it found and passes; `--check` turns it into a failing gate, which is what it
-becomes once the inventory is closed and the remaining findings are decisions.
+like a sentence may be a test tag, a format string, a key.
+
+It was therefore advisory while the inventory was open. The inventory is closed
+now — every prose surface is either rendered with a selectable widget or written
+down in the table as an exclusion — so the remaining findings are decisions rather
+than gaps, and the scan blocks like every other gate. `--check` is what turns the
+report into a failing gate, and the gate registry passes it.
 
 What counts as prose
 --------------------
@@ -33,7 +37,7 @@ Usage:
     scripts/check-selectable-text-coverage.py --quiet    # findings only, for CI
     scripts/check-selectable-text-coverage.py --check    # fail when anything is found
 
-Exit code is 0 by default (advisory) and 1 under `--check`.
+Exit code is 0 by default and 1 under `--check` when anything is found.
 """
 from __future__ import annotations
 

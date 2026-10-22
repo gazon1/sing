@@ -12,6 +12,7 @@ import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.ProjectsRoute
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen
 import com.singularity.todo.feature.projects.presentation.screen.ProjectEditorScreen
 import com.singularity.todo.feature.projects.presentation.screen.ProjectsScreen
@@ -63,7 +64,7 @@ fun ProjectsNavGraph(
  */
 @Composable
 internal fun projectsScreenEntryProvider() = entryProvider {
-    entry<ProjectsRoute.List> { ProjectsScreen() }
-    entry<ProjectsRoute.Editor> { ProjectEditorScreen(it.projectId) }
-    entry<ProjectsRoute.Detail> { ProjectDetailScreen(it.projectId) }
+    entry<ProjectsRoute.List>(clazzContentKey = { it.stableContentKey() }) { ProjectsScreen() }
+    entry<ProjectsRoute.Editor>(clazzContentKey = { it.stableContentKey() }) { ProjectEditorScreen(it.projectId) }
+    entry<ProjectsRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { ProjectDetailScreen(it.projectId) }
 }

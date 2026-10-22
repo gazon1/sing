@@ -12,6 +12,7 @@ import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.TasksRoute
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.tasks.presentation.screen.TaskCreateScreen
 import com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen
 
@@ -81,6 +82,8 @@ fun TasksNavGraph(
  */
 @Composable
 internal fun tasksScreenEntryProvider() = entryProvider {
-    entry<TasksRoute.Detail> { route -> TaskDetailScreen(route.taskId) }
-    entry<TasksRoute.Create> { route -> TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey) }
+    entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
+    entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
+        TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey)
+    }
 }

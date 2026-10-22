@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.reminders.ReminderOffset
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -25,8 +27,14 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class TaskRemindersSlotTest {
 
-    private fun slot(fakes: SlotFakes, source: TaskSource, scope: CoroutineScope) = TaskRemindersSlot(
+    private fun slot(
+        fakes: SlotFakes,
+        source: TaskSource,
+        scope: CoroutineScope,
+        sourceViewId: SavedAgendaViewId? = null,
+    ) = TaskRemindersSlot(
         taskId = TaskId("t1"),
+        sourceViewId = sourceViewId,
         core = fakes.core(),
         scheduling = fakes.scheduling(),
         context = fakes.context(),
@@ -73,6 +81,43 @@ class TaskRemindersSlotTest {
 
         assertEquals(1, fakes.scheduler.scheduled.size, "the platform alarm must be scheduled")
         assertTrue(fakes.scheduler.scheduled.first().fireAt > 0)
+    }
+
+    /**
+     * A reminder set on a task the person opened from a saved agenda view points back
+     * at that view: the notification carries the view's identity, and the tap opens
+     * the list the reminder was about.
+     *
+     * The column existed and the notification read it — nothing ever wrote it, so every
+     * notification was posted without a target and the tap opened the app wherever it
+     * happened to be.
+     */
+    @Test
+    fun `a reminder records the saved view the task was opened from`() = runTest {
+        val fakes = SlotFakes()
+        val source = TaskSource(task("t1").copy(dueDate = DUE))
+        val slot = slot(fakes, source, backgroundScope, SavedAgendaViewId.fromString("v1"))
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+        runCurrent()
+
+        val stored = fakes.reminderRepo.reminders.value.values.single()
+        assertEquals(SavedAgendaViewId.fromString("v1"), stored.viewId)
+    }
+
+    @Test
+    fun `a reminder set on a task with no saved view behind it carries no view`() = runTest {
+        val fakes = SlotFakes()
+        val source = TaskSource(task("t1").copy(dueDate = DUE))
+        val slot = slot(fakes, source, backgroundScope)
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.SetReminder(ReminderOffset.FIFTEEN_MIN))
+        runCurrent()
+
+        val stored = fakes.reminderRepo.reminders.value.values.single()
+        assertNull(stored.viewId, "a task opened from a tab has no view to point back at")
     }
 
     @Test

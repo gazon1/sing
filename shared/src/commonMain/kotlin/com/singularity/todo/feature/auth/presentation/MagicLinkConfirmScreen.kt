@@ -42,6 +42,7 @@ import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.auth.AuthIntent
 import com.singularity.todo.feature.auth.AuthUiEvent
 import com.singularity.todo.feature.auth.AuthUiState
@@ -274,7 +275,7 @@ private fun MagicLinkVerifyForm(
     // Typing clears the transient error and message, the way the value-based `onValueChange` did.
     ObserveTextFieldEdits(emailState) { onFieldEdited() }
     ObserveTextFieldEdits(tokenState) { onFieldEdited() }
-    Text(
+    SelectableText(
         text = "A sign-in link was sent to your email. Enter the code from the link below.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

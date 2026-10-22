@@ -18,6 +18,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.text.UnselectableContent
 
 /**
  * Type alias for the `actions` slot in [EmptyState] — allows callers to pass
@@ -49,7 +51,7 @@ fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
+            SelectableText(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.then(
@@ -57,7 +59,10 @@ fun EmptyState(
                 ),
             )
             subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium)
+                SelectableText(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
             // `actions != null` is a real presence check, unlike the previous
             // `actions !== {}`: that compared two distinct lambda objects by
@@ -65,7 +70,9 @@ fun EmptyState(
             // rendered even when the caller passed no actions at all.
             if (actions != null) {
                 Spacer(Modifier.height(24.dp))
-                actions()
+                // The action keeps its own gesture: a long press meant for the
+                // button must not start a text selection.
+                UnselectableContent { actions() }
             }
         }
     }

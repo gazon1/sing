@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -16,6 +15,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsRadioRow
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.settings.SettingsUiState
 
 /**
@@ -61,7 +61,7 @@ fun AgendaSettingsScreen(
             }
 
             if (views.isEmpty()) {
-                Text(
+                SelectableText(
                     text = "No saved views yet. Create one from the Agenda tab.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

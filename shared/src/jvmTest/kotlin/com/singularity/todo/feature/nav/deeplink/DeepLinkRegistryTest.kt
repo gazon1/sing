@@ -66,12 +66,12 @@ class DeepLinkRegistryTest {
     }
 
     @Test
-    fun `a saved-view link opens the view editor on the Today tab`() {
+    fun `a saved-view link opens the view's task list on the Today tab`() {
         assertEquals(
             DeepLinkTarget(
                 tab = today,
                 screen = AppDestination.AgendaGraph(
-                    AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId.fromString("v1")),
+                    AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId.fromString("v1")),
                 ),
             ),
             resolve("singularity://view/v1"),

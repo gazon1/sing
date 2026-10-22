@@ -113,6 +113,7 @@ MANUAL_MIGRATIONS: dict[tuple[int, int], str] = {
     (37, 38): "Migration37To38",
     (38, 39): "Migration38To39",
     (42, 43): "Migration42To43",
+    (44, 45): "Migration44To45",
 }
 
 # The oldest schema version this project still promises to upgrade a user from.

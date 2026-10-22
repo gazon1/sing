@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -260,9 +261,7 @@ fun NotePreviewScreenContent(
                     } else {
                         NotePreviewBody(
                             html = note.bodyHtml,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp),
                             onNavigateToNote = onNavigateToNote,
                             onNavigateToTask = onNavigateToTask,
                         )
@@ -422,7 +421,18 @@ private fun NotePreviewBody(
         LocalUriHandler provides appUriHandler,
     ) {
         SelectableTextGroup {
-            RichText(state = richTextState, modifier = modifier)
+            // The body is as wide as its text, not as wide as the screen.
+            //
+            // A text node that spans the screen claims the empty space beside a short
+            // line: a tap there is a tap *on the body*, and for a body whose line is a
+            // link it is a tap that is not on the link. The visible result is the same
+            // either way — the text is left-aligned, and a body that fills the width
+            // still fills it — but what the text *is* is smaller, and that is what a
+            // selection, a screen reader and an automation see.
+            RichText(
+                state = richTextState,
+                modifier = modifier.width(IntrinsicSize.Max),
+            )
         }
     }
 }

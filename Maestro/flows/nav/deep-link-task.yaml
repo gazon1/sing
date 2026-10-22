@@ -1,0 +1,38 @@
+# A deep link from outside the app opens the task it names.
+#
+# The link arrives the way a link from a mail or a messenger arrives: as an
+# intent. The app's manifest declares `singularity://task/{taskId}`, and the
+# link has to land on that task's screen — the Today tab with the task's editor
+# pushed on it, not the tab alone.
+#
+# The fixture is seeded rather than typed: a deep link names an id, and the id
+# the app generates is not one a flow can know. The seed names the id, so the
+# link can address it.
+appId: com.singularity.todo
+name: nav-deep-link-task
+tags:
+  - regression
+  - nav
+---
+- runFlow: ../../helpers/launch-clean.yaml
+# The task the link names. The id is part of the seed, so the link addresses
+# the row the seed wrote.
+- openLink: "todo-debug://seed?task=Deep%20link%20target&id=deeplinktarget01"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+# The link arrives as an intent. Maestro has no `launchApp: intent:` in 2.10 —
+# `openLink` is the command that sends one: it asks the system to handle the URL
+# with `android.intent.action.VIEW`, which is exactly the intent a link from a
+# mail or a messenger produces, and the app receives it in `onNewIntent`.
+- openLink: "singularity://task/deeplinktarget01"
+# The task's editor is what the task screen is.
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+# The title proves the link led to *this* task and not merely that an editor
+# opened.
+- assertVisible:
+    text: "Deep link target"

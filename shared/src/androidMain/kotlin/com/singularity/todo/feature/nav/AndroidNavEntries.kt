@@ -12,6 +12,7 @@ import com.singularity.todo.feature.nav.entries.notesEntries
 import com.singularity.todo.feature.nav.entries.projectsEntries
 import com.singularity.todo.feature.nav.entries.searchEntries
 import com.singularity.todo.feature.nav.entries.settingsEntries
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
@@ -70,7 +71,7 @@ fun createAppEntryProvider(
     // seeds its own per-entry stack and adds the detail route to it, so that the
     // right frame renders immediately — a detail route pushed onto a stack whose
     // top is the start route is not the frame the user asked for.
-    entry<AppDestination.TasksGraph> { route ->
+    entry<AppDestination.TasksGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
         TasksNavGraph(
             start = route.start.toTasksRoute(route.initialDueDate),
             onExitGraph = nav.graphExit,

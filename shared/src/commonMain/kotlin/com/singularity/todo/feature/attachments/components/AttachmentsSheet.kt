@@ -46,6 +46,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 
@@ -157,7 +158,7 @@ fun AttachmentsSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (attachments.isEmpty()) {
-                Text(
+                SelectableText(
                     text = "No attachments yet",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

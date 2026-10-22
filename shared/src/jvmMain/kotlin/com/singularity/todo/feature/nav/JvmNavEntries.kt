@@ -14,6 +14,7 @@ import com.singularity.todo.feature.nav.entries.notesEntries
 import com.singularity.todo.feature.nav.entries.projectsEntries
 import com.singularity.todo.feature.nav.entries.searchEntries
 import com.singularity.todo.feature.nav.entries.settingsEntries
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
 import com.singularity.todo.feature.tasks.presentation.nav.TasksNavGraph
@@ -91,16 +92,18 @@ fun createJvmEntryProvider(
         settingsEntries(nav, stacks)
 
         // The tasks graph entry stays platform-specific: the pushed graph seeds its own
-        // per-entry stack, and a detail route has to be added to it so that the right
-        // frame renders immediately.
-        entry<AppDestination.TasksGraph> { route ->
-            val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(TasksRoute.Create(null))
+        // per-entry stack, and that stack starts at the route the outer graph asked for.
+        //
+        // It used to start at a placeholder — `Create(null)` — with the requested route
+        // pushed on top when it was a detail. A placeholder put a screen the person never
+        // asked for underneath the one they did: back from a task's detail screen opened
+        // an empty editor instead of leaving the graph, and the date and the section
+        // prefill the route carried were dropped on the way, because the editor read the
+        // placeholder rather than the route. NavDisplay renders `stack.top`, so the seed
+        // *is* the screen.
+        entry<AppDestination.TasksGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
             val startRoute = route.start.toTasksRoute(route.initialDueDate)
-            // NavDisplay renders based on stack.top, not the start parameter. When starting
-            // with Detail, add it to the stack so the correct entry is rendered immediately.
-            if (startRoute is TasksRoute.Detail) {
-                tasksStack.add(startRoute)
-            }
+            val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(startRoute)
             TasksNavGraph(
                 start = startRoute,
                 onExitGraph = nav.graphExit,

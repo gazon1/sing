@@ -23,7 +23,11 @@ private data class AgendaLinkKey(val viewId: String)
 /**
  * Ссылка на сохранённое представление agenda: `singularity://view/{viewId}`.
  *
- * Открывает редактор представления на вкладке «Сегодня».
+ * Открывает список задач представления на вкладке «Сегодня».
+ *
+ * Список, а не редактор: ссылка приходит в напоминании, а напоминание — про задачи
+ * представления, а не про его определение. Человек, который нажал на уведомление,
+ * хочет увидеть список, в котором задача находится.
  */
 class AgendaDeepLink : AppDeepLink {
 
@@ -39,7 +43,7 @@ class AgendaDeepLink : AppDeepLink {
         return DeepLinkTarget(
             tab = AppDestination.AgendaGraph(AgendaStartRoute.Today),
             screen = AppDestination.AgendaGraph(
-                AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId.fromString(hit.key.viewId)),
+                AgendaStartRoute.SavedAgendaResults(SavedAgendaViewId.fromString(hit.key.viewId)),
             ),
         )
     }

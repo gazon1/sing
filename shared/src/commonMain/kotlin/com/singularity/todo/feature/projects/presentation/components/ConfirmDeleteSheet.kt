@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.text.SelectableText
 
 /**
  * Confirmation dialog for project deletion.
@@ -14,7 +15,7 @@ fun ConfirmDeleteSheet(projectName: String, onConfirm: () -> Unit, onDismiss: ()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete project?") },
-        text = { Text("\"$projectName\" will be deleted. This cannot be undone.") },
+        text = { SelectableText(text = "\"$projectName\" will be deleted. This cannot be undone.") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text("Delete", color = MaterialTheme.colorScheme.error)

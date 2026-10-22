@@ -5,6 +5,7 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.CalendarRoute
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.nav.toCalendarRoute
 import com.singularity.todo.feature.calendar.presentation.nav.CalendarNavGraph
 import kotlinx.datetime.LocalDate
@@ -23,7 +24,7 @@ fun EntryProviderScope<AppDestination>.calendarEntries(
     stacks: AppNavStacks,
     today: LocalDate,
 ) {
-    entry<AppDestination.Calendar> {
+    entry<AppDestination.Calendar>(clazzContentKey = { it.stableContentKey() }) {
         CalendarNavGraph(
             start = CalendarRoute.Month(today.toString()),
             onExitGraph = nav.graphExit,
@@ -31,7 +32,7 @@ fun EntryProviderScope<AppDestination>.calendarEntries(
         )
     }
 
-    entry<AppDestination.CalendarGraph> { route ->
+    entry<AppDestination.CalendarGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
         CalendarNavGraph(
             start = route.start.toCalendarRoute(),
             onExitGraph = nav.graphExit,

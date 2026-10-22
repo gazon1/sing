@@ -13,6 +13,7 @@ import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.CalendarRoute
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
+import com.singularity.todo.feature.nav.stableContentKey
 
 /**
  * The nested navigation graph of the Calendar feature.
@@ -61,6 +62,6 @@ fun CalendarNavGraph(
  */
 @Composable
 internal fun calendarScreenEntryProvider() = entryProvider {
-    entry<CalendarRoute.Month> { route -> CalendarScreen(route.date) }
-    entry<CalendarRoute.Day> { route -> CalendarScreen(route.date) }
+    entry<CalendarRoute.Month>(clazzContentKey = { it.stableContentKey() }) { route -> CalendarScreen(route.date) }
+    entry<CalendarRoute.Day>(clazzContentKey = { it.stableContentKey() }) { route -> CalendarScreen(route.date) }
 }
