@@ -11,7 +11,8 @@ import kotlin.test.assertTrue
  * ## The defect this catches
  *
  * `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` translate `-Ptest.tags`
- * into JUnit's `includeTags(...)`, and CI runs `-Ptest.tags=fast,slow`. JUnit matches
+ * into JUnit's `includeTags(...)`, and CI selects its population explicitly —
+ * `fast` on a pull request, `fast,slow` on the nightly. JUnit matches
  * tags **per class**: a class with no `@Tag` is simply not selected. The failure is
  * silent — the task still prints `BUILD SUCCESSFUL`.
  *
@@ -28,7 +29,7 @@ import kotlin.test.assertTrue
  * **class that declares a member JUnit executes** — not once per file. That set is
  * [RunnableTestMember]'s, and it is deliberately wider than `@Test`: matching
  * `@Test` alone reported `RecurrenceRuleMapperTest` and `RruleGeneratorTest` as
- * clean while CI, which runs `-Ptest.tags=fast,slow`, skipped both. Helper classes
+ * clean while CI, which selects tagged classes only, skipped both. Helper classes
  * that live in a `*Test.kt` file (fakes, harnesses such as `RunVmTest` /
  * `IsolatedComposeTest`) declare no test member and are correctly left untagged.
  *
@@ -47,7 +48,7 @@ import kotlin.test.assertTrue
  *
  * 1. **Is the class tagged, with a value CI selects, on an engine that reads
  *    tags?** — this class. Presence alone was not enough twice over: a value
- *    outside CI's `-Ptest.tags=fast,slow` list is as invisible as no tag at
+ *    outside the populations CI selects is as invisible as no tag at
  *    all, and a JUnit 4 class runs on the Vintage engine, where Jupiter's
  *    `@Tag` does not exist as a filter (`shared/build.gradle.kts` documents
  *    the `testAndroidHostTest` exemption those two checks protect).
