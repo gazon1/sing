@@ -78,6 +78,12 @@ scenarios:
     priority: P1
     status: confirmed
     targets: [android]
+  - id: SEARCH-09
+    title: The result shows the word that was matched
+    area: feature.search
+    priority: P1
+    status: confirmed
+    targets: [desktop]
 ```
 
 ## Requirements

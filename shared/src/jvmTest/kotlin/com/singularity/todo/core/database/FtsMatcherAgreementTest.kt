@@ -298,5 +298,5 @@ class FtsMatcherAgreementTest {
     }
 
     private suspend fun indexIds(term: String): List<String> =
-        db.ftsDao().watchTasks("u1", TextMatchQuery(listOf(term))).first().map { it.id }
+        db.ftsDao().watchTasks("u1", TextMatchQuery(listOf(term))).first().map { it.task.id }
 }

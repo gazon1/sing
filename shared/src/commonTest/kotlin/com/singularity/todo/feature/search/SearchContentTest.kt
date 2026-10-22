@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.TestUsers
@@ -61,12 +62,15 @@ class SearchContentTest {
 
         val ONE_RESULT = SearchResults(
             listOf(
-                Task(
-                    id = TaskId("t-milk"),
-                    title = "Buy milk",
-                    createdAt = NOW,
-                    updatedAt = NOW,
-                    userId = TestUsers.DEFAULT,
+                IndexedRecord(
+                    record = Task(
+                        id = TaskId("t-milk"),
+                        title = "Buy milk",
+                        createdAt = NOW,
+                        updatedAt = NOW,
+                        userId = TestUsers.DEFAULT,
+                    ),
+                    ranges = emptyList(),
                 ),
             ),
             emptyList(),

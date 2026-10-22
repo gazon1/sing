@@ -139,7 +139,7 @@ class Migration42To43Test {
 
             assertEquals(
                 listOf("t-old"),
-                found.map { it.id },
+                found.map { it.task.id },
                 "the rows that existed before the upgrade have to be in the index it creates",
             )
         } finally {

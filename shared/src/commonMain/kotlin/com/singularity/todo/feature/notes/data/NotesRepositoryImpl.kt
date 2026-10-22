@@ -161,6 +161,7 @@ class NotesRepositoryImpl(
 
     override fun search(query: String): Flow<List<Note>> =
         textIndex.observeNotes(TextMatchQuery(listOf(query)))
+            .map { rows -> rows.map { it.record } }
 
     override suspend fun createWithContent(
         id: NoteId,

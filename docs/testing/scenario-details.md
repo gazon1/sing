@@ -909,6 +909,19 @@ Steps:
 
 **Expected:** The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not find the task titled "airport": the term matches the beginning of a word and not its middle. The search answers one question — "which records carry this word" — and the index answers it.
 
+#### `SEARCH-09` — The result shows the word that was matched
+
+**confirmed** · P1 · `#SEARCH`
+
+**Given:** A task exists whose title holds the word "architecture". Nothing else carries the word, so the result is unambiguously the seeded task.
+
+Steps:
+
+1. Search for "arch".
+2. Observe the result.
+
+**Expected:** The result shows the word in the title as the match: the index says where the word is, and the search draws it there. A result that matched in its description and not in its title shows no match in its title, because the title does not carry the word.
+
 ### feature.settings
 
 #### `SETTINGS-01` — Changing the theme mode leaves Settings intact and navigable

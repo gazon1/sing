@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.core.search.TextMatchPlan
@@ -24,11 +25,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
+/**
+ * The answer of a search: the records it found, and where the word was found.
+ *
+ * Every record comes with the ranges of the match, because the index is the
+ * only one that knows where the word is: it holds the tokenizer and it knows
+ * which column of the record matched. A record that was not read through the
+ * index — one a broad scan read — comes with no ranges, and the screen draws
+ * it as it draws any other record.
+ */
 data class SearchResults(
-    val tasks: List<Task>,
-    val notes: List<Note>,
-    val projects: List<Project>,
-    val tags: List<Tag>,
+    val tasks: List<IndexedRecord<Task>>,
+    val notes: List<IndexedRecord<Note>>,
+    val projects: List<IndexedRecord<Project>>,
+    val tags: List<IndexedRecord<Tag>>,
 ) {
     /**
      * True when the search matched nothing at all.
@@ -109,25 +119,32 @@ class SearchUseCase(
             resolved.taskFilter != null -> taskRepo.observeByFilter(resolved.taskFilter)
             else -> taskRepo.observeAll()
         }
-        val baseTaskFlow: Flow<List<Task>> = when {
-            plan !is TextMatchPlan.Narrowed -> structuredTaskFlow
+        val baseTaskFlow: Flow<List<IndexedRecord<Task>>> = when {
+            plan !is TextMatchPlan.Narrowed -> structuredTaskFlow.map { tasks ->
+                tasks.map { task -> IndexedRecord(task, emptyList()) }
+            }
 
             resolved.taskFilter == null -> textIndex.observeTasks(plan.query)
 
             else -> combine(structuredTaskFlow, textIndex.observeTasks(plan.query)) { structured, matched ->
-                val matchedIds = matched.mapTo(mutableSetOf()) { task -> task.id }
-                structured.filter { task -> task.id in matchedIds }
+                val matchedById = matched.associateBy { record -> record.record.id }
+                structured.mapNotNull { task ->
+                    matchedById[task.id]?.let { found -> IndexedRecord(task, found.ranges) }
+                }
             }
         }
 
-        val taskFlow = baseTaskFlow.map { tasks ->
-            val seq = tasks.asSequence()
+        val taskFlow = baseTaskFlow.map { records ->
+            val tasks = records.map { it.record }
             val filtered = if (resolved.needsPostFilter) {
-                resolved.postFilter(seq)
+                resolved.postFilter(tasks.asSequence()).toList()
             } else {
-                seq
+                tasks
             }
-            var result = sortTasks(filtered.toList(), resolved.sortOrder, resolved.sortDescending)
+            val rangesById = records.associate { record -> record.record.id to record.ranges }
+            var result = filtered.map { task -> IndexedRecord(task, rangesById[task.id].orEmpty()) }
+
+            result = sortTasks(result, resolved.sortOrder, resolved.sortDescending)
 
             // A record that carries the word in its title is a better answer than
             // one that carries it in its body. FTS4 has no bm25 and cannot say
@@ -137,9 +154,12 @@ class SearchUseCase(
             // one surface of the record, asked to order the records the index
             // already found. It is not a filter: a record the index found is in
             // the answer whatever this says.
+            //
+            // The partition happens after the sort, so the order the user asked
+            // for is the order inside each group. See `titleMatchesFirst`.
             if (!rule.isEmpty) {
-                result = titleMatchesFirst(result) { task ->
-                    rule.satisfiesPositives { term -> TextMatch.matches(task.title, term) }
+                result = titleMatchesFirst(result) { record ->
+                    rule.satisfiesPositives { term -> TextMatch.matches(record.record.title, term) }
                 }
             }
 
@@ -183,59 +203,75 @@ class SearchUseCase(
      * then decides, in both cases — but only about the half the index did not
      * answer. See [FreeTextRule.accepts].
      */
-    private fun textMatchedNotes(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Note>> {
-        val source = when (plan) {
+    private fun textMatchedNotes(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<IndexedRecord<Note>>> {
+        val source: Flow<List<IndexedRecord<Note>>> = when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeNotes(plan.query)
-            TextMatchPlan.BroadScan -> noteRepo.observeAll()
+
+            TextMatchPlan.BroadScan -> noteRepo.observeAll().map { notes ->
+                notes.map { note -> IndexedRecord(note, emptyList()) }
+            }
         }
         return source.map { notes ->
             if (rule.isEmpty) {
                 emptyList()
             } else {
-                notes.filter { note -> rule.accepts(plan) { term -> TextMatch.matches(note.title, term) } }
+                notes.filter { note -> rule.accepts(plan) { term -> TextMatch.matches(note.record.title, term) } }
             }
         }
     }
 
     /** The projects that satisfy the free-text rule. See [textMatchedNotes]. */
-    private fun textMatchedProjects(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Project>> {
-        val source = when (plan) {
+    private fun textMatchedProjects(
+        plan: TextMatchPlan,
+        rule: FreeTextRule,
+    ): Flow<List<IndexedRecord<Project>>> {
+        val source: Flow<List<IndexedRecord<Project>>> = when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeProjects(plan.query)
-            TextMatchPlan.BroadScan -> projectRepo.observeAll()
+
+            TextMatchPlan.BroadScan -> projectRepo.observeAll().map { projects ->
+                projects.map { project -> IndexedRecord(project, emptyList()) }
+            }
         }
         return source.map { projects ->
             if (rule.isEmpty) {
                 emptyList()
             } else {
                 projects.filter { project ->
-                    rule.accepts(plan) { term -> TextMatch.matches(project.name, term) }
+                    rule.accepts(plan) { term -> TextMatch.matches(project.record.name, term) }
                 }
             }
         }
     }
 
     /** The tags that satisfy the free-text rule. See [textMatchedNotes]. */
-    private fun textMatchedTags(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Tag>> {
-        val source = when (plan) {
+    private fun textMatchedTags(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<IndexedRecord<Tag>>> {
+        val source: Flow<List<IndexedRecord<Tag>>> = when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeTags(plan.query)
-            TextMatchPlan.BroadScan -> tagRepo.observeAll()
+
+            TextMatchPlan.BroadScan -> tagRepo.observeAll().map { tags ->
+                tags.map { tag -> IndexedRecord(tag, emptyList()) }
+            }
         }
         return source.map { tags ->
             if (rule.isEmpty) {
                 emptyList()
             } else {
-                tags.filter { tag -> rule.accepts(plan) { term -> TextMatch.matches(tag.name, term) } }
+                tags.filter { tag -> rule.accepts(plan) { term -> TextMatch.matches(tag.record.name, term) } }
             }
         }
     }
 
-    private fun sortTasks(tasks: List<Task>, sortOrder: SortOrder, descending: Boolean): List<Task> {
+    private fun sortTasks(
+        tasks: List<IndexedRecord<Task>>,
+        sortOrder: SortOrder,
+        descending: Boolean,
+    ): List<IndexedRecord<Task>> {
         val sorted = when (sortOrder) {
-            SortOrder.DUE -> tasks.sortedBy { it.dueDate }
-            SortOrder.TITLE -> tasks.sortedBy { it.title.lowercase() }
-            SortOrder.CREATED -> tasks.sortedBy { it.createdAt }
-            SortOrder.UPDATED -> tasks.sortedBy { it.updatedAt }
-            SortOrder.PRIORITY -> tasks.sortedBy { it.priority }
+            SortOrder.DUE -> tasks.sortedBy { it.record.dueDate }
+            SortOrder.TITLE -> tasks.sortedBy { it.record.title.lowercase() }
+            SortOrder.CREATED -> tasks.sortedBy { it.record.createdAt }
+            SortOrder.UPDATED -> tasks.sortedBy { it.record.updatedAt }
+            SortOrder.PRIORITY -> tasks.sortedBy { it.record.priority }
         }
         return if (descending) sorted.reversed() else sorted
     }

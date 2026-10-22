@@ -106,28 +106,28 @@ class SearchFreeTextRuleTest {
     fun `a task matches only when every term matches`() = runTest {
         val results = search("alpha beta")
 
-        assertEquals(listOf(BOTH), results.tasks.map { it.title })
+        assertEquals(listOf(BOTH), results.tasks.map { it.record.title })
     }
 
     @Test
     fun `a note matches only when every term matches`() = runTest {
         val results = search("alpha beta")
 
-        assertEquals(listOf(BOTH), results.notes.map { it.title })
+        assertEquals(listOf(BOTH), results.notes.map { it.record.title })
     }
 
     @Test
     fun `a project matches only when every term matches`() = runTest {
         val results = search("alpha beta")
 
-        assertEquals(listOf(BOTH), results.projects.map { it.name })
+        assertEquals(listOf(BOTH), results.projects.map { it.record.name })
     }
 
     @Test
     fun `a tag matches only when every term matches`() = runTest {
         val results = search("alpha beta")
 
-        assertEquals(listOf(BOTH), results.tags.map { it.name })
+        assertEquals(listOf(BOTH), results.tags.map { it.record.name })
     }
 
     // ─── The second word only ───────────────────────────────────────────────────
@@ -141,7 +141,7 @@ class SearchFreeTextRuleTest {
         val results = search("alpha beta")
 
         assertTrue(
-            results.tasks.none { it.title == SECOND_ONLY },
+            results.tasks.none { it.record.title == SECOND_ONLY },
             "a task with the second word only must not match a two-word query",
         )
     }
@@ -151,7 +151,7 @@ class SearchFreeTextRuleTest {
         val results = search("alpha beta")
 
         assertTrue(
-            results.notes.none { it.title == SECOND_ONLY },
+            results.notes.none { it.record.title == SECOND_ONLY },
             "a note with the second word only must not match a two-word query",
         )
     }
@@ -161,7 +161,7 @@ class SearchFreeTextRuleTest {
         val results = search("alpha beta")
 
         assertTrue(
-            results.projects.none { it.name == SECOND_ONLY },
+            results.projects.none { it.record.name == SECOND_ONLY },
             "a project with the second word only must not match a two-word query",
         )
     }
@@ -171,7 +171,7 @@ class SearchFreeTextRuleTest {
         val results = search("alpha beta")
 
         assertTrue(
-            results.tags.none { it.name == SECOND_ONLY },
+            results.tags.none { it.record.name == SECOND_ONLY },
             "a tag with the second word only must not match a two-word query",
         )
     }
@@ -183,7 +183,7 @@ class SearchFreeTextRuleTest {
         val results = search("alpha beta")
 
         assertTrue(
-            results.tasks.none { it.title == FIRST_ONLY },
+            results.tasks.none { it.record.title == FIRST_ONLY },
             "a task with the first word only must not match a two-word query",
         )
     }
@@ -192,20 +192,20 @@ class SearchFreeTextRuleTest {
     fun `a single term matches every kind the same way`() = runTest {
         val results = search("alpha")
 
-        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.tasks.map { it.title }.sorted())
-        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.notes.map { it.title }.sorted())
-        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.projects.map { it.name }.sorted())
-        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.tags.map { it.name }.sorted())
+        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.tasks.map { it.record.title }.sorted())
+        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.notes.map { it.record.title }.sorted())
+        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.projects.map { it.record.name }.sorted())
+        assertEquals(listOf(BOTH, FIRST_ONLY).sorted(), results.tags.map { it.record.name }.sorted())
     }
 
     @Test
     fun `the second term on its own matches every kind the same way`() = runTest {
         val results = search("beta")
 
-        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.tasks.map { it.title }.sorted())
-        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.notes.map { it.title }.sorted())
-        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.projects.map { it.name }.sorted())
-        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.tags.map { it.name }.sorted())
+        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.tasks.map { it.record.title }.sorted())
+        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.notes.map { it.record.title }.sorted())
+        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.projects.map { it.record.name }.sorted())
+        assertEquals(listOf(BOTH, SECOND_ONLY).sorted(), results.tags.map { it.record.name }.sorted())
     }
 
     @Test
@@ -227,10 +227,10 @@ class SearchFreeTextRuleTest {
     fun `a negated term rules the record out for every kind`() = runTest {
         val results = search("alpha NOT beta")
 
-        assertEquals(listOf(FIRST_ONLY), results.tasks.map { it.title })
-        assertEquals(listOf(FIRST_ONLY), results.notes.map { it.title })
-        assertEquals(listOf(FIRST_ONLY), results.projects.map { it.name })
-        assertEquals(listOf(FIRST_ONLY), results.tags.map { it.name })
+        assertEquals(listOf(FIRST_ONLY), results.tasks.map { it.record.title })
+        assertEquals(listOf(FIRST_ONLY), results.notes.map { it.record.title })
+        assertEquals(listOf(FIRST_ONLY), results.projects.map { it.record.name })
+        assertEquals(listOf(FIRST_ONLY), results.tags.map { it.record.name })
     }
 
     // ─── A query with no free text ──────────────────────────────────────────────

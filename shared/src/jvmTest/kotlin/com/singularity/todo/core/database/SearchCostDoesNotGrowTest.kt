@@ -111,8 +111,8 @@ class SearchCostDoesNotGrowTest {
 
         assertEquals(5, small.size, "the corpus holds five records that carry the word")
         assertEquals(
-            small.map { it.id }.sorted(),
-            large.map { it.id }.sorted(),
+            small.map { it.task.id }.sorted(),
+            large.map { it.task.id }.sorted(),
             "the same records are found when the profile is fifty times larger",
         )
     }

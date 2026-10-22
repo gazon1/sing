@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.LocalTextStyle
@@ -34,6 +35,39 @@ import androidx.compose.material3.LocalTextStyle
 @Composable
 fun SelectableText(
     text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+    color: Color = Color.Unspecified,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
+    SelectionContainer(modifier = modifier) {
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            maxLines = maxLines,
+            overflow = overflow,
+        )
+    }
+}
+
+/**
+ * Text the user can select and copy, with the matched spans emphasised.
+ *
+ * The same text as [SelectableText], with a range of it drawn differently — the
+ * word the search found, in the result the search found it in.
+ *
+ * @param text the text to show.
+ * @param modifier applied to the selection container.
+ * @param style the text style.
+ * @param color the text colour.
+ * @param maxLines the maximum number of lines.
+ * @param overflow how to render text that does not fit.
+ */
+@Composable
+fun SelectableText(
+    text: AnnotatedString,
     modifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current,
     color: Color = Color.Unspecified,

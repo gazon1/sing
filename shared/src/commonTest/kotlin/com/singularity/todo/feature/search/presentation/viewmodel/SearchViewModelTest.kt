@@ -443,7 +443,7 @@ class SearchViewModelTest {
 
             val state = vm.stateFlow.value
             assertEquals(SearchContent.Results, searchContent(state.query.text, state.results))
-            assertEquals(listOf("Buy milk"), state.results.tasks.map { it.title })
+            assertEquals(listOf("Buy milk"), state.results.tasks.map { it.record.title })
         }
 
     // ─── Fake helpers ─────────────────────────────────────────────────────────
