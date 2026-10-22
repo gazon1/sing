@@ -110,12 +110,27 @@ OutlinedTextField(state = state, inputTransformation = digitsOnlyTransformation(
 The named transformations live in
 `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/textfields/TextFieldTransformations.kt`:
 
-| Transformation | Rule |
-|---|---|
-| `digitsOnlyTransformation(maxDigits)` | drops non-digits, keeps at most `maxDigits` |
-| `maxLengthTransformation(maxLength)` | rejects the whole edit when the text grows too long |
-| `recurrenceIntervalTransformation()` | at most two digits, a whole number of at least one |
-| `dayOfMonthTransformation()` | at most two digits, between 1 and 31 |
+| Transformation | Rule | Checked |
+|---|---|---|
+| `digitsOnlyTransformation(maxDigits)` | drops non-digits, keeps at most `maxDigits` digits, rewrites the field with them | `drops=non-digit; limit=maxDigits; rewrite` |
+| `maxLengthTransformation(maxLength)` | rejects the whole edit when the text grows past `maxLength` | `rejects=edit; limit=maxLength` |
+| `recurrenceIntervalTransformation()` | drops non-digits, keeps at most two digits, rewrites the field with them, and rejects the edit unless the result is a whole number of at least one | `drops=non-digit; limit=2; rewrite; rejects=edit; min=1` |
+| `dayOfMonthTransformation()` | drops non-digits, keeps at most two digits, rewrites the field with them, and rejects the edit unless the result is between 1 and 31 | `drops=non-digit; limit=2; rewrite; rejects=edit; range=1..31` |
+
+**This table is checked.** `scripts/check-text-field-transformations-table.py`
+reads it and compares it with `TextFieldTransformations.kt`: a transformation
+the code declares and the table does not name fails the gate, a row that names
+a transformation the code does not declare fails it, and the third column —
+the facts the code enforces — is derived from the source and compared with what
+the row claims. The second column is checked as far as a sentence can be: it
+has to *mention* the fact (`drops`, `maxDigits`, "two", "31"), so a sentence
+that stops saying what the code does fails too.
+
+What the gate does not check: whether the rule is the right rule for the field
+it is used in, the order in which the filter and the range check run, and
+whether a transformation is used where this table implies. Those are
+judgements; the rules themselves are tested in
+`shared/src/commonTest/kotlin/com/singularity/todo/core/ui/textfields/TextFieldTransformationsTest.kt`.
 
 **The rules are plain functions on `String`; the transformation is a thin adapter.** The
 buffer an `InputTransformation` receives cannot be constructed from a test, so a rule that

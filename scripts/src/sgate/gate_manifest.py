@@ -164,6 +164,36 @@ PLACEMENTS: dict[str, Placement] = {
         kind=PlacementKind.STATIC,
         command='sgate room_schema_integrity',
     ),
+    "the text-field transformation table is true": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-text-field-transformations-table.py',
+        note="""# The skill that tells an agent which transformation to use for which text
+# field carries a table of the transformations and the rule each one applies.
+# Nothing held it to the code: a transformation could be added, renamed, or
+# have its rule changed, and the table kept claiming the old thing.
+#
+# So the table is read and compared with the Kotlin: a transformation the code
+# declares and the table does not name fails; a row that names a transformation
+# the code does not declare fails; and the facts the row claims — the digit
+# limit, the length bound, the range — are derived from the source and
+# compared with what the row says. The rule sentence is checked as far as a
+# sentence can be: it has to mention the fact, so a sentence that stops saying
+# what the code does fails too.""",
+    ),
+    "the platform reference ports are true": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-platform-reference-ports.py',
+        note="""# The platform reference is the inventory of the seam: which port is bound to
+# which implementation on which platform. It said so itself — "nothing here is
+# generated … no gate will notice" — and it had rotted: it still named a port
+# that was deleted, and it did not name the twenty ports the seam has.
+#
+# So the reference is checked against the code: a port the platform modules
+# bind and the table does not name fails; a row that names a port the code does
+# not bind fails; and an implementation a row attributes to a platform has to
+# exist in that platform's source set. The table's fourth column says which of
+# its rows the gate checks, so a row that cannot be checked says so.""",
+    ),
     "profile reset inventory is true": Placement(
         kind=PlacementKind.STATIC,
         command='python3 scripts/ci/check-profile-reset-inventory.py',

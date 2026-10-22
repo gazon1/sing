@@ -22,6 +22,10 @@ This script is that gate. It reads the JUnit XML the runner wrote
   without anyone having to touch the file.
 * **The failures are grouped by cause.** The table says what the debt is made
   of, not only how much of it there is.
+* **Every failing flow is named.** The summary lists the flows that failed, and
+  the JSON payload carries them under `failing_flows`. A number nobody can
+  take apart is a number nobody can hold the repository to: the floor says
+  "30 failed", and the list says which thirty.
 
 The floor says how much the repository owes, and it cannot say what it owes.
 A run can fix one cause, introduce another, keep the same number of failing
@@ -707,6 +711,15 @@ def format_measurement(measurement: Measurement, registry: Registry) -> str:
         f"{len(measurement.reported)}/{len(measurement.expected)} flow(s) reported, "
         f"{measurement.failed_count} failed, floor {measurement.floor}"
     )
+    # The number is only worth what it can be traced to: every failing flow is
+    # named, so "30 failed" is 30 flows a reader can go and look at, not an
+    # aggregate nobody can take apart.
+    lines.append(f"failing flows ({measurement.failed_count}):")
+    if measurement.failures:
+        for flow, _ in sorted(measurement.failures):
+            lines.append(f"  {flow}")
+    else:
+        lines.append("  none — every flow of the scope passed")
     if measurement.groups:
         lines.append(f"failure groups ({len(measurement.groups)}):")
         for key, entries in sorted(
@@ -780,6 +793,7 @@ def build_payload(
         "expected": len(measurement.expected),
         "reported": len(measurement.reported),
         "failed": measurement.failed_count,
+        "failing_flows": sorted(flow for flow, _ in measurement.failures),
         "groups": {key: len(flows) for key, flows in measurement.groups.items()},
         "causes": causes,
         "registry": {

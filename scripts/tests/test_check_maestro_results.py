@@ -634,6 +634,39 @@ class CauseRuleTest(unittest.TestCase):
         self.assertIn('product', text)
         self.assertIn('accepted', text)
 
+    def test_every_failing_flow_is_named_next_to_the_number(self):
+        """A count nobody can take apart is a count nobody can hold us to.
+
+        The floor says "N failed"; the summary has to say which flows, so the
+        number is traceable to the flows that carry it.
+        """
+        reports = [
+            self._report(self.CATALOGUE[0], 'No visible element found: id: a'),
+            self._report(self.CATALOGUE[1], 'No visible element found: id: b'),
+        ]
+        measurement = self._measure(reports, floor=2)
+        text = mod.format_measurement(measurement, self.registry)
+        self.assertIn('failing flows (2):', text)
+        self.assertIn(self.CATALOGUE[0], text)
+        self.assertIn(self.CATALOGUE[1], text)
+
+    def test_a_run_with_no_failures_names_no_flows(self):
+        reports = [self._report(flow) for flow in self.CATALOGUE]
+        measurement = self._measure(reports)
+        text = mod.format_measurement(measurement, self.registry)
+        self.assertIn('failing flows (0):', text)
+        self.assertIn('none', text)
+
+    def test_the_payload_carries_the_failing_flows(self):
+        reports = [
+            self._report(self.CATALOGUE[0], 'No visible element found: id: a'),
+            self._report(self.CATALOGUE[1]),
+        ]
+        measurement = self._measure(reports, floor=1)
+        payload = mod.build_payload(measurement, self.registry)
+        self.assertEqual(payload['failing_flows'], [self.CATALOGUE[0]])
+        self.assertEqual(payload['failed'], 1)
+
 
 class EnvironmentTest(unittest.TestCase):
     """The floor belongs to one environment; a run elsewhere is not comparable."""
