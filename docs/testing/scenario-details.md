@@ -922,6 +922,22 @@ Steps:
 
 **Expected:** The result shows the word in the title as the match: the index says where the word is, and the search draws it there. A result that matched in its description and not in its title shows no match in its title, because the title does not carry the word.
 
+#### `SEARCH-10` — The contains mode finds the term in the middle of a word
+
+**confirmed** · P1 · `#SEARCH`
+
+**Given:** A task exists whose title holds the word "airport". Nothing else carries the word, so both answers are unambiguous.
+
+Steps:
+
+1. Open the quick search from the menu sheet.
+2. Type "port".
+3. Observe the results.
+4. Choose the "Contains" mode on the switch under the search field.
+5. Observe the results.
+
+**Expected:** The word mode does not find the task: a term matches the beginning of a word and not its middle. The contains mode finds it: the term occurs in the middle of the word, and the mode that answered is stated on the screen next to the switch.
+
 ### feature.settings
 
 #### `SETTINGS-01` — Changing the theme mode leaves Settings intact and navigable

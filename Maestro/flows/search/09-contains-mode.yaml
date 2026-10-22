@@ -1,0 +1,61 @@
+# Search: the contains mode finds the term in the middle of a word.
+#
+# The escape-hatch of the word-prefix rule (F6 in the search grammar): the
+# word mode finds a word by its beginning, and the contains mode finds the
+# term wherever it occurs. The task seeded below carries the term "port" in
+# the middle of the word "airport", so the two modes answer differently about
+# the same record — and the switch on the screen is what tells the two
+# answers apart.
+#
+# The query is the same in both parts of the flow. Only the mode changes.
+appId: com.singularity.todo
+name: search-contains-mode
+tags:
+  - search
+  - scenario:SEARCH-10
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Seed one task whose word carries the term in its middle.
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=Airport%20run&due=today"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+
+# Open quick search.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# The word mode: "port" is in the middle of the word "airport", so the task
+# is not found. The wait is on the absence, not on an instant assert — the
+# results arrive asynchronously, and an assert that runs before they do
+# proves nothing.
+- tapOn:
+    id: search_input
+- inputText: "port"
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_airport_run
+    timeout: 8000
+
+# The contains mode: the same query, and the task is found.
+- tapOn:
+    id: search_mode_contains
+- extendedWaitUntil:
+    visible:
+      id: task_item_airport_run
+    timeout: 8000

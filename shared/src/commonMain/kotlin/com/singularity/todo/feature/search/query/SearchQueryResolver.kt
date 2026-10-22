@@ -3,7 +3,6 @@ package com.singularity.todo.feature.search.query
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
@@ -23,8 +22,10 @@ interface SearchQueryResolver {
      *
      * @param query The parsed query to resolve.
      * @param userId The current user's scoped ID.
+     * @param mode The mode the free text is matched in — the rule that answers
+     *   the terms, and what the index can do for them.
      */
-    suspend fun resolve(query: Query, userId: String): ResolvedSearchQuery
+    suspend fun resolve(query: Query, userId: String, mode: SearchMode): ResolvedSearchQuery
 }
 
 /**
@@ -77,7 +78,7 @@ class DefaultSearchQueryResolver(
     private val timeZone: TimeZoneProvider,
 ) : SearchQueryResolver {
 
-    override suspend fun resolve(query: Query, userId: String): ResolvedSearchQuery {
+    override suspend fun resolve(query: Query, userId: String, mode: SearchMode): ResolvedSearchQuery {
         val condition = query.condition ?: return ResolvedSearchQuery(
             taskFilter = null,
             dateRange = null,
@@ -92,25 +93,27 @@ class DefaultSearchQueryResolver(
         // The free-text rule is assembled after the walk, because whether the terms
         // are alternatives (an `OR` somewhere in the query) is only known then.
         val freeTextRule = ctx.freeTextRule()
+        // What the index can do for this rule — and the rule the mode answers with.
+        // The plan is asked once and used twice: the post-filter below and the
+        // answer the use case builds the flows from.
+        val plan = mode.plan(freeTextRule)
         if (!freeTextRule.isEmpty) {
             // A free-text word is a condition on tasks, not only on notes, projects
             // and tags. The resolver used to translate it into nothing for tasks,
             // so the task flow came back unfiltered and the search screen listed
-            // every task for a query that matched nothing. `today` is part of the
-            // shared [TaskDomain.matchesFilter] signature and plays no part in a
-            // text filter.
+            // every task for a query that matched nothing.
             //
             // The rule is applied to the candidates, not to every row: the index
             // has already answered the positive terms, and the rule is only asked
             // about the negated ones. [FreeTextRule.accepts] is what decides which
             // half applies — it reads the plan, which is the rule's own answer to
             // "what can the index do here".
-            val today = todayAt(clock, timeZone.current())
-            val plan = freeTextRule.plan()
+            //
+            // The rule is the mode's: the mode says which question is asked of
+            // the task's title and its description (F3), and the mode's plan says
+            // what the index already answered.
             ctx.addPostFilter { task ->
-                freeTextRule.accepts(plan) { term ->
-                    TaskDomain.matchesFilter(task, TaskFilter.Search(term), today)
-                }
+                freeTextRule.accepts(plan) { term -> mode.matches(task, term) }
             }
         }
 
@@ -130,7 +133,7 @@ class DefaultSearchQueryResolver(
             options = query.options,
             freeText = ctx.freeText.takeIf { it.isNotBlank() },
             freeTextRule = freeTextRule,
-            textMatchPlan = freeTextRule.plan(),
+            textMatchPlan = plan,
             needsPostFilter = ctx.needsPostFilter,
             postFilter = postFilter,
             isOrPostFilter = ctx.isOrPostFilter,

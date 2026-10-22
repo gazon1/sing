@@ -15,6 +15,7 @@ import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.Query
+import com.singularity.todo.feature.search.query.SearchMode
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
 import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException
@@ -49,6 +50,10 @@ import kotlinx.coroutines.launch
  * @param savedSearches All saved searches for the current user.
  * @param results The latest search results.
  * @param isSearching True while a search is in flight.
+ * @param mode The mode the free text is matched in — the escape-hatch the
+ *   surface states next to the field: the word mode finds a word by its
+ *   beginning, the contains mode finds the term wherever it occurs. The mode
+ *   is part of what was asked, so it is part of the state of the screen.
  */
 data class SearchUiState(
     val query: FieldOwnedText = FieldOwnedText.empty(),
@@ -58,6 +63,7 @@ data class SearchUiState(
     val savedSearches: List<SavedSearch> = emptyList(),
     val results: SearchResults = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
     val isSearching: Boolean = false,
+    val mode: SearchMode = SearchMode.Word,
 ) {
     /**
      * The query as the field's source.
@@ -99,6 +105,9 @@ sealed interface SearchIntent : MviIntent {
     data class OnDeleteSavedSearch(val id: SavedSearchId) : SearchIntent
     data class OnRenameSavedSearch(val id: SavedSearchId, val newName: String) : SearchIntent
     data class OnTogglePin(val taskId: TaskId) : SearchIntent
+
+    /** The mode the free text is matched in was changed. */
+    data class OnModeChange(val mode: SearchMode) : SearchIntent
 }
 
 // ─── ViewModel ─────────────────────────────────────────────────────────────────
@@ -156,6 +165,7 @@ class SearchViewModel(
     private val _parsedQuery = MutableStateFlow<Query?>(null)
     private val _activeSavedSearchId = MutableStateFlow<SavedSearchId?>(null)
     private val _activeFilter = MutableStateFlow<SimpleFilter?>(null)
+    private val _mode = MutableStateFlow(SearchMode.Word)
 
     // ─── Observations ──────────────────────────────────────────────────────────
 
@@ -167,18 +177,21 @@ class SearchViewModel(
             }
         }
 
-        // Execute search whenever parsedQuery or queryString changes
+        // Execute search whenever the parsed query, the query string or the mode
+        // changes. The mode is part of the question: the same query asks a
+        // different thing in the contains mode, so the answer has to be asked
+        // again when the mode changes.
         vmScope.launch {
-            combine(_queryString, _parsedQuery) { qs, pq -> qs to pq }
+            combine(_queryString, _parsedQuery, _mode) { qs, pq, mode -> Triple(qs, pq, mode) }
                 .debounce(300.milliseconds)
-                .flatMapLatest { (qs, pq) ->
+                .flatMapLatest { (qs, pq, mode) ->
                     if (qs.text.isBlank()) {
                         flowOf(SearchResults(emptyList(), emptyList(), emptyList(), emptyList()))
                     } else {
                         channelFlow {
                             val userId = savedSearchRepo.currentUserId()
                             val q = pq ?: return@channelFlow
-                            searchUseCase(q, userId).collect { send(it) }
+                            searchUseCase(q, userId, mode).collect { send(it) }
                         }
                     }
                 }
@@ -189,19 +202,26 @@ class SearchViewModel(
                 }
         }
 
-        // Mirror the four backing flows into state. `combineStates` gives a typed
-        // 4-parameter transform, so the `listOf` packing and the index casts this used
+        // Mirror the five backing flows into state. `combineStates` gives a typed
+        // 5-parameter transform, so the `listOf` packing and the index casts this used
         // to need are gone — the cast was only ever an assertion about a tuple the
         // previous line had just built. The transform returns the reducer so the write
         // happens in the collector, not in the projection.
         vmScope.launch {
-            combineStates(_queryString, _parsedQuery, _activeFilter, _activeSavedSearchId) { qs, pq, af, asid ->
+            combineStates(
+                _queryString,
+                _parsedQuery,
+                _activeFilter,
+                _activeSavedSearchId,
+                _mode,
+            ) { qs, pq, af, asid, mode ->
                 { current: SearchUiState ->
                     current.copy(
                         query = qs,
                         parsedQuery = pq,
                         activeFilter = af,
                         activeSavedSearchId = asid,
+                        mode = mode,
                     )
                 }
             }.collect { reduce -> updateState { reduce(it) } }
@@ -219,7 +239,21 @@ class SearchViewModel(
             is SearchIntent.OnDeleteSavedSearch -> onDeleteSavedSearch(intent.id)
             is SearchIntent.OnRenameSavedSearch -> onRenameSavedSearch(intent.id, intent.newName)
             is SearchIntent.OnTogglePin -> onTogglePin(intent.taskId)
+            is SearchIntent.OnModeChange -> onModeChange(intent.mode)
         }
+    }
+
+    /**
+     * The mode the free text is matched in was changed.
+     *
+     * The mode is stated by the surface, and it changes the question: the word
+     * mode asks whether a record carries a word beginning with the term, the
+     * contains mode asks whether the term occurs anywhere in it. The search is
+     * asked again, and the state carries the mode, so the screen shows which
+     * question the answer is the answer to.
+     */
+    private fun onModeChange(mode: SearchMode) {
+        _mode.value = mode
     }
 
     private fun onQueryChange(query: String) {
