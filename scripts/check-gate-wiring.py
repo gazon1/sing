@@ -1930,9 +1930,12 @@ def check_registry_wiring() -> list[str]:
     # is the echo line inside the error handler:  `see sgate run-all output above`.
     # Without the lookahead that line would incorrectly satisfy the pattern,
     # masking a sabotage of the actual call (e.g. `sgate run-x ||`).
+    # Flags between the subcommand and the shell operator are part of the same
+    # invocation: `sgate run-all --with-controls || exit 1` runs the registry,
+    # with the control phase after it.
     invocation = re.compile(
         r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
-        r"|(?:^|\s)sgate\s+run-all\b(?=\s*[||;&])"
+        r"|(?:^|\s)sgate\s+run-all\b(?:\s+--[\w-]+)*(?=\s*[||;&])"
     )
 
     for name, path in sorted(callers.items()):
