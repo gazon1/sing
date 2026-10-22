@@ -912,7 +912,14 @@ def check_escape_hatches() -> list[str]:
     return errors
 
 
-def check_can_fail() -> list[str]:
+def check_can_fail(include_fast: bool = True) -> list[str]:
+    """Part B — every registered script gate can fail.
+
+    `include_fast` says whether the controls of the gates that need no daemon
+    are part of this run. The static job proves them (`sgate run-all
+    --with-controls`), and the job that has a warm daemon proves the rest: a
+    job that proved both would prove the fast ones twice.
+    """
     errors: list[str] = []
     print(
         "  note: this phase edits files in the working tree and restores them.\n"
@@ -935,6 +942,10 @@ def check_can_fail() -> list[str]:
         if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
             print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
                   f"to include it (check.sh does; see step 8 there)")
+            continue
+        if not _is_gradle_gate(gate.cmd) and not include_fast:
+            print(f"  skip  {gate.name}: fast control — the static job proves it "
+                  f"(sgate run-all --with-controls)")
             continue
 
         # Verify the gate passes on the real tree first. A gate that is already red
@@ -2421,6 +2432,8 @@ def check_gate_reachability() -> list[str]:
 @click.command(epilog=__doc__)
 @click.option("--wiring", is_flag=True, help="Part A only")
 @click.option("--can-fail", is_flag=True, help="Part B only")
+@click.option("--except-can-fail", "except_can_fail", is_flag=True,
+              help="Skip the fast controls of Part B — the static job proves those")
 @click.option("--gradle-can-fail", "gradle_can_fail", is_flag=True, help="Part C only")
 @click.option("--ci-steps-blocking", "ci_steps_blocking", is_flag=True, help="Part D only")
 @click.option("--parity", is_flag=True, help="Part E only")
@@ -2434,6 +2447,7 @@ def check_gate_reachability() -> list[str]:
 def main(ctx: click.Context,
     wiring: bool,
     can_fail: bool,
+    except_can_fail: bool,
     gradle_can_fail: bool,
     ci_steps_blocking: bool,
     parity: bool,
@@ -2469,6 +2483,11 @@ def main(ctx: click.Context,
         or registry_cross
     )
     run_a = wiring or not only
+    # `--except-can-fail` runs everything but the fast controls. The fast
+    # controls are a gate of their own now — the static registry proves them
+    # (`sgate run-all --with-controls`), because they need no JVM and belong
+    # with the fast suite. A job that ran both would prove the same thing
+    # twice, and the second proof costs minutes.
     run_b = can_fail or not only
     run_c = gradle_can_fail or not only
     run_d = ci_steps_blocking or not only
@@ -2508,7 +2527,7 @@ def main(ctx: click.Context,
 
     if run_b:
         print("\nPart B — every registered script gate can fail")
-        errors += check_can_fail()
+        errors += check_can_fail(include_fast=not except_can_fail)
 
     if run_c:
         print("\nPart C — every configured Gradle check task can fail")

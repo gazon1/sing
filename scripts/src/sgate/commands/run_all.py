@@ -80,6 +80,11 @@ OUTPUT_TAIL_LINES = 40
 #: It is not enough for a gate that resolves a build: see `GATE_TIMEOUTS`.
 DEFAULT_GATE_TIMEOUT = 300
 
+#: The budget for the control phase. It runs a gate twice per control — once
+#: on the clean tree, once on the sabotaged one — so it needs more room than a
+#: single gate.
+CONTROLS_PHASE_TIMEOUT = 1800
+
 #: Gates whose own work needs more than the default budget, and why.
 #:
 #: `declared dependencies are used` asks Gradle which files each configuration
@@ -401,6 +406,61 @@ def _write_gate_run(results: list[GateResult]) -> None:
         logger.warning(f"could not record how long the gates took: {exc}")
 
 
+#: The name the control phase is reported under. It is a gate of the suite in
+#: every sense but one: it runs alone, after the others.
+CONTROLS_PHASE_NAME = "the fast gates can fail"
+
+#: The command of the control phase: the sabotage harness, without the
+#: Gradle-backed controls (those need a daemon, and this phase runs in the
+#: fast loop).
+CONTROLS_PHASE_COMMAND = "python3 scripts/check-gate-wiring.py --can-fail"
+
+
+def _run_controls_phase(repo_root: str) -> GateResult:
+    """Prove that the gates can fail — the phase that edits the tree.
+
+    Every gate has a control: a change that must make it fail. The harness
+    applies the change, runs the gate, and puts the file back. A gate whose
+    control does not make it fail is a gate that is green forever — it was
+    found that way: a link-grammar gate whose pattern matched nothing, in a
+    suite that reported every gate as passed.
+
+    The phase runs *after* the gates, alone: the harness edits files in the
+    working tree, and a gate reading the tree while it is edited reads a tree
+    that is not there.
+    """
+    start = time.monotonic()
+    command = [sys.executable, "scripts/check-gate-wiring.py", "--can-fail"]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=CONTROLS_PHASE_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return GateResult(
+            name=CONTROLS_PHASE_NAME,
+            mode="blocking",
+            passed=False,
+            exit_code=124,
+            duration_ms=int((time.monotonic() - start) * 1000),
+            error=f"the control phase did not finish in {CONTROLS_PHASE_TIMEOUT}s",
+        )
+    duration = int((time.monotonic() - start) * 1000)
+    return GateResult(
+        name=CONTROLS_PHASE_NAME,
+        mode="blocking",
+        passed=completed.returncode == 0,
+        exit_code=completed.returncode,
+        duration_ms=duration,
+        error="" if completed.returncode == 0 else (completed.stdout + completed.stderr)[-4000:],
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
+
+
 @click.command("run-all")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 @click.option("--summary", "summary_only", is_flag=True,
@@ -408,9 +468,15 @@ def _write_gate_run(results: list[GateResult]) -> None:
 @click.option("--concurrency", "-j", default=8, show_default=True, help="Number of parallel workers")
 @click.option("--gate", "gate_filters", multiple=True,
               help="Run only gates whose name contains any of these substrings")
+@click.option("--with-controls", "with_controls", is_flag=True,
+              help="Also prove that the gates can fail (runs after the gates, alone)")
 def run_all(emit_json: bool, summary_only: bool, concurrency: int,
-            gate_filters: tuple[str, ...]) -> None:
+            gate_filters: tuple[str, ...], with_controls: bool) -> None:
     """Run all gates from static-gates.sh registry in parallel.
+
+    With `--with-controls` the suite also proves that the gates *can* fail: the
+    sabotage harness runs after the parallel pass, because it edits the tree
+    the gates read.
 
     Exit codes:
       0 = all blocking gates passed
@@ -485,6 +551,10 @@ def run_all(emit_json: bool, summary_only: bool, concurrency: int,
             for future in concurrent.futures.as_completed(futures):
                 _ = future.result()
                 progress.advance(task)
+
+    if with_controls:
+        # After the parallel pass, and alone: the harness edits the tree.
+        results.append(_run_controls_phase(str(sgate.repo.ROOT)))
 
     # Sort: blocking first, then advisory; alphabetically within group
     order = {"blocking": 0, "advisory": 1}

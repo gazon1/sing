@@ -163,8 +163,17 @@ jobs:
       # sgate run-all: single CLI entry point, parallel execution, aggregate exit,
       # unified JSON for CI parsers.  static-gates.sh is now a pure registry (source
       # of truth for gate names and commands — both sgate run-all and check.sh read it).
+      # `--with-controls` also proves that the gates *can* fail: the sabotage
+      # harness applies each gate's control, runs the gate, and puts the file
+      # back. It runs after the parallel pass, because it edits the tree the
+      # gates read. Without it, a gate whose pattern matches nothing is green
+      # forever — that is how a link-grammar gate shipped: the suite reported
+      # every gate as passed while the gate found nothing at all.
+      #
+      # The Gradle-backed controls stay in the JVM job: they need a daemon, and
+      # the fast suite is the place where a fast gate is proved.
       - name: Script gates (sgate run-all)
-        run: sgate run-all || exit 1
+        run: sgate run-all --with-controls || exit 1
 
       - name: Speckit validate
         env:
@@ -697,11 +706,16 @@ jobs:
       # variable and CI never has, so the control has only ever proven anything locally.
       # Affordable for the same reason as check.sh: the Gradle step above already ran, so
       # configuration is cached and the control costs a verify pass, not a test suite.
+      # `--except-can-fail`: the fast controls are proved by the static job
+      # (`sgate run-all --with-controls`), and running them here as well would
+      # prove the same thing twice at the price of minutes. This job proves
+      # the rest — the wiring, the registry parity, the CI shape — and the
+      # Gradle-backed control, which needs the daemon this job already has.
       - name: Gates are wired and can fail
         if: ${{ !cancelled() }}
         env:
           GATE_WIRING_GRADLE: "1"
-        run: python3 scripts/check-gate-wiring.py
+        run: python3 scripts/check-gate-wiring.py --except-can-fail
 
       - name: Upload JUnit results
         if: ${{ !cancelled() }}

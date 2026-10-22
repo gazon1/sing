@@ -258,3 +258,32 @@ class TestTheRunnerReadsTheVerdict(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheControlPhase(unittest.TestCase):
+    """`sgate run-all --with-controls` — the proof that the gates can fail.
+
+    Every gate has a control: a change that must make it fail. The harness
+    applies the change, runs the gate, and puts the file back. It runs after
+    the parallel pass, because it edits the tree the gates read — a gate
+    reading the tree while the sabotage holds it reads a tree that is not
+    there.
+    """
+
+    def test_the_option_exists_and_is_off_by_default(self):
+        from sgate.commands.run_all import run_all
+
+        options = {param.name: param for param in run_all.params}
+        self.assertIn("with_controls", options)
+        self.assertTrue(options["with_controls"].is_flag)
+
+    def test_the_phase_has_a_budget_of_its_own(self):
+        """A phase that runs a gate twice per control needs more room."""
+        from sgate.commands.run_all import CONTROLS_PHASE_TIMEOUT, DEFAULT_GATE_TIMEOUT
+
+        self.assertGreater(CONTROLS_PHASE_TIMEOUT, DEFAULT_GATE_TIMEOUT)
+
+    def test_the_phase_is_reported_as_a_blocking_gate(self):
+        from sgate.commands.run_all import CONTROLS_PHASE_NAME
+
+        self.assertTrue(CONTROLS_PHASE_NAME)
