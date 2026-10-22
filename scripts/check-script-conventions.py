@@ -55,6 +55,8 @@ from __future__ import annotations
 
 import ast
 import json
+import os
+import pathlib
 import re
 from pathlib import Path
 
@@ -193,6 +195,78 @@ def _is_bootstrap(statement: ast.stmt, source: str) -> bool:
     return "src" in segment.lower()
 
 
+def _module_bindings(tree: ast.Module, source: str, before: ast.stmt) -> dict[str, str]:
+    """The module-level assignments before a statement, as source expressions.
+
+    A bootstrap usually names a variable rather than the path itself:
+    `_SRC = pathlib.Path(__file__).resolve().parent / "src"` and then
+    `sys.path.insert(0, str(_SRC))`. Reading the target means reading the
+    assignment it names.
+    """
+    bindings: dict[str, str] = {}
+    for statement in tree.body:
+        if statement is before:
+            break
+        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+            continue
+        target = statement.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        expression = ast.get_source_segment(source, statement.value)
+        if expression:
+            bindings[target.id] = expression
+    return bindings
+
+
+def _bootstrap_target(
+    statement: ast.stmt, source: str, script: Path, bindings: dict[str, str]
+) -> Path | None:
+    """The directory a bootstrap puts on `sys.path`, when it can be read.
+
+    The expression is evaluated in a namespace with the script's own location
+    — the same names the script has. A bootstrap that points at a directory
+    that does not exist is worse than no bootstrap: it looks like the gate
+    resolves this checkout's code, and it resolves somebody else's.
+    """
+    expression = None
+    for node in ast.walk(statement):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr != "insert":
+            continue
+        target = node.func.value
+        if (
+            isinstance(target, ast.Attribute)
+            and target.attr == "path"
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "sys"
+        ):
+            expression = ast.get_source_segment(source, node.args[1]) if len(node.args) > 1 else None
+            break
+    if not expression:
+        return None
+    namespace: dict[str, object] = {
+        "__file__": str(script),
+        "pathlib": pathlib,
+        "Path": pathlib.Path,
+        "os": os,
+        "str": str,
+    }
+    for name, bound in bindings.items():
+        try:
+            namespace[name] = eval(bound, {"__builtins__": {}}, namespace)  # noqa: S307
+        except Exception:  # noqa: BLE001 — an expression we cannot read is not a finding
+            continue
+    try:
+        value = eval(expression, {"__builtins__": {}}, namespace)  # noqa: S307
+    except Exception:  # noqa: BLE001 — an expression we cannot read is not a finding
+        return None
+    try:
+        return pathlib.Path(value)
+    except TypeError:
+        return None
+
+
 def _imported_sgate_modules(statement: ast.stmt) -> list[str]:
     """The `sgate` modules an import statement names."""
     modules: list[str] = []
@@ -242,6 +316,31 @@ def check_package_resolution(scripts_dir: Path) -> list[str]:
 
         errors.extend(_check_root_from_package(path, tree))
         errors.extend(_check_bootstrap_order(path, tree, source))
+        errors.extend(_check_bootstrap_target(path, tree, source))
+    return errors
+
+
+def _check_bootstrap_target(path: Path, tree: ast.Module, source: str) -> list[str]:
+    """R2.5 — the bootstrap points at the directory that holds the package.
+
+    A bootstrap that names a directory that does not exist resolves nothing:
+    the import that follows falls through to whatever is installed. The gate
+    still runs, and it runs against another checkout's code.
+    """
+    errors: list[str] = []
+    for statement in tree.body:
+        if not _is_bootstrap(statement, source):
+            continue
+        target = _bootstrap_target(statement, source, path, _module_bindings(tree, source, statement))
+        if target is None:
+            continue
+        package = target / "sgate" / "__init__.py"
+        if not package.is_file():
+            errors.append(
+                f"{path.name}:{statement.lineno}: the bootstrap points at {target}, "
+                "which does not hold the `sgate` package (R2.5) — the import that "
+                "follows falls through to the installed package"
+            )
     return errors
 
 

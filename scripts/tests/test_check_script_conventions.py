@@ -196,10 +196,14 @@ class PackageResolutionRules(unittest.TestCase):
         self.assertTrue(any("R2.5" in error for error in errors), errors)
 
     def test_a_bootstrap_before_the_import_satisfies_the_rule(self):
+        # The bootstrap points at the real package: the rule is about *this*
+        # checkout's code, and a directory that holds no package resolves
+        # nothing.
+        package = _ROOT / "scripts" / "src"
         self.write(
             "check-good.py",
             "import pathlib\nimport sys\n\n"
-            "_SRC = pathlib.Path(__file__).resolve().parent / 'src'\n"
+            f"_SRC = pathlib.Path(r'{package}')\n"
             "if str(_SRC) not in sys.path:\n"
             "    sys.path.insert(0, str(_SRC))\n\n"
             "from sgate.gate_manifest import PLACEMENTS\n",
@@ -235,6 +239,19 @@ class PackageResolutionRules(unittest.TestCase):
             "_SCRIPTS = pathlib.Path(__file__).resolve().parent\n"
             "if str(_SCRIPTS) not in sys.path:\n"
             "    sys.path.insert(0, str(_SCRIPTS))\n\n"
+            "from sgate.gate_manifest import PLACEMENTS\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
+
+    def test_a_bootstrap_that_points_nowhere_is_a_violation(self):
+        """A bootstrap naming a directory that does not exist resolves nothing."""
+        self.write(
+            "check-bad.py",
+            "import pathlib\nimport sys\n\n"
+            "_SRC = pathlib.Path(__file__).resolve().parent.parent / 'src'\n"
+            "if str(_SRC) not in sys.path:\n"
+            "    sys.path.insert(0, str(_SRC))\n\n"
             "from sgate.gate_manifest import PLACEMENTS\n",
         )
         errors = self.errors()

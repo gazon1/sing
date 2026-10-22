@@ -85,7 +85,7 @@ import sys
 # finds may be an editable install of *another* checkout — so this repository's
 # own `scripts/src` goes in front of it. The same thing
 # `scripts/check-gate-wiring.py` does for `workflow_gradle`.
-_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent.parent / "src")
+_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent / "src")
 if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
 
