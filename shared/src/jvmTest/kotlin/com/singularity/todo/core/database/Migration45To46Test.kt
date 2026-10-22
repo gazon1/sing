@@ -33,6 +33,8 @@ import kotlin.test.assertTrue
  *    `series_id` is null for it, not an empty string and not a zero.
  * 3. **A task can be put into a series after the upgrade.** The column is
  *    writable, not a leftover.
+ * 4. **A note that points at a task keeps pointing at it.** The upgrade adds a
+ *    column; it does not rewrite the table the note points into.
  */
 @Tag("slow")
 class Migration45To46Test {
@@ -89,6 +91,22 @@ class Migration45To46Test {
                 )
                 VALUES (
                     't-old', 'u1', 'Old task', 'None', 'Task', 0, 0,
+                    1000, 1000, 0, 'LOCAL_ONLY'
+                )
+                """.trimIndent(),
+            )
+            // A note that points at the task: the relation is the thing the
+            // upgrade must not cost anybody.
+            connection.execSQL(
+                """
+                INSERT INTO notes (
+                    id, user_id, title, is_folder, kind, is_pinned, sort_order,
+                    word_count, char_count, outgoing_links, task_id,
+                    created_at, updated_at, server_version, sync_status
+                )
+                VALUES (
+                    'n-old', 'u1', 'Old note', 0, 'Plain', 0, 0,
+                    0, 0, '[]', 't-old',
                     1000, 1000, 0, 'LOCAL_ONLY'
                 )
                 """.trimIndent(),
@@ -155,6 +173,27 @@ class Migration45To46Test {
             }
 
             assertEquals("series-1", row, "the column must be writable after the upgrade")
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun `a note that points at a task keeps that task after the upgrade`() = runTest {
+        val db = openMigrated()
+        try {
+            val row = db.useConnection(isReadOnly = true) { transactor ->
+                transactor.usePrepared("SELECT task_id FROM notes WHERE id = 'n-old'") { statement ->
+                    assertTrue(statement.step(), "the note must survive the upgrade")
+                    if (statement.isNull(0)) null else statement.getText(0)
+                }
+            }
+
+            assertEquals(
+                "t-old",
+                row,
+                "adding a column must not cost the note the task it points at",
+            )
         } finally {
             db.close()
         }

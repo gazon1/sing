@@ -53,9 +53,11 @@ decision, and the rest of this record is about what it costs.
 **A series is several task rows that share a `TaskSeriesId`.**
 
 - `Task.seriesId: TaskSeriesId?` — `null` for a task that stands alone. The
-  column on the entity is `series_id`, nullable, added by the auto-migration
-  44 → 45. Every task that existed before the upgrade reads back as
-  `seriesId == null`, so nothing had to be backfilled.
+  column on the entity is `series_id`, nullable, added by the hand-written
+  migration 45 → 46. Every task that existed before the upgrade reads back as
+  `seriesId == null`, so nothing had to be backfilled. The migration is written
+  by hand because the derived auto-migration rewrites the whole `tasks` table,
+  and dropping that table fires the foreign key that points the notes at a task.
 - **One date is not a series.** A draft with one date produces one ordinary task
   with no series id at all. The distinction is made once, in
   `TaskSeriesPlanner`, and every caller goes through it.

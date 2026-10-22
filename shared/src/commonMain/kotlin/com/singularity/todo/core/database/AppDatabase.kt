@@ -138,9 +138,9 @@ const val SCHEMA_VERSION = 46
         AutoMigration(from = 43, to = 44, spec = Migration43To44::class),
         // 44 -> 45 is manual: it rewrites data, not schema — the stored links are
         // read by the one grammar. See Migration44To45.
-        // 45 -> 46 adds tasks.series_id — the rows that share one piece of work
-        // scheduled on several dates. Room derives the column from the entity.
-        AutoMigration(from = 45, to = 46, spec = Migration45To46::class),
+        // 45 -> 46 is manual too: it adds tasks.series_id, and the derived
+        // auto-migration rewrites the whole `tasks` table — which drops the notes
+        // that point at a task. See Migration45To46.
     ],
     exportSchema = true,
 )
