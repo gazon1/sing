@@ -398,6 +398,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-issue-registry.py"),
         script_args=("--quiet",),
     ),
+    GateSpec(
+        name="the tag catalogue matches the tags",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-test-tags-catalog.py"),
+        script_args=("--quiet", "--check"),
+    ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
     GateSpec(
         name="detekt rules config is current",
@@ -779,6 +786,35 @@ _REGISTERED: tuple[GateSpec, ...] = (
 # by script path, because display names are prose and one script can
 # back two gates with two different controls.
 GATE_CONTROLS: dict[str, Control] = {
+    # the tag catalogue: the promise about which ids a flow may address. A tag
+    # whose value was renamed in the code leaves the promise describing the old
+    # world — the flow keeps using an id no screen answers to, and the failure
+    # lands on a device rather than in a gate. The JVM test that owns the same
+    # comparison lives in a forty-minute suite, so the drift is invisible for the
+    # rest of the session. The probe renames one value to prove the gate can
+    # still fail.
+    'test-tags-catalogue': Control(
+        kind='sabotage',
+        proves='scripts/check-test-tags-catalog.py',
+        argv=('{python}', 'scripts/check-test-tags-catalog.py', '--check'),
+        path='shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt',
+        edit=Edit(
+            kind='replace',
+            old='const val LOADING_INDICATOR = "loading_indicator"',
+            new='const val LOADING_INDICATOR = "loading_indicator_probe"',
+            count=1,
+        ),
+        why=(
+            'the catalogue is the promise about which ids a flow may address, and a tag '
+            'whose value was renamed in the code leaves the promise describing the old '
+            'world: the flow keeps using an id that no screen answers to, and the '
+            'failure lands on a device rather than in a gate. The JVM test that owns '
+            'the same comparison lives in a forty-minute suite, so the drift is '
+            'invisible for the rest of the session — this gate is the same '
+            'comparison in a second, and the probe renames one value to prove it can '
+            'still fail'
+        ),
+    ),
     # text-field-transformations-table: the table claims a limit the code does
     # not enforce. The probe changes the digit count of the recurrence rule
     # from two to three — the smallest change that a reader could not notice

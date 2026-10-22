@@ -340,7 +340,7 @@ class TextFieldRewriteContractTest {
      */
     @Test
     fun `the sealed parent of the two kinds is never a parameter`() {
-        val offending = TextFieldShapeScan.allFunctions()
+        val offending = TextFieldShapeScan.functionsThatCanMention(TEXT_SOURCE_QUALIFIED)
             .filter { function ->
                 function.parameters.any { it.type?.bareSourceType == TEXT_SOURCE }
             }
@@ -536,6 +536,16 @@ class TextFieldRewriteContractTest {
 
         /** The sealed parent of the two kinds of source. */
         const val TEXT_SOURCE = "TextSource"
+
+        /**
+         * The sealed parent, fully qualified.
+         *
+         * The whole-tree rule asks "does any function in `commonMain` take this
+         * type as a parameter?". The answer can only come from the files that
+         * import the type or sit in its package — so the search names the
+         * package, and the scan checks that the type is really there.
+         */
+        const val TEXT_SOURCE_QUALIFIED = "com.singularity.todo.core.text.TextSource"
 
         /** An identifier, as the file writes it. */
         val IDENTIFIER = Regex("""[A-Za-z][A-Za-z0-9]*""")

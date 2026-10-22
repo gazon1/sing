@@ -158,13 +158,53 @@ internal object TextFieldShapeScan {
     fun functions(path: String): List<KoFunctionDeclaration> = file(path).functions()
 
     /**
-     * Every function of every file of `commonMain`, nested ones included.
+     * Every function that could name [fullyQualifiedName] in a signature.
      *
-     * For the rules that are about the whole tree rather than about one file: a sealed
-     * parent that travels as a parameter is a rule about every component, not about the
-     * bridge.
+     * A type that travels in a signature has to be imported — unless the file sits in
+     * the type's own package. So the whole tree is not the search space: the files
+     * that import the type, and the files of its package, are the only ones that can
+     * mention it.
+     *
+     * Walking every function of every file of `commonMain` cost fifteen minutes of a
+     * twenty-five-minute suite — the single most expensive test in the repository. The
+     * narrowed walk asks the same question of the same code and costs seconds.
+     *
+     * The type has to be where it is said to be: if it moved, the search would find
+     * nothing and the rule would pass by looking at nothing. So the declaring file is
+     * checked, and a missing one fails loudly instead of quietly.
      */
-    fun allFunctions(): List<KoFunctionDeclaration> = files.values.flatMap { it.functions() }
+    fun functionsThatCanMention(fullyQualifiedName: String): List<KoFunctionDeclaration> {
+        val typeName = fullyQualifiedName.substringAfterLast('.')
+        val packageName = fullyQualifiedName.substringBeforeLast('.')
+        val candidates = files.filter { (path, file) ->
+            packageOf(path) == packageName ||
+                file.imports.any { it.name.substringAfterLast('.') == typeName }
+        }
+        val declaresTheType = candidates.any { (path, file) ->
+            packageOf(path) == packageName &&
+                (
+                    file.interfaces().any { it.name == typeName } ||
+                        file.classes().any { it.name == typeName } ||
+                        file.objects().any { it.name == typeName }
+                )
+        }
+        check(declaresTheType) {
+            "no file of $packageName declares $typeName — the rule would look at nothing"
+        }
+        return candidates.values.flatMap { it.functions() }
+    }
+
+    /**
+     * The package a file lives in — derived from its path, the way the tree
+     * mirrors the packages.
+     *
+     * The paths are relative to `com/singularity/todo/`, so the root package
+     * has to be put back: a file under `core.ui` is in
+     * `com.singularity.todo.core.ui`, and a package without its root names a
+     * package that does not exist.
+     */
+    private fun packageOf(path: String): String =
+        "$ROOT_PACKAGE.${path.substringBeforeLast('/').replace('/', '.')}"
 
     /**
      * The text of every declaration of the file at [path] — the functions and the
@@ -208,6 +248,9 @@ internal object TextFieldShapeScan {
 
     /** The package every path in this scan is relative to. */
     private const val PACKAGE_PREFIX = "com/singularity/todo"
+
+    /** The same package, in the form a `package` declaration uses. */
+    private const val ROOT_PACKAGE = "com.singularity.todo"
 
     /** Where the helpers live. No field site lives here. */
     private const val HELPERS_PACKAGE = "core/ui/textfields/"
