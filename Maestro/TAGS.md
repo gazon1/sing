@@ -126,6 +126,7 @@ non-alphanumeric characters with `_`.
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_MERGE_SERIES_BUTTON` | `agenda_merge_series_button` | |
 | `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
@@ -350,6 +351,8 @@ non-alphanumeric characters with `_`.
 | `STATISTICS_TAB_TIME` | `statistics_tab_time` | |
 | `TaskSeries.APPLY_TO_ALL` | `task_series_apply_to_all` | |
 | `TaskSeries.DELETE` | `task_series_delete` | |
+| `TaskSeries.DETACH` | `task_series_detach` | |
+| `TaskSeries.MARKER` | `task_series_marker` | |
 | `TaskSeries.MEMBER` | `task_series_member` | |
 
 ## Dynamic functions
