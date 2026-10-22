@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
+import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -85,6 +86,13 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             else -> navigator.back()
         }
     }
+
+    // The system back press goes through the same guard as the header's button.
+    // Without this, the button asked "discard?" and the gesture did not: the
+    // gesture popped the screen and the typed title was lost. With the keyboard
+    // open, the gesture closes the keyboard first — that is what a back press is
+    // for while the keyboard is up.
+    ImeAwareBackHandler { guardedBack() }
 
     DiscardChangesDialogHost(
         visible = showDiscard,
