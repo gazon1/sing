@@ -208,6 +208,8 @@ just tests::impact    # тесты, которые эта правка може�
 
 just lint        # detekt (все модули с baseline), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
+
+python3 scripts/detekt-summary.py   # находки detekt по правилам, а не XML дампом
 ```
 
 **Карта затронутых тестов — `just tests::impact`.** Ответ на вопрос «что эта правка
@@ -233,6 +235,18 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 (напр. `NoDroppedUiStateProperty`: свойство состояния — обязательный параметр **каждого**
 варианта, дефолт запрещён). `ClassSignature` — сигнатура data class, влезающая в строку, пишется
 в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
+
+> **Хост бывает занят.** Параллельно на машине могут крутиться Gradle других
+> сессий — они делят CPU, RAM и Gradle home, но не `shared/build`. Полный
+> `:shared:jvmTest -Ptest.tags=fast,slow` в таком случае идёт час вместо
+> получаса, и таймаут-тесты (`CoroutineDiagnosticsTest`) флейкают от нагрузки, а
+> не от кода. Проверяй `uptime` перед полным прогоном; по умолчанию гоняй
+> целевой набор (`--tests`), а полный — когда целевой зелёный.
+>
+> **Отчёт detekt** — это XML на находку. `scripts/detekt-summary.py` печатает
+> то же самое по правилам и местам в два-три экрана; выгружать `detekt.xml`
+> целиком в контекст — это сотни строк ради ответа, который помещается в первые
+> двадцать.
 
 > `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
 
@@ -394,7 +408,11 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 3. **MockK / Mockito** — fakes для state-тестов; MockK только для исходящих вызовов
 4. **Pass-through CRUD use cases** — VMs инжектят репозиторий напрямую (AI — допустимо);
    enforced by `PassThroughUseCase` detekt rule
-5. **`java.io.File` напрямую** — только через `FileSystem` порт
+5. **`java.io.File` в `commonMain`** — только через `FileSystem` порт (`core/files/`).
+   В `jvmMain`/`androidMain` это и есть реализация порта, там `java.io.File` — правильный
+   инструмент; то же в тестах, которые читают дерево исходников. Правило держит
+   feature-код, а не платформенный слой: в репозитории `java.io.File` встречается
+   в 110 файлах, и запрет без границы учит только игнорировать запрет.
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**; **грубые изменения Room
    schema** без `SCHEMA_VERSION` + `AutoMigration`
@@ -407,6 +425,22 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
    GitHub закрывает его, и пуш падает с 141, хотя хук только что напечатал
    `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive:
    `git config core.sshCommand "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"`.
+
+## 🗂 Коммиты
+
+Один коммит — одна мысль; в этом репозитории так принято, и diff на 100 файлов
+читается плохо. Когда работа распадается на части (фичи, пункты списка,
+«это и это вместе»), разложи её **до** коммита, а не после:
+
+1. `git add -p` по логическим кускам — или `git add <путь>` по файлам целиком,
+   если куски совпадают с файлами;
+2. один `git commit` на кусок, с сообщением в стиле репозитория:
+   `feat(area): что изменилось` + абзац «почему» + ссылки на ADR и OpenSpec;
+3. каждый коммит должен собираться и проходить гейты сам по себе — иначе
+   bisect указывает на место, которого не существует.
+
+Регенерируемые файлы (`scripts/ci/static-gates.sh`, `docs/scripts/gate-registry.md`,
+`docs/SKILLS-CATALOG.md`) в коммит попадают вместе с тем, что их породило.
 
 ## 🧠 Decision log
 
