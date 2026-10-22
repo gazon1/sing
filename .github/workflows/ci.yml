@@ -269,7 +269,18 @@ jobs:
   tests:
     name: JVM tests, detekt, coverage
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # 75 minutes, and the number is measured: the instrumented coverage run —
+    # the one the Kover agent multiplies — takes 37 min 25 s for the fast
+    # population and 33 min 23 s for the full one on the 16-vCPU development
+    # host (config/docs/coverage-cost.properties, published in
+    # docs/testing/gate-costs.md). This runner has 4 vCPUs, so the same run is
+    # slower here, and the full population runs more tests than the fast one.
+    #
+    # The old 40 minutes was not enough for the full population, and a timeout
+    # that fires on a healthy run reports a failure that says nothing about the
+    # code: the job is killed after three quarters of an hour and the
+    # conclusion is about the clock.
+    timeout-minutes: 75
     needs: [changes]
     # Run when any app code changed (android/shared/desktop), or always on main,
     # or on workflow_dispatch.
