@@ -430,6 +430,7 @@ jobs:
             koverReport \
             koverHtml \
             :detekt-rules:test \
+            :shared:verifyToolSurface \
             :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
             -Ptest.tags=fast,slow \
             -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail \
