@@ -103,6 +103,22 @@ class SlowTestsRanTest(unittest.TestCase):
         self.assertEqual([], problems)
         self.assertEqual(['SlowTest'], checked)
 
+    def test_a_kotlin_multiplatform_suite_name_is_recognised(self) -> None:
+        # A KMP suite is named `<ClassName>[<target>]` — `SlowTest[jvm]` — while
+        # the scanner yields the bare class name. This is not a detail: the
+        # second review of this rule found that the gate matched the plain name
+        # only, so every slow class in a KMP module read as "did not run" and
+        # the CI step failed on every run of the tree it was written to
+        # protect. The regression test is here so that the suffix cannot be
+        # dropped without a red test.
+        self._source('SlowTest.kt', SLOW_SOURCE)
+        self._suite('com.singularity.todo.SlowTest[jvm]')
+
+        problems, checked = mod.find_problems(self.root)
+
+        self.assertEqual([], problems, 'a KMP suite name is the same class')
+        self.assertEqual(['SlowTest'], checked)
+
     def test_a_slow_class_whose_tests_were_skipped_is_a_finding(self) -> None:
         self._source('SlowTest.kt', SLOW_SOURCE)
         self._suite('com.singularity.todo.SlowTest', skipped=1)

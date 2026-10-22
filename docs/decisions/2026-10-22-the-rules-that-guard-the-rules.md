@@ -200,6 +200,16 @@ its `specs_dir` is written as `null` when the change has no `specs/` — the
 same word the importer uses, because a record that names a directory that
 never existed is the finding the registry gate exists to report.
 
+A third pass returned **pass**: no blocking finding, and the branch's gates were
+falsifiable in the ways the earlier passes had found them not to be — the slow
+gate fails on a missing suite, on a skipped test and on an unmapped root, the
+verdict gate's baseline cannot grow, and the pre-push hook was pushed end to
+end against a clone, an old tree and two broken ones. What it did leave is the
+placement this file discusses below, plus two small things that are fixed here:
+the suite name of a KMP suite had no regression test, so the defect the second
+pass found could have come back unnoticed, and the workflow said the slow
+classes live in six source sets when they live in seven.
+
 The ADR invocation in CI also had to move. It is the second test-capable
 Gradle invocation in the job, and `check-build-output-readers.py` requires
 every step that reads build output to read it *before* an invocation that can
@@ -209,6 +219,34 @@ invocation because it reads what both invocations wrote. The dependency edge
 that makes this safe is the one `:adr-cli`'s build file exists to enforce: it
 depends on `:adr-core` and `:core-base`, never on `:shared`, so the ADR
 invocation cannot rewrite the reports the readers above it measured.
+
+One placement in that job is not checked by the placement rule, and the reason
+is worth writing down rather than discovering later.
+`check-build-output-readers.py` recognises a reader by the build paths in the
+step's command text, and the `slow` gate's command names the script, not the
+paths — so the gate sees a step that reads nothing, and a step moved below
+`Coverage floors` would be accepted silently. Naming the paths in the command
+would make the gate see it, and would make the gate fail: the ADR invocation
+above is the second test-capable invocation in the job, and the rule says a
+reader reads before an invocation that can rewrite what it reads, while this
+step has to read exactly what that invocation wrote. The two cannot both hold
+inside one job.
+
+Three ways out were considered. The ADR modules could join the main
+invocation, which would leave one invocation in the job and make the rule
+apply — but a test task in the kover invocation joins the coverage aggregate,
+and the ADR modules are 93 covered lines of 1008: the floor would move, and
+moving the floor is a decision about what is measured, not a fix for a
+placement. They could run in a job of their own, with their reports handed to
+this one as an artifact — that works, and it costs an artifact contract and a
+serialised job. Or the placement can be kept and written down where the next
+reader of the workflow will see it.
+
+The third is what this branch does, and it is the weakest of the three: the
+placement is maintained by hand, and the comment in `ci.yml` is what makes it
+maintainable. It is recorded here as an open edge rather than presented as
+solved, because the honest description of it is "a rule that is written down
+and not checked" — the exact thing this change set is about.
 
 ## Links
 

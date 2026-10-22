@@ -593,12 +593,26 @@ jobs:
       # holding the tree.
       #
       # Placed after the ADR invocation because it reads what both invocations
-      # wrote: the slow classes live in six source sets, two of them in the ADR
+      # wrote: the slow classes live in seven source sets, two of them in the ADR
       # modules, and a check that ran before their reports existed would report
       # them as missing. It is placed before every Gradle invocation below it,
       # because each of those can re-run a test task and overwrite the report
       # this reads — a check that reads a report after it has been overwritten
       # measures the wrong run.
+      #
+      # This placement is the one the placement rule cannot check for itself.
+      # `check-build-output-readers.py` recognises a reader by the build paths in
+      # the step's command, and this step's command names the script, not the
+      # paths — so the gate sees a step that reads nothing, and a step moved
+      # below `Coverage floors` would be accepted silently. Naming the paths in
+      # the command would make the gate see it, and would make the gate fail:
+      # the ADR invocation above is the second test-capable invocation in the
+      # job, and the rule says a reader reads before an invocation that can
+      # rewrite what it reads — while this step has to read exactly what that
+      # invocation wrote. The two cannot both hold in one job, so the placement
+      # is maintained here, by hand, and this comment is what makes it
+      # maintainable: a reader of this file can see why the step sits where it
+      # sits and what would break if it moved.
       - name: Slow tests ran
         run: python3 scripts/check-slow-tests-ran.py
 
