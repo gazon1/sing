@@ -27,6 +27,8 @@ sche... | — | — |
 | settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
 | selectable text coverage | blocking | Find text surfaces that are neither selectable nor classified. | — | — |
 | issue registry covers every change | blocking | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
+| AGENTS.md pointers resolve | blocking | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
+| review verdicts cover every change | blocking | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
 | detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
 | detekt rule registry | blocking | detekt rule registry | — | — |

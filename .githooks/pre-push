@@ -233,6 +233,42 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "pre-push FAILED — the UI wait budgets disagree in the tree of $local_ref."
         echo "Run python3 scripts/check-ui-wait-budgets.py to see where, or push with --no-verify."
     fi
+
+    # The three rules that are cheap, that CI enforces, and that a contributor
+    # would otherwise only meet as a red CI run: the pointers AGENTS.md names,
+    # the registry entry of every change, and the review verdict of every
+    # change.
+    #
+    # They run against the pushed tree, not the worktree, for the same reason
+    # the gates above do: a rule that reads a different tree than the one
+    # being pushed checks the wrong thing.
+    #
+    # Each costs well under a second — measured: the pointers gate 0.1 s, the
+    # registry gate 1.1 s, the verdict gate 0.2 s — so the local loop carries
+    # the same rules CI does, at a price nobody notices. The suite as a whole
+    # is not in this hook on purpose: it is a minute and a half, and it is
+    # where the incremental temptation lives. What is here is the part that
+    # is cheap and that a broken tree would otherwise carry to CI.
+    #
+    # Skipped rather than failed when click is not installed, like the wait
+    # budgets above: a gate that cannot run must not become a reason a push
+    # cannot happen, and CI runs it either way.
+    if ! python3 -c "import click" >/dev/null 2>&1; then
+        echo "   tree rules gate: SKIPPED (click is not installed)"
+    else
+        for rule in check-agents-pointers check-issue-registry check-review-verdicts; do
+            if (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
+                python3 "$REPO_ROOT/scripts/$rule.py" --quiet --root "$tree"); then
+                echo "   $rule gate: OK"
+            else
+                echo "   $rule gate: FAILED"
+                GATES_FAILED=1
+                echo ""
+                echo "pre-push FAILED — $rule found something in the tree of $local_ref."
+                echo "Run python3 scripts/$rule.py --root . to see where, or push with --no-verify."
+            fi
+        done
+    fi
 done
 
 if [ "$GATES_FAILED" = "1" ]; then

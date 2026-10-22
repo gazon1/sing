@@ -228,6 +228,26 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="agents-pointers",
+        cmd=[sys.executable, "scripts/check-agents-pointers.py", "--quiet"],
+        why=(
+            "a pointer that does not resolve sends the next session looking for a file that "
+            "is not there: the note that was written to remove the stop becomes the stop. "
+            "The pointer that started it named the harness file for exemptions that live "
+            "in the conventions test"
+        ),
+    ),
+    ScriptGate(
+        name="review-verdicts",
+        cmd=[sys.executable, "scripts/check-review-verdicts.py", "--quiet"],
+        why=(
+            "a review that leaves no trace is a promise with nothing behind it: the next "
+            "session cannot tell whether the change was reviewed, what was found, or "
+            "whether the findings were fixed. The review of the issue-registry gate found "
+            "four real defects, and the tree said nothing about it"
+        ),
+    ),
+    ScriptGate(
         name="hooks-path",
         cmd=[sys.executable, "scripts/check-hooks-path.py", "--quiet"],
         # Untrack *every* hook, not one. The gate asks "does the configured hooks
@@ -598,6 +618,28 @@ def _setup_measure_flake_rate(root: Path) -> None:
         (d / "TEST-A.xml").write_text(suite.format(n="one", b=body))
     (root / "empty-baseline.txt").write_text("", encoding="utf-8")
 
+def _setup_slow_tests_ran(root: Path) -> None:
+    """A `slow` class in the tree, and a report that does not mention it.
+
+    The gate reads the JUnit report of the full run and asks whether every
+    `@Tag("slow")` class is in it. This fixture writes the class and leaves it
+    out of the report — the state a default local run produces, where the
+    slow classes never execute — so the gate has to report it and exit
+    non-zero. A gate that only ever sees a report that lists everything proves
+    nothing about the case that matters.
+    """
+    source = root / "shared" / "src" / "commonTest" / "kotlin"
+    source.mkdir(parents=True, exist_ok=True)
+    (source / "SlowTest.kt").write_text(
+        "package com.singularity.todo\n\n"
+        "import org.junit.jupiter.api.Tag\n\n"
+        '@Tag("slow")\nclass SlowTest {\n    @Test\n    fun it_runs() = Unit\n}\n',
+        encoding="utf-8",
+    )
+    results = root / "shared" / "build" / "test-results" / "jvmTest"
+    results.mkdir(parents=True, exist_ok=True)
+
+
 def _setup_maestro_results(root: Path) -> None:
     """A Maestro run that failed a flow, and a flow that never reported at all.
 
@@ -687,6 +729,18 @@ FIXTURE_GATES = [
     # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
     # control `detekt-rule-coverage-floor`, which raises the constant and
     # requires the Gradle task to fail — see the note at the top of Part C.
+    FixtureGate(
+        name="slow-tests-ran",
+        cmd=[sys.executable, "scripts/check-slow-tests-ran.py", "--root", "{tmp}"],
+        setup=_setup_slow_tests_ran,
+        why=(
+            "a test the local loop never runs is a test whose breakage nobody local ever "
+            "sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read "
+            "surface changed the shape of its answer, and was found by CI rather than by "
+            "anyone holding the tree"
+        ),
+        needs_clean_run=False,
+    ),
     FixtureGate(
         name="maestro-results",
         cmd=[
