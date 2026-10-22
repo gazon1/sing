@@ -9,7 +9,6 @@ import concurrent.futures
 import json
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import threading
@@ -25,6 +24,27 @@ import sgate
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register
 from sgate.log import logger
 from sgate.models import GatePayload
+
+
+def _repo_env() -> dict[str, str]:
+    """The environment a gate subprocess runs in.
+
+    ``PYTHONPATH`` points at *this* checkout's ``scripts/src``, so a gate that
+    imports ``sgate`` — or any other module of this repository — runs the code
+    on disk here. Without it, an editable install of another checkout wins the
+    import, and the gate suite reports another checkout's verdict as this
+    one's (ADR `2026-10-21-one-owner-of-stdout.md`).
+
+    The path comes from ``sgate.repo`` rather than being written out here: a
+    path written twice is a path that drifts.
+    """
+    import os
+
+    env = dict(os.environ)
+    src = str(sgate.repo.SRC)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return env
 
 
 @dataclass
@@ -214,16 +234,21 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         head, *args = tokens
 
         if head == "sgate":
-            # Delegated to sgate CLI (custom gate already migrated)
-            # Discover sgate binary: use the one on PATH, or the venv one in scripts/src
-            sgate_bin = shutil.which("sgate")
-            if sgate_bin is None:
-                # Fallback: find sgate in the venv used by this script
-                venv_python = sys.executable
-                sgate_bin = str(Path(venv_python).parent / "sgate")
-            cmd = [sgate_bin, *args, "--json"]
+            # Delegated to the sgate CLI — but to *this* checkout's sgate, not
+            # to the `sgate` on PATH.
+            #
+            # On a machine with several checkouts of this repository, the binary
+            # on PATH is an editable install pointing at one of them, not
+            # necessarily this one, and the gate suite would then certify
+            # somebody else's code while reporting it as this checkout's
+            # result (ADR `2026-10-21-one-owner-of-stdout.md`).
+            #
+            # The module is run with this checkout's `scripts/src` on the import
+            # path, which is the same arrangement the JSON-contract probe uses
+            # (`scripts/check-gate-json-contract.py`).
+            cmd = [sys.executable, "-m", "sgate", *args, "--json"]
             result = subprocess.run(cmd, capture_output=True, timeout=timeout,
-                                   cwd=repo_root)
+                                   cwd=repo_root, env=_repo_env())
 
         elif head == "python3":
             # Direct python3 script — use the sgate venv Python (has all dependencies)
@@ -235,7 +260,7 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             py_bin = str(venv_python.parent / "python")
             cmd = [py_bin, script_path] + args[1:]
             result = subprocess.run(cmd, capture_output=True, timeout=timeout,
-                                   cwd=repo_root)
+                                   cwd=repo_root, env=_repo_env())
 
         elif head.startswith("./"):
             # Direct shell script

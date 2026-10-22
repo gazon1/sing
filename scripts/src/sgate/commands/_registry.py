@@ -93,6 +93,7 @@ COMMAND_MODULES: dict[str, str] = {
     "info": "utility",
     "render_registry": "utility",
     "render_static_gates": "utility",
+    "whereami": "utility",
     "wiring": "utility",
     "run_all": "driver",
     "suite_docs": "suite",
