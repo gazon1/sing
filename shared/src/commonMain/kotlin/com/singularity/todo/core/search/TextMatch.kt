@@ -50,16 +50,26 @@ data class TextMatchQuery(val terms: List<String> = emptyList(), val combinesWit
  * The tokenizer is deliberately the same shape as SQLite's `unicode61`: letters
  * and digits are token characters, everything else separates them.
  *
- * ## The one difference, and why it is safe
+ * ## Where this rule is used, and where it is not
+ *
+ * The index answers the positive terms of a query — it knows the tokenizer, and
+ * it is what narrows the rows. This matcher answers the terms the index cannot:
+ * the **negated** ones, and the whole rule of a query the index could not
+ * narrow at all. See `FreeTextRule`.
+ *
+ * ## The one difference, and what it means now
  *
  * `unicode61` removes the diacritics of a word — "café" is indexed as "cafe" —
  * and this matcher does not. So the index finds "café" for the term "cafe" and
- * the rule does not.
+ * this matcher does not.
  *
- * That difference is in the safe direction: the index offers a candidate the
- * rule then rejects, and the search answers the same either way. The unsafe
- * direction — the rule accepting a record the index does not offer — is what
- * the corpus in `FtsMatcherAgreementTest` holds closed.
+ * That difference used to be invisible: the index offered the candidate and the
+ * rule rejected it, so the search answered the same either way. It is not
+ * invisible now — the index answers the positives, so a search for "cafe" finds
+ * "Café au lait". The difference is in the direction that *finds more*, never in
+ * the direction that loses a record: the rule accepts nothing the index does not
+ * offer, and that is the invariant the corpus in `FtsMatcherAgreementTest` holds
+ * closed.
  */
 object TextMatch {
 

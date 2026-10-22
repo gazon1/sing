@@ -75,6 +75,12 @@ questions — "which rows carry this word" — and has no way of expressing "mus
 not carry", so a negated term is still the rule's business. The rule is what
 decides; the index is what makes the candidate set small.
 
+> **Refined by
+> [ADR 2026-10-22: the index answers the positive terms](2026-10-22-the-index-answers-the-positive-terms.md).**
+> The index now answers the positive terms on its own, and the rule is asked
+> only about the negated ones. The paragraph above is the decision as it was
+> taken; the record that changed it says what changed and why.
+
 **A term matches a word by its beginning.** The index stores words, so it can
 only find the beginning of one: "arch" finds "architecture", and "port" does
 not find "airport". The in-memory rule was changed to the same rule, so the two

@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.TextMatchPlan
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -71,5 +73,95 @@ class FreeTextRuleTest {
 
         assertEquals(listOf("alpha", "beta"), rule.terms.map { it.text })
         assertEquals(listOf(false, false), rule.terms.map { it.negated })
+    }
+
+    // ── The two halves ───────────────────────────────────────────────────────
+    //
+    // The index answers the positive terms and the rule answers the negated
+    // ones. These are the assertions that hold that split in place: a rule that
+    // asked the index's question again would be filtering twice.
+
+    @Test
+    fun `the positives and the negations are two halves of the rule`() {
+        val rule = FreeTextRule(
+            terms = listOf(
+                FreeTextRule.Term("alpha"),
+                FreeTextRule.Term("beta", negated = true),
+            ),
+        )
+
+        assertEquals(listOf("alpha"), rule.positives.map { it.text })
+        assertEquals(listOf("beta"), rule.negations.map { it.text })
+    }
+
+    @Test
+    fun `a rule with no negated term satisfies the negations trivially`() {
+        val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha")))
+
+        assertTrue(rule.satisfiesNegations { true })
+        assertTrue(rule.satisfiesNegations { false })
+    }
+
+    @Test
+    fun `a record that carries the negated term does not satisfy the negations`() {
+        val rule = FreeTextRule(
+            terms = listOf(
+                FreeTextRule.Term("alpha"),
+                FreeTextRule.Term("beta", negated = true),
+            ),
+        )
+
+        assertFalse(rule.satisfiesNegations { it == "beta" }, "the negated term is there, so the record is ruled out")
+        assertTrue(rule.satisfiesNegations { it == "alpha" })
+    }
+
+    @Test
+    fun `a candidate the index found is not asked again about the positives`() {
+        // The index has already answered "does this record carry the word" — and
+        // it answered it better, because it knows the tokenizer. The rule is asked
+        // only about the negated terms.
+        val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha")))
+        val plan = rule.plan()
+
+        assertTrue(
+            rule.accepts(plan) { false },
+            "the rule must not second-guess the index about the positive terms",
+        )
+    }
+
+    @Test
+    fun `a candidate the index found is still held against the negated terms`() {
+        val rule = FreeTextRule(
+            terms = listOf(
+                FreeTextRule.Term("alpha"),
+                FreeTextRule.Term("beta", negated = true),
+            ),
+        )
+        val plan = rule.plan()
+
+        assertFalse(rule.accepts(plan) { it == "beta" }, "the negated term is the rule's business")
+        assertTrue(rule.accepts(plan) { it == "alpha" })
+    }
+
+    @Test
+    fun `a candidate read row by row is held against the whole rule`() {
+        // The index could not answer this rule at all — it says only what a
+        // record must *not* carry — so the rule answers it alone.
+        val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha", negated = true)))
+        val plan = rule.plan()
+
+        assertIs<TextMatchPlan.BroadScan>(plan)
+        assertFalse(rule.accepts(plan) { it == "alpha" })
+        assertTrue(rule.accepts(plan) { it == "beta" })
+    }
+
+    @Test
+    fun `the positives are what the ranking asks about`() {
+        // The ranking asks whether the *title* carries the word — a question about
+        // one surface of the record, asked to order the records the index found.
+        val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha")))
+
+        assertTrue(rule.satisfiesPositives { it == "alpha" })
+        assertFalse(rule.satisfiesPositives { it == "beta" })
     }
 }

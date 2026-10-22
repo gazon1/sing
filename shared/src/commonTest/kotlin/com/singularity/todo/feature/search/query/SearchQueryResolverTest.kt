@@ -2,7 +2,10 @@
 
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.TEST_TZ
 import kotlin.time.Instant
@@ -62,6 +65,14 @@ class SearchQueryResolverTest {
     private fun addProject(name: String) {
         projectStore["proj_${projectStore.size}"] = FakeProjectEntity("proj_${projectStore.size}", userId, name)
     }
+
+    private fun task(id: String, title: String): Task = Task(
+        id = TaskId(id),
+        title = title,
+        createdAt = Instant.parse("2026-09-16T10:00:00Z"),
+        updatedAt = Instant.parse("2026-09-16T10:00:00Z"),
+        userId = UserId(userId),
+    )
 
     // ─── Tests ────────────────────────────────────────────────────────────────
 
@@ -236,6 +247,58 @@ class SearchQueryResolverTest {
 
         val resolved = resolver.resolve(query, userId)
         assertTrue(resolved.needsPostFilter)
+    }
+
+    // ── The free-text predicate of the resolved query ─────────────────────────
+    //
+    // The predicate the resolver hands to the use case is what the *rule* says
+    // about a candidate — and a candidate that came from the index has already
+    // been matched against the positive terms. The predicate is therefore about
+    // the negated terms alone, and the whole rule only where the index could not
+    // answer at all.
+
+    @Test
+    fun `the free-text predicate of a narrowed rule does not ask again about the positives`() = runTest {
+        val query = SingularityQueryParser("alpha").parse()
+
+        val resolved = resolver.resolve(query, userId)
+        val unrelated = task(id = "t1", title = "Nothing to do with the word")
+
+        val kept = resolved.postFilter(sequenceOf(unrelated)).map { it.id.value }.toList()
+
+        assertEquals(
+            listOf("t1"),
+            kept,
+            "the positives are the index's business — the rule must not filter them a second time",
+        )
+    }
+
+    @Test
+    fun `the free-text predicate of a narrowed rule still holds the negated term`() = runTest {
+        val query = SingularityQueryParser("alpha NOT beta").parse()
+
+        val resolved = resolver.resolve(query, userId)
+        val carrying = task(id = "t1", title = "Alpha and Beta")
+        val other = task(id = "t2", title = "Alpha only")
+
+        val kept = resolved.postFilter(sequenceOf(carrying, other)).map { it.id.value }.toList()
+
+        assertEquals(listOf("t2"), kept, "the negated term is the rule's business")
+    }
+
+    @Test
+    fun `the free-text predicate of a broad rule holds the whole rule`() = runTest {
+        // A rule the index cannot answer — one that says only what a record must
+        // *not* carry — is answered by the rule alone.
+        val query = SingularityQueryParser("NOT alpha").parse()
+
+        val resolved = resolver.resolve(query, userId)
+        val carrying = task(id = "t1", title = "Alpha report")
+        val other = task(id = "t2", title = "Beta report")
+
+        val kept = resolved.postFilter(sequenceOf(carrying, other)).map { it.id.value }.toList()
+
+        assertEquals(listOf("t2"), kept)
     }
 
     // ── Date determinism (#91) ─────────────────────────────────────────────────

@@ -12,19 +12,24 @@ import kotlin.test.assertNull
  * The expression is SQL, and the terms of a search are typed by a person. The
  * builder therefore has to do two things: turn a term into something the index
  * can look up, and make sure that nothing a person types can become syntax.
+ *
+ * The expression is a *phrase*, because that is what the rule asks for: the
+ * words of a term stand next to each other, and only the last one may be
+ * unfinished. See `FreeTextRule` and
+ * `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
  */
 @Tag("fast")
 class FtsMatchQueryTest {
 
     @Test
     fun `a term becomes a prefix lookup`() {
-        assertEquals("quarter*", FtsMatchQuery.expression(TextMatchQuery(listOf("quarter"))))
+        assertEquals("\"quarter*\"", FtsMatchQuery.expression(TextMatchQuery(listOf("quarter"))))
     }
 
     @Test
     fun `several terms are a conjunction`() {
         assertEquals(
-            "quarter* report*",
+            "\"quarter*\" \"report*\"",
             FtsMatchQuery.expression(TextMatchQuery(listOf("quarter", "report"))),
         )
     }
@@ -32,16 +37,28 @@ class FtsMatchQueryTest {
     @Test
     fun `alternatives are a disjunction`() {
         assertEquals(
-            "quarter* OR annual*",
+            "\"quarter*\" OR \"annual*\"",
             FtsMatchQuery.expression(TextMatchQuery(listOf("quarter", "annual"), combinesWithOr = true)),
         )
     }
 
     @Test
-    fun `a phrase asks for both of its words`() {
+    fun `a term of several words is one phrase`() {
+        // The words stand next to each other, so the expression is one quoted
+        // phrase and not a conjunction of two lookups.
         assertEquals(
-            "quarterly* report*",
+            "\"quarterly report*\"",
             FtsMatchQuery.expression(TextMatchQuery(listOf("quarterly report"))),
+        )
+    }
+
+    @Test
+    fun `only the last word of a phrase may be unfinished`() {
+        // The rule matches the words before the last one exactly, so the star
+        // goes on the last word only.
+        assertEquals(
+            "\"quarterly repo*\"",
+            FtsMatchQuery.expression(TextMatchQuery(listOf("quarterly repo"))),
         )
     }
 
@@ -51,13 +68,14 @@ class FtsMatchQueryTest {
         // expression is built from tokens only.
         val expression = FtsMatchQuery.expression(TextMatchQuery(listOf("\" OR * ( )")))
 
-        assertEquals("or*", expression)
+        assertEquals("\"or*\"", expression)
     }
 
     @Test
     fun `a keyword is a term and not an operator`() {
-        // `not` is an FTS operator, but a prefixed token is always a term.
-        assertEquals("not*", FtsMatchQuery.expression(TextMatchQuery(listOf("not"))))
+        // `not` is an FTS operator, and a quoted phrase is never syntax: the
+        // word is a word.
+        assertEquals("\"not*\"", FtsMatchQuery.expression(TextMatchQuery(listOf("not"))))
     }
 
     @Test

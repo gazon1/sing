@@ -118,7 +118,15 @@ complexity:
     # soft-delete and the closed/open pair — and every one of those functions has a
     # caller. Splitting it would spread the contract across two interfaces that
     # have to be used together, which is a worse API than a wide one.
-    allowedFunctionsPerInterface: 12
+    #
+    # Raised to 13 for `FtsDao`, which reaches 12 by carrying two surfaces of the
+    # same lookup: the raw one, which takes a `MATCH` expression, and the semantic
+    # one, which takes the query a caller means and builds the expression for it.
+    # The semantic surface is what a caller uses; the raw one is what Room runs.
+    # Dropping the raw surface from the interface is not an option — a test double
+    # that answered a `MATCH` expression would be a second implementation of the
+    # rule, which is the thing the split exists to remove.
+    allowedFunctionsPerInterface: 13
     excludes:
       - '**/test/**'
       - '**/commonTest/**'
