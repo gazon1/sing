@@ -152,7 +152,10 @@ frame. Never use `sleep`.
 
 **Hide the keyboard before tapping a trailing action.** `inputText` can leave
 the IME up, covering the save button. Always follow `inputText` with
-`hideKeyboard`.
+`hideKeyboard` — **once**. A `hideKeyboard` with nothing to hide is a BACK
+keypress, and the editors are dialogs: BACK dismisses them, and the flow that
+asked for it finds its save button gone. Measured on a real phone; see
+`docs/decisions/2026-10-28-the-keyboard-was-already-down.md`.
 
 **Assert the field value before tapping save.** Catch dropped keystrokes at
 the real cause — the `assertVisible`/`inputText` round-trip.
