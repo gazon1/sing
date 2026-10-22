@@ -248,6 +248,29 @@ maintainable. It is recorded here as an open edge rather than presented as
 solved, because the honest description of it is "a rule that is written down
 and not checked" — the exact thing this change set is about.
 
+## The merge with `main`
+
+`main` moved while this branch was open, and one of the four pull requests that
+landed in it changed the vocabulary this branch reads. A slow class now carries
+two tags: the primary `slow`, which is the one `-Ptest.tags=fast,slow` selects
+it by, and a sub-tag from a dictionary — `slow:konsist`, `slow:migration`,
+`slow:data`, `slow:compose`, `slow:platform` — that says *what* is slow.
+
+The scanner reads the nearest annotation above the class, so the sub-tag was
+what it returned, and the rule that asks "is this class tagged slow" saw
+`slow:konsist` and said no. The CI step found 4 slow classes where the
+repository has 100, and failed on every run — the same shape as the defect the
+second review found, and the same lesson: a rule that reads a convention is
+only as current as the convention.
+
+The fix is in the shared scanner rather than in this rule: `read_tags` returns
+every class-level tag, and the rule asks whether `slow` is among them. The
+primary tag decides whether a class is slow; the sub-tag says why it is slow,
+and neither of them is allowed to hide the other. The regression test is in the
+same place as the KMP suite name, because the two are the same kind of lesson:
+a rule that reads a name has to be tested against the names the repository
+actually uses.
+
 ## Links
 
 - `scripts/check-agents-pointers.py`

@@ -95,18 +95,19 @@ def _feature_of(fqn: str) -> str:
     return tail[0]
 
 
-def _read_tag(source: str, class_name: str | None = None) -> str:
-    """Тег уровня КЛАССА, а не первый @Tag в файле.
+def _read_tags(source: str, class_name: str | None = None) -> list[str]:
+    """Все теги уровня КЛАССА, от ближайшего к декларации.
 
-    По правилам проекта каждый тестовый класс обязан иметь тег — иначе
-    -Ptest.tags его молча исключит из каждого прогона.
+    Класс может нести больше одного тега: с 2026-10-22 медленный класс носит
+    и основной тег `slow`, и под-тег из словаря — `slow:konsist`,
+    `slow:migration`, `slow:data`, `slow:compose`, `slow:platform`. Под-тег
+    говорит, ЧТО медленно; основной тег выбирает прогон
+    (`-Ptest.tags=fast,slow` включает класс по нему).
 
-    Раньше здесь стояло `re.search` по всему файлу, что неверно для файлов с
-    несколькими классами: `FakeRepositoryFidelityTest.kt` несёт `@Tag("fast")`
-    на постороннем объекте, и тестовый класс на строке 41 получал чужой тег.
-
-    Ищем ближайший @Tag над объявлением нужного класса: тот же приём, что в
-    TestTagCoverageTest. Тег на отдельном методе класс не делает slow.
+    Поэтому «ближайший» ответ больше не достаточен: класс, у которого
+    под-тег стоит последним, читался как `slow:konsist` — и для правила
+    «класс помечен slow» выглядел не-slow. Список возвращает все теги, а
+    вывод о принадлежности к `slow` принимает решение вызывающий код.
     """
     # Обнулены только комментарии: `@Tag("fast")`, упомянутое в KDoc, — это не
     # аннотация, и читать её как тег нельзя. Содержимое строк обнулять нельзя:
@@ -128,16 +129,39 @@ def _read_tag(source: str, class_name: str | None = None) -> str:
             continue
         if class_name and header.group(1) != class_name:
             continue
-        # Поднимаемся по аннотациям над объявлением.
+        # Поднимаемся по аннотациям над декларацией.
+        tags: list[str] = []
         for back in range(index - 1, -1, -1):
             stripped = lines[back].strip()
             if stripped.startswith("@"):
                 found = tag_re.search(stripped)
                 if found:
-                    return found.group(1)
+                    tags.append(found.group(1))
                 continue
             break
-    return "untagged"
+        return tags
+    return []
+
+
+def _read_tag(source: str, class_name: str | None = None) -> str:
+    """Тег уровня КЛАССА, а не первый @Tag в файле.
+
+    По правилам проекта каждый тестовый класс обязан иметь тег — иначе
+    -Ptest.tags его молча исключит из каждого прогона.
+
+    Раньше здесь стояло `re.search` по всему файлу, что неверно для файлов с
+    несколькими классами: `FakeRepositoryFidelityTest.kt` несёт `@Tag("fast")`
+    на постороннем объекте, и тестовый класс на строке 41 получал чужой тег.
+
+    Ищем ближайший @Tag над объявлением нужного класса: тот же приём, что в
+    TestTagCoverageTest. Тег на отдельном методе класс не делает slow.
+
+    Класс может нести несколько тегов (`slow` и `slow:konsist`), и этот
+    ответ — по-прежнему один, ближайший. Правилу «класс помечен slow» нужен
+    весь список: `_read_tags`.
+    """
+    tags = _read_tags(source, class_name)
+    return tags[0] if tags else "untagged"
 
 
 # JUnit-аннотации, порождающие прогон. @ParameterizedTest обязателен:

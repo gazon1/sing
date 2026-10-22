@@ -56,6 +56,29 @@ class FastTest {
 }
 """
 
+SLOW_SUBTAG_SOURCE = """package com.singularity.todo
+
+import org.junit.jupiter.api.Tag
+
+@Tag("slow")
+@Tag("slow:konsist")
+class SlowTest {
+    @Test
+    fun it_runs() = Unit
+}
+"""
+
+SUBTAG_ONLY_SOURCE = """package com.singularity.todo
+
+import org.junit.jupiter.api.Tag
+
+@Tag("slow:konsist")
+class SlowTest {
+    @Test
+    fun it_runs() = Unit
+}
+"""
+
 SUITE = """<?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="{name}" tests="1" skipped="{skipped}" failures="0" errors="0">
   <testcase name="it_runs()" classname="{name}" time="0.1"/>
@@ -118,6 +141,36 @@ class SlowTestsRanTest(unittest.TestCase):
 
         self.assertEqual([], problems, 'a KMP suite name is the same class')
         self.assertEqual(['SlowTest'], checked)
+
+    def test_a_slow_class_with_a_sub_tag_is_still_slow(self) -> None:
+        # Since 2026-10-22 a slow class carries two tags: the primary `slow`,
+        # which is the one `-Ptest.tags=fast,slow` selects it by, and a sub-tag
+        # from a dictionary — `slow:konsist`, `slow:data`, `slow:platform`. The
+        # scanner reads the *nearest* annotation, so the sub-tag was what the
+        # gate saw, and 98 of the repository's slow classes read as "not slow":
+        # the CI step found 4 of them and failed on every run. The rule is on
+        # the presence of the primary tag, not on which annotation is last.
+        self._source('SlowTest.kt', SLOW_SUBTAG_SOURCE)
+
+        problems, checked = mod.find_problems(self.root)
+
+        self.assertEqual(1, len(problems), 'a slow class with a sub-tag is still slow')
+        self.assertIn('SlowTest', problems[0])
+        self.assertEqual(['SlowTest'], checked)
+
+    def test_a_class_with_only_a_sub_tag_is_not_this_rules_business(self) -> None:
+        # The repository's rule is that the primary tag is always there: CI
+        # selects on `fast`/`slow`, so a class carrying only `slow:konsist` is
+        # in no CI run at all, and `TestTagCoverageTest` says so. This gate
+        # requires a class in the report of a run that selects on the primary
+        # tag — so a class without one is not this rule's business, and
+        # requiring it here would invent a failure another rule already owns.
+        self._source('SlowTest.kt', SUBTAG_ONLY_SOURCE)
+
+        problems, checked = mod.find_problems(self.root)
+
+        self.assertEqual([], problems)
+        self.assertEqual([], checked)
 
     def test_a_slow_class_whose_tests_were_skipped_is_a_finding(self) -> None:
         self._source('SlowTest.kt', SLOW_SOURCE)

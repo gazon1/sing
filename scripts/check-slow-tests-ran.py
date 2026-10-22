@@ -97,8 +97,38 @@ def _scanner():
     return scanning
 
 
+#: The tag that makes a class slow, and the prefix its sub-tags carry. A slow
+#: class carries the primary tag `slow` — that is the one `-Ptest.tags=fast,slow`
+#: selects it by — and, since 2026-10-22, a second tag from a dictionary:
+#: `slow:konsist`, `slow:migration`, `slow:data`, `slow:compose`,
+#: `slow:platform`. The sub-tag says what is slow; the primary tag says that
+#: the class is.
+SLOW_TAG = 'slow'
+SLOW_SUBTAG_PREFIX = 'slow:'
+
+
+def is_slow(tags: list[str]) -> bool:
+    """Whether these class-level tags make the class slow.
+
+    The check is on the *presence* of the primary tag, not on the nearest
+    annotation: a class whose last annotation is `@Tag("slow:konsist")` is
+    still a class that `-Ptest.tags=fast,slow` runs, and reading only the
+    nearest tag made it invisible to this rule. That is not a theoretical gap
+    — it is what the gate reported on the day the sub-tags landed: 4 slow
+    classes out of 100, and a CI step that failed on every run.
+
+    The primary tag alone decides, and that is the repository's rule
+    (`TestTagCoverageTest`): CI selects on `fast`/`slow`, so a sub-tag never
+    replaces the primary one — a class carrying only `slow:konsist` is in no
+    CI run at all, and the gate that exists to prevent exactly that says so.
+    Requiring such a class in the report would be this rule inventing a
+    failure that another rule already owns.
+    """
+    return SLOW_TAG in tags
+
+
 def slow_classes(source_root: pathlib.Path) -> set[str]:
-    """The names of the `@Tag("slow")` classes a source root declares."""
+    """The names of the slow classes a source root declares."""
     if not source_root.is_dir():
         return set()
     scanner = _scanner()
@@ -106,7 +136,7 @@ def slow_classes(source_root: pathlib.Path) -> set[str]:
     for source_file in sorted(source_root.rglob('*Test.kt')):
         source = source_file.read_text(encoding='utf-8', errors='replace')
         for name in scanner.test_classes_in(source):
-            if scanner.read_tag(source, name) == 'slow':
+            if is_slow(scanner.read_tags(source, name)):
                 names.add(name)
     return names
 
@@ -181,7 +211,7 @@ def unmapped_slow_classes(root: pathlib.Path, mapped: set[str]) -> list[str]:
         for source_file in sorted(source_root.rglob('*Test.kt')):
             source = source_file.read_text(encoding='utf-8', errors='replace')
             for name in scanner.test_classes_in(source):
-                if scanner.read_tag(source, name) == 'slow':
+                if is_slow(scanner.read_tags(source, name)):
                     unmapped.append(f'{relative}:{name}')
     return sorted(unmapped)
 
