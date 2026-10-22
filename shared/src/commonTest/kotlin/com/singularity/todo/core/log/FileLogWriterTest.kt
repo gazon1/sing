@@ -15,7 +15,6 @@ import kotlin.test.assertTrue
 import okio.Path as OkioPath
 
 @Tag("slow")
-
 @Tag("slow:data")
 class FileLogWriterTest {
 

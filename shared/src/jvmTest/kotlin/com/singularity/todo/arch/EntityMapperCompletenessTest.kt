@@ -64,7 +64,6 @@ private fun declaredEntities(): Set<String> {
 }
 
 @Tag("slow")
-
 @Tag("slow:data")
 abstract class EntityMapperCompletenessTest {
 
