@@ -44,6 +44,7 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hiding. |
 | `scripts/check-sync-allowlist-regenerated.py` | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from |
 | `scripts/check-test-runs.py` | check-test-runs.py — fail when a test run executed fewer tests than the baseline. |
+| `scripts/check-test-tags-catalog.py` | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. |
 | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as an input. |
 | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table against the code. |
 | `scripts/check-tools-catalog.py` | check-tools-catalog.py — the catalogue of the gate scripts. |
