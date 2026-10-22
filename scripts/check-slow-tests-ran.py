@@ -97,14 +97,12 @@ def _scanner():
     return scanning
 
 
-#: The tag that makes a class slow, and the prefix its sub-tags carry. A slow
-#: class carries the primary tag `slow` — that is the one `-Ptest.tags=fast,slow`
-#: selects it by — and, since 2026-10-22, a second tag from a dictionary:
-#: `slow:konsist`, `slow:migration`, `slow:data`, `slow:compose`,
-#: `slow:platform`. The sub-tag says what is slow; the primary tag says that
-#: the class is.
-SLOW_TAG = 'slow'
-SLOW_SUBTAG_PREFIX = 'slow:'
+#: The tag that makes a class slow. A slow class carries the primary tag
+#: `slow` — that is the one `-Ptest.tags=fast,slow` selects it by — and, since
+#: 2026-10-22, a second tag from a dictionary: `slow:konsist`, `slow:migration`,
+#: `slow:data`, `slow:compose`, `slow:platform`. The sub-tag says what is slow;
+#: the primary tag says that the class is.
+SLOW_TAG = "slow"
 
 
 def is_slow(tags: list[str]) -> bool:
@@ -117,12 +115,12 @@ def is_slow(tags: list[str]) -> bool:
     — it is what the gate reported on the day the sub-tags landed: 4 slow
     classes out of 100, and a CI step that failed on every run.
 
-    The primary tag alone decides, and that is the repository's rule
-    (`TestTagCoverageTest`): CI selects on `fast`/`slow`, so a sub-tag never
-    replaces the primary one — a class carrying only `slow:konsist` is in no
-    CI run at all, and the gate that exists to prevent exactly that says so.
-    Requiring such a class in the report would be this rule inventing a
-    failure that another rule already owns.
+    The primary tag alone decides, and that is the repository's rule: CI selects
+    on `fast`/`slow`, so a sub-tag never replaces the primary one — a class
+    carrying only `slow:konsist` is in no CI run at all. `TestTagCoverageTest`
+    reports that for the source sets it scans; requiring such a class in the
+    report of a run that selects on the primary tag would be this rule
+    inventing a failure that another rule already owns.
     """
     return SLOW_TAG in tags
 

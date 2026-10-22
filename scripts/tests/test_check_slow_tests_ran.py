@@ -68,6 +68,17 @@ class SlowTest {
 }
 """
 
+ALIASED_TAG_SOURCE = """package com.singularity.todo
+
+import org.junit.jupiter.api.Tag as JUnitTag
+
+@JUnitTag("slow")
+class SlowTest {
+    @Test
+    fun it_runs() = Unit
+}
+"""
+
 SUBTAG_ONLY_SOURCE = """package com.singularity.todo
 
 import org.junit.jupiter.api.Tag
@@ -155,6 +166,21 @@ class SlowTestsRanTest(unittest.TestCase):
         problems, checked = mod.find_problems(self.root)
 
         self.assertEqual(1, len(problems), 'a slow class with a sub-tag is still slow')
+        self.assertIn('SlowTest', problems[0])
+        self.assertEqual(['SlowTest'], checked)
+
+    def test_an_aliased_tag_annotation_is_recognised(self) -> None:
+        # A file whose short name `Tag` is taken by a domain entity imports the
+        # annotation under another name and writes `@JUnitTag("slow")`. The
+        # scanner read only `@Tag(` and `@org.junit.jupiter.api.Tag(`, so two
+        # real slow classes read as `untagged` — and a class the rule does not
+        # know about is a class nobody requires to have run. The Kotlin
+        # convention resolves the alias; the scanner now does the same.
+        self._source('SlowTest.kt', ALIASED_TAG_SOURCE)
+
+        problems, checked = mod.find_problems(self.root)
+
+        self.assertEqual(1, len(problems), 'an aliased @Tag("slow") is still slow')
         self.assertIn('SlowTest', problems[0])
         self.assertEqual(['SlowTest'], checked)
 

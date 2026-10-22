@@ -62,7 +62,7 @@ class RepoTest:
     module: str  # shared
     rel_path: str  # shared/src/commonTest/kotlin/.../TasksViewModelTest.kt
     feature: str  # feature.tasks | core.ui | arch | root
-    tag: str  # fast | slow | untagged
+    tag: str  # fast | slow | untagged | slow:<под-тег> — ближайший тег класса
     is_arch: bool  # класс из пакета arch — это проверки архитектуры
     declared_class: str  # имя класса, объявленного в файле (может отличаться от path.stem)
 
@@ -95,6 +95,29 @@ def _feature_of(fqn: str) -> str:
     return tail[0]
 
 
+#: `import org.junit.jupiter.api.Tag as JUnitTag` — файл пишет свои теги как
+#: `@JUnitTag("…")`. Два класса в репозитории импортируют аннотацию так, потому
+#: что короткое имя `Tag` занято доменной сущностью.
+_TAG_ALIAS_IMPORT = re.compile(
+    r'^\s*import\s+org\.junit\.jupiter\.api\.Tag\s+as\s+(\w+)\s*$'
+)
+
+
+def _tag_pattern(lines: list[str]) -> re.Pattern[str]:
+    """Регулярка тега для этого файла — с учётом алиаса импорта.
+
+    Тот же приём, что в `TestTagCoverageTest`: алиасированный импорт означает,
+    что файл пишет теги как `@<Alias>(`, и обычная форма в нём не встречается.
+    Без этого два класса репозитория читались как `untagged` — а значит, любой
+    гейт, спрашивающий «помечен ли этот класс slow», о них не знал.
+    """
+    for line in lines:
+        alias = _TAG_ALIAS_IMPORT.match(line)
+        if alias:
+            return re.compile(r'@' + re.escape(alias.group(1)) + r'\(\s*"([^"]+)"\s*\)')
+    return re.compile(r'@(?:org\.junit\.jupiter\.api\.)?Tag\(\s*"([^"]+)"\s*\)')
+
+
 def _read_tags(source: str, class_name: str | None = None) -> list[str]:
     """Все теги уровня КЛАССА, от ближайшего к декларации.
 
@@ -122,7 +145,7 @@ def _read_tags(source: str, class_name: str | None = None) -> list[str]:
     # `com.singularity.todo.feature.tags.Tag` уже импортирован и короткое
     # имя занято доменной сущностью. Ровно тот же приём, что в
     # TestTagCoverageTest; без него «быстрый» класс читался как untagged.
-    tag_re = re.compile(r'@(?:org\.junit\.jupiter\.api\.)?Tag\(\s*"([^"]+)"\s*\)')
+    tag_re = _tag_pattern(lines)
     for index, line in enumerate(lines):
         header = class_re.match(line.strip())
         if not header:
@@ -139,7 +162,9 @@ def _read_tags(source: str, class_name: str | None = None) -> list[str]:
                     tags.append(found.group(1))
                 continue
             break
-        return tags
+        if tags or class_name:
+            return tags
+        # Класс без тегов, а имя класса не задано: ищем следующий.
     return []
 
 

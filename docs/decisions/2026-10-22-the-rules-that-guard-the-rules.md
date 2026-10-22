@@ -271,6 +271,16 @@ same place as the KMP suite name, because the two are the same kind of lesson:
 a rule that reads a name has to be tested against the names the repository
 actually uses.
 
+The same pass found the second half of the same lesson. The scanner matched
+`@Tag(` and `@org.junit.jupiter.api.Tag(`, and two classes in the repository
+import the annotation under another name — `import org.junit.jupiter.api.Tag as
+JUnitTag` — because the short name `Tag` is taken by a domain entity. They read
+as `untagged`, which means they were slow classes that no rule required to have
+run. The scanner resolves the alias now, the way `TestTagCoverageTest` already
+did, and the count of slow classes the rule sees went from 100 to 102 — the
+number the Kotlin convention counts. A gate that reads a convention is only as
+current as the convention, and a convention has more than one spelling.
+
 ## Links
 
 - `scripts/check-agents-pointers.py`
