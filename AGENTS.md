@@ -90,10 +90,12 @@ ctx.assertIs<UiState.Content>()
 awaitState { vm.state.value is UiState.Content }   // виртуальное время, не delay()
 ```
 
-**Тест VM — через харнесс** (`testVm` из `test/helpers/RunVmTest.kt`), и это гейт:
-`SharedHarnessConventionsTest`, правило «runVmTest is used for ViewModel tests» — свой scope
-руками = падение. Исключения и их причины — `EXEMPT_VM_TEST` в том же файле (повестка: поток
-часов не кончается → виртуальное время не доводится до idle, scope не может быть тестовым).
+**Тест VM — через харнесс** (`testVm` из `shared/src/commonTest/.../test/helpers/RunVmTest.kt`),
+и это гейт: `SharedHarnessConventionsTest`, правило «runVmTest is used for ViewModel tests» —
+свой scope руками = падение. Исключения и их причины — `EXEMPT_VM_TEST` в
+`shared/src/jvmTest/.../arch/SharedHarnessConventionsTest.kt` (карта «файл → причина»;
+типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
+не может быть тестовым).
 
 ### BAN list
 
