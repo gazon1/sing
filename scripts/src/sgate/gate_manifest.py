@@ -879,7 +879,7 @@ the same gesture on every display.""",
             kind=PlacementKind.STATIC,
             command="sgate every_destination_has_a_content_key",
             note=(
-                '# The compiler makes the when over the sealed hierarchy exhaustive. It cannot see the delegation: the group of destinations that stands for a record is handed to another when, and that one ends in a runtime error.')
+                'The compiler makes the when over the sealed hierarchy exhaustive. It cannot see the delegation: the group of destinations that stands for a record is handed to another when, and that one ends in a runtime error.')
         ),
         'the tool catalogue is current': Placement(
             kind=PlacementKind.STATIC,
