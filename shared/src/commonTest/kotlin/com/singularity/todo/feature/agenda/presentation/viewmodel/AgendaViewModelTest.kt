@@ -16,6 +16,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -106,13 +107,16 @@ class AgendaViewModelTest {
     private val fakeProjectsRepo = FakeProjectsRepository()
     private val completion = TaskReopenUseCase(fakeRepo, fakeProjectsRepo, FakeClock(now))
 
-    private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
+    private fun TestScope.createVm(
+        scope: AutoCloseableCoroutineScope,
+        draftStore: FakeDraftStore = FakeDraftStore(),
+    ) = AgendaViewModel(
         deps = AgendaDeps(
             taskRepo = fakeRepo,
             clock = FakeClock(now),
             timeZone = TEST_TZ,
             logger = Logger,
-            draftStore = FakeDraftStore(),
+            draftStore = draftStore,
             reminderScheduler = fakeReminderScheduler,
             currentUser = fakeCurrentUser,
             taskMutations = fakeTaskMutations,
@@ -240,6 +244,45 @@ class AgendaViewModelTest {
                 DueDateOption.Custom(pinned, pinned.toString()),
                 draft.dueDate,
                 "'+' in the Today section must prefill the clock's today, not a compile-time constant",
+            )
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    // ─────────────────────── A task on several days ─────────────────────────────
+    //
+    // The agenda writes the picked days into a draft and points the editor at it.
+    // The days travel in the draft, not in a route parameter, so the editor is the
+    // only place that creates the task.
+
+    @Test
+    fun `CreateOnDates writes the picked days into a draft`() = runTest {
+        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
+        try {
+            val draftStore = FakeDraftStore()
+            val vm = createVm(vmScope, draftStore = draftStore)
+            runCurrent()
+
+            val dates = setOf(
+                LocalDate(2026, 10, 5),
+                LocalDate(2026, 10, 12),
+                LocalDate(2026, 10, 19),
+            )
+            vm.onIntent(AgendaIntent.CreateOnDates(dates))
+            runCurrent()
+
+            val draft = draftStore.load(TaskDraftKeys.AGENDA_MULTI_DATE, TaskDraft.serializer())
+            assertNotNull(draft, "the picked days must reach a draft")
+            assertEquals(
+                DueDateOption.Custom(LocalDate(2026, 10, 5), LocalDate(2026, 10, 5).toString()),
+                draft.dueDate,
+                "the earliest day is the primary one",
+            )
+            assertEquals(
+                listOf(LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
+                draft.extraDueDates,
+                "the other days ride along as extra dates",
             )
         } finally {
             vmScope.close()
