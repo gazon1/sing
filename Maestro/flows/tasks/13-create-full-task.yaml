@@ -24,7 +24,7 @@ tags:
     element:
       id: task_editor_title_input
     direction: UP
-    timeout: 8000
+    timeout: 5000
 
 # ── The attribute rows ─────────────────────────────────────────────────
 #
@@ -97,7 +97,7 @@ tags:
     element:
       id: task_editor_title_input
     direction: UP
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: task_editor_title_input
 # The create screen restores its draft, so the field still holds the previous
