@@ -180,6 +180,23 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="text-field-transformations-table",
+        cmd=[sys.executable, "scripts/check-text-field-transformations-table.py"],
+        why=(
+            "a transformation's rule is a promise about what the field accepts, "
+            "and a table that is wrong about it sends an agent to write a field "
+            "that takes three digits where the code takes two"
+        ),
+    ),
+    ScriptGate(
+        name="platform-reference-ports",
+        cmd=[sys.executable, "scripts/check-platform-reference-ports.py"],
+        why=(
+            "the platform reference is the map of the seam, and a map that names "
+            "a port the code deleted sends a reader to a type that is not there"
+        ),
+    ),
+    ScriptGate(
         name="profile-reset-inventory",
         cmd=[sys.executable, "scripts/ci/check-profile-reset-inventory.py"],
         why=(

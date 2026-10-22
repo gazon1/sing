@@ -531,6 +531,29 @@ _REGISTERED: tuple[GateSpec, ...] = (
         # stopped reaching it. This gate holds the schema, the wipe's own list
         # and the inventory document to each other.
     ),
+    GateSpec(
+        name="the text-field transformation table is true",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-text-field-transformations-table.py"),
+        # A skill that lists the text-field transformations is a promise that the
+        # list is the code's list. Nothing held it: a transformation could be
+        # added, renamed, or have its rule changed, and the table kept claiming
+        # the old thing — and a reader has no way to know which half of the
+        # table is true. This gate reads the table and compares it with the
+        # transformations the code declares.
+    ),
+    GateSpec(
+        name="the platform reference ports are true",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-platform-reference-ports.py"),
+        # The platform reference is the inventory of the seam: which port is
+        # bound to which implementation on which platform. It said so itself —
+        # "no gate will notice" — and it had rotted: it still named a port that
+        # was deleted and did not name the twenty ports the seam has. This gate
+        # reads the reference and compares it with the code.
+    ),
     # ── Docs / agent-facing text ───────────────────────────────────────────────────
     GateSpec(
         name="doc dead refs",
@@ -749,6 +772,51 @@ _REGISTERED: tuple[GateSpec, ...] = (
 # by script path, because display names are prose and one script can
 # back two gates with two different controls.
 GATE_CONTROLS: dict[str, Control] = {
+    # text-field-transformations-table: the table claims a limit the code does
+    # not enforce. The probe changes the digit count of the recurrence rule
+    # from two to three — the smallest change that a reader could not notice
+    # in the prose and that the code would never allow.
+    'text-field-transformations-table': Control(
+        kind='sabotage',
+        proves='scripts/check-text-field-transformations-table.py',
+        argv=('{python}', 'scripts/check-text-field-transformations-table.py'),
+        path='.agents/skills/singularity-todo-text-field-states/SKILL.md',
+        edit=Edit(
+            kind='replace',
+            old='`drops=non-digit; limit=2; rewrite; rejects=edit; min=1`',
+            new='`drops=non-digit; limit=3; rewrite; rejects=edit; min=1`',
+            count=1,
+        ),
+        why=(
+            "a transformation's rule is a promise about what the field accepts, "
+            "and a table that is wrong about it sends an agent to write a field "
+            "that takes three digits where the code takes two — the drift this "
+            "gate exists to report, in the shape it happens: a limit changed in "
+            "the code and not in the table, or in the table and not in the code"
+        ),
+    ),
+    # platform-reference-ports: the reference names a port the code does not
+    # have. The probe renames `Notifier` back to `NotificationPort`, the name
+    # the reference carried before the port was replaced — the exact rot the
+    # document had already suffered once.
+    'platform-reference-ports': Control(
+        kind='sabotage',
+        proves='scripts/check-platform-reference-ports.py',
+        argv=('{python}', 'scripts/check-platform-reference-ports.py'),
+        path='docs/PLATFORM-REFERENCE.md',
+        edit=Edit(
+            kind='replace',
+            old='| `Notifier` | `JvmNotifier` | `AndroidNotifier` | checked |',
+            new='| `NotificationPort` | `JvmNotifier` | `AndroidNotifier` | checked |',
+            count=1,
+        ),
+        why=(
+            "the reference is the map of the seam, and a map that names a port "
+            "the code deleted sends a reader to a type that is not there — while "
+            "the port the code does have is missing from the map, so an agent "
+            "adding a binding to it cannot see that it is crossing the seam"
+        ),
+    ),
     'profile-reset-inventory': Control(kind='sabotage', proves='scripts/ci/check-profile-reset-inventory.py', argv=('{python}', 'scripts/ci/check-profile-reset-inventory.py'), path='docs/architecture/wipe-inventory.md', edit=Edit(kind='replace', old='| `sync_state` | not profile content |', new='| `sync_state` | wiped |', count=1), why='the document claiming more than the code does is the failure this gate exists for: the ADR that describes the profile reset says it reaches the whole profile, and the code reached five things. The probe makes the inventory call the sync cursor profile content — a table whose deletion would make the next pull restore everything the reset just removed. The code does not wipe it, so the document and the code now disagree, and the gate must say so.'),
     'release-tags': Control(kind='sabotage', proves='scripts/check-release-tags.py', argv=('{python}', 'scripts/check-release-tags.py'), path='config/docs/releases-snapshot.json', edit=Edit(kind='replace', old='    "v0.2.1-rc.1"\n  ],', new='    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],', count=1), why='a tag that produced no release is the failure this gate exists for: `meta` proved the tag was on main with a green CI run, `publish` still did not run, and nothing said so. The probe appends exactly such a tag — recorded as neither released nor excused.'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),

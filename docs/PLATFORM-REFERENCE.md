@@ -11,27 +11,69 @@ stays in `AGENTS.md` and in `openspec/config.yaml`, because that is the part an
 agent must not get wrong. The inventory below is what to read when *adding* a
 port, which is not every task.
 
-Nothing here is generated. If a port is added or renamed, this file is the thing
-that goes stale, and no gate will notice — which is the honest cost of moving it
-out of the one file every agent reads.
+Nothing here is generated, but the ports table **is** checked:
+`scripts/check-platform-reference-ports.py` reads the table below and compares it
+with the code — a port the platform modules bind and the table does not name
+fails the gate, a row that names a port the code does not bind fails it, and an
+implementation a row attributes to a platform has to exist in that platform's
+source set. The table says which of its rows the gate checks: the fourth column
+is `checked` or `prose`.
+
+The rest of this document — the time helpers, the factory functions, the
+navigation seams — is prose. No gate checks it, and the sections say so.
 
 ## Ports
 
 `commonMain` declares the interface unless noted; implementations live in
-`jvmMain` / `androidMain`.
+`jvmMain` / `androidMain`. A port is an interface in a `commonMain` source set
+that a platform module binds; a binding that is not a behavioural seam (the
+database, the preferences store, the scopes) is infrastructure and is not a
+port. The authority on which binding is which is the seam registry
+(`shared/src/jvmTest/resources/platform-seams.tsv`), and
+`PlatformSeamGuardTest` holds that registry against the code.
 
-| Port | jvmMain | androidMain |
-|---|---|---|
-| `SecureStoragePort` | secret-tool + AES-GCM | EncryptedSharedPreferences |
-| `NotificationPort` | notify-send + at | AlarmManager + NotificationManager |
-| `SharePort` / `FileSharePort` | `JvmSharePort` / `JvmFileSharePort` | `AndroidSharePort` / `AndroidFileSharePort` |
-| `FileRevealer` | `JvmFileRevealer` | `AndroidFileRevealer` |
-| `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` |
-| `FileOpener` | `JvmFileOpener` (`java.awt.Desktop`) | `AndroidFileOpener` (`ACTION_VIEW` + `FileProvider`) |
-| `BackupCodec` | `JvmBackupCodec` (java.util.zip) | `AndroidBackupCodec` |
-| `TimeZoneProvider` | actual | actual |
+| Port | jvmMain | androidMain | Checked |
+|---|---|---|---|
+| `BackgroundWorkScheduler` | `JvmBackgroundWorkScheduler` | `AndroidBackgroundWorkScheduler` | checked |
+| `BackupCodec` | `JvmBackupCodec` | `AndroidBackupCodec` | checked |
+| `CalendarAppQueries` | `JvmCalendarAppQueries` | `AndroidCalendarAppQueries` | checked |
+| `CalendarProviderPort` | `NoopCalendarProvider` | `AndroidCalendarProvider` | checked |
+| `CalendarSyncRepository` | `NoopCalendarSyncRepositoryImpl` | `CalendarSyncSettingsRepositoryImpl` | checked |
+| `CalendarSyncWorkScheduler` | `NoopCalendarSyncWorkScheduler` | `AndroidCalendarSyncWorkScheduler` | checked |
+| `CrashReportingPort` | `JvmCrashReportingPort` | `FileCrashReportingPort` | checked |
+| `FileOpener` | `JvmFileOpener` | `AndroidFileOpener` | checked |
+| `FileRevealer` | `JvmFileRevealer` | `AndroidFileRevealer` | checked |
+| `FileSharePort` | `JvmFileSharePort` | `AndroidFileSharePort` | checked |
+| `FileSourceFactory` | `JvmFileSourceFactory` | `AndroidFileSourceFactory` | checked |
+| `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` | checked |
+| `GoogleSyncPeriodicTrigger` | `DelayLoopGoogleSyncPeriodicTrigger` | `AndroidGoogleSyncPeriodicTrigger` | checked |
+| `Haptic` | `createHaptic` | `AndroidHaptic` | checked |
+| `HostEnvironmentPort` | `JvmHostEnvironment` | `AndroidHostEnvironment` | checked |
+| `Notifier` | `JvmNotifier` | `AndroidNotifier` | checked |
+| `PomodoroScheduler` | - | `PomodoroAlarmScheduler` | checked |
+| `PomodoroTaskListProvider` | `JvmPomodoroTaskListProvider` | `AndroidPomodoroTaskListProvider` | checked |
+| `PomodoroTimer` | `JvmPomodoroTimer` | `AndroidPomodoroTimer` | checked |
+| `ReminderScheduler` | `JvmReminderScheduler` | `AlarmManagerReminderScheduler` | checked |
+| `SecureStoragePort` | `JvmSecureStorage` | `AndroidSecureStorage` | checked |
+| `SharePort` | `JvmSharePort` | `AndroidSharePort` | checked |
+| `SyncPeriodicTrigger` | `DelayLoopSyncPeriodicTrigger` | `AndroidSyncPeriodicTrigger` | checked |
+| `SyncWorkScheduler` | `JvmSyncWorkScheduler` | `AndroidSyncWorkScheduler` | checked |
+| `ToolCallLog` | `JvmFileToolCallLog` | `AndroidFileToolCallLog` | checked |
+| `AttachmentStorage` | - | - | prose |
 
-`AttachmentStorage` is a **class**, not an interface.
+`AttachmentStorage` is a **class** in `commonMain`, not an interface, so it is
+not a port — the row says `prose` and the gate leaves it alone.
+
+The mechanisms behind two of the rows: the JVM secure storage is `secret-tool`
+with AES-GCM, the Android one is `EncryptedSharedPreferences`; the JVM file
+opener is `java.awt.Desktop`, the Android one is `ACTION_VIEW` with a
+`FileProvider`. Those are prose — no gate checks them.
+
+`NotificationPort` is gone: the JVM half used `at(1)` and cancelled every `at`
+job on the host, jobs the user had queued outside the app. `Notifier` replaced
+it, and it can only display something — it has no way to enumerate or cancel
+system units. `TimeZoneProvider` is gone with it; the zone comes from
+`kotlin.time.Clock` and `java.time`.
 
 `FileOpener` returns `OpenOutcome`, a sealed interface with `Opened` and `NoHandler`.
 It is deliberately not a `Boolean`: a boolean cannot be rendered, so a caller holding
@@ -43,6 +85,8 @@ Registered in four places: `PlatformModule.android.kt`, `PlatformModule.jvm.kt`,
 
 ## Time
 
+Prose — no gate checks this section.
+
 `core.platform.Clock` as an object is gone (ADR
 `2026-09-27-remove-platform-clock-object.md`). Use `kotlin.time.Clock.System.now()`
 and inject `Clock` as a parameter for tests. For `LocalDate`:
@@ -50,6 +94,8 @@ and inject `Clock` as a parameter for tests. For `LocalDate`:
 `delayUntilNextMidnight()`.
 
 ## Factory functions
+
+Prose — no gate checks this section.
 
 `createSqlDriver()`, `createHttpClient()`, `createBackgroundScope()`
 (`Dispatchers.Default`), `initLogging()`, `platformModule()`, `aiToolsModule()`
@@ -59,6 +105,8 @@ and inject `Clock` as a parameter for tests. For `LocalDate`:
 flag.
 
 ## Navigation
+
+Prose — no gate checks this section.
 
 The seven nested NavGraphs — `TasksNavGraph`, `ProjectsNavGraph`, `NotesNavGraph`,
 `SearchNavGraph`, `SettingsNavGraph`, `CalendarNavGraph`, `AgendaNavGraph` — are

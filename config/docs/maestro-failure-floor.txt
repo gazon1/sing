@@ -14,6 +14,17 @@
 #
 # Format: one `<scope> <max-failing-flows>` per line. `#` starts a comment.
 #
+# The number is traceable to the flows: the gate names every flow that failed
+# in a run (in the summary and in the JSON payload), so "full 30" is thirty
+# flows a reader can go and look at, not an aggregate nobody can take apart.
+#
+# The debt's *shape* lives in the cause registry (config/docs/maestro-debt.yaml):
+# a run that fails on a cause the registry does not list fails the gate, and a
+# cause the registry marks as fixed that comes back is a regression. There is
+# no hand-written list of failing flow names anywhere in the repository — the
+# flows of a run are read from the run, and the registry that cannot rot is the
+# cause registry, not a list of names somebody has to remember to update.
+#
 # Scopes:
 #   full  — every flow in the catalogue (config/docs/maestro-flows.txt); the
 #           nightly's four shards together.
