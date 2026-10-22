@@ -32,6 +32,7 @@ import kotlin.time.Instant
  *   truth is that there was nothing to search.
  */
 @Tag("slow")
+@Tag("slow:data")
 class AdrSearchTest {
 
     private val temporaries = mutableListOf<File>()

@@ -27,6 +27,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class CalendarFlowTest {
     /** `"September 2026"` — the month header format the app renders. */
     private val monthTitle: String =

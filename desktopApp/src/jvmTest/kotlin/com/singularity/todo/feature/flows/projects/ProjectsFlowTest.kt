@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Tag
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class ProjectsFlowTest {
 
     @Test

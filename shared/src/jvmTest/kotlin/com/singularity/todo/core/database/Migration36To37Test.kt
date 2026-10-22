@@ -46,6 +46,7 @@ import kotlin.test.assertTrue
  * the column's presence: Room already proves the column exists.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration36To37Test {
 
     private lateinit var tempDir: File

@@ -43,6 +43,7 @@ import kotlin.test.assertTrue
  * why the class is tagged rather than `fast`.
  */
 @Tag("slow")
+@Tag("slow:data")
 class BackupAnnotationRoundTripTest {
 
     private lateinit var tempDir: File

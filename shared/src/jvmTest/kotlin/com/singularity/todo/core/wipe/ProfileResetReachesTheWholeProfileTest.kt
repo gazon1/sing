@@ -91,6 +91,7 @@ import kotlin.time.Clock
  * carries it.
  */
 @Tag("slow")
+@Tag("slow:data")
 class ProfileResetReachesTheWholeProfileTest {
 
     private val alice = UserId("alice")

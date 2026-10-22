@@ -38,6 +38,7 @@ import kotlin.test.assertTrue
  *    project — it is a project whose work is finished.
  */
 @Tag("slow")
+@Tag("slow:data")
 class ProjectCloseRepositoryTest {
 
     private val alice = UserId("alice")

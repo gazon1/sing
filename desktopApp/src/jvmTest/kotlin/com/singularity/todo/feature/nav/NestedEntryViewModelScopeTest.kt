@@ -45,6 +45,7 @@ import kotlin.test.assertNotSame
  * would get is decided by the same decorator, so one entry answers the question.
  */
 @Tag("slow")
+@Tag("slow:compose")
 class NestedEntryViewModelScopeTest {
 
     /** A route of a nested graph. */

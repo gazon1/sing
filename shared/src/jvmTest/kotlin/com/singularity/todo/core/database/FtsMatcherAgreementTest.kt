@@ -63,6 +63,7 @@ import kotlin.test.assertTrue
  * closed.
  */
 @Tag("slow")
+@Tag("slow:data")
 class FtsMatcherAgreementTest {
 
     private lateinit var tempDir: File

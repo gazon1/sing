@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Tag
  * - Tab order matches DesktopShell.TABS contract
  */
 @Tag("slow")
+@Tag("slow:compose")
 @OptIn(ExperimentalTestApi::class)
 class AgendaReachabilityFlowTest {
 

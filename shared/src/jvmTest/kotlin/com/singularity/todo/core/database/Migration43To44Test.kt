@@ -35,6 +35,7 @@ import kotlin.test.assertTrue
  *    a leftover.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration43To44Test {
 
     private lateinit var tempDir: File

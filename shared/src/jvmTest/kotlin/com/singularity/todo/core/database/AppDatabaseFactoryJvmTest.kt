@@ -28,6 +28,7 @@ import kotlin.test.assertTrue
  * Each test gets its own temp directory; the DB file is deleted on `@After`.
  */
 @Tag("slow")
+@Tag("slow:data")
 class AppDatabaseFactoryJvmTest {
 
     private lateinit var tempDir: File

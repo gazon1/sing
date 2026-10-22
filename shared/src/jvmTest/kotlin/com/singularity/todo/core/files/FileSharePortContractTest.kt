@@ -27,6 +27,7 @@ import kotlin.test.assertTrue
  * being asserted tautologically.
  */
 @Tag("slow")
+@Tag("slow:data")
 @EnabledOnOs(OS.LINUX)
 class FileSharePortContractTest {
 

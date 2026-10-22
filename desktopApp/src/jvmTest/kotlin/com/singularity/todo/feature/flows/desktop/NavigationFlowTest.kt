@@ -36,6 +36,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class NavigationFlowTest {
     @Test
     fun drawer_exposes_every_destination() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {

@@ -48,6 +48,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class SearchMatchHighlightScenarioTest {
 
     @Test

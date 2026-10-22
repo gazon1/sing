@@ -32,6 +32,7 @@ import kotlin.test.Test
  * Run with: ./gradlew :desktopApp:test
  */
 @Tag("slow")
+@Tag("slow:compose")
 class SavedAgendaCreateFlowTest {
 
     @Test

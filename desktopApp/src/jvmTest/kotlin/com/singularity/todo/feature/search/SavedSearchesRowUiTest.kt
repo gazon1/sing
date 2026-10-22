@@ -25,6 +25,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class, ExperimentalFoundationApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class SavedSearchesRowUiTest {
     private val epoch = Instant.fromEpochMilliseconds(0L)
     private val testUserId = UserId("test-user")

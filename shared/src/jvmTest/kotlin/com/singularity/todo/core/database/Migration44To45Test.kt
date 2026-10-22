@@ -38,6 +38,7 @@ import kotlin.test.assertTrue
  * 3. **A link the grammar rejects is gone; a link it accepts stays.**
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration44To45Test {
 
     private lateinit var tempDir: File

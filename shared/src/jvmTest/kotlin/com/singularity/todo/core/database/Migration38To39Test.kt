@@ -39,6 +39,7 @@ import kotlin.test.assertTrue
  * of migration is dropping data the user can see.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration38To39Test {
 
     private lateinit var tempDir: File

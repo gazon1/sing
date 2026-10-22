@@ -34,6 +34,7 @@ import kotlin.test.assertTrue
  * asserts the default is `false` and that existing rows survive the upgrade.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration35To36Test {
 
     private lateinit var tempDir: File

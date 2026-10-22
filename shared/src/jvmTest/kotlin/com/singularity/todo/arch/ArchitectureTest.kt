@@ -22,6 +22,7 @@ import kotlin.test.fail
  * without updating the ADR is a regression.
  */
 @Tag("slow")
+@Tag("slow:konsist")
 class ArchitectureTest {
 
     companion object {

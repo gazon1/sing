@@ -63,6 +63,7 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
+@Tag("slow:data")
 abstract class TaskRepositoryContractTest {
 
     private val alice = UserId("alice")

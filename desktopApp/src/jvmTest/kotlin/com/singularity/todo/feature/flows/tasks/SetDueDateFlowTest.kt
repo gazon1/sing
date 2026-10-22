@@ -34,6 +34,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class SetDueDateFlowTest {
     /**
      * Covers the dated case only.

@@ -100,6 +100,11 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn),
 не «долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
 
+**Под-тег `slow` — что именно медленно.** Медленный класс несёт второй тег из словаря:
+`slow:konsist`, `slow:migration`, `slow:compose`, `slow:data`, `slow:platform`. Основной тег
+(`fast`/`slow`) остаётся: CI выбирает по нему, и класс без него не попал бы ни в один прогон.
+Словарь закрытый — гейт `TestTagCoverageTest` проверяет и основной тег, и под-тег.
+
 ```kotlin
 // Три формы теста (singularity-todo-test-helpers skill):
 testVm({ vm: MyVm -> vm.state }) { MyVm(deps, scope = this) }
@@ -161,8 +166,10 @@ recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR `202
 just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
 ./check.sh                    # реестр гейтов + тесты + Android + detekt
 bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
+just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
 ./gradlew :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
 ./gradlew :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
+./gradlew :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
 ./gradlew :androidApp:assembleDebug   # Android
 ./gradlew :desktopApp:run      # Desktop (xvfb-run -a)
 ./gradlew :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
@@ -170,6 +177,12 @@ bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты
 just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
 ```
+
+**Карта затронутых тестов — `just tests::impact`.** Ответ на вопрос «что эта правка
+ломает?» считается по дереву, а не выдумывается: правка в области тянет тесты этой
+области, правка в классе тянет тесты, которые этот класс упоминают, изменённый тест
+тянет сам себя. Это **кандидаты**, а не вердикт: карта никогда не говорит «вне карты
+безопасно» — она говорит, что стоит прогнать первым.
 
 **Пуш в ветку PR — без `--no-verify`.** `pre-push` hook (`.githooks/pre-push`) проверяет
 **пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть

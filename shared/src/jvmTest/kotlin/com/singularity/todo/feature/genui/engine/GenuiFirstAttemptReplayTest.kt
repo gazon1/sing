@@ -39,6 +39,7 @@ import kotlin.test.assertTrue
  * stay valid.
  */
 @Tag("slow")
+@Tag("slow:platform")
 class GenuiFirstAttemptReplayTest {
 
     private val surface = SurfaceId("replay")

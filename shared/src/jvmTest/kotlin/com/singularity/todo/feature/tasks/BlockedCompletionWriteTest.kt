@@ -43,6 +43,7 @@ import kotlin.test.assertTrue
  * database, where the join table and the statement are.
  */
 @Tag("slow")
+@Tag("slow:data")
 class BlockedCompletionWriteTest {
 
     private val alice = UserId("alice")

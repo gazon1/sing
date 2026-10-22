@@ -33,6 +33,7 @@ import kotlin.test.assertTrue
  * the app asks a model for.
  */
 @Tag("slow")
+@Tag("slow:compose")
 class GenuiCatalogRenderTest {
 
     @Test

@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class AuthFirstRunScenarioTest {
 
     @Test

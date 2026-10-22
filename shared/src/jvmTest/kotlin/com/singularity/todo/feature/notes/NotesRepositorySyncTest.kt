@@ -39,6 +39,7 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
+@Tag("slow:data")
 class NotesRepositorySyncTest {
 
     private val user = UserId("u1")
