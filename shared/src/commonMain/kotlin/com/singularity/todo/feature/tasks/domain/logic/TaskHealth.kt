@@ -79,7 +79,7 @@ data class TaskHealth(
  *
  * ## Why the aggregate takes the blocked set rather than the list
  *
- * [TaskComputed.blockedIds] is O(edges), and calling it once per task inside a loop makes
+ * [Blocking.blockedTaskIds] is O(edges), and calling it once per task inside a loop makes
  * classification quadratic — ~1.1s at 4000 tasks, per `Computed.kt:99-107`. Computing it
  * once here is the difference between a tab that opens instantly and one that does not.
  *
@@ -128,7 +128,7 @@ fun summarizeTaskHealthFromSelectors(
     lastActivityOf: (Task) -> kotlin.time.Instant,
 ): TaskHealthSummary {
     val open = allTasks.filter { !it.isCompleted && !it.isTrashed }
-    val blockedIds = TaskComputed.blockedIds(allTasks)
+    val blockedIds = Blocking.blockedTaskIds(allTasks)
     val context = SelectorContext(today = today, now = now, blockedIds = blockedIds, lastActivityOf = lastActivityOf)
 
     // Selector mirrors — one per TaskHealthBucket with meaningful precedence order.

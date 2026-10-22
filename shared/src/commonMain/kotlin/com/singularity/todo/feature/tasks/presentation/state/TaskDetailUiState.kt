@@ -38,7 +38,7 @@ data class TaskDetailUi(
     /** Direct child tasks (1-level hierarchy only). */
     val subtasks: List<Task> = emptyList(),
     /** IDs of tasks this task depends on. Used to populate [DependencyPickerSheet]. */
-    val dependsOn: Set<TaskId> = emptySet(),
+    val blockedBy: Set<TaskId> = emptySet(),
     /** Tasks available for dependency selection (not trashed, not self). */
     val availableTasks: List<Task> = emptyList(),
     /** Notes that link TO this task via task:// URL scheme. */

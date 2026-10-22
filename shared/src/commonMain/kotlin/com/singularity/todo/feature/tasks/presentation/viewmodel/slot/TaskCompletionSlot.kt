@@ -2,7 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
-import com.singularity.todo.feature.tasks.domain.logic.activeBlockers
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
@@ -82,20 +82,17 @@ class TaskCompletionSlot(
 
     private fun toggleComplete(task: Task, force: Boolean = false) {
         val completing = task.completedAt == null
-        if (completing && !force) {
-            val blockers = activeBlockers(task, allTasks.value)
-            if (blockers.isNotEmpty()) {
-                onBlockedClose(
-                    BlockedCloseRequest(
-                        taskId = task.id,
-                        taskTitle = task.title,
-                        blockerTitles = blockers.map { it.title },
-                    ),
-                )
-                return
-            }
-        }
         if (completing && task.recurrence != null) {
+            // A recurring task is closed by rolling the recurrence forward,
+            // which is a different write from the one that refuses to close a
+            // blocked task — so the question is asked before it, here.
+            if (!force) {
+                val blockers = Blocking.activeBlockers(task, allTasks.value)
+                if (blockers.isNotEmpty()) {
+                    askAboutBlockers(task, blockers)
+                    return
+                }
+            }
             scope.launch {
                 core.completeRecurring(task.id)
                     .onSuccess { onSaved("Recurrence completed") }
@@ -103,11 +100,42 @@ class TaskCompletionSlot(
             }
             return
         }
-        val completedAt = if (completing) context.clock.now() else null
         scope.launch {
-            core.updateTask(task.id) { it.copy(completedAt = completedAt) }
-                .onSuccess { onSaved(if (completedAt != null) "Marked done" else "Marked active") }
-                .onFailure { onError("Save failed") }
+            if (completing) {
+                // The write decides: it refuses while a prerequisite is open,
+                // and the refusal is part of the statement rather than a check
+                // that runs before it.
+                val completed = core.taskRepo.complete(task.id, force).getOrElse {
+                    onError("Save failed")
+                    return@launch
+                }
+                if (!completed) {
+                    val blockers = Blocking.activeBlockers(task, allTasks.value)
+                    if (blockers.isEmpty()) {
+                        onError("Save failed")
+                        return@launch
+                    }
+                    askAboutBlockers(task, blockers)
+                    return@launch
+                }
+                onSaved("Marked done")
+            } else {
+                // Taking a task back into work is never gated — and it brings
+                // its project back with it when that project was closed.
+                core.completion.reopen(task.id)
+                    .onSuccess { onSaved("Marked active") }
+                    .onFailure { onError("Save failed") }
+            }
         }
+    }
+
+    private fun askAboutBlockers(task: Task, blockers: List<Task>) {
+        onBlockedClose(
+            BlockedCloseRequest(
+                taskId = task.id,
+                taskTitle = task.title,
+                blockerTitles = blockers.map { it.title },
+            ),
+        )
     }
 }

@@ -2,7 +2,7 @@ package com.singularity.todo.feature.agenda.domain.selector
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
 import com.singularity.todo.feature.agenda.domain.model.Selector
-import com.singularity.todo.feature.tasks.domain.logic.activeBlockers
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.datetime.LocalDate
 
@@ -98,7 +98,7 @@ object DefaultBadgeRules {
      */
     val blocked: SelectorTransformer = object : SelectorTransformer {
         override fun badgeFor(task: Task, allTasks: List<Task>, today: LocalDate): AgendaBadge? =
-            if (activeBlockers(task, allTasks).isNotEmpty()) AgendaBadge.Blocked else null
+            if (Blocking.activeBlockers(task, allTasks).isNotEmpty()) AgendaBadge.Blocked else null
     }
 
     /** Matches pinned tasks. */

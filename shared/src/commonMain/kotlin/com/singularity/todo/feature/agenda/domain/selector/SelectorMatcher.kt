@@ -16,7 +16,7 @@ import kotlinx.datetime.LocalDate
  * @param today The reference date for resolving [RelativeBucket] date ranges.
  * @param now The current instant, used to compute staleness for [Selector.Stagnant].
  * @param blockedIds The set of task IDs blocked by an unfinished dependency,
- *                   computed once per agenda evaluation via [TaskComputed.blockedIds].
+ *                   computed once per agenda evaluation via [Blocking.blockedTaskIds].
  * @param lastActivityOf Returns the instant of the task's last meaningful activity,
  *                   used for [Selector.Stagnant] staleness. Defaults to [Task.updatedAt]
  *                   to preserve existing Selector semantics; callers that need the

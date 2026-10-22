@@ -17,7 +17,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
-import com.singularity.todo.feature.tasks.domain.logic.activeBlockers
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -240,28 +240,7 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.TaskCheckClicked -> with(intent) {
-                scope.launch {
-                    // A task with an unfinished prerequisite is not closed on the
-                    // first request: the user is asked, and nothing is written
-                    // until they confirm. Taking a task back into work is never
-                    // asked about — only the closing direction is gated.
-                    val task = latestTasks.value.firstOrNull { it.id == taskId }
-                    if (task != null && task.completedAt == null) {
-                        val blockers = activeBlockers(task, latestTasks.value)
-                        if (blockers.isNotEmpty()) {
-                            setBlockedClose(
-                                BlockedCloseRequest(
-                                    taskId = task.id,
-                                    taskTitle = task.title,
-                                    blockerTitles = blockers.map { it.title },
-                                ),
-                            )
-                            return@launch
-                        }
-                    }
-                    deps.taskRepo.toggleComplete(taskId)
-                        .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
-                }
+                scope.launch { handleTaskCheckClicked(taskId) }
             }
 
             is AgendaIntent.ConfirmBlockedClose -> with(intent) {
@@ -269,7 +248,7 @@ class AgendaViewModel(
                     val request = (currentState as? AgendaUiState.Loaded)?.pendingBlockedClose
                     if (request == null || request.taskId != taskId) return@launch
                     setBlockedClose(null)
-                    deps.taskRepo.toggleComplete(taskId)
+                    deps.taskRepo.complete(taskId, force = true)
                         .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
                 }
             }
@@ -330,6 +309,47 @@ class AgendaViewModel(
     }
 
     // ── Blocked-completion confirmation ─────────────────────────────────────────
+
+    // The checkbox on an agenda row.
+    //
+    // The write decides whether a close is allowed: it refuses while a
+    // prerequisite is open, and the refusal is part of the statement rather
+    // than a check that runs before it. The user is asked only when the write
+    // says no.
+    private suspend fun handleTaskCheckClicked(taskId: TaskId) {
+        val task = latestTasks.value.firstOrNull { it.id == taskId }
+        if (task != null && task.completedAt == null) {
+            val completed = deps.taskRepo.complete(taskId).getOrElse {
+                report(it, TOGGLE_COMPLETE_FAILED, "Could not update task")
+                return
+            }
+            if (!completed) {
+                val blockers = Blocking.activeBlockers(task, latestTasks.value)
+                if (blockers.isEmpty()) {
+                    // The write refused but the list says nothing is in the way —
+                    // the two disagree, so nothing is claimed.
+                    report(
+                        IllegalStateException("The completion was refused and no blocker is known"),
+                        TOGGLE_COMPLETE_FAILED,
+                        "Could not update task",
+                    )
+                    return
+                }
+                setBlockedClose(
+                    BlockedCloseRequest(
+                        taskId = task.id,
+                        taskTitle = task.title,
+                        blockerTitles = blockers.map { it.title },
+                    ),
+                )
+            }
+            return
+        }
+        // Taking a task back into work is never gated — and it brings its
+        // project back with it when that project was closed.
+        deps.completion.reopen(taskId)
+            .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
+    }
 
     /**
      * Publishes the confirmation for a task that cannot be closed without a

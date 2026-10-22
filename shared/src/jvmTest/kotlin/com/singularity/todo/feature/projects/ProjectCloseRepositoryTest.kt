@@ -142,4 +142,47 @@ class ProjectCloseRepositoryTest {
 
         assertTrue(result.isFailure, "there is no row to close")
     }
+
+    @Test
+    fun `reopening a closed project opens it and puts it back in the list`() = runTest {
+        val repo = repository()
+        repo.create(project())
+        advanceUntilIdle()
+        repo.close(ProjectId("p1"), 5_000L).getOrThrow()
+        advanceUntilIdle()
+
+        repo.reopen(ProjectId("p1"), 6_000L).getOrThrow()
+        advanceUntilIdle()
+
+        val reopened = repo.observeProject(ProjectId("p1")).first()
+        assertEquals(null, reopened?.closedAt?.toEpochMilliseconds(), "the open must be stamped")
+        assertTrue(
+            repo.observeAll().first().any { it.id == ProjectId("p1") },
+            "an open project belongs in the list again",
+        )
+    }
+
+    @Test
+    fun `reopening a project that is not closed is a no-op, not an error`() = runTest {
+        val repo = repository()
+        repo.create(project())
+        advanceUntilIdle()
+
+        // The project was opened on another device between this device's read
+        // and its write. The state the caller asked for is the state the server
+        // already has, so the lost race resolves to that state.
+        val result = repo.reopen(ProjectId("p1"), 6_000L)
+
+        assertTrue(result.isSuccess, "an already-open project is not an error")
+        assertEquals(null, repo.observeProject(ProjectId("p1")).first()?.closedAt)
+    }
+
+    @Test
+    fun `reopening a project that does not exist fails`() = runTest {
+        val repo = repository()
+
+        val result = repo.reopen(ProjectId("missing"), 5_000L)
+
+        assertTrue(result.isFailure, "there is no row to open")
+    }
 }

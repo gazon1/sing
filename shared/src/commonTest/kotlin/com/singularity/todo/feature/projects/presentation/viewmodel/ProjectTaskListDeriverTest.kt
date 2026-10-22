@@ -34,7 +34,7 @@ class ProjectTaskListDeriverTest {
         dueDate: LocalDate? = null,
         completed: Boolean = false,
         archived: Boolean = false,
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         updatedAt: Instant = at,
     ): Task = Task(
         id = TaskId(id),
@@ -43,7 +43,7 @@ class ProjectTaskListDeriverTest {
         dueDate = dueDate,
         completedAt = if (completed) at else null,
         archivedAt = if (archived) at else null,
-        dependsOn = dependsOn,
+        blockedBy = blockedBy,
         createdAt = at,
         updatedAt = updatedAt,
         userId = owner,
@@ -77,7 +77,7 @@ class ProjectTaskListDeriverTest {
     @Test
     fun `hideBlocked drops tasks with an unfinished dependency`() {
         val blocker = task("blocker")
-        val blocked = task("blocked", dependsOn = setOf(TaskId("blocker")))
+        val blocked = task("blocked", blockedBy = setOf(TaskId("blocker")))
         val free = task("free")
 
         val tasks = listOf(blocker, blocked, free)
@@ -105,7 +105,7 @@ class ProjectTaskListDeriverTest {
     @Test
     fun `completing a dependency unblocks its dependent, and hiding it changes nothing`() {
         val blocker = task("blocker", completed = true)
-        val blocked = task("blocked", dependsOn = setOf(TaskId("blocker")))
+        val blocked = task("blocked", blockedBy = setOf(TaskId("blocker")))
         val tasks = listOf(blocker, blocked)
 
         assertEquals(
@@ -238,7 +238,7 @@ class ProjectTaskListDeriverTest {
     @Test
     fun `an archived dependency does not block`() {
         val trashed = task("blocker", archived = true)
-        val blocked = task("blocked", dependsOn = setOf(TaskId("blocker")))
+        val blocked = task("blocked", blockedBy = setOf(TaskId("blocker")))
 
         assertEquals(
             emptySet(),

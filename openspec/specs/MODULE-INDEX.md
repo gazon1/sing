@@ -45,9 +45,9 @@ Author one **when a change touches that module** — not before.
 | `core/platform` (time) | `core/time-semantics` | `2026-09-27-remove-platform-clock-object`, `2026-10-01-startdate-vs-duedate-semantics` |
 | `core/files`, `core/backup` | `core/backup-codec` | `2026-09-29-kotlinx-datetime-androidapp-missing` |
 | `core/reminders` | `core/reminder-scheduling` | `2026-09-22-alarmmanager-reminders` |
-| `feature/tasks` | `tasks/task-lifecycle` | `2026-09-23-task-dependencies-completion`; the open `blocked-completion-guard` change (2026-10-21) adds the blocked-completion requirement to the `tasks` capability and the `projects/project-closing` capability for `feature/projects` |
+| `feature/tasks` | `tasks/task-lifecycle` | `2026-09-23-task-dependencies-completion`; the open `blocked-completion-guard` change (2026-10-21) adds the blocked-completion requirement to the `tasks` capability and the `projects/project-closing` capability for `feature/projects`; the open `close-rule-consolidation` change (2026-10-22) gives the blocking rule one owner, moves the refusal into the write, and adds the bulk close and the reopen cascade |
 | `feature/agenda` | `agenda/saved-views` | `2026-09-16-agenda-mr4-saved-views-create-reorder` |
-| `feature/projects` | `projects/project-closing` | `2026-09-08-projects-ux-rework`; the open `blocked-completion-guard` change (2026-10-21) authors `projects/project-closing` — closing a project, and the cascade to its open tasks |
+| `feature/projects` | `projects/project-closing` | `2026-09-08-projects-ux-rework`; the open `blocked-completion-guard` change (2026-10-21) authors `projects/project-closing` — closing a project, and the cascade to its open tasks; the open `close-rule-consolidation` change (2026-10-22) makes the cascade land as a whole and opens a closed project when one of its tasks comes back to work |
 | `feature/notes` | `notes/note-links` | `2026-10-02-note-entity-dual-task-linkage`, `2026-09-07-notes-internal-links-backlinks`, `2026-09-09-notes-outgoing-links-extraction` |
 | `feature/calendar` | `calendar/entry-navigation` | — |
 | `feature/ai` | `ai/tool-registry` | `2026-09-07-write-tools-in-koog-registry`, `2026-09-26-writer-reviewer-pattern` |

@@ -37,14 +37,14 @@ class TaskHealthTest {
         id: String,
         due: LocalDate? = null,
         updated: Instant = now,
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         completed: Instant? = null,
         trashed: Instant? = null,
     ) = Task(
         id = TaskId(id),
         title = "task $id",
         dueDate = due,
-        dependsOn = dependsOn,
+        blockedBy = blockedBy,
         completedAt = completed,
         archivedAt = trashed,
         createdAt = now - 100.days,
@@ -65,7 +65,7 @@ class TaskHealthTest {
             "t1",
             due = today.minus(1, DateTimeUnit.DAY),
             updated = now - 90.days,
-            dependsOn = setOf(blocker.id),
+            blockedBy = setOf(blocker.id),
         )
         val summary = summarizeTaskHealthFromSelectors(
             listOf(blocker, t),
@@ -83,7 +83,7 @@ class TaskHealthTest {
     @Test
     fun `blocked is reported only when dependency is unfinished`() {
         val blocker = task("blocker")
-        val t = task("t1", dependsOn = setOf(blocker.id))
+        val t = task("t1", blockedBy = setOf(blocker.id))
 
         val summary = summarizeTaskHealthFromSelectors(
             listOf(blocker, t),
@@ -99,7 +99,7 @@ class TaskHealthTest {
     @Test
     fun `a blocked task whose dependency is done is not blocked`() {
         val blocker = task("blocker", completed = now - 2.days)
-        val t = task("t1", dependsOn = setOf(blocker.id))
+        val t = task("t1", blockedBy = setOf(blocker.id))
 
         val summary = summarizeTaskHealthFromSelectors(
             listOf(blocker, t),
@@ -191,7 +191,7 @@ class TaskHealthTest {
         val blocker = task("blocker")
         val tasks = listOf(
             task("overdue", due = today.minus(1, DateTimeUnit.DAY)),
-            task("blocked", dependsOn = setOf(blocker.id)),
+            task("blocked", blockedBy = setOf(blocker.id)),
             task("stagnant", updated = now - 40.days),
             task("fine"),
             blocker,
@@ -326,7 +326,7 @@ class TaskHealthTest {
         val blocker = task("blocker")
         val tasks = listOf(
             task("overdue", due = today.minus(3, DateTimeUnit.DAY)),
-            task("blocked", dependsOn = setOf(blocker.id)),
+            task("blocked", blockedBy = setOf(blocker.id)),
             task("stagnant", updated = now - 50.days),
             task("fine"),
             blocker,

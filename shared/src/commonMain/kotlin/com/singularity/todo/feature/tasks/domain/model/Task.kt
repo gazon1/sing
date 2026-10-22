@@ -8,6 +8,7 @@ import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
@@ -133,7 +134,7 @@ data class Task(
      * ## Blocking
      *
      * A task is **blocked** when any of its dependencies is not yet completed.
-     * Computed via [com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isBlocked]
+     * Computed via [com.singularity.todo.feature.tasks.domain.logic.Blocking.isBlocked]
      * using the full task list in scope (VM `combine`).
      *
      * ## Only the blocking edges are here
@@ -144,10 +145,21 @@ data class Task(
      * bug this narrowing fixes. The graph itself keeps every edge — the cycle
      * analysis, the backup export and the typed read still see them all.
      *
+     * ## Why the serialized name is the old one
+     *
+     * The property is called [blockedBy] because that is what it holds, but the
+     * wire name stays `dependsOn`: the field is already in the sync allow-list
+     * and in every backup ever written, and the server stores documents by that
+     * name. Renaming the domain without renaming the wire would have split one
+     * concept into two names on the two sides of a boundary that cannot be
+     * renegotiated per device. The domain says what it means; the wire keeps
+     * saying what it has always said.
+     *
      * @see 2026-09-18-task-dependencies
      * @see 2026-10-21-blocked-completion-guard
      */
-    val dependsOn: Set<TaskId> = emptySet(),
+    @SerialName("dependsOn")
+    val blockedBy: Set<TaskId> = emptySet(),
     /**
      * Tag IDs that the AI has suggested removing, and which the user has suppressed.
      * Suppressed tags are excluded from AI prompts so they are not re-proposed.

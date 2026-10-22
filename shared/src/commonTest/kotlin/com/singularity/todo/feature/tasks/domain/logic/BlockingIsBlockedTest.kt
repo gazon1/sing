@@ -1,7 +1,6 @@
-package com.singularity.todo.feature.tasks.domain
+package com.singularity.todo.feature.tasks.domain.logic
 
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -12,12 +11,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Tests for [TaskComputed.isBlocked].
+ * Tests for [Blocking.isBlocked].
  *
  * These are pure domain tests — no database, no repository, no Compose.
  */
 @Tag("fast")
-class ComputedIsBlockedTest {
+class BlockingIsBlockedTest {
 
     private val userId = UserId("test-user")
     private val epoch = kotlin.time.Instant.fromEpochMilliseconds(0)
@@ -25,7 +24,7 @@ class ComputedIsBlockedTest {
     private fun makeTask(
         id: String,
         title: String = "Task $id",
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         completedAt: kotlin.time.Instant? = null,
         archivedAt: kotlin.time.Instant? = null, // null = not trashed
     ): Task =
@@ -34,7 +33,7 @@ class ComputedIsBlockedTest {
             title = title,
             kind = TaskKind.Task,
             priority = TaskPriority.None,
-            dependsOn = dependsOn,
+            blockedBy = blockedBy,
             completedAt = completedAt,
             createdAt = epoch,
             updatedAt = epoch,
@@ -48,7 +47,7 @@ class ComputedIsBlockedTest {
     fun `task with no dependencies is never blocked`() {
         val task = makeTask("1")
         val allTasks = listOf(task)
-        assertFalse(TaskComputed.isBlocked(task, allTasks))
+        assertFalse(Blocking.isBlocked(task, allTasks))
     }
 
     // ─── Active dependency ───────────────────────────────────────────────────
@@ -56,15 +55,15 @@ class ComputedIsBlockedTest {
     @Test
     fun `task is blocked when a dependency is incomplete`() {
         val dep = makeTask("dep", "Dependency")
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")))
-        assertTrue(TaskComputed.isBlocked(task, listOf(task, dep)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")))
+        assertTrue(Blocking.isBlocked(task, listOf(task, dep)))
     }
 
     @Test
     fun `task is not blocked when all dependencies are completed`() {
         val dep = makeTask("dep", "Dependency", completedAt = epoch)
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")))
-        assertFalse(TaskComputed.isBlocked(task, listOf(task, dep)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")))
+        assertFalse(Blocking.isBlocked(task, listOf(task, dep)))
     }
 
     // ─── Trashed dependency ─────────────────────────────────────────────────
@@ -72,8 +71,8 @@ class ComputedIsBlockedTest {
     @Test
     fun `trashed dependency is not a blocker`() {
         val dep = makeTask("dep", "Dependency", archivedAt = epoch)
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")))
-        assertFalse(TaskComputed.isBlocked(task, listOf(task, dep)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")))
+        assertFalse(Blocking.isBlocked(task, listOf(task, dep)))
     }
 
     // ─── Multiple dependencies ───────────────────────────────────────────────
@@ -82,16 +81,16 @@ class ComputedIsBlockedTest {
     fun `task is blocked when any dependency is incomplete`() {
         val dep1 = makeTask("dep1", "Dep 1", completedAt = epoch)
         val dep2 = makeTask("dep2", "Dep 2") // incomplete
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep1"), TaskId("dep2")))
-        assertTrue(TaskComputed.isBlocked(task, listOf(task, dep1, dep2)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep1"), TaskId("dep2")))
+        assertTrue(Blocking.isBlocked(task, listOf(task, dep1, dep2)))
     }
 
     @Test
     fun `task is not blocked when all multiple dependencies are complete`() {
         val dep1 = makeTask("dep1", "Dep 1", completedAt = epoch)
         val dep2 = makeTask("dep2", "Dep 2", completedAt = epoch)
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep1"), TaskId("dep2")))
-        assertFalse(TaskComputed.isBlocked(task, listOf(task, dep1, dep2)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep1"), TaskId("dep2")))
+        assertFalse(Blocking.isBlocked(task, listOf(task, dep1, dep2)))
     }
 
     // ─── Missing dependency ─────────────────────────────────────────────────
@@ -100,16 +99,16 @@ class ComputedIsBlockedTest {
     fun `task is not blocked when dependency ID is not in allTasks (unknown dep not a blocker)`() {
         // An unknown dep ID is absent from allTasks, so dep = null, and the any{} returns false.
         // This is a data-integrity issue (stale dep ID) but isBlocked = false by design.
-        val task = makeTask("1", dependsOn = setOf(TaskId("unknown-dep")))
-        assertFalse(TaskComputed.isBlocked(task, listOf(task)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("unknown-dep")))
+        assertFalse(Blocking.isBlocked(task, listOf(task)))
     }
 
     // ─── Self-dependency ────────────────────────────────────────────────────
 
     @Test
     fun `self-dependency blocks the task`() {
-        val task = makeTask("1", dependsOn = setOf(TaskId("1")))
-        assertTrue(TaskComputed.isBlocked(task, listOf(task)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("1")))
+        assertTrue(Blocking.isBlocked(task, listOf(task)))
     }
 
     // ─── Completed dependent task ───────────────────────────────────────────
@@ -119,7 +118,7 @@ class ComputedIsBlockedTest {
         // isBlocked checks if the *dependent's* deps are incomplete, regardless of the
         // dependent's own completion state. The dep here is incomplete → blocked.
         val dep = makeTask("dep", "Dependency") // incomplete
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")), completedAt = epoch)
-        assertTrue(TaskComputed.isBlocked(task, listOf(task, dep)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")), completedAt = epoch)
+        assertTrue(Blocking.isBlocked(task, listOf(task, dep)))
     }
 }

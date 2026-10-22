@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.agenda.domain.logic
 
 import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -16,7 +16,7 @@ import kotlinx.datetime.LocalDate
  *
  * | Priority | Badge | Condition |
  * |---|---|---|
- * | 1 | Blocked | [TaskComputed.isBlocked] — has incomplete dependencies |
+ * | 1 | Blocked | [Blocking.isBlocked] — has incomplete dependencies |
  * | 2 | Pinned | [Task.isPinned] |
  * | 3 | Recurring | [Task.recurrence] is non-null |
  * | 4 | Completed | [Task.isCompleted] |
@@ -31,18 +31,18 @@ import kotlinx.datetime.LocalDate
  *
  * @param task The task to evaluate.
  * @param today The reference date for overdue / active checks.
- * @param allTasks Required only when [TaskComputed.isBlocked] needs to be evaluated.
+ * @param allTasks Required only when [Blocking.isBlocked] needs to be evaluated.
  *                 Pass an empty list when badge evaluation for blocked tasks is not needed.
  */
 fun computeAgendaBadge(task: Task, today: LocalDate, allTasks: List<Task> = emptyList()): AgendaBadge? {
-    val blockedIds = TaskComputed.blockedIds(allTasks)
+    val blockedIds = Blocking.blockedTaskIds(allTasks)
     return computeAgendaBadge(task, today, blockedIds)
 }
 
 /**
  * Badge for a task whose blocked-ness is already known.
  *
- * The batch form: [blockedIds] comes from one [TaskComputed.blockedIds] call for
+ * The batch form: [blockedIds] comes from one [Blocking.blockedTaskIds] call for
  * the whole list, so a caller rendering many rows does not rebuild the lookup
  * table once per row — which is what made the old per-task path quadratic.
  *

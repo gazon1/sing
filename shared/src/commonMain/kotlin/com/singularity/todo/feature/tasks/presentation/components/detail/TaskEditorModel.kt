@@ -36,7 +36,7 @@ import kotlinx.datetime.LocalTime
  * @param attachments List of attachments.
  * @param recurrence Current recurrence rule (null = not repeating).
  * @param isPinned Whether the task is pinned.
- * @param dependsOn Set of task IDs this task depends on.
+ * @param blockedBy Set of task IDs this task depends on.
  * @param availableTasks Tasks available for dependency picker (reactive).
  */
 data class TaskEditorModel(
@@ -52,7 +52,7 @@ data class TaskEditorModel(
     val attachments: List<Attachment> = emptyList(),
     val recurrence: RecurrenceSpec? = null,
     val isPinned: Boolean = false,
-    val dependsOn: Set<TaskId> = emptySet(),
+    val blockedBy: Set<TaskId> = emptySet(),
     val availableTasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
     /** Estimated time in minutes. Null means no estimate has been set. */
     val estimateMinutes: Int? = null,

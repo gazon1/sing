@@ -40,7 +40,7 @@ data class TaskUi(
     val isOverdue: Boolean = false,
     val isSelected: Boolean = false,
     /** MR-1: IDs of tasks that must be completed before this task. */
-    val dependsOn: Set<TaskId> = emptySet(),
+    val blockedBy: Set<TaskId> = emptySet(),
     /** MR-1: true when at least one dependency is not yet completed. */
     val isBlocked: Boolean = false,
 ) {
@@ -53,13 +53,13 @@ data class TaskUi(
  * [today] is used to compute [isOverdue]. [projectNamesById] maps
  * [ProjectId.value][com.singularity.todo.feature.projects.domain.model.ProjectId.value] to
  * the project name string.
- * [dependsOn] and [isBlocked] are passed from the list-building context — they default
+ * [blockedBy] and [isBlocked] are passed from the list-building context — they default
  * to the task's own field and `false` respectively when the full task list is not available.
  */
 fun Task.toTaskUi(
     today: LocalDate,
     projectNamesById: Map<String, String>,
-    dependsOn: Set<TaskId> = this.dependsOn,
+    blockedBy: Set<TaskId> = this.blockedBy,
     isBlocked: Boolean = false,
 ): TaskUi = TaskUi(
     id = this.id,
@@ -72,7 +72,7 @@ fun Task.toTaskUi(
     isOverdue = TaskComputed.isOverdue(this, today),
     isPinned = this.isPinned,
     priority = this.priority,
-    dependsOn = dependsOn,
+    blockedBy = blockedBy,
     isBlocked = isBlocked,
 )
 

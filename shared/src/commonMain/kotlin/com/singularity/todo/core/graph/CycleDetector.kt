@@ -40,7 +40,7 @@ sealed class CycleError : Exception() {
  * ## When to use
  *
  * Use this when **adding or moving** a directed edge in a graph (e.g. setting
- * `task.dependsOn`, `task.parentTaskId`, `project.parentId`, `note.parentNoteId`).
+ * `task.blockedBy`, `task.parentTaskId`, `project.parentId`, `note.parentNoteId`).
  * The detector checks whether adding `node → newParent` would create a cycle.
  *
  * For **read-only** traversal with cycle detection, prefer [com.singularity.todo.core.tree.Cascade]

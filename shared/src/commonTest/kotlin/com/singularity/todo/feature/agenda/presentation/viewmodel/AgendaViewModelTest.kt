@@ -17,7 +17,9 @@ import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -101,6 +103,9 @@ class AgendaViewModelTest {
         userId = UserId("test-user"),
     )
 
+    private val fakeProjectsRepo = FakeProjectsRepository()
+    private val completion = TaskReopenUseCase(fakeRepo, fakeProjectsRepo, FakeClock(now))
+
     private fun TestScope.createVm(scope: AutoCloseableCoroutineScope) = AgendaViewModel(
         deps = AgendaDeps(
             taskRepo = fakeRepo,
@@ -111,6 +116,7 @@ class AgendaViewModelTest {
             reminderScheduler = fakeReminderScheduler,
             currentUser = fakeCurrentUser,
             taskMutations = fakeTaskMutations,
+            completion = completion,
             workScheduleSettings = fakeSettings.workSchedule,
             greetingSettings = fakeSettings.greeting,
         ),
@@ -216,6 +222,7 @@ class AgendaViewModelTest {
                     reminderScheduler = fakeReminderScheduler,
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
+                    completion = completion,
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -443,6 +450,7 @@ class AgendaViewModelTest {
                     reminderScheduler = recordingScheduler(cancelled),
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
+                    completion = completion,
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -483,6 +491,7 @@ class AgendaViewModelTest {
                     reminderScheduler = recordingScheduler(cancelled),
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
+                    completion = completion,
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -570,14 +579,14 @@ class AgendaViewModelTest {
     }
 
     @Test
-    fun `a failed toggleComplete reports the failure`() = withVm { vm ->
+    fun `a failed completion reports the failure`() = withVm { vm ->
         fakeRepo.seed(task("t1", "Doomed"))
         runCurrent()
 
         val events = mutableListOf<AgendaUiEvent>()
         val collector = launch { vm.events.collect { events += it } }
         try {
-            fakeRepo.toggleCompleteOverride = Result.failure(IllegalStateException("disk full"))
+            fakeRepo.completeOverride = Result.failure(IllegalStateException("disk full"))
             vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
             runCurrent()
 
@@ -660,6 +669,7 @@ class AgendaViewModelTest {
                     reminderScheduler = fakeReminderScheduler,
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
+                    completion = completion,
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = customGreeting,
                 ),
@@ -690,6 +700,7 @@ class AgendaViewModelTest {
                     reminderScheduler = fakeReminderScheduler,
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
+                    completion = completion,
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -740,7 +751,7 @@ class AgendaViewModelTest {
     fun `a task with an unfinished prerequisite is not closed and asks instead`() = withVm { vm ->
         fakeRepo.seed(
             task("dep", "Dependency"),
-            task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))),
+            task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
         )
         runCurrent()
 
@@ -760,7 +771,7 @@ class AgendaViewModelTest {
     fun `confirming the request closes the task`() = withVm { vm ->
         fakeRepo.seed(
             task("dep", "Dependency"),
-            task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))),
+            task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
         )
         runCurrent()
 
@@ -780,7 +791,7 @@ class AgendaViewModelTest {
     fun `dismissing the request leaves the task alone`() = withVm { vm ->
         fakeRepo.seed(
             task("dep", "Dependency"),
-            task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))),
+            task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))),
         )
         runCurrent()
 
@@ -814,7 +825,7 @@ class AgendaViewModelTest {
     @Test
     fun `a finished prerequisite does not ask`() = withVm { vm ->
         val done = task("dep", "Dependency").copy(completedAt = now)
-        fakeRepo.seed(done, task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))))
+        fakeRepo.seed(done, task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep"))))
         runCurrent()
 
         vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))

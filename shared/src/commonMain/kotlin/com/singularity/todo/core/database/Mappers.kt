@@ -110,10 +110,10 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
 
 /**
  * Converts a [TaskEntity] to a domain [Task].
- * Tags and dependsOn are populated from the bundled [TaskExtras] when loading lists.
- * For single-task observes use [TaskRepository.observeDependencies] separately.
+ * Tags and blockedBy are populated from the bundled [TaskExtras] when loading lists.
+ * A single task is read through the same extras, so both carry the same edges.
  */
-internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), dependsOn: Set<TaskId> = emptySet()): Task = Task(
+internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), blockedBy: Set<TaskId> = emptySet()): Task = Task(
     id = id.toId(),
     title = title,
     description = description,
@@ -134,7 +134,7 @@ internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), dependsOn: Set<T
     someday = someday,
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
-    dependsOn = dependsOn,
+    blockedBy = blockedBy,
     aiSuppressedTagIds = StableJson.decodeFromString(
         SetSerializer(String.serializer()),
         aiSuppressedTagIds,

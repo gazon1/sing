@@ -38,7 +38,7 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
  * The existing `TaskRepositoryImplTest` exercises `FakeTaskRepository`, not this
  * class, so nothing previously covered whether a task mutation actually reaches
  * the sync outbox. That is the defect this file pins down: `softDelete`,
- * `restore`, `toggleComplete`, `togglePinned`, `setTags` and `setDependencies`
+ * `restore`, `complete`, `togglePinned`, `setTags` and `setDependencies`
  * all wrote to Room and silently dropped the sync, so deletions never reached
  * the server and the next pull resurrected them.
  */
@@ -141,13 +141,13 @@ class TaskRepositorySyncPropagationTest {
     }
 
     @Test
-    fun `toggleComplete enqueues`() = runTest {
+    fun `complete enqueues`() = runTest {
         repo.create(task())
         sync.enqueuedEntities.clear()
 
-        val result = repo.toggleComplete(TaskId("t1"))
+        val result = repo.complete(TaskId("t1"))
 
-        assertTrue(result.isSuccess, "toggleComplete failed: ${result.exceptionOrNull()}")
+        assertTrue(result.isSuccess, "complete failed: ${result.exceptionOrNull()}")
         assertEquals(1, sync.enqueuedEntities.size)
     }
 
@@ -191,7 +191,7 @@ class TaskRepositorySyncPropagationTest {
     }
 
     @Test
-    fun `setDependencies enqueues, because dependsOn is part of the synced payload`() = runTest {
+    fun `setDependencies enqueues, because blockedBy is part of the synced payload`() = runTest {
         repo.create(task())
         repo.create(task(title = "Other", id = "t2"))
         sync.enqueuedEntities.clear()
@@ -206,7 +206,7 @@ class TaskRepositorySyncPropagationTest {
     fun `mutations on a missing task fail instead of reporting success`() = runTest {
         // The old `?: return@runCatching` made "not found" indistinguishable
         // from "toggled" — a Result.success that lied.
-        assertTrue(repo.toggleComplete(TaskId("nope")).isFailure)
+        assertTrue(repo.complete(TaskId("nope")).isFailure)
         assertTrue(repo.togglePinned(TaskId("nope")).isFailure)
         assertTrue(repo.softDelete(TaskId("nope")).isFailure)
         assertTrue(repo.restore(TaskId("nope")).isFailure)

@@ -30,7 +30,7 @@ class BlockingTest {
     private fun makeTask(
         id: String,
         title: String = "Task $id",
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         completedAt: kotlin.time.Instant? = null,
         archivedAt: kotlin.time.Instant? = null,
     ): Task =
@@ -39,7 +39,7 @@ class BlockingTest {
             title = title,
             kind = TaskKind.Task,
             priority = TaskPriority.None,
-            dependsOn = dependsOn,
+            blockedBy = blockedBy,
             completedAt = completedAt,
             createdAt = epoch,
             updatedAt = epoch,
@@ -52,42 +52,42 @@ class BlockingTest {
     @Test
     fun `a task with no dependencies has no blockers`() {
         val task = makeTask("1")
-        assertTrue(activeBlockers(task, listOf(task)).isEmpty())
+        assertTrue(Blocking.activeBlockers(task, listOf(task)).isEmpty())
     }
 
     @Test
     fun `an unfinished prerequisite is a blocker`() {
         val dep = makeTask("dep", "Dependency")
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")))
-        assertEquals(listOf(dep), activeBlockers(task, listOf(task, dep)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")))
+        assertEquals(listOf(dep), Blocking.activeBlockers(task, listOf(task, dep)))
     }
 
     @Test
     fun `a finished prerequisite is not a blocker`() {
         val dep = makeTask("dep", "Dependency", completedAt = epoch)
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")))
-        assertTrue(activeBlockers(task, listOf(task, dep)).isEmpty())
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")))
+        assertTrue(Blocking.activeBlockers(task, listOf(task, dep)).isEmpty())
     }
 
     @Test
     fun `a discarded prerequisite is not a blocker`() {
         val dep = makeTask("dep", "Dependency", archivedAt = epoch)
-        val task = makeTask("1", dependsOn = setOf(TaskId("dep")))
-        assertTrue(activeBlockers(task, listOf(task, dep)).isEmpty())
+        val task = makeTask("1", blockedBy = setOf(TaskId("dep")))
+        assertTrue(Blocking.activeBlockers(task, listOf(task, dep)).isEmpty())
     }
 
     @Test
     fun `a prerequisite that no longer exists is not a blocker`() {
-        val task = makeTask("1", dependsOn = setOf(TaskId("gone")))
-        assertTrue(activeBlockers(task, listOf(task)).isEmpty())
+        val task = makeTask("1", blockedBy = setOf(TaskId("gone")))
+        assertTrue(Blocking.activeBlockers(task, listOf(task)).isEmpty())
     }
 
     @Test
     fun `only the unfinished prerequisites are blockers`() {
         val done = makeTask("done", "Done", completedAt = epoch)
         val open = makeTask("open", "Open")
-        val task = makeTask("1", dependsOn = setOf(TaskId("done"), TaskId("open")))
-        assertEquals(listOf(open), activeBlockers(task, listOf(task, done, open)))
+        val task = makeTask("1", blockedBy = setOf(TaskId("done"), TaskId("open")))
+        assertEquals(listOf(open), Blocking.activeBlockers(task, listOf(task, done, open)))
     }
 
     // ─── The batch form ──────────────────────────────────────────────────────
@@ -96,11 +96,11 @@ class BlockingTest {
     fun `the batch form agrees with the per-task form`() {
         val done = makeTask("done", "Done", completedAt = epoch)
         val open = makeTask("open", "Open")
-        val blocked = makeTask("blocked", "Blocked", dependsOn = setOf(TaskId("open")))
+        val blocked = makeTask("blocked", "Blocked", blockedBy = setOf(TaskId("open")))
         val free = makeTask("free", "Free")
         val all = listOf(done, open, blocked, free)
 
-        val byTask = activeBlockersByTask(all)
+        val byTask = Blocking.activeBlockersByTask(all)
 
         assertEquals(listOf(open), byTask[TaskId("blocked")])
         assertFalse(byTask.containsKey(TaskId("free")))
@@ -111,18 +111,18 @@ class BlockingTest {
     @Test
     fun `the batch form is empty when nothing depends on anything`() {
         val all = listOf(makeTask("1"), makeTask("2"))
-        assertTrue(activeBlockersByTask(all).isEmpty())
+        assertTrue(Blocking.activeBlockersByTask(all).isEmpty())
     }
 
     @Test
     fun `the batch form answers the same question the badge answers`() {
         val open = makeTask("open", "Open")
-        val blocked = makeTask("blocked", "Blocked", dependsOn = setOf(TaskId("open")))
+        val blocked = makeTask("blocked", "Blocked", blockedBy = setOf(TaskId("open")))
         val all = listOf(open, blocked)
 
-        val byTask = activeBlockersByTask(all)
+        val byTask = Blocking.activeBlockersByTask(all)
         all.forEach { task ->
-            val blockedIds = TaskComputed.blockedIds(all)
+            val blockedIds = Blocking.blockedTaskIds(all)
             assertEquals(task.id in blockedIds, byTask.containsKey(task.id))
         }
     }

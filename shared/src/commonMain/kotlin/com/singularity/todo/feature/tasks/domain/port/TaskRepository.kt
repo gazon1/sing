@@ -6,7 +6,6 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
@@ -73,7 +72,43 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     suspend fun deleteAllForCurrentProfile(): Result<Int>
 
     suspend fun softDelete(id: TaskId): Result<Unit>
-    suspend fun toggleComplete(id: TaskId): Result<Unit>
+
+    /**
+     * Completes the task, stamping it with the repository's own clock.
+     *
+     * ## The refusal
+     *
+     * A task whose prerequisite is still open is not completed: the write is
+     * refused and the answer says so. The refusal is not a check that runs
+     * before the write — it *is* the write, a statement that completes the task
+     * only while nothing stands in the way. A check-then-write would have a
+     * window between the two, and the window is where another device reopens
+     * the prerequisite.
+     *
+     * @param id the task to complete.
+     * @param force complete even while a prerequisite is open. The caller passes
+     *   `true` only after the user has confirmed.
+     * @return `true` when the task was completed, `false` when the completion
+     *   was refused because a prerequisite is still open.
+     */
+    suspend fun complete(id: TaskId, force: Boolean = false): Result<Boolean>
+
+    /**
+     * Takes a completed task back into work.
+     *
+     * Never gated: a task that was closed can always be opened again, and the
+     * direction of the change is the user's business, not the dependency
+     * graph's.
+     */
+    suspend fun reopen(id: TaskId): Result<Unit>
+
+    /**
+     * The ids among [taskIds] that have an open blocking prerequisite.
+     *
+     * A targeted read — the edges of the given tasks only, not the whole task
+     * list.
+     */
+    suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId>
     suspend fun togglePinned(id: TaskId): Result<Unit>
     suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor = TagEditActor.User): Result<Unit>
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
@@ -117,21 +152,4 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * Re-subscribes automatically when the user changes.
      */
     fun observeSubtasks(parentId: TaskId): Flow<List<Task>>
-
-    /**
-     * Returns the set of task IDs that [taskId] depends on (is blocked by).
-     * The forward direction of the dependency graph. Drops verb information.
-     */
-    fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>>
-
-    /**
-     * Returns typed dependency edges for [taskId].
-     */
-    fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>>
-
-    /**
-     * Returns the set of task IDs that are blocked by [taskId] — i.e., the tasks
-     * that depend on [taskId]. The reverse direction of the dependency graph.
-     */
-    fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>>
 }

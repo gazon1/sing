@@ -618,6 +618,35 @@ private class FakeTaskDao(
     override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(completedAt = null, updatedAt = ts) }
 
+    override suspend fun markCompleteIfNotBlockedForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+        verb: String,
+    ): Int {
+        val task = store.value[id]?.takeIf { it.userId == userId } ?: return 0
+        val blockerOpen = depRefs.value.any { ref ->
+            ref.taskId == id &&
+                ref.verb == verb &&
+                store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
+        }
+        if (blockerOpen) return 0
+        return mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
+    }
+
+    override suspend fun blockedTaskIdsForUser(
+        taskIds: List<String>,
+        userId: String,
+        verb: String,
+    ): List<String> = depRefs.value
+        .filter { ref ->
+            ref.taskId in taskIds &&
+                ref.verb == verb &&
+                store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
+        }
+        .map { it.taskId }
+        .distinct()
+
     override suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(isPinned = pinned, updatedAt = ts) }
 
@@ -991,6 +1020,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     }
     override suspend fun closeForUser(id: String, ts: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(closedAt = ts, updatedAt = ts) }
+    override suspend fun reopenForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { if (it.closedAt == null) it else it.copy(closedAt = null, updatedAt = ts) }
     override suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
     override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =

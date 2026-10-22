@@ -120,6 +120,7 @@ class TaskDetailCoordinatorGraphTest {
                 updateTask = koin.get(),
                 createTask = koin.get(),
                 completeRecurring = koin.get(),
+                completion = koin.get(),
             ),
             children = com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps(
                 checklistRepository = koin.get(),

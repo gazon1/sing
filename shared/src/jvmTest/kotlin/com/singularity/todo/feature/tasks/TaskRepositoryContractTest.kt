@@ -164,24 +164,24 @@ abstract class TaskRepositoryContractTest {
     // ─── Complete ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `toggleComplete flips completed_at`() = runTest {
+    fun `complete stamps completed_at`() = runTest {
         val repo = newRepository(alice)
         repo.create(task("t1"))
         advanceUntilIdle()
-        repo.toggleComplete(TaskId("t1"))
+        repo.complete(TaskId("t1")).getOrThrow()
         advanceUntilIdle()
         val t1 = repo.observeAll().first().first { it.id.value == "t1" }
         assertNotNull(t1.completedAt)
     }
 
     @Test
-    fun `toggleComplete twice clears completed_at`() = runTest {
+    fun `complete then reopen clears completed_at`() = runTest {
         val repo = newRepository(alice)
         repo.create(task("t1"))
         advanceUntilIdle()
-        repo.toggleComplete(TaskId("t1"))
+        repo.complete(TaskId("t1")).getOrThrow()
         advanceUntilIdle()
-        repo.toggleComplete(TaskId("t1"))
+        repo.reopen(TaskId("t1")).getOrThrow()
         advanceUntilIdle()
         val t1 = repo.observeAll().first().first { it.id.value == "t1" }
         assertNull(t1.completedAt)

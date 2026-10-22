@@ -144,8 +144,10 @@ detail screen unguarded.
 - A confirmation dialog is state in the view model, not a one-shot event: a rotation
   must not silently cancel a pending confirmation.
 - Between the check and the write there is a window in which a blocker can appear or
-  disappear. The window is accepted: the operation is interactive, and the window is
-  narrow. It is not eliminated.
+  disappear. **Since 2026-10-22 this window is closed for the ordinary close**: the
+  refusal lives inside the write, so there is no separate check to race. The recurring
+  path still checks first — rolling a recurrence forward is a different write — and
+  keeps the window. See `2026-10-22-the-blocking-rule-has-one-owner`.
 - A write arriving from synchronisation, from a backup restore, or from an accepted
   AI proposal bypasses the check, and that is intended.
 - `Project.closedAt` participates in synchronisation and in the backup format, and
