@@ -21,6 +21,7 @@ import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolExecution
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -209,7 +210,7 @@ class ToolRegistrar(
 
         return try {
             val koogTool = tool as SimpleTool<Any>
-            val args: Any = koogTool.decodeArgs(koogArgs, serializer)
+            val args: Any = decodeArguments(koogTool, koogArgs)
 
             val resultString: String = koogTool.execute(args)
 
@@ -230,5 +231,34 @@ class ToolRegistrar(
         } catch (e: Exception) {
             ErrorMapper.toResult(McpToolError.Internal(e.message ?: "unknown", e))
         }
+    }
+
+    /**
+     * Decodes the caller's arguments into the tool's input.
+     *
+     * ## Why this is not an internal error
+     *
+     * Arguments that do not fit the tool — a missing field, a value outside the set the
+     * tool accepts — are the caller's mistake, and the caller can act on being told
+     * so: the text goes back with `isError: true` and the model reads it and tries
+     * again with something that fits.
+     *
+     * Letting it fall through to the internal tier made it a JSON-RPC error instead: a
+     * protocol-level failure the caller cannot correct, over a typo in an argument.
+     */
+    private fun decodeArguments(tool: SimpleTool<Any>, koogArgs: JSONObject): Any = try {
+        tool.decodeArgs(koogArgs, serializer)
+    } catch (malformed: SerializationException) {
+        throw McpToolError.Validation(
+            field = tool.descriptor.name,
+            text = "The arguments do not fit the tool \"${tool.descriptor.name}\": ${malformed.message}",
+            cause = malformed,
+        )
+    } catch (malformed: IllegalArgumentException) {
+        throw McpToolError.Validation(
+            field = tool.descriptor.name,
+            text = "The arguments do not fit the tool \"${tool.descriptor.name}\": ${malformed.message}",
+            cause = malformed,
+        )
     }
 }

@@ -11,12 +11,17 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileRepository
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -141,7 +146,7 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, scoped, "AI-Agent task A")
         seedTask(repo, UserId("local-user"), "Personal-only task") // must NOT show up
 
-        val tool = ListTasksTool(repo)
+        val tool = ListTasksTool(repo, FakeChecklistRepository(), FakeClock(), UtcTimeZone, FakeSettingsRepository())
         val output = tool.execute(ListTasksInput(limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
@@ -218,4 +223,9 @@ class ReadToolsProfileAwareTest {
         assertTrue("agent task" in titles)
         assertTrue("private personal task" !in titles, "personal data must not leak into agent search")
     }
+}
+
+/** A time zone provider that answers UTC, so a test's dates do not depend on the host. */
+private object UtcTimeZone : TimeZoneProvider {
+    override fun current(): TimeZone = TimeZone.UTC
 }

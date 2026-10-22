@@ -9,10 +9,15 @@ import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.RefineTaskInput
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -136,10 +141,18 @@ class KoogJsonSchemaBuilderTest {
 
     private fun listTasksTool() = ListTasksTool(
         taskRepository = FakeTaskRepository(),
+        checklistRepository = FakeChecklistRepository(),
+        clock = FakeClock(),
+        timeZoneProvider = UtcTimeZone,
+        settingsRepository = FakeSettingsRepository(),
     )
 
     private fun getTaskTool() = GetTaskTool(
         taskRepository = FakeTaskRepository(),
+        checklistRepository = FakeChecklistRepository(),
+        clock = FakeClock(),
+        timeZoneProvider = UtcTimeZone,
+        settingsRepository = FakeSettingsRepository(),
     )
 
     private fun searchTasksTool() = SearchTasksTool(
@@ -164,4 +177,9 @@ class KoogJsonSchemaBuilderTest {
         listLinkedTasksTool(),
         createTaskTool(),
     )
+
+    /** The zone the tests read dates in — UTC, so a date is a date. */
+    private object UtcTimeZone : TimeZoneProvider {
+        override fun current(): TimeZone = TimeZone.UTC
+    }
 }

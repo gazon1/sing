@@ -20,7 +20,19 @@ class SearchTasksTool(private val taskRepository: TaskRepository) :
         val tasks = taskRepository.observeByFilter(TaskFilter.All).first()
             .filter { it.title.contains(args.query, ignoreCase = true) }
             .take(args.limit)
-            .map { TaskSummary(it.id.value, it.title, it.isCompleted, it.projectId?.value) }
+            .map {
+                TaskSummary(
+                    id = it.id.value,
+                    title = it.title,
+                    projectId = it.projectId?.value,
+                    dueDate = it.dueDate?.toString(),
+                    priority = it.priority.name,
+                    tags = it.tags.map { tag -> tag.value },
+                    status = if (it.isCompleted) "completed" else "active",
+                    estimateMinutes = it.estimateMinutes,
+                    isPinned = it.isPinned,
+                )
+            }
         return kotlinx.serialization.json.Json.encodeToString(SearchTasksOutput.serializer(), SearchTasksOutput(tasks))
     }
 
