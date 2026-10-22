@@ -55,7 +55,6 @@ com.aallam.openai:openai-client
 
 # ─── Feature wiring not present (#211) ───────────────────────────────────────
 io.github.jan-tennert.supabase:functions-kt
-io.insert-koin:koin-compose-navigation3
 org.jetbrains.compose.components:components-resources
 
 # ─── Desktop-only engine (#211) ──────────────────────────────────────────────
