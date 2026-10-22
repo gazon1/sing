@@ -205,6 +205,58 @@ interface TaskDao {
     suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int
 
     /**
+     * Completes the task **unless** one of its prerequisites is still open.
+     *
+     * The condition lives in the statement rather than in a check that runs
+     * before it. A check-then-write is two statements with a window between
+     * them, and the window is where another device closes the prerequisite: the
+     * check said yes, the write said yes, and the task was closed while the
+     * work it was waiting for had just been reopened. Here the statement
+     * refuses, so the answer and the write are the same fact.
+     *
+     * Only the edges that block are considered — the ones with [verb]. The
+     * others describe a relationship ("follows up on", "duplicates") that does
+     * not make a task wait for anything.
+     *
+     * @return the number of rows written: `0` means the completion was refused
+     *   because a prerequisite is still open, and `1` means it landed.
+     */
+    @Query(
+        """
+        UPDATE tasks SET completed_at = :ts, updated_at = :ts
+        WHERE id = :id AND user_id = :userId
+          AND NOT EXISTS (
+            SELECT 1 FROM task_dependencies d
+            JOIN tasks b ON b.id = d.depends_on_task_id AND b.user_id = :userId
+            WHERE d.task_id = :id AND d.verb = :verb
+              AND b.completed_at IS NULL AND b.archived_at IS NULL
+          )
+        """,
+    )
+    suspend fun markCompleteIfNotBlockedForUser(id: String, ts: Long, userId: String, verb: String): Int
+
+    /**
+     * The ids among [taskIds] that have an open blocking prerequisite.
+     *
+     * A targeted read: it resolves the edges of the given tasks only, instead of
+     * loading the whole task list and walking it. The answer is the same, the
+     * cost is not — a project with a thousand tasks asks about ten of them.
+     *
+     * @param taskIds the tasks to judge.
+     * @param userId the owner of the rows.
+     * @param verb the edge kind that blocks.
+     */
+    @Query(
+        """
+        SELECT DISTINCT d.task_id FROM task_dependencies d
+        JOIN tasks b ON b.id = d.depends_on_task_id AND b.user_id = :userId
+        WHERE d.task_id IN (:taskIds) AND d.verb = :verb
+          AND b.completed_at IS NULL AND b.archived_at IS NULL
+        """,
+    )
+    suspend fun blockedTaskIdsForUser(taskIds: List<String>, userId: String, verb: String): List<String>
+
+    /**
      * Inserts a tag cross-ref only when the owning task belongs to [userId].
      *
      * Returns `Unit` because Room only permits `Unit`/`Long` from INSERT
@@ -727,6 +779,22 @@ interface ProjectDao {
      */
     @Query("UPDATE projects SET closed_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun closeForUser(id: String, ts: Long, userId: String): Int
+
+    /**
+     * Opens a closed project again.
+     *
+     * The mirror of [closeForUser], and as narrow as it: the project may have
+     * been renamed elsewhere since this device read it, and rewriting the row
+     * would put the old name back.
+     *
+     * Only a closed project is affected — the statement says so, so reopening
+     * an open project is a no-op rather than a rewrite.
+     */
+    @Query(
+        "UPDATE projects SET closed_at = NULL, updated_at = :ts " +
+            "WHERE id = :id AND user_id = :userId AND closed_at IS NOT NULL",
+    )
+    suspend fun reopenForUser(id: String, ts: Long, userId: String): Int
 
     @Query("UPDATE projects SET parent_id = :parentId, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int

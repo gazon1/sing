@@ -77,11 +77,16 @@ tags:
     timeout: 8000
 - tapOn:
     id: note_item_by_title_${RUN_ID}_meeting_notes
-# The preview is where the body is rendered.
-- extendedWaitUntil:
-    visible:
+# The preview is where the body is rendered. Its actions sit at the bottom of
+# a read-only page, which is below the fold on a phone viewport — so the action
+# is scrolled into view before it is asserted.
+- scrollUntilVisible:
+    element:
       id: note_action_edit
+    direction: DOWN
     timeout: 8000
+- assertVisible:
+    id: note_action_edit
 - assertVisible:
     text: "Discuss roadmap"
 - back

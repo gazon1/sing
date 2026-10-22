@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.agenda.domain
 
 import com.singularity.todo.feature.agenda.domain.logic.computeAgendaBadge
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isBlocked
+import com.singularity.todo.feature.tasks.domain.logic.Blocking.isBlocked
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -43,7 +43,7 @@ class AgendaBadgePolicyTest {
         completed: Boolean = false,
         pinned: Boolean = false,
         recurring: Boolean = false,
-        dependsOn: List<String> = emptyList(),
+        blockedBy: List<String> = emptyList(),
     ): Task = Task(
         id = TaskId(id),
         title = "Task $id",
@@ -65,7 +65,7 @@ class AgendaBadgePolicyTest {
         } else {
             null
         },
-        dependsOn = dependsOn.map { TaskId(it) }.toSet(),
+        blockedBy = blockedBy.map { TaskId(it) }.toSet(),
         dueDate = dueDate,
         tags = emptyList(),
     )
@@ -75,7 +75,7 @@ class AgendaBadgePolicyTest {
     @Test
     fun `Blocked badge when task has incomplete dependency`() {
         val dep = t("dep", completed = false)
-        val task = t("t", dependsOn = listOf("dep"))
+        val task = t("t", blockedBy = listOf("dep"))
         val all = listOf(dep, task)
         assertEquals(
             com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Blocked,
@@ -86,7 +86,7 @@ class AgendaBadgePolicyTest {
     @Test
     fun `Blocked does NOT fire when dependency is completed`() {
         val dep = t("dep", completed = true)
-        val task = t("t", dependsOn = listOf("dep"))
+        val task = t("t", blockedBy = listOf("dep"))
         val all = listOf(dep, task)
         // dep.isCompleted → isBlocked=false → priority falls through
         // (not pinned, not recurring, not completed) → dueDate == null → NoDate
@@ -150,7 +150,7 @@ class AgendaBadgePolicyTest {
     @Test
     fun `priority Blocked over Pinned`() {
         val dep = t("dep")
-        val pinnedBlocked = t("t", pinned = true, dependsOn = listOf("dep"))
+        val pinnedBlocked = t("t", pinned = true, blockedBy = listOf("dep"))
         assertEquals(
             com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Blocked,
             computeAgendaBadge(pinnedBlocked, today, listOf(dep, pinnedBlocked)),
@@ -179,28 +179,28 @@ class AgendaBadgePolicyTest {
     // ─── isBlocked ─────────────────────────────────────────────────────
 
     @Test
-    fun `isBlocked true when dependsOn contains incomplete task`() {
+    fun `isBlocked true when blockedBy contains incomplete task`() {
         val dep = t("dep", completed = false)
-        val task = t("t", dependsOn = listOf("dep"))
+        val task = t("t", blockedBy = listOf("dep"))
         assertTrue(isBlocked(task, listOf(dep, task)))
     }
 
     @Test
-    fun `isBlocked false when all dependsOn are completed`() {
+    fun `isBlocked false when all blockedBy are completed`() {
         val dep = t("dep", completed = true)
-        val task = t("t", dependsOn = listOf("dep"))
+        val task = t("t", blockedBy = listOf("dep"))
         assertFalse(isBlocked(task, listOf(dep, task)))
     }
 
     @Test
-    fun `isBlocked false when dependsOn is empty`() {
-        val task = t("t", dependsOn = emptyList())
+    fun `isBlocked false when blockedBy is empty`() {
+        val task = t("t", blockedBy = emptyList())
         assertFalse(isBlocked(task, listOf(task)))
     }
 
     @Test
     fun `isBlocked false when dependency does not exist in allTasks`() {
-        val task = t("t", dependsOn = listOf("non-existent"))
+        val task = t("t", blockedBy = listOf("non-existent"))
         assertFalse(isBlocked(task, listOf(task)))
     }
 
@@ -208,7 +208,7 @@ class AgendaBadgePolicyTest {
     fun `isBlocked considers archived tasks as blockers released`() {
         // Archived (trashed) dependency must not block — its blocker is released
         val archivedDep = t("dep", completed = false).copy(archivedAt = epoch0)
-        val task = t("t", dependsOn = listOf("dep"))
+        val task = t("t", blockedBy = listOf("dep"))
         assertFalse(isBlocked(task, listOf(archivedDep, task)))
     }
 }

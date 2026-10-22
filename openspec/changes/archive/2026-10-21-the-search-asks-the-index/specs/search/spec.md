@@ -121,3 +121,59 @@ every record for it would be the opposite of an answer.
 #### Scenario: A term of punctuation matches nothing
 - A search for a term of punctuation is made
 - No records are returned
+
+---
+
+### Requirement: REQ-SEARCH-008
+
+A quoted phrase **SHALL** return the records whose searchable text holds the
+words of the phrase next to each other, and **MUST NOT** return the records
+that hold the same words apart.
+
+**Rationale:** the phrase is one term, and the words of a term stand next to
+each other. An index that asks for the words as a conjunction answers a
+different question, and the answer then depends on whether the row happened to
+reach the index.
+
+#### Scenario: A phrase finds the words next to each other
+- A record's searchable text holds "Write the quarterly report"
+- A search for "quarterly report" is made
+- The record is returned
+
+#### Scenario: A phrase does not find the same words apart
+- A record's searchable text holds "quarterly annual report"
+- A search for "quarterly report" is made
+- The record is not returned
+
+---
+
+### Requirement: REQ-SEARCH-009
+
+A search whose term is negated **SHALL NOT** return the records that carry
+that term.
+
+**Rationale:** a negated term asks which records do *not* carry a word. The
+index has no `NOT` operator, so the rule answers this half in memory — and it
+has to answer it, or the term would be ignored.
+
+#### Scenario: A negated term rules the record out
+- Two records hold the word "alpha", and one of them holds "beta" as well
+- A search for "alpha NOT beta" is made
+- Only the record that does not hold "beta" is returned
+
+---
+
+### Requirement: REQ-SEARCH-010
+
+A search **SHALL** return the records whose word differs from the term only by
+its diacritics.
+
+**Rationale:** the index knows the tokenizer, and the tokenizer removes the
+diacritics of a word — "Café au lait" is indexed as "cafe au lait". The answer
+is the index's, and a search that found "café" for "cafe" in one place and not
+in another would be a rule with two answers.
+
+#### Scenario: A term finds the word without its diacritics
+- A record's searchable text holds "Café au lait"
+- A search for "cafe" is made
+- The record is returned

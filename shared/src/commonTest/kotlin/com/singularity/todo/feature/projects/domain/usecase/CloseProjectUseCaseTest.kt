@@ -5,10 +5,10 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -36,8 +36,8 @@ class CloseProjectUseCaseTest {
     private fun useCase() = CloseProjectUseCase(
         projectRepo = projects,
         taskRepo = tasks,
-        updateTask = UpdateTaskUseCase(tasks, FakeClock(now)),
         clock = FakeClock(now),
+        unitOfWork = FakeUnitOfWork(),
     )
 
     private fun project(id: String = "p1", name: String = "Project") = Project(
@@ -109,7 +109,7 @@ class CloseProjectUseCaseTest {
     fun `a blocked task stops the close and nothing is written`() = runTest {
         projects.seed(project())
         val dep = task("dep", "Dependency")
-        val blocked = task("t1", "Blocked", projectId).copy(dependsOn = setOf(TaskId("dep")))
+        val blocked = task("t1", "Blocked", projectId).copy(blockedBy = setOf(TaskId("dep")))
         tasks.seed(dep, blocked)
 
         val outcome = useCase().close(projectId).getOrThrow()
@@ -126,7 +126,7 @@ class CloseProjectUseCaseTest {
     fun `confirming the close writes past the blocked task`() = runTest {
         projects.seed(project())
         val dep = task("dep", "Dependency")
-        val blocked = task("t1", "Blocked", projectId).copy(dependsOn = setOf(TaskId("dep")))
+        val blocked = task("t1", "Blocked", projectId).copy(blockedBy = setOf(TaskId("dep")))
         tasks.seed(dep, blocked)
 
         val outcome = useCase().close(projectId, force = true).getOrThrow()

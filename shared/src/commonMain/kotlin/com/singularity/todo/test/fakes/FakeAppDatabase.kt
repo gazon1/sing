@@ -39,6 +39,7 @@ import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
@@ -388,10 +389,16 @@ class FakeAppDatabase : AppDatabase() {
 /**
  * The in-memory stand-in for the full-text index.
  *
- * The fake database has no index, so it answers a match expression by reading
- * it — see [matchesFtsExpression]. The rule it answers with is the one the
- * real index implements, so a test that passes here is a test about the
+ * The fake database has no index, so it answers a *query* by reading the text
+ * of the records — see [matchesTextMatch]. The rule it answers with is the one
+ * the real index implements, so a test that passes here is a test about the
  * behaviour and not about the fake.
+ *
+ * The raw surface — the methods that take a `MATCH` expression — is not
+ * implemented, and says so loudly. An expression is SQL, and a fake that parsed
+ * SQL to answer it would be a *second* implementation of the rule: exactly what
+ * this fake exists to avoid. The semantic surface is the one a caller uses, and
+ * it is the one the fake answers.
  */
 private class FakeFtsDao(
     private val tasks: MutableStateFlow<Map<String, TaskEntity>>,
@@ -400,52 +407,91 @@ private class FakeFtsDao(
     private val tags: MutableStateFlow<Map<String, TagEntity>>,
 ) : FtsDao {
 
-    override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskEntity>> = tasks.map { map ->
+    override fun watchTasks(userId: String, query: TextMatchQuery): Flow<List<TaskEntity>> = tasks.map { map ->
         map.values.filter { t ->
             t.userId == userId && t.archivedAt == null &&
-                matchesFtsExpression(match, listOf(t.title, t.description))
+                matchesTextMatch(query, t.title, t.description)
         }.sortedWith(compareBy({ t -> t.dueDate ?: "\uFFFF" }, { t -> !t.isPinned }))
     }
 
-    override fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteEntity>> = notes.map { map ->
+    override fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteEntity>> = notes.map { map ->
         map.values.filter { n ->
             n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
-                matchesFtsExpression(match, listOf(n.title))
+                matchesTextMatch(query, n.title)
         }.sortedByDescending { it.updatedAt }.take(20)
     }
 
-    override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectEntity>> =
+    override fun watchProjects(userId: String, query: TextMatchQuery): Flow<List<ProjectEntity>> =
         projects.map { map ->
             map.values.filter { p ->
-                p.userId == userId && !p.isDeleted && matchesFtsExpression(match, listOf(p.name))
+                p.userId == userId && !p.isDeleted && matchesTextMatch(query, p.name)
             }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
         }
 
-    override fun watchTagsByMatch(userId: String, match: String): Flow<List<TagEntity>> = tags.map { map ->
+    override fun watchTags(userId: String, query: TextMatchQuery): Flow<List<TagEntity>> = tags.map { map ->
         map.values.filter { t ->
-            t.userId == userId && t.deletedAt == null && matchesFtsExpression(match, listOf(t.name))
+            t.userId == userId && t.deletedAt == null && matchesTextMatch(query, t.name)
         }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
     }
+
+    override suspend fun searchTaskTitles(
+        userId: String,
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<TaskEntity> =
+        tasks.value.values.filter { t ->
+            t.userId == userId && t.archivedAt == null &&
+                matchesTextMatch(query, t.title, t.description)
+        }.sortedByDescending { it.updatedAt }.take(limit)
+
+    override suspend fun searchNoteTitles(
+        userId: String,
+        query: TextMatchQuery,
+        limit: Int,
+    ): List<NoteEntity> =
+        notes.value.values.filter { n ->
+            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
+                matchesTextMatch(query, n.title)
+        }.sortedByDescending { it.updatedAt }.take(limit)
+
+    override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskEntity>> =
+        noExpression("watchTasksByMatch")
+
+    override fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteEntity>> =
+        noExpression("watchNotesByMatch")
+
+    override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectEntity>> =
+        noExpression("watchProjectsByMatch")
+
+    override fun watchTagsByMatch(userId: String, match: String): Flow<List<TagEntity>> =
+        noExpression("watchTagsByMatch")
 
     override suspend fun searchTaskTitlesByMatch(
         userId: String,
         match: String,
         limit: Int,
-    ): List<TaskEntity> =
-        tasks.value.values.filter { t ->
-            t.userId == userId && t.archivedAt == null &&
-                matchesFtsExpression(match, listOf(t.title, t.description))
-        }.sortedByDescending { it.updatedAt }.take(limit)
+    ): List<TaskEntity> = noExpression("searchTaskTitlesByMatch")
 
     override suspend fun searchNoteTitlesByMatch(
         userId: String,
         match: String,
         limit: Int,
-    ): List<NoteEntity> =
-        notes.value.values.filter { n ->
-            n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
-                matchesFtsExpression(match, listOf(n.title))
-        }.sortedByDescending { it.updatedAt }.take(limit)
+    ): List<NoteEntity> = noExpression("searchNoteTitlesByMatch")
+
+    /**
+     * The raw surface is not implemented, and says so.
+     *
+     * A fake that answered a `MATCH` expression would have to parse the
+     * expression — and the parser would be a second implementation of the rule,
+     * agreeing with the first one only as long as nobody changed either. The
+     * semantic surface answers the same questions with the one rule.
+     */
+    private fun noExpression(method: String): Nothing =
+        error(
+            "$method takes a MATCH expression, and the fake has no index to run it against. " +
+                "Ask the fake a query — the methods that take a TextMatchQuery — so that there is " +
+                "one implementation of the rule and not two.",
+        )
 }
 
 private class FakeTaskDao(
@@ -617,6 +663,35 @@ private class FakeTaskDao(
 
     override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(completedAt = null, updatedAt = ts) }
+
+    override suspend fun markCompleteIfNotBlockedForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+        verb: String,
+    ): Int {
+        val task = store.value[id]?.takeIf { it.userId == userId } ?: return 0
+        val blockerOpen = depRefs.value.any { ref ->
+            ref.taskId == id &&
+                ref.verb == verb &&
+                store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
+        }
+        if (blockerOpen) return 0
+        return mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
+    }
+
+    override suspend fun blockedTaskIdsForUser(
+        taskIds: List<String>,
+        userId: String,
+        verb: String,
+    ): List<String> = depRefs.value
+        .filter { ref ->
+            ref.taskId in taskIds &&
+                ref.verb == verb &&
+                store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
+        }
+        .map { it.taskId }
+        .distinct()
 
     override suspend fun setPinnedForUser(id: String, pinned: Boolean, ts: Long, userId: String): Int =
         mutateTaskForUser(id, userId) { it.copy(isPinned = pinned, updatedAt = ts) }
@@ -991,6 +1066,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     }
     override suspend fun closeForUser(id: String, ts: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(closedAt = ts, updatedAt = ts) }
+    override suspend fun reopenForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { if (it.closedAt == null) it else it.copy(closedAt = null, updatedAt = ts) }
     override suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
     override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =

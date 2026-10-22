@@ -203,18 +203,33 @@ Matching is case-insensitive.
 
 **F2a — a term matches a *word* of the searchable text by its beginning.** A
 term is split into words — runs of letters and digits — and matches when the
-record's words contain the term's words in order, where the last word of the
-term may be unfinished and the ones before it have to be complete. A one-word
-term is therefore a word-prefix match; a quoted phrase is a phrase whose last
-word may be unfinished.
+record's words contain the term's words **next to each other**, where the last
+word of the term may be unfinished and the ones before it have to be complete.
+A one-word term is therefore a word-prefix match; a quoted phrase is a phrase
+whose last word may be unfinished.
 
 "arch" matches "architecture". "port" does **not** match "airport": the word
-"airport" does not begin with "port".
+"airport" does not begin with "port". `"quarterly report"` does **not** match
+"quarterly annual report": the words of the phrase stand next to each other.
 
 This is the rule the full-text index implements — the index stores words, so it
 can only find the beginning of one — and the in-memory rule is the same rule,
 so that the two cannot answer differently. See
-`docs/decisions/2026-10-21-the-search-asks-the-index.md`.
+`docs/decisions/2026-10-21-the-search-asks-the-index.md` and
+`docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
+
+**F2b — the index answers the positive terms, the rule the negated ones.** A
+term that is not negated is answered by the full-text index, which knows the
+tokenizer; a term under `NOT` is answered by the in-memory rule, because FTS
+has no `NOT` operator. The rule does not ask the index's question a second
+time.
+
+One consequence is visible to the user. The index removes the diacritics of a
+word — "Café au lait" is indexed as "cafe au lait" — so a search for "cafe"
+finds "Café au lait". The negated terms are answered by the in-memory rule,
+which does not remove them, so `NOT cafe` keeps a record that `cafe` finds.
+This asymmetry is deliberate and is written down in
+`docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
 
 **F3 — the searchable text of a record is the kind's own.**
 

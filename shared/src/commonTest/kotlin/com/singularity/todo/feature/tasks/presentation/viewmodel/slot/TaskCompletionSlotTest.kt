@@ -123,8 +123,8 @@ class TaskCompletionSlotTest {
     fun `a task with an unfinished prerequisite is not closed and asks instead`() = runTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
-        val blockedTask = task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep")))
-        fakes.taskRepo.seed(blockedTask)
+        val blockedTask = task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep")))
+        fakes.taskRepo.seed(dep, blockedTask)
         val source = TaskSource(blockedTask)
         val blocked = BlockedRecorder()
         val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, blockedTask), blocked = blocked)
@@ -142,8 +142,8 @@ class TaskCompletionSlotTest {
     fun `confirming the request closes the task`() = runTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
-        val blockedTask = task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep")))
-        fakes.taskRepo.seed(blockedTask)
+        val blockedTask = task("t1", "Blocked").copy(blockedBy = setOf(TaskId("dep")))
+        fakes.taskRepo.seed(dep, blockedTask)
         val source = TaskSource(blockedTask)
         val blocked = BlockedRecorder()
         val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, blockedTask), blocked = blocked)
@@ -161,8 +161,8 @@ class TaskCompletionSlotTest {
     fun `a finished prerequisite does not ask`() = runTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency").copy(completedAt = kotlin.time.Clock.System.now())
-        val plain = task("t1", "Plain").copy(dependsOn = setOf(TaskId("dep")))
-        fakes.taskRepo.seed(plain)
+        val plain = task("t1", "Plain").copy(blockedBy = setOf(TaskId("dep")))
+        fakes.taskRepo.seed(dep, plain)
         val source = TaskSource(plain)
         val blocked = BlockedRecorder()
         val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, plain), blocked = blocked)
@@ -180,8 +180,8 @@ class TaskCompletionSlotTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
         val blockedTask = task("t1", "Blocked")
-            .copy(dependsOn = setOf(TaskId("dep")), completedAt = kotlin.time.Clock.System.now())
-        fakes.taskRepo.seed(blockedTask)
+            .copy(blockedBy = setOf(TaskId("dep")), completedAt = kotlin.time.Clock.System.now())
+        fakes.taskRepo.seed(dep, blockedTask)
         val source = TaskSource(blockedTask)
         val blocked = BlockedRecorder()
         val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, blockedTask), blocked = blocked)
@@ -199,14 +199,14 @@ class TaskCompletionSlotTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
         val recurring = task("t1", "Repeating").copy(
-            dependsOn = setOf(TaskId("dep")),
+            blockedBy = setOf(TaskId("dep")),
             recurrence = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
                 base = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
                 amount = 1,
                 unit = kotlinx.datetime.DateTimeUnit.DAY,
             ),
         )
-        fakes.taskRepo.seed(recurring)
+        fakes.taskRepo.seed(dep, recurring)
         val source = TaskSource(recurring)
         val blocked = BlockedRecorder()
         val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, recurring), blocked = blocked)
@@ -224,7 +224,7 @@ class TaskCompletionSlotTest {
         val fakes = SlotFakes()
         val dep = task("dep", "Dependency")
         val recurring = task("t1", "Repeating").copy(
-            dependsOn = setOf(TaskId("dep")),
+            blockedBy = setOf(TaskId("dep")),
             recurrence = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE.let {
                 com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
                     base = it,
@@ -233,7 +233,7 @@ class TaskCompletionSlotTest {
                 )
             },
         )
-        fakes.taskRepo.seed(recurring)
+        fakes.taskRepo.seed(dep, recurring)
         val source = TaskSource(recurring)
         val blocked = BlockedRecorder()
         val slot = slot(fakes, source, backgroundScope, allTasks = listOf(dep, recurring), blocked = blocked)

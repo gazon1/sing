@@ -176,8 +176,15 @@ def cause_key(message: str) -> str:
     (`normalise_failure`) cannot tell two causes apart when they share a
     shape. Two runs that fail on the same element produce the same key, and
     the key is the same string the registry holds.
+
+    Only the first line of the message goes into the key. A failure that
+    carries a stack trace would otherwise put the trace in the key, and the
+    trace moves with the code: the same cause would be a *new* cause in every
+    run, and the registry could never learn it.
     """
-    text = " ".join(message.split())
+    stripped = message.strip()
+    first = stripped.splitlines()[0] if stripped else ""
+    text = " ".join(first.split())
     return _NUMBER.sub("<n>", text)
 
 

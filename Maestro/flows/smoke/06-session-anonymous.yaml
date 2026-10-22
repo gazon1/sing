@@ -43,33 +43,12 @@ tags:
     id: menu_settings
 
 # Switch to the Account tab. The settings nav rail is a scrollable column of
-# twelve ~76dp rows, so the trailing tabs are below the fold on a phone
-# viewport; five swipes bring Account into view, the way
-# `smoke/03-account-tab.yaml` does it. A swipe past the end of the rail is a
-# no-op, so over-swiping is harmless.
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
+# thirteen rows, so the trailing tabs are below the fold on a phone viewport.
+#
+# The scroll lives in a helper: the gesture that moves the rail is not the
+# obvious one, and two recipes that looked right turned out to do nothing on a
+# device. See Maestro/helpers/settings-rail-scroll.yaml.
+- runFlow: ../../helpers/settings-rail-scroll.yaml
 - extendedWaitUntil:
     visible:
       id: settings_tab_account

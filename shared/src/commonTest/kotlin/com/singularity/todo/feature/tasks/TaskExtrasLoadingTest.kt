@@ -5,7 +5,7 @@ package com.singularity.todo.feature.tasks
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -21,7 +21,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * Verifies that [Task.tags] and [Task.dependsOn] are correctly populated
+ * Verifies that [Task.tags] and [Task.blockedBy] are correctly populated
  * when loading tasks via [FakeTaskRepository.observeAll].
  *
  * In the production [com.singularity.todo.feature.tasks.data.TaskRepositoryImpl]
@@ -43,7 +43,7 @@ class TaskExtrasLoadingTest {
         id: String,
         title: String,
         tags: List<TagId> = emptyList(),
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         completedAt: Instant? = null,
     ): Task {
         val now = Clock.System.now()
@@ -52,7 +52,7 @@ class TaskExtrasLoadingTest {
             title = title,
             userId = testUserId,
             tags = tags,
-            dependsOn = dependsOn,
+            blockedBy = blockedBy,
             completedAt = completedAt,
             createdAt = now,
             updatedAt = now,
@@ -60,13 +60,13 @@ class TaskExtrasLoadingTest {
     }
 
     @Test
-    fun `observeAll returns tasks with tags and dependsOn`() = runTest {
+    fun `observeAll returns tasks with tags and blockedBy`() = runTest {
         val tag1 = TagId.fromString("tag-1")
         val tag2 = TagId.fromString("tag-2")
         val dep1 = TaskId.fromString("dep-1")
 
         repo.seed(
-            makeTask("t1", "Task 1", tags = listOf(tag1, tag2), dependsOn = setOf(dep1)),
+            makeTask("t1", "Task 1", tags = listOf(tag1, tag2), blockedBy = setOf(dep1)),
             makeTask("t2", "Task 2", tags = listOf(tag1)),
             makeTask("dep-1", "Dependency", tags = emptyList()),
         )
@@ -75,7 +75,7 @@ class TaskExtrasLoadingTest {
         val byId = tasks.associateBy { it.id.value }
 
         assertEquals(listOf(tag1, tag2), byId["t1"]!!.tags)
-        assertEquals(setOf(dep1), byId["t1"]!!.dependsOn)
+        assertEquals(setOf(dep1), byId["t1"]!!.blockedBy)
         assertEquals(listOf(tag1), byId["t2"]!!.tags)
         assertEquals(emptyList<TagId>(), byId["dep-1"]!!.tags)
     }
@@ -84,7 +84,7 @@ class TaskExtrasLoadingTest {
     fun `isBlocked returns true when dependency is not completed`() = runTest {
         val depId = TaskId.fromString("dep-unfinished")
         repo.seed(
-            makeTask("t1", "Blocked task", dependsOn = setOf(depId)),
+            makeTask("t1", "Blocked task", blockedBy = setOf(depId)),
             makeTask("dep-unfinished", "Unfinished dependency"),
         )
 
@@ -92,14 +92,14 @@ class TaskExtrasLoadingTest {
         val t1 = tasks.first { it.id.value == "t1" }
         val allTasks = tasks
 
-        assertTrue(TaskComputed.isBlocked(t1, allTasks))
+        assertTrue(Blocking.isBlocked(t1, allTasks))
     }
 
     @Test
     fun `isBlocked returns false when dependency is completed`() = runTest {
         val depId = TaskId.fromString("dep-finished")
         repo.seed(
-            makeTask("t1", "Blocked task", dependsOn = setOf(depId)),
+            makeTask("t1", "Blocked task", blockedBy = setOf(depId)),
             makeTask("dep-finished", "Finished dependency", completedAt = Clock.System.now()),
         )
 
@@ -107,7 +107,7 @@ class TaskExtrasLoadingTest {
         val t1 = tasks.first { it.id.value == "t1" }
         val allTasks = tasks
 
-        assertFalse(TaskComputed.isBlocked(t1, allTasks))
+        assertFalse(Blocking.isBlocked(t1, allTasks))
     }
 
     @Test
@@ -117,6 +117,6 @@ class TaskExtrasLoadingTest {
         val tasks = repo.observeAll().first()
         val t1 = tasks.first { it.id.value == "t1" }
 
-        assertFalse(TaskComputed.isBlocked(t1, tasks))
+        assertFalse(Blocking.isBlocked(t1, tasks))
     }
 }

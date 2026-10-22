@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.attachments
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,14 +77,30 @@ fun AttachmentTile(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // Title + size
-        Text(
-            text = attachment.displayTitle,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        // Title, and the URL under it when the attachment has a title of its own.
+        //
+        // The tile showed one line — the title — and a titled link lost its URL
+        // completely: "Example Article" told the user what the link was called and
+        // nothing about where it went. The sheet has always shown both, so the
+        // same attachment read differently in the two places it appears.
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = attachment.displayTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val url = attachment.url
+            if (attachment.title.isNotBlank() && url != null) {
+                Text(
+                    text = url,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
 
         // File size (for file attachments)
         if (attachment.fileSizeBytes > 0) {

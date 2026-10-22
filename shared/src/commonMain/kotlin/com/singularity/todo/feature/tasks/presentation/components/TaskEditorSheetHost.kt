@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -61,7 +62,12 @@ fun TaskEditorSheetHost(
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
-        modifier = Modifier.mapTestTagsAsResourceIds(),
+        // The sheet lifts above the keyboard, as Material3 documents for
+        // ModalBottomSheet. A sheet that holds a text field is useless
+        // otherwise: measured on the device, the attachments sheet's URL field
+        // sat at y=1048..1160 and the keyboard covered everything below
+        // y=1000 — the field was on the screen and could not be reached.
+        modifier = Modifier.imePadding().mapTestTagsAsResourceIds(),
     ) {
         Column(
             modifier =

@@ -57,7 +57,7 @@ class CalendarTaskMapperTest {
         someday = false,
         archivedAt = null,
         isPinned = false,
-        dependsOn = emptySet(),
+        blockedBy = emptySet(),
         createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         userId = testUserId,

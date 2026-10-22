@@ -47,6 +47,12 @@ candidate the rule rejects, and the search answers the same either way. The
 unsafe direction, the rule accepting a record the index does not offer, is what
 the corpus holds closed.
 
+> **Refined by
+> [ADR 2026-10-22: the index answers the positive terms](2026-10-22-the-index-answers-the-positive-terms.md).**
+> The index answers the positive terms now, so the diacritic difference is no
+> longer invisible: a search for "cafe" finds "Café au lait". The direction that
+> loses records is still the direction the corpus holds closed.
+
 ### The corpus compares the two against a real SQLite
 
 `FtsMatcherAgreementTest` puts a corpus of words through both and asserts that

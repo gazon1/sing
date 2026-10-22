@@ -22,6 +22,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * Generic one-shot notification overlay.
@@ -57,11 +58,37 @@ fun <T> NotificationHost(
     onNavigateBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    // The mapping happens in the flow, not in a second collector: the events
+    // live in a channel and a channel has one consumer. Collecting the raw
+    // stream here and mapping the other events somewhere else would split the
+    // events between the two collectors, and each collector would take only
+    // the ones it recognises.
+    NotificationHost(
+        events = events.map(mapper),
+        onNavigateBack = onNavigateBack,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Renders notifications the caller has already mapped.
+ *
+ * For a screen that has to react to the same events in two places — a toast
+ * here, a snackbar there — and therefore has to collect the events itself.
+ * The caller owns the single collection and hands the mapped notifications
+ * over; this host consumes them.
+ */
+@Composable
+fun NotificationHost(
+    events: Flow<Notification>,
+    onNavigateBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
     var notification by remember { mutableStateOf<Notification?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     CollectEvents(events) { event ->
-        notification = mapper(event)
+        notification = event
     }
 
     // Present the undo toast. `showSnackbar` suspends until the toast is

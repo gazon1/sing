@@ -31,9 +31,12 @@ import kotlinx.coroutines.flow.flowOf
  *
  * The `match` parameter is an FTS4 `MATCH` expression, and it is built by
  * [FtsMatchQuery.expression] — which makes it out of tokens only, so that
- * nothing a person types can become syntax. The methods that take a
- * [TextMatchQuery] build it and fall back to "no rows" when the query has no
- * searchable term.
+ * nothing a person types can become syntax.
+ *
+ * The methods that take an expression are the *raw* surface; the ones that take
+ * a [TextMatchQuery] are the *semantic* one, and they are what a caller uses. A
+ * query with no searchable term matches nothing — and saying so is not the same
+ * as matching everything.
  */
 @Dao
 interface FtsDao {
@@ -173,4 +176,22 @@ interface FtsDao {
         FtsMatchQuery.expression(query)
             ?.let { match -> watchTagsByMatch(userId, match) }
             ?: flowOf(emptyList())
+
+    /**
+     * The tasks whose title matches [query] — the first [limit], most recently
+     * updated first.
+     */
+    suspend fun searchTaskTitles(userId: String, query: TextMatchQuery, limit: Int): List<TaskEntity> =
+        FtsMatchQuery.expression(query)
+            ?.let { match -> searchTaskTitlesByMatch(userId, match, limit) }
+            ?: emptyList()
+
+    /**
+     * The notes whose title matches [query] — the first [limit], most recently
+     * updated first.
+     */
+    suspend fun searchNoteTitles(userId: String, query: TextMatchQuery, limit: Int): List<NoteEntity> =
+        FtsMatchQuery.expression(query)
+            ?.let { match -> searchNoteTitlesByMatch(userId, match, limit) }
+            ?: emptyList()
 }

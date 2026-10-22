@@ -105,7 +105,28 @@ complexity:
     # `allowedFunctionsPerFile`, and the default 11 was tripping on a class whose extra
     # functions were each a single `when` arm. Raising the bar for the class rather than
     # baselining the finding keeps the finding visible if a *second* class crosses 15.
-    allowedFunctionsPerClass: 15
+    allowedFunctionsPerClass: 16
+    # Raised from 15 for `AgendaViewModel`, whose handlers are one `private fun`
+    # per intent — the house shape the comment below describes. Its 14 intents
+    # need their own handlers, and the close path needed one more when the
+    # refusal moved into the write. The bar that catches accidental bloat is
+    # `allowedFunctionsPerFile`; this one catches a class that has become a
+    # grab-bag of unrelated helpers.
+    # Bumped from the default 11 because `ProjectsRepository` reached 12 when the
+    # project gained its mirror of `close`: `reopen` opens a closed project again.
+    # The interface is the project's whole contract — identity, hierarchy, counts,
+    # soft-delete and the closed/open pair — and every one of those functions has a
+    # caller. Splitting it would spread the contract across two interfaces that
+    # have to be used together, which is a worse API than a wide one.
+    #
+    # Raised to 13 for `FtsDao`, which reaches 12 by carrying two surfaces of the
+    # same lookup: the raw one, which takes a `MATCH` expression, and the semantic
+    # one, which takes the query a caller means and builds the expression for it.
+    # The semantic surface is what a caller uses; the raw one is what Room runs.
+    # Dropping the raw surface from the interface is not an option — a test double
+    # that answered a `MATCH` expression would be a second implementation of the
+    # rule, which is the thing the split exists to remove.
+    allowedFunctionsPerInterface: 13
     excludes:
       - '**/test/**'
       - '**/commonTest/**'

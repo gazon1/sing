@@ -27,7 +27,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -76,28 +78,41 @@ fun AttachmentsSheet(
     TaskEditorSheetHost(
         title = "Attachments",
         onClose = onDismiss,
+        // The sheet opens to its content rather than to half a screen: it
+        // holds two fields, a row of buttons and the list of attachments, and
+        // the half-height leaves the list squeezed into the bottom of the
+        // screen — where the system navigation bar is.
+        //
+        // See docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Add URL
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    state = urlState,
-                    modifier = Modifier.weight(1f).testTag(TestTags.ATTACHMENTS_URL_INPUT),
-                    placeholder = { Text("URL") },
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                    leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedTextField(
-                    state = titleState,
-                    modifier = Modifier.weight(0.6f).testTag(TestTags.ATTACHMENTS_TITLE_INPUT),
-                    placeholder = { Text("Title (opt)") },
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                )
-            }
+            //
+            // The two fields are stacked, not side by side. A Material3 text field
+            // has a minimum width of 280dp, and two of them plus a spacer do not
+            // fit on a 360dp-wide phone: the row overflowed, and the title field
+            // was pushed off the edge of the sheet — a link could be added, but
+            // it could not be named.
+            OutlinedTextField(
+                state = urlState,
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.ATTACHMENTS_URL_INPUT),
+                placeholder = { Text("URL") },
+                lineLimits = TextFieldLineLimits.SingleLine,
+                leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                state = titleState,
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.ATTACHMENTS_TITLE_INPUT),
+                placeholder = { Text("Title (opt)") },
+                lineLimits = TextFieldLineLimits.SingleLine,
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -173,12 +188,15 @@ fun AttachmentsSheet(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = attachment.title ?: attachment.url ?: "",
+                                        // An attachment added without a title has a blank
+                                        // one, not a missing one: the old `title ?: url`
+                                        // left an empty first line above the URL.
+                                        text = attachment.title.ifBlank { attachment.url ?: "" },
                                         style = MaterialTheme.typography.bodyMedium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
-                                    if (attachment.title != null) {
+                                    if (attachment.title.isNotBlank()) {
                                         Text(
                                             text = attachment.url ?: "",
                                             style = MaterialTheme.typography.bodySmall,

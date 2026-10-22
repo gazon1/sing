@@ -8,7 +8,7 @@ import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
@@ -46,7 +46,7 @@ object AgendaEvaluator {
         var remaining = tasks.toSet()
         // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
         // table per call, so asking per row was quadratic in the task count.
-        val blockedIds = TaskComputed.blockedIds(tasks)
+        val blockedIds = Blocking.blockedTaskIds(tasks)
         val context = SelectorContext(today = today, now = now, blockedIds = blockedIds)
         return definition.sections
             .sortedBy { it.order }

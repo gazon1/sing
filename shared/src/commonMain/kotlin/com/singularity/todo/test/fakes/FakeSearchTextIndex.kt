@@ -22,6 +22,16 @@ import kotlinx.coroutines.flow.map
  * ([com.singularity.todo.core.search.TextMatch]), so a test that passes here
  * is a test about the behaviour and not about the fake.
  *
+ * ## The one thing the fake does not do
+ *
+ * The production index removes the diacritics of a word — it finds "Café au
+ * lait" for "cafe" — and the in-memory rule does not. The fake answers with the
+ * rule, so it is the stricter of the two.
+ *
+ * A test that asserts the behaviour of the diacritics belongs to the corpus
+ * (`FtsMatcherAgreementTest`), which runs against a real SQLite. See
+ * `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
+ *
  * The fake reads the repositories rather than a store of its own, so the
  * records it answers with are the records the repositories hold — a test that
  * puts a task into the fake repository and asks the index for it gets that

@@ -18,7 +18,7 @@ import com.singularity.todo.core.search.TextMatchQuery
  * The rule has one owner now: the resolver builds this object from the parsed query
  * (§3 G5, G6), and the use case applies it to every kind.
  *
- * ## The rule
+ * ## The rule, and the two halves of it
  *
  * - A **term** matches a record when one of the record's words begins with it,
  *   case-insensitively. Which text is searchable belongs to the kind of record: a
@@ -36,6 +36,26 @@ import com.singularity.todo.core.search.TextMatchQuery
  *   **any** of them may match.
  * - A term under `NOT` must **not** match.
  *
+ * ## Who answers what
+ *
+ * F2b — the index answers the positive terms, the rule the negated ones.
+ *
+ * The rule has two halves, and they are answered by two different things.
+ *
+ * - The **positives** are answered by the full-text index. The index knows the
+ *   tokenizer, it knows what a word is, and it is the one that narrows the rows.
+ *   Applying the rule to the index's candidates a second time was work done twice
+ *   — and it made the rule a second source of the answer to "does this record
+ *   carry the word", next to the index that had already answered it.
+ * - The **negatives** are answered by the rule, in memory. FTS has no `NOT`
+ *   operator, so nothing else can answer them.
+ *
+ * Which half applies to a candidate depends on where the candidate came from, and
+ * that is what [plan] says. [accepts] is the one place that reads the plan and
+ * applies the matching half — a caller that filtered the candidates by the whole
+ * rule would be filtering twice, and a caller that filtered them by the positives
+ * would throw away the records the index could not have found.
+ *
  * @param terms The free-text terms, in the order the query states them (F1: one term
  *   is one `HasText` condition, and a quoted string is one term however many words it
  *   holds).
@@ -49,8 +69,18 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
     /** True when the query states no free text at all. */
     val isEmpty: Boolean get() = terms.isEmpty()
 
+    /** The terms that must match — the half the index answers. */
+    val positives: List<Term> get() = terms.filter { !it.negated }
+
+    /** The terms that must not match — the half only the rule can answer. */
+    val negations: List<Term> get() = terms.filter { it.negated }
+
     /**
-     * True when the record's searchable text satisfies this rule.
+     * True when the record's searchable text satisfies this rule in full.
+     *
+     * This is the rule as it was written: every positive has to match and every
+     * negated term must not. It is what a candidate is held against when the
+     * index could not answer the question at all — see [plan] and [accepts].
      *
      * A rule with no terms selects nothing: a query with no free text has no
      * free-text part to match, and the structured terms of a query are filters over
@@ -74,6 +104,63 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
         // F2 — every term has to match. Matching is a word-prefix match and is
         // case-insensitive, which is the caller's half of the rule (F3).
         return if (combinesWithOr) satisfied.any { it } else satisfied.all { it }
+    }
+
+    /**
+     * True when the record carries none of the negated terms.
+     *
+     * This is the half of the rule the index cannot answer, so it is the half the
+     * rule keeps. It is deliberately *not* a filter on the positives: the index has
+     * already answered those, and answering them again is the work this split
+     * exists to remove.
+     *
+     * A rule with no negated terms satisfies this trivially — there is nothing to
+     * hold a candidate against.
+     */
+    fun satisfiesNegations(matchesTerm: (String) -> Boolean): Boolean {
+        if (negations.isEmpty()) return true
+        return negations.all { term -> !matchesTerm(term.text) }
+    }
+
+    /**
+     * True when the record carries the positive terms — the half the index answers.
+     *
+     * This is *not* a filter: it is a question about one surface of the record
+     * ("does the title carry the word?"), asked to rank the records that the index
+     * already found. A record the index found is in the answer whatever this says;
+     * this only says whether it comes first.
+     */
+    fun satisfiesPositives(matchesTerm: (String) -> Boolean): Boolean {
+        if (positives.isEmpty()) return false
+        return if (combinesWithOr) {
+            positives.any { term -> matchesTerm(term.text) }
+        } else {
+            positives.all { term -> matchesTerm(term.text) }
+        }
+    }
+
+    /**
+     * What the rule says about a record, given how the record was found.
+     *
+     * This is the one place that reads the plan and applies the matching half of
+     * the rule:
+     *
+     * - a candidate that came from the index has already been matched against the
+     *   positives, so only the negations are left to answer;
+     * - a candidate that was read row by row — because the index could not answer
+     *   the rule at all — is held against the whole rule.
+     *
+     * A caller that held the candidates against the whole rule would filter twice
+     * whenever the index had answered, and a caller that held them against the
+     * positives alone would keep records the index could not have found.
+     *
+     * @param plan What the index could do for this rule — see [plan].
+     * @param matchesTerm Answers whether one term matches the record's searchable
+     *   text (F3).
+     */
+    fun accepts(plan: TextMatchPlan, matchesTerm: (String) -> Boolean): Boolean = when (plan) {
+        is TextMatchPlan.Narrowed -> satisfiesNegations(matchesTerm)
+        TextMatchPlan.BroadScan -> selects(matchesTerm)
     }
 
     /**
@@ -102,9 +189,9 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      *   away, so there is nothing to look up.
      */
     fun plan(): TextMatchPlan {
-        val positive = terms.filter { !it.negated }.map { it.text }
+        val positive = positives.map { it.text }
         if (positive.isEmpty()) return TextMatchPlan.BroadScan
-        if (combinesWithOr && terms.any { it.negated }) return TextMatchPlan.BroadScan
+        if (combinesWithOr && negations.isNotEmpty()) return TextMatchPlan.BroadScan
         return TextMatchPlan.Narrowed(
             TextMatchQuery(terms = positive, combinesWithOr = combinesWithOr),
         )

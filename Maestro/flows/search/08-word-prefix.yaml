@@ -1,0 +1,63 @@
+# Search: a term matches the beginning of a word, and not its middle.
+#
+# The rule is a word-prefix rule (F2a in the search grammar): "arch" finds
+# "architecture", and "port" does not find "airport". Both titles are seeded,
+# so the second answer is a statement about the record and not about a record
+# that was never there — and the first answer proves the seeding worked.
+appId: com.singularity.todo
+name: search-word-prefix
+tags:
+  - search
+  - negative
+  - scenario:SEARCH-08
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# Seed two tasks: one whose word begins with the term, one whose word only
+# contains it.
+# `due=today`: a task without a due date lands in the "No Date" bucket,
+# which the Today tab does not show — the flow would assert against a task
+# it had seeded and could not see.
+- openLink: "todo-debug://seed?task=Architecture%20of%20the%20house&due=today"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+- openLink: "todo-debug://seed?task=Airport%20run&due=today"
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+
+# Open quick search.
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_settings
+    timeout: 5000
+- tapOn:
+    id: menu_quick_search
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+
+# "arch" is the beginning of a word: the task is found.
+- tapOn:
+    id: search_input
+- inputText: "arch"
+- extendedWaitUntil:
+    visible:
+      id: task_item_architecture_of_the_house
+    timeout: 8000
+
+# "port" is the middle of a word: the task is not found. The wait is on the
+# absence, not on an instant assert — the results arrive asynchronously, and
+# an assert that runs before they do proves nothing.
+- eraseText
+- inputText: "port"
+- extendedWaitUntil:
+    notVisible:
+      id: task_item_airport_run
+    timeout: 8000

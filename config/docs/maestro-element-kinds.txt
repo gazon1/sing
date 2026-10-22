@@ -108,6 +108,7 @@ settings_tab_backup tab
 settings_tab_interface tab
 settings_tab_notifications tab
 snackbar_action button
+snackbar_message text
 statistics_tab_health tab
 statistics_tab_tasks tab
 subtask_item_${RUN_ID}_child_task_one item
@@ -119,7 +120,10 @@ task_editor_due_date_row_label text
 task_editor_due_row item
 task_editor_pin_row item
 task_editor_priority_row item
+task_editor_project_row item
 task_editor_recurrence_row item
+task_editor_start_date_row item
+task_editor_tags_row item
 task_editor_title_input field
 task_item_${RUN_ID}_attachtesttask2026 item
 task_item_${RUN_ID}_backuproundtriptask item
@@ -134,7 +138,9 @@ task_item_${RUN_ID}_rendertesttask2026 item
 task_item_${RUN_ID}_task_from_inbox_tab item
 task_item_${RUN_ID}_task_from_today_tab item
 task_item_${RUN_ID}_water_the_plants item
+task_item_airport_run item
 task_item_anonymous_task item
+task_item_architecture_of_the_house item
 task_item_buy_milk item
 task_item_clearsearchtask2026 item
 task_item_offline_task item

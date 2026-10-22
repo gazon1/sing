@@ -140,7 +140,7 @@ fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMen
         ) {
             // Partial: the action fires but always with an empty set, so an existing
             // dependency set is cleared on save. Needs DependencyPickerSheet seeded with
-            // `taskUi.dependsOn` before this item is honest.
+            // `taskUi.blockedBy` before this item is honest.
             //   For now, open with empty set; picker sheet will be added in a follow-up.
             actions.onSetDependencies?.invoke(emptySet())
             actions.onDismiss()

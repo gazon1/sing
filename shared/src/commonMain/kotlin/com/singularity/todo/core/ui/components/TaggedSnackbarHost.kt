@@ -90,7 +90,15 @@ private fun SnackbarWithAction(data: SnackbarData) {
     val actionLabel = data.visuals.actionLabel
     if (actionLabel == null) {
         Snackbar(modifier = Modifier.mapTestTagsAsResourceIds()) {
-            Text(data.visuals.message)
+            Text(
+                text = data.visuals.message,
+                // The message is addressable too, for the same reason the action
+                // button is: the copy is the translator's, and a flow that waits
+                // for "Backup created" waits forever on a Russian device.
+                modifier = Modifier
+                    .testTag(TestTags.SNACKBAR_MESSAGE)
+                    .mapTestTagsAsResourceIds(),
+            )
         }
         return
     }
@@ -107,6 +115,11 @@ private fun SnackbarWithAction(data: SnackbarData) {
             }
         },
     ) {
-        Text(data.visuals.message)
+        Text(
+            text = data.visuals.message,
+            modifier = Modifier
+                .testTag(TestTags.SNACKBAR_MESSAGE)
+                .mapTestTagsAsResourceIds(),
+        )
     }
 }

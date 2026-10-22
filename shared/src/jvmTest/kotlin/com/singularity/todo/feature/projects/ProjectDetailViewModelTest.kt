@@ -29,6 +29,7 @@ import com.singularity.todo.test.fakes.FakeProjectRemindersRepository
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -110,8 +111,8 @@ class ProjectDetailViewModelTest {
             closeProject = CloseProjectUseCase(
                 projectRepo = fakeProjectsRepo,
                 taskRepo = taskRepo,
-                updateTask = UpdateTaskUseCase(taskRepo, FakeClock(TEST_NOW)),
                 clock = FakeClock(TEST_NOW),
+                unitOfWork = FakeUnitOfWork(),
             ),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, FakeClock(TEST_NOW)),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW)),
@@ -166,14 +167,14 @@ class ProjectDetailViewModelTest {
     /** Seeds a task in p1, optionally depending on another task. */
     private fun seedTask(
         title: String,
-        dependsOn: Set<TaskId> = emptySet(),
+        blockedBy: Set<TaskId> = emptySet(),
         completed: Boolean = false,
     ): Task = Task(
         id = TaskId("task-$title"),
         title = title,
         projectId = ProjectId("p1"),
         userId = testUserId,
-        dependsOn = dependsOn,
+        blockedBy = blockedBy,
         completedAt = if (completed) TEST_NOW else null,
         createdAt = TEST_NOW,
         updatedAt = TEST_NOW,
@@ -434,7 +435,7 @@ class ProjectDetailViewModelTest {
     @Test
     fun `blocked tasks are visible by default`() = runTest {
         seedProject()
-        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", blockedBy = setOf(TaskId("task-prereq"))))
         val vm = createVm(backgroundScope)
         advanceUntilIdle()
         runCurrent()
@@ -446,7 +447,7 @@ class ProjectDetailViewModelTest {
     @Test
     fun `ToggleHideBlocked removes only the blocked task`() = runTest {
         seedProject()
-        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", blockedBy = setOf(TaskId("task-prereq"))))
         val vm = createVm(backgroundScope)
         advanceUntilIdle()
         runCurrent()
@@ -462,7 +463,7 @@ class ProjectDetailViewModelTest {
     @Test
     fun `toggling hide blocked off restores the task`() = runTest {
         seedProject()
-        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", blockedBy = setOf(TaskId("task-prereq"))))
         val vm = createVm(backgroundScope)
         advanceUntilIdle()
         runCurrent()
@@ -481,7 +482,7 @@ class ProjectDetailViewModelTest {
     @Test
     fun `hiding blocked does not mutate stored tasks`() = runTest {
         seedProject()
-        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))))
+        fakeTaskRepo.seed(seedTask("prereq"), seedTask("waiting", blockedBy = setOf(TaskId("task-prereq"))))
         val vm = createVm(backgroundScope)
         advanceUntilIdle()
         runCurrent()
@@ -499,7 +500,7 @@ class ProjectDetailViewModelTest {
         seedProject()
         fakeTaskRepo.seed(
             seedTask("prereq"),
-            seedTask("waiting", dependsOn = setOf(TaskId("task-prereq"))),
+            seedTask("waiting", blockedBy = setOf(TaskId("task-prereq"))),
             seedTask("done", completed = true),
         )
         val vm = createVm(backgroundScope)
@@ -525,7 +526,7 @@ class ProjectDetailViewModelTest {
         seedProject()
         fakeTaskRepo.seed(
             seedTask("blocker"),
-            seedTask("waiting", dependsOn = setOf(TaskId("task-blocker"))),
+            seedTask("waiting", blockedBy = setOf(TaskId("task-blocker"))),
             seedTask("done", completed = true),
         )
         val vm = createVm(backgroundScope)
@@ -555,7 +556,7 @@ class ProjectDetailViewModelTest {
         seedProject()
         fakeTaskRepo.seed(
             seedTask("done-dep", completed = true),
-            seedTask("waiting", dependsOn = setOf(TaskId("task-done-dep"))),
+            seedTask("waiting", blockedBy = setOf(TaskId("task-done-dep"))),
         )
         val vm = createVm(backgroundScope)
         advanceUntilIdle()

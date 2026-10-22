@@ -60,9 +60,10 @@ class SearchUseCase(
      *
      * The free text narrows the rows *in the database*, through the full-text
      * index — the search reads the records that carry the word instead of every
-     * record of the profile. The index narrows; the rule decides. A rule the
-     * index cannot answer (one that only says "not") is answered by reading the
-     * rows, the way it was before.
+     * record of the profile. The index answers the positive terms; the rule
+     * answers the negated ones, in memory. A rule the index cannot answer (one
+     * that only says "not") is answered by reading the rows, the way it was
+     * before.
      *
      * Note, project, and tag results are matched by the same free-text rule the tasks
      * are matched by — [ResolvedSearchQuery.freeTextRule] — so one query means one
@@ -95,13 +96,13 @@ class SearchUseCase(
         // The free text narrows the rows *in the database*, through the
         // full-text index: the search reads the tasks that carry the term
         // instead of reading every task and looking at each one. The structured
-        // conditions narrow them further, and the free-text rule still has the
-        // last word — the index finds the candidates, the rule decides.
+        // conditions narrow them further.
         //
         // A rule the index cannot answer reads the rows instead, and the plan
         // says so: [TextMatchPlan.BroadScan] is the old path, named.
-        // The rule the free text was parsed into. It is the last word: the index
-        // finds the candidates, the rule decides which of them the answer is.
+        // The rule the free text was parsed into. It answers the negated terms
+        // of a rule the index narrowed, and the whole rule of a rule the index
+        // could not answer at all.
         val rule = resolved.freeTextRule
 
         val structuredTaskFlow: Flow<List<Task>> = when {
@@ -130,10 +131,15 @@ class SearchUseCase(
 
             // A record that carries the word in its title is a better answer than
             // one that carries it in its body. FTS4 has no bm25 and cannot say
-            // that; the rule can, and the rule is the last word.
+            // that; the rule can, and it is asked about the title alone.
+            //
+            // This asks the rule about the *title* only — it is a question about
+            // one surface of the record, asked to order the records the index
+            // already found. It is not a filter: a record the index found is in
+            // the answer whatever this says.
             if (!rule.isEmpty) {
                 result = titleMatchesFirst(result) { task ->
-                    rule.selects { term -> TextMatch.matches(task.title, term) }
+                    rule.satisfiesPositives { term -> TextMatch.matches(task.title, term) }
                 }
             }
 
@@ -174,7 +180,8 @@ class SearchUseCase(
      *
      * The candidates come from the full-text index when the query has a
      * narrowing the index can answer, and from every note otherwise; the rule
-     * then decides, in both cases.
+     * then decides, in both cases — but only about the half the index did not
+     * answer. See [FreeTextRule.accepts].
      */
     private fun textMatchedNotes(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<Note>> {
         val source = when (plan) {
@@ -185,7 +192,7 @@ class SearchUseCase(
             if (rule.isEmpty) {
                 emptyList()
             } else {
-                notes.filter { note -> rule.selects { term -> TextMatch.matches(note.title, term) } }
+                notes.filter { note -> rule.accepts(plan) { term -> TextMatch.matches(note.title, term) } }
             }
         }
     }
@@ -200,7 +207,9 @@ class SearchUseCase(
             if (rule.isEmpty) {
                 emptyList()
             } else {
-                projects.filter { project -> rule.selects { term -> TextMatch.matches(project.name, term) } }
+                projects.filter { project ->
+                    rule.accepts(plan) { term -> TextMatch.matches(project.name, term) }
+                }
             }
         }
     }
@@ -215,7 +224,7 @@ class SearchUseCase(
             if (rule.isEmpty) {
                 emptyList()
             } else {
-                tags.filter { tag -> rule.selects { term -> TextMatch.matches(tag.name, term) } }
+                tags.filter { tag -> rule.accepts(plan) { term -> TextMatch.matches(tag.name, term) } }
             }
         }
     }

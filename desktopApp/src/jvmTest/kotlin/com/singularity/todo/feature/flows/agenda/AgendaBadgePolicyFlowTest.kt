@@ -97,14 +97,14 @@ class AgendaBadgePolicyFlowTest {
         // Seed an incomplete dependency
         tasks(koin).given(due = today, title = "Blocking task")
 
-        // Insert the blocked task directly with a dependsOn reference to the incomplete dep
+        // Insert the blocked task directly with a blockedBy reference to the incomplete dep
         val userId = koin.get<com.singularity.todo.feature.profile.ProfileAwareCurrentUser>().scopedUserId.value
         val blockedTask = com.singularity.todo.test.fakes.testTask(
             id = TaskId("robot-task-0"),
             title = "Blocked task",
             dueDate = today,
             userId = userId,
-        ).let { it.copy(dependsOn = setOf(depId)) }
+        ).let { it.copy(blockedBy = setOf(depId)) }
         koin.get<com.singularity.todo.feature.tasks.domain.port.TaskRepository>().upsert(blockedTask)
 
         tapTab("Today")

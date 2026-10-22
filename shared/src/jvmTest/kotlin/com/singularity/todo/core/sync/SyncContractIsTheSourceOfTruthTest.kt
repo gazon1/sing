@@ -205,7 +205,7 @@ class SyncContractIsTheSourceOfTruthTest {
             someday = false,
             archivedAt = null,
             isPinned = false,
-            dependsOn = emptySet(),
+            blockedBy = emptySet(),
             aiSuppressedTagIds = emptySet(),
             recurrence = null,
             createdAt = FIXED_INSTANT,

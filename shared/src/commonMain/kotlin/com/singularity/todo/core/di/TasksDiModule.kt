@@ -40,6 +40,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.nav.TaskDeepLink
@@ -105,6 +106,9 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
+    // The rule of opening a task: it brings its closed project back with it.
+    factory { TaskReopenUseCase(get(), get(), get()) }
+
     factory {
         SearchUseCase(
             get(),
@@ -145,6 +149,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                     updateTask = get(),
                     createTask = get(),
                     completeRecurring = get(),
+                    completion = get(),
                 ),
                 children = TaskChildrenDeps(
                     checklistRepository = get(),

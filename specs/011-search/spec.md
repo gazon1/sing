@@ -72,6 +72,12 @@ scenarios:
     priority: P2
     status: confirmed
     targets: [android]
+  - id: SEARCH-08
+    title: A term matches the beginning of a word, and not its middle
+    area: feature.search
+    priority: P1
+    status: confirmed
+    targets: [android]
 ```
 
 ## Requirements

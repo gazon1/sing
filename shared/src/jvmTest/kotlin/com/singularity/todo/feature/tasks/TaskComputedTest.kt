@@ -51,7 +51,7 @@ class TaskComputedTest {
         someday = false,
         archivedAt = archivedAt,
         isPinned = false,
-        dependsOn = emptySet(),
+        blockedBy = emptySet(),
         createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         userId = testUserId,

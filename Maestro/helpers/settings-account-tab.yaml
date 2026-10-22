@@ -3,34 +3,18 @@
 # Usage: the flow is already in Settings (it has tapped the menu's Settings
 # item); this helper scrolls the settings navigation and opens the tab.
 #
-# The settings navigation is a scrollable column of twelve rows and the
+# The settings navigation is a scrollable column of thirteen rows and the
 # Account tab is the last of them, so on a phone viewport the trailing tabs
 # are below the fold. Waiting for the tab without scrolling waits for
-# something that is not on the screen. A swipe past the end of the rail is a
-# no-op, so over-swiping is harmless.
+# something that is not on the screen.
+#
+# The scroll itself lives in `settings-rail-scroll.yaml`, because the gesture
+# that moves the rail is not the obvious one — see that file for the two
+# recipes that failed on a device.
 appId: com.singularity.todo
 name: settings-account-tab
 ---
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
+- runFlow: settings-rail-scroll.yaml
 - extendedWaitUntil:
     visible:
       id: settings_tab_account

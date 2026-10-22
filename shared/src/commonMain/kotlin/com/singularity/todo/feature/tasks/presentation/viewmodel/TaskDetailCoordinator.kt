@@ -340,7 +340,7 @@ class TaskDetailCoordinator(
             reminders = reminderState.reminders,
             attachments = childrenState.attachments,
             subtasks = childrenState.subtasks,
-            dependsOn = task.dependsOn,
+            blockedBy = task.blockedBy,
             availableTasks = entityState.availableTasks,
             linkedNotes = backlinkState.notes,
             linkedTasks = backlinkState.tasks,

@@ -26,17 +26,17 @@ import kotlin.test.assertTrue
  *
  * The two ways they can disagree are not symmetric:
  *
- * - **The index finds more than the rule** — harmless. The rule has the last
- *   word, so an extra candidate is filtered out and the answer is unchanged.
- * - **The rule finds more than the index** — a record is silently lost. The
+ * - **The index finds less than the rule** — a record is silently lost. The
  *   index produced the candidates, the rule accepted one, and the search did
  *   not return it. Nothing reports this: the user sees fewer results and
  *   concludes the record is gone.
+ * - **The index finds more than the rule** — the search returns a record the
+ *   rule would have rejected.
  *
- * So the invariant this test holds is the one that matters: **every record the
+ * The invariant this test holds is the one that matters: **every record the
  * rule accepts is among the records the index returns.** A search is then
- * correct whatever the tokenizer does, because the rule decides among the
- * candidates — provided the candidates contain all of the answers.
+ * correct whatever the tokenizer does, because the index answers the positive
+ * terms — the rule no longer asks the index's question a second time.
  *
  * ## Why a real SQLite
  *
@@ -55,10 +55,12 @@ import kotlin.test.assertTrue
  * lost, silently. The matcher folds per character now, which is what
  * `unicode61` does, and the corpus is what keeps it that way.
  *
- * The other difference the corpus records is the direction that is safe: the
- * index removes diacritics and the matcher does not, so "cafe" finds "café"
- * in the index and not in the rule. The extra candidate is filtered out, and
- * the answer is the same either way.
+ * The other difference the corpus records is the diacritics: the index removes
+ * them and the matcher does not, so "cafe" finds "café latte" in the index and
+ * not in the matcher. That difference is now *visible* — the index answers the
+ * positive terms, so the search finds the record — and it is asserted on its
+ * own below. The direction that loses records is the one the corpus holds
+ * closed.
  */
 @Tag("slow")
 class FtsMatcherAgreementTest {
@@ -91,6 +93,7 @@ class FtsMatcherAgreementTest {
         "architecture" to "t-architecture",
         "airport" to "t-airport",
         "Write the quarterly report" to "t-quarterly",
+        "quarterly annual report" to "t-quarterly-apart",
         "Купить молоко" to "t-milk",
         "snake_case identifier" to "t-snake",
         "version 2 release" to "t-version",
@@ -106,9 +109,8 @@ class FtsMatcherAgreementTest {
      * The terms the corpus asks about.
      *
      * A term is either one word (the index and the rule have to agree exactly)
-     * or several (the index asks for every word as a prefix and does not insist
-     * on their order, so the index is expected to find more — the rule is
-     * stricter, and the invariant still holds).
+     * or several (a quoted phrase — the index asks for the phrase, and the two
+     * have to agree exactly there too).
      */
     private val singleWordTerms = listOf(
         "arch",
@@ -133,16 +135,16 @@ class FtsMatcherAgreementTest {
         "strasse",
         // "cafe" is deliberately not here: the index removes the diacritics and
         // finds "café latte" for it, and the matcher does not. That difference
-        // is asserted on its own below — and it is in the safe direction, so
-        // the term cannot lose a record.
+        // is asserted on its own below — it is the one case where the index
+        // finds more than the rule, and it is now visible in the answer.
         // A word the query language would read as an operator. The index is
-        // asked for it through a prefix, so it is a term and not a negation.
+        // asked for it through a phrase, so it is a word and not an operator.
         "not",
         "or",
         "and",
     )
 
-    /** Terms of more than one word — the index is a superset here, by construction. */
+    /** Terms of more than one word — a quoted phrase in the query language. */
     private val phraseTerms = listOf(
         "quarterly report",
         "snake case",
@@ -161,8 +163,8 @@ class FtsMatcherAgreementTest {
             assertTrue(
                 lost.isEmpty(),
                 "the rule accepts $lost for the term \"$term\", and the index does not return " +
-                    "them. A record the rule accepts and the index does not offer is a record " +
-                    "the search silently loses.",
+                    "them. The index answers the positive terms, so a record the rule accepts " +
+                    "and the index does not offer is a record the search silently loses.",
             )
         }
     }
@@ -187,50 +189,62 @@ class FtsMatcherAgreementTest {
     }
 
     @Test
-    fun `the rule applied to the candidates answers the same as the rule applied to every row`() =
-        runTest {
-            seed()
+    fun `the index and the rule answer a phrase the same way`() = runTest {
+        seed()
 
-            for (term in singleWordTerms + phraseTerms) {
-                val byRule = texts.filter { (text, _) -> TextMatch.matches(text, term) }.map { it.second }
-                val byIndex = indexIds(term)
-                val answered = byIndex.filter { id ->
-                    val text = texts.first { it.second == id }.first
-                    TextMatch.matches(text, term)
-                }
+        for (term in phraseTerms) {
+            val byRule = texts.filter { (text, _) -> TextMatch.matches(text, term) }.map { it.second }
+            val byIndex = indexIds(term)
 
-                assertEquals(
-                    byRule.sorted(),
-                    answered.sorted(),
-                    "the search answers differently depending on whether the rows were read " +
-                        "through the index or read one by one, for the term \"$term\"",
-                )
-            }
+            assertEquals(
+                byRule.sorted(),
+                byIndex.sorted(),
+                "the index and the rule disagree about the phrase \"$term\". The rule asks for " +
+                    "the words next to each other, and so must the index: an index that asks " +
+                    "for the words anywhere offers candidates the rule throws away.",
+            )
         }
+    }
 
     @Test
-    fun `the index removes the diacritics and the rule does not, and that is the safe way round`() =
-        runTest {
-            seed()
+    fun `a phrase does not match the same words further apart`() = runTest {
+        seed()
 
-            // The index folds "café" to "cafe" and finds the record for the term
-            // "cafe". The rule keeps the accent and does not. The difference is
-            // in the safe direction: the index offers a candidate the rule
-            // rejects, and the search answers the same either way.
-            val byIndex = indexIds("cafe")
+        // "quarterly report" is a phrase: the words stand next to each other.
+        // "Write the quarterly annual report" carries both words and is not a
+        // match — and the index used to say it was, because it asked for the two
+        // words as a conjunction.
+        val found = indexIds("quarterly report")
 
-            assertTrue(
-                byIndex.contains("t-cafe"),
-                "the index removes the diacritics, so it finds the record for the term " +
-                    "\"cafe\". The index says: $byIndex",
-            )
-            assertTrue(
-                !TextMatch.matches("café latte", "cafe"),
-                "the rule keeps the accent, so it does not match the term \"cafe\" against " +
-                    "\"café\". If this ever becomes true, the two agree about this case " +
-                    "too, and it can move into the group that has to answer identically.",
-            )
-        }
+        assertEquals(
+            listOf("t-quarterly"),
+            found.sorted(),
+            "the index must ask for the phrase and not for the two words apart",
+        )
+    }
+
+    @Test
+    fun `the index removes the diacritics and the rule does not, and the index decides`() = runTest {
+        seed()
+
+        // The index folds "café" to "cafe" and finds the record for the term
+        // "cafe". The rule keeps the accent and does not. The index answers the
+        // positive terms, so the record is in the answer — and the answer is
+        // wider than it was when the rule had the last word.
+        val byIndex = indexIds("cafe")
+
+        assertTrue(
+            byIndex.contains("t-cafe"),
+            "the index removes the diacritics, so it finds the record for the term " +
+                "\"cafe\". The index says: $byIndex",
+        )
+        assertTrue(
+            !TextMatch.matches("café latte", "cafe"),
+            "the rule keeps the accent, so it does not match the term \"cafe\" against " +
+                "\"café\". If this ever becomes true, the two agree about this case " +
+                "too, and it can move into the group that has to answer identically.",
+        )
+    }
 
     @Test
     fun `a term that is a keyword of the query language is a word and not an operator`() = runTest {
@@ -241,7 +255,7 @@ class FtsMatcherAgreementTest {
         assertTrue(
             found.isNotEmpty(),
             "a term the query language would read as a negation must reach the index as a " +
-                "word. The expression is built from prefixed tokens, so it is.",
+                "word. The expression is built from quoted phrases, so it is.",
         )
     }
 

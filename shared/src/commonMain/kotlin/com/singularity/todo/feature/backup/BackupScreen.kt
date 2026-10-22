@@ -26,7 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -134,7 +134,11 @@ fun BackupScreen(
                 },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // The tagged host: the snackbar's message is the translator's, and a
+        // flow that waits for "Backup created" waits forever on a Russian
+        // device. The tag says a snackbar was shown without saying what it
+        // said.
+        snackbarHost = { TaggedSnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -357,7 +361,7 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                 },
             )
         },
-        snackbarHost = { SnackbarHost(SnackbarHostState()) },
+        snackbarHost = { TaggedSnackbarHost(SnackbarHostState()) },
     ) { padding ->
         Column(
             modifier = Modifier

@@ -94,8 +94,8 @@ import com.singularity.todo.feature.tags.domain.model.UpdateTagGroupInput
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -613,6 +613,19 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
 
     override suspend fun markIncompleteForUser(id: String, ts: Long, userId: String): Int = error("not implemented")
 
+    override suspend fun markCompleteIfNotBlockedForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+        verb: String,
+    ): Int = error("not implemented")
+
+    override suspend fun blockedTaskIdsForUser(
+        taskIds: List<String>,
+        userId: String,
+        verb: String,
+    ): List<String> = error("not implemented")
+
     override suspend fun listAllForUser(userId: String): List<com.singularity.todo.core.database.TaskEntity> = error(
         "not implemented",
     )
@@ -666,7 +679,9 @@ open class FakeTaskRepository(
     var deleteOverride: Result<Unit>? = null
     var softDeleteOverride: Result<Unit>? = null
     var restoreOverride: Result<Unit>? = null
-    var toggleCompleteOverride: Result<Unit>? = null
+    var completeOverride: Result<Boolean>? = null
+    var reopenOverride: Result<Unit>? = null
+    var blockedTaskIdsOverride: Set<TaskId>? = null
     var togglePinnedOverride: Result<Unit>? = null
     var setTagsOverride: Result<Unit>? = null
     var setDependenciesOverride: Result<Unit>? = null
@@ -824,22 +839,6 @@ open class FakeTaskRepository(
             .map { map -> map.values.filter { it.parentTaskId == parentId && it.userId == uid } }
     }
 
-    override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.observeTypedDependenciesForUser(taskId.value, uid.value)
-                .map { rows ->
-                    rows.filter { it.verb == DependencyVerb.BLOCKS.name }
-                        .map { TaskId.fromString(it.dependsOnTaskId) }
-                        .toSet()
-                }
-        }
-
-    override fun observeBlockedBy(taskId: TaskId): Flow<Set<TaskId>> = dao.getBlockingTaskIdsForTask(taskId.value)
-        .map { ids ->
-            ids.map { TaskId.fromString(it) }
-                .toSet()
-        }
-
     // ── Legacy / DAO-backed methods ─────────────────────────────────────────────
 
     override suspend fun softDelete(id: TaskId): Result<Unit> {
@@ -869,18 +868,34 @@ open class FakeTaskRepository(
         }
     }
 
-    override suspend fun toggleComplete(id: TaskId): Result<Unit> {
-        toggleCompleteOverride?.let { return it }
+    override suspend fun complete(id: TaskId, force: Boolean): Result<Boolean> {
+        completeOverride?.let { return it }
         return runCatchingCancellable {
-            store[id.value]?.let { task ->
-                val toggled = if (task.completedAt != null) {
-                    task.copy(completedAt = null)
-                } else {
-                    task.copy(completedAt = clock.now())
-                }
-                store.upsert(toggled)
+            val task = store[id.value] ?: return@runCatchingCancellable false
+            if (!force && Blocking.isBlocked(task, store.values())) {
+                // The same refusal the real repository makes in its statement.
+                false
+            } else {
+                store.upsert(task.copy(completedAt = clock.now()))
+                true
             }
         }
+    }
+
+    override suspend fun reopen(id: TaskId): Result<Unit> {
+        reopenOverride?.let { return it }
+        return runCatchingCancellable {
+            store[id.value]?.let { task ->
+                store.upsert(task.copy(completedAt = null))
+            }
+        }
+    }
+
+    override suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId> {
+        blockedTaskIdsOverride?.let { return it }
+        if (taskIds.isEmpty()) return emptySet()
+        val blockers = Blocking.activeBlockersByTask(store.values())
+        return taskIds.filter { blockers.containsKey(it) }.toSet()
     }
 
     override suspend fun togglePinned(id: TaskId): Result<Unit> {
@@ -931,6 +946,10 @@ open class FakeTaskRepository(
             deps.forEach { dep ->
                 dao.upsertDependencyForUser(taskId.value, dep.value, DependencyVerb.BLOCKS.name, uid)
             }
+            // The task carries its blocking edges, the way production resolves them
+            // on read. A fake that kept the edges only in the join table would
+            // answer "is this task blocked?" differently from the real thing.
+            store.upsert(store[taskId.value]?.copy(blockedBy = deps) ?: return@runCatchingCancellable)
         }
     }
 
@@ -946,21 +965,16 @@ open class FakeTaskRepository(
         } else {
             dao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
         }
-    }
-
-    override fun observeTypedDependencies(taskId: TaskId): Flow<List<TaskDependency>> =
-        currentUser.observeForCurrentUser { uid ->
-            dao.observeTypedDependenciesForUser(taskId.value, uid.value)
-                .map { rows ->
-                    rows.map { row ->
-                        TaskDependency(
-                            ownerTaskId = TaskId.fromString(row.taskId),
-                            dependencyTaskId = TaskId.fromString(row.dependsOnTaskId),
-                            verb = DependencyVerb.valueOf(row.verb),
-                        )
-                    }
-                }
+        // Only the blocking edges travel on the task, and only while they are
+        // there: the same narrowing production applies when it reads a task.
+        val task = store[from.value] ?: return@runCatchingCancellable
+        val blockedBy = if (verb == DependencyVerb.BLOCKS) {
+            if (enabled) task.blockedBy + to else task.blockedBy - to
+        } else {
+            task.blockedBy
         }
+        store.upsert(task.copy(blockedBy = blockedBy))
+    }
 }
 
 // ─── TaskMutationsUseCase ────────────────────────────────────────────────────
@@ -1680,6 +1694,18 @@ class FakeProjectsRepository(
             existing.copy(
                 closedAt = kotlin.time.Instant.fromEpochMilliseconds(closedAt),
                 updatedAt = kotlin.time.Instant.fromEpochMilliseconds(closedAt),
+            ),
+        )
+    }
+
+    override suspend fun reopen(id: ProjectId, updatedAt: Long): Result<Unit> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val existing = store[id.value]?.takeIf { it.userId == uid }
+            ?: error("Project $id not found or not owned by user")
+        store.upsert(
+            existing.copy(
+                closedAt = null,
+                updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
             ),
         )
     }

@@ -30,10 +30,11 @@ Concretely:
    in. The text itself is not copied: the index reads the row from the table it
    belongs to.
 2. A search asks the index for the candidates and applies the rule to them. The
-   index narrows; the rule decides. A rule the index cannot answer — one that
-   only says "not" — is answered the way it was before.
-3. A term matches a *word* by its beginning, and the rule in memory says the
-   same thing. The index stores words, so it can only find the beginning of
+   index answers the positive terms; the rule answers the negated ones, in
+   memory. A rule the index cannot answer — one that only says "not" — is
+   answered the way it was before.
+3. A term matches a *word* by its beginning, and the words of a term stand next
+   to each other. The index stores words, so it can only find the beginning of
    one; a rule that said "contains" would disagree with the index that produced
    its candidates.
 4. The upgrade creates the indexes and fills them, so the records that existed
@@ -53,6 +54,16 @@ Concretely:
 A term matches a word by its beginning. "arch" finds "architecture"; "port" no
 longer finds "airport". This is the price of an index of words, and it is
 stated in the search grammar (F2a) rather than left to be discovered.
+
+A quoted phrase is a phrase: its words stand next to each other. "quarterly
+report" no longer finds "quarterly annual report".
+
+A term finds the word without its diacritics. "cafe" finds "Café au lait" —
+the index removes the diacritics, and the index answers the positive terms.
+The negated terms are answered by the in-memory rule, which does not remove
+them, so `NOT cafe` keeps a record that `cafe` finds. That asymmetry is
+deliberate, and it is written down in the decision record
+`docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
 
 ## Why now
 

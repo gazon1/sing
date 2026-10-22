@@ -244,6 +244,36 @@ class CauseKeyTest(unittest.TestCase):
             mod.cause_key('No visible element found: id: settings_tab_backup'),
         )
 
+    def test_a_stack_trace_does_not_come_into_the_key(self):
+        """The trace moves with the code; the cause does not.
+
+        A device-level failure carries its whole stack, and the line numbers
+        in it change with every release. With the trace in the key, the same
+        cause would be a *new* cause in every run, and the registry could
+        never learn it.
+        """
+        message = (
+            "maestro.android.DeviceServerDiedException: Device server died "
+            "during 'deviceInfo' on 0O65321F32204DD5 (1200ms since last byte, "
+            "connection age 3400ms): StatusRuntimeException: UNAVAILABLE\n"
+            "  at maestro.android.AndroidDeviceConnection.onGrpcDeath(AndroidDeviceConnection.kt:118)\n"
+            "  at maestro.Maestro.cachedDeviceInfo_delegate$lambda$0(Maestro.kt:56)\n"
+        )
+        self.assertEqual(
+            mod.cause_key(message),
+            "maestro.android.DeviceServerDiedException: Device server died "
+            "during 'deviceInfo' on 0O<n>F<n>DD5 (<n>ms since last byte, "
+            "connection age <n>ms): StatusRuntimeException: UNAVAILABLE",
+        )
+
+    def test_two_traces_of_one_cause_have_one_key(self):
+        """The same cause, two versions of the code, one key."""
+        head = "maestro.android.DeviceServerDiedException: Device server died"
+        self.assertEqual(
+            mod.cause_key(head + "\n  at A.kt:118\n"),
+            mod.cause_key(head + "\n  at A.kt:124\n"),
+        )
+
 
 class FloorFileTest(unittest.TestCase):
     """The floor is data, read from a file, never written by the gate."""

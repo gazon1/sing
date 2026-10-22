@@ -99,9 +99,16 @@ class DefaultSearchQueryResolver(
             // every task for a query that matched nothing. `today` is part of the
             // shared [TaskDomain.matchesFilter] signature and plays no part in a
             // text filter.
+            //
+            // The rule is applied to the candidates, not to every row: the index
+            // has already answered the positive terms, and the rule is only asked
+            // about the negated ones. [FreeTextRule.accepts] is what decides which
+            // half applies — it reads the plan, which is the rule's own answer to
+            // "what can the index do here".
             val today = todayAt(clock, timeZone.current())
+            val plan = freeTextRule.plan()
             ctx.addPostFilter { task ->
-                freeTextRule.selects { term ->
+                freeTextRule.accepts(plan) { term ->
                     TaskDomain.matchesFilter(task, TaskFilter.Search(term), today)
                 }
             }

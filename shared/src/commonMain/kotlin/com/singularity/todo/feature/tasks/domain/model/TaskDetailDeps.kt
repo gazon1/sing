@@ -20,6 +20,7 @@ import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlin.time.Clock
@@ -68,6 +69,11 @@ data class TaskCoreDeps(
     val updateTask: UpdateTaskUseCase,
     val createTask: CreateTaskUseCase,
     val completeRecurring: CompleteRecurringTaskUseCase,
+    /**
+     * The rule of closing a task: the write refuses while a prerequisite is
+     * open, and a task that comes back to work brings its project with it.
+     */
+    val completion: TaskReopenUseCase,
 )
 
 /**

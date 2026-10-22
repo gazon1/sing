@@ -29,6 +29,7 @@ nest it changes its id, and every reference to the old id breaks with it.
 | `crash-reporting` | the archived `background-handler-injection` change (2026-10-05), plus `docs/decisions/2026-10-05-background-failure-handler-and-the-guard-it-behind.md` | Where a background failure goes, and why that is the component's choice rather than a process-wide default. REQ-1..REQ-4 of the `failure-visibility` change and REQ-7/REQ-8 of `scope-reporter-agreement` also target this capability and are **not** here yet. `failure-visibility` is open on REQ-2 alone (#132); `scope-reporter-agreement` is open on one task — REQ-8's requirement that the check be *shown* to fail, which was demonstrated by hand and not yet performed by the build. This row is not the place to record work that has not shipped. |
 | `calendar-sync` | `docs/decisions/2026-10-05-google-sync-known-gaps-and-field-drift.md`, `2026-10-06-google-sync-failures-were-shaped-like-skips.md`, `2026-10-05-google-sync-local-side-came-from-the-shadow.md` | The system projection and the Google two-way peer, kept apart; a pass's three outcomes; one definition of which tasks belong on a calendar; the import window's single source. Authored 2026-10-07 from shipped behaviour, not as backfill — the drift it records had already produced five defects. |
 | `version-gate` | the archived `version-gate-read-timeout` change (2026-10-20), plus `docs/decisions/2026-10-20-version-gate-read-timeout.md` | What the version gate does when the remote config cannot be read: it fails **open** — reports the failure, admits the user on the defaults, and records the bypass with its reason. REQ-1 and REQ-2 came from the archived change; REQ-3 — the read bound belongs to the *port*, not only to the caller — was added on 2026-10-20 with the `android-test-hardening` change, and is stated here because the code ships with it. |
+| `search` | the archived `the-search-asks-the-index` change (2026-10-21), plus `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md` | What a search finds, and who answers it: the index answers the positive terms, the rule answers the negated ones, and a term matches a word by its beginning. The rule has one owner — the full-text index — and the change that made it so is recorded in the decision of 2026-10-22. |
 
 ## Not covered
 
@@ -45,15 +46,15 @@ Author one **when a change touches that module** — not before.
 | `core/platform` (time) | `core/time-semantics` | `2026-09-27-remove-platform-clock-object`, `2026-10-01-startdate-vs-duedate-semantics` |
 | `core/files`, `core/backup` | `core/backup-codec` | `2026-09-29-kotlinx-datetime-androidapp-missing` |
 | `core/reminders` | `core/reminder-scheduling` | `2026-09-22-alarmmanager-reminders` |
-| `feature/tasks` | `tasks/task-lifecycle` | `2026-09-23-task-dependencies-completion`; the open `blocked-completion-guard` change (2026-10-21) adds the blocked-completion requirement to the `tasks` capability and the `projects/project-closing` capability for `feature/projects` |
+| `feature/tasks` | `tasks/task-lifecycle` | `2026-09-23-task-dependencies-completion`; the open `blocked-completion-guard` change (2026-10-21) adds the blocked-completion requirement to the `tasks` capability and the `projects/project-closing` capability for `feature/projects`; the open `close-rule-consolidation` change (2026-10-22) gives the blocking rule one owner, moves the refusal into the write, and adds the bulk close and the reopen cascade |
 | `feature/agenda` | `agenda/saved-views` | `2026-09-16-agenda-mr4-saved-views-create-reorder` |
-| `feature/projects` | `projects/project-closing` | `2026-09-08-projects-ux-rework`; the open `blocked-completion-guard` change (2026-10-21) authors `projects/project-closing` — closing a project, and the cascade to its open tasks |
+| `feature/projects` | `projects/project-closing` | `2026-09-08-projects-ux-rework`; the open `blocked-completion-guard` change (2026-10-21) authors `projects/project-closing` — closing a project, and the cascade to its open tasks; the open `close-rule-consolidation` change (2026-10-22) makes the cascade land as a whole and opens a closed project when one of its tasks comes back to work |
 | `feature/notes` | `notes/note-links` | `2026-10-02-note-entity-dual-task-linkage`, `2026-09-07-notes-internal-links-backlinks`, `2026-09-09-notes-outgoing-links-extraction` |
 | `feature/calendar` | `calendar/entry-navigation` | — |
 | `feature/ai` | `ai/tool-registry` | `2026-09-07-write-tools-in-koog-registry`, `2026-09-26-writer-reviewer-pattern` |
 | `feature/pomodoro` | `pomodoro/timer-model` | `2026-09-22-pomodoro-hybrid-timer` |
 | `feature/attachments` | `attachments/storage-and-linking` | — |
-| `feature/search`, `feature/tags` | — | — |
+| `feature/tags` | — | the `search` capability (2026-10-21) covers the *finding* of a tag by name; managing the tags themselves is still uncovered |
 | `:mcp-server` tool surface | `mcp/write-tool-surface` | the open `agent-toolbox-surface` change (2026-10-20) — it ships the discovery, search and observability contract; the write-tool surface itself is still uncovered |
 
 ## Backfill candidates (audited separately)
