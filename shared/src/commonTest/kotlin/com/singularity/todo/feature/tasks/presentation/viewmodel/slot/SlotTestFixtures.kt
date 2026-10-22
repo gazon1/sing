@@ -23,6 +23,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
@@ -135,6 +136,7 @@ internal class SlotFakes(
         completeRecurring = stubCompleteRecurring,
         completion = TaskReopenUseCase(taskRepo, projectsRepo, FakeClock(SLOT_NOW)),
         updateSeries = UpdateTaskSeriesUseCase(taskRepo),
+        detachFromSeries = DetachTaskFromSeriesUseCase(taskRepo),
     )
 
     fun children() = TaskChildrenDeps(

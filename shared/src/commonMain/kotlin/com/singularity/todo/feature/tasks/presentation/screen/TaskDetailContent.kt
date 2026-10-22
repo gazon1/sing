@@ -384,6 +384,9 @@ fun TaskDetailContent(
                                                 TaskDetailIntent.Domain.ApplyToAllOccurrences,
                                             )
                                         },
+                                        onDetach = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DetachFromSeries)
+                                        },
                                         onDeleteSeries = {
                                             coordinator.onIntent(TaskDetailIntent.Domain.DeleteSeries)
                                         },

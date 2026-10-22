@@ -20,6 +20,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaVie
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import org.koin.core.module.Module
@@ -64,6 +65,7 @@ fun agendaModule(): Module = module {
                 currentUser = get<ProfileAwareCurrentUser>(),
                 taskMutations = get<TaskMutationsUseCase>(),
                 completion = get<TaskReopenUseCase>(),
+                mergeSeries = get<MergeTaskSeriesUseCase>(),
                 workScheduleSettings = get<WorkScheduleSettingsRepository>(),
                 greetingSettings = get<GreetingSettingsRepository>(),
             ),

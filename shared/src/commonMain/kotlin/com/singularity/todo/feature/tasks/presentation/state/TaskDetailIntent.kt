@@ -194,6 +194,16 @@ sealed interface TaskDetailIntent : MviIntent {
          */
         data object DeleteSeries : Domain, TaskEntityIntent
 
+        /**
+         * Takes the occurrence on screen out of its series.
+         *
+         * The occasion for it is a date that turned out to be a different job:
+         * the occurrence keeps its date and becomes a task that stands alone.
+         * When it was the second of two, the one that stays stands alone as well —
+         * a series of one is not a series.
+         */
+        data object DetachFromSeries : Domain, TaskEntityIntent
+
         // ── Attachments ──────────────────────────────────────────────────────
 
         data class AddUrlAttachment(val url: String, val title: String?) :

@@ -18,6 +18,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
@@ -121,6 +122,7 @@ class AgendaViewModelTest {
             currentUser = fakeCurrentUser,
             taskMutations = fakeTaskMutations,
             completion = completion,
+            mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
             workScheduleSettings = fakeSettings.workSchedule,
             greetingSettings = fakeSettings.greeting,
         ),
@@ -227,6 +229,7 @@ class AgendaViewModelTest {
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
                     completion = completion,
+                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -494,6 +497,7 @@ class AgendaViewModelTest {
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
                     completion = completion,
+                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -535,6 +539,7 @@ class AgendaViewModelTest {
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
                     completion = completion,
+                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),
@@ -713,6 +718,7 @@ class AgendaViewModelTest {
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
                     completion = completion,
+                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = customGreeting,
                 ),
@@ -744,6 +750,7 @@ class AgendaViewModelTest {
                     currentUser = fakeCurrentUser,
                     taskMutations = fakeTaskMutations,
                     completion = completion,
+                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                     workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = fakeSettings.greeting,
                 ),

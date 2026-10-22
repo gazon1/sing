@@ -136,6 +136,8 @@ class TaskEntitySlot(
             TaskDetailIntent.Domain.ApplyToAllOccurrences -> applyToAllOccurrences(task)
 
             TaskDetailIntent.Domain.DeleteSeries -> deleteSeries(task)
+
+            TaskDetailIntent.Domain.DetachFromSeries -> detachFromSeries(task)
         }
     }
 
@@ -185,6 +187,17 @@ class TaskEntitySlot(
         val seriesId = task.seriesId ?: return@launch
         core.updateSeries.archiveSeries(seriesId)
             .onFailure { onError("Failed to delete the series") }
+    }
+
+    /**
+     * Takes this occurrence out of its series.
+     *
+     * The occurrence keeps its date and becomes a task that stands alone; the
+     * series it left keeps its id while it still has more than one member.
+     */
+    private fun detachFromSeries(task: Task) = scope.launch {
+        core.detachFromSeries(task.id)
+            .onFailure { onError("Failed to detach the occurrence") }
     }
 
     private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {

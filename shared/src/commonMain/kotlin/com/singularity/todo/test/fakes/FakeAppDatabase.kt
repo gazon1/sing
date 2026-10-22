@@ -568,6 +568,11 @@ private class FakeTaskDao(
         it.values.filter { t -> t.userId == userId && t.seriesId == seriesId }.sortedBy { it.dueDate }
     }
 
+    override suspend fun getSeriesForUser(seriesId: String, userId: String): List<TaskEntity> =
+        store.value.values
+            .filter { t -> t.userId == userId && t.seriesId == seriesId }
+            .sortedBy { it.dueDate }
+
     override fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>> =
         kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
             val directlyTagged = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()

@@ -428,6 +428,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.SetEstimate,
             is TaskDetailIntent.Domain.ApplyToAllOccurrences,
             is TaskDetailIntent.Domain.DeleteSeries,
+            is TaskDetailIntent.Domain.DetachFromSeries,
             -> entity.onIntent(intent)
 
             is TaskDetailIntent.Domain.ToggleChecklistItem,

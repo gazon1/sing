@@ -15,6 +15,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -87,6 +88,7 @@ class AgendaBulkCloseTest {
             currentUser = fakeCurrentUser,
             taskMutations = fakeTaskMutations,
             completion = completion,
+            mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
             workScheduleSettings = fakeSettings.workSchedule,
             greetingSettings = fakeSettings.greeting,
         ),

@@ -40,6 +40,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  *   occurrence to the others. The shared fields (title, project, tags, …) do not
  *   need this button: they are already applied to the whole series when they are
  *   edited.
+ * * **Оставить отдельно** — takes this occurrence out of the series. The
+ *   occasion is a date that turned out to be a different job: the occurrence
+ *   keeps its date and becomes a task that stands alone.
  * * **Удалить серию** — archives every occurrence. Deleting one occurrence
  *   archives only that one; that is what the overflow menu of the task does.
  *
@@ -50,6 +53,7 @@ fun TaskSeriesCard(
     members: List<Task>,
     onOpenMember: (TaskId) -> Unit,
     onApplyToAll: () -> Unit,
+    onDetach: () -> Unit,
     onDeleteSeries: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -101,6 +105,12 @@ fun TaskSeriesCard(
                             .testTag(TestTags.TaskSeries.APPLY_TO_ALL)
                             .mapTestTagsAsResourceIds(),
                     ) { Text("Применить ко всем") }
+                    TextButton(
+                        onClick = onDetach,
+                        modifier = Modifier
+                            .testTag(TestTags.TaskSeries.DETACH)
+                            .mapTestTagsAsResourceIds(),
+                    ) { Text("Оставить отдельно") }
                     TextButton(
                         onClick = onDeleteSeries,
                         modifier = Modifier
