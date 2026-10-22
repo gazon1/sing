@@ -1563,9 +1563,22 @@ class FakeProjectsRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list ->
-            list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+    /**
+     * How many times the whole table was asked for.
+     *
+     * A search that reads every project to find that it matches none of them is
+     * a read of the whole table — on every search, and again on every change to
+     * it. The count is what a measurement of that cost is made of.
+     */
+    var observeAllCalls: Int = 0
+        private set
+
+    override fun observeAll(): Flow<List<Project>> {
+        observeAllCalls++
+        return currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+            }
         }
     }
 
@@ -1778,11 +1791,23 @@ class FakeTagsRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        currentUser.observeForCurrentUser { uid ->
+    /**
+     * How many times the whole table was asked for.
+     *
+     * A search that reads every tag to find that it matches none of them is a
+     * read of the whole table — on every search, and again on every change to
+     * it. The count is what a measurement of that cost is made of.
+     */
+    var observeAllCalls: Int = 0
+        private set
+
+    override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> {
+        observeAllCalls++
+        return currentUser.observeForCurrentUser { uid ->
             store.state.onStart { emit(store.state.value) }
                 .map { list -> list.values.filter { it.userId == uid } }
         }
+    }
 
     /** Scoped to the current user, matching production's `watchByIdForUser`. */
     override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
@@ -2031,12 +2056,24 @@ open class FakeNotesRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
+    /**
+     * How many times the whole table was asked for.
+     *
+     * A search that reads every note to find that it matches none of them is a
+     * read of the whole table — on every search, and again on every change to
+     * it. The count is what a measurement of that cost is made of.
+     */
+    var observeAllCalls: Int = 0
+        private set
+
+    override fun observeAll(): Flow<List<com.singularity.todo.feature.notes.Note>> {
+        observeAllCalls++
+        return currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter { it.userId == uid && it.archivedAt == null && it.deletedAt == null }
             }
         }
+    }
 
     override fun observe(
         id: com.singularity.todo.feature.notes.NoteId,
