@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui.textfields
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -256,6 +257,48 @@ class TextFieldStateBridgeUiTest {
         assertTagTextEquals(FIELD, "abc")
     }
 
+    @Test
+    fun a_rewrite_that_lands_on_a_value_the_field_produced_reaches_the_field_only_for_an_owned_source() =
+        runIsolatedComposeTest {
+            // The same rewrite, on two fields, against two kinds of upstream.
+            //
+            // This is the invisible half of the seed lie. The visible half was the
+            // seed that carried the field's own value; this is the owner that keeps
+            // a stale mirror of the field — a plain String, or an intent that carries
+            // the field's value — and sends it back as a rewrite. The rewrite lands on
+            // a value the field produced a moment ago, and from the field's side that
+            // is indistinguishable from a lagging upstream.
+            //
+            // For an owned source the rewrite is declared, so it lands. For a static
+            // source it is dropped — and the owner is not told, which is exactly why
+            // the static shape is a promise and not a convenience.
+            val static = Upstream()
+            val owned = OwnedUpstream()
+            setContent {
+                Column {
+                    BridgeField(static, tag = STATIC_FIELD)
+                    OwnedBridgeField(owned, tag = OWNED_FIELD)
+                }
+            }
+
+            awaitTag(STATIC_FIELD).performTextInput("abc")
+            waitForIdle()
+            awaitTag(STATIC_FIELD).performTextReplacement("a")
+            waitForIdle()
+            awaitTag(OWNED_FIELD).performTextInput("abc")
+            waitForIdle()
+            awaitTag(OWNED_FIELD).performTextReplacement("a")
+            waitForIdle()
+
+            // The owner rewrites the field to a value the field produced.
+            static.rewrite("abc")
+            owned.rewrite("abc")
+            waitForIdle()
+
+            assertTagTextEquals(STATIC_FIELD, "a")
+            assertTagTextEquals(OWNED_FIELD, "abc")
+        }
+
     /**
      * The upstream a bridge talks to: a plain string plus a counter of the writes
      * the field made to it. The string is snapshot state, so a rewrite from the
@@ -311,7 +354,7 @@ class TextFieldStateBridgeUiTest {
 
     /** A field bound to [upstream] through the shared bridge helper. */
     @Composable
-    private fun BridgeField(upstream: Upstream) {
+    private fun BridgeField(upstream: Upstream, tag: String = FIELD) {
         val state = rememberBridgedTextFieldState(
             source = upstream.source,
             onTextChanged = { newText ->
@@ -321,20 +364,20 @@ class TextFieldStateBridgeUiTest {
         )
         OutlinedTextField(
             state = state,
-            modifier = Modifier.testTag(FIELD),
+            modifier = Modifier.testTag(tag),
         )
     }
 
     /** A field bound to an [OwnedUpstream] through the shared bridge helper. */
     @Composable
-    private fun OwnedBridgeField(upstream: OwnedUpstream) {
+    private fun OwnedBridgeField(upstream: OwnedUpstream, tag: String = FIELD) {
         val state = rememberBridgedTextFieldState(
             source = upstream.source,
             onTextChanged = { newText -> upstream.push(newText) },
         )
         OutlinedTextField(
             state = state,
-            modifier = Modifier.testTag(FIELD),
+            modifier = Modifier.testTag(tag),
         )
     }
 
@@ -362,5 +405,11 @@ class TextFieldStateBridgeUiTest {
 
     private companion object {
         const val FIELD = "bridge_field"
+
+        /** The field bound to a static source, in the test that compares the two. */
+        const val STATIC_FIELD = "bridge_field_static"
+
+        /** The field bound to an owned source, in the test that compares the two. */
+        const val OWNED_FIELD = "bridge_field_owned"
     }
 }
