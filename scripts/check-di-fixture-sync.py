@@ -53,13 +53,23 @@ Exit code is 0 by default and 1 under `--check` when anything is found.
 """
 from __future__ import annotations
 
-import json
 import re
+import pathlib
 from pathlib import Path
+import sys
 
-import click
+# The gate suite is a package of this repository. This script is run as
+# `python3 scripts/check-<name>.py`, and the `sgate` the interpreter finds may
+# be an editable install of *another* checkout — so this repository's own
+# `scripts/src` goes in front of it. The same thing
+# `scripts/check-gate-wiring.py` does for `workflow_gradle`.
+_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
 
 from sgate.commands.base import run
+from sgate.gatekit.cli import gate_command
+from sgate.gatekit.findings import BLOCKING, Finding
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -195,9 +205,9 @@ def fixture_rows(root: Path) -> dict[str, list[str]]:
     return rows
 
 
-def mismatches(root: Path) -> list[str]:
+def mismatches(root: Path) -> list[Finding]:
     """The differences between the definitions and the fixture table."""
-    findings: list[str] = []
+    findings: list[Finding] = []
     rows = fixture_rows(root)
     fixture_relative = FIXTURE_TABLE_RELATIVE.as_posix()
     seen: set[str] = set()
@@ -206,69 +216,51 @@ def mismatches(root: Path) -> list[str]:
         seen.add(view_model)
         if view_model not in rows:
             findings.append(
-                f"{module}: `{view_model}` takes {len(params)} runtime parameter(s) "
-                f"({', '.join(params)}) but the fixture table in "
-                f"{fixture_relative} has no row for it",
+                Finding(BLOCKING,
+                        f"{module}: `{view_model}` takes {len(params)} runtime parameter(s) "
+                        f"({', '.join(params)}) but the fixture table in "
+                        f"{fixture_relative} has no row for it"),
             )
             continue
         values = rows[view_model]
         if len(values) != len(params):
             findings.append(
-                f"{module}: `{view_model}` takes {len(params)} parameter(s) "
-                f"({', '.join(params)}) but the fixture table supplies {len(values)} "
-                f"value(s) ({', '.join(values)})",
+                Finding(BLOCKING,
+                        f"{module}: `{view_model}` takes {len(params)} parameter(s) "
+                        f"({', '.join(params)}) but the fixture table supplies {len(values)} "
+                        f"value(s) ({', '.join(values)})"),
             )
             continue
         for value, expected in zip(values, params):
             verdict = value_can_satisfy(value, expected)
             if verdict is False:
                 findings.append(
-                    f"{module}: `{view_model}` takes a `{expected}` but the fixture "
-                    f"table supplies `{value}`, which is not one",
+                    Finding(BLOCKING,
+                            f"{module}: `{view_model}` takes a `{expected}` but the fixture "
+                            f"table supplies `{value}`, which is not one"),
                 )
 
     for view_model in sorted(set(rows) - seen):
         findings.append(
-            f"{fixture_relative}: the fixture table has a row "
-            f"for `{view_model}`, which no Koin definition gives runtime parameters",
+            Finding(BLOCKING,
+                    f"{fixture_relative}: the fixture table has a row "
+                    f"for `{view_model}`, which no Koin definition gives runtime parameters"),
         )
 
     return findings
 
 
-@click.command()
-@click.option("--quiet", is_flag=True, help="Findings only, for CI.")
-@click.option("--check", is_flag=True, help="Fail when anything is found.")
-@click.option("--json", "as_json", is_flag=True, help="Emit JSON instead of text.")
-@click.option(
-    "--root",
-    type=click.Path(file_okay=False, path_type=Path),
-    default=DEFAULT_ROOT,
-    help="The tree to check. Defaults to the repository the script lives in.",
+cli = gate_command(
+    mismatches,
+    name="check-di-fixture-sync",
+    title="Koin definitions and the DI fixture table",
+    default_root=DEFAULT_ROOT,
+    note=(
+        f"The fixture table lives in {FIXTURE_TABLE_RELATIVE.as_posix()} and says what to hand "
+        "each definition when the graph is built. A definition and a fixture that disagree "
+        "crash the graph on the first screen that uses it."
+    ),
 )
-@click.pass_context
-def cli(ctx: click.Context, quiet: bool, check: bool, as_json: bool, root: Path) -> None:
-    """Report the definitions and the fixture table that disagree."""
-    findings = mismatches(root)
-    if as_json:
-        click.echo(json.dumps({"findings": findings, "count": len(findings)}, indent=2))
-    else:
-        if not quiet:
-            click.echo("check-di-fixture-sync: Koin definitions and the DI fixture table")
-        for finding in findings:
-            click.echo(f"  [fixture-drift] {finding}")
-        if not quiet:
-            click.echo()
-            click.echo(f"{len(findings)} difference(s) between the definitions and the fixture table.")
-            click.echo(
-                "The fixture table lives in "
-                f"{FIXTURE_TABLE_RELATIVE.as_posix()} and says what to hand "
-                "each definition when the graph is built. A definition and a fixture that "
-                "disagree crash the graph on the first screen that uses it.",
-            )
-    if findings and check:
-        raise ctx.exit(VALIDATION_FAILURE)
-    raise ctx.exit(CLEAN)
 
 
 if __name__ == "__main__":

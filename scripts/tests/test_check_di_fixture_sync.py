@@ -83,13 +83,13 @@ class ComparisonTest(unittest.TestCase):
     def test_a_fixture_of_the_wrong_type_is_reported(self):
         findings = self.build(DEFINITION, '        TaskDetailCoordinator::class to listOf(TaskId("task-1")),')
         self.assertEqual(len(findings), 1)
-        self.assertIn("Detail", findings[0])
-        self.assertIn("TaskId", findings[0])
+        self.assertIn("Detail", findings[0].message)
+        self.assertIn("TaskId", findings[0].message)
 
     def test_a_definition_without_a_fixture_row_is_reported(self):
         findings = self.build(DEFINITION, "        val empty = emptyMap<KClass<*>, List<Any>>()")
         self.assertEqual(len(findings), 1)
-        self.assertIn("no row", findings[0])
+        self.assertIn("no row", findings[0].message)
 
     def test_a_fixture_row_without_a_definition_is_reported(self):
         findings = self.build(
@@ -97,7 +97,7 @@ class ComparisonTest(unittest.TestCase):
             '        AiUsageViewModel::class to listOf("nothing"),',
         )
         self.assertEqual(len(findings), 1)
-        self.assertIn("no Koin definition", findings[0])
+        self.assertIn("no Koin definition", findings[0].message)
 
     def test_the_wrong_number_of_values_is_reported(self):
         definition = """    viewModel { (year: Int, month: Month) ->
@@ -109,7 +109,7 @@ class ComparisonTest(unittest.TestCase):
         fixture = '        CalendarViewModel::class to listOf(2026),'
         findings = self.build(definition, fixture)
         self.assertEqual(len(findings), 1)
-        self.assertIn("supplies 1 value", findings[0])
+        self.assertIn("supplies 1 value", findings[0].message)
 
 
 if __name__ == "__main__":

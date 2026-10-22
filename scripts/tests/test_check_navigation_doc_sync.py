@@ -26,6 +26,10 @@ sys.path.insert(0, str(SCRIPTS / "src"))
 MODULE_PATH = SCRIPTS / "check-navigation-doc-sync.py"
 spec = importlib.util.spec_from_file_location("check_navigation_doc_sync", MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
+# The module must be in sys.modules before it is executed: a dataclass looks
+# its own module up there, and a module that was never registered has no
+# entry to find. This is the convention the other gate tests follow.
+sys.modules["check_navigation_doc_sync"] = mod
 spec.loader.exec_module(mod)
 
 DOC = "docs/navigation.md"
@@ -67,7 +71,7 @@ def write(root: pathlib.Path, relative: str, text: str) -> None:
 
 
 class DeepLinkRowsTest(unittest.TestCase):
-    def build(self, doc: str, matcher: str = MATCHER_SOURCE, spec: str = SPEC_SOURCE) -> list[str]:
+    def build(self, doc: str, matcher: str = MATCHER_SOURCE, spec: str = SPEC_SOURCE) -> list[mod.Finding]:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             write(root, DOC, doc)
@@ -83,15 +87,16 @@ class DeepLinkRowsTest(unittest.TestCase):
         stale = DOC_ROW.replace("SavedAgendaResults", "SavedAgendaEdit")
         findings = self.build(stale)
         self.assertEqual(len(findings), 1)
-        self.assertIn("SavedAgendaEdit", findings[0])
+        self.assertIn("SavedAgendaEdit", findings[0].message)
+        self.assertEqual(findings[0].severity, mod.BLOCKING)
 
     def test_a_link_the_code_declares_and_the_doc_does_not_is_reported(self):
         findings = self.build("| `singularity://task/{taskId}` | tasks — `TaskLinkSpec` | `AgendaGraph(Today)` | `TasksGraph(Detail(taskId))` |\n")
-        self.assertTrue(any("no deep-link row" in finding for finding in findings))
+        self.assertTrue(any("no deep-link row" in finding.message for finding in findings))
 
 
 class TasksStackClaimTest(unittest.TestCase):
-    def build(self, doc: str, entries: str) -> list[str]:
+    def build(self, doc: str, entries: str) -> list[mod.Finding]:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             write(root, DOC, doc)
@@ -108,7 +113,24 @@ class TasksStackClaimTest(unittest.TestCase):
         entries = "    entry<AppDestination.TasksGraph> { route ->\n        TasksNavGraph(start = route.start.toTasksRoute())\n    }\n"
         findings = self.build(doc, entries)
         self.assertEqual(len(findings), 1)
-        self.assertIn("the code seeds the tasks stack", findings[0])
+        self.assertIn("the code seeds the tasks stack", findings[0].message)
+
+    def test_a_push_claim_is_advisory_and_not_blocking(self):
+        """A claim read out of prose is a guess, and a guess does not fail a build.
+
+        The gate looks for a paragraph that mentions the task stack and a push.
+        A sentence that says "the tasks stack is seeded, and the push policy is
+        Push" would be read as a claim of a push — and it is not one. Blocking
+        on that would make the build red for a sentence nobody has to fix.
+        """
+        doc = DOC_ROW + "\n" + (
+            "| `TasksGraph` inner stack | graph dispatch by stack top | seeded "
+            "`rememberInMemoryNavBackStack`, `Detail` start pushed eagerly |\n"
+        )
+        entries = "    entry<AppDestination.TasksGraph> { route ->\n        TasksNavGraph(start = route.start.toTasksRoute())\n    }\n"
+        findings = self.build(doc, entries)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].severity, mod.ADVISORY)
 
     def test_a_row_that_does_not_claim_a_push_is_not_a_claim(self):
         doc = DOC_ROW + "\n" + (
