@@ -217,6 +217,22 @@ class SearchFreeTextRuleTest {
         assertTrue(results.isEmpty, "a query that matches nothing must produce an empty result set")
     }
 
+    // ─── The negated term ────────────────────────────────────────────────────
+    //
+    // The index answers the positive terms and the rule answers the negated
+    // ones. A query that says both asks for the records that carry the first
+    // and do not carry the second — for every kind of record alike.
+
+    @Test
+    fun `a negated term rules the record out for every kind`() = runTest {
+        val results = search("alpha NOT beta")
+
+        assertEquals(listOf(FIRST_ONLY), results.tasks.map { it.title })
+        assertEquals(listOf(FIRST_ONLY), results.notes.map { it.title })
+        assertEquals(listOf(FIRST_ONLY), results.projects.map { it.name })
+        assertEquals(listOf(FIRST_ONLY), results.tags.map { it.name })
+    }
+
     // ─── A query with no free text ──────────────────────────────────────────────
     //
     // Structured terms are filters over tasks. They do not select notes, projects or

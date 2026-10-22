@@ -44,3 +44,19 @@
       name, and the same holds for notes, projects and tags
 - [x] The upgrade: the indexes exist, the records that predate it are found, and
       the text is not copied
+
+## 6. One rule, one answer
+
+- [x] The index answers the positive terms, and the rule answers the negated
+      ones — the rule does not ask the index's question a second time
+- [x] A rule the index cannot answer at all is still answered by the rule, in
+      memory
+- [x] The expression is a phrase, not a conjunction: the words of a term stand
+      next to each other, and only the last one may be unfinished
+- [x] The ranking asks the rule about the title only, and is not a filter
+- [x] The fake answers a query and refuses an expression loudly — one
+      implementation of the rule in the test doubles
+- [x] The corpus holds the two sides of the rule against a real SQLite, and the
+      direction that loses records is closed
+- [x] The change in what a search finds is written down: a term finds the word
+      without its diacritics, and a phrase finds the words next to each other

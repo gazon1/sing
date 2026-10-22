@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.search.data
 
 import com.singularity.todo.core.database.FtsDao
-import com.singularity.todo.core.database.FtsMatchQuery
 import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toProject
 import com.singularity.todo.core.database.toTask
@@ -57,14 +56,12 @@ class SearchTextIndexImpl(
         }
 
     override suspend fun recentTaskTitles(query: TextMatchQuery, limit: Int): List<Task> {
-        val match = FtsMatchQuery.expression(query) ?: return emptyList()
         val userId = currentUser.scopedUserId.value.value
-        return ftsDao.searchTaskTitlesByMatch(userId, match, limit).map { it.toTask() }
+        return ftsDao.searchTaskTitles(userId, query, limit).map { it.toTask() }
     }
 
     override suspend fun recentNoteTitles(query: TextMatchQuery, limit: Int): List<Note> {
-        val match = FtsMatchQuery.expression(query) ?: return emptyList()
         val userId = currentUser.scopedUserId.value.value
-        return ftsDao.searchNoteTitlesByMatch(userId, match, limit).map { it.toNote() }
+        return ftsDao.searchNoteTitles(userId, query, limit).map { it.toNote() }
     }
 }

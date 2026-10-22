@@ -14,6 +14,15 @@ import com.singularity.todo.core.search.TextMatchQuery
  * This is the same rule the production index implements
  * ([com.singularity.todo.core.search.TextMatch]), so a test that passes here
  * is a test about the behaviour and not about the fake.
+ *
+ * ## Why there is no second implementation
+ *
+ * The fake used to answer a `MATCH` *expression* as well: it split the
+ * expression back into tokens and matched those. That was a second
+ * implementation of the rule — in a place where nothing compared it with the
+ * first one — and it could only agree with the rule for as long as nobody
+ * changed either. The fake answers the query surface now, and the expression
+ * surface of the fake says loudly that it is not implemented.
  */
 internal fun matchesTextMatch(query: TextMatchQuery, vararg texts: String?): Boolean {
     if (query.isEmpty) return false
@@ -22,27 +31,5 @@ internal fun matchesTextMatch(query: TextMatchQuery, vararg texts: String?): Boo
         results.any { it }
     } else {
         results.all { it }
-    }
-}
-
-/**
- * The in-memory stand-in for an FTS `MATCH` expression.
- *
- * The expression the production code builds is a conjunction of prefix tokens
- * (`quarterly* report*`), or a disjunction of such conjunctions
- * (`quarterly* OR annual*`). This reads it back the way the index would:
- * every token of a group has to be the beginning of one of the record's words,
- * and one group matching is enough.
- */
-internal fun matchesFtsExpression(expression: String, texts: List<String?>): Boolean {
-    val groups = expression.split(" OR ").map { group ->
-        group.split(" ").filter { it.isNotEmpty() }.map { token -> token.removeSuffix("*") }
-    }
-    return groups.any { group ->
-        group.all { token ->
-            texts.any { text ->
-                TextMatch.tokens(text.orEmpty()).any { word -> word.startsWith(token) }
-            }
-        }
     }
 }
