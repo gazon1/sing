@@ -129,16 +129,34 @@ do not rely on a tag to schedule it.
 
 ### CI Tag Handling
 
-In `.github/workflows/ci.yml`, the slow tests run separately:
+CI runs **two populations**, and the decision is made in ONE place — the
+"Select test population" step of the `tests` job in `.github/workflows/ci.yml` —
+and every later Gradle invocation in that job reads the resulting `$TEST_TAGS`.
 
-```yaml
-- name: Fast tests
-  run: ./gradlew :shared:commonTest :shared:jvmTest
+| event | population | what runs |
+|---|---|---|
+| `pull_request` without the `run-full-tests` label | `fast` | the fast classes |
+| `pull_request` with the label | `fast,slow` | everything |
+| `push` | `fast` | the fast classes |
+| `schedule` (nightly, 01:00 UTC) | `fast,slow` | everything |
+| `workflow_dispatch` | `fast,slow` | everything |
 
-- name: Slow tests
-  run: ./gradlew :shared:test -Ptest.tags=slow
-  continue-on-error: true  # Allow failure for known slow failures
-```
+The label is added to `pull_request`'s `types`, so adding it starts a run on its
+own — without a new commit — and keeps applying to the runs that follow.
+
+Two consequences worth knowing before you tag something:
+
+- **A `@Tag("slow")` class does not run on a pull request.** It runs on the
+  nightly. If a slow class is the one that would catch your change, say so, or
+  add the label.
+- **The coverage floors are per population.** A fast run is measured against the
+  fast floors and a nightly run against the full ones, so a pull request that
+  fails on coverage is failing against the *fast* floor, not the full one.
+
+The population parity gate (`scripts/check-gradle-test-population.py`) compares the
+selector strings of every test-capable invocation in a job — with one variable,
+all six invocations agree by construction, and a literal selector added
+alongside them is still caught.
 
 ## Pre-existing Slow Tests (16 tests)
 
