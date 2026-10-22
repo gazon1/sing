@@ -1,6 +1,7 @@
 
 package com.singularity.todo.feature.ai.tools
 
+import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
@@ -15,40 +16,50 @@ import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeProposalRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 /**
- * The seven write tools must not report a write they did not perform.
+ * The write tools must not report a change they did not make.
  *
  * ## What this is a control for
  *
- * Each of the seven called its repository's `create`/`update` and discarded the
- * `Result`, then returned an output DTO asserting success. All seven build the
- * entity id *before* the write, so on a failed write the model was handed
- * `{"noteId": "<an id naming nothing>", ...}` — identical to the success payload.
- * The model's next action is then built on a fabricated fact, and it carries
- * that belief into every later turn of the conversation.
+ * The defect this class was written for was a copy-paste convention across a
+ * package: each of the seven tools called its repository's `create`/`update` and
+ * discarded the `Result`, then returned an output DTO asserting success. On a
+ * failed write the model was handed `{"noteId": "<an id naming nothing>", ...}` —
+ * identical to the success payload — and its next action was built on a
+ * fabricated fact.
  *
- * The seven tests are deliberately one per tool rather than one representative
- * one. The defect is a copy-paste convention across a package, and a single
- * control would pass while six siblings kept reporting success.
+ * Six of the seven no longer write at all: they store a *proposal*, and the
+ * write happens later, when the user confirms it. The defect has moved with
+ * them. A proposal that was not stored must not be reported as stored, so the
+ * failing call is now the save of the proposal — and the assertion is the same
+ * one, on the same shape: the tool says it did not do it.
  *
- * ## Why the assertion is "it throws"
+ * ## Two shapes of "it did not happen"
  *
- * `DeleteNoteTool:74` already uses `.getOrThrow()`, so a failed tool call is the
- * failure shape the model is given elsewhere in this package. Asserting the
- * throw rather than an error field in the DTO also keeps the output contract
- * unchanged: on success the model receives exactly the JSON it received before.
+ * A tool that only proposes answers with a payload: `proposalCreated` is false
+ * and the error says why. A tool that still writes — `create_tag` — throws, so
+ * the failure is the repository's own exception, the way `DeleteNoteTool:74`
+ * already does.
  *
- * Each test also asserts the tool did not invent a success payload, which is
- * the failure mode the assertion on the exception alone would hide.
+ * ## Why the assertion is on the answer and not only on the exception
+ *
+ * Asserting the throw alone would pass a tool that reported a success payload
+ * on the way out. Every test here therefore checks the answer too: the flag says
+ * the change did not happen, and the user's data is untouched.
  */
 @Tag("fast")
 class WriteToolsReportTheWriteTheyDidNotPerformTest {
@@ -63,25 +74,35 @@ class WriteToolsReportTheWriteTheyDidNotPerformTest {
     // ─── Create ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `CreateNoteTool does not report a note it failed to create`() = runTest {
-        val repo = FakeNotesRepository(currentUser = profileAwareUser)
-        repo.createOverride = Result.failure(boom)
+    fun `CreateNoteTool does not report a proposal it failed to store`() = runTest {
+        val repo = FakeProposalRepository(clock)
+        repo.saveOverride = Result.failure(boom)
+        val notes = FakeNotesRepository(currentUser = profileAwareUser)
 
-        val failed = assertFailsWith<IllegalStateException> {
-            CreateNoteTool(repo, clock, profileAwareUser).execute(CreateNoteInput(title = "Ghost"))
-        }
-        assertTrue(failed.message == boom.message, "the repository's own exception should surface")
-        assertTrue(repo.notes.isEmpty(), "nothing was written, so the tool has nothing to report")
+        val output = ToolOutputJson.decodeFromString(
+            CreateNoteOutput.serializer(),
+            CreateNoteTool(repo, profileAwareUser, clock).execute(CreateNoteInput(title = "Ghost")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertTrue(notes.notes.isEmpty(), "nothing was created")
     }
 
     @Test
-    fun `CreateProjectTool does not report a project it failed to create`() = runTest {
-        val repo = FakeProjectsRepository(currentUser = profileAwareUser)
-        repo.createOverride = Result.failure(boom)
+    fun `CreateProjectTool does not report a proposal it failed to store`() = runTest {
+        val repo = FakeProposalRepository(clock)
+        repo.saveOverride = Result.failure(boom)
+        val projects = FakeProjectsRepository(currentUser = profileAwareUser)
 
-        assertFailsWith<IllegalStateException> {
-            CreateProjectTool(repo, clock, profileAwareUser).execute(CreateProjectInput(name = "Ghost"))
-        }
+        val output = ToolOutputJson.decodeFromString(
+            CreateProjectOutput.serializer(),
+            CreateProjectTool(repo, profileAwareUser, clock).execute(CreateProjectInput(name = "Ghost")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertTrue(projects.observeAll().first().isEmpty(), "nothing was created")
     }
 
     @Test
@@ -89,62 +110,89 @@ class WriteToolsReportTheWriteTheyDidNotPerformTest {
         val repo = FakeTagsRepository(currentUser = profileAwareUser)
         repo.createOverride = Result.failure(boom)
 
-        assertFailsWith<IllegalStateException> {
+        // The tool still writes, so the failure is the repository's own exception.
+        val failed = assertFailsWith<IllegalStateException> {
             CreateTagTool(repo, clock, profileAwareUser).execute(CreateTagInput(name = "Ghost"))
         }
+        assertTrue(failed.message == boom.message, "the repository's own exception should surface")
     }
 
     @Test
-    fun `CreateTaskTool does not report a task it failed to create`() = runTest {
-        val repo = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
-        repo.createOverride = Result.failure(boom)
+    fun `CreateTaskTool does not report a proposal it failed to store`() = runTest {
+        val repo = FakeProposalRepository(clock)
+        repo.saveOverride = Result.failure(boom)
+        val tasks = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
 
-        assertFailsWith<IllegalStateException> {
-            CreateTaskTool(repo, clock, profileAwareUser).execute(CreateTaskInput(title = "Ghost"))
-        }
+        val output = ToolOutputJson.decodeFromString(
+            CreateTaskOutput.serializer(),
+            CreateTaskTool(repo, profileAwareUser, clock).execute(CreateTaskInput(title = "Ghost")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertTrue(tasks.tasks.value.isEmpty(), "nothing was created")
     }
 
     // ─── Update ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `UpdateNoteTool does not report updated=true when the update failed`() = runTest {
+    fun `UpdateNoteTool does not report a proposal it failed to store`() = runTest {
         val repo = FakeNotesRepository(currentUser = profileAwareUser)
         val existing = note()
         repo.seed(existing)
-        repo.updateOverride = Result.failure(boom)
+        val proposals = FakeProposalRepository(clock)
+        proposals.saveOverride = Result.failure(boom)
 
-        assertFailsWith<IllegalStateException> {
-            UpdateNoteTool(repo, clock).execute(UpdateNoteInput(noteId = existing.id.value, title = "Renamed"))
-        }
+        val output = ToolOutputJson.decodeFromString(
+            UpdateNoteOutput.serializer(),
+            UpdateNoteTool(proposals, repo, profileAwareUser, clock)
+                .execute(UpdateNoteInput(noteId = existing.id.value, title = "Renamed")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertEquals("Existing", repo.notes[existing.id.value]?.title)
     }
 
     @Test
-    fun `UpdateProjectTool does not report updated=true when the update failed`() = runTest {
+    fun `UpdateProjectTool does not report a proposal it failed to store`() = runTest {
         val repo = FakeProjectsRepository(currentUser = profileAwareUser)
         val existing = project()
         repo.seed(existing)
-        repo.updateOverride = Result.failure(boom)
+        val proposals = FakeProposalRepository(clock)
+        proposals.saveOverride = Result.failure(boom)
 
-        assertFailsWith<IllegalStateException> {
-            UpdateProjectTool(repo, clock)
-                .execute(UpdateProjectInput(projectId = existing.id.value, name = "Renamed"))
-        }
+        val output = ToolOutputJson.decodeFromString(
+            UpdateProjectOutput.serializer(),
+            UpdateProjectTool(proposals, repo, profileAwareUser, clock)
+                .execute(UpdateProjectInput(projectId = existing.id.value, name = "Renamed")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertEquals("Existing", repo.get(existing.id)?.name)
     }
 
     @Test
-    fun `UpdateTaskTool does not report updated=true when the update failed`() = runTest {
+    fun `UpdateTaskTool does not report a proposal it failed to store`() = runTest {
         val repo = FakeTaskRepository(explicitCurrentUser = profileAwareUser)
         val existing = task()
         repo.seed(existing)
-        repo.updateOverride = Result.failure(boom)
+        val proposals = FakeProposalRepository(clock)
+        proposals.saveOverride = Result.failure(boom)
 
-        assertFailsWith<IllegalStateException> {
-            UpdateTaskTool(repo, clock)
-                .execute(UpdateTaskInput(taskId = existing.id.value, title = "Renamed"))
-        }
+        val output = ToolOutputJson.decodeFromString(
+            UpdateTaskOutput.serializer(),
+            UpdateTaskTool(proposals, repo, profileAwareUser, clock)
+                .execute(UpdateTaskInput(taskId = existing.id.value, title = "Renamed")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertEquals("Existing", repo.tasks.value[existing.id.value]?.title)
     }
 
-    // ─── Fixtures ──────────────────────────────────────────────────────────────
+    // ── Fixtures ──────────────────────────────────────────────────────────────
 
     private fun note() = Note(
         id = NoteId.generate(),

@@ -9,6 +9,8 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -41,6 +43,7 @@ class ApplyProposalItemUseCase(
     private val proposals: ProposalRepository,
     private val tasks: TaskRepository,
     private val notes: NotesRepository,
+    private val projects: ProjectsRepository,
     private val tags: TagsRepository,
     private val planner: ProposalPlanner,
     private val dispatch: ProposalDispatch,
@@ -61,7 +64,7 @@ class ApplyProposalItemUseCase(
         // Plan first: a proposal that cannot be applied must not consume its one
         // irreversible decision. All I/O (fetch task/note, resolve tag ids) happens here
         // before the claim, so bad proposals fail fast.
-        val plan = buildPlan(stored)
+        val plan = buildPlan(stored, userId)
 
         val claimed = proposals.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, userId)
             ?: return@runCatchingCancellable stored // lost the race — someone else decided it
@@ -127,12 +130,19 @@ class ApplyProposalItemUseCase(
      * before the claim. This lets the planner fail fast without burning the
      * one irreversible decision.
      */
-    private suspend fun buildPlan(item: ProposalItem): ProposalPlan = when {
+    private suspend fun buildPlan(item: ProposalItem, userId: UserId): ProposalPlan = when {
+        item.kind.isCreateVariant -> planner.planCreateItem(item, userId)
+
         item.kind.isNoteBound -> {
             // SetNoteField needs the note; DeleteNote and ExtractActions don't but
             // passing the note for SetNoteField is what the planner needs.
             val note = notes.get(NoteId(item.targetId))
             planner.planNoteItem(item, note)
+        }
+
+        item.kind.isProjectBound -> {
+            val project = projects.get(ProjectId.fromString(item.targetId))
+            planner.planProjectItem(item, project)
         }
 
         item.kind.isDeleteVariant -> planner.planDeleteItem(item)
@@ -144,6 +154,21 @@ class ApplyProposalItemUseCase(
             planner.planTaskItem(item, task, resolvedTagIds)
         }
     }
+
+    /**
+     * True when this kind creates something that does not exist yet.
+     *
+     * A creation has no target to fetch: the proposal named the id the thing *will*
+     * have, so there is nothing to read before it is built.
+     */
+    private val ProposalItemKind.isCreateVariant: Boolean
+        get() = this is ProposalItemKind.CreateTask ||
+            this is ProposalItemKind.CreateProject ||
+            this is ProposalItemKind.CreateNote
+
+    /** True when this kind targets a project rather than a task. */
+    private val ProposalItemKind.isProjectBound: Boolean
+        get() = this is ProposalItemKind.SetProjectField
 
     /** True when this kind targets a note rather than a task. */
     private val ProposalItemKind.isNoteBound: Boolean

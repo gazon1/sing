@@ -384,6 +384,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-dead-settings.py"),
         script_args=("--quiet",),
     ),
+    # A tool that writes a user's data directly applies a change the user never
+    # saw, while the delete tools and `write_task_proposal` propose the same kind
+    # of change. The gate does not decide which is right — it measures the state:
+    # every direct writer is listed with the reason it writes directly, so the
+    # gap is a written decision rather than an accident of which tool the model
+    # picked.
+    GateSpec(
+        name="a write tool proposes before it writes",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-ai-write-tools.py"),
+    ),
     GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
@@ -875,6 +887,7 @@ GATE_CONTROLS: dict[str, Control] = {
     'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/close-rule-consolidation.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/close-rule-consolidation', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
+    'ai-write-tools': Control(kind='sabotage', proves='scripts/check-ai-write-tools.py', argv=('{python}', 'scripts/check-ai-write-tools.py'), path='config/docs/ai-direct-writes.txt', edit=Edit(kind='regex', pattern=r'^CreateTagTool: .*\n', repl='', flags='MULTILINE'), why='a tool that writes a user\'s data without saying so is a change the user never saw. Removing one entry from the registry is the smallest version of that failure: the tool still writes, the registry stops saying why, and nothing else in the build notices — the gate has to notice, because the registry is the only place the decision was written down'),
     # gate-registries: the gate that compares the two registries. Its input is
     # the shell registry, so the sabotage adds a gate line the Python registry
     # does not know — the exact shape of drift the gate exists to report. The

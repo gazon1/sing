@@ -1026,3 +1026,46 @@ val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
         target.asFile.parentFile.mkdirs()
     }
 }
+
+// verifyToolSurface — the committed catalogue is what the code exports, checked
+// without running the whole test suite.
+//
+// The export task writes the file, so it cannot also report that the file is
+// wrong: it would have already overwritten it. The check therefore exports to a
+// scratch file and compares. That is the fast half of the answer — the JVM test
+// (`ToolSurfaceExportTest`) says the same thing, but it lives in a suite that takes
+// twenty minutes, and a tool description that changed shape is found in CI instead
+// of in the loop where it was written.
+//
+// It is cheap on purpose: it compiles the JVM classes and runs one main. The price
+// of the fast answer is that it says "the catalogue is stale" without saying what
+// changed; the export task and the diff say that.
+val verifyToolSurface = tasks.register<JavaExec>("verifyToolSurface") {
+    description = "Fails when config/docs/tool-surface.json is not what the code exports"
+    group = "verification"
+    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+    val committed = rootProject.layout.projectDirectory.file("config/docs/tool-surface.json")
+    val scratch = layout.buildDirectory.file("tool-surface-verify.json")
+    mainClass.set("com.singularity.todo.mcp.ToolSurfaceExportKt")
+    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+    args(scratch.get().asFile.absolutePath)
+    inputs.files(jvmClasses)
+    // The committed file is an input, not an output: this task reads it and
+    // compares, and it must not write over what it is checking.
+    inputs.file(committed)
+    outputs.file(scratch)
+    dependsOn("compileKotlinJvm")
+    doFirst {
+        scratch.get().asFile.parentFile.mkdirs()
+    }
+    doLast {
+        val exported = scratch.get().asFile.readText()
+        val current = committed.asFile.takeIf { it.isFile }?.readText()
+        if (exported != current) {
+            throw GradleException(
+                "config/docs/tool-surface.json is not what the code exports. " +
+                    "Regenerate it with: ./gw :shared:exportToolSurface"
+            )
+        }
+    }
+}

@@ -203,6 +203,12 @@ def _description_after(text: str, pos: int, path: pathlib.Path) -> str:
     continues while the line ends with `+`. The first line after `=` may be empty --
     `const val DESCRIPTION =` is often followed by the literal on the next row -- so
     blank lines are skipped before collection starts.
+
+    A raw string — three double quotes — is not one of those shapes, and reading
+    it as one would produce an empty description rather than an error: the
+    catalogue would say the tool has no description at all, and the person
+    reading the failure would go looking at the export rather than at the
+    source. So the shape is named here, where it is.
     """
     m = DESCRIPTION_CONST_RE.search(text, pos)
     if not m:
@@ -211,6 +217,13 @@ def _description_after(text: str, pos: int, path: pathlib.Path) -> str:
     idx = 0
     while idx < len(lines) and not lines[idx].strip():
         idx += 1
+    if idx < len(lines) and '"""' in lines[idx]:
+        raise ParseError(
+            f'{path.name}: the DESCRIPTION constant is a raw string ("""), which the catalogue '
+            f'reader does not parse — a description is a plain string literal, one line or '
+            f'several lines joined with `+`, so that the catalogue and the server send the '
+            f'same text'
+        )
     literals: list[str] = []
     while idx < len(lines):
         line = lines[idx]

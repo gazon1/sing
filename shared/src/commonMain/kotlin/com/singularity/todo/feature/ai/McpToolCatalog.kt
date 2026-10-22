@@ -111,7 +111,7 @@ object McpToolCatalog {
      * the shape changes in a way a client can observe — a renamed field, a removed
      * field, a changed meaning.
      */
-    const val SURFACE_CONTRACT_VERSION = 1
+    const val SURFACE_CONTRACT_VERSION = 2
 
     /**
      * A single tool entry in the catalog.
@@ -143,13 +143,15 @@ object McpToolCatalog {
             name = "create_task",
             toolClass = CreateTaskTool::class,
             domain = "tasks",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same input are two proposals,
+            // each naming the task it would create. It is not idempotent any more.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "update_task",
             toolClass = UpdateTaskTool::class,
             domain = "tasks",
-            annotations = ToolAnnotations(idempotentHint = true),
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "delete_task",
@@ -205,13 +207,15 @@ object McpToolCatalog {
             name = "create_project",
             toolClass = CreateProjectTool::class,
             domain = "projects",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same input are two proposals.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "update_project",
             toolClass = UpdateProjectTool::class,
             domain = "projects",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same input are two proposals.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "delete_project",
@@ -237,13 +241,15 @@ object McpToolCatalog {
             name = "create_note",
             toolClass = CreateNoteTool::class,
             domain = "notes",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same input are two proposals.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "update_note",
             toolClass = UpdateNoteTool::class,
             domain = "notes",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same input are two proposals.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "delete_note",

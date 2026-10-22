@@ -70,6 +70,8 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# The numbered steps are 1..12; the lettered ones (2b, 3b, 7b, 7c, 8b, 12b, 12c) are
+# extra checks that hang off a numbered step and are not counted here.
 TOTAL=12
 
 echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
@@ -123,6 +125,18 @@ timed "androidApp:compileDebugKotlin" ./gw :androidApp:compileDebugKotlin :andro
     exit 1
 }
 echo -e "${GREEN}androidMain compiled${NC}"
+
+# The tool catalogue is a generated file, and the JVM test that checks it lives in a
+# twenty-minute suite. This step is the fast half: it exports the catalogue to a
+# scratch file and compares, so a tool whose schema or description changed shape is
+# found here rather than in CI. It runs before the long test step because it costs
+# seconds and its failure has a one-line fix.
+echo -e "${YELLOW}=== [2b/$TOTAL] shared:verifyToolSurface ===${NC}"
+timed "shared:verifyToolSurface" ./gw :shared:verifyToolSurface --quiet || {
+    echo -e "${RED}the committed tool catalogue is not what the code exports${NC}"
+    exit 1
+}
+echo -e "${GREEN}the tool catalogue is current${NC}"
 
 echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 timed "shared:jvmTest" ./gw :shared:jvmTest --quiet || {

@@ -32,6 +32,14 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     private val proposals = MutableStateFlow<Map<String, AiProposal>>(emptyMap())
     private val items = MutableStateFlow<Map<String, ProposalItem>>(emptyMap())
 
+    /**
+     * What a save returns, when the test wants a save to fail.
+     *
+     * A proposal that was not stored must not be reported as stored, and the only
+     * way to test that is a save that fails.
+     */
+    var saveOverride: Result<Unit>? = null
+
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> = proposals.map { map ->
         map.values.filter { it.targetKind == AiProposal.TARGET_KIND_TASK && it.targetId == taskId.value }
             .sortedByDescending { it.createdAt }
@@ -61,6 +69,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         }
 
     override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
+        saveOverride?.let { return@runCatchingCancellable it.getOrThrow() }
         // The items first. A proposal's status is derived from its items, so a
         // proposal stored before its items would be derived as resolved — the
         // opposite of what a proposal with pending items is. The order is the

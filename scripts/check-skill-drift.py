@@ -217,8 +217,10 @@ def surface_problems() -> list[str]:
         if parsed[name] != exported[name].get('description', ''):
             problems.append(
                 f'the sources read the description of {name!r} as {parsed[name]!r}, and the '
-                f'export says {exported[name].get("description", "")!r} — the gate is reading '
-                f'the source wrongly'
+                f'export says {exported[name].get("description", "")!r} — the export is written '
+                f'from the Kotlin constant itself, so the shape the reader does not understand '
+                f'is in the source: a description is a plain string literal, one line or several '
+                f'lines joined with `+`'
             )
     return problems
 

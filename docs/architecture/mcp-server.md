@@ -384,7 +384,7 @@ package com.singularity.todo.mcp
 data class ToolAnnotations(
     val readOnlyHint: Boolean = false,      // get_task, list_tasks, search_tasks
     val destructiveHint: Boolean = false,    // delete_task (a proposal, not a delete)
-    val idempotentHint: Boolean = false,    // create_task (same input = same output)
+    val idempotentHint: Boolean = false,    // create_tag (same input = same tag)
     val openWorldHint: Boolean = false,     // write_adr (creates a file)
 )
 ```
@@ -397,7 +397,9 @@ ToolEntry(
     name = "create_task",
     toolClass = "CreateTaskTool",
     domain = "tasks",
-    annotations = ToolAnnotations(idempotentHint = true),
+    // The tool proposes: two calls with the same input are two proposals,
+    // each naming the task it would create. It is not idempotent any more.
+    annotations = ToolAnnotations(),
 ),
 ```
 
