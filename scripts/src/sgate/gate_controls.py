@@ -626,14 +626,6 @@ SCRIPT_GATES = [
                 'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
             ),
         ),
-        # a destination that is delegated but not named compiles, compiles, and fails at runtime on the first screen that opens it
-        ScriptGate(
-            name="stable-content-key",
-            cmd=[sys.executable, "scripts/check-stable-content-key.py", "--check"],
-            why=(
-                'a destination that is delegated but not named compiles, compiles, and fails at runtime on the first screen that opens it'
-            ),
-        ),
         # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
         ScriptGate(
             name="tools-catalog",

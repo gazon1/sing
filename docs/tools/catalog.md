@@ -39,7 +39,6 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/check-script-conventions.py` | check-script-conventions.py — enforce naming, docstring, and import conventions for gate scripts. |
 | `scripts/check-selectable-text-coverage.py` | Find text surfaces that are neither selectable nor classified. |
 | `scripts/check-skill-drift.py` | check-skill-drift.py — the declared toolbox must be the implemented toolbox (#526). |
-| `scripts/check-stable-content-key.py` | check-stable-content-key.py — every destination has a content key, and the code says so. |
 | `scripts/check-supabase-schema-integrity.py` | check-supabase-schema-integrity.py — the versioned sync schema is self-consistent. |
 | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hiding. |
 | `scripts/check-sync-allowlist-regenerated.py` | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from |
