@@ -268,6 +268,11 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
    код выхода пайпа — это код выхода `tail`, а не команды, и `git push` уходит с 141, не
    отправив ничего. Перенаправляй в файл (`cmd > /tmp/probe/push.log 2>&1`) и читай файл.
    Замер: 6 пушей в одной сессии ушли с 141 и «успешным» кодом выхода.
+9. **Пушить по SSH без keepalive, когда pre-push длинный** — git открывает соединение с
+   GitHub *до* хука, и пока хук крутит detekt (несколько минут), соединение простаивает:
+   GitHub закрывает его, и пуш падает с 141, хотя хук только что напечатал
+   `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive:
+   `git config core.sshCommand "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"`.
 
 ## 🧠 Decision log
 

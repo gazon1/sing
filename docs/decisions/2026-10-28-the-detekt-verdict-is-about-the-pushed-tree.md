@@ -117,6 +117,15 @@ hook did, and it is what let a broken tree out.
   `git push` into a local bare remote, with a stand-in for the Gradle
   wrapper. It holds the property in both directions: a violation in the
   pushed tree fails the push, and a violation only in the worktree does not.
+- The verdict takes a multi-minute Gradle build, and git opens its SSH
+  connection to the remote *before* the hook runs. The connection therefore
+  idles for the length of the analysis, GitHub closes it, and the push fails
+  with 141 — after the hook printed its own verdict and said the tree was
+  clean. Measured on the first push of this change: the hook reported
+  `=== Pre-push OK ===` and the push still failed with 141.
+  The remedy is a client-side keepalive
+  (`git config core.sshCommand "ssh -o ServerAliveInterval=30"`), not a
+  faster hook: the analysis is whole-module, and the analysis is the point.
 
 ## Links
 
