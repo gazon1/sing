@@ -733,4 +733,94 @@ class AgendaViewModelTest {
 
     private fun loadedSelection(vm: AgendaViewModel): Set<TaskId> =
         assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).selectedTaskIds
+
+    // ─── The blocked-completion guard ─────────────────────────────────────────
+
+    @Test
+    fun `a task with an unfinished prerequisite is not closed and asks instead`() = withVm { vm ->
+        fakeRepo.seed(
+            task("dep", "Dependency"),
+            task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))),
+        )
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+        runCurrent()
+
+        assertNull(
+            fakeRepo.tasks.value["t1"]?.completedAt,
+            "a blocked task must not be closed on the first request",
+        )
+        val request = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose
+        assertNotNull(request, "the user must be asked")
+        assertEquals(listOf("Dependency"), request.blockerTitles)
+    }
+
+    @Test
+    fun `confirming the request closes the task`() = withVm { vm ->
+        fakeRepo.seed(
+            task("dep", "Dependency"),
+            task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))),
+        )
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+        runCurrent()
+        vm.onIntent(AgendaIntent.ConfirmBlockedClose(TaskId("t1")))
+        runCurrent()
+
+        assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt, "the confirmed close must reach the repository")
+        assertNull(
+            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
+            "the confirmation must be closed once it has been answered",
+        )
+    }
+
+    @Test
+    fun `dismissing the request leaves the task alone`() = withVm { vm ->
+        fakeRepo.seed(
+            task("dep", "Dependency"),
+            task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))),
+        )
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+        runCurrent()
+        vm.onIntent(AgendaIntent.DismissBlockedClose)
+        runCurrent()
+
+        assertNull(fakeRepo.tasks.value["t1"]?.completedAt, "nothing may be written")
+        assertNull(
+            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
+            "the confirmation must be closed",
+        )
+    }
+
+    @Test
+    fun `an unblocked task closes without a question`() = withVm { vm ->
+        fakeRepo.seed(task("t1", "Plain"))
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+        runCurrent()
+
+        assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
+        assertNull(
+            assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose,
+            "an unblocked task must not raise a confirmation",
+        )
+    }
+
+    @Test
+    fun `a finished prerequisite does not ask`() = withVm { vm ->
+        val done = task("dep", "Dependency").copy(completedAt = now)
+        fakeRepo.seed(done, task("t1", "Blocked").copy(dependsOn = setOf(TaskId("dep"))))
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.TaskCheckClicked(TaskId("t1")))
+        runCurrent()
+
+        assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
+        assertNull(assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose)
+    }
 }

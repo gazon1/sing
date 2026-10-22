@@ -232,6 +232,8 @@ data class ProjectDto(
     val sortOrder: Int = 0,
     val idempotencyKey: String? = null,
     val externalId: String? = null,
+    /** When the project's work was declared finished; null means the project is open. */
+    val closedAt: Long? = null,
 )
 
 fun ProjectEntity.toDto(): ProjectDto =
@@ -252,6 +254,7 @@ fun ProjectEntity.toDto(): ProjectDto =
         sortOrder = sortOrder,
         idempotencyKey = idempotencyKey,
         externalId = externalId,
+        closedAt = closedAt,
     )
 
 fun ProjectDto.toEntity(userId: String): ProjectEntity =
@@ -273,6 +276,7 @@ fun ProjectDto.toEntity(userId: String): ProjectEntity =
         sortOrder = sortOrder,
         idempotencyKey = idempotencyKey,
         externalId = externalId,
+        closedAt = closedAt,
         sync = SyncColumns(),
     )
 

@@ -158,4 +158,66 @@ class BackupDtoTest {
         assertEquals(entity.name, restored.name)
         assertEquals(entity.color, restored.color)
     }
+
+    @Test
+    fun projectDtoRoundtripPreservesTheClosedTimestamp() {
+        val now = System.currentTimeMillis()
+        val entity = ProjectEntity(
+            id = "proj-closed",
+            userId = "user-1",
+            name = "Finished project",
+            color = 0xFF5500,
+            icon = null,
+            description = null,
+            createdAt = now,
+            updatedAt = now,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            closedAt = now,
+            parentId = null,
+            sortOrder = 0,
+            idempotencyKey = null,
+            externalId = null,
+            sync = SyncColumns(),
+        )
+
+        val restored = entity.toDto().toEntity("user-1")
+
+        assertEquals(
+            entity.closedAt,
+            restored.closedAt,
+            "a closed project must come back from a backup still closed",
+        )
+    }
+
+    @Test
+    fun anOpenProjectHasNoClosedTimestamp() {
+        val now = System.currentTimeMillis()
+        val entity = ProjectEntity(
+            id = "proj-open",
+            userId = "user-1",
+            name = "Open project",
+            color = 0xFF5500,
+            icon = null,
+            description = null,
+            createdAt = now,
+            updatedAt = now,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            closedAt = null,
+            parentId = null,
+            sortOrder = 0,
+            idempotencyKey = null,
+            externalId = null,
+            sync = SyncColumns(),
+        )
+
+        assertNull(entity.toDto().toEntity("user-1").closedAt)
+    }
 }

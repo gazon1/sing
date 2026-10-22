@@ -189,6 +189,7 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `PROJECT_DETAIL_EMPTY` | `project_detail_empty` | |
+| `PROJECT_DETAIL_OVERFLOW` | `project_detail_overflow` | |
 | `PROJECT_DETAIL_QUICK_ADD` | `project_detail_quick_add` | |
 | `PROJECT_DETAIL_TASKS_HEADER` | `project_detail_tasks_header` | |
 | `PROJECT_EDITOR_BACK` | `project_editor_back` | |

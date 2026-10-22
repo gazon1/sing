@@ -34,5 +34,22 @@ sealed interface ProjectDetailUiState {
         val availableTasks: List<Task>,
         /** All tag group options for the inherited-groups picker; excludes soft-deleted groups. */
         val tagGroups: List<TagGroupOption>,
+        /**
+         * A close that was refused until the user confirms it, because one of the
+         * project's tasks has an unfinished prerequisite.
+         *
+         * State, not an event: the confirmation has to survive a rotation, and a
+         * one-shot event is gone by the time the screen comes back.
+         */
+        val pendingCloseConfirmation: ProjectCloseConfirmation? = null,
     ) : ProjectDetailUiState
 }
+
+/**
+ * A project close waiting for the user's confirmation.
+ *
+ * @property blockedTaskTitles the titles of the tasks that are in the way.
+ * @property openTaskCount how many of the project's tasks the close will close.
+ */
+@Immutable
+data class ProjectCloseConfirmation(val blockedTaskTitles: List<String>, val openTaskCount: Int)

@@ -355,6 +355,13 @@ every write *says which kind it is*, so the honest claim is "every write is name
 against: the contract test asks the owner for a property of that type, so an owner that
 still holds a plain `String` fails the build.
 
+**One shape of the lie is closed.** A seed may not carry the field's own text:
+`FieldOwnedTextSeedContractTest` fails the build when a `seeded(...)` call reads `.text` out
+of a field. A value read out of a field is a value the field produced, and the bridge's echo
+guard drops it — the owner replaces the field and the field keeps the old text. A value the
+field produced *earlier* and that the owner now holds as a plain `String` is still invisible
+to a text scan; that one is `echoed`.
+
 **The write is named where the provenance is known.** Most owners see the field's own text
 at the place where the field's callback lands, and the value that arrives from outside at
 the place where the upstream loads it — both in the owner. The AI provider settings are the

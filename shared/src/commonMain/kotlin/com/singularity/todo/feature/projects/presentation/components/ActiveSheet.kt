@@ -12,6 +12,7 @@ sealed interface ActiveSheet {
     data class PickParent(val current: ProjectId?) : ActiveSheet
     data object ConfirmDelete : ActiveSheet
     data object ConfirmArchive : ActiveSheet
+    data object ConfirmClose : ActiveSheet
     data object PickReminder : ActiveSheet
     data object AddAttachment : ActiveSheet
     data object PickDueDate : ActiveSheet

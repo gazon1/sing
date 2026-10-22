@@ -22,6 +22,7 @@ import com.singularity.todo.core.ui.components.OverlayState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.presentation.components.ActiveSheet
+import com.singularity.todo.feature.projects.presentation.components.ConfirmBlockedCloseDialog
 import com.singularity.todo.feature.projects.presentation.components.CurrentProjectContent
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost
@@ -121,6 +122,34 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
         content = contentState as? ProjectDetailUiState.Content,
         actions = actions,
     )
+
+    // A project whose task has an unfinished prerequisite is not closed on the
+    // first request. The dialog is drawn from the state, so it survives a rotation
+    // instead of disappearing under the user's finger.
+    BlockedCloseDialog(content = contentState as? ProjectDetailUiState.Content, actions = actions)
+}
+
+// ─── Blocked close ─────────────────────────────────────────────────────────────
+
+/**
+ * The confirmation shown when a project cannot be closed yet because one of its
+ * tasks has an unfinished prerequisite.
+ *
+ * Extracted from [ProjectDetailContent] so the screen's own length stays inside
+ * the complexity budget.
+ */
+@Composable
+private fun BlockedCloseDialog(
+    content: ProjectDetailUiState.Content?,
+    actions: ProjectDetailActions,
+) {
+    val pending = content?.pendingCloseConfirmation ?: return
+    ConfirmBlockedCloseDialog(
+        blockedTaskTitles = pending.blockedTaskTitles,
+        openTaskCount = pending.openTaskCount,
+        onConfirm = { actions.onConfirmCloseProject() },
+        onDismiss = { actions.onDismissCloseProject() },
+    )
 }
 
 // ─── Sheets ─────────────────────────────────────────────────────────────────
@@ -150,6 +179,7 @@ private fun ProjectDetailSheets(
                         parentId = c.ui.parent?.id,
                         dueDate = c.ui.project.dueDate,
                         isArchived = c.ui.project.isDeleted,
+                        openTaskCount = c.ui.totalCount - c.ui.completedCount,
                         childProjects = c.ui.childProjects,
                         reminderOffset = c.ui.reminderOffsetMinutes?.let { m ->
                             ReminderOffset.entries.firstOrNull { it.minutes == m }
@@ -210,6 +240,8 @@ private fun rememberProjectDetailActions(
             is ProjectDetailIntent.Routing.OpenDeleteSheet -> sheets.show(ActiveSheet.ConfirmDelete)
 
             is ProjectDetailIntent.Routing.OpenArchiveSheet -> sheets.show(ActiveSheet.ConfirmArchive)
+
+            is ProjectDetailIntent.Routing.OpenCloseSheet -> sheets.show(ActiveSheet.ConfirmClose)
 
             is ProjectDetailIntent.Routing.OpenReminderSheet -> sheets.show(ActiveSheet.PickReminder)
 

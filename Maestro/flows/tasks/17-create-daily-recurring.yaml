@@ -83,10 +83,12 @@ tags:
     id: task_editor_recurrence_label
 
 # ── Save ──────────────────────────────────────────────────────────────
-# No `hideKeyboard` here. The keyboard was already dismissed above, and a
-# second dismissal is a BACK keypress — which closed the editor and took the
-# save button with it. That is why the flow ended on "task_editor_save not
-# found" while the editor was perfectly reachable a step earlier.
+#
+# No `hideKeyboard` here: the keyboard was already hidden above, and a
+# `hideKeyboard` with nothing to hide is a BACK keypress — which the editor
+# dialog reads as "dismiss me". Measured on a real phone (2026-10-28): the
+# editor was gone by the next step and `task_editor_save` was not found.
+# See docs/decisions/2026-10-28-the-keyboard-was-already-down.md.
 - tapOn:
     id: task_editor_save
 

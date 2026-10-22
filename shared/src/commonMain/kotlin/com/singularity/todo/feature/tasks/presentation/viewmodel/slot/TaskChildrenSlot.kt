@@ -2,6 +2,8 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
+import com.singularity.todo.feature.tasks.domain.logic.activeBlockers
+import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
@@ -33,8 +35,15 @@ class TaskChildrenSlot(
     private val context: TaskContextDeps,
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
+    /**
+     * Every task the user can see, so the slot can answer "which prerequisites of this
+     * subtask are still open". A subtask is a task, and closing one is closing one.
+     */
+    private val allTasks: StateFlow<List<Task>>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,
+    /** Raised when a close is refused until the user confirms. */
+    private val onBlockedClose: (BlockedCloseRequest) -> Unit,
 ) : FeatureSlot<TaskChildrenState, TaskChildrenIntent> {
 
     private val _state = MutableStateFlow(TaskChildrenState())
@@ -57,13 +66,28 @@ class TaskChildrenSlot(
     override fun onIntent(intent: TaskChildrenIntent) {
         when (intent) {
             is TaskDetailIntent.Domain.AddChecklistItem -> addChecklistItem(intent.title)
+
             is TaskDetailIntent.Domain.ToggleChecklistItem -> toggleChecklistItem(intent)
+
             is TaskDetailIntent.Domain.DeleteChecklistItem -> deleteChecklistItem(intent)
+
             is TaskDetailIntent.Domain.AddSubtask -> addSubtask(intent.title)
+
             is TaskDetailIntent.Domain.ToggleSubtask -> toggleSubtask(intent.task)
+
+            is TaskDetailIntent.Domain.ConfirmBlockedClose -> {
+                // The confirmation names a task; this slot owns the subtasks and
+                // nothing else. The task on this screen belongs to the completion slot.
+                val subtask = _state.value.subtasks.firstOrNull { it.id == intent.taskId }
+                if (subtask != null) toggleSubtask(subtask, force = true)
+            }
+
             is TaskDetailIntent.Domain.DeleteSubtask -> deleteSubtask(intent.task)
+
             is TaskDetailIntent.Domain.AddUrlAttachment -> addAttachment(intent)
+
             is TaskDetailIntent.Domain.AddFileAttachment -> addFileAttachment(intent)
+
             is TaskDetailIntent.Domain.DeleteAttachment -> deleteAttachment(intent)
         }
     }
@@ -97,10 +121,26 @@ class TaskChildrenSlot(
             .onFailure { onError("Add subtask failed: ${it.message}") }
     }
 
-    private fun toggleSubtask(subtask: Task) = scope.launch {
+    private fun toggleSubtask(subtask: Task, force: Boolean = false) {
+        val completing = subtask.completedAt == null
+        if (completing && !force) {
+            val blockers = activeBlockers(subtask, allTasks.value)
+            if (blockers.isNotEmpty()) {
+                onBlockedClose(
+                    BlockedCloseRequest(
+                        taskId = subtask.id,
+                        taskTitle = subtask.title,
+                        blockerTitles = blockers.map { it.title },
+                    ),
+                )
+                return
+            }
+        }
         val completedAt = if (subtask.completedAt == null) context.clock.now() else null
-        core.updateTask(subtask.id) { it.copy(completedAt = completedAt) }
-            .onFailure { onError("Save failed") }
+        scope.launch {
+            core.updateTask(subtask.id) { it.copy(completedAt = completedAt) }
+                .onFailure { onError("Save failed") }
+        }
     }
 
     private fun deleteSubtask(subtask: Task) = scope.launch {

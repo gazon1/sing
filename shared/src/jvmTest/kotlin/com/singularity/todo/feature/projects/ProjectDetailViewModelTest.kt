@@ -7,6 +7,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
@@ -106,6 +107,12 @@ class ProjectDetailViewModelTest {
             taskRepo = taskRepo,
             tagGroupRepo = fakeTagGroupRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
+            closeProject = CloseProjectUseCase(
+                projectRepo = fakeProjectsRepo,
+                taskRepo = taskRepo,
+                updateTask = UpdateTaskUseCase(taskRepo, FakeClock(TEST_NOW)),
+                clock = FakeClock(TEST_NOW),
+            ),
             updateProject = UpdateProjectUseCase(fakeProjectsRepo, FakeClock(TEST_NOW)),
             updateTask = UpdateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW)),
             createTaskUseCase = CreateTaskUseCase(fakeTaskRepo, FakeClock(TEST_NOW), fakeCurrentUser),

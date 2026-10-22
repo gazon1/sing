@@ -5,6 +5,7 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,18 @@ import kotlinx.coroutines.flow.map
  * So the reading is here, next to the mapper it ends in, and both readers use
  * it.
  *
+ * ## Only the blocking edges become dependencies
+ *
+ * The cross-reference table carries the *kind* of every relationship. A task's
+ * dependency set is only the relationships that block it: a task that "follows
+ * up" on another is not waiting for it, and reporting it as waiting is the
+ * bug this filter fixes.
+ *
+ * The filter is here rather than in the SQL because the same table is read by
+ * the cycle analysis, the backup export and the sync payload, and all three
+ * need *every* edge. Narrowing the query would have changed the wire format
+ * and the cycle walk without anything noticing.
+ *
  * @param uid the user whose tasks are being read.
  * @param source the task rows to enrich.
  */
@@ -37,7 +50,9 @@ internal fun TaskDao.withExtras(uid: UserId, source: Flow<List<TaskEntity>>): Fl
         rows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.tagId } }
     }
     val depsFlow = observeDependencyCrossRefs(uid.value).map { rows ->
-        rows.groupBy { it.taskId }.mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
+        rows.filter { it.verb == DependencyVerb.BLOCKS.name }
+            .groupBy { it.taskId }
+            .mapValues { (_, rows) -> rows.map { it.dependsOnTaskId }.toSet() }
     }
     val extrasFlow = combine(tagsFlow, depsFlow) { tags, deps ->
         TaskExtras(tagsByTask = tags, depsByTask = deps)
@@ -54,3 +69,19 @@ internal fun TaskDao.withExtras(uid: UserId, source: Flow<List<TaskEntity>>): Fl
 
 /** The cross-references of a set of tasks, indexed by the task they belong to. */
 private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val depsByTask: Map<String, Set<String>>)
+
+/**
+ * The ids of the dependencies of [taskId] that block it.
+ *
+ * The same filter [withExtras] applies, for the single-task read. The two have
+ * to agree: a task that carries one dependency set in a list and another when
+ * it is opened on its own is a task whose answer depends on where it was read.
+ *
+ * @param taskId the task whose dependencies are read.
+ * @param userId the owner of the task.
+ */
+internal fun TaskDao.blockingDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    observeTypedDependenciesForUser(taskId, userId)
+        .map { rows ->
+            rows.filter { it.verb == DependencyVerb.BLOCKS.name }.map { it.dependsOnTaskId }
+        }

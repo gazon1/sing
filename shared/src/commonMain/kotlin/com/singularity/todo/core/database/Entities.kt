@@ -159,6 +159,13 @@ data class ProjectEntity(
     val team: String?,
     @ColumnInfo("is_deleted") val isDeleted: Boolean = false,
     @ColumnInfo("deleted_at") val deletedAt: Long?,
+    /**
+     * When the project's work was declared finished; `null` means the project is open.
+     *
+     * A closed project is not a deleted one: the row stays, the project stays
+     * readable, and the project list stops reporting it.
+     */
+    @ColumnInfo("closed_at") val closedAt: Long? = null,
     @ColumnInfo("parent_id") val parentId: String?,
     @ColumnInfo("sort_order") val sortOrder: Int = 0,
     @ColumnInfo("idempotency_key") val idempotencyKey: String? = null,

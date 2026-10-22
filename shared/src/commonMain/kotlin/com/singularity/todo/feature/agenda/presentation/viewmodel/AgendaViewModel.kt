@@ -17,6 +17,9 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.tasks.domain.logic.activeBlockers
+import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
@@ -29,6 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -142,6 +146,17 @@ class AgendaViewModel(
     private val _greeting = MutableStateFlow("Good evening")
     val greeting: StateFlow<String> = _greeting.asStateFlow()
 
+    /**
+     * The task list the current evaluation was made against.
+     *
+     * The confirmation needs to know which prerequisites are still open, and
+     * answering that needs the tasks those prerequisites are. The evaluation
+     * already had them, and it is the *same* list the "blocked" badge was
+     * computed from — so the badge and the confirmation cannot disagree about
+     * whether a task is blocked.
+     */
+    private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
+
     init {
         // Greeting is computed once at load from greetingSettings and the current clock hour.
         // It does not change during the lifetime of this ViewModel instance.
@@ -157,6 +172,7 @@ class AgendaViewModel(
             todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
                 deps.taskRepo.observeByFilter(TaskFilter.All)
                     .distinctUntilChanged() // skip recompute when task list unchanged (e.g. midnight today tick)
+                    .onEach { latestTasks.value = it }
                     .map { tasks ->
                         AgendaUiState.Loaded(
                             sections = AgendaEvaluator.evaluate(tasks, definition, today, deps.clock.now()),
@@ -225,10 +241,40 @@ class AgendaViewModel(
 
             is AgendaIntent.TaskCheckClicked -> with(intent) {
                 scope.launch {
+                    // A task with an unfinished prerequisite is not closed on the
+                    // first request: the user is asked, and nothing is written
+                    // until they confirm. Taking a task back into work is never
+                    // asked about — only the closing direction is gated.
+                    val task = latestTasks.value.firstOrNull { it.id == taskId }
+                    if (task != null && task.completedAt == null) {
+                        val blockers = activeBlockers(task, latestTasks.value)
+                        if (blockers.isNotEmpty()) {
+                            setBlockedClose(
+                                BlockedCloseRequest(
+                                    taskId = task.id,
+                                    taskTitle = task.title,
+                                    blockerTitles = blockers.map { it.title },
+                                ),
+                            )
+                            return@launch
+                        }
+                    }
                     deps.taskRepo.toggleComplete(taskId)
                         .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
                 }
             }
+
+            is AgendaIntent.ConfirmBlockedClose -> with(intent) {
+                scope.launch {
+                    val request = (currentState as? AgendaUiState.Loaded)?.pendingBlockedClose
+                    if (request == null || request.taskId != taskId) return@launch
+                    setBlockedClose(null)
+                    deps.taskRepo.toggleComplete(taskId)
+                        .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
+                }
+            }
+
+            is AgendaIntent.DismissBlockedClose -> setBlockedClose(null)
 
             is AgendaIntent.TaskLongClicked -> with(intent) {
                 if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
@@ -281,6 +327,20 @@ class AgendaViewModel(
                 scope.launch { handleBulkComplete() }
             }
         }
+    }
+
+    // ── Blocked-completion confirmation ─────────────────────────────────────────
+
+    /**
+     * Publishes the confirmation for a task that cannot be closed without a
+     * question — or closes it, when there is no confirmation pending.
+     *
+     * State, not an event: the dialog has to survive a rotation, and a one-shot
+     * event is gone by the time the screen comes back.
+     */
+    private fun setBlockedClose(request: BlockedCloseRequest?) = updateState { current ->
+        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+        loaded.copy(pendingBlockedClose = request)
     }
 
     // ── Selection handlers ──────────────────────────────────────────────────────

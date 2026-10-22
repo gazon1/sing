@@ -39,6 +39,19 @@ data class Project(
     val team: String? = null,
     val isDeleted: Boolean = false,
     val deletedAt: Instant? = null,
+    /**
+     * When the project's work was declared finished.
+     *
+     * `null` means the project is open. A closed project is still there and still
+     * readable — it is not deleted and it is not archived — but it has left the
+     * project list, because the list exists to show what is being worked on.
+     *
+     * Distinct from [isDeleted]: that is a soft delete whose recovery path is the
+     * bin, and it is recoverable. Closing a project is a state the work reached.
+     *
+     * @see 2026-10-21-blocked-completion-guard
+     */
+    val closedAt: Instant? = null,
     val parentId: ProjectId? = null,
     val sortOrder: Int = 0,
     val idempotencyKey: String? = null,
