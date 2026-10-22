@@ -20,15 +20,16 @@ gap that looks like coverage on a dashboard.
 edits one entity needs that entity's id, so its definition takes a parameter: eight of
 them — `CalendarViewModel`, `AttachmentAnnotationViewModel`, `ProjectDetailViewModel`,
 `ProjectEditorViewModel`, `TaskDetailCoordinator`, `TaskCreateViewModel`,
-`AgendaViewModel`, `SavedAgendaViewModel`. The registry that resolves them is a
-registry, not a list: a ninth such definition (`NoteProposalsViewModel`, added by
-`2026-10-22-the-write-path-asks-first`) fails the graph test until it is listed
-there, which is the behaviour the registry was built for. The graph test could not create them
+`AgendaViewModel`, `SavedAgendaViewModel`. The graph test could not create them
 without a parameter, so it counted them as "needs a parameter" and moved on. Their own
 dependencies were never checked — and these are exactly the definitions that reach into
 a repository, a use case and a crash reporter at once, so they are exactly where a
 missing binding hides. The count went into the test's own output as a *number*, which
 reads like a measurement and is actually a hole.
+
+The registry that resolves them is a registry, not a list: a ninth such definition —
+`NoteProposalsViewModel`, added by `2026-10-22-the-write-path-asks-first` — fails the
+graph test until it is listed there. That is the behaviour the registry was built for.
 
 **The Android half of the graph was resolved by no test at all.** The graph test builds
 its graph from `testPlatformModule()` — a set of fakes standing in for the platform.

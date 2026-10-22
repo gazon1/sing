@@ -103,6 +103,40 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     suspend fun reopen(id: TaskId): Result<Unit>
 
     /**
+     * Closes one occurrence of a recurring task, without moving it forward.
+     *
+     * A recurring task is not closed in place: closing one occurrence stamps
+     * the completion, and moving the row to its next due date is a second
+     * write. This is the first of the two, and it is the same guarded
+     * statement the ordinary close uses — the write refuses while a
+     * prerequisite is open, so a roll-forward cannot land on a task whose
+     * prerequisite has just come back.
+     *
+     * @param id the task whose occurrence is closed.
+     * @param completedAt when the occurrence was completed.
+     * @param updatedAt the timestamp of the write.
+     * @param force close even while a prerequisite is open. The caller passes
+     *   `true` only after the user has confirmed.
+     * @return `true` when the occurrence was closed, `false` when the write
+     *   refused it because a prerequisite is still open.
+     */
+    suspend fun completeOccurrence(
+        id: TaskId,
+        completedAt: Long,
+        updatedAt: Long,
+        force: Boolean = false,
+    ): Result<Boolean>
+
+    /**
+     * Moves a task to its next due date, leaving everything else alone.
+     *
+     * The second half of a roll-forward, and deliberately narrow: a full-row
+     * update would carry the completion back over the guard that has just
+     * refused it.
+     */
+    suspend fun moveDueDate(id: TaskId, nextDue: LocalDate, updatedAt: Long): Result<Unit>
+
+    /**
      * The ids among [taskIds] that have an open blocking prerequisite.
      *
      * A targeted read — the edges of the given tasks only, not the whole task

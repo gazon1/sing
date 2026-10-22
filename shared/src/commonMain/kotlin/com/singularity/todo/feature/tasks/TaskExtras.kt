@@ -37,10 +37,13 @@ import kotlinx.coroutines.flow.map
  * up" on another is not waiting for it, and reporting it as waiting is the
  * bug this filter fixes.
  *
- * The filter is here rather than in the SQL because the same table is read by
- * the cycle analysis, the backup export and the sync payload, and all three
- * need *every* edge. Narrowing the query would have changed the wire format
- * and the cycle walk without anything noticing.
+ * This is the **blocking graph**. The other projection of the same table is
+ * the **ordering graph** — every edge, whatever its verb — and it is where the
+ * cycle analysis looks. The two are named apart in the DAO
+ * ([TaskDao.getBlockingEdgeIdsForUser] and
+ * [TaskDao.getOrderingEdgeIdsForUser]) so that a reader has to say which one
+ * it means: the same table, read for two different questions, and the
+ * difference between them is the whole point.
  *
  * @param uid the user whose tasks are being read.
  * @param source the task rows to enrich.
@@ -71,7 +74,8 @@ internal fun TaskDao.withExtras(uid: UserId, source: Flow<List<TaskEntity>>): Fl
 private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val depsByTask: Map<String, Set<String>>)
 
 /**
- * The ids of the dependencies of [taskId] that block it.
+ * The ids of the dependencies of [taskId] that block it — the **blocking
+ * graph**.
  *
  * The same filter [withExtras] applies, for the single-task read. The two have
  * to agree: a task that carries one dependency set in a list and another when
@@ -81,7 +85,4 @@ private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val dep
  * @param userId the owner of the task.
  */
 internal fun TaskDao.blockingDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
-    observeTypedDependenciesForUser(taskId, userId)
-        .map { rows ->
-            rows.filter { it.verb == DependencyVerb.BLOCKS.name }.map { it.dependsOnTaskId }
-        }
+    getBlockingEdgeIdsForUser(taskId, userId, DependencyVerb.BLOCKS.name)

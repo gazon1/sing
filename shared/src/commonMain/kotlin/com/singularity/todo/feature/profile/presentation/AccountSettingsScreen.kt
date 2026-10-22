@@ -33,6 +33,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.auth.AuthIntent
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.profile.Profile
@@ -213,7 +214,7 @@ private fun ProfileSwitcherSection(onSwitchProfile: () -> Unit) {
             )
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         }
-        Text(
+        SelectableText(
             text = "Switch to a different profile (Personal, AI Agent, etc.). Each profile has " +
                 "its own tasks, projects, and tags.",
             style = MaterialTheme.typography.bodySmall,
@@ -238,7 +239,7 @@ private fun AttachAccountSection(onAttachAccount: () -> Unit) {
             )
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         }
-        Text(
+        SelectableText(
             text = "Create an account using your current anonymous session's data.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -260,7 +261,7 @@ private fun SignOutSection(onSignOut: () -> Unit) {
                 modifier = Modifier.padding(end = 8.dp),
             )
         }
-        Text(
+        SelectableText(
             text = "You will stay on this device. To remove all data, delete the app.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

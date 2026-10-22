@@ -68,10 +68,32 @@ object BackupMigrations {
         JsonObject(payload + mapOf("schemaVersion" to JsonPrimitive(4)))
     }
 
+    /**
+     * v4 → v5: a dependency edge carries its verb.
+     *
+     * A v4 payload has only the two ends of each edge, so every relation in it
+     * is a block. The transform says so on every edge rather than leaving it to
+     * the default in the DTO: the payload that is written after the migration
+     * is the payload that says what its edges mean, and a reader that has to
+     * know the default to read it is one version away from a wrong answer.
+     */
+    private val v4ToV5: (JsonObject) -> JsonObject = { payload ->
+        val dependencies = payload["taskDependencies"]?.jsonArray?.map { dependency ->
+            JsonObject(dependency.jsonObject + mapOf("verb" to JsonPrimitive("BLOCKS")))
+        } ?: emptyList()
+        JsonObject(
+            payload + mapOf(
+                "taskDependencies" to JsonArray(dependencies),
+                "schemaVersion" to JsonPrimitive(5),
+            ),
+        )
+    }
+
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to v1ToV2,
         3 to v3ToV4,
+        4 to v4ToV5,
     )
 
     /**

@@ -9,6 +9,7 @@ import com.singularity.todo.feature.auth.presentation.AttachAccountScreen
 import com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreen
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.pomodoro.PomodoroScreen
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
@@ -34,50 +35,50 @@ fun EntryProviderScope<AppDestination>.appEntries(
     pomodoroTimer: PomodoroTimer,
     pomodoroTaskList: PomodoroTaskListProvider,
 ) {
-    entry<AppDestination.Pomodoro> {
+    entry<AppDestination.Pomodoro>(clazzContentKey = { it.stableContentKey() }) {
         PomodoroScreen(
             timer = pomodoroTimer,
             taskListProvider = pomodoroTaskList,
         )
     }
 
-    entry<AppDestination.Statistics> {
+    entry<AppDestination.Statistics>(clazzContentKey = { it.stableContentKey() }) {
         StatisticsScreen(navCallbacks = nav)
     }
 
-    entry<AppDestination.AiChat> {
+    entry<AppDestination.AiChat>(clazzContentKey = { it.stableContentKey() }) {
         ChatScreen()
     }
 
-    entry<AppDestination.Review> {
+    entry<AppDestination.Review>(clazzContentKey = { it.stableContentKey() }) {
         ReviewScreen()
     }
 
-    entry<AppDestination.Archive> {
+    entry<AppDestination.Archive>(clazzContentKey = { it.stableContentKey() }) {
         ArchiveScreen(onBack = { nav.goBack() })
     }
 
-    entry<AppDestination.AiUsage> {
+    entry<AppDestination.AiUsage>(clazzContentKey = { it.stableContentKey() }) {
         AiUsageScreen()
     }
 
-    entry<AppDestination.ProfileSwitcher> {
+    entry<AppDestination.ProfileSwitcher>(clazzContentKey = { it.stableContentKey() }) {
         ProfileSwitcherScreen(onBack = { nav.goBack() })
     }
 
-    entry<AppDestination.AttachAccount> {
+    entry<AppDestination.AttachAccount>(clazzContentKey = { it.stableContentKey() }) {
         AttachAccountScreen()
     }
 
-    entry<AppDestination.ChangePassword> {
+    entry<AppDestination.ChangePassword>(clazzContentKey = { it.stableContentKey() }) {
         ChangePasswordScreen()
     }
 
-    entry<AppDestination.MagicLinkConfirm> { route ->
+    entry<AppDestination.MagicLinkConfirm>(clazzContentKey = { it.stableContentKey() }) { route ->
         MagicLinkConfirmScreen(prefillEmail = route.email, prefillToken = route.token)
     }
 
-    entry<AppDestination.AttachmentViewer> { route ->
+    entry<AppDestination.AttachmentViewer>(clazzContentKey = { it.stableContentKey() }) { route ->
         AttachmentViewerRoute(
             attachmentId = route.attachmentId,
             onBack = nav.goBack,

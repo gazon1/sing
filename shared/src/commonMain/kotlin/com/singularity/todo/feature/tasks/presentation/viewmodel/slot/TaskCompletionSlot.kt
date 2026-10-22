@@ -7,6 +7,7 @@ import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskContextDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
+import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.presentation.state.TaskCompletionIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,13 +27,19 @@ import kotlinx.coroutines.launch
  *
  * ## The blocked-completion guard
  *
- * A task with an unfinished prerequisite is not closed on the first request: the slot asks
- * instead, and nothing is written until the user confirms. The guard sits **before** the
- * recurrence branch on purpose — rolling a recurrence forward is still closing the task,
- * and it has to ask too.
+ * A task with an unfinished prerequisite is not closed on the first request:
+ * the write refuses, and the slot asks instead. Nothing is written until the
+ * user confirms.
  *
- * The check is the shared pure predicate, not a rule of this slot: the agenda asks the
- * same question the same way, and two rules would be two answers.
+ * The guard is the **write**, on both branches: an ordinary task is closed by
+ * the guarded statement, and a recurring one by the roll-forward, which
+ * refuses in the same way. A check that ran before the write would have a
+ * window between the two, and the window is where another device reopens the
+ * prerequisite.
+ *
+ * The check that names the prerequisites is the shared pure predicate, not a
+ * rule of this slot: the agenda asks the same question the same way, and two
+ * rules would be two answers.
  */
 class TaskCompletionSlot(
     private val core: TaskCoreDeps,
@@ -84,19 +91,26 @@ class TaskCompletionSlot(
         val completing = task.completedAt == null
         if (completing && task.recurrence != null) {
             // A recurring task is closed by rolling the recurrence forward,
-            // which is a different write from the one that refuses to close a
-            // blocked task — so the question is asked before it, here.
-            if (!force) {
-                val blockers = Blocking.activeBlockers(task, allTasks.value)
-                if (blockers.isNotEmpty()) {
-                    askAboutBlockers(task, blockers)
-                    return
-                }
-            }
+            // and that write refuses while a prerequisite is open — the same
+            // refusal the ordinary close makes. The question is asked when the
+            // write says no, not before it: a check that runs before the write
+            // has a window between the two, and the window is where another
+            // device reopens the prerequisite.
             scope.launch {
-                core.completeRecurring(task.id)
+                core.completeRecurring(task.id, force)
                     .onSuccess { onSaved("Recurrence completed") }
-                    .onFailure { onError("Failed to complete recurring task") }
+                    .onFailure { error ->
+                        if (error is BlockedTasksException) {
+                            val blockers = Blocking.activeBlockers(task, allTasks.value)
+                            if (blockers.isNotEmpty()) {
+                                askAboutBlockers(task, blockers)
+                            } else {
+                                onError("Save failed")
+                            }
+                        } else {
+                            onError("Failed to complete recurring task")
+                        }
+                    }
             }
             return
         }

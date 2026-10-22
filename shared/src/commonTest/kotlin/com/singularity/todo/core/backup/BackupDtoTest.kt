@@ -3,6 +3,7 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -219,5 +220,31 @@ class BackupDtoTest {
         )
 
         assertNull(entity.toDto().toEntity("user-1").closedAt)
+    }
+
+    @Test
+    fun aDependencyEdgeKeepsItsVerb() {
+        val edge = TaskDependencyCrossRef(
+            taskId = "task-1",
+            dependsOnTaskId = "task-2",
+            verb = "FOLLOWS_UP",
+        )
+
+        val restored = edge.toDto().toEntity()
+
+        assertEquals("FOLLOWS_UP", restored.verb, "an edge that follows up is not a block")
+    }
+
+    @Test
+    fun anEdgeWithoutAVerbIsABlock() {
+        // What a backup written before the verb existed decodes to: the edge had
+        // no meaning recorded, and the only meaning it can have had is a block.
+        val decoded = Json.decodeFromString(
+            TaskDependencyDto.serializer(),
+            """{"taskId":"task-1","dependsOnTaskId":"task-2"}""",
+        )
+
+        assertEquals("BLOCKS", decoded.verb)
+        assertEquals("BLOCKS", decoded.toEntity().verb)
     }
 }

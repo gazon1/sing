@@ -110,25 +110,63 @@ when the answer is "excluded".
 
 | File | Treatment | Reason |
 |---|---|---|
+| `core/ui/components/EmptyState.kt` | selectable | the empty state's title and subtitle are a message; the action keeps its own gesture |
 | `core/ui/components/MessageBubble.kt` | linkified | the assistant's answer is prose, and prose is where links turn up |
 | `feature/genui/render/material3/atoms/TextRenderer.kt` | linkified | a generated screen's text; the model's own words may carry links |
-| `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
-| `feature/notes/presentation/screen/NotePreviewScreen.kt` | selectable | the note body; its links are the note's own, handled by the screen |
-| `feature/tasks/presentation/components/detail/LogbookSection.kt` | selectable | note titles and time rows — the "add note" button is excluded from the selection |
-| `feature/tasks/presentation/components/detail/LinkedBacklinksCard.kt` | selectable | the titles of the notes that link back |
-| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | selectable | the quote and the annotation's text; the input fields are not touched |
-| `feature/calendar_sync/presentation/CalendarSyncSettingsScreen.kt` | selectable | the failure messages — the ones a person has to read out to support |
-| `feature/timetracking/presentation/components/TimeTrackingSection.kt` | selectable | the section's message |
-| `feature/backup/BackupScreen.kt` | selectable | the backup id, which a person has to write down somewhere |
+| `feature/agenda/presentation/screen/SavedAgendaContent.kt` | selectable | the missing-view report is a message the person reads |
+| `feature/agenda/presentation/screen/SavedAgendaScreen.kt` | selectable | the dialog explains the pattern it matches; the mode names stay labels |
 | `feature/ai/usage/AiUsageScreen.kt` | selectable | the model id and the tool name; the token counts are not |
-| `feature/settings/screens/AiProviderSettingsScreen.kt` | selectable | the provider and model ids; the key and the endpoint are input fields and stay as they are |
-| `feature/statistics/StatisticsScreen.kt` | selectable | the project names; the numbers and the percentages are not |
-| `feature/search/SearchScreen.kt` | selectable | the titles of the note, project and tag results |
+| `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | selectable | the quote and the annotation's text; the input fields are not touched |
+| `feature/attachments/components/AttachmentsSheet.kt` | selectable | the empty state tells the person what is missing |
+| `feature/attachments/viewer/AttachmentViewerHost.kt` | selectable | the failure message names the type it cannot open |
+| `feature/attachments/viewer/AttachmentViewerRoute.kt` | selectable | the failure message |
 | `feature/attachments/viewer/TextViewerScreen.kt` | selectable | it already selects the text — it wraps the viewer in a selection container of its own |
-| `feature/notes/components/NoteCard.kt` | excluded | the row swipes — the gesture belongs to the card |
-| `feature/tasks/presentation/components/TaskCard.kt` | excluded | the row's long press opens the task's menu |
-| `feature/archive/ArchiveScreen.kt` | excluded | its rows are task cards, and the gesture is theirs |
+| `feature/auth/ConfirmationPendingContent.kt` | selectable | the instruction the person has to follow |
+| `feature/auth/LoginScreen.kt` | selectable | the body explains where the key comes from; the headline stays a label |
+| `feature/auth/presentation/AttachAccountScreen.kt` | selectable | the explanation of what the account is for |
+| `feature/auth/presentation/MagicLinkConfirmScreen.kt` | selectable | the instruction that says what to do next |
+| `feature/backup/BackupScreen.kt` | selectable | the backup id, which a person has to write down somewhere |
+| `feature/calendar_sync/presentation/CalendarAppPicker.kt` | selectable | the message that reports the fallback |
+| `feature/calendar_sync/presentation/CalendarSyncSettingsScreen.kt` | selectable | the failure messages — the ones a person has to read out to support |
+| `feature/checklist/components/ChecklistEditorSheet.kt` | selectable | the empty state tells the person what is missing |
+| `feature/notes/presentation/screen/NotePreviewScreen.kt` | selectable | the note body; its links are the note's own, handled by the screen |
+| `feature/pomodoro/PomodoroScreen.kt` | selectable | the message that reports the capability is missing |
+| `feature/profile/presentation/AccountSettingsScreen.kt` | selectable | the explanation of what the account keeps |
+| `feature/profile/presentation/ChangePasswordScreen.kt` | selectable | the instruction the person has to follow |
+| `feature/projects/presentation/components/ConfirmCloseSheet.kt` | selectable | the dialog body reports what is unfinished; the title and the buttons stay labels |
+| `feature/projects/presentation/components/ConfirmDeleteSheet.kt` | selectable | the dialog body names the project; the title and the buttons stay labels |
+| `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
+| `feature/search/SearchScreen.kt` | selectable | the titles of the note, project and tag results |
+| `feature/settings/screens/AgendaSettingsScreen.kt` | selectable | the empty state says where to create a view |
+| `feature/settings/screens/AiProviderSettingsScreen.kt` | selectable | the provider and model ids; the key and the endpoint are input fields and stay as they are |
+| `feature/settings/screens/FilesSettingsScreen.kt` | selectable | the explanation of where attachments are stored |
+| `feature/statistics/StatisticsScreen.kt` | selectable | the project names; the numbers and the percentages are not |
+| `feature/tags/components/TagsPickerSheet.kt` | selectable | the empty state tells the person what is missing |
+| `feature/tags/presentation/screen/TagGroupsScreen.kt` | selectable | the dialog body says what happens to the tags; the title and the buttons stay labels |
+| `feature/tasks/presentation/components/detail/DependencyPickerSheet.kt` | selectable | the empty state tells the person what is missing |
+| `feature/tasks/presentation/components/detail/LinkedBacklinksCard.kt` | selectable | the titles of the notes that link back |
+| `feature/tasks/presentation/components/detail/LogbookSection.kt` | selectable | note titles and time rows — the "add note" button is excluded from the selection |
+| `feature/tasks/presentation/components/ProjectPickerSheet.kt` | selectable | the empty state tells the person what is missing |
+| `feature/timetracking/presentation/components/TimeTrackingSection.kt` | selectable | the section's message |
+| `feature/whatsnew/presentation/screen/WhatsNewScreen.kt` | selectable | the message that reports the dropped lines |
+| `feature/agenda/presentation/components/SavedAgendaCard.kt` | excluded | the overflow menu's item labels |
 | `feature/agenda/presentation/screen/AgendaContent.kt` | excluded | its rows are swipeable task rows with a long press |
+| `feature/agenda/presentation/screen/SelectorParameterSheet.kt` | excluded | the section heading over the tag chips |
+| `feature/archive/ArchiveScreen.kt` | excluded | its rows are task cards, and the gesture is theirs |
+| `feature/checklist/components/ChecklistItemRow.kt` | excluded | the overflow menu's item label |
+| `feature/notes/components/InternalLinkPickerSheet.kt` | excluded | the search field's placeholder |
+| `feature/notes/components/NoteCard.kt` | excluded | the row swipes — the gesture belongs to the card |
+| `feature/notes/presentation/screen/NotesListScreen.kt` | excluded | its empty state is rendered by the shared EmptyState component, which is selectable |
+| `feature/projects/presentation/components/EditorParentPickerSheet.kt` | excluded | the picker's option label |
+| `feature/projects/presentation/components/InheritedTagGroupsSheet.kt` | excluded | the sheet's heading |
+| `feature/projects/presentation/screen/ProjectDetailBody.kt` | excluded | the quick-add field's placeholder |
+| `feature/settings/screens/InterfaceSettingsScreen.kt` | excluded | the settings preview's sample text |
+| `feature/settings/screens/WorkScheduleSettingsScreen.kt` | excluded | the settings preview's sample text |
+| `feature/tasks/presentation/components/detail/RecurrencePickerSheet.kt` | excluded | the picker's option labels |
+| `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | excluded | the description field's placeholder |
+| `feature/tasks/presentation/components/detail/TaskDetailExtraSections.kt` | excluded | the action's label |
+| `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | excluded | the picker's option labels |
+| `feature/tasks/presentation/components/TaskCard.kt` | excluded | the row's long press opens the task's menu |
 
 ## 5. The rules
 

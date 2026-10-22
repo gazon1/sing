@@ -126,6 +126,10 @@ class SharedHarnessConventionsTest {
         "AgendaViewModelTest.kt" to
             "Uses backgroundScope.launch { vm.events.collect } for event-listening tests; " +
             "TestVmContext does not expose raw VM or backgroundScope for event collection",
+        "AgendaBulkCloseTest.kt" to
+            "The agenda collects a clock flow that never ends, so its virtual clock cannot be " +
+            "advanced to idle and the VM's scope cannot be the test scope — the same reason as " +
+            "AgendaViewModelTest, for the same screen",
     )
 
     /**

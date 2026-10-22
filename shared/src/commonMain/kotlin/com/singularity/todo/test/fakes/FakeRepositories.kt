@@ -111,6 +111,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.LocalDate
 import kotlin.time.Clock
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.attachments.AttachmentId
@@ -411,21 +412,15 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
 
     // ── Dependency methods (the only ones used by FakeTaskRepository) ─────────
 
-    override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
-        depsByUser.map { byUser -> byUser.values.flatten().filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
-
-    override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    override fun getOrderingEdgeIdsForUser(taskId: String, userId: String): Flow<List<String>> =
         depsByUser.map { byUser ->
             byUser[userId]?.filter { it.taskId == taskId }?.map { it.dependsOnTaskId }
                 ?: emptyList()
         }
 
-    override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
-        depsByUser.map { byUser -> byUser.values.flatten().filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
-
-    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    override fun getBlockingEdgeIdsForUser(taskId: String, userId: String, verb: String): Flow<List<String>> =
         depsByUser.map { byUser ->
-            byUser[userId]?.filter { it.dependsOnTaskId == taskId }?.map { it.taskId }
+            byUser[userId]?.filter { it.taskId == taskId && it.verb == verb }?.map { it.dependsOnTaskId }
                 ?: emptyList()
         }
 
@@ -525,7 +520,7 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     }
 
     override suspend fun getBacklinkTasks(
-        taskId: String,
+        url: String,
         userId: String,
     ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
 
@@ -619,6 +614,9 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
         userId: String,
         verb: String,
     ): Int = error("not implemented")
+
+    override suspend fun setDueDateForUser(id: String, dueDate: String?, updatedAt: Long, userId: String): Int =
+        error("not implemented")
 
     override suspend fun blockedTaskIdsForUser(
         taskIds: List<String>,
@@ -890,6 +888,42 @@ open class FakeTaskRepository(
             }
         }
     }
+
+    override suspend fun completeOccurrence(
+        id: TaskId,
+        completedAt: Long,
+        updatedAt: Long,
+        force: Boolean,
+    ): Result<Boolean> {
+        completeOverride?.let { return it }
+        return runCatchingCancellable {
+            val task = store[id.value] ?: return@runCatchingCancellable false
+            if (!force && Blocking.isBlocked(task, store.values())) {
+                // The same refusal the real repository makes in its statement.
+                false
+            } else {
+                store.upsert(
+                    task.copy(
+                        completedAt = kotlin.time.Instant.fromEpochMilliseconds(completedAt),
+                        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
+                    ),
+                )
+                true
+            }
+        }
+    }
+
+    override suspend fun moveDueDate(id: TaskId, nextDue: LocalDate, updatedAt: Long): Result<Unit> =
+        runCatchingCancellable {
+            store[id.value]?.let { task ->
+                store.upsert(
+                    task.copy(
+                        dueDate = nextDue,
+                        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
+                    ),
+                )
+            }
+        }
 
     override suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId> {
         blockedTaskIdsOverride?.let { return it }
@@ -1615,7 +1649,7 @@ class FakeProjectsRepository(
     override fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
-                list.values.filter { it.userId == uid && !it.isDeleted }
+                list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
                     .map { p ->
                         ProjectWithCountRow(
                             project = ProjectEntity(
@@ -1633,6 +1667,15 @@ class FakeProjectsRepository(
                     }
             }
         }
+
+    /** The closed projects, most recently closed first — the mirror of the project list. */
+    override fun observeClosed(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
+        store.state.map { list ->
+            list.values
+                .filter { it.userId == uid && !it.isDeleted && it.closedAt != null }
+                .sortedByDescending { it.closedAt }
+        }
+    }
 
     override fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->

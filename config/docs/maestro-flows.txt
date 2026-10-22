@@ -54,6 +54,7 @@ Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
 Maestro/flows/lifecycle/01-kill-restart-persist.yaml
 Maestro/flows/lifecycle/03-rotate-in-editor.yaml
 Maestro/flows/nav/bottom-nav-tabs.yaml
+Maestro/flows/nav/deep-link-task.yaml
 Maestro/flows/negative/01-empty-inbox.yaml
 Maestro/flows/negative/02-empty-notes.yaml
 Maestro/flows/negative/03-empty-projects.yaml
@@ -62,6 +63,7 @@ Maestro/flows/negative/05-empty-search.yaml
 Maestro/flows/negative/06-empty-tags.yaml
 Maestro/flows/notes/01-edit-body.yaml
 Maestro/flows/notes/02-filter-chips.yaml
+Maestro/flows/notes/03-internal-link-navigation.yaml
 Maestro/flows/notes/create-note.yaml
 Maestro/flows/pomodoro/01-open-tab.yaml
 Maestro/flows/pomodoro/02-start-focus-task.yaml

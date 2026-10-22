@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.core.attachments.AttachmentId
+import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -170,8 +171,16 @@ sealed interface AppDestination : AppNavKey {
         @Serializable
         data class Create(val sectionPrefillKey: String? = null) : TasksStartRoute
 
+        /**
+         * A task the person opened.
+         *
+         * [sourceViewId] is the saved agenda view the task was opened from, when there
+         * was one. It travels with the route because the agenda is the only place that
+         * knows it — by the time the task's detail screen is up, the list it came from
+         * is gone, and a reminder set there needs somewhere to point back to.
+         */
         @Serializable
-        data class Detail(val taskId: TaskId) : TasksStartRoute
+        data class Detail(val taskId: TaskId, val sourceViewId: SavedAgendaViewId? = null) : TasksStartRoute
     }
 
     /**

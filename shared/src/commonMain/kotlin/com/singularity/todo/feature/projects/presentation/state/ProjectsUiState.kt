@@ -2,6 +2,7 @@ package com.singularity.todo.feature.projects.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
 
 enum class ProjectSortOrder { Name, Color }
@@ -40,9 +41,26 @@ sealed interface ProjectsUiState {
     /** The order the list is sorted in. */
     val sortOrder: ProjectSortOrder
 
+    /**
+     * The projects the user closed, most recently closed first.
+     *
+     * They left the project list — a closed project is finished, not gone — and this
+     * is where they are. Without them, a project closed by mistake could only be got
+     * back through one of its tasks, and a project with no tasks could not be got
+     * back at all.
+     *
+     * The list is on the interface rather than on [Content] because it does not
+     * depend on the filter: a screen with no open projects still shows the closed
+     * ones, and that is the [Empty] state.
+     */
+    val closedProjects: List<Project>
+
     /** The list is being loaded for the first time. */
-    data class Loading(override val searchQuery: FieldOwnedText, override val sortOrder: ProjectSortOrder) :
-        ProjectsUiState
+    data class Loading(
+        override val searchQuery: FieldOwnedText,
+        override val sortOrder: ProjectSortOrder,
+        override val closedProjects: List<Project>,
+    ) : ProjectsUiState
 
     /**
      * The list holds no projects.
@@ -51,14 +69,18 @@ sealed interface ProjectsUiState {
      * match …" rather than "no projects yet") and so the filter the user typed survives
      * the state that reports the filter found nothing.
      */
-    data class Empty(override val searchQuery: FieldOwnedText, override val sortOrder: ProjectSortOrder) :
-        ProjectsUiState
+    data class Empty(
+        override val searchQuery: FieldOwnedText,
+        override val sortOrder: ProjectSortOrder,
+        override val closedProjects: List<Project>,
+    ) : ProjectsUiState
 
     /** The list holds projects. */
     data class Content(
         val projects: List<ProjectWithCounts>,
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
+        override val closedProjects: List<Project>,
     ) : ProjectsUiState
 
     /**
@@ -73,6 +95,7 @@ sealed interface ProjectsUiState {
         val message: String,
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
+        override val closedProjects: List<Project>,
     ) : ProjectsUiState
 }
 

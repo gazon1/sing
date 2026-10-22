@@ -12,6 +12,7 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.SystemBackHandler
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
+import com.singularity.todo.feature.nav.stableContentKey
 
 /**
  * The nested navigation graph of the agenda feature.
@@ -80,26 +81,40 @@ fun AgendaNavGraph(
  */
 @Composable
 internal fun agendaScreenEntryProvider(contextMenuHost: AgendaContextMenuHost) = entryProvider {
-    entry<AgendaStartRoute.Inbox> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
-    entry<AgendaStartRoute.Today> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
-    entry<AgendaStartRoute.Upcoming> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
-    entry<AgendaStartRoute.Project> { route ->
-        AgendaNavContent(
-            route = route,
-            contextMenuHost = contextMenuHost,
-        )
+    entry<AgendaStartRoute.Inbox>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
     }
-    entry<AgendaStartRoute.Tag> { route ->
-        AgendaNavContent(
-            route = route,
-            contextMenuHost = contextMenuHost,
-        )
+    entry<AgendaStartRoute.Today>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
     }
-    entry<AgendaStartRoute.SavedAgendaList> { AgendaNavContent(route = it) }
-    entry<AgendaStartRoute.SavedAgendaResults> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.SavedAgendaEdit> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.SavedAgendaCreate> { route -> AgendaNavContent(route = route) }
-    entry<AgendaStartRoute.Blocked> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
-    entry<AgendaStartRoute.Stagnant> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
-    entry<AgendaStartRoute.Overdue> { AgendaNavContent(route = it, contextMenuHost = contextMenuHost) }
+    entry<AgendaStartRoute.Upcoming>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
+    }
+    entry<AgendaStartRoute.Project>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
+    }
+    entry<AgendaStartRoute.Tag>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
+    }
+    entry<AgendaStartRoute.SavedAgendaList>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route)
+    }
+    entry<AgendaStartRoute.SavedAgendaResults>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route)
+    }
+    entry<AgendaStartRoute.SavedAgendaEdit>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route)
+    }
+    entry<AgendaStartRoute.SavedAgendaCreate>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route)
+    }
+    entry<AgendaStartRoute.Blocked>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
+    }
+    entry<AgendaStartRoute.Stagnant>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
+    }
+    entry<AgendaStartRoute.Overdue>(clazzContentKey = { it.stableContentKey() }) { route ->
+        AgendaNavContent(route = route, contextMenuHost = contextMenuHost)
+    }
 }

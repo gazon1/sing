@@ -30,6 +30,25 @@ sealed interface AgendaIntent : MviIntent {
     data object DismissBlockedClose : AgendaIntent
 
     /**
+     * The user confirmed closing a selection in which some tasks have open
+     * prerequisites.
+     *
+     * The same question the single close asks, asked about a selection. Nothing
+     * was written when the confirmation was raised — the close happens here, and
+     * only here.
+     */
+    data object ConfirmBlockedBulkClose : AgendaIntent
+
+    /**
+     * The user backed out of closing a selection in which some tasks have open
+     * prerequisites.
+     *
+     * Nothing was written, so this only closes the confirmation — and the
+     * selection stays where it was, so the user can pick another action.
+     */
+    data object DismissBlockedBulkClose : AgendaIntent
+
+    /**
      * The user took the Undo affordance offered after a delete.
      *
      * This used to be a public `onUndoDeleteIntent()` method the screen called

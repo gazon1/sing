@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
 
 /**
@@ -13,7 +14,7 @@ import com.singularity.todo.feature.search.presentation.nav.SearchNavGraph
  * @param stacks the stacks the platform hoists.
  */
 fun EntryProviderScope<AppDestination>.searchEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Search> {
+    entry<AppDestination.Search>(clazzContentKey = { it.stableContentKey() }) {
         SearchNavGraph(
             navCallbacks = nav,
             backStack = stacks.search,

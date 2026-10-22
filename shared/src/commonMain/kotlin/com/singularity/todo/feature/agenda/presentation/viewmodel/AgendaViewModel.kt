@@ -18,10 +18,12 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -55,6 +57,11 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *        at runtime; future MRs will support switching definitions.
  * @param scope CoroutineScope for all coroutine work. Tests pass `this` (TestScope).
  */
+// 18 functions: one handler per intent — the house shape of this screen. The
+// bulk-close path adds two of them (the question, and the confirmed close),
+// and a handler per intent is what keeps the intents from growing a private
+// helper each.
+@Suppress("TooManyFunctions")
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
 class AgendaViewModel(
     private val deps: AgendaDeps,
@@ -255,6 +262,10 @@ class AgendaViewModel(
 
             is AgendaIntent.DismissBlockedClose -> setBlockedClose(null)
 
+            is AgendaIntent.ConfirmBlockedBulkClose -> scope.launch { handleConfirmedBulkClose() }
+
+            is AgendaIntent.DismissBlockedBulkClose -> setBlockedBulkClose(null)
+
             is AgendaIntent.TaskLongClicked -> with(intent) {
                 if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
                     // Already in selection mode — ignore long-press, click handles selection.
@@ -363,6 +374,18 @@ class AgendaViewModel(
         loaded.copy(pendingBlockedClose = request)
     }
 
+    /**
+     * Publishes the confirmation for a selection that cannot be closed without a
+     * question — or closes it, when there is no confirmation pending.
+     *
+     * The bulk counterpart of [setBlockedClose]: the same question, asked about
+     * a selection. It is state, not an event, for the same reason.
+     */
+    private fun setBlockedBulkClose(request: BlockedBulkCloseRequest?) = updateState { current ->
+        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+        loaded.copy(pendingBlockedBulkClose = request)
+    }
+
     // ── Selection handlers ──────────────────────────────────────────────────────
     //
     // Every one of these is a single `updateState`, so the selection has exactly one
@@ -437,17 +460,55 @@ class AgendaViewModel(
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkComplete(ids)
-        handleExitSelectionMode()
-
         result.fold(
             onSuccess = {
+                handleExitSelectionMode()
                 emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "completed"))
             },
             onFailure = { error ->
-                crashReporter.report(error, BULK_COMPLETE_FAILED)
-                emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
+                if (error is BlockedTasksException) {
+                    // The same question the single close asks, asked about the
+                    // selection. Nothing was written, so the selection stays
+                    // where it was and the user's answer decides.
+                    val blocked = error.blockedTaskIds.toList()
+                    setBlockedBulkClose(
+                        BlockedBulkCloseRequest(
+                            taskIds = ids,
+                            blockedTaskIds = blocked,
+                            blockedTaskTitles = blocked.mapNotNull { id ->
+                                latestTasks.value.firstOrNull { it.id == id }?.title
+                            },
+                        ),
+                    )
+                } else {
+                    crashReporter.report(error, BULK_COMPLETE_FAILED)
+                    handleExitSelectionMode()
+                    emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
+                }
             },
         )
+    }
+
+    /**
+     * Closes the selection after the user confirmed it, prerequisites and all.
+     *
+     * The confirmed path is the only one that writes: the refusal left the
+     * selection untouched, and the answer says the user meant it.
+     */
+    private suspend fun handleConfirmedBulkClose() {
+        val request = (currentState as? AgendaUiState.Loaded)?.pendingBlockedBulkClose ?: return
+        setBlockedBulkClose(null)
+        val ids = request.taskIds
+        if (ids.isEmpty()) return
+        deps.taskMutations.bulkComplete(ids, force = true)
+            .onSuccess {
+                handleExitSelectionMode()
+                emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "completed"))
+            }
+            .onFailure { error ->
+                crashReporter.report(error, BULK_COMPLETE_FAILED)
+                emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
+            }
     }
 
     // ── Undo-delete handlers ────────────────────────────────────────────────────

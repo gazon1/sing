@@ -341,6 +341,48 @@ class TaskRepositoryImpl(
         }
     }
 
+    override suspend fun completeOccurrence(
+        id: TaskId,
+        completedAt: Long,
+        updatedAt: Long,
+        force: Boolean,
+    ): Result<Boolean> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val rows = if (force) {
+                taskDao.markCompleteForUser(id.value, completedAt, uid)
+            } else {
+                taskDao.markCompleteIfNotBlockedForUser(id.value, completedAt, uid, DependencyVerb.BLOCKS.name)
+            }
+            if (rows > 0) {
+                enqueueFresh(id)
+                true
+            } else {
+                // Zero rows means either that the task is not ours (or is gone)
+                // or that the write was refused because a prerequisite is still
+                // open. The two are told apart by asking whether the task is
+                // there at all.
+                val exists = taskDao.getByIdForUser(id.value, uid) != null
+                if (exists) {
+                    false
+                } else {
+                    throw IllegalArgumentException("Task $id not found or not owned by current user")
+                }
+            }
+        }
+    }
+
+    override suspend fun moveDueDate(id: TaskId, nextDue: LocalDate, updatedAt: Long): Result<Unit> =
+        runCatchingCancellable {
+            unitOfWork.write {
+                val uid = currentUser.scopedUserId.value.value
+                val rows = taskDao.setDueDateForUser(id.value, nextDue.toIsoOrNull(), updatedAt, uid)
+                require(rows > 0) { "Task $id not found or not owned by current user" }
+                // dueDate is a serialised field of Task, so the roll-forward has to sync.
+                enqueueFresh(id)
+            }
+        }
+
     override suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId> {
         if (taskIds.isEmpty()) return emptySet()
         val uid = currentUser.scopedUserId.value.value

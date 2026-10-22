@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 
 /**
  * Full-screen confirmation-pending state used by both [LoginScreen] and
@@ -62,10 +63,9 @@ fun ConfirmationPendingContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
+        SelectableText(
             text = "Check your email",
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.headlineSmall.copy(textAlign = TextAlign.Center),
             modifier = Modifier.testTag(TestTags.AUTH_CONFIRMATION_HEADLINE),
         )
 

@@ -22,6 +22,7 @@ import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSystem
+import com.singularity.todo.core.ui.text.SelectableText
 import kotlinx.coroutines.flow.map
 import org.koin.compose.koinInject
 
@@ -95,15 +96,13 @@ private fun MissingAttachmentScreen(onBack: () -> Unit, modifier: Modifier = Mod
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
     ) {
-        Text(
+        SelectableText(
             text = "This attachment no longer exists.",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
         )
-        Text(
+        SelectableText(
             text = "It may have been deleted from the task.",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedButton(onClick = onBack) { Text("Back") }

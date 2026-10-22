@@ -32,6 +32,7 @@ import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.OpenOutcome
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationPanel
 import kotlinx.coroutines.launch
 
@@ -152,15 +153,13 @@ private fun NoHandlerScreen(
         modifier = modifier,
     ) { innerPadding ->
         ViewerBody(innerPadding) {
-            Text(
+            SelectableText(
                 text = "No installed app can open $mimeType.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
             )
-            Text(
+            SelectableText(
                 text = "You can pass it to another app instead.",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             onShare?.let {

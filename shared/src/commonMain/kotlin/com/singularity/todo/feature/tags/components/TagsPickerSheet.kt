@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
@@ -48,7 +49,7 @@ fun TagsPickerSheet(selectedIds: List<TagId>, onSelect: (List<TagId>) -> Unit, o
         onClose = onDismiss,
     ) {
         if (allTags.isEmpty()) {
-            Text(
+            SelectableText(
                 text = "No tags yet",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

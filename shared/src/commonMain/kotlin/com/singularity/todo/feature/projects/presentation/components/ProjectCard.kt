@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
+import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 
@@ -76,8 +77,14 @@ fun ProjectCard(
                     }
                 }
             }
-            AiActionButton(onClick = actions::onReviewClick)
-            DeleteActionButton(onClick = actions::onDelete)
+            if (project.closedAt != null) {
+                // A closed project is finished: the review and the delete are
+                // not what the user came for. The way back is.
+                ReopenActionButton(onClick = actions::onReopen)
+            } else {
+                AiActionButton(onClick = actions::onReviewClick)
+                DeleteActionButton(onClick = actions::onDelete)
+            }
         }
     }
 }

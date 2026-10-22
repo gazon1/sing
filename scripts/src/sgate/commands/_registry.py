@@ -386,10 +386,10 @@ _REGISTERED: tuple[GateSpec, ...] = (
     ),
     GateSpec(
         name="selectable text coverage",
-        mode=GateMode.ADVISORY,
+        mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-selectable-text-coverage.py"),
-        script_args=("--quiet",),
+        script_args=("--quiet", "--check"),
     ),
     # ── Lint-rule governance ──────────────────────────────────────────────────────
     GateSpec(

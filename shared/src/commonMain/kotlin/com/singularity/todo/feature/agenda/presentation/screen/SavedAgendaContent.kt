@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -80,7 +81,7 @@ internal fun SavedAgendaContent(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
+                SelectableText(
                     text = "View not found",
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -186,7 +187,7 @@ private fun SavedAgendaEditorList(
         when {
             state.decodeError -> {
                 item(key = "decode_error") {
-                    Text(
+                    SelectableText(
                         text = "Unable to decode sections",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,

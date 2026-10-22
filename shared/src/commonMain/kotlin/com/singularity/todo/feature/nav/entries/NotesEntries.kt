@@ -5,6 +5,7 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
+import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.nav.toNotesRoute
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
 
@@ -15,7 +16,7 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
  * @param stacks the stacks the platform hoists.
  */
 fun EntryProviderScope<AppDestination>.notesEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Notes> {
+    entry<AppDestination.Notes>(clazzContentKey = { it.stableContentKey() }) {
         NotesNavGraph(
             navCallbacks = nav,
             start = NotesRoute.List,
@@ -23,7 +24,7 @@ fun EntryProviderScope<AppDestination>.notesEntries(nav: NavCallbacks, stacks: A
         )
     }
 
-    entry<AppDestination.NotesGraph> { route ->
+    entry<AppDestination.NotesGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
         NotesNavGraph(
             navCallbacks = nav,
             start = route.start.toNotesRoute(),

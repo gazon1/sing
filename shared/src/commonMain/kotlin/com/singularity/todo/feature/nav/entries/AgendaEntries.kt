@@ -6,6 +6,7 @@ import com.singularity.todo.feature.agenda.presentation.nav.AgendaNavGraph
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.AppNavStacks
 import com.singularity.todo.feature.nav.NavCallbacks
+import com.singularity.todo.feature.nav.stableContentKey
 
 /**
  * The app-level entries the agenda feature owns.
@@ -20,7 +21,7 @@ fun EntryProviderScope<AppDestination>.agendaEntries(
     stacks: AppNavStacks,
     contextMenuHost: AgendaContextMenuHost,
 ) {
-    entry<AppDestination.AgendaGraph> { route ->
+    entry<AppDestination.AgendaGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
         AgendaNavGraph(
             start = route.start,
             onExitGraph = nav.graphExit,
