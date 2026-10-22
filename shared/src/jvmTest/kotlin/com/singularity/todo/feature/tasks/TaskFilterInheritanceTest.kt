@@ -37,6 +37,7 @@ import java.nio.file.Files
  *   group satisfies `matchAll({t1, t3})`.
  */
 @Tag("slow")
+@Tag("slow:data")
 class TaskFilterInheritanceTest {
 
     private lateinit var db: AppDatabase

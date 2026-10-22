@@ -50,6 +50,7 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class SavedViewsFlowTest {
 
     private suspend fun createView(koin: org.koin.core.Koin, name: String) {

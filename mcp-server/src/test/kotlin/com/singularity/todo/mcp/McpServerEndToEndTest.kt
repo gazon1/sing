@@ -36,6 +36,7 @@ import kotlin.test.fail
  *   3. `tools/list` returns at least one registered tool.
  */
 @Tag("slow")
+@Tag("slow:data")
 class McpServerEndToEndTest {
 
     // Absolute path: workingDir for this test suite is build/allure-results (set in

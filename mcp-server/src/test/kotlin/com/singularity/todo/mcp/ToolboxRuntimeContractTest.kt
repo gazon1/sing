@@ -36,6 +36,7 @@ import kotlin.test.assertTrue
  * The test crosses a process boundary — it runs `python3` — so it is tagged `slow`.
  */
 @Tag("slow")
+@Tag("slow:platform")
 class ToolboxRuntimeContractTest {
 
     private val temporaries = mutableListOf<Path>()

@@ -43,6 +43,7 @@ import kotlin.time.Duration.Companion.minutes
  *   reset its cursor does not get the old value written back.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class SyncStateMigrationTest {
 
     private lateinit var tempDir: File

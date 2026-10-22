@@ -45,6 +45,7 @@ import kotlin.test.fail
  * @see com.singularity.todo.test.helpers.IsolatedComposeTest
  */
 @Tag("slow")
+@Tag("slow:compose")
 class DesktopTestHarnessEnforcementTest {
 
     /**

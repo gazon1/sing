@@ -38,6 +38,7 @@ import kotlin.test.assertTrue
  * produce the same string.
  */
 @Tag("slow")
+@Tag("slow:data")
 abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) {
 
     private val sut: F by lazy { makeSut() }

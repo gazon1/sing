@@ -47,6 +47,7 @@ import kotlin.test.assertTrue
  *    silently stop writing *everything*.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration39To40Test {
 
     private lateinit var tempDir: File

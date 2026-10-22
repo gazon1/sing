@@ -42,6 +42,7 @@ import kotlin.test.Test
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class CalendarSyncSystemScenarioTest {
 
     @Test

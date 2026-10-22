@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Tag
  * undated task to make the Inbox preset's "No Date" section render.
  */
 @Tag("slow")
+@Tag("slow:compose")
 @OptIn(ExperimentalTestApi::class)
 class SavedAgendaEditFlowTest {
 

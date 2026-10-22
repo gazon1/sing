@@ -42,6 +42,7 @@ import kotlin.test.assertTrue
  *    the global `SyncPrefs`.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration40To41Test {
 
     private lateinit var tempDir: File

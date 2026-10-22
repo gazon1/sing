@@ -39,6 +39,7 @@ import kotlin.test.assertTrue
  *    index holds the postings and reads the row from the content table.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration42To43Test {
 
     private lateinit var tempDir: File

@@ -31,6 +31,7 @@ import kotlin.test.assertTrue
  * behaviour — the same reasoning [FileSharePortContractTest] records.
  */
 @Tag("slow")
+@Tag("slow:data")
 @EnabledOnOs(OS.LINUX)
 class FileRevealerContractTest {
 

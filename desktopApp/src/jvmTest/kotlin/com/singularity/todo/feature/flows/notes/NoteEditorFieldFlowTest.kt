@@ -36,6 +36,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class NoteEditorFieldFlowTest {
 
     @Test

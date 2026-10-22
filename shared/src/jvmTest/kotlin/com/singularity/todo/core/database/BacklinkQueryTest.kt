@@ -41,6 +41,7 @@ import kotlin.test.assertTrue
  * is only true until the next edit.
  */
 @Tag("slow")
+@Tag("slow:data")
 class BacklinkQueryTest {
 
     private lateinit var tempDir: File

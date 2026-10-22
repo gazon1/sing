@@ -36,6 +36,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class TaskRowFlowTest {
     @Test
     fun a_task_due_today_is_listed_under_todays_section() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->

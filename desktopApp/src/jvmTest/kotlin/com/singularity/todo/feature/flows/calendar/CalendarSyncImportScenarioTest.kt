@@ -48,6 +48,7 @@ import kotlin.time.Duration
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class CalendarSyncImportScenarioTest {
 
     @Test

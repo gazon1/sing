@@ -23,6 +23,7 @@ import kotlin.time.Instant
  * Run with: ./gradlew :desktopApp:test
  */
 @Tag("slow")
+@Tag("slow:compose")
 class NotesScreenTest {
 
     private val testUserId = UserId("test-user")

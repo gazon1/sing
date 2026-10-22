@@ -18,6 +18,7 @@ import kotlin.test.assertTrue
  * is verified by [AppDatabaseFactoryJvmTest].
  */
 @Tag("slow")
+@Tag("slow:data")
 class PlatformPragmasTest {
 
     @Test

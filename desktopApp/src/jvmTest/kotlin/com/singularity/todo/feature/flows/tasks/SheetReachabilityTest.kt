@@ -48,6 +48,7 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class SheetReachabilityTest {
 
     @Test

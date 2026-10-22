@@ -49,6 +49,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class OpenTaskFromAgendaFlowTest {
     @Test
     fun clicking_task_in_today_section_opens_task_detail_editor() = runDesktopAppTest(

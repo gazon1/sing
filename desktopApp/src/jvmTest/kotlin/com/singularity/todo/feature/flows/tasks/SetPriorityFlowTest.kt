@@ -34,6 +34,7 @@ import kotlin.time.Instant
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class SetPriorityFlowTest {
     /** Opens a seeded task's editor, which is where the attribute rows live. */
     private fun androidx.compose.ui.test.DesktopComposeUiTest.openEditor(title: String) {

@@ -92,6 +92,7 @@ import kotlin.test.assertTrue
  * or listed.
  */
 @Tag("slow")
+@Tag("slow:data")
 @RunWith(RobolectricTestRunner::class)
 class AndroidGraphResolutionTest {
 

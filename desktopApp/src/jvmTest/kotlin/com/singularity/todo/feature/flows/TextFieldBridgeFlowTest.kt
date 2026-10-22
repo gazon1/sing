@@ -52,6 +52,7 @@ import kotlin.test.assertEquals
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class TextFieldBridgeFlowTest {
 
     /**

@@ -44,6 +44,7 @@ import kotlin.test.assertTrue
  * task rather than resolving it from the join table, so there is no kind to narrow.
  */
 @Tag("slow")
+@Tag("slow:data")
 class TaskDependencyVerbFilterTest {
 
     private val alice = UserId("alice")
