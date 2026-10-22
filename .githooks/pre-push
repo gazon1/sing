@@ -380,6 +380,9 @@ worktree_holds_sha() {
 }
 
 DETEKT_FAILED=0
+# How many trees were actually judged: a verdict that was not taken is not a
+# clean verdict, and the summary must not claim otherwise.
+DETEKT_JUDGED=0
 judged_shas=" "
 
 for i in "${!PUSH_REFS[@]}"; do
@@ -449,6 +452,7 @@ for i in "${!PUSH_REFS[@]}"; do
     echo ""
     echo "→ $local_ref → $remote_ref @ $local_sha"
     echo "   detekt verdict taken on $judge_label"
+    DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
 
     new_temp_root
     before="$(kotlin_digest "$judge_tree")"
@@ -501,7 +505,11 @@ if [ "$DETEKT_FAILED" = "1" ]; then
 fi
 
 echo ""
-echo "detekt verdict: the pushed tree is clean"
+if [ "$DETEKT_JUDGED" = "0" ]; then
+    echo "detekt verdict: not taken — this push carries no Kotlin"
+else
+    echo "detekt verdict: the pushed tree is clean"
+fi
 echo ""
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
