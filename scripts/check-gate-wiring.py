@@ -90,6 +90,43 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT = Path(__file__).resolve().parent.parent
 
+#: Where the original content of a sabotaged file is kept while the tree is
+#: modified. It lives in the git directory, because it must not be seen by the
+#: tree's own tools — a file called `docs/navigation.md.sgate-backup` would be
+#: a document the documentation gate would have opinions about.
+#:
+#: The git directory is resolved rather than assumed: in a worktree `.git` is a
+#: *file* naming the real directory, and this repository is a worktree of
+#: another one. When there is no git directory at all, the backup goes to
+#: `build/`, which the tree ignores.
+def _sabotage_backup_dir() -> Path:
+    git_path = ROOT / ".git"
+    if git_path.is_dir():
+        return git_path / "sgate-sabotage"
+    if git_path.is_file():
+        try:
+            text = git_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            text = ""
+        if text.startswith("gitdir:"):
+            target = Path(text.split(":", 1)[1].strip())
+            if not target.is_absolute():
+                target = (ROOT / target).resolve()
+            return target / "sgate-sabotage"
+    return ROOT / "build" / "diagnostics" / "sgate-sabotage"
+
+
+SABOTAGE_BACKUP_DIR = _sabotage_backup_dir()
+
+#: The files this run has sabotaged and not yet restored: target → backup.
+#:
+#: The sabotage phase edits the *working tree*. A run that is interrupted —
+#: Ctrl-C, a timeout, a killed shell — would otherwise leave the tree broken,
+#: and the next command in the same shell would inherit the breakage without
+#: knowing where it came from. The signal handler restores what is listed
+#: here, and a run that starts with a backup left over restores it too.
+_ACTIVE_SABOTAGES: dict[Path, Path] = {}
+
 #: The single registry of script gates. `ci.yml`'s `static` job and `check.sh`
 #: both call this one file, so a gate named there runs in both environments.
 #:
@@ -664,6 +701,83 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
     return proc.returncode
 
 
+def _atomic_write(path: Path, content: str) -> None:
+    """Write `content` to `path` without ever leaving it truncated.
+
+    `Path.write_text` truncates first and writes after, so a process killed
+    between the two leaves a half-written file — the tree would then be broken
+    in a way that does not look like a sabotage. The temporary file is
+    written whole and then renamed over the target, which is atomic on the
+    same filesystem: the target is either the old content or the new one.
+    """
+    tmp = path.with_name(path.name + ".sgate-tmp")
+    tmp.write_text(content, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _backup_path(target: Path) -> Path:
+    """Where the original content of `target` is kept while it is sabotaged."""
+    relative = target.relative_to(ROOT).as_posix().replace("/", "__")
+    return SABOTAGE_BACKUP_DIR / relative
+
+
+def _restore_active_sabotages() -> list[str]:
+    """Put every sabotaged file back. Returns the paths that could not be."""
+    broken: list[str] = []
+    for target, backup in list(_ACTIVE_SABOTAGES.items()):
+        try:
+            if backup.is_file():
+                _atomic_write(target, backup.read_text(encoding="utf-8"))
+            backup.unlink(missing_ok=True)
+        except OSError as exc:
+            broken.append(f"{target}: {exc}")
+    _ACTIVE_SABOTAGES.clear()
+    return broken
+
+
+def recover_interrupted_sabotage() -> list[str]:
+    """Restore a tree that an interrupted run left sabotaged.
+
+    A run that was killed between the sabotage and the restore leaves the
+    backup behind. The next run finds it and puts the file back, because a
+    broken tree that nobody notices is worse than a broken tree that stops the
+    build.
+    """
+    if not SABOTAGE_BACKUP_DIR.is_dir():
+        return []
+    recovered: list[str] = []
+    for backup in sorted(SABOTAGE_BACKUP_DIR.iterdir()):
+        if not backup.is_file():
+            continue
+        target = ROOT / backup.name.replace("__", "/")
+        try:
+            _atomic_write(target, backup.read_text(encoding="utf-8"))
+            backup.unlink()
+            recovered.append(str(target.relative_to(ROOT)))
+        except OSError as exc:
+            recovered.append(f"{backup.name}: could not be restored ({exc})")
+    return recovered
+
+
+def _install_signal_handlers() -> None:
+    """Restore the tree when the run is interrupted."""
+    import signal
+
+    def _handler(signum: int, _frame: object) -> None:
+        broken = _restore_active_sabotages()
+        for path in broken:
+            print(f"  !!  could not restore {path}", flush=True)
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, _handler)
+        except (ValueError, OSError):
+            # Not the main thread, or the platform does not have the signal.
+            pass
+
+
 def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
     """Apply the gate's control, run the gate, put the target back.
 
@@ -674,6 +788,10 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
     behind it. That is not hypothetical — as source text one entry carried a
     SyntaxError and killed Part B from its middle, and only on a day when its
     baseline happened to be green.
+
+    The restore is atomic and the original is kept in `.git/` until the
+    restore succeeded, so an interrupted run leaves a tree that the next run
+    can repair instead of a tree that silently stays broken.
     """
     target = ROOT / gate.sabotage_path
 
@@ -693,7 +811,11 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
             os.utime(target, (mtime, mtime))
 
     original = target.read_text(encoding="utf-8")
+    backup = _backup_path(target)
     try:
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        backup.write_text(original, encoding="utf-8")
+        _ACTIVE_SABOTAGES[target] = backup
         gate.sabotage(target)
         rc = run_gate(gate.cmd)
     except Exception as exc:  # noqa: BLE001 — a broken control must not abort the part
@@ -703,7 +825,15 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
         )
         return None
     finally:
-        target.write_text(original, encoding="utf-8")
+        try:
+            _atomic_write(target, original)
+        except OSError as exc:
+            errors.append(
+                f"gate '{gate.name}': could not restore {gate.sabotage_path} ({exc}) — "
+                f"the file may be left modified; restore it by hand."
+            )
+        _ACTIVE_SABOTAGES.pop(target, None)
+        backup.unlink(missing_ok=True)
         if gate.sabotage_restore is not None:
             try:
                 gate.sabotage_restore(target)
@@ -718,7 +848,7 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
             f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
             f"Restoring from the recorded copy and failing."
         )
-        target.write_text(original, encoding="utf-8")
+        _atomic_write(target, original)
         return None
     return rc
 
@@ -779,6 +909,12 @@ def check_escape_hatches() -> list[str]:
 
 def check_can_fail() -> list[str]:
     errors: list[str] = []
+    print(
+        "  note: this phase edits files in the working tree and restores them.\n"
+        "        Do not edit the tree while it runs — the restore is atomic and an\n"
+        "        interrupted run is repaired by the next one, but a tree that changes\n"
+        "        under the sabotage is a tree the sabotage proves nothing about."
+    )
     errors += check_escape_hatches()
     # `SCRIPT_GATES + SABOTAGE_ONLY_GATES` is the sabotage registry;
     # `FIXTURE_GATES` is the same property proved a different way. Both are
@@ -2288,6 +2424,7 @@ def check_gate_reachability() -> list[str]:
 @click.option("--reachability", is_flag=True, help="Part H only")
 @click.option("--gradle-parity", "gradle_parity", is_flag=True, help="Part I only")
 @click.option("--registry-cross", "registry_cross", is_flag=True, help="Part J only")
+@click.option("--dry-run", is_flag=True, help="List what the sabotage phase would touch, and touch nothing")
 @click.pass_context
 def main(ctx: click.Context,
     wiring: bool,
@@ -2300,6 +2437,7 @@ def main(ctx: click.Context,
     reachability: bool,
     gradle_parity: bool,
     registry_cross: bool,
+    dry_run: bool,
 ) -> None:
     """check-gate-wiring — prove the gates exist AND that they can fail.
 
@@ -2307,6 +2445,11 @@ def main(ctx: click.Context,
     to select specific parts. Every gate runs under a deadline
     (GATE_TIMEOUT_S / GRADLE_GATE_TIMEOUT_S); a hang reports "no verdict",
     never "failed".
+
+    Part B edits files in the working tree and puts them back. The restore is
+    atomic and the original is kept until it succeeded, so an interrupted run
+    leaves a tree the next run repairs. `--dry-run` lists the files the
+    sabotage would touch and touches none of them.
     """
     only = (
         wiring
@@ -2332,6 +2475,21 @@ def main(ctx: click.Context,
     run_j = registry_cross or not only
 
     errors: list[str] = []
+
+    # A run that was interrupted between the sabotage and the restore leaves
+    # the tree broken. The next run puts it back before it does anything else,
+    # and says so — a tree that is quietly broken is worse than one that stops.
+    for path in recover_interrupted_sabotage():
+        print(f"  restored {path} — an interrupted run had left it sabotaged")
+
+    if dry_run:
+        print("Part B (dry run) — the files the sabotage phase would edit")
+        for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES]:
+            print(f"  {gate.sabotage_path}   ({gate.name})")
+        print("\nNothing was edited.")
+        ctx.exit(0)
+
+    _install_signal_handlers()
 
     if run_a:
         print("Part A — Gradle check tasks are wired into a gate")
