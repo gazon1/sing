@@ -152,9 +152,6 @@ internal const val RRULE_PREFIX = "RRULE:"
 /** The private extended property carrying our task id. */
 internal const val TASK_ID_PROPERTY = "singularityTaskId"
 
-/** The deep link left in the description, for a user tapping the event in Google. */
-internal const val DEEP_LINK_PREFIX = "singularity://task/"
-
 /**
  * The request body for an insert or a patch.
  *

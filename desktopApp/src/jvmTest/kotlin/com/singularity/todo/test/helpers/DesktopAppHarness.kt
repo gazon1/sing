@@ -147,7 +147,7 @@ fun runDesktopAppTest(
     // App(viewId, taskId, magicEmail, magicToken): no flow under test opens
     // through a deeplink, so all four stay null — and the call stays on one
     // line: runDesktopAppTest sits right under the LongMethod limit.
-    setContent { KoinIsolatedContext(app) { App(null, null, null, null) } }
+    setContent { KoinIsolatedContext(app) { App(null) } }
 
     val testClassName = currentTestClassSimpleName()
 

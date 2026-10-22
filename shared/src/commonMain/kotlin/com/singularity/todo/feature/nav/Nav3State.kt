@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -106,6 +107,27 @@ class Nav3State internal constructor(
         set(value) {
             topLevelRouteState.value = value
         }
+
+    /**
+     * Открывает deep link: переключает вкладку и пересобирает её стек как `[tab, screen]`.
+     *
+     * Синтетический back stack даёт осмысленный «назад» — на родительский экран
+     * вкладки. Без него ссылка открывала бы экран в стеке той вкладки, на которой
+     * приложение оказалось, и «назад» уводил бы в неизвестно куда.
+     *
+     * Ссылка применяется мимо [NavigationPolicy] намеренно: политика описывает
+     * переходы *внутри* приложения, а deep link — вход извне с явным родителем.
+     *
+     * @param target цель ссылки: вкладка и открываемый экран.
+     */
+    fun openDeepLink(target: DeepLinkTarget) {
+        val stack = requireBackStackFor(target.tab)
+        stack.clear()
+        stack.add(target.tab)
+        stack.add(target.screen)
+        setPreviousTopLevelRoute(startRoute)
+        topLevelRoute = target.tab
+    }
 
     /**
      * Converts all active back stacks into a flat list of [NavEntry] objects,

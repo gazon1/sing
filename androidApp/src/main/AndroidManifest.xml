@@ -38,11 +38,31 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+              Deep links. Each host is one link the app understands:
+                task   — singularity://task/{taskId}   (calendar event)
+                view   — singularity://view/{viewId}   (reminder notification)
+                verify — singularity://verify?email=&token= (magic link)
+              The custom scheme needs no autoVerify: the app, not a domain,
+              owns the link.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="singularity" android:host="task" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="singularity" android:host="view" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="singularity" android:host="verify" />
             </intent-filter>
         </activity>
 

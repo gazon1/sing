@@ -20,15 +20,12 @@ import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
-import com.singularity.todo.feature.agenda.SavedAgendaViewId
-import com.singularity.todo.feature.nav.AgendaStartRoute
-import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
+import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
 import com.singularity.todo.feature.nav.rememberNav3State
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import org.koin.compose.koinInject
 import com.singularity.todo.core.ui.preview.noopClick
@@ -42,22 +39,11 @@ private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
  * and shows a blocked UI if the running version is too old. The gate handles
  * its own "Check Again" retry. When the gate passes, it renders [AppContent].
  *
- * @param deeplinkViewId When non-null, the app navigates directly to
- *   [AppDestination.AgendaGraph] with [AgendaStartRoute.SavedAgendaEdit].
- * @param deeplinkTaskId When non-null, the app navigates directly to
- *   [AppDestination.TasksGraph] with [TasksStartRoute.Detail].
- * @param deeplinkMagicEmail When non-null, the app navigates directly to
- *   [AppDestination.MagicLinkConfirm] with this email pre-filled.
- * @param deeplinkMagicToken When non-null, the app auto-submits verification
- *   after navigating to [AppDestination.MagicLinkConfirm].
+ * @param deepLinkTarget When non-null, the app opens that screen on the tab the
+ *   target names. Resolved from the incoming intent by the deep-link registry.
  */
 @Composable
-actual fun App(
-    deeplinkViewId: String?,
-    deeplinkTaskId: String?,
-    deeplinkMagicEmail: String?,
-    deeplinkMagicToken: String?,
-) {
+actual fun App(deepLinkTarget: DeepLinkTarget?) {
     val appearance: AppearanceSettingsRepository = koinInject()
     val themeMode by appearance.themeMode.collectAsState(initial = ThemeMode.System)
     val accentName by appearance.accentColor.collectAsState(initial = "blue")
@@ -83,10 +69,7 @@ actual fun App(
             .semantics { testTagsAsResourceId = true },
         content = {
             AppContent(
-                deeplinkViewId = deeplinkViewId,
-                deeplinkTaskId = deeplinkTaskId,
-                deeplinkMagicEmail = deeplinkMagicEmail,
-                deeplinkMagicToken = deeplinkMagicToken,
+                deepLinkTarget = deepLinkTarget,
                 themeMode = themeMode,
                 accent = accent,
                 fontSizeScale = fontSizeScale,
@@ -104,10 +87,7 @@ actual fun App(
 
 @Composable
 actual fun AppContent(
-    deeplinkViewId: String?,
-    deeplinkTaskId: String?,
-    deeplinkMagicEmail: String?,
-    deeplinkMagicToken: String?,
+    deepLinkTarget: DeepLinkTarget?,
     themeMode: ThemeMode,
     accent: SingularityAccents,
     fontSizeScale: Float,
@@ -122,36 +102,13 @@ actual fun AppContent(
         )
     }
 
-    LaunchedEffect(deeplinkViewId, deeplinkTaskId, deeplinkMagicEmail, deeplinkMagicToken, navigator) {
-        when {
-            deeplinkMagicEmail != null -> {
-                // Magic link deep-link: singularity://verify?email=&token=
-                // Token is auto-submitted by MagicLinkConfirmScreen.
-                navigator.open(
-                    AppDestination.MagicLinkConfirm(
-                        email = deeplinkMagicEmail,
-                        token = deeplinkMagicToken ?: "",
-                    ),
-                )
-            }
-
-            deeplinkTaskId != null -> {
-                // Deep-link boundary: the raw String from the intent becomes a TaskId here,
-                // so every route past this point is typed (REQ-NAV-005).
-                navigator.open(
-                    AppDestination.TasksGraph(
-                        AppDestination.TasksStartRoute.Detail(TaskId(deeplinkTaskId)),
-                    ),
-                )
-            }
-
-            deeplinkViewId != null -> {
-                navigator.open(
-                    AppDestination.AgendaGraph(
-                        AgendaStartRoute.SavedAgendaEdit(SavedAgendaViewId.fromString(deeplinkViewId)),
-                    ),
-                )
-            }
+    // The deep link sets the tab *and* the stack of that tab, so "back" returns to
+    // the tab's own screen. `LaunchedEffect` keyed by the target also makes a repeated
+    // intent with the same URI idempotent: the key does not change, the effect does
+    // not re-run, the stack is not rebuilt twice.
+    LaunchedEffect(deepLinkTarget, state) {
+        if (deepLinkTarget != null) {
+            state.openDeepLink(deepLinkTarget)
         }
     }
 

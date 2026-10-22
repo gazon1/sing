@@ -100,6 +100,11 @@ dependencies {
 
     // DataStore
     implementation(libs.androidx.datastore.preferences)
+
+    // Navigation 3 — the deep-link request type lives in the runtime, and the
+    // entry point turns the `--deeplink=` argument into one. `:shared` declares
+    // nav3 as `implementation`, so it is not visible transitively.
+    implementation(libs.androidx.navigation3.runtime)
 }
 
 compose.desktop {

@@ -64,6 +64,7 @@ import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationViewModel
 import com.singularity.todo.feature.auth.AccountSwitcher
+import com.singularity.todo.feature.auth.AuthDeepLink
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.auth.LocalAccountClaimer
 import com.singularity.todo.feature.auth.OwnerRowIdResolver
@@ -432,6 +433,11 @@ fun coreModule(): org.koin.core.module.Module =
         }
 
         // ─── ViewModels ─────────────────────────────────────────────────────
+
+        // The magic-link is owned by the auth feature: it declares the URI template
+        // and the mapping to the confirmation screen. The registry that collects the
+        // links lives in `feature/nav/deeplink`.
+        single { AuthDeepLink() }
 
         viewModel {
             AuthViewModel(

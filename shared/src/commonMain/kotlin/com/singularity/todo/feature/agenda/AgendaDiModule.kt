@@ -8,6 +8,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.agenda.presentation.nav.AgendaDeepLink
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaDeps
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDeps
@@ -97,4 +98,10 @@ fun agendaModule(): Module = module {
             crashReporter = get(),
         )
     }
+
+    // ─── Deep link ──────────────────────────────────────────────────────
+    // The saved-view link is owned by this feature: it declares the URI template
+    // and the mapping to the saved-view editor. The registry that collects the
+    // links lives in `feature/nav/deeplink`.
+    single { AgendaDeepLink() }
 }
