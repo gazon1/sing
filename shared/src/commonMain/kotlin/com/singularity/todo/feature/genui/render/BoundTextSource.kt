@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.genui.render
 
-import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.text.OwnedText
 import kotlinx.coroutines.flow.Flow
 
 /**

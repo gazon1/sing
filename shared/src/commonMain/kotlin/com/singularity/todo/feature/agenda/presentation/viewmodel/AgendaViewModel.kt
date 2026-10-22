@@ -10,7 +10,7 @@ import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition

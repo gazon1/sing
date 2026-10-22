@@ -71,8 +71,8 @@ import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples

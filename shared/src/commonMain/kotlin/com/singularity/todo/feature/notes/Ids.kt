@@ -5,10 +5,10 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.OwnedText
-import com.singularity.todo.core.ui.textfields.Revisioned
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.text.Revisioned
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject

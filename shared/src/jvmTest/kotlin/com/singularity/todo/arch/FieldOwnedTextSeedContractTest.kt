@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
  *
  * ## The claim a seed makes
  *
- * [com.singularity.todo.core.ui.textfields.FieldOwnedText.seeded] says one thing:
+ * [com.singularity.todo.core.text.FieldOwnedText.seeded] says one thing:
  * *the upstream loaded a value, and the value came from outside the field*. The
  * field never produced it, so the field takes it as it stands — the bridge's
  * echo guard has nothing to say about it.

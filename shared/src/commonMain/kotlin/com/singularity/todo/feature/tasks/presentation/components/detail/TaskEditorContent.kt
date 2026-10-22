@@ -44,8 +44,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
-import com.singularity.todo.core.ui.textfields.OwnedText
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds

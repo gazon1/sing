@@ -11,7 +11,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
-import com.singularity.todo.core.ui.textfields.Revisioned
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.notes.EditorState.Editing
 import com.singularity.todo.feature.notes.ExtractActionsResult
 import com.singularity.todo.feature.notes.LinkKind

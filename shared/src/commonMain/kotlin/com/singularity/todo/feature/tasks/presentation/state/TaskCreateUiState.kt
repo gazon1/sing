@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import androidx.compose.runtime.Immutable
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.FieldOwnedTextAsString
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedTextAsString
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate

@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.textfields
+package com.singularity.todo.core.text
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -20,6 +20,9 @@ import kotlinx.serialization.encoding.Encoder
  */
 object FieldOwnedTextAsString : KSerializer<FieldOwnedText> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(
+        // The wire name stays the one the type had while it lived in
+        // `core.ui.textfields`: it is part of the backup file format, and a backup written by an
+        // older build has to restore. The package moved; the name on the wire did not.
         "com.singularity.todo.core.ui.textfields.FieldOwnedText",
         PrimitiveKind.STRING,
     )

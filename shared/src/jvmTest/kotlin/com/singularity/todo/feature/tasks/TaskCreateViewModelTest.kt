@@ -9,7 +9,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent

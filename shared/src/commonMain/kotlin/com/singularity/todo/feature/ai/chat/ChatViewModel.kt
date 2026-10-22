@@ -7,8 +7,8 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.engine.GenuiOutcome
 import com.singularity.todo.feature.genui.engine.GenuiSession

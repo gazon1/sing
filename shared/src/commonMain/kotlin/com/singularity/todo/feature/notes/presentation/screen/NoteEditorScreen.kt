@@ -35,7 +35,7 @@ import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.NotificationHost
-import com.singularity.todo.core.ui.textfields.Revisioned
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.detail.SavedIndicator

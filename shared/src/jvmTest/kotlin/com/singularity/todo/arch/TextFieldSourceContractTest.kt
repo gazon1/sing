@@ -153,7 +153,7 @@ class TextFieldSourceContractTest {
         const val BOUND_SOURCE_FILE = "feature/genui/render/BoundTextSource.kt"
 
         /** The owned source — the one that carries the count. */
-        const val OWNED_SOURCE_FILE = "core/ui/textfields/TextFieldSource.kt"
+        const val OWNED_SOURCE_FILE = "core/text/TextFieldSource.kt"
 
         /** The name of the owned source. */
         const val OWNED_SOURCE = "OwnedText"

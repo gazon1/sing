@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.projects.presentation.state
 
 import com.singularity.todo.core.ui.MviIntent
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 
 /**

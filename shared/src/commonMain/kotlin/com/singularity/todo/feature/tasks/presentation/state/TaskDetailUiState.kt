@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.tasks.presentation.state
 import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.attachments.Attachment
-import com.singularity.todo.core.ui.textfields.OwnedText
-import com.singularity.todo.core.ui.textfields.Revisioned
+import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.Project

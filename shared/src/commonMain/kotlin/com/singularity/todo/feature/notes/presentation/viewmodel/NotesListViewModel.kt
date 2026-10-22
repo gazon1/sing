@@ -7,7 +7,7 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayFlow
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteFilter
 import com.singularity.todo.feature.notes.NoteId

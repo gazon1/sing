@@ -3,7 +3,7 @@ package com.singularity.todo.core.settings
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.schedule.WorkingDays
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import kotlinx.serialization.json.Json
 import com.singularity.todo.core.error.runCatchingCancellable

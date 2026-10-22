@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.textfields
+package com.singularity.todo.core.text
 
 import androidx.compose.runtime.Immutable
 
