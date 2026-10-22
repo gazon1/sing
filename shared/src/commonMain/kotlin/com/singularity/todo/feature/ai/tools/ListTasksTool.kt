@@ -164,25 +164,21 @@ class ListTasksTool(
          * vocabulary will not use it — and it says the narrowing is an intersection,
          * which is the part a model gets wrong most often.
          */
-        const val DESCRIPTION = """
-            List the user's tasks.
-
-            The selection is one of: inbox, today, upcoming, overdue, blocked, stagnant,
-            pinned, someday, active, completed, all.
-            - inbox: open and not deferred. today: due today. upcoming: due later.
-            - overdue: past its due date and still open. blocked: waiting on something
-              unfinished. stagnant: open, undated, untouched for a long time.
-            - pinned: the user pinned it. someday: deferred. active: open.
-            - completed: finished. all: everything that is not in the trash.
-
-            Narrowing is an intersection: projectId, tagIds and priorities each remove
-            tasks, so a request for two tags returns only the tasks carrying both.
-            Priorities are none, low, medium, high, urgent.
-
-            The result carries the number of tasks in the selection, how they are doing
-            (overdue, blocked, stagnant), and a cursor for the next page. Pass the
-            cursor back to continue; do not use a cursor from a different selection.
-        """
+        const val DESCRIPTION =
+            "List the user's tasks. " +
+                "The selection is one of: inbox, today, upcoming, overdue, blocked, stagnant, " +
+                "pinned, someday, active, completed, all. " +
+                "Inbox means open and not deferred; today means due today; upcoming means due " +
+                "later; overdue means past its due date and still open; blocked means waiting on " +
+                "something unfinished; stagnant means open, undated and untouched for a long time; " +
+                "pinned means the user pinned it; someday means deferred; active means open; " +
+                "completed means finished; all means everything that is not in the trash. " +
+                "Narrowing is an intersection: projectId, tagIds and priorities each remove " +
+                "tasks, so a request for two tags returns only the tasks carrying both. " +
+                "Priorities are none, low, medium, high, urgent. " +
+                "The result carries the number of tasks in the selection, how they are doing " +
+                "(overdue, blocked, stagnant), and a cursor for the next page. Pass the cursor " +
+                "back to continue; do not use a cursor from a different selection."
 
         /**
          * How many tasks a page holds unless the reader asks for fewer.

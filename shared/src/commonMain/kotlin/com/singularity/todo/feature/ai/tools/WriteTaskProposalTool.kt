@@ -180,20 +180,15 @@ class WriteTaskProposalTool(
          * It says that the change is proposed rather than performed, because a model
          * that believes it has changed the task will say so to the user.
          */
-        const val DESCRIPTION = """
-            Propose a change to a task. The change is not applied yet — the user sees it
-            and decides. Say that it has been proposed, not that it has been done.
-
-            The operation is one of: set_title, set_description, set_priority,
-            set_due_date, set_estimate, set_status, add_tags, remove_tags,
-            add_checklist, add_subtasks.
-            - set_* takes the new value in "value".
-            - add_* and remove_* take one entry per item in "items".
-            - set_due_date takes a date as YYYY-MM-DD. set_estimate takes minutes.
-            - set_status takes "active" or "completed".
-
-            The reason is shown to the user with the change, so say why the change is
-            being proposed.
-        """
+        const val DESCRIPTION =
+            "Propose a change to a task. The change is not applied yet — the user sees it and " +
+                "decides. Say that it has been proposed, not that it has been done. " +
+                "The operation is one of: set_title, set_description, set_priority, set_due_date, " +
+                "set_estimate, set_status, add_tags, remove_tags, add_checklist, add_subtasks. " +
+                "set_* takes the new value in \"value\"; add_* and remove_* take one entry per " +
+                "item in \"items\"; set_due_date takes a date as YYYY-MM-DD; set_estimate takes " +
+                "minutes; set_status takes \"active\" or \"completed\". " +
+                "The reason is shown to the user with the change, so say why the change is being " +
+                "proposed."
     }
 }

@@ -73,16 +73,12 @@ class GetTaskTool(
          * It says what the card carries, so that the model asks for the tool when the
          * question needs a task in full rather than a list of titles.
          */
-        const val DESCRIPTION = """
-            Read one task in full, by its id.
-
-            Returns the task's description, due date and time, priority, tags, whether it
-            is pinned, how many subtasks it has, how far its checklist has got, and the
-            tasks it is waiting on. Also says whether the task is overdue, blocked or
-            stagnant.
-
-            Use list_tasks to find the id first, and this to read the task the reader
-            means.
-        """
+        const val DESCRIPTION =
+            "Read one task in full, by its id. " +
+                "Returns the task's description, due date and time, priority, tags, whether it " +
+                "is pinned, how many subtasks it has, how far its checklist has got, and the " +
+                "tasks it is waiting on. Also says whether the task is overdue, blocked or " +
+                "stagnant. " +
+                "Use list_tasks to find the id first, and this to read the task the reader means."
     }
 }
