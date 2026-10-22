@@ -161,17 +161,17 @@ def script_gate_block(slug: str, script: str, why: str) -> str:
 def placement_block(display: str, command: str, note: str) -> str:
     """The `Placement` that says where the gate runs.
 
-    The note is a comment in the shell registry, so every line of it carries
-    the `#`. A note without it is a line the shell tries to run — the registry
-    is a shell file, and the prose above a gate line is read by the shell as
-    much as by a person.
+    The note is prose; the shell registry it is rendered into is what makes it
+    a comment. The renderer (`sgate.gate_manifest.render_static_registry`) puts
+    the `#` on every line itself, so a note does not have to remember the
+    convention — and a note that forgot it became a command the shell tried to
+    run.
     """
-    commented = "\n".join(f"# {line}" if line else "#" for line in note.split("\n"))
     return f"""    '{display}': Placement(
         kind=PlacementKind.STATIC,
         command="sgate {command}",
         note=(
-            {commented!r}
+            {note!r}
         ),
     ),"""
 
