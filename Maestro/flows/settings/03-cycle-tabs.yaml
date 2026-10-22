@@ -36,9 +36,11 @@ tags:
       id: settings_tab_interface
     timeout: 10000
 
-# Cycle all 12 tabs. A crash or hang on any tab fails the flow.
-# The NavRail is a fixed 80dp column with a private ScrollView — scroll each
-# tab into view before tapping so it is guaranteed to be in the viewport.
+# Cycle all 13 tabs. A crash or hang on any tab fails the flow.
+# The NavRail is a fixed 80dp column of thirteen rows — only seven of them fit
+# on a phone viewport, and the trailing ones are not composed at all until the
+# rail is scrolled. So the rail is scrolled once, and the trailing tabs are
+# tapped after it.
 - tapOn:
     id: settings_tab_interface
 - tapOn:
@@ -53,42 +55,18 @@ tags:
     id: settings_tab_calendar
 - tapOn:
     id: settings_tab_sync
+
+# The rail scroll lives in a helper: the gesture that moves the rail is not
+# the obvious one, and two recipes that looked right turned out to do nothing
+# on a device. See Maestro/helpers/settings-rail-scroll.yaml.
+- runFlow: ../../helpers/settings-rail-scroll.yaml
 - tapOn:
     id: settings_tab_tags
 - tapOn:
     id: settings_tab_taggroups
-# Files, Backup, Account are below the fold on a phone viewport.
-# Files sits at y≈2239 — 175dp beyond the NavRail visible bottom (≈y=2064).
-# Swipe UP from the bottom of the NavRail (point [105, 2000]) — this pulls
-# the content below upward, which scrolls the NavRail ScrollView DOWN to bring
-# Files into the visible area. Maestro's scrollUntilVisible uses swipeFromCenter
-# which scrolls the WRONG scrollable (full-screen), so we use explicit swipes.
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
 - tapOn:
     id: settings_tab_files
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
 - tapOn:
     id: settings_tab_backup
-- swipe:
-    start: 105, 2000
-    end: 105, 1600
-    duration: 1000
-- waitForAnimationToEnd
 - tapOn:
     id: settings_tab_account

@@ -802,6 +802,17 @@ object TestTags {
      */
     const val SNACKBAR_ACTION = "snackbar_action"
 
+    /**
+     * The snackbar's message.
+     *
+     * The copy is the translator's, so a flow that waits for "Backup created"
+     * waits forever on a Russian device. This tag says "a snackbar was shown"
+     * without saying what it said — the same reason [SNACKBAR_ACTION] exists.
+     *
+     * Applied by [TaggedSnackbarHost].
+     */
+    const val SNACKBAR_MESSAGE = "snackbar_message"
+
     // ─── Notification hosts ─────────────────────────────────────────────────
     //
     // These tag the invisible container a screen parks transient ResultDialogs in.

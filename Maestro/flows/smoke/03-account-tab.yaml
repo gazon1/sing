@@ -42,37 +42,14 @@ tags:
     id: menu_settings
 
 # Switch to Account tab.
-# The settings nav rail is a scrollable column of twelve ~76dp rows, so the
+# The settings nav rail is a scrollable column of thirteen rows, so the
 # trailing tabs (Files, Backup, Account) are below the fold on a phone viewport
-# — the screen looks complete, but the tab is not on it. Maestro's
-# scrollUntilVisible swipes from the centre of the screen, which scrolls the
-# content pane and not the rail, hence the explicit swipes.
+# — the screen looks complete, but the tab is not on it.
 #
-# The swipes are aimed at the rail element rather than at hardcoded pixels:
-# the old recipe (x=105, y=2000) was written for a 2400px-tall emulator and
-# fell off a 1600px-tall screen, where the gesture landed nowhere and the tab
-# stayed below the fold. A swipe past the end of the rail is a no-op, so
-# over-swiping is harmless.
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
-- swipe:
-    direction: UP
-    element:
-      id: settings_nav_rail_scroll
+# The scroll lives in a helper: the gesture that moves the rail is not the
+# obvious one, and two recipes that looked right turned out to do nothing on a
+# device. See Maestro/helpers/settings-rail-scroll.yaml.
+- runFlow: ../../helpers/settings-rail-scroll.yaml
 - extendedWaitUntil:
     visible:
       id: settings_tab_account

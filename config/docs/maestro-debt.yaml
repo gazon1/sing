@@ -30,18 +30,25 @@
 # fixed, and coming back is a regression). `flows` is how many flows the cause took
 # down when the floor was calibrated.
 #
-# Calibrated 2026-10-21 by a full local run of all 94 flows on the emulator: 55
-# passed, 39 failed, 0 device deaths, and the 39 failures were 27 causes.
+# Calibrated 2026-10-22 by a full run of all 94 flows on a phone (RMX3938,
+# 720x1600, API 35): 64 passed, 30 failed, and the 30 failures were 27
+# causes.
+#
+# The causes the phone did not show keep the count the emulator's calibration
+# gave them: that is the debt that shrank, and the gate prints it as such.
 
 environment:
-  kind: emulator
-  api: 36
-  device: sdk_gphone64_x86_64
-  measured_on: '2026-10-21'
-  apk: g7dba13ee9947
+  kind: device
+  api: 35
+  device: RMX3938
+  measured_on: '2026-10-22'
+  apk: 742deef01cd1
   note: >-
-    The floor belongs to this environment. A run on another device is a different
-    measurement, and the gate says so rather than comparing them.
+    The floor belongs to this environment. The Maestro shards are skipped in
+    CI — there is no emulator there — so the emulator's calibration guarded
+    nothing, while every local run happens on a phone. A run on another
+    device is a different measurement, and the gate says so rather than
+    comparing them.
 
 causes:
 - key: "No visible element found: id: attachments_add_file_row"
@@ -60,7 +67,7 @@ causes:
   issue: 868
   owner: unclassified
   status: accepted
-  flows: 2
+  flows: 1
 - key: "Assertion is false: id: auth_attach_email_input is visible"
   issue: 866
   owner: product
@@ -137,8 +144,8 @@ causes:
   flows: 1
 - key: "Assertion is false: id: snackbar_action is visible"
   issue: 842
-  owner: unclassified
-  status: accepted
+  owner: product
+  status: fixed
   flows: 1
 - key: "Assertion is false: id: task_editor_title_input is visible"
   issue: 837
@@ -178,11 +185,164 @@ causes:
 - key: "No visible element found: id: settings_tab_backup"
   issue: 820
   owner: product
-  status: accepted
-  flows: 1
-  note: "The backup round-trip is broken on main (#820)."
+  status: fixed
+  flows: 0
+  note: "The flow could not reach the Backup tab, because the rail's trailing tabs are not composed until it moves; the rail scroll reaches them now (#820, #916)."
 - key: "No visible element found: id: top_bar_back_button"
   issue: 840
   owner: unclassified
   status: accepted
   flows: 1
+- key: "Assertion is false: id: settings_tab_backup is visible"
+  issue: 916
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: settings_tab_account is visible"
+  issue: 916
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: statistics_tab_tasks is visible"
+  issue: 917
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: \"https://example.com/article\" is visible"
+  issue: 919
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: \"https://example.com/render-test\" is visible"
+  issue: 919
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Element not found: Text matching regex: Delete"
+  issue: 919
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Element not found: Id matching regex: attachments_title_input"
+  issue: 920
+  owner: product
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: task_editor_recurrence_row is visible"
+  issue: 921
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Element not found: Id matching regex: task_editor_save"
+  issue: 921
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: result_dialog is visible"
+  issue: 925
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: note_action_edit is visible"
+  issue: 926
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Element not found: Id matching regex: dialog_confirm"
+  issue: 926
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+- key: "Assertion is false: id: nav_tab_today is visible"
+  issue: 927
+  owner: test
+  status: fixed
+  flows: 0
+  note: "Fixed by this change; the cause is a regression guard from now on."
+
+# The causes the device found. A phone's screen is smaller than the emulator's
+# and its locale is Russian, so what the emulator hid showed up here.
+- key: "Assertion is false: id: snackbar_message is visible"
+  issue: 933
+  owner: product
+  status: accepted
+  flows: 1
+  note: "The backup button exports to a bare file name, which on Android resolves against the root filesystem and fails with EROFS (#933)."
+- key: "Element not found: Id matching regex: settings_tab_tags"
+  issue: 934
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The flow opens Settings and taps the eighth row of the rail without scrolling the rail; the trailing tabs are not composed until it moves (#934)."
+- key: "Assertion is false: id: agenda_section_not_touched_in_a_while is visible"
+  issue: 935
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "The Stagnant agenda shows no section for a task that has not moved in 22 days (#935)."
+- key: "Assertion is false: id: saved_agenda_card_r<n>_journey_renamed is visible"
+  issue: 936
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "Renaming a saved agenda view does not produce the renamed card (#936)."
+- key: "Assertion is false: id: task_item_buy_milk is visible"
+  issue: 938
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "The seed writes the task under an identity the agenda does not read, so the seeded row is never on the screen (#938)."
+- key: "Assertion is false: id: task_item_taskwithdesc<n> is visible"
+  issue: 937
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The flow types a query that is not a substring of the title it seeded (#937)."
+- key: "Assertion is false: id: task_item_pinnedtask<n> is visible"
+  issue: 937
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The flow asks the Inbox for a task it seeded with a due date, so the task is on the Today tab (#937)."
+- key: "Element not found: Id matching regex: task_editor_title_input"
+  issue: 837
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "The task editor's title field, addressed by the other message form (#837)."
+- key: "Element not found: Text matching regex: .*[^0-9]22[^0-9].*"
+  issue: 928
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The date picker's day cell needs a non-digit on both sides of the day, which the device's locale does not give it (#928)."
+- key: "Assertion is false: id: calendar_sync_system_enable_switch is visible"
+  issue: 835
+  owner: unclassified
+  status: accepted
+  flows: 1
+  note: "The device has no system calendar to enable, so the switch is not on the screen (#835)."
+- key: "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on 0O<n>F<n>DD5 (<n>ms since last byte, connection age <n>ms): StatusRuntimeException: UNAVAILABLE"
+  issue: 929
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The Maestro device server died mid-run; the flow carries no verdict about the app (#929)."
+- key: "Assertion is false: \"Delete\" is visible"
+  issue: 921
+  owner: test
+  status: accepted
+  flows: 1
+  note: "The flow asserts on the text of a button that carries the label as its accessibility description, not as its text (#921)."

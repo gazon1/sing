@@ -125,9 +125,26 @@ class DebugSeedActivity :
             // just re-activates it; when the link cold-started the process, we
             // are the only activity in the task and finishing alone would dump
             // the user (and the UI test) on the home screen.
+            //
+            // The task is cleared as well, so the app comes up on its first
+            // screen — the agenda — and not on whatever screen it was on. A
+            // seed link is a request to put the app in a known state: the
+            // flows that use it assert against the agenda, and with the old
+            // flags they got whatever the previous flow had left open. Measured
+            // on the device: the search flow that follows another search flow
+            // never saw `nav_tab_today`, because the app came up on the search
+            // screen the previous flow had left it on.
+            //
+            // CLEAR_TASK clears the task, not the data: the session, the
+            // profile and everything else in the database are untouched.
             startActivity(
                 Intent(this, com.singularity.todo.MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                    )
                 },
             )
             finish()

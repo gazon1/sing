@@ -108,6 +108,7 @@ settings_tab_backup tab
 settings_tab_interface tab
 settings_tab_notifications tab
 snackbar_action button
+snackbar_message text
 statistics_tab_health tab
 statistics_tab_tasks tab
 subtask_item_${RUN_ID}_child_task_one item
@@ -119,7 +120,10 @@ task_editor_due_date_row_label text
 task_editor_due_row item
 task_editor_pin_row item
 task_editor_priority_row item
+task_editor_project_row item
 task_editor_recurrence_row item
+task_editor_start_date_row item
+task_editor_tags_row item
 task_editor_title_input field
 task_item_${RUN_ID}_attachtesttask2026 item
 task_item_${RUN_ID}_backuproundtriptask item

@@ -6,11 +6,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
@@ -46,23 +48,44 @@ import com.singularity.todo.feature.nav.icon
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    // The partial state is skipped, and that is the fix for a real defect, not
+    // a preference.
+    //
+    // The sheet opened at the half-height, and the menu is taller than that, so
+    // the lower entries — Statistics, Notes, AI Chat, Search, Archive — were
+    // drawn under the system navigation bar. A tap there never reached the
+    // app: it hit the system HOME button and left it. Measured on the device
+    // (720x1600): the sheet's content ran from y=820 down past y=2100, with
+    // the navigation bar covering y=1504..1600 and the "Statistics" entry
+    // sitting at y=1496..1600.
+    //
+    // The sheet is a menu, not a peeker: it opens to show what it holds. See
+    // docs/decisions/2026-10-22-a-sheet-opens-to-what-it-holds.md.
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
 
     LaunchedEffect(Unit) { sheetState.show() }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
+    // The canonical sheet host, not a bare ModalBottomSheet: it applies the
+    // window insets and asserts the testTag→resource-id mapping on the sheet's
+    // own window.
+    BottomSheetHost(
+        onDismiss = onDismiss,
         sheetState = sheetState,
-        // The sheet renders into its own window, so the app-root
-        // testTagsAsResourceId never reaches the menu items.
-        modifier = Modifier
-            .testTag(TestTags.MENU_SHEET)
-            .mapTestTagsAsResourceIds(),
+        modifier = Modifier.testTag(TestTags.MENU_SHEET),
     ) {
         Column(
             // The sheet renders into its own window, so the app-root
             // testTagsAsResourceId never reaches the menu items.
+            //
+            // The column scrolls because the menu has eight entries and three
+            // headers, and a screen shorter than that would clip the last ones
+            // again — the same defect the settings rail had, and the reason the
+            // rail scrolls on every form factor.
             modifier = Modifier.mapTestTagsAsResourceIds()
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {

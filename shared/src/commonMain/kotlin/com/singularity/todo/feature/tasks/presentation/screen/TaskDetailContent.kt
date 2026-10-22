@@ -33,6 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,36 +95,46 @@ fun TaskDetailContent(
     var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
     val sheets = rememberDialogState<TaskEditorSheet>()
 
+    // One collector, one owner.
+    //
+    // The events live in a channel, and a channel has one consumer: two
+    // collectors of the same flow split the events between them, and each
+    // collector keeps only the ones it recognises. This screen had two — one
+    // for the "saved" message, one inside NotificationHost — so whether the
+    // undo toast appeared was a matter of which collector the event landed in.
+    // The delete flow measured it landing wrong: after "Удалить" the undo
+    // toast was not on the screen at all.
+    //
+    // So the screen collects once and hands the notifications over.
+    val notifications = remember { Channel<Notification>(Channel.BUFFERED) }
+
     LaunchedEffect(coordinator.events) {
         coordinator.events.collect { event ->
-            if (event is TaskDetailUiEvent.Saved) {
-                scope.launch {
+            when (event) {
+                is TaskDetailUiEvent.Saved -> scope.launch {
                     snackbarHostState.showSnackbar(
                         message = event.message,
                         duration = SnackbarDuration.Short,
                     )
                 }
+
+                is TaskDetailUiEvent.Error -> notifications.send(Notification.Error(event.message))
+
+                is TaskDetailUiEvent.UndoDelete -> notifications.send(
+                    Notification.Undo(
+                        title = "Task deleted",
+                        actionLabel = "Undo",
+                        onAction = { coordinator.onIntent(TaskDetailIntent.Domain.Restore) },
+                    ),
+                )
+
+                TaskDetailUiEvent.NavigateBack -> notifications.send(Notification.NavigateBack)
             }
         }
     }
 
     NotificationHost(
-        events = coordinator.events,
-        mapper = { event: TaskDetailUiEvent ->
-            when (event) {
-                is TaskDetailUiEvent.Saved -> Notification.None
-
-                is TaskDetailUiEvent.Error -> Notification.Error(event.message)
-
-                is TaskDetailUiEvent.UndoDelete -> Notification.Undo(
-                    title = "Task deleted",
-                    actionLabel = "Undo",
-                    onAction = { coordinator.onIntent(TaskDetailIntent.Domain.Restore) },
-                )
-
-                TaskDetailUiEvent.NavigateBack -> Notification.NavigateBack
-            }
-        },
+        events = notifications.receiveAsFlow(),
         onNavigateBack = { navigator.back() },
     )
 
@@ -176,6 +188,14 @@ fun TaskDetailContent(
                             estimateMinutes = ui.task.estimateMinutes,
                             blockedBy = ui.blockedBy,
                             availableTasks = ui.availableTasks,
+                            // The attachments sheet reads the model's list, and the
+                            // sheet is where an attachment is deleted. The detail
+                            // kept its attachments out of the model — the section
+                            // below the fields had them — so the sheet said "no
+                            // attachments yet" on a task that had them, and there
+                            // was nothing to delete from the one place that
+                            // deletes.
+                            attachments = ui.attachments,
                         ),
                         titleSource = ui.titleSource,
                         descriptionSource = ui.descriptionSource,

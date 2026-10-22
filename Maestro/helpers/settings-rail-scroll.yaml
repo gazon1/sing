@@ -1,0 +1,34 @@
+# Scrolls the settings navigation rail down.
+#
+# Usage: the flow is already in Settings (it has tapped the menu's Settings
+# item); this helper moves the rail so the trailing tabs come into view.
+#
+# Why the gesture is aimed at percentages of the screen. The rail is the 80dp
+# column on the left of the settings screen, and the two recipes that came
+# before this one both failed on a real device:
+#
+#   * `scrollUntilVisible` swipes the centre of the screen — the content pane,
+#     not the rail. The rail does not move.
+#   * a swipe on the rail *element* does nothing at all. Measured on the
+#     device (720x1600): Maestro reported the swipe as completed and the rail
+#     had not moved a pixel.
+#   * a swipe at hardcoded pixels (105, 2000) was written for a 2400px-tall
+#     emulator and fell off a 1600px-tall phone, so the gesture landed nowhere.
+#
+# Percentages do not have that problem: 3% of the width is inside the 80dp rail
+# on every phone and tablet, and 70%→20% of the height is a long drag along the
+# rail. Measured on the device, one such swipe moves the rail by more than a
+# thousand pixels — enough to bring Backup and Account into view.
+#
+# A swipe past the end of the rail is a no-op, so over-swiping is harmless.
+appId: com.singularity.todo
+name: settings-rail-scroll
+---
+- swipe:
+    start: 3%, 70%
+    end: 3%, 20%
+    duration: 400
+- swipe:
+    start: 3%, 70%
+    end: 3%, 20%
+    duration: 400
