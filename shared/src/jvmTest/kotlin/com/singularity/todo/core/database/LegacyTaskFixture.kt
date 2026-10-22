@@ -121,11 +121,15 @@ private fun fixtureColumns(connection: SQLiteConnection, table: String): List<Fi
 
 /**
  * The zero of a type — what a `NOT NULL` column gets when nothing knows better.
+ *
+ * A *value*, not a literal: the literal is [literal]'s job, and a value that
+ * already carries its quotes would be quoted twice — a text column would hold
+ * two apostrophes instead of an empty string.
  */
 private fun zeroOf(type: String): String = when (type.uppercase()) {
     "INTEGER", "INT" -> "0"
     "REAL", "DOUBLE", "FLOAT" -> "0.0"
-    else -> "''"
+    else -> ""
 }
 
 /**

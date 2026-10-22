@@ -197,9 +197,14 @@ internal object TextFieldShapeScan {
     /**
      * The package a file lives in — derived from its path, the way the tree
      * mirrors the packages.
+     *
+     * The paths are relative to `com/singularity/todo/`, so the root package
+     * has to be put back: `core/ui/Thing.kt` is in
+     * `com.singularity.todo.core.ui`, and a package without its root names a
+     * package that does not exist.
      */
     private fun packageOf(path: String): String =
-        path.substringBeforeLast('/').replace('/', '.')
+        "$ROOT_PACKAGE.${path.substringBeforeLast('/').replace('/', '.')}"
 
     /**
      * The text of every declaration of the file at [path] — the functions and the
@@ -243,6 +248,9 @@ internal object TextFieldShapeScan {
 
     /** The package every path in this scan is relative to. */
     private const val PACKAGE_PREFIX = "com/singularity/todo"
+
+    /** The same package, in the form a `package` declaration uses. */
+    private const val ROOT_PACKAGE = "com.singularity.todo"
 
     /** Where the helpers live. No field site lives here. */
     private const val HELPERS_PACKAGE = "core/ui/textfields/"
