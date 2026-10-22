@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**96 scenarios · 26/119 claimed cells automated · 93 holes**
+**97 scenarios · 27/120 claimed cells automated · 93 holes**
 
 ## feature.agenda
 
@@ -147,6 +147,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SEARCH-05` | Filter by pinned toggles task results | ● | — | Only the pinned task is shown; the unpinned task is filtered out. Toggling the filter off restores all results. |
 | `SEARCH-06` | A query with no matches shows an explicit no-results state | ● | — | An explicit "No results found" state is shown. This is distinct from the idle prompt (which is shown when the query is… |
 | `SEARCH-07` | A saved search persists and can be loaded | ● | — | The saved search persists across navigation. Tapping it restores the query text and the matching results, so the user… |
+| `SEARCH-08` | A term matches the beginning of a word, and not its middle | ● | — | The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not… |
 
 ## feature.settings
 
