@@ -793,7 +793,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # comparison lives in a forty-minute suite, so the drift is invisible for the
     # rest of the session. The probe renames one value to prove the gate can
     # still fail.
-    'scripts/check-test-tags-catalog.py': Control(
+    'test-tags-catalogue': Control(
         kind='sabotage',
         proves='scripts/check-test-tags-catalog.py',
         argv=('{python}', 'scripts/check-test-tags-catalog.py', '--check'),
