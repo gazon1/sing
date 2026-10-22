@@ -26,6 +26,7 @@ import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -174,7 +175,7 @@ private fun ToolUsageRow(tool: ToolUsage) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = tool.toolName, style = MaterialTheme.typography.bodyMedium)
+        SelectableText(text = tool.toolName, style = MaterialTheme.typography.bodyMedium)
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${formatTokens(tool.totalTokens)} tokens",
@@ -196,7 +197,7 @@ private fun ModelUsageRow(model: ModelUsage) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = model.modelId, style = MaterialTheme.typography.bodyMedium)
+        SelectableText(text = model.modelId, style = MaterialTheme.typography.bodyMedium)
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${formatTokens(model.totalTokens)} tokens",

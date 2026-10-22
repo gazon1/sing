@@ -52,6 +52,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.formatFileSize
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.text.SelectableText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.datetime.TimeZone
@@ -266,7 +267,7 @@ fun BackupListItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
+                SelectableText(
                     text = backup.id.value,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,

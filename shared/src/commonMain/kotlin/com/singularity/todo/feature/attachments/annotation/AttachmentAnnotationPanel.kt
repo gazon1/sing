@@ -38,6 +38,7 @@ import com.singularity.todo.core.ui.IntentActions
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.SelectableText
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -168,10 +169,9 @@ private fun AnnotationRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            SelectableText(
                 text = "\"${annotation.annotation.range.quote.take(80)}\"",
-                style = MaterialTheme.typography.bodyMedium,
-                fontStyle = FontStyle.Italic,
+                style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
                 modifier = Modifier.weight(1f),
             )
             if (annotation.isStale) {
@@ -186,7 +186,7 @@ private fun AnnotationRow(
                 )
             }
         }
-        Text(
+        SelectableText(
             text = annotation.annotation.note.ifBlank { "(no note)" },
             style = MaterialTheme.typography.bodyLarge,
         )

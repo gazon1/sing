@@ -25,6 +25,19 @@ Primitives in `core/ui/components/` that every screen consumes.
 
 All of these live at `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/`.
 
+### The text widgets live next door, in `core/ui/text/`
+
+`core/ui/text/` holds the widgets for *text*: `SelectableText` (a text a person can
+copy), `SelectableTextGroup` (a block, selectable as one), `UnselectableContent` (an
+interactive child, out of the surrounding selection), `LinkifiedText` (a text whose
+links can be tapped), and `rememberAppUriHandler` (the platform's handler with the
+app's own schemes in front of it).
+
+They are not in `core/ui/components/` because they are not *components* in the sense
+that library means — they are the text of a component. Their rules, and the
+inventory of the surfaces that use them, are in
+[`singularity-todo-selectable-text`](../singularity-todo-selectable-text/SKILL.md).
+
 ### `SheetScaffold`: the actions row must stay reachable
 
 `SheetScaffold`'s column is `verticalScroll(rememberScrollState())`. That is

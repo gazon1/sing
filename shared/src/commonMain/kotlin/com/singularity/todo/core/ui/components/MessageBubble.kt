@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.LinkifiedText
 
 /** Speaker of a chat message bubble. */
 enum class BubbleRole { User, Assistant }
@@ -42,7 +43,11 @@ fun MessageBubble(role: BubbleRole, content: String, modifier: Modifier = Modifi
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
         )
         Box(modifier = Modifier.fillMaxWidth(0.85f)) {
-            Text(
+            // The answer of an assistant is prose, and prose is where links turn up:
+            // a documentation link, a task the assistant mentions. The content is
+            // linkified so those are tappable, and selectable so a person can copy
+            // a line of it.
+            LinkifiedText(
                 text = content.ifBlank { "…" },
                 style = MaterialTheme.typography.bodyMedium,
             )

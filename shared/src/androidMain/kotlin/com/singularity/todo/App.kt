@@ -17,6 +17,8 @@ import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
 import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.LocalHaptic
+import com.singularity.todo.core.ui.text.LocalInternalLinkHandler
+import com.singularity.todo.core.ui.text.TextLink
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
@@ -25,6 +27,7 @@ import com.singularity.todo.feature.nav.Nav3State
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
+import com.singularity.todo.feature.nav.internalLinkDestination
 import com.singularity.todo.feature.nav.rememberNav3State
 import com.singularity.todo.feature.whatsnew.presentation.screen.WhatsNewScreen
 import org.koin.compose.koinInject
@@ -112,9 +115,20 @@ actual fun AppContent(
         }
     }
 
+    // A tapped internal link opens the screen it names, in the app. The handler is
+    // remembered so that the composition local's value does not change on every
+    // recomposition — a link screen would otherwise be recomposed for nothing.
+    val internalLinkHandler = remember(navCallbacks) {
+        { link: TextLink.Internal ->
+            val destination = internalLinkDestination(link.target)
+            if (destination != null) navCallbacks.navigate(destination)
+        }
+    }
+
     SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
             LocalAppNavigator provides navCallbacks,
+            LocalInternalLinkHandler provides internalLinkHandler,
             // One provider for the whole tree, so shared components can pulse haptics without
             // resolving the port — and without a preview guard. Default is NoOpHaptic, which is
             // also what desktop binds, so this line changes nothing there.

@@ -27,6 +27,7 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.text.LinkifiedText
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
@@ -150,7 +151,10 @@ private fun ProposalItemRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            // The summary is prose the model wrote, and prose is where links turn up.
+            // The row also holds buttons, so the text is linkified rather than wrapped in
+            // a selection group of its own.
+            LinkifiedText(
                 text = item.humanSummary,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),

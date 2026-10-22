@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.tasks.data
 
-import com.singularity.todo.feature.notes.LinkSchemes
+import com.singularity.todo.core.links.InternalLinkSchemes
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,7 +30,7 @@ class TaskOutgoingLinksTest {
         val text = "See task://abc123 for details and task://def456 too"
         val links = extractOutgoingLinks(text)
         assertEquals(
-            listOf("${LinkSchemes.TASK_PREFIX}abc123", "${LinkSchemes.TASK_PREFIX}def456"),
+            listOf("${InternalLinkSchemes.TASK_PREFIX}abc123", "${InternalLinkSchemes.TASK_PREFIX}def456"),
             links,
         )
     }
@@ -40,7 +40,7 @@ class TaskOutgoingLinksTest {
         val text = "Related to note://note789 see also note://noteabc"
         val links = extractOutgoingLinks(text)
         assertEquals(
-            listOf("${LinkSchemes.NOTE_PREFIX}note789", "${LinkSchemes.NOTE_PREFIX}noteabc"),
+            listOf("${InternalLinkSchemes.NOTE_PREFIX}note789", "${InternalLinkSchemes.NOTE_PREFIX}noteabc"),
             links,
         )
     }
@@ -49,7 +49,7 @@ class TaskOutgoingLinksTest {
     fun `extractOutgoingLinks deduplicates URLs`() {
         val text = "task://abc task://abc task://abc"
         val links = extractOutgoingLinks(text)
-        assertEquals(listOf("${LinkSchemes.TASK_PREFIX}abc"), links)
+        assertEquals(listOf("${InternalLinkSchemes.TASK_PREFIX}abc"), links)
     }
 
     @Test
@@ -70,8 +70,8 @@ class TaskOutgoingLinksTest {
         val links = extractOutgoingLinks(text)
         assertEquals(
             listOf(
-                "${LinkSchemes.TASK_PREFIX}taskid",
-                "${LinkSchemes.NOTE_PREFIX}noteid",
+                "${InternalLinkSchemes.TASK_PREFIX}taskid",
+                "${InternalLinkSchemes.NOTE_PREFIX}noteid",
             ),
             links,
         )
@@ -83,8 +83,8 @@ class TaskOutgoingLinksTest {
         val links = extractOutgoingLinks(text)
         assertEquals(
             listOf(
-                "${LinkSchemes.TASK_PREFIX}task_123-abc",
-                "${LinkSchemes.NOTE_PREFIX}note_456-def",
+                "${InternalLinkSchemes.TASK_PREFIX}task_123-abc",
+                "${InternalLinkSchemes.NOTE_PREFIX}note_456-def",
             ),
             links,
         )

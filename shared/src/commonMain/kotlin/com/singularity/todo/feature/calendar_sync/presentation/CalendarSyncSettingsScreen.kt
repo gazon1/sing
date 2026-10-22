@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendar_sync.permission.rememberCalendarPermissionRequester
@@ -406,7 +407,7 @@ private fun GoogleCalendarPickerSection(state: CalendarSyncUiState, onIntent: (C
             // after a failed read is the reason the field exists at all, and a
             // reauth or network problem has nothing to do with the account having
             // no calendars.
-            state.googleError != null -> Text(
+            state.googleError != null -> SelectableText(
                 text = "Could not read your Google calendars: ${state.googleError}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
@@ -497,7 +498,7 @@ private fun GoogleSyncSection(state: CalendarSyncUiState, onIntent: (CalendarSyn
             // the pass reported *something*, and reads the text to learn which.
             val error = state.googleSyncError
             if (error != null) {
-                Text(
+                SelectableText(
                     text = "Sync failed: $error",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
