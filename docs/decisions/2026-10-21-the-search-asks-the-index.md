@@ -141,7 +141,9 @@ Where the rule is the only one that can answer, the rule answers.
 - The upgrade has to rebuild the indexes, which is a one-off cost on a
   database of existing rows.
 - `LIKE '%…%'` is gone from the search paths. It remains only where a query is
-  a fixed pattern rather than a search.
+  a fixed pattern rather than a search — and that remaining place is a
+  decision, not a leftover:
+  `docs/decisions/2026-10-22-the-regexp-filter-stays-on-like.md`.
 
 ## Links
 
@@ -152,3 +154,4 @@ Where the rule is the only one that can answer, the rule answers.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/search/TextMatch.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/search/SearchUseCase.kt`
 - `docs/specs/search-query-grammar.md`
+- ADR 2026-10-22: the regexp filter stays on LIKE — `docs/decisions/2026-10-22-the-regexp-filter-stays-on-like.md`
