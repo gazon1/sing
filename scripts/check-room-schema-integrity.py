@@ -116,6 +116,15 @@ MANUAL_MIGRATIONS: dict[tuple[int, int], str] = {
     (44, 45): "Migration44To45",
 }
 
+# The list as it was declared, captured before any self-test plants a defect.
+#
+# The self-test's fixture writes a class file for every manual migration, so
+# that the fixture satisfies the rule "the exemption list must not outlive the
+# thing it exempts". A fixture built from the live list would also write a
+# class for the *phantom* entry the self-test plants to prove that rule fires
+# — and the rule would then have nothing to fire on.
+DECLARED_MANUAL_MIGRATIONS: dict[tuple[int, int], str] = dict(MANUAL_MIGRATIONS)
+
 # The oldest schema version this project still promises to upgrade a user from.
 #
 # `4.json` exists because it was exported when the codebase moved to Room 3 on
@@ -536,8 +545,15 @@ def _make_compliant(root: Path) -> None:
         ")\n"
         "abstract class AppDatabase : RoomDatabase()\n"
     )
-    (db_dir / "Migration31To32.kt").write_text("class Migration31To32\n")
     (db_dir / "Migration5To6.kt").write_text("class Migration5To6\n")
+    # Every manual migration the exemption list names must exist in the tree —
+    # that is one of the rules the fixture has to satisfy, and the list grows
+    # with the schema. Writing the classes from the list keeps the fixture
+    # honest as it grows: a hard-coded pair of names went stale silently, and
+    # the self-test stopped passing for a reason that had nothing to do with
+    # the rules it was proving.
+    for class_name in DECLARED_MANUAL_MIGRATIONS.values():
+        (db_dir / f"{class_name}.kt").write_text(f"class {class_name}\n")
     (db_dir / "AppDatabaseFactory.kt").write_text(
         "package com.singularity.todo.core.database\n"
         "object AppDatabaseFactory {\n"
@@ -708,12 +724,16 @@ def self_test() -> int:
 
 
 @click.command()
-@click.option("--self-test", is_flag=True, help="plant each defect and assert it is caught")
+@click.option("--self-test", "run_self_test", is_flag=True, help="plant each defect and assert it is caught")
 @click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
 @click.pass_context
-def cli(ctx: click.Context, self_test: bool, emit_json: bool) -> None:
+def cli(ctx: click.Context, run_self_test: bool, emit_json: bool) -> None:
     """Prove the declared schema, the exported schema, and the migration chain are the same schema."""
-    if self_test:
+    # The parameter is not named `self_test`: click derives a parameter name from
+    # the option name, and a parameter called `self_test` shadowed the module's
+    # `self_test()` — so the flag read as "call the boolean", and the self-test
+    # died with a TypeError instead of running.
+    if run_self_test:
         raise ctx.exit(self_test())
 
     violations = run_all(ROOT)

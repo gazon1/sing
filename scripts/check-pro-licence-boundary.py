@@ -573,14 +573,18 @@ def self_test() -> int:
 # --------------------------------------------------------------------------
 
 @click.command()
-@click.option("--self-test", is_flag=True, help="prove each rule fires on a violating tree")
+@click.option("--self-test", "run_self_test", is_flag=True, help="prove each rule fires on a violating tree")
 @click.option("--verify-apk", type=click.Path(exists=False, path_type=Path), default=None,
               help="also assert a built APK matches the source claim")
 @click.option("--expect", type=click.Choice(["free", "pro"]), default="free",
               help="what the APK should contain (default: free)")
 @click.pass_context
-def cli(ctx: click.Context, self_test: bool, verify_apk: Path | None, expect: str) -> None:
-    if self_test:
+def cli(ctx: click.Context, run_self_test: bool, verify_apk: Path | None, expect: str) -> None:
+    # The parameter is not named `self_test`: click derives a parameter name from
+    # the option name, and a parameter called `self_test` shadowed the module's
+    # `self_test()` — so the flag read as "call the boolean", and the self-test
+    # died with a TypeError instead of running.
+    if run_self_test:
         code = self_test()
         raise ctx.exit(code)
 
