@@ -2,6 +2,7 @@ package com.singularity.todo.feature.search
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.text.AnnotatedString
 import com.singularity.todo.core.ids.UserId
@@ -100,7 +101,7 @@ class SearchMatchHighlightScenarioTest {
      * the emphasis is not a colour that a test could read, it is a range over
      * the characters — so the range is what the test looks at.
      */
-    private fun textShown(text: String): AnnotatedString {
+    private fun DesktopComposeUiTest.textShown(text: String): AnnotatedString {
         var found: AnnotatedString? = null
         for (root in semanticsRoots()) {
             root.visit { node ->
