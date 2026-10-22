@@ -291,6 +291,24 @@ detekt-baseline:
 [doc('Alias for detekt (lint = detekt in this project)')]
 lint: detekt
 
+[group('lint')]
+[doc('Run detekt over the changed files only (the scoped lint)')]
+[working-directory(justfile_directory())]
+lint-changed:
+    #!/bin/bash
+    set -euo pipefail
+    # The scoped lint: the same config, the same baseline, the same rules as the
+    # module's own detekt task — over the changed files only.
+    #
+    # The whole module takes three to four minutes and answers a question about
+    # every file in it, while a mechanical finding (a too-complex method, a long
+    # method, a missing blank line) is a finding about the file that was just
+    # written. This answers that question in seconds.
+    #
+    # The file list is computed from git: the merge base with the base branch
+    # plus the working tree, so a staged-but-uncommitted change counts.
+    python3 scripts/lint-changed.py "$@"
+
 
 # ---------------------------------------------------------------------------
 # Documentation audit

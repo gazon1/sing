@@ -209,6 +209,8 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
 - **Пуш в ветку PR — без `--no-verify`**: pre-push hook проверяет пушимое дерево
   (структурные гейты + `detekt --auto-correct`); пропуск хука отправляет ту же
   находку в CI.
+- **`just lint-changed`** — detekt только по изменённым файлам (секунды); он же в
+  pre-commit. Полный модульный detekt — `just lint`.
 
 > **Дешёвая проверка — отдельно, когда нужен её ответ.** `./gw :shared:detekt` —
 > пара минут; `./gw :shared:jvmTest -Ptest.tags=slow:konsist` — десятки минут.
