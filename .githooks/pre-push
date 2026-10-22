@@ -21,10 +21,15 @@
 # detached worktree, the structural gates run there, and the worktree is
 # removed again.
 #
-# The detekt auto-correct step is the one deliberate exception: it rewrites
-# files in the current worktree on purpose — the corrected files are what the
-# author then commits and pushes — and it cannot rewrite a detached throwaway
-# tree meaningfully. It stays on the current worktree and says so out loud.
+# The detekt verdict is taken about the pushed tree as well. It is the only
+# step that can run in the current worktree, and only when that worktree holds
+# byte-identical content for everything detekt reads — then the worktree IS
+# the pushed tree, and judging it there is warm: the Gradle daemon and the
+# build directories are the ones this checkout has been using. When the
+# worktree holds something else, the verdict is taken in a throwaway worktree
+# at the pushed sha: a violation that is only in the worktree is then not
+# reported as a violation of the tree being pushed, and a violation that IS in
+# the pushed tree is not missed because the worktree happens to be clean.
 #
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
@@ -51,6 +56,10 @@ PUSH_REFS=()
 PUSH_LOCAL_SHAS=()
 PUSH_REMOTE_REFS=()
 PUSH_REMOTE_SHAS=()
+# The tree each pushed ref was checked out into — the empty string for a ref
+# that was skipped (a deletion, a ref that is already up to date) or whose
+# worktree could not be created.
+REF_TREES=()
 while read -r local_ref local_sha remote_ref remote_sha; do
     [ -n "${local_sha:-}" ] || continue
     PUSH_REFS+=("$local_ref")
@@ -129,6 +138,53 @@ reap_stale_temp_worktrees() {
 
 reap_stale_temp_worktrees
 
+# ── Holding the tree that is being pushed ───────────────────────────────
+#
+# A throwaway worktree per pushed tree, registered in TEMP_WORKTREES so the
+# trap removes it on every exit path.
+#
+# The result is returned in CHECKOUT_TREE rather than on stdout: the caller
+# prints the path itself, and a function that mixes a value and a message on
+# one stream makes the caller guess which is which.
+#
+# The slot names the directory: a path that is already a registered worktree
+# is refused by `git worktree add`, and a second ref must not inherit the
+# first ref's tree.
+CHECKOUT_TREE=""
+
+checkout_pushed_tree() {
+    local sha="$1" slot="$2" resolved candidate
+    CHECKOUT_TREE=""
+    resolved="$(git rev-parse --verify --quiet "${sha}^{commit}" 2>/dev/null || true)"
+    if [ -z "$resolved" ]; then
+        echo "   !!! $sha does not resolve to a commit in this repository"
+        return 1
+    fi
+    new_temp_root
+    candidate="$TMP_ROOT/tree-$slot"
+    if git -c core.hooksPath="$TMP_ROOT/hooks" worktree add --detach --quiet \
+        "$candidate" "$resolved" >"$TMP_ROOT/worktree-add.log" 2>&1; then
+        TEMP_WORKTREES+=("$candidate")
+        CHECKOUT_TREE="$candidate"
+        return 0
+    fi
+    echo "   !!! could not create a temporary worktree for ${resolved:0:8}:"
+    sed 's/^/       /' "$TMP_ROOT/worktree-add.log" || true
+    return 1
+}
+
+# The worktree that holds a pushed sha, if one was already checked out.
+tree_for_sha() {
+    local sha="$1" j
+    for j in "${!PUSH_REFS[@]}"; do
+        if [ "${PUSH_LOCAL_SHAS[$j]}" = "$sha" ] && [ -n "${REF_TREES[$j]:-}" ]; then
+            printf '%s' "${REF_TREES[$j]}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
 # Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
@@ -165,25 +221,11 @@ for i in "${!PUSH_REFS[@]}"; do
     echo "→ $local_ref → $remote_ref @ $local_sha"
 
     tree=""
-    resolved="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || true)"
-    if [ -n "$resolved" ]; then
-        new_temp_root
-        # One path per ref: a path that is already a registered worktree is
-        # refused by `git worktree add`, and a second ref must not inherit the
-        # first ref's tree.
-        candidate="$TMP_ROOT/tree-$i"
-        if git -c core.hooksPath="$TMP_ROOT/hooks" worktree add --detach --quiet \
-            "$candidate" "$resolved" >"$TMP_ROOT/worktree-add.log" 2>&1; then
-            tree="$candidate"
-            TEMP_WORKTREES+=("$candidate")
-            echo "   pushed tree checked out in a temporary worktree (detached at ${resolved:0:8})"
-        else
-            echo "   !!! could not create a temporary worktree for ${resolved:0:8}:"
-            sed 's/^/       /' "$TMP_ROOT/worktree-add.log" || true
-        fi
-    else
-        echo "   !!! $local_sha does not resolve to a commit in this repository"
+    if checkout_pushed_tree "$local_sha" "$i"; then
+        tree="$CHECKOUT_TREE"
+        echo "   pushed tree checked out in a temporary worktree (detached at ${local_sha:0:8})"
     fi
+    REF_TREES[$i]="$tree"
 
     if [ -z "$tree" ]; then
         echo "   !!! FALLBACK — validating the CURRENT WORKTREE ($CURRENT_BRANCH) instead."
@@ -245,16 +287,31 @@ echo ""
 echo "=== Structural gates OK ==="
 echo ""
 
-# ── detekt auto-correct ─────────────────────────────────────────────────
+# ── detekt verdict (about the tree that is being pushed) ────────────────
 #
-# Runs in all worktrees and in the main checkout: the correction has value here —
-# the files it rewrites get committed by the push that follows, instead of being
-# reported to a CI that cannot fix anything.
+# Two signals, and both of them are taken about the tree that is being pushed:
 #
-# It acts on the CURRENT WORKTREE, not on the pushed tree, and that is not an
-# oversight: a detached throwaway tree is thrown away a second later, so a
-# correction made there would be lost. The corrected files are the ones the
-# author commits and pushes next — the push this hook is vetting.
+#   1. the run's own exit code — detekt's verdict on the findings it could
+#      not correct;
+#   2. the content digest before and after the run — the findings detekt DID
+#      correct. Auto-correct rewrites the file and reports success, so what it
+#      changed is the only evidence that the tree held a violation.
+#
+# The digest is a content hash over every Kotlin file, not
+# `git status --porcelain`: a file that was already modified before the run
+# keeps the same status line (" M path") after the correction, so a status
+# comparison cannot see that anything happened. The verdict has to be about
+# the content, or it is about nothing.
+#
+# WHERE the verdict is taken depends on what the worktree holds:
+#
+#   - the worktree holds byte-identical content for everything detekt reads:
+#     the worktree IS the pushed tree, and judging it there is warm — the
+#     Gradle daemon and the build directories are this checkout's own;
+#   - anything else: a throwaway worktree at the pushed sha. A violation that
+#     is only in the worktree is then not reported against a tree nobody
+#     pushed, and a violation that is in the pushed tree is not missed
+#     because the worktree happens to be clean.
 #
 # `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md):
 # one invocation per module (not a combined task list — the flag only reaches the
@@ -272,72 +329,193 @@ echo ""
 # anyway. `--rerun` re-runs detekt alone. Measured on this tree: the
 # `--rerun-tasks` invocation was still running after 18 minutes and was stopped;
 # the `--rerun` invocation finishes in a couple of minutes.
-#
-# Verdict is the DIFF, not the exit code: a correcting run that rewrote a planted
-# violation ended BUILD SUCCESSFUL / exit 0 — it fixed the file and had nothing
-# left to report. A hook watching the exit code would pass with the violation
-# already gone and the author none the wiser.
 
-echo "=== Pre-push [$CURRENT_BRANCH] — detekt auto-correct (current worktree) ==="
+echo "=== Pre-push [$CURRENT_BRANCH] — detekt verdict (about the pushed tree) ==="
 
-# Does this push carry Kotlin at all? Two things count: the commits being pushed,
-# and whatever is still uncommitted in the working tree, because auto-correct acts
-# on the working tree rather than on a diff.
+DETEKT_TASKS=(:shared:detekt :desktopApp:detekt)
+
+# The paths that can change a detekt verdict:
+#   - the Kotlin sources detekt analyses;
+#   - the build scripts that decide which source sets are scanned;
+#   - the detekt config, the baseline and the custom rules;
+#   - the version catalog the build scripts read;
+#   - .editorconfig — ktlint reads it from inside detekt (max_line_length,
+#     ktlint_class_signature_rule_force_multiline_when_parameter_count…),
+#     so a worktree with a different .editorconfig is judged by different
+#     rules than the tree it is standing in for.
 #
-# When neither does, detekt can only rewrite a violation this push did not
-# introduce. Running it anyway is how a Python-only push got held hostage by an
-# unrelated Kotlin finding — and the author's response to a hook that blocks on
-# someone else's code is `--no-verify`, which costs every other gate too. CI runs
-# blocking detekt over the whole tree regardless, so skipping here stops a ~2
-# minute Gradle run on a change that cannot need it, and stops nothing else.
-KOTLIN_TOUCHED=0
-if ! git diff --quiet HEAD -- '*.kt' '*.kts' 2>/dev/null; then
-    KOTLIN_TOUCHED=1
-fi
+# A worktree that differs in any of them is a different tree, and a verdict
+# about it is a verdict about something nobody is pushing.
+DETEKT_PATHSPECS=(
+    ':(glob)**/*.kt'
+    ':(glob)**/*.kts'
+    'config/detekt/**'
+    'build-logic/**'
+    'detekt-rules/**'
+    'gradle/**'
+    '.editorconfig'
+)
+
+# The content of every Kotlin file in a tree, as one hash. Tracked and
+# untracked: detekt reads both, and a correction to an untracked file is as
+# much a violation as a correction to a tracked one.
+#
+# `git hash-object --stdin-paths` reads the paths FROM stdin — passing them as
+# arguments as well is an error, which is what the first version of this did.
+kotlin_digest() {
+    local tree="$1"
+    (
+        cd "$tree" || exit 1
+        {
+            git ls-files -- '*.kt' '*.kts'
+            git ls-files --others --exclude-standard -- '*.kt' '*.kts'
+        } | git hash-object --stdin-paths | git hash-object --stdin
+    )
+}
+
+# Does the current worktree hold exactly the content of $1 for everything
+# detekt can read?
+worktree_holds_sha() {
+    local sha="$1" untracked
+    git diff --quiet "$sha" -- "${DETEKT_PATHSPECS[@]}" 2>/dev/null || return 1
+    # Untracked files are invisible to `git diff`: a new Kotlin file in the
+    # worktree is analysed by detekt and is not in the pushed tree.
+    untracked="$(git status --porcelain --untracked-files=all -- "${DETEKT_PATHSPECS[@]}" 2>/dev/null | grep -c '^??' || true)"
+    [ "$untracked" = "0" ]
+}
+
+DETEKT_FAILED=0
+# How many trees were actually judged: a verdict that was not taken is not a
+# clean verdict, and the summary must not claim otherwise.
+DETEKT_JUDGED=0
+judged_shas=" "
+
 for i in "${!PUSH_REFS[@]}"; do
+    local_ref="${PUSH_REFS[$i]}"
     local_sha="${PUSH_LOCAL_SHAS[$i]}"
+    remote_ref="${PUSH_REMOTE_REFS[$i]}"
     remote_sha="${PUSH_REMOTE_SHAS[$i]}"
+
     if [ "$local_sha" = "$ZERO_SHA" ]; then
-        continue
+        continue                          # a deletion pushes no tree
     fi
+    if [ -n "$remote_sha" ] && [ "$local_sha" = "$remote_sha" ]; then
+        continue                          # already up to date: nothing is pushed
+    fi
+    case "$judged_shas" in
+        *" $local_sha "*) continue ;;    # the same tree, judged once
+    esac
+    judged_shas="$judged_shas $local_sha "
+
     if [ -z "$remote_sha" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
         RANGE=("${local_sha}" --not --remotes)
     else
         RANGE=("${remote_sha}..${local_sha}")
     fi
+
+    # Does this push carry Kotlin at all? Only the pushed commits count: the
+    # verdict is about the pushed tree, and a Kotlin file that is only in the
+    # worktree is not in it.
+    #
+    # Skipping when it does not is how a Python-only push got held hostage by
+    # an unrelated Kotlin finding — and the author's response to a hook that
+    # blocks on someone else's code is `--no-verify`, which costs every other
+    # gate too. CI runs blocking detekt over the whole tree regardless, so
+    # skipping here stops a ~2 minute Gradle run on a change that cannot need
+    # it, and stops nothing else.
+    #
     # Captured instead of piped: with `pipefail`, `grep -q` closing the pipe
     # early can make the pipeline report SIGPIPE (141) for a hit.
-    if [ "$KOTLIN_TOUCHED" = "0" ]; then
-        if [ -n "$(git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null)" ]; then
-            KOTLIN_TOUCHED=1
+    if [ -z "$(git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null)" ]; then
+        echo "no Kotlin in $local_ref — the detekt verdict is not taken (blocking detekt still runs in CI)"
+        continue
+    fi
+
+    # Which tree holds the pushed content?
+    if worktree_holds_sha "$local_sha"; then
+        judge_tree="$REPO_ROOT"
+        judge_label="the current worktree — byte-identical to ${local_sha:0:8}"
+    else
+        judge_tree="$(tree_for_sha "$local_sha" || true)"
+        if [ -z "$judge_tree" ]; then
+            if checkout_pushed_tree "$local_sha" "detekt-${local_sha:0:8}"; then
+                judge_tree="$CHECKOUT_TREE"
+            else
+                judge_tree=""
+            fi
+        fi
+        judge_label="a temporary worktree at ${local_sha:0:8}"
+    fi
+
+    if [ -z "$judge_tree" ]; then
+        echo ""
+        echo "   !!! no tree holds ${local_sha:0:8} — the detekt verdict could not be taken"
+        DETEKT_FAILED=1
+        continue
+    fi
+
+    echo ""
+    echo "→ $local_ref → $remote_ref @ $local_sha"
+    echo "   detekt verdict taken on $judge_label"
+    DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
+
+    new_temp_root
+    before="$(kotlin_digest "$judge_tree")"
+    detekt_failed=0
+
+    for task in "${DETEKT_TASKS[@]}"; do
+        log="$TMP_ROOT/detekt-${task//:/-}-${local_sha:0:8}.log"
+        rc=0
+        (
+            cd "$judge_tree" || exit 1
+            ./gradlew "$task" \
+                --auto-correct --rerun --no-daemon --console=plain
+        ) >"$log" 2>&1 || rc=$?
+        if [ "$rc" = "0" ]; then
+            echo "   detekt $task: OK"
+        else
+            detekt_failed=1
+            echo "   detekt $task: FAILED (exit $rc) — the last lines of the run:"
+            tail -n 30 "$log" | sed 's/^/      /'
+        fi
+    done
+
+    after="$(kotlin_digest "$judge_tree")"
+
+    if [ "$detekt_failed" = "1" ]; then
+        DETEKT_FAILED=1
+        echo ""
+        echo "pre-push FAILED — detekt reported findings in the tree that is being pushed ($local_ref)."
+        echo "Fix them and push again (or push with --no-verify)."
+    fi
+
+    if [ "$before" != "$after" ]; then
+        DETEKT_FAILED=1
+        echo ""
+        echo "pre-push FAILED — detekt corrected the tree that is being pushed ($local_ref)."
+        if [ "$judge_tree" = "$REPO_ROOT" ]; then
+            echo "The corrected files are in your working tree: review the diff, amend the commit, push again."
+            git --no-pager diff --stat
+        else
+            echo "The corrections were made in the temporary worktree — here is what detekt changed:"
+            git -C "$judge_tree" --no-pager diff
         fi
     fi
 done
 
-if [ "$KOTLIN_TOUCHED" = "0" ]; then
-    echo "no Kotlin in this push — auto-correct skipped (blocking detekt still runs in CI)"
+if [ "$DETEKT_FAILED" = "1" ]; then
     echo ""
-else
-    BEFORE="$(git status --porcelain)"
-
-    for task in :shared:detekt :desktopApp:detekt; do
-        ./gradlew "$task" \
-            --auto-correct --rerun --no-daemon --console=plain || true
-    done
-
-    AFTER="$(git status --porcelain)"
-
-    if [ "$BEFORE" != "$AFTER" ]; then
-        echo ""
-        echo "pre-push FAILED — detekt auto-correct rewrote files. Review the diff below,"
-        echo "amend the commit, and push again (or push with --no-verify)."
-        git --no-pager diff --stat
-        exit 1
-    fi
-
-    echo "detekt auto-correct changed nothing"
-    echo ""
+    echo "=== Pre-push FAILED — detekt verdict ==="
+    exit 1
 fi
+
+echo ""
+if [ "$DETEKT_JUDGED" = "0" ]; then
+    echo "detekt verdict: not taken — this push carries no Kotlin"
+else
+    echo "detekt verdict: the pushed tree is clean"
+fi
+echo ""
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own
@@ -349,10 +527,10 @@ fi
 # push may go ahead.
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-push [$CURRENT_BRANCH] — worktree detected ==="
-    echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite runs in CI."
+    echo "Structural gates OK (against the pushed tree). Detekt OK (about the pushed tree). Full suite runs in CI."
 else
     echo "=== Pre-push [$CURRENT_BRANCH] — full suite delegated to CI ==="
-    echo "Structural gates OK (against the pushed tree). Detekt OK. Full suite (jvmTest, desktopApp:test,"
+    echo "Structural gates OK (against the pushed tree). Detekt OK (about the pushed tree). Full suite (jvmTest, desktopApp:test,"
     echo "kover, static-gates) runs in CI — no need to duplicate it here."
 fi
 
