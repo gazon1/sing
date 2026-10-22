@@ -479,6 +479,15 @@ object TestTags {
     /** Quick-add task field on the project detail screen. */
     const val PROJECT_DETAIL_QUICK_ADD = "project_detail_quick_add"
 
+    /**
+     * The overflow button in the project detail's top bar.
+     *
+     * The project screen has two "More" buttons — this one in the top bar, and
+     * the body's action bar at the bottom — and they open different menus. A
+     * contentDescription cannot tell them apart, so the top one carries a tag.
+     */
+    const val PROJECT_DETAIL_OVERFLOW = "project_detail_overflow"
+
     /** "No projects yet" empty text in the project picker sheet. */
     const val PROJECT_PICKER_EMPTY = "project_picker_empty"
 

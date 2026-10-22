@@ -30,6 +30,7 @@ sealed interface ProjectDetailIntent : MviIntent {
         data object OpenInheritedTagGroupsSheet : Routing
         data object OpenDeleteSheet : Routing
         data object OpenArchiveSheet : Routing
+        data object OpenCloseSheet : Routing
         data object OpenReminderSheet : Routing
         data object OpenAttachmentSheet : Routing
         data class NavigateToChild(val projectId: com.singularity.todo.feature.projects.domain.model.ProjectId) :
@@ -79,6 +80,30 @@ sealed interface ProjectDetailIntent : MviIntent {
 
         data object ToggleArchive : Domain
         data object Delete : Domain
+
+        /**
+         * Close the project: its work is finished.
+         *
+         * The close also closes the project's still-open tasks. If one of them has an
+         * unfinished prerequisite, nothing is written and the view model asks for a
+         * confirmation — see [ConfirmCloseProject].
+         */
+        data object CloseProject : Domain
+
+        /**
+         * The user confirmed closing a project whose task was blocked.
+         *
+         * The close is retried with the confirmation forced, so the cascade proceeds
+         * past the check that stopped it the first time.
+         */
+        data object ConfirmCloseProject : Domain
+
+        /**
+         * The user backed out of closing a project whose task was blocked.
+         *
+         * Nothing was written, so this only closes the confirmation.
+         */
+        data object DismissCloseProject : Domain
 
         // ── Tasks ─────────────────────────────────────────────────────────
 

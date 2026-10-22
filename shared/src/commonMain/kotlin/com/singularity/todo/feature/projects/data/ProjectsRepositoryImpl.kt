@@ -234,6 +234,16 @@ class ProjectsRepositoryImpl(
         val uid = currentUser.scopedUserId.value.value
         return projectDao.findByIdempotencyKeyForUser(key, uid)?.toProject()
     }
+
+    override suspend fun close(id: ProjectId, closedAt: Long): Result<Unit> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            val rows = projectDao.closeForUser(id.value, closedAt, uid)
+            require(rows > 0) { "Project $id not found or not owned by user" }
+            // closedAt is a serialised field of Project, so the close has to sync.
+            enqueueFresh(id)
+        }
+    }
 }
 
 internal fun ProjectEntity.toProject(): Project = Project(
@@ -249,6 +259,7 @@ internal fun ProjectEntity.toProject(): Project = Project(
     team = team,
     isDeleted = isDeleted,
     deletedAt = deletedAt.toInstantOrNull(),
+    closedAt = closedAt.toInstantOrNull(),
     parentId = parentId?.let { ProjectId.fromString(it) },
     sortOrder = sortOrder,
     idempotencyKey = idempotencyKey,
@@ -272,6 +283,7 @@ internal fun Project.toEntity(): ProjectEntity = ProjectEntity(
     team = team,
     isDeleted = isDeleted,
     deletedAt = deletedAt?.toEpochMillisOrNull(),
+    closedAt = closedAt?.toEpochMillisOrNull(),
     parentId = parentId?.value,
     sortOrder = sortOrder,
     idempotencyKey = idempotencyKey,

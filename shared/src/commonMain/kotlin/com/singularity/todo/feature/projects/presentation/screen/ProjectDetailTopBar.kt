@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
@@ -59,7 +61,10 @@ fun ProjectDetailTopBar(
         },
         actions = {
             Box {
-                IconButton(onClick = { overflowMenuOpen = true }) {
+                IconButton(
+                    onClick = { overflowMenuOpen = true },
+                    modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_OVERFLOW),
+                ) {
                     Icon(Icons.Filled.MoreVert, "More")
                 }
                 DropdownMenu(
@@ -74,6 +79,13 @@ fun ProjectDetailTopBar(
                         onClick = {
                             overflowMenuOpen = false
                             actions.onOpenArchiveSheet()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Close project") },
+                        onClick = {
+                            overflowMenuOpen = false
+                            actions.onOpenCloseSheet()
                         },
                     )
                     DropdownMenuItem(

@@ -3,6 +3,7 @@ package com.singularity.todo.core.di
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
@@ -39,6 +40,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
     factory { CreateProjectUseCase(get(), get(), get()) }
     factoryOf(::UpdateProjectUseCase)
     factory { DeleteProjectUseCase(get<ProjectsRepository>(), get()) }
+    factory { CloseProjectUseCase(get(), get(), get(), get()) }
 
     // ─── ViewModels ─────────────────────────────────────────────────────
 
@@ -62,6 +64,7 @@ fun projectsModule(): org.koin.core.module.Module = module {
             taskRepo = get(),
             tagGroupRepo = get(),
             deleteProject = get(),
+            closeProject = get(),
             updateProject = get(),
             updateTask = get(),
             createTaskUseCase = get(),

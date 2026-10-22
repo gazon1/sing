@@ -8,6 +8,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
@@ -73,10 +74,17 @@ data class TaskDetailUi(
 /**
  * UI state экрана просмотра задачи.
  * [Loading] и [Error] — терминальные; [Loaded] — основной.
+ *
+ * @property pendingBlockedClose A task whose prerequisites are still open, waiting for the
+ *        user to confirm closing it anyway. Null when no confirmation is pending.
  */
 @Immutable
 sealed interface TaskDetailUiState {
     data object Loading : TaskDetailUiState
     data class Error(val message: String) : TaskDetailUiState
-    data class Loaded(val ui: TaskDetailUi, val extras: TaskDetailExtras) : TaskDetailUiState
+    data class Loaded(
+        val ui: TaskDetailUi,
+        val extras: TaskDetailExtras,
+        val pendingBlockedClose: BlockedCloseRequest? = null,
+    ) : TaskDetailUiState
 }

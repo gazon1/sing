@@ -2,8 +2,17 @@
 title: "Task Dependencies (MR-1): schema, domain, UI badge, MCP tool"
 date: 2026-09-18
 tags: [tasks, schema, ui, mcp, dependencies]
-status: accepted
+status: superseded
+superseded-by: 2026-10-21-blocked-completion-guard
 ---
+
+> **Superseded in part (2026-10-21):** the consequence "`dependsOn` is **not**
+> enforced at the data layer — completion is always allowed" is replaced: closing a
+> task with an open `BLOCKS` dependency now asks the user to confirm, and only
+> `BLOCKS` edges count as blocking at all.
+> See [2026-10-21-blocked-completion-guard.md](2026-10-21-blocked-completion-guard.md).
+> The rest of this decision — the join table, the computed predicate, the badge, the
+> MCP tool — still holds.
 
 ## Context
 

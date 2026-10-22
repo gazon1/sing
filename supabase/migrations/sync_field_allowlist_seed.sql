@@ -68,6 +68,7 @@ insert into sync_field_allowlist (entity_type, field, writable) values
     ('project', 'createdAt', true),
     ('project', 'updatedAt', true),
     ('project', 'deletedAt', true),
+    ('project', 'closedAt', true),
     ('project', 'serverVersion', true),
     ('project', 'hlc', true),
     ('tag', 'id', true),

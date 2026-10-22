@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
@@ -147,8 +148,31 @@ fun AgendaScreen(
                     onSkip = tour::skip,
                 )
             }
+
+            // A task with an unfinished prerequisite is not closed on the first
+            // request. The dialog is drawn from the state, so it survives a
+            // rotation instead of disappearing under the user's finger.
+            BlockedCloseDialog(state = state, vm = vm)
         }
     }
+}
+
+/**
+ * The confirmation for closing a task whose prerequisites are still open.
+ *
+ * Extracted from [AgendaScreen] so the screen's own length stays inside the
+ * complexity budget: the dialog is a whole interaction, and inlining it would
+ * have pushed the screen over.
+ */
+@Composable
+private fun BlockedCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
+    val request = (state as? AgendaUiState.Loaded)?.pendingBlockedClose ?: return
+    BlockedCompletionDialog(
+        taskTitle = request.taskTitle,
+        blockerTitles = request.blockerTitles,
+        onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedClose(request.taskId)) },
+        onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedClose) },
+    )
 }
 
 /**

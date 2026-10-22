@@ -108,6 +108,16 @@ fun ProjectDetailSheetsHost(
             onDismiss = onSheetDismiss,
         )
 
+        is ActiveSheet.ConfirmClose -> ConfirmCloseSheet(
+            openTaskCount = currentContent?.openTaskCount
+                ?: 0,
+            onConfirm = {
+                currentContent?.actions?.onCloseProject()
+                onSheetDismiss()
+            },
+            onDismiss = onSheetDismiss,
+        )
+
         is ActiveSheet.PickReminder -> ReminderPickerSheet(
             currentOffset = currentContent?.reminderOffset,
             defaultOffset = currentContent?.defaultReminderOffset ?: ReminderOffset.AT_DUE,

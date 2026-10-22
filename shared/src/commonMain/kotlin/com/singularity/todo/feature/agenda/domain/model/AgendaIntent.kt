@@ -15,6 +15,21 @@ sealed interface AgendaIntent : MviIntent {
     data class TaskExpandClicked(val taskId: TaskId) : AgendaIntent
 
     /**
+     * The user confirmed closing a task whose prerequisites are still open.
+     *
+     * Nothing was written when the confirmation was raised — the close happens
+     * here, and only here.
+     */
+    data class ConfirmBlockedClose(val taskId: TaskId) : AgendaIntent
+
+    /**
+     * The user backed out of closing a task whose prerequisites are still open.
+     *
+     * Nothing was written, so this only closes the confirmation.
+     */
+    data object DismissBlockedClose : AgendaIntent
+
+    /**
      * The user took the Undo affordance offered after a delete.
      *
      * This used to be a public `onUndoDeleteIntent()` method the screen called

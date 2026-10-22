@@ -954,7 +954,7 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
 private class FakeProjectDao(private val store: MutableStateFlow<Map<String, ProjectEntity>>) : ProjectDao {
 
     override fun watchAll(userId: String): Flow<List<ProjectEntity>> = store.map {
-        it.values.filter { p -> p.userId == userId && !p.isDeleted }
+        it.values.filter { p -> p.userId == userId && !p.isDeleted && p.closedAt == null }
             .sortedWith(compareBy({ it.sortOrder }, { it.name }))
     }
 
@@ -970,12 +970,16 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
             userId
     }
     override fun watchByParentForUser(parentId: String, userId: String): Flow<List<ProjectEntity>> =
-        store.map { it.values.filter { it.parentId == parentId && it.userId == userId && !it.isDeleted } }
+        store.map {
+            it.values.filter { p ->
+                p.parentId == parentId && p.userId == userId && !p.isDeleted && p.closedAt == null
+            }
+        }
 
     override fun watchAllWithCounts(
         userId: String,
     ): Flow<List<com.singularity.todo.core.database.ProjectWithCountRow>> = store.map { map ->
-        map.values.filter { it.userId == userId && !it.isDeleted }
+        map.values.filter { it.userId == userId && !it.isDeleted && it.closedAt == null }
             .sortedWith(compareBy({ it.sortOrder }, { it.name }))
             .map { entity ->
                 com.singularity.todo.core.database.ProjectWithCountRow(
@@ -985,6 +989,8 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
                 )
             }
     }
+    override suspend fun closeForUser(id: String, ts: Long, userId: String): Int =
+        mutateForUser(id, userId) { it.copy(closedAt = ts, updatedAt = ts) }
     override suspend fun setParentForUser(id: String, parentId: String?, ts: Long, userId: String): Int =
         mutateForUser(id, userId) { it.copy(parentId = parentId, updatedAt = ts) }
     override suspend fun setSortOrderForUser(id: String, sortOrder: Int, ts: Long, userId: String): Int =
@@ -997,7 +1003,7 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         mutateForUser(id, userId) { it.copy(updatedAt = ts) }
     override suspend fun findByNameForUser(userId: String, name: String): ProjectEntity? =
         store.value.values.firstOrNull {
-            it.userId == userId && !it.isDeleted && it.name.equals(
+            it.userId == userId && !it.isDeleted && it.closedAt == null && it.name.equals(
                 name,
                 ignoreCase = true,
             )

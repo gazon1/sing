@@ -116,3 +116,18 @@ class Migration16To17 : AutoMigrationSpec
 
 // Migration17To18 is defined in Migration17To18.kt
 // Migration18To19 is defined in Migration18To19.kt
+
+/**
+ * Migration from v43 to v44 — adds nullable `closed_at` column to projects.
+ *
+ * A closed project is one whose work is finished: the row stays, the project
+ * stays readable, and it leaves the project list the way an archived task
+ * leaves the agenda. `null` means the project is open.
+ *
+ * Adding a nullable column with no default is a safe auto-migration: existing
+ * rows continue to read back with `closedAt == null`, so every project that
+ * existed before the upgrade is still an open project.
+ *
+ * @see com.singularity.todo.docs.decisions.2026-10-21-blocked-completion-guard
+ */
+class Migration43To44 : AutoMigrationSpec

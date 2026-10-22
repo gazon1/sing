@@ -48,7 +48,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 43
+const val SCHEMA_VERSION = 44
 
 /**
  * Room database for Android.
@@ -133,6 +133,9 @@ const val SCHEMA_VERSION = 43
         AutoMigration(from = 40, to = 41, spec = Migration40To41::class),
         // 41 -> 42 adds attachment_annotations. Room derives the table from the entity.
         AutoMigration(from = 41, to = 42, spec = Migration41To42::class),
+        // 43 -> 44 adds projects.closed_at — a project whose work is finished.
+        // Room derives the column from the entity.
+        AutoMigration(from = 43, to = 44, spec = Migration43To44::class),
     ],
     exportSchema = true,
 )

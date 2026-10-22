@@ -2,9 +2,12 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
+import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -12,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Covers the child collections: checklist, subtasks, and attachments. */
@@ -23,6 +27,8 @@ class TaskChildrenSlotTest {
         fakes: SlotFakes,
         source: TaskSource,
         scope: kotlinx.coroutines.CoroutineScope,
+        allTasks: List<Task> = emptyList(),
+        onBlockedClose: (BlockedCloseRequest) -> Unit = {},
         onSaved: (String) -> Unit = {},
     ) = TaskChildrenSlot(
         taskId = TaskId("t1"),
@@ -31,8 +37,10 @@ class TaskChildrenSlotTest {
         context = fakes.context(),
         scope = testSlotScope(scope),
         taskFlow = source.state,
+        allTasks = MutableStateFlow(allTasks),
         onError = {},
         onSaved = onSaved,
+        onBlockedClose = onBlockedClose,
     )
 
     @Test
@@ -105,8 +113,10 @@ class TaskChildrenSlotTest {
             context = fakes.context(),
             scope = testSlotScope(backgroundScope),
             taskFlow = source.state,
+            allTasks = MutableStateFlow(emptyList()),
             onError = { errors += it },
             onSaved = { saved += it },
+            onBlockedClose = {},
         )
         runCurrent()
 
@@ -149,5 +159,83 @@ class TaskChildrenSlotTest {
         runCurrent()
 
         assertEquals(listOf("Attachment added"), saved)
+    }
+
+    // ─── The blocked-completion guard ─────────────────────────────────────────
+
+    @Test
+    fun `a subtask with an unfinished prerequisite is not closed and asks instead`() = runTest {
+        val fakes = SlotFakes()
+        val dep = task("dep", "Dependency")
+        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"), dependsOn = setOf(TaskId("dep")))
+        fakes.taskRepo.seed(task("t1"), dep, child)
+        val source = TaskSource(task("t1"))
+        val blocked = mutableListOf<BlockedCloseRequest>()
+        val slot = slot(
+            fakes,
+            source,
+            backgroundScope,
+            allTasks = listOf(dep, child),
+            onBlockedClose = { blocked += it },
+        )
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.ToggleSubtask(child))
+        runCurrent()
+
+        assertNull(
+            fakes.taskRepo.tasks.value["c1"]?.completedAt,
+            "a blocked subtask must not be closed on the first request",
+        )
+        assertEquals(1, blocked.size, "the user must be asked")
+        assertEquals(listOf("Dependency"), blocked.single().blockerTitles)
+    }
+
+    @Test
+    fun `confirming the request closes the subtask`() = runTest {
+        val fakes = SlotFakes()
+        val dep = task("dep", "Dependency")
+        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"), dependsOn = setOf(TaskId("dep")))
+        fakes.taskRepo.seed(task("t1"), dep, child)
+        val source = TaskSource(task("t1"))
+        val blocked = mutableListOf<BlockedCloseRequest>()
+        val slot = slot(
+            fakes,
+            source,
+            backgroundScope,
+            allTasks = listOf(dep, child),
+            onBlockedClose = { blocked += it },
+        )
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.ToggleSubtask(child))
+        runCurrent()
+        slot.onIntent(TaskDetailIntent.Domain.ConfirmBlockedClose(TaskId("c1")))
+        runCurrent()
+
+        assertNotNull(fakes.taskRepo.tasks.value["c1"]?.completedAt)
+    }
+
+    @Test
+    fun `an unblocked subtask closes without a question`() = runTest {
+        val fakes = SlotFakes()
+        val child = task("c1", "Child").copy(parentTaskId = TaskId("t1"))
+        fakes.taskRepo.seed(task("t1"), child)
+        val source = TaskSource(task("t1"))
+        val blocked = mutableListOf<BlockedCloseRequest>()
+        val slot = slot(
+            fakes,
+            source,
+            backgroundScope,
+            allTasks = listOf(child),
+            onBlockedClose = { blocked += it },
+        )
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.ToggleSubtask(child))
+        runCurrent()
+
+        assertNotNull(fakes.taskRepo.tasks.value["c1"]?.completedAt)
+        assertTrue(blocked.isEmpty(), "an unblocked subtask must not raise a confirmation")
     }
 }

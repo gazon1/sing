@@ -62,4 +62,19 @@ interface ProjectsRepository :
     suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long)
     suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long)
     suspend fun findByIdempotencyKey(key: String): Project?
+
+    /**
+     * Closes a project: its work is finished.
+     *
+     * A closed project is not a deleted one. The row stays, the project stays
+     * readable, and it leaves the project list.
+     *
+     * The write is a narrow UPDATE rather than a row rewrite — the project may
+     * have been renamed elsewhere since this device read it, and rewriting the
+     * row would put the old name back.
+     *
+     * @param id the project to close.
+     * @param closedAt the moment the work was declared finished.
+     */
+    suspend fun close(id: ProjectId, closedAt: Long): Result<Unit>
 }

@@ -25,6 +25,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDependency
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.blockingDependencyIdsForUser
 import com.singularity.todo.feature.tasks.withExtras
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -65,7 +66,7 @@ class TaskRepositoryImpl(
     override fun observe(id: TaskId): Flow<Task?> = currentUser.observeForCurrentUser { uid ->
         combine(
             taskDao.watchByIdForUser(id.value, uid.value),
-            taskDao.getDependencyIdsForUser(id.value, uid.value),
+            taskDao.blockingDependencyIdsForUser(id.value, uid.value),
             taskDao.getTagIdsForUser(id.value, uid.value),
         ) { entity, depIds, tagIds ->
             if (entity?.userId == uid.value) {
@@ -159,7 +160,7 @@ class TaskRepositoryImpl(
     }
 
     override fun observeDependencies(taskId: TaskId): Flow<Set<TaskId>> = currentUser.observeForCurrentUser { uid ->
-        taskDao.getDependencyIdsForUser(taskId.value, uid.value)
+        taskDao.blockingDependencyIdsForUser(taskId.value, uid.value)
             .map { ids -> ids.map { TaskId.fromString(it) }.toSet() }
     }
 
@@ -242,7 +243,11 @@ class TaskRepositoryImpl(
         val row = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
         val tags = taskDao.getTagIdsForUser(id.value, currentUser.scopedUserId.value.value).first()
             .map { TagId.fromString(it) }
-        val deps = taskDao.getDependencyIdsForUser(id.value, currentUser.scopedUserId.value.value)
+        // Only the blocking edges: the pushed task has to carry the same
+        // dependency set the local model carries, or the two would describe
+        // different graphs and a later pull would restore edges the model had
+        // already dropped.
+        val deps = taskDao.blockingDependencyIdsForUser(id.value, currentUser.scopedUserId.value.value)
             .first()
             .map { TaskId.fromString(it) }
             .toSet()
@@ -277,6 +282,7 @@ class TaskRepositoryImpl(
                 .groupBy { it.taskId }
                 .mapValues { (_, rows) -> rows.map { TagId.fromString(it.tagId) } }
             val depRefs = taskDao.listAllDependenciesForUser(uid)
+                .filter { it.verb == DependencyVerb.BLOCKS.name }
                 .groupBy { it.taskId }
                 .mapValues { (_, rows) -> rows.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
             val now = clock.now()

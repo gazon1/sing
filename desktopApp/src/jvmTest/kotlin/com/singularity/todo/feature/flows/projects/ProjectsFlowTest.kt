@@ -1,17 +1,20 @@
 package com.singularity.todo.feature.flows.projects
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
 import com.singularity.todo.test.helpers.assertCurrentTab
+import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
@@ -72,5 +75,36 @@ class ProjectsFlowTest {
         // The card must be gone, but the outgoing screen stays composed until the
         // incoming one resolves, so this waits instead of checking once.
         awaitTagGone(TestTags.projectCard("Project Alpha"))
+    }
+
+    /**
+     * The project's overflow menu offers closing it, and the confirmation says what
+     * the cascade will close before anything is written.
+     *
+     * The menu is a popup window of its own, and the sheet is a bottom sheet — so
+     * both live outside the screen's own semantics tree, and both are reached by
+     * what the user sees rather than by a tag.
+     */
+    @Test
+    fun closing_a_project_asks_what_the_cascade_will_close() = runDesktopAppTest(checkA11y = true) {
+        tapTab("Plans")
+        clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
+        typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
+        clickTag(TestTags.PROJECT_EDITOR_SAVE)
+
+        awaitTag(TestTags.projectCard("Project Alpha")).performClick()
+        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
+
+        clickTag(TestTags.PROJECT_DETAIL_OVERFLOW)
+        assertTextDisplayed("Close project")
+
+        clickText("Close project")
+        assertTextDisplayed("Close project?")
+        // The body is one multi-line Text node, so the wording is matched as a
+        // substring of it rather than as an exact node text.
+        assertNodeDisplayed(
+            matcher = hasText("This project has no open tasks", substring = true),
+            description = "the close confirmation body",
+        )
     }
 }

@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -405,6 +406,24 @@ fun TaskDetailContent(
                                 showTimeEntrySheet = false
                             },
                             onDismiss = { showTimeEntrySheet = false },
+                        )
+                    }
+
+                    // A task with an unfinished prerequisite is not closed on the
+                    // first request. The dialog is drawn from the state, so it
+                    // survives a rotation instead of disappearing under the user's
+                    // finger.
+                    val pendingBlockedClose = s.pendingBlockedClose
+                    if (pendingBlockedClose != null) {
+                        BlockedCompletionDialog(
+                            taskTitle = pendingBlockedClose.taskTitle,
+                            blockerTitles = pendingBlockedClose.blockerTitles,
+                            onConfirm = {
+                                coordinator.onIntent(
+                                    TaskDetailIntent.Domain.ConfirmBlockedClose(pendingBlockedClose.taskId),
+                                )
+                            },
+                            onDismiss = { coordinator.onIntent(TaskDetailIntent.Domain.DismissBlockedClose) },
                         )
                     }
                 }
