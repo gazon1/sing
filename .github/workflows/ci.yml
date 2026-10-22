@@ -391,6 +391,16 @@ jobs:
       # The log is still written, because two steps below read it. The exit status is
       # now Gradle's again. `scripts/check-workflow-exit-status.py` fails if a `run:`
       # block in any workflow pipes without this, so the pipe cannot come back.
+      #
+      # `:adr-cli:test` and `:adr-core:jvmTest` are here because they were not
+      # anywhere. Both modules hold a `@Tag("slow")` class, and neither test task
+      # ran in CI at all — which is the exact shape the `Slow tests ran` step
+      # exists to refuse: a test the local loop never runs, and CI never runs
+      # either, is a test whose breakage nobody ever sees. The step reads their
+      # reports, so the reports have to exist.
+      #
+      # They are not in `koverReport`'s `dependsOn`, so they run and are read,
+      # and they do not change what the coverage floor measures.
 
       - name: Gradle (tests + coverage + detekt)
         run: |
@@ -402,6 +412,7 @@ jobs:
             koverReport \
             koverHtml \
             :detekt-rules:test \
+            :adr-cli:test :adr-core:jvmTest \
             :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
             -Ptest.tags=fast,slow \
             -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail \

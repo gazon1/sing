@@ -101,7 +101,8 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
 лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.tags=fast,slow`) обязан
 выполнить каждый `slow`-класс — это проверяет `scripts/check-slow-tests-ran.py` (шаг CI сразу
-после прогона: следующие Gradle-шаги могут перезаписать отчёт).
+после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
+`adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
 
 ### BAN list
 
@@ -199,11 +200,14 @@ A–G мета-гейта и рецепты — скилл `singularity-todo-qua
 и у него нет давления контекста реализации — поэтому он ловит то, чего не ловит гейт (контракт
 состояния, алиас, запись в реестр issues). Гейт ловит механику; ревью ловит смысл.
 
-**Вердикт ревью — файл, а не воспоминание.** У каждого открытого ченджа есть
+**Вердикт ревью — файл, а не воспоминание.** У каждого ченджа, который не в базлайне, есть
 `.specify/reviews/<slug>.md`: чендж, вердикт (`pass`/`fail`), дата, PR и что нашёл ревью.
+Имя файла — **slug без date-префикса**: у каталога `2026-10-22-the-read-surface` вердикт
+лежит в файле с именем `the-read-surface`.
 Гейт `review verdicts cover every change` требует его; ченджи, появившиеся до правила, — в
 `config/docs/review-verdicts-baseline.txt` (список только сокращается: `--update-baseline`
-подчищает, но не добавляет).
+подчищает, но не добавляет; добавить запись — ручная правка, видимая в диффе). Каркас,
+который только что создал spec-kit, от правила свободен, пока его не написали.
 
 ## 🤖 Dogfooding: MCP Server
 
@@ -222,7 +226,7 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 
 - **Behavior change** → workflow `openspec-change`; **ADR-only** (нет spec-level изменения) → `adr-create`; **не нужен:** bug fix, test-only, dep update, doc-only, rename без контрактного изменения
 - Hooks: после implement — `singularity-adr validate` (`.specify/extensions.yml`); после правок ADR — `./scripts/refresh-decisions-digest.sh`
-- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта). Запись называет **только те документы, которые у ченджа есть**: гейт падает и на записи, у которой в `documents` лежит несуществующий файл.
+- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта). Запись называет **только те документы, которые у ченджа есть**: гейт падает и на записи, у которой в `documents` лежит несуществующий файл. Архивирование ченджа переписывать запись не требует: гейт ищет документы по slug, как и сам чендж.
 - Constitution: `.specify/constitutions/singularity-todo.md`
 
 ## 🔧 Run-loop (UI-верификация)

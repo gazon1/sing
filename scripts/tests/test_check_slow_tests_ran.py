@@ -139,6 +139,55 @@ class SlowTestsRanTest(unittest.TestCase):
         self.assertEqual([], problems)
         self.assertEqual([], checked)
 
+    # ── the mapping is complete ─────────────────────────────────────────────────
+
+    def test_every_test_root_with_a_slow_class_is_mapped(self) -> None:
+        # The gate's first version mapped five source roots and reported 96
+        # slow classes; the repository had 98. The two it could not see were in
+        # `adr-cli` and `adr-core` — modules whose test tasks ran nowhere, so
+        # nothing noticed that they were not running either. The rule says
+        # *every* slow class; this test is what makes the word true, and it
+        # fails the day a slow class appears in a root the gate does not map.
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        mapped = {source for source, _ in mod.SOURCES}
+        scanner = mod._scanner()
+
+        unmapped: list[str] = []
+        for root in _test_roots(repo):
+            relative = str(root.relative_to(repo))
+            if relative in mapped:
+                continue
+            for source_file in sorted(root.rglob('*Test.kt')):
+                source = source_file.read_text(encoding='utf-8', errors='replace')
+                for name in scanner.test_classes_in(source):
+                    if scanner.read_tag(source, name) == 'slow':
+                        unmapped.append(f'{relative}:{name}')
+
+        self.assertEqual(
+            [],
+            unmapped,
+            'a slow class in a root the gate does not map is a class nobody checks',
+        )
+
+
+def _test_roots(repo: pathlib.Path) -> list[pathlib.Path]:
+    """Every test source root the repository has."""
+    roots: list[pathlib.Path] = []
+    for module in sorted(repo.iterdir()):
+        if not (module / 'build.gradle.kts').is_file():
+            continue
+        sources = module / 'src'
+        if not sources.is_dir():
+            continue
+        for candidate in sorted(sources.iterdir()):
+            if not candidate.is_dir():
+                continue
+            if not (candidate.name.endswith('Test') or candidate.name == 'test'):
+                continue
+            if (candidate / 'kotlin').is_dir():
+                roots.append(candidate / 'kotlin')
+    return roots
+
 
 if __name__ == '__main__':
     unittest.main()

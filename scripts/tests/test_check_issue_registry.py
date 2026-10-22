@@ -297,6 +297,37 @@ class IssueRegistryTest(unittest.TestCase):
         self.assertEqual([], mispointed)
         self.assertEqual(1, len(dangling), 'a record naming a specs directory that is not there')
 
+    def test_a_record_of_an_archived_change_keeps_its_documents(self) -> None:
+        # Archiving moves the change and renames it:
+        # `openspec/changes/<slug>` becomes
+        # `openspec/changes/archive/<date>-<slug>`. The record keeps the path
+        # the change had before the move — the same convention the slug
+        # comparison already follows — so the documents it names are looked up
+        # in the archived directory. A routine archive operation must not turn
+        # the registry red.
+        archived = self._archived_change('2026-10-22-the-backup-keeps-the-verb')
+        (self.issues / 'the-backup-keeps-the-verb.yaml').write_text(
+            ENTRY_TEMPLATE.format(
+                slug='the-backup-keeps-the-verb',
+                path='openspec/changes/the-backup-keeps-the-verb',
+            )
+            + 'documents:\n'
+            + '  proposal: openspec/changes/the-backup-keeps-the-verb/proposal.md\n'
+            + '  tasks: openspec/changes/the-backup-keeps-the-verb/tasks.md\n',
+            encoding='utf-8',
+        )
+        (archived / 'tasks.md').write_text('# tasks\n', encoding='utf-8')
+
+        missing, mispointed, dangling = mod.find_problems(self.changes, self.issues)
+
+        self.assertEqual([], missing)
+        self.assertEqual([], mispointed)
+        self.assertEqual(
+            [],
+            dangling,
+            'a document the archived change still has is not a document that is not there',
+        )
+
     def test_a_record_with_no_documents_block_is_clean(self) -> None:
         # The legacy shape: a record that says nothing about documents. It says
         # no more than it can be held to.

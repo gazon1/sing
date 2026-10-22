@@ -71,6 +71,20 @@ DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 #: A date prefix on a change directory — the convention for a new change.
 DATE_PREFIX = re.compile(r'^\d{4}-\d{2}-\d{2}-')
 
+#: The line the spec-create workflow leaves in a proposal it has just written.
+#: A change whose proposal still says this is scaffolding, not a decision:
+#: nobody has written it up, so nobody has reviewed it, and there is nothing
+#: to have reviewed yet. The exemption ends when the author writes the
+#: proposal — the placeholder is gone with it.
+#:
+#: The text comes from `.specify/workflows/openspec-change/workflow.yml`.
+#: If that template changes, the scaffold stops being exempt and the gate
+#: asks for a verdict — the failure mode is stricter, not looser.
+SCAFFOLD_PLACEHOLDER = '_Describe the problem or opportunity here'
+
+#: The marker the spec-create workflow leaves next to the proposal.
+SCAFFOLD_MARKER = '.openspec.yaml'
+
 
 def active_changes(changes_dir: pathlib.Path) -> list[str]:
     """The slugs of the changes that are still open."""
@@ -82,6 +96,44 @@ def active_changes(changes_dir: pathlib.Path) -> list[str]:
             continue
         slugs.append(DATE_PREFIX.sub('', entry.name))
     return slugs
+
+
+def change_directories(changes_dir: pathlib.Path) -> dict[str, pathlib.Path]:
+    """The open change directories, keyed by the slug they carry."""
+    if not changes_dir.is_dir():
+        return {}
+    directories: dict[str, pathlib.Path] = {}
+    for entry in sorted(changes_dir.iterdir()):
+        if entry.is_dir() and entry.name != 'archive':
+            directories[DATE_PREFIX.sub('', entry.name)] = entry
+    return directories
+
+
+def archived_changes(changes_dir: pathlib.Path) -> list[str]:
+    """The slugs of the changes that were filed away.
+
+    A verdict for an archived change is a record of a review that happened,
+    so it is not an error — the same reasoning the registry gate uses when it
+    compares by slug rather than by path.
+    """
+    archive = changes_dir / 'archive'
+    if not archive.is_dir():
+        return []
+    return sorted(
+        DATE_PREFIX.sub('', entry.name)
+        for entry in archive.iterdir()
+        if entry.is_dir()
+    )
+
+
+def is_scaffold(change_dir: pathlib.Path) -> bool:
+    """Whether a change is still the scaffold the spec-create workflow wrote."""
+    if not (change_dir / SCAFFOLD_MARKER).is_file():
+        return False
+    proposal = change_dir / 'proposal.md'
+    if not proposal.is_file():
+        return False
+    return SCAFFOLD_PLACEHOLDER in proposal.read_text(encoding='utf-8', errors='replace')
 
 
 def read_baseline(path: pathlib.Path) -> set[str]:
@@ -153,34 +205,50 @@ def find_problems(
     changes_dir: pathlib.Path,
     reviews_dir: pathlib.Path,
     baseline: set[str],
-) -> tuple[list[str], list[str]]:
-    """The changes without a verdict, and the baseline entries that went stale."""
+) -> tuple[list[str], list[str], list[str], dict[str, int]]:
+    """The changes without a verdict, the baseline entries that went stale,
+    the scaffolds that are exempt, and what was checked."""
     problems: list[str] = []
-    changes = active_changes(changes_dir)
+    directories = change_directories(changes_dir)
+    changes = sorted(directories)
+    archived = set(archived_changes(changes_dir))
+    scaffolds: list[str] = []
+    counted = {'changes': len(changes), 'verdicts': 0, 'baselined': 0, 'scaffolds': 0}
 
     for slug in changes:
         review = reviews_dir / f'{slug}.md'
         if not review.is_file():
-            if slug not in baseline:
-                problems.append(
-                    f'{slug} has no review verdict — write {reviews_dir.name}/{slug}.md, '
-                    f'or accept the change in the baseline'
-                )
+            change_dir = directories.get(slug)
+            if change_dir is not None and is_scaffold(change_dir):
+                scaffolds.append(slug)
+                counted['scaffolds'] += 1
+                continue
+            if slug in baseline:
+                counted['baselined'] += 1
+                continue
+            problems.append(
+                f'{slug} has no review verdict — write {reviews_dir.name}/{slug}.md, '
+                f'or accept the change in the baseline'
+            )
             continue
+        counted['verdicts'] += 1
         text = review.read_text(encoding='utf-8', errors='replace')
         problems.extend(review_problems(text, slug))
 
-    # A verdict for a change that is not there is a verdict about nothing.
+    # A verdict for a change that is neither open nor archived is a verdict
+    # about nothing. A verdict for an archived change is a record of a review
+    # that happened, so it stays.
     if reviews_dir.is_dir():
         for review in sorted(reviews_dir.glob('*.md')):
             slug = review.stem
-            if slug not in changes:
+            if slug not in changes and slug not in archived:
                 problems.append(
-                    f'{reviews_dir.name}/{review.name} reviews {slug!r}, which is not an open change'
+                    f'{reviews_dir.name}/{review.name} reviews {slug!r}, which is neither an '
+                    f'open change nor an archived one'
                 )
 
     stale = sorted(baseline - set(changes))
-    return problems, stale
+    return problems, stale, scaffolds, counted
 
 
 @click.command()
@@ -219,7 +287,7 @@ def cli(ctx: click.Context, quiet: bool, update_baseline: bool, root: str | None
                 click.echo(f'  - {slug}')
         raise ctx.exit(CLEAN)
 
-    problems, stale = find_problems(changes_dir, reviews_dir, accepted)
+    problems, stale, scaffolds, counted = find_problems(changes_dir, reviews_dir, accepted)
 
     for problem in problems:
         click.echo(f'ERROR: {problem}')
@@ -227,8 +295,16 @@ def cli(ctx: click.Context, quiet: bool, update_baseline: bool, root: str | None
     if stale:
         click.echo('')
         click.echo(
-            f'check-review-verdicts: {len(stale)} baseline entr(ies) name a change that is '
-            f'not open any more; remove them with --update-baseline'
+            f'check-review-verdicts: note — {len(stale)} baseline entr(ies) name a change that '
+            f'is not open any more; remove them with --update-baseline'
+        )
+
+    if scaffolds and not quiet:
+        click.echo('')
+        click.echo(
+            f'check-review-verdicts: note — {len(scaffolds)} change(s) are still the scaffold '
+            f'the spec-create workflow wrote, and are exempt until they are written up: '
+            f'{", ".join(scaffolds)}'
         )
 
     if problems:
@@ -240,15 +316,17 @@ def cli(ctx: click.Context, quiet: bool, update_baseline: bool, root: str | None
         )
         click.echo(
             '  fix with — write .specify/reviews/<slug>.md (change, verdict, date, PR), '
-            'or accept the change in '
-            f'{BASELINE.relative_to(ROOT)}'
+            'or add the change to '
+            f'{baseline_path.name} by hand (the list only shrinks by command; adding one is '
+            'an edit in the diff a reviewer can see)'
         )
         raise ctx.exit(VALIDATION_FAILURE)
 
     if not quiet:
         click.echo(
-            f'check-review-verdicts: OK — {len(active_changes(changes_dir))} open changes, '
-            f'every one carries a verdict'
+            f'check-review-verdicts: OK — {counted["changes"]} open changes: '
+            f'{counted["verdicts"]} carry a verdict, {counted["baselined"]} predate the rule, '
+            f'{counted["scaffolds"]} are still a scaffold'
         )
     raise ctx.exit(CLEAN)
 

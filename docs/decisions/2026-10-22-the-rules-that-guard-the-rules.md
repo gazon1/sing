@@ -35,7 +35,7 @@ The cost of checking them was measured before anything was written, because
 the objection to more gates is always the same: the loop gets slower.
 
 The static gate suite, on this tree, `sgate run-all`: **1 m 17 s** wall
-(2 m 41 s CPU), 40 blocking gates. The three expensive ones are
+(2 m 41 s CPU), 40 blocking gates before this change and 42 after it. The three expensive ones are
 *unwired surfaces* (70 s), *gates speak the JSON contract* (69 s) and
 *declared dependencies are used* (23 s) — and all three are expensive
 *because they run everything on purpose*: the first scans the whole Kotlin
@@ -90,11 +90,12 @@ reviewer can see, not a side effect of a maintenance command.
 
 The same reasoning turned down the reverse direction of the registry check.
 The gate walks the changes and looks up their records; it does not walk the
-records, because 575 of the 681 records name a change that no longer exists
-anywhere in the tree — they were deleted, not archived. A baseline of 575
-entries is a list, not a rule, and it would have to be regenerated every time
-a change was deleted. The direction that can still go wrong for work
-happening now is the one that is checked.
+records, because 575 of the 676 change records name a change that no longer
+exists anywhere in the tree — they were deleted, not archived. (The registry
+holds 681 records; the other five are not changes.) A baseline of 575 entries
+is a list, not a rule, and it would have to be regenerated every time a
+change was deleted. The direction that can still go wrong for work happening
+now is the one that is checked.
 
 ### What the local loop carries
 
@@ -131,10 +132,54 @@ scan of the whole tree is the point of both.
 - A PR that adds a change has to bring the review with it. That is the rule
   `AGENTS.md` already stated, now enforced.
 - The registry records changed in bulk: 100 of them lost the `design.md` and
-  `adr.md` lines they never had. The diff is mechanical and is what
+  `adr.md` lines they never had, 7 records' `specs_dir` became `null` (the
+  change has no `specs/`), and one record's path was corrected to where the
+  change was archived. The diff is mechanical and is what
   `python3 scripts/openspec-import-all.py --replace` writes.
 - A `slow` class that is renamed, moved, or deleted changes the full run's
   report, and the CI step reads that report right after the run.
+- **Archiving a change needs no bookkeeping.** The record keeps the path the
+  change had before the move, and the gate looks its documents up by slug in
+  the archived directory — the same convention the slug comparison already
+  followed. A verdict for an archived change stays: it is a record of a review
+  that happened. The first version of this change got both of these wrong and
+  turned a routine archive operation red; the review caught it, and the
+  archive is now a move and nothing else.
+- **A change the spec-create workflow has just scaffolded is exempt** until it
+  is written up. The scaffold is detected by the workflow's own marker and
+  the placeholder it leaves in the proposal — nobody has written the change
+  up, so nobody has reviewed it, and there is nothing to have reviewed yet.
+  The exemption ends by itself when the author writes the proposal.
+- **`:adr-cli:test` and `:adr-core:jvmTest` now run in CI.** Both modules hold
+  a `@Tag("slow")` class, and neither test task ran anywhere — so the rule
+  this change introduces was, at its first version, blind to two slow classes
+  in the two modules that never ran at all. The gate's mapping is now checked
+  against the repository by a test, so a slow class in an unmapped root fails
+  the build rather than passing unseen.
+
+## What the review found
+
+The change was reviewed by a separate agent that got the diff and the ADR and
+no session history. It returned **FAIL** on three findings, all of which are
+fixed here:
+
+- the slow rule did not cover *every* slow class: two modules were unmapped,
+  and the tests in them ran nowhere — the exact failure the rule was written
+  to prevent, live in the tree the rule was written for;
+- archiving a change turned both new gates red, and the verdict gate named a
+  fix that does not apply — the same class of error the predecessor decision
+  was corrected for twice: the rule was not what the prose said;
+- the pre-push hook ran *today's* rules against an *older* pushed tree, so a
+  branch cut before the change could not be pushed without `--no-verify`, for
+  violations CI would never report on it. The hook now runs the rule that is
+  in the pushed tree — the same copy CI would run — and says so when the tree
+  does not have it.
+
+The review also found that the success message claimed more than the code did
+("every open change carries a verdict", in a tree where none did) and that
+the baseline remedy contradicted the rule that the baseline only shrinks. Both
+are fixed: the gate now reports the split, and the remedy says that adding an
+entry is an edit in the diff.
 
 ## Links
 

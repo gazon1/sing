@@ -126,6 +126,24 @@ def change_directories(changes_dir: pathlib.Path) -> list[pathlib.Path]:
     return found
 
 
+def archived_by_slug(changes_dir: pathlib.Path) -> dict[str, list[pathlib.Path]]:
+    """The archived change directories, keyed by the slug they carry.
+
+    Archiving moves a change and renames it: `openspec/changes/<slug>`
+    becomes `openspec/changes/archive/<date>-<slug>`. A record keeps the path
+    the change had before the move, so the record's documents are looked up
+    here by slug — the same way the record itself is matched to the change.
+    """
+    archive = changes_dir / ARCHIVE_DIR
+    if not archive.is_dir():
+        return {}
+    archived: dict[str, list[pathlib.Path]] = {}
+    for entry in sorted(archive.iterdir()):
+        if entry.is_dir():
+            archived.setdefault(slug_for(entry.name), []).append(entry)
+    return archived
+
+
 def recorded_path(entry: pathlib.Path) -> str | None:
     """The `openspec_path` a registry entry records, if it has one."""
     try:
@@ -188,6 +206,16 @@ def slug_of_recorded_path(recorded: str) -> str | None:
     return None
 
 
+def _document_survived_in_archive(archived: list[pathlib.Path], path: str) -> bool:
+    """Whether a recorded path names a document the archived change still has.
+
+    The record keeps the path the change had before the move, so the file it
+    names is looked up by its name inside the archived directory.
+    """
+    name = pathlib.PurePosixPath(path).name
+    return any((directory / name).exists() for directory in archived)
+
+
 def find_problems(
     changes_dir: pathlib.Path,
     issues_dir: pathlib.Path,
@@ -236,17 +264,27 @@ def find_problems(
         # document it names has to be there: a record that points at a
         # design.md the change never had sends the next session to a file
         # that was never written.
+        #
+        # A document that is not where the record says is not always a lie:
+        # archiving moves the change and renames it, and the record keeps the
+        # path the change had before the move. That is resolved by slug, the
+        # same way the record itself is matched to its change.
+        archived = archived_by_slug(changes_dir).get(slug, [])
         for name, path in sorted(recorded_documents(entry).items()):
-            if not (root / path).exists():
-                dangling.append(
-                    f'{issues_dir.name}/{slug}.yaml names the {name} {path!r}, which does not exist'
-                )
+            if (root / path).exists():
+                continue
+            if _document_survived_in_archive(archived, path):
+                continue
+            dangling.append(
+                f'{issues_dir.name}/{slug}.yaml names the {name} {path!r}, which does not exist'
+            )
         specs_dir = recorded_specs_dir(entry)
         if specs_dir and not (root / specs_dir).exists():
-            dangling.append(
-                f'{issues_dir.name}/{slug}.yaml names the specs directory {specs_dir!r}, '
-                f'which does not exist'
-            )
+            if not _document_survived_in_archive(archived, specs_dir):
+                dangling.append(
+                    f'{issues_dir.name}/{slug}.yaml names the specs directory {specs_dir!r}, '
+                    f'which does not exist'
+                )
 
     # Two directories claiming one slug are two changes wearing one record's
     # name: the second one would pass this gate on the first one's record.

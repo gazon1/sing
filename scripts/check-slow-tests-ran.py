@@ -62,7 +62,16 @@ SOURCES = (
     ('shared/src/androidHostTest/kotlin', 'shared/build/test-results/testAndroidHostTest'),
     ('desktopApp/src/jvmTest/kotlin', 'desktopApp/build/test-results/test'),
     ('mcp-server/src/test/kotlin', 'mcp-server/build/test-results/test'),
+    ('detekt-rules/src/test/kotlin', 'detekt-rules/build/test-results/test'),
+    ('adr-cli/src/test/kotlin', 'adr-cli/build/test-results/test'),
+    ('adr-core/src/jvmTest/kotlin', 'adr-core/build/test-results/jvmTest'),
 )
+
+#: The fewest slow classes the check must look at. Below this, the gate is
+#: looking at a tree it does not understand — the two modules that were
+#: missing from the list above held two slow classes each, and the gate
+#: reported 96 of the repository's 98 without noticing.
+MIN_SLOW_CLASSES = 10
 
 
 def _scanner():
@@ -168,6 +177,13 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
 
     for problem in problems:
         click.echo(f'ERROR: {problem}')
+
+    if len(checked) < MIN_SLOW_CLASSES:
+        click.echo(
+            f'ERROR: the check found {len(checked)} slow class(es); fewer than '
+            f'{MIN_SLOW_CLASSES} means it is not looking at the tree it thinks it is'
+        )
+        raise ctx.exit(VALIDATION_FAILURE)
 
     if problems:
         click.echo('')
