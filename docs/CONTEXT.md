@@ -192,3 +192,23 @@ surface because one child has not arrived yet would leave the user with nothing,
 same token limit truncates it again.
 
 **Used in:** `feature/genui/core/A2uiError.kt`, `GenuiSession`, `ADR 2026-09-26-genui-subsystem-applied-r23`
+
+---
+
+## TaskSeries
+
+**TaskSeries** is one piece of work scheduled on several dates. It is not a table: it is the set of
+task rows that share one `TaskSeriesId`.
+
+Each row keeps its own date, completion state, checklist, attachments and reminders. The fields that
+describe the *work* — title, description, project, tags, priority, accent, emoji, estimate,
+recurrence — are stored on every row and edited for the whole series at once.
+
+**Contrast with:** `RecurrenceSpec` — a rule that *generates* occurrences on its own. A series is a
+fixed set of dates, picked by hand.
+
+**Never use** `TaskSeries` to mean the rows themselves, and never introduce a second source of truth
+for the shared fields — a series edit rewrites every row, and that is what keeps the copies in step.
+
+**Used in:** `Task.seriesId`, `TaskSeriesPlanner`, `TaskSharedField`, `UpdateTaskSeriesUseCase`,
+`ADR 2026-10-22-task-series-materialized-copies`
