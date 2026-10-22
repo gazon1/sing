@@ -42,6 +42,7 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
+import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -105,6 +106,12 @@ fun TaskDetailContent(
             }
         }
     }
+
+    // The system back press means what the editor's back button means — and
+    // with the keyboard open it means "close the keyboard" first. The task
+    // detail edits its title and its description in place, so a back press
+    // that leaves the screen while the keyboard is up throws the edit away.
+    ImeAwareBackHandler { navigator.back() }
 
     NotificationHost(
         events = coordinator.events,

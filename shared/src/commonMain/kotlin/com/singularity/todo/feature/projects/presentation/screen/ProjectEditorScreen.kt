@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -77,6 +78,9 @@ import org.koin.core.parameter.parametersOf
 fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
+    // The system back press means what the header's back button means — and
+    // with the keyboard open it means "close the keyboard" first.
+    ImeAwareBackHandler { nav.back() }
     ProjectEditorContent(
         viewModel = viewModel,
         modifier = modifier,

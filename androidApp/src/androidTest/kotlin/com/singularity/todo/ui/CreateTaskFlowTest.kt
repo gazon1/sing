@@ -78,6 +78,11 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
 
     /**
      * Cancel path: open editor → type something → press back → verify no task added.
+     *
+     * The back press is two presses now, and the order matters: the first one
+     * closes the keyboard (the keyboard is open, so the keyboard is what a back
+     * press is for), the second one reaches the screen and — the draft is dirty
+     * — asks before it discards. Confirming the discard is the cancel.
      */
     @Test
     fun cancel_editor_dismisses_without_adding_task() {
@@ -96,8 +101,14 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
         // Type a title.
         device.typeInto("task_editor_title_input", "Do not save this task")
 
-        // Press back to cancel.
+        // Press back to cancel: the first press closes the keyboard on a device
+        // that has one, the next one reaches the screen and — the draft is
+        // dirty — asks whether to discard it.
         device.tapBack()
+        if (device.awaitTagOrNull("dialog_confirm", 1_000) == null) {
+            device.tapBack()
+        }
+        device.awaitTag("dialog_confirm", "the discard confirmation", TAB_TIMEOUT_MS).tap()
 
         // The cancelled task should NOT appear in the list.
         // Slug: "Do not save this task" → "do_not_save_this_task"

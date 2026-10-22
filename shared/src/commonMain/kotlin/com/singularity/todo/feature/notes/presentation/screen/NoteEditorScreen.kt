@@ -33,6 +33,7 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.textfields.Revisioned
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -85,15 +86,19 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
     }
 
     var showAiSheet by remember { mutableStateOf(false) }
+    val onBack: () -> Unit = {
+        viewModel.onIntent(NotesEditorIntent.Close)
+        navigator.back()
+    }
+    // The system back press means what the header's back button means — and
+    // with the keyboard open it means "close the keyboard" first.
+    ImeAwareBackHandler { onBack() }
     NoteEditorScreenContent(
         editorState = editorState,
         onTitleChange = { title -> viewModel.onIntent(NotesEditorIntent.EditTitle(title)) },
         onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
-        onBack = {
-            viewModel.onIntent(NotesEditorIntent.Close)
-            navigator.back()
-        },
+        onBack = onBack,
         onShowAiSheet = { showAiSheet = true },
         savedVisible = savedVisible,
         searchNotesForLink = viewModel::searchNotesForLink,

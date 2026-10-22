@@ -28,6 +28,7 @@ import com.singularity.todo.core.ui.components.BackTopAppBar
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.DialogState
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
+import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.ListPickerSheet
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -121,16 +122,21 @@ private fun SavedAgendaScreenBody(
         onNavigateBack = { navigator.back() },
     )
 
+    val onBack: () -> Unit = {
+        val editing = state as? SavedAgendaViewState.Editing
+        if (editing != null && editing.draft.isDirty) {
+            dialogs.show(ActiveDialog.ConfirmDiscard)
+        } else {
+            navigator.back()
+        }
+    }
+    // The system back press means what the header's back button means — and
+    // with the keyboard open it means "close the keyboard" first.
+    ImeAwareBackHandler { onBack() }
+
     BackTopAppBar(
         title = modeHint,
-        onBack = {
-            val editing = state as? SavedAgendaViewState.Editing
-            if (editing != null && editing.draft.isDirty) {
-                dialogs.show(ActiveDialog.ConfirmDiscard)
-            } else {
-                navigator.back()
-            }
-        },
+        onBack = onBack,
         modifier = modifier,
     ) { paddingValues ->
         SavedAgendaContent(
