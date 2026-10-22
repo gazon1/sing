@@ -10,10 +10,11 @@ import androidx.compose.runtime.Stable
 @Stable
 @JvmInline
 value class ProjectCardActions(val block: (Action) -> Unit) {
-    enum class Action { Delete, Review }
+    enum class Action { Delete, Review, Reopen }
 
     fun onDelete() = block(Action.Delete)
     fun onReviewClick() = block(Action.Review)
+    fun onReopen() = block(Action.Reopen)
 
     companion object {
         /** No-op actions — previews/tests only. Internal so external callers must wire real dispatchers. */

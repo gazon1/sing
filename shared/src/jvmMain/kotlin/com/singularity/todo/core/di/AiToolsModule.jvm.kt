@@ -269,6 +269,7 @@ actual fun aiToolsModule(): Module = module {
             taskRepository = get<TaskRepository>(),
             projectReview = getOrNull(),
             deleteProject = get<DeleteProjectUseCase>(),
+            clock = get(),
             crashReporter = get(),
         )
     }

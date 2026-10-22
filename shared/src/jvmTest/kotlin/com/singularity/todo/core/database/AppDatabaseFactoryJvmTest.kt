@@ -213,7 +213,7 @@ class AppDatabaseFactoryJvmTest {
         dao.upsertTagCrossRefForUser("t1", "tag1", "intruder")
         dao.upsertDependencyForUser("t1", "t2", DependencyVerb.BLOCKS.name, "intruder")
         assertEquals(emptyList(), dao.getTagIdsForTask("t1").first())
-        assertEquals(emptyList(), dao.getDependencyIdsForTask("t1").first())
+        assertEquals(emptyList(), dao.getOrderingEdgeIdsForUser("t1", "u1").first())
 
         val row = dao.watchById("t1").first()
         assertNotNull(row)

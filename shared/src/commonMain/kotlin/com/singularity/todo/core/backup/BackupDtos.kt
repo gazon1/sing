@@ -64,8 +64,6 @@ data class TaskDto(
     val someday: Boolean = false,
     val archivedAt: Long? = null,
     val isPinned: Boolean = false,
-    /** MR-1: denormalized snapshot of depends-on task IDs at backup time. */
-    val dependsOn: List<String>? = null,
     val estimateMinutes: Int? = null,
     val recurrenceRule: String? = null,
     /** Wikilink targets of this task, stored as a list in JSON and as a JSON array column in Room. */
@@ -446,19 +444,41 @@ fun TaskTagDto.toEntity(): TaskTagCrossRef = TaskTagCrossRef(taskId = taskId, ta
 
 // ─── TaskDependencyDto (MR-1) ─────────────────────────────────────────────────
 
+/**
+ * One edge of the dependency graph.
+ *
+ * ## Why the verb is here
+ *
+ * The verb is what the edge *means*: `BLOCKS` says the task waits for the other
+ * one, `FOLLOWS_UP` says it comes after it, `DUPLICATES` says it is the same
+ * work. A backup that kept the two ends of an edge and dropped the meaning
+ * turned every relation into a block — and a task that merely followed up on
+ * another came back from the restore waiting for it. The close rule reads
+ * exactly these edges, so a restored graph that lies about them refuses a
+ * close that has no reason to be refused.
+ *
+ * The default is `BLOCKS`, which is what the edge meant before the verb was
+ * carried: a backup written before this field existed is a graph of blocks.
+ */
 @Serializable
-data class TaskDependencyDto(val taskId: String, val dependsOnTaskId: String)
+data class TaskDependencyDto(
+    val taskId: String,
+    val dependsOnTaskId: String,
+    val verb: String = "BLOCKS",
+)
 
 fun TaskDependencyCrossRef.toDto(): TaskDependencyDto =
     TaskDependencyDto(
         taskId = taskId,
         dependsOnTaskId = dependsOnTaskId,
+        verb = verb,
     )
 
 fun TaskDependencyDto.toEntity(): TaskDependencyCrossRef =
     TaskDependencyCrossRef(
         taskId = taskId,
         dependsOnTaskId = dependsOnTaskId,
+        verb = verb,
     )
 
 // ─── AgendaViewDto (MR-1: agenda_views in backup) ─────────────────────────────

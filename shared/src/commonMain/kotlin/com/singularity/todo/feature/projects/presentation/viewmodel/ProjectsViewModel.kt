@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 /**
  * Intent for the projects list screen.
@@ -37,6 +38,14 @@ sealed interface ProjectsIntent : MviIntent {
     data class SetSearchQuery(val query: String) : ProjectsIntent
     data class SetSortOrder(val order: ProjectSortOrder) : ProjectsIntent
     data class Delete(val id: ProjectId) : ProjectsIntent
+
+    /**
+     * The user opened a closed project again: its work is not finished after all.
+     *
+     * The reverse of closing, and as narrow — a project that was closed by
+     * mistake has to be reachable, or the mistake is permanent.
+     */
+    data class Reopen(val id: ProjectId) : ProjectsIntent
     data class ReviewProject(val project: Project) : ProjectsIntent
 }
 
@@ -57,6 +66,7 @@ class ProjectsViewModel(
     private val taskRepository: TaskRepository,
     private val projectReview: ProjectReviewUseCase? = null,
     private val deleteProject: DeleteProjectUseCase,
+    private val clock: Clock = Clock.System,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsUiState, ProjectsIntent, ProjectsUiEvent>(
@@ -80,8 +90,11 @@ class ProjectsViewModel(
     init {
         vmScope.launch {
             combine(_searchQuery, _sortOrder) { query, sort -> query to sort }.flatMapLatest { (query, sort) ->
-                projectRepo.observeProjectsWithCounts()
-                    .map { rows ->
+                combine(
+                    projectRepo.observeProjectsWithCounts(),
+                    projectRepo.observeClosed(),
+                ) { rows, closed -> rows to closed }
+                    .map { (rows, closed) ->
                         val domainRows = rows.map { row ->
                             ProjectWithCounts(
                                 project = row.project.toProject(),
@@ -98,6 +111,7 @@ class ProjectsViewModel(
                             ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
                             ProjectSortOrder.Color -> filtered.sortedBy { it.project.color }
                         }
+                        val closedProjects = closed
                         if (sorted.isEmpty()) {
                             // The query and the sort order travel with the empty state:
                             // they describe the filter that produced it, and the screen
@@ -105,9 +119,18 @@ class ProjectsViewModel(
                             // that dropped the query would make the field look empty while
                             // the ViewModel still filtered by the old one — and the list
                             // could never come back.
-                            ProjectsUiState.Empty(searchQuery = query, sortOrder = sort)
+                            ProjectsUiState.Empty(
+                                searchQuery = query,
+                                sortOrder = sort,
+                                closedProjects = closedProjects,
+                            )
                         } else {
-                            ProjectsUiState.Content(projects = sorted, searchQuery = query, sortOrder = sort)
+                            ProjectsUiState.Content(
+                                projects = sorted,
+                                searchQuery = query,
+                                sortOrder = sort,
+                                closedProjects = closedProjects,
+                            )
                         }
                     }
             }
@@ -132,6 +155,7 @@ class ProjectsViewModel(
             is ProjectsIntent.SetSearchQuery -> setSearchQuery(intent.query)
             is ProjectsIntent.SetSortOrder -> setSortOrder(intent.order)
             is ProjectsIntent.Delete -> delete(intent.id)
+            is ProjectsIntent.Reopen -> reopen(intent.id)
             is ProjectsIntent.ReviewProject -> reviewProject(intent.project)
         }
     }
@@ -153,6 +177,20 @@ class ProjectsViewModel(
     private fun delete(id: ProjectId) {
         emitError("Delete project failed", { msg -> ProjectsUiEvent.Error("Delete project failed: $msg") }) {
             deleteProject(id)
+        }
+    }
+
+    /**
+     * Opens a closed project again.
+     *
+     * The mirror of closing: the project leaves the list when it is closed and
+     * comes back when it is opened. A project closed by mistake has to be
+     * reachable, or the mistake is permanent — and the only way back would be
+     * through one of its tasks, which a project without tasks does not have.
+     */
+    private fun reopen(id: ProjectId) {
+        emitError("Open project failed", { msg -> ProjectsUiEvent.Error("Open project failed: $msg") }) {
+            projectRepo.reopen(id, clock.now().toEpochMilliseconds())
         }
     }
 

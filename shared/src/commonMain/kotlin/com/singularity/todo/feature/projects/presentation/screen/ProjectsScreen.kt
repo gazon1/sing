@@ -20,16 +20,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -83,6 +86,7 @@ fun ProjectsScreen() {
             onCreateProject = { nav.openEditor(null) },
             onDelete = { id -> viewModel.onIntent(ProjectsIntent.Delete(id)) },
             onReviewClick = { project -> viewModel.onIntent(ProjectsIntent.ReviewProject(project)) },
+            onReopen = { id -> viewModel.onIntent(ProjectsIntent.Reopen(id)) },
         )
     }
 
@@ -166,43 +170,101 @@ private fun ProjectsContent(
     onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
+    onReopen: (ProjectId) -> Unit,
 ) {
     when (state) {
         is ProjectsUiState.Loading -> LoadingIndicator(modifier = modifier)
 
         // A search that matched nothing is not the same as having no projects —
         // "No projects yet" would push the user to create one they do not need.
-        is ProjectsUiState.Empty -> EmptyState(
-            title = if (state.searchQuery.text.isBlank()) {
-                "No projects yet"
-            } else {
-                "No projects match \"${state.searchQuery.text}\""
-            },
-            testTag = TestTags.PROJECTS_LIST_EMPTY,
-            modifier = modifier,
-        )
+        //
+        // The closed projects are still there: the list is empty, not the
+        // account.
+        is ProjectsUiState.Empty -> Column(modifier = modifier.fillMaxSize()) {
+            EmptyState(
+                title = if (state.searchQuery.text.isBlank()) {
+                    "No projects yet"
+                } else {
+                    "No projects match \"${state.searchQuery.text}\""
+                },
+                testTag = TestTags.PROJECTS_LIST_EMPTY,
+                modifier = Modifier.weight(1f),
+            )
+            ClosedProjectsSection(closedProjects = state.closedProjects, onReopen = onReopen)
+        }
 
         is ProjectsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
 
         is ProjectsUiState.Content -> ProjectList(
             projects = state.projects,
+            closedProjects = state.closedProjects,
             modifier = modifier.fillMaxSize(),
             onNavigateToProject = onNavigateToProject,
             onCreateProject = onCreateProject,
             onDelete = onDelete,
             onReviewClick = onReviewClick,
+            onReopen = onReopen,
         )
+    }
+}
+
+/**
+ * The projects the user closed, and the way back.
+ *
+ * A closed project leaves the list, and without this section there would be
+ * nowhere to find it again: the only way back would be through one of its
+ * tasks, and a project with no tasks has none.
+ */
+@Composable
+private fun ClosedProjectsSection(
+    closedProjects: List<Project>,
+    onReopen: (ProjectId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (closedProjects.isEmpty()) return
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            text = "Closed projects",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        closedProjects.forEach { project ->
+            ClosedProjectRow(project = project, onReopen = { onReopen(project.id) })
+        }
+    }
+}
+
+/**
+ * One closed project, and the button that opens it again.
+ *
+ * Not a [ProjectCard]: a closed project is not on the list, and a card that
+ * navigates somewhere the user did not ask to go is the wrong affordance. This
+ * row says what the project is and offers the way back.
+ */
+@Composable
+private fun ClosedProjectRow(project: Project, onReopen: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = project.name,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        ReopenActionButton(onClick = onReopen)
     }
 }
 
 @Composable
 private fun ProjectList(
     projects: List<ProjectWithCounts>,
+    closedProjects: List<Project>,
     modifier: Modifier = Modifier,
     onNavigateToProject: (ProjectId) -> Unit,
     onCreateProject: () -> Unit,
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
+    onReopen: (ProjectId) -> Unit,
 ) {
     LazyColumn(
         modifier = modifier,
@@ -219,9 +281,21 @@ private fun ProjectList(
                     when (action) {
                         ProjectCardActions.Action.Delete -> onDelete(row.project.id)
                         ProjectCardActions.Action.Review -> onReviewClick(row.project)
+                        ProjectCardActions.Action.Reopen -> onReopen(row.project.id)
                     }
                 },
             )
+        }
+        if (closedProjects.isNotEmpty()) {
+            item(key = "closed-projects-header") {
+                Text(
+                    text = "Closed projects",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+            items(closedProjects, key = { "closed-${it.id.value}" }) { project ->
+                ClosedProjectRow(project = project, onReopen = { onReopen(project.id) })
+            }
         }
     }
 }
@@ -246,6 +320,7 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
             onCreateProject = {},
             onDelete = {},
             onReviewClick = {},
+            onReopen = {},
         )
     }
 }
@@ -263,6 +338,7 @@ private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
             onCreateProject = {},
             onDelete = {},
             onReviewClick = {},
+            onReopen = {},
         )
     }
 }
@@ -283,6 +359,7 @@ private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
             onCreateProject = {},
             onDelete = {},
             onReviewClick = {},
+            onReopen = {},
         )
     }
 }

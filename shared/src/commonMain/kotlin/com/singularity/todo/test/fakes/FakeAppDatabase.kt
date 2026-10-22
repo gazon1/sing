@@ -634,12 +634,14 @@ private class FakeTaskDao(
         return mutateTaskForUser(id, userId) { it.copy(completedAt = ts, updatedAt = ts) }
     }
 
+    override suspend fun setDueDateForUser(id: String, dueDate: String?, updatedAt: Long, userId: String): Int =
+        mutateTaskForUser(id, userId) { it.copy(dueDate = dueDate, updatedAt = updatedAt) }
+
     override suspend fun blockedTaskIdsForUser(
         taskIds: List<String>,
         userId: String,
         verb: String,
-    ): List<String> = depRefs.value
-        .filter { ref ->
+    ): List<String> = depRefs.value        .filter { ref ->
             ref.taskId in taskIds &&
                 ref.verb == verb &&
                 store.value[ref.dependsOnTaskId]?.let { it.completedAt == null && it.archivedAt == null } == true
@@ -692,10 +694,7 @@ private class FakeTaskDao(
             }
         }
 
-    override fun getDependencyIdsForTask(taskId: String): Flow<List<String>> =
-        depRefs.map { refs -> refs.filter { it.taskId == taskId }.map { it.dependsOnTaskId } }
-
-    override fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    override fun getOrderingEdgeIdsForUser(taskId: String, userId: String): Flow<List<String>> =
         combine(depRefs, store) { refs, tasks ->
             if (tasks[taskId]?.userId != userId) {
                 emptyList()
@@ -704,15 +703,12 @@ private class FakeTaskDao(
             }
         }
 
-    override fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>> =
-        depRefs.map { refs -> refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId } }
-
-    override fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>> =
+    override fun getBlockingEdgeIdsForUser(taskId: String, userId: String, verb: String): Flow<List<String>> =
         combine(depRefs, store) { refs, tasks ->
             if (tasks[taskId]?.userId != userId) {
                 emptyList()
             } else {
-                refs.filter { it.dependsOnTaskId == taskId }.map { it.taskId }
+                refs.filter { it.taskId == taskId && it.verb == verb }.map { it.dependsOnTaskId }
             }
         }
 
@@ -985,6 +981,11 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     override fun watchAll(userId: String): Flow<List<ProjectEntity>> = store.map {
         it.values.filter { p -> p.userId == userId && !p.isDeleted && p.closedAt == null }
             .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    }
+
+    override fun watchClosedForUser(userId: String): Flow<List<ProjectEntity>> = store.map {
+        it.values.filter { p -> p.userId == userId && !p.isDeleted && p.closedAt != null }
+            .sortedWith(compareByDescending<ProjectEntity> { it.closedAt }.thenBy { it.name })
     }
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────

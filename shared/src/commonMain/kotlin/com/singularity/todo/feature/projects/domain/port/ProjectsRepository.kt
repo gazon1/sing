@@ -50,6 +50,16 @@ interface ProjectsRepository :
     /** All non-deleted projects with task counts for the current user. */
     fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>>
 
+    /**
+     * The projects the user closed, most recently closed first.
+     *
+     * The mirror of [observeProjectsWithCounts]: a closed project leaves the
+     * project list, and this is where it goes. Without it, a project closed by
+     * mistake could only be got back through one of its tasks — and a project
+     * with no tasks could not be got back at all.
+     */
+    fun observeClosed(): Flow<List<Project>>
+
     /** Children of a parent project, scoped to current user. */
     fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>>
 

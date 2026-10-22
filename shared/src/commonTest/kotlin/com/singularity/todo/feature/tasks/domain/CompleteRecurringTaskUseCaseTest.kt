@@ -2,15 +2,18 @@ package com.singularity.todo.feature.tasks.domain
 
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.isExhaustedBy
+import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.test.runTest
@@ -44,7 +47,7 @@ class CompleteRecurringTaskUseCaseTest {
 
     private val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
 
-    private fun useCase() = CompleteRecurringTaskUseCase(repo, clock, TEST_TZ, RecurrenceCalculator)
+    private fun useCase() = CompleteRecurringTaskUseCase(repo, FakeUnitOfWork(), clock, TEST_TZ, RecurrenceCalculator)
 
     private fun recurringTask(
         dueDate: LocalDate = today,
@@ -61,6 +64,87 @@ class CompleteRecurringTaskUseCaseTest {
 
     private fun boundedUntil(endDate: LocalDate) =
         weekly.copy(termination = RecurrenceTermination(endDate))
+
+    // ─── The refusal ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `a recurring close is refused while a prerequisite is open`() = runTest {
+        repo.seed(recurringTask(dueDate = today, spec = weekly))
+        repo.seed(prerequisite())
+        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+
+        val result = useCase()(TaskId("t1"))
+
+        assertTrue(result.isFailure, "a blocked recurring task must not roll forward")
+        assertTrue(
+            result.exceptionOrNull() is BlockedTasksException,
+            "the refusal must name the task in the way: ${result.exceptionOrNull()}",
+        )
+        val task = repo.get(TaskId("t1"))
+        assertNull(task?.completedAt, "the occurrence must not be closed")
+        assertEquals(today, task?.dueDate, "the series must not move forward")
+    }
+
+    @Test
+    fun `a confirmed recurring close goes through`() = runTest {
+        repo.seed(recurringTask(dueDate = today, spec = weekly))
+        repo.seed(prerequisite())
+        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+
+        val result = useCase()(TaskId("t1"), force = true)
+
+        assertTrue(result.isSuccess, "the confirmed path must close: ${result.exceptionOrNull()}")
+        val task = repo.get(TaskId("t1"))
+        assertNotNull(task?.completedAt, "the occurrence must be closed")
+        assertEquals(today.plus(7, DateTimeUnit.DAY), task?.dueDate, "the series must move forward")
+    }
+
+    @Test
+    fun `a recurring close with no prerequisite rolls forward`() = runTest {
+        repo.seed(recurringTask(dueDate = today, spec = weekly))
+
+        val result = useCase()(TaskId("t1"))
+
+        assertTrue(result.isSuccess)
+        assertNotNull(repo.get(TaskId("t1"))?.completedAt)
+    }
+
+    @Test
+    fun `a refused recurring close writes no copy of a missed occurrence`() = runTest {
+        // A catch-up series writes a copy of every missed occurrence. If the
+        // guard ran after those writes, a refusal would leave the copies
+        // behind and the retry would write them twice.
+        val staleDue = today.plus(-14, DateTimeUnit.DAY)
+        repo.seed(
+            recurringTask(
+                dueDate = staleDue,
+                spec = RecurrenceSpec.Interval(RecurrenceBase.CATCH_UP, 1, DateTimeUnit.WEEK),
+            ),
+        )
+        repo.seed(prerequisite())
+        repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+
+        val result = useCase()(TaskId("t1"))
+
+        assertTrue(result.isFailure, "the close must be refused")
+        // The prerequisite is a task of its own, so count the series by title:
+        // only the original occurrence may exist, no copy of the missed one.
+        val series = repo.tasks.value.values.filter { it.title == "Buy bread" }
+        assertEquals(
+            1,
+            series.size,
+            "a refusal leaves the series as it was — no copy of a missed occurrence",
+        )
+    }
+
+    /** The prerequisite that is still open, and the reason the close is refused. */
+    private fun prerequisite() = Task(
+        id = TaskId("dep"),
+        title = "Prerequisite",
+        createdAt = Instant.parse("2026-01-01T00:00:00Z"),
+        updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
+        userId = TestUsers.DEFAULT,
+    )
 
     // ─── The boundary itself ──────────────────────────────────────────────────
 

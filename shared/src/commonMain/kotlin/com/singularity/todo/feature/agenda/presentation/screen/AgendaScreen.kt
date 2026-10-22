@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
@@ -153,8 +154,31 @@ fun AgendaScreen(
             // request. The dialog is drawn from the state, so it survives a
             // rotation instead of disappearing under the user's finger.
             BlockedCloseDialog(state = state, vm = vm)
+
+            // The same question about a selection: a bulk close is a close,
+            // so it asks too.
+            BlockedBulkCloseDialog(state = state, vm = vm)
         }
     }
+}
+
+/**
+ * The confirmation for closing a selection in which some tasks have unfinished
+ * prerequisites.
+ *
+ * The bulk counterpart of [BlockedCloseDialog], and the same reason for being
+ * a separate function: the screen's own length stays inside the complexity
+ * budget.
+ */
+@Composable
+private fun BlockedBulkCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
+    val request = (state as? AgendaUiState.Loaded)?.pendingBlockedBulkClose ?: return
+    BlockedBulkCompletionDialog(
+        blockedTaskTitles = request.blockedTaskTitles,
+        totalCount = request.taskIds.size,
+        onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose) },
+        onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedBulkClose) },
+    )
 }
 
 /**

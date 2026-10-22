@@ -33,6 +33,7 @@ import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -160,11 +161,12 @@ internal class SlotFakes(
 
     private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
         repo = taskRepo,
+        unitOfWork = FakeUnitOfWork(),
         clock = FakeClock(SLOT_NOW),
         timeZoneProvider = TEST_TZ,
         calculator = RecurrenceCalculator,
     ) {
-        override suspend fun invoke(taskId: TaskId): Result<Task> {
+        override suspend fun invoke(taskId: TaskId, force: Boolean): Result<Task> {
             recurringCompleted = taskId
             return Result.failure(IllegalStateException("Stub — not implemented in slot tests"))
         }
