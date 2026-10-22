@@ -2,11 +2,11 @@ package com.singularity.todo.feature.genui.render
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.schema.DataModel
-import com.singularity.todo.feature.genui.schema.PathValue
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.Surface
 import com.singularity.todo.feature.genui.surface.SurfaceController
@@ -140,7 +140,7 @@ class DefaultDataContext(
      * two are read together, so a source can never carry a count that belongs to another
      * write.
      */
-    private fun PathValue.toSource(fallback: String): OwnedText =
+    private fun Revisioned<JsonElement?>.toSource(fallback: String): OwnedText =
         OwnedText((value as? JsonPrimitive)?.content ?: fallback, revision)
 
     /**

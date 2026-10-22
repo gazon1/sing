@@ -10,7 +10,7 @@ import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import com.singularity.todo.core.ui.textfields.Revisioned
+import com.singularity.todo.core.text.Revisioned
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -42,7 +42,7 @@ import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.components.SettingsSection
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed

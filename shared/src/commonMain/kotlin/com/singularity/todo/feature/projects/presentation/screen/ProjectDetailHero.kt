@@ -31,7 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
-import com.singularity.todo.core.ui.textfields.OwnedText
+import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed

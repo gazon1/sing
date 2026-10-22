@@ -4,8 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
-import com.singularity.todo.core.ui.textfields.StaticText
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 
 /**
  * Re-exports [SettingsIntent] from [core.settings] so that existing importers

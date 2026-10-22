@@ -1,4 +1,4 @@
-package com.singularity.todo.core.ui.textfields
+package com.singularity.todo.core.text
 
 import androidx.compose.runtime.Immutable
 
@@ -54,7 +54,7 @@ import androidx.compose.runtime.Immutable
  * rewrite table of `.agents/skills/singularity-todo-text-field-states/SKILL.md`,
  * and the source shape in that table is the type the code uses.
  *
- * @see rememberBridgedTextFieldState
+ * @see com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
  */
 @Immutable
 sealed interface TextSource {

@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.genui.surface
 
+import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.genui.catalog.NodeRef
 import com.singularity.todo.feature.genui.catalog.UiNode
 import com.singularity.todo.feature.genui.schema.DataModel
-import com.singularity.todo.feature.genui.schema.PathValue
 import com.singularity.todo.feature.genui.schema.UiPath
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -55,8 +55,8 @@ fun SurfaceController.value(surfaceId: SurfaceId, path: UiPath): Flow<JsonElemen
  * was rewritten from outside", and it is the count of *this path's* rewrites. A caller
  * that read the value and the count separately could pair them wrongly.
  */
-fun SurfaceController.valueAt(surfaceId: SurfaceId, path: UiPath): PathValue =
-    snapshot(surfaceId)?.dataModel?.valueAt(path) ?: PathValue(null, 0L)
+fun SurfaceController.valueAt(surfaceId: SurfaceId, path: UiPath): Revisioned<JsonElement?> =
+    snapshot(surfaceId)?.dataModel?.valueAt(path) ?: Revisioned.initial<JsonElement?>(null)
 
 /**
  * The value at [path] in a surface's data model and the count of the server's rewrites
@@ -64,7 +64,7 @@ fun SurfaceController.valueAt(surfaceId: SurfaceId, path: UiPath): PathValue =
  *
  * One emission carries both.
  */
-fun SurfaceController.valueAtFlow(surfaceId: SurfaceId, path: UiPath): Flow<PathValue> =
+fun SurfaceController.valueAtFlow(surfaceId: SurfaceId, path: UiPath): Flow<Revisioned<JsonElement?>> =
     surfaces.flatMapLatest { open: Map<SurfaceId, Surface> ->
         val model: DataModel? = open[surfaceId]?.dataModel
         if (model == null) emptyFlow() else model.flowAt(path).distinctUntilChanged()

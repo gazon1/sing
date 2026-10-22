@@ -8,7 +8,7 @@ import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.schedule.WorkingDays
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import kotlinx.datetime.DayOfWeek

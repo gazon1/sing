@@ -10,6 +10,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.test.helpers.assertTagTextEquals
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clearTag

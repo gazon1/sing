@@ -9,6 +9,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import com.singularity.todo.core.text.OwnedText
+import com.singularity.todo.core.text.StaticText
+import com.singularity.todo.core.text.TextSource
 
 /**
  * The number of pushed values the bridge remembers.

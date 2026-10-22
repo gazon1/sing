@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.genui.schema
 
+import com.singularity.todo.core.text.Revisioned
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -25,6 +26,16 @@ import kotlinx.serialization.json.JsonObject
  * the document here and a counter beside it — would be two facts that can disagree, and
  * a caller that read them separately could pair a value with a count that does not go
  * with it.
+ *
+ * ## The pair is the same pair the fields use
+ *
+ * The value and the count travel in a [Revisioned] — the type the text fields carry
+ * their own count in. It used to be a separate `PathValue` of this package, declared
+ * because "the schema layer must not depend on the UI layer's types": the GenUI's data
+ * model knows nothing about text fields. That reason is gone — the contract types are
+ * neutral now, they live in `com.singularity.todo.core.text` and say nothing about a
+ * field — so there is one pair of "a value and the count of its replacements" in the
+ * app, and the schema layer uses it.
  *
  * Thread-safe via [MutableStateFlow] (which is conflated — last-write-wins).
  */
@@ -53,19 +64,14 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * a value: any change to it means "the value that comes with it was rewritten from
      * outside".
      */
-    fun revision(path: UiPath): Long = state.value.revisions[path.toPointer()] ?: 0L
+    fun revision(path: UiPath): Long = state.value.revisions[path.toPointer()]?.revision ?: 0L
 
     /**
      * The value at [path] and the count of the server's rewrites of it — read together.
      *
      * One read, so the pair cannot be torn.
      */
-    fun valueAt(path: UiPath): PathValue = with(state.value) {
-        PathValue(
-            value = if (path is UiPath.Root) json else resolve(path, json),
-            revision = revisions[path.toPointer()] ?: 0L,
-        )
-    }
+    fun valueAt(path: UiPath): Revisioned<JsonElement?> = state.value.revisionedAt(path)
 
     /**
      * A [Flow] of the value at [path] and the count of the server's rewrites of it.
@@ -73,11 +79,8 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * One emission carries both, so a collector never sees a value with a count that
      * belongs to another write.
      */
-    fun flowAt(path: UiPath): Flow<PathValue> = state.map { doc ->
-        PathValue(
-            value = if (path is UiPath.Root) doc.json else resolve(path, doc.json),
-            revision = doc.revisions[path.toPointer()] ?: 0L,
-        )
+    fun flowAt(path: UiPath): Flow<Revisioned<JsonElement?>> = state.map { doc ->
+        doc.revisionedAt(path)
     }
 
     /**
@@ -88,7 +91,15 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      */
     fun set(path: UiPath, value: JsonElement) {
         val current = state.value
-        state.value = current.copy(json = writeAt(current.json, path, value))
+        val key = path.toPointer()
+        // The write is the field's own, so the count stays where it is — `typed` is the
+        // move that changes a value without announcing a replacement.
+        val revisioned: Revisioned<JsonElement?> =
+            current.revisions[key]?.typed(value) ?: Revisioned.initial(value)
+        state.value = current.copy(
+            json = writeAt(current.json, path, value),
+            revisions = current.revisions + (key to revisioned),
+        )
     }
 
     /**
@@ -100,10 +111,13 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
     fun setFromServer(path: UiPath, value: JsonElement) {
         val current = state.value
         val key = path.toPointer()
-        val revision = (current.revisions[key] ?: 0L) + 1L
+        // A write from outside is a replacement, so the count moves — `replacedBy` is the
+        // only move that moves it.
+        val previous: Revisioned<JsonElement?> =
+            current.revisions[key] ?: Revisioned.initial(value)
         state.value = Document(
             json = writeAt(current.json, path, value),
-            revisions = current.revisions + (key to revision),
+            revisions = current.revisions + (key to previous.replacedBy(value)),
         )
     }
 
@@ -121,8 +135,35 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
 
     /**
      * The document and the revisions — the two things that are always read together.
+     *
+     * The revision of a path is kept as a [Revisioned] rather than as a bare count: the
+     * count and the value it counts are two facts about the same thing, and the type
+     * that carries both is the one the fields carry their own count in.
      */
-    private data class Document(val json: JsonObject, val revisions: Map<String, Long>)
+    private data class Document(
+        val json: JsonObject,
+        val revisions: Map<String, Revisioned<JsonElement?>>,
+    )
+
+    /**
+     * The value at [path] and the count of the server's rewrites of it, as one pair.
+     *
+     * The value is read from the document, because the document is where the value
+     * lives; the count is read from the path's entry, because that is where the count
+     * lives. The two are put back together here, and they cannot be torn: the document
+     * and the entries are one state.
+     *
+     * The stored value of an entry can be older than the document's — a write to the
+     * root of the document replaces everything under it, and the entries of the paths
+     * below keep their count, because that count is the count of *that path's* rewrites.
+     * So the value is refreshed with [Revisioned.typed], which changes the value and
+     * leaves the count where it is: the count does not move for a value that was never
+     * replaced.
+     */
+    private fun Document.revisionedAt(path: UiPath): Revisioned<JsonElement?> {
+        val resolved = if (path is UiPath.Root) json else resolve(path, json)
+        return revisions[path.toPointer()]?.typed(resolved) ?: Revisioned.initial(resolved)
+    }
 
     /** The document with [value] written at [path]. */
     private fun writeAt(doc: JsonObject, path: UiPath, value: JsonElement): JsonObject =

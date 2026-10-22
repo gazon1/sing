@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.projects.presentation.viewmodel
 
-import com.singularity.todo.core.ui.textfields.Revisioned
+import com.singularity.todo.core.text.Revisioned
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

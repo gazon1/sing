@@ -10,7 +10,7 @@ import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.core.settings.SettingsSection
-import com.singularity.todo.core.ui.textfields.FieldOwnedText
+import com.singularity.todo.core.text.FieldOwnedText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
