@@ -66,6 +66,13 @@ data class TaskDto(
     val isPinned: Boolean = false,
     val estimateMinutes: Int? = null,
     val recurrenceRule: String? = null,
+    /**
+     * The id of the series this task belongs to; `null` for a task that stands alone.
+     *
+     * A backup that dropped it would turn a series into unrelated tasks on restore:
+     * the dates would survive, the connection between them would not.
+     */
+    val seriesId: String? = null,
     /** Wikilink targets of this task, stored as a list in JSON and as a JSON array column in Room. */
     val outgoingLinks: List<String> = emptyList(),
     val aiSuppressedTagIds: List<String> = emptyList(),
@@ -95,6 +102,7 @@ fun TaskEntity.toDto(): TaskDto =
         isPinned = isPinned,
         estimateMinutes = estimateMinutes,
         recurrenceRule = recurrenceRule,
+        seriesId = seriesId,
         outgoingLinks = decodeLinkList(outgoingLinks), // JSON string → List
         aiSuppressedTagIds = decodeLinkList(aiSuppressedTagIds), // JSON string → List
         createdAt = createdAt,
@@ -127,6 +135,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
         isPinned = isPinned,
         estimateMinutes = estimateMinutes,
         recurrenceRule = recurrenceRule,
+        seriesId = seriesId,
         outgoingLinks = encodeLinkList(outgoingLinks), // List → JSON string
         aiSuppressedTagIds = encodeLinkList(aiSuppressedTagIds), // List → JSON string
         createdAt = createdAt,

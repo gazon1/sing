@@ -1,5 +1,6 @@
 package com.singularity.todo.test.helpers
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
@@ -45,6 +47,33 @@ fun DesktopComposeUiTest.clickCheckbox(testTag: String) {
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.clickTag(tag: String) {
     awaitTag(tag).performClick()
+}
+
+/**
+ * Performs the long-click action of the node with [tag].
+ *
+ * ## Why the semantic action and not a timed gesture
+ *
+ * A long press is recognised by a timeout inside the gesture detector, and that
+ * timeout runs on the clock of the composition — not on the clock the desktop
+ * test drives. A press held for a thousand milliseconds of test time is a press
+ * that the detector has not seen the end of yet, so a real gesture never fires
+ * here. The semantic action is the same handler the gesture ends up calling,
+ * which is what the test is about: *which* long press a node answers, not how
+ * long the platform holds a pointer down.
+ *
+ * The node that is pressed is the one *on the screen*. A pager renders the
+ * neighbouring months next to the current one, and a day of the neighbouring
+ * month can carry the same test tag as a day of the current month — the
+ * off-screen copy is the one a plain lookup finds first, and a gesture that
+ * starts outside the window fails instead of pressing anything. [awaitAnyDisplayed]
+ * is the repo's answer to that, and this helper uses it rather than measuring
+ * bounds itself.
+ */
+@OptIn(ExperimentalTestApi::class)
+suspend fun DesktopComposeUiTest.longClickTag(tag: String) {
+    awaitAnyDisplayed(tag)
+    onAllNodes(hasTestTag(tag), useUnmergedTree = true).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
 }
 
 /**

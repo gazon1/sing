@@ -35,6 +35,15 @@ sealed interface TasksRoute : AppNavKey {
     @Serializable
     data class Detail(val taskId: TaskId, val sourceViewId: SavedAgendaViewId? = null) : TasksRoute
 
+    /**
+     * Opens the create editor.
+     *
+     * @param initialDueDate The date the new task lands on, when the caller knows
+     *   one. Kept for the paths that have a single date and no draft to carry.
+     * @param draftKey The key of the draft the editor restores from. The *full*
+     *   key, not an id: the editor does not know where a draft came from, and a
+     *   key it has to rebuild is a key that can be rebuilt wrongly.
+     */
     @Serializable
-    data class Create(val initialDueDate: LocalDate? = null, val sectionPrefillKey: String? = null) : TasksRoute
+    data class Create(val initialDueDate: LocalDate? = null, val draftKey: String? = null) : TasksRoute
 }

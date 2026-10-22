@@ -35,5 +35,19 @@ sealed interface CalendarUiState {
         val isMiniCalendarOpen: Boolean = false,
         val headerLabel: String,
         val selectedTaskId: String? = null,
+        /**
+         * The days picked for one task, when the selection mode is on.
+         *
+         * Empty outside the mode. The set survives paging to another month: the
+         * user picked days, and paging away must not throw the picking away.
+         */
+        val selectedDates: Set<LocalDate> = emptySet(),
+        /**
+         * Whether the screen is in the date-selection mode.
+         *
+         * In the mode a tap toggles a day instead of opening it, and the panel
+         * at the bottom offers to create one task on the picked days.
+         */
+        val isDateSelectionMode: Boolean = false,
     ) : CalendarUiState
 }

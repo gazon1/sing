@@ -58,6 +58,15 @@ interface TaskDao {
     fun watchByDateRange(userId: String, from: String, to: String): Flow<List<TaskEntity>>
 
     /**
+     * The rows of one series, in date order.
+     *
+     * Scoped by user as well as by series: the id travels in the sync payload, so
+     * a row that arrived from another profile has to stay invisible here.
+     */
+    @Query("SELECT * FROM tasks WHERE series_id = :seriesId AND user_id = :userId ORDER BY due_date ASC")
+    fun observeSeriesForUser(seriesId: String, userId: String): Flow<List<TaskEntity>>
+
+    /**
      * Returns tasks that carry [tagId] either directly or via any tag group
      * inherited by their project.
      *

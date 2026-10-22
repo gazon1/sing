@@ -315,6 +315,11 @@ object TestTags {
 
     // ─── Agenda ────────────────────────────────────────────────────────────
     const val AGENDA_SAVED_VIEWS_BUTTON = "agenda_saved_views_button"
+
+    /**
+     * The top-bar button that opens the date picker for a task on several days.
+     */
+    const val AGENDA_MULTI_DATE_BUTTON = "agenda_multi_date_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
@@ -725,6 +730,56 @@ object TestTags {
         const val SHEET = "dialog_date_picker_sheet"
     }
 
+    /**
+     * The multi-date picker sheet — the one that lets the user pick several days
+     * for one piece of work.
+     *
+     * Its day cells are tagged by ISO local date, the same way the calendar's
+     * month grid is, so a flow that knows a date can address the day without
+     * knowing the grid's position.
+     */
+    object MultiDatePicker {
+        const val OK = "multi_date_picker_ok"
+        const val CANCEL = "multi_date_picker_cancel"
+        const val CLEAR = "multi_date_picker_clear"
+
+        /** The month title ("Октябрь 2026"). */
+        const val MONTH_TITLE = "multi_date_picker_month_title"
+
+        /** The counter of the selected days ("Выбрано: 3"). */
+        const val COUNTER = "multi_date_picker_counter"
+
+        /** The button that pages to the previous month. */
+        const val PREV_MONTH = "multi_date_picker_prev_month"
+
+        /** The button that pages to the next month. */
+        const val NEXT_MONTH = "multi_date_picker_next_month"
+
+        /**
+         * A day cell, tagged by ISO local date.
+         * Format: `multi_date_picker_day_2026_09_15`.
+         */
+        fun day(isoDate: String) = "multi_date_picker_day_${isoDate.replace("-", "_")}"
+    }
+
+    /**
+     * The series card on the task detail screen.
+     *
+     * The card is what tells the user that the task on screen is one occurrence
+     * of a series, and its two buttons are the only way to reach the other
+     * occurrences' shared settings or to archive the whole series.
+     */
+    object TaskSeries {
+        /** The row of one occurrence. Tapping it opens that occurrence. */
+        const val MEMBER = "task_series_member"
+
+        /** Copies the time and the pin of this occurrence to the others. */
+        const val APPLY_TO_ALL = "task_series_apply_to_all"
+
+        /** Archives every occurrence of the series. */
+        const val DELETE = "task_series_delete"
+    }
+
     // ─── Editor Overflow menu ─────────────────────────────────────────────
 
     /**
@@ -891,6 +946,23 @@ object TestTags {
      * cell holds is tagged by date on the number inside it.
      */
     const val CALENDAR_DAY_CELL = "calendar_day_cell"
+
+    /**
+     * The bar that appears while the calendar picks days for one task.
+     *
+     * Its two buttons are the only way out of the selection mode: one creates
+     * the task on the picked days, the other drops the picking.
+     */
+    object Calendar {
+        /** The bar itself. */
+        const val SELECTION_BAR = "calendar_selection_bar"
+
+        /** Creates one task on the picked days. */
+        const val CREATE_ON_SELECTED = "calendar_create_on_selected"
+
+        /** Drops the picking and leaves the mode. */
+        const val CANCEL_SELECTION = "calendar_cancel_selection"
+    }
 
     // ─── Attachments (URL sheet) ──────────────────────────────────────────────
     //

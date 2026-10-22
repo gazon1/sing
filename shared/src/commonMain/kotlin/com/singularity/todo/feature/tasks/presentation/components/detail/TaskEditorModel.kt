@@ -43,6 +43,22 @@ data class TaskEditorModel(
     val taskId: TaskId? = null,
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: LocalDate? = null,
+    /**
+     * The dates of the work, when it is scheduled on several of them.
+     *
+     * Empty means "one date" — and then [dueDate] is that date. The list exists
+     * because the row has to *show* that there is more than one, and a single
+     * [LocalDate] field cannot say that.
+     */
+    val dueDates: List<LocalDate> = emptyList(),
+    /**
+     * Whether the date row may open the multi-date picker.
+     *
+     * Off by default, and on only where several dates make sense: the create
+     * editor. The detail screen of an existing task keeps one date per task —
+     * the dates of a series belong to its members, not to the task on screen.
+     */
+    val multiDateEnabled: Boolean = false,
     val dueTime: LocalTime? = null,
     val startDate: LocalDate? = null,
     val startTime: LocalTime? = null,

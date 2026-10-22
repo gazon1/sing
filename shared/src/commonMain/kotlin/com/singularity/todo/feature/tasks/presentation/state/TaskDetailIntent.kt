@@ -175,6 +175,25 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskEntityIntent
 
+        // ── Series ──────────────────────────────────────────────────────────
+
+        /**
+         * Copies the time of day and the pin of this occurrence to every other
+         * member of the series.
+         *
+         * The shared fields are applied to the whole series on their own; these
+         * two are not, because "the same on every date" is a choice the user
+         * makes rather than a property of the work.
+         */
+        data object ApplyToAllOccurrences : Domain, TaskEntityIntent
+
+        /**
+         * Archives every member of the series.
+         *
+         * Distinct from [Delete], which archives only the occurrence on screen.
+         */
+        data object DeleteSeries : Domain, TaskEntityIntent
+
         // ── Attachments ──────────────────────────────────────────────────────
 
         data class AddUrlAttachment(val url: String, val title: String?) :

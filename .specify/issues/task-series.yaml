@@ -1,0 +1,29 @@
+# spec-kit issue record — hand-written.
+#
+# Not imported from an OpenSpec change: the importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand.
+---
+version: '1.0'
+type: openspec-change
+slug: task-series
+date: '2026-10-22'
+title: 'One piece of work on several dates'
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- 2026-10-22-task-series-materialized-copies
+tags:
+- tasks
+- series
+- database
+- sync
+- ui
+documents:
+  proposal: openspec/changes/task-series/proposal.md
+  design: openspec/changes/task-series/design.md
+  tasks: openspec/changes/task-series/tasks.md
+specs_dir: openspec/changes/task-series/specs
+is_stub: false
+openspec_path: openspec/changes/task-series

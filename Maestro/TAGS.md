@@ -126,6 +126,7 @@ non-alphanumeric characters with `_`.
 ### Agenda
 | Constant | Value | Where |
 |---|---|---|
+| `AGENDA_MULTI_DATE_BUTTON` | `agenda_multi_date_button` | |
 | `AGENDA_REGEX_PATTERN_INPUT` | `agenda_regex_pattern_input` | |
 | `AGENDA_SAVED_VIEWS_BUTTON` | `agenda_saved_views_button` | |
 | `AGENDA_SAVE_CURRENT_BUTTON` | `agenda_save_current_button` | |
@@ -324,9 +325,19 @@ non-alphanumeric characters with `_`.
 | `ATTACHMENTS_TITLE_INPUT` | `attachments_title_input` | |
 | `ATTACHMENTS_URL_INPUT` | `attachments_url_input` | |
 | `CHAT_INPUT` | `chat_input` | |
+| `Calendar.CANCEL_SELECTION` | `calendar_cancel_selection` | |
+| `Calendar.CREATE_ON_SELECTED` | `calendar_create_on_selected` | |
+| `Calendar.SELECTION_BAR` | `calendar_selection_bar` | |
 | `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
 | `EDITOR_SHEET_CLOSE` | `editor_sheet_close` | |
 | `LOADING_INDICATOR` | `loading_indicator` | |
+| `MultiDatePicker.CANCEL` | `multi_date_picker_cancel` | |
+| `MultiDatePicker.CLEAR` | `multi_date_picker_clear` | |
+| `MultiDatePicker.COUNTER` | `multi_date_picker_counter` | |
+| `MultiDatePicker.MONTH_TITLE` | `multi_date_picker_month_title` | |
+| `MultiDatePicker.NEXT_MONTH` | `multi_date_picker_next_month` | |
+| `MultiDatePicker.OK` | `multi_date_picker_ok` | |
+| `MultiDatePicker.PREV_MONTH` | `multi_date_picker_prev_month` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
 | `RESULT_DIALOG` | `result_dialog` | |
@@ -334,6 +345,9 @@ non-alphanumeric characters with `_`.
 | `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |
 | `STATISTICS_TAB_TASKS` | `statistics_tab_tasks` | |
 | `STATISTICS_TAB_TIME` | `statistics_tab_time` | |
+| `TaskSeries.APPLY_TO_ALL` | `task_series_apply_to_all` | |
+| `TaskSeries.DELETE` | `task_series_delete` | |
+| `TaskSeries.MEMBER` | `task_series_member` | |
 
 ## Dynamic functions
 

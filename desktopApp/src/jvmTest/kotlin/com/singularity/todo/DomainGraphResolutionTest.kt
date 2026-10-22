@@ -212,7 +212,7 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> = mapOf(
     ProjectEditorViewModel::class to listOf(ProjectId("project-1")),
     // TaskDetailCoordinator(route) — the route carries the task and the view it came from
     TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1"))),
-    // TaskCreateViewModel(initialDueDate, sectionPrefillKey)
+    // TaskCreateViewModel(initialDueDate, draftKey)
     TaskCreateViewModel::class to listOf(LocalDate(2026, 9, 16), "section-1"),
     // AgendaViewModel(definition)
     AgendaViewModel::class to listOf(sampleAgendaDefinition()),

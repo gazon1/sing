@@ -5,6 +5,7 @@ import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
+import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -55,13 +56,29 @@ open class AgendaNavigator(
 
     /**
      * Open the task create screen with pre-fill values from an agenda section.
-     * The [sectionId] is used as the draft key suffix so the pre-populated draft
-     * (title, due date) is restored when the create screen opens.
+     *
+     * The draft the agenda wrote lives under the section's key, and the editor
+     * is pointed at that key by name — the full key, built by
+     * [TaskDraftKeys], so the two sides cannot build it differently.
      */
     open fun openCreateInSection(sectionId: String) {
         onExitGraph(
             AppDestination.TasksGraph(
-                start = AppDestination.TasksStartRoute.Create(sectionPrefillKey = sectionId),
+                start = AppDestination.TasksStartRoute.Create(draftKey = TaskDraftKeys.agendaSection(sectionId)),
+            ),
+        )
+    }
+
+    /**
+     * Open the task create screen on the draft that holds the picked days.
+     *
+     * The days travel in the draft, not in the route: a list of dates does not
+     * belong in a back stack, and the draft survives the death of the process.
+     */
+    open fun openCreateWithDates(draftKey: String) {
+        onExitGraph(
+            AppDestination.TasksGraph(
+                start = AppDestination.TasksStartRoute.Create(draftKey = draftKey),
             ),
         )
     }

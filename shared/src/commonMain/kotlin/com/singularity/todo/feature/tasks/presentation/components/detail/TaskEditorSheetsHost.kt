@@ -4,10 +4,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
+import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
 import com.singularity.todo.core.ui.components.sheet.TimePickerSheet
 import com.singularity.todo.feature.attachments.components.AttachmentsSheet
 import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
 import com.singularity.todo.feature.tags.components.TagsPickerSheet
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
@@ -39,14 +41,33 @@ fun TaskEditorSheetsHost(
 ) {
     when (activeSheet) {
         // ── Date/Time sheets ────────────────────────────────────────────────
-        is TaskEditorSheet.Date -> DatePickerSheet(
-            initialDate = model.dueDate,
-            onDateSelected = { date ->
-                callbacks.dueDate.onChangeDate.invoke(date)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
-        )
+        //
+        // The date sheet has two shapes. Where several dates make sense — the
+        // create editor — it opens the multi-date picker; everywhere else it
+        // opens the ordinary one. The switch is [TaskEditorModel.multiDateEnabled]
+        // and not the presence of a callback: the callback says *where the result
+        // goes*, the flag says *what the user is allowed to choose*.
+        is TaskEditorSheet.Date -> if (model.multiDateEnabled) {
+            MultiDatePickerSheet(
+                initialDates = model.dueDates.ifEmpty { listOfNotNull(model.dueDate) }.toSet(),
+                onConfirm = { dates ->
+                    callbacks.dueDate.onChangeDates?.invoke(dates)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+                today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                maxDates = TaskSeriesPlanner.MAX_DATES,
+            )
+        } else {
+            DatePickerSheet(
+                initialDate = model.dueDate,
+                onDateSelected = { date ->
+                    callbacks.dueDate.onChangeDate.invoke(date)
+                    onSheetDismiss()
+                },
+                onDismiss = onSheetDismiss,
+            )
+        }
 
         is TaskEditorSheet.Time -> TimePickerSheet(
             initialTime = model.dueTime,

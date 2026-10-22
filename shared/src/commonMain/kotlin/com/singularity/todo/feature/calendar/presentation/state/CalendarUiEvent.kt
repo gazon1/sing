@@ -17,4 +17,12 @@ sealed interface CalendarUiEvent : MviEvent {
 
     /** Show an error message. */
     data class ShowError(val message: String) : CalendarUiEvent
+
+    /**
+     * Open the create editor on the draft that holds the picked days.
+     *
+     * The event carries the *key* of the draft, not the days: the days are in
+     * the draft, and the draft is the only channel between the two screens.
+     */
+    data class NavigateToCreateWithDates(val draftKey: String) : CalendarUiEvent
 }

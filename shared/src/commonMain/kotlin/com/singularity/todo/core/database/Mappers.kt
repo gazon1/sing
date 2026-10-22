@@ -142,6 +142,7 @@ internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), blockedBy: Set<T
     recurrence = recurrenceRule?.let {
         StableJson.decodeFromString<RecurrenceSpec>(it)
     },
+    seriesId = seriesId?.let { com.singularity.todo.feature.tasks.domain.model.TaskSeriesId.fromString(it) },
     estimateMinutes = estimateMinutes,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),

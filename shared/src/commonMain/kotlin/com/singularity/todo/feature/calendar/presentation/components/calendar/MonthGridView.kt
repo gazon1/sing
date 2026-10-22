@@ -59,6 +59,9 @@ import kotlinx.datetime.LocalDate
  *   triggers [LaunchedEffect] to animate the pager to the matching page.
  * @param pageCount Total pages in the pager (default 240 ⇒ ±120 months).
  * @param onEmptyCellLongPress Called when user long-presses an empty current-month cell.
+ * @param selectedDates The days picked for one task, when the selection mode is on.
+ * @param onDayLongPress Called when user long-presses a day that holds tasks — the
+ *   gesture that enters the date-selection mode.
  */
 @Composable
 fun MonthGridView(
@@ -73,6 +76,8 @@ fun MonthGridView(
     modifier: Modifier = Modifier,
     pageCount: Int = 240,
     pagerState: PagerState = rememberPagerState(initialPage = pageCount / 2) { pageCount },
+    selectedDates: Set<LocalDate> = emptySet(),
+    onDayLongPress: (LocalDate) -> Unit = {},
 ) {
     val palette = LocalCalendarPalette.current
     val anchorYearMonth = remember(monthAnchor) { monthAnchor.toYearMonth() }
@@ -114,6 +119,8 @@ fun MonthGridView(
                 onDayClick = onDayClick,
                 onTaskClick = onTaskClick,
                 onEmptyCellLongPress = onEmptyCellLongPress,
+                selectedDates = selectedDates,
+                onDayLongPress = onDayLongPress,
             )
         }
     }
@@ -152,6 +159,8 @@ private fun MonthGridPage(
     onTaskClick: (CalendarTaskUi) -> Unit,
     onEmptyCellLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    selectedDates: Set<LocalDate> = emptySet(),
+    onDayLongPress: (LocalDate) -> Unit = {},
 ) {
     val palette = LocalCalendarPalette.current
     val gridDates = remember(pageAnchor) { monthGridDates(pageAnchor) }
@@ -169,10 +178,12 @@ private fun MonthGridPage(
                         isCurrentMonth = date.month == pageAnchor.month,
                         isToday = date == today,
                         isSelected = date == selectedDate,
+                        isDateSelected = date in selectedDates,
                         tasks = tasksByDate[date].orEmpty(),
                         onClick = { onDayClick(date) },
                         onTaskClick = onTaskClick,
                         onEmptyCellLongPress = onEmptyCellLongPress,
+                        onDayLongPress = onDayLongPress,
                         modifier = Modifier.weight(1f)
                             .fillMaxHeight(),
                     )
@@ -189,10 +200,12 @@ private fun MonthDayCell(
     isCurrentMonth: Boolean,
     isToday: Boolean,
     isSelected: Boolean,
+    isDateSelected: Boolean,
     tasks: List<CalendarTaskUi>,
     onClick: () -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onEmptyCellLongPress: (LocalDate) -> Unit,
+    onDayLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
@@ -207,14 +220,22 @@ private fun MonthDayCell(
         )
             .border(width = 0.5.dp, color = palette.divider)
             .let { box ->
-                if (isSelected) box.background(palette.surface) else box
+                when {
+                    isDateSelected -> box.background(palette.accent.copy(alpha = 0.25f))
+                    isSelected -> box.background(palette.surface)
+                    else -> box
+                }
             }
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = if (hasNoTasks) {
-                    { onEmptyCellLongPress(date) }
-                } else {
-                    {}
+                // The long press answers on every cell. An empty day keeps its
+                // old meaning — create one task on that day — and a day that
+                // already holds tasks enters the date-selection mode. Before
+                // this, the long press was wired only on empty cells, so the
+                // gesture that starts a multi-selection could not be performed
+                // on the days a user is most likely to pick.
+                onLongClick = {
+                    if (hasNoTasks) onEmptyCellLongPress(date) else onDayLongPress(date)
                 },
             )
             .padding(6.dp),

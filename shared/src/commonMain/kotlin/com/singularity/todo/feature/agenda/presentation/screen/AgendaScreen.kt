@@ -9,14 +9,18 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.core.ui.onboarding.SpotlightOverlay
@@ -26,9 +30,11 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.presentation.viewmodel.PendingDelete
+import com.singularity.todo.feature.agenda.presentation.nav.AgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -76,6 +82,11 @@ fun AgendaScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // The date picker lives here rather than in `AgendaContent`: the content is
+    // a previewable body, and the sheet is an interaction that ends in a
+    // navigation — the screen's job, not the body's.
+    var showMultiDatePicker by remember { mutableStateOf(false) }
+
     UndoSnackbar(
         pendingDelete = pendingDelete,
         snackbarHostState = snackbarHostState,
@@ -83,32 +94,12 @@ fun AgendaScreen(
     )
 
     CollectEvents(vm.events) { event ->
-        when (event) {
-            is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
-
-            is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
-
-            is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
-
-            is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
-
-            is AgendaUiEvent.ShowError -> {
-                scope.launch {
-                    snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short)
-                }
-            }
-
-            is AgendaUiEvent.BulkOperationDone -> {
-                val message = if (event.error != null) {
-                    "Failed to ${event.operation}: ${event.error}"
-                } else {
-                    "${event.count} task${if (event.count != 1) "s" else ""} ${event.operation}"
-                }
-                scope.launch {
-                    snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
-                }
-            }
-        }
+        handleAgendaEvent(
+            event = event,
+            navigator = navigator,
+            snackbarHostState = snackbarHostState,
+            scope = scope,
+        )
     }
 
     // Created here so the elements inside `AgendaContent` and the overlay below agree on
@@ -127,6 +118,7 @@ fun AgendaScreen(
                 greeting = (state as? AgendaUiState.Loaded)?.greeting ?: "",
                 onIntent = vm::onIntent,
                 onSavedViewsClick = { navigator.openSavedAgendaList() },
+                onMultiDateCreate = { showMultiDatePicker = true },
                 onSaveCurrentClick = {
                     seedStore.setSeed(definition)
                     navigator.openSavedAgendaCreate(definition)
@@ -158,6 +150,17 @@ fun AgendaScreen(
             // The same question about a selection: a bulk close is a close,
             // so it asks too.
             BlockedBulkCloseDialog(state = state, vm = vm)
+
+            if (showMultiDatePicker) {
+                MultiDateTaskPicker(
+                    today = vm.today,
+                    onConfirm = { dates ->
+                        showMultiDatePicker = false
+                        vm.onIntent(AgendaIntent.CreateOnDates(dates))
+                    },
+                    onDismiss = { showMultiDatePicker = false },
+                )
+            }
         }
     }
 }
@@ -178,6 +181,70 @@ private fun BlockedBulkCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
         totalCount = request.taskIds.size,
         onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose) },
         onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedBulkClose) },
+    )
+}
+
+/**
+ * What the agenda does with an event from its ViewModel.
+ *
+ * Its own function so that [AgendaScreen] stays inside the complexity budget:
+ * the events are an interaction of their own, and inlining them pushed the
+ * screen over.
+ */
+private fun handleAgendaEvent(
+    event: AgendaUiEvent,
+    navigator: AgendaNavigator,
+    snackbarHostState: SnackbarHostState,
+    scope: CoroutineScope,
+) {
+    when (event) {
+        is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
+
+        is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
+
+        is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
+
+        is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
+
+        is AgendaUiEvent.OpenCreateWithDates -> navigator.openCreateWithDates(event.draftKey)
+
+        is AgendaUiEvent.ShowError -> {
+            scope.launch {
+                snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short)
+            }
+        }
+
+        is AgendaUiEvent.BulkOperationDone -> {
+            val message = if (event.error != null) {
+                "Failed to ${event.operation}: ${event.error}"
+            } else {
+                "${event.count} task${if (event.count != 1) "s" else ""} ${event.operation}"
+            }
+            scope.launch {
+                snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
+            }
+        }
+    }
+}
+
+/**
+ * The date picker for "a task on several days".
+ *
+ * Its own composable, so that [AgendaScreen] stays inside the complexity budget:
+ * the picker is a whole interaction, and inlining it pushed the screen over.
+ */
+@Composable
+private fun MultiDateTaskPicker(
+    today: kotlinx.datetime.LocalDate,
+    onConfirm: (Set<kotlinx.datetime.LocalDate>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    MultiDatePickerSheet(
+        initialDates = emptySet(),
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        today = today,
+        maxDates = TaskSeriesPlanner.MAX_DATES,
     )
 }
 

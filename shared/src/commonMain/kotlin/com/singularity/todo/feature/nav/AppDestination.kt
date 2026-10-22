@@ -168,8 +168,14 @@ sealed interface AppDestination : AppNavKey {
      */
     @Serializable
     sealed interface TasksStartRoute : AppNavKey {
+        /**
+         * Opens the create editor with the draft named by [draftKey].
+         *
+         * The key is complete: whoever writes the draft builds the key with
+         * [com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys].
+         */
         @Serializable
-        data class Create(val sectionPrefillKey: String? = null) : TasksStartRoute
+        data class Create(val draftKey: String? = null) : TasksStartRoute
 
         /**
          * A task the person opened.

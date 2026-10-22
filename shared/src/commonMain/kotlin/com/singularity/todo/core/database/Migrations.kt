@@ -131,3 +131,7 @@ class Migration16To17 : AutoMigrationSpec
  * @see com.singularity.todo.docs.decisions.2026-10-21-blocked-completion-guard
  */
 class Migration43To44 : AutoMigrationSpec
+
+// Migration45To46 is defined in Migration45To46.kt — it is manual, because the
+// derived auto-migration rewrites the `tasks` table, and the notes that point at
+// a task lose that point when the table is dropped.

@@ -21,6 +21,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlin.time.Clock
@@ -74,6 +75,14 @@ data class TaskCoreDeps(
      * open, and a task that comes back to work brings its project with it.
      */
     val completion: TaskReopenUseCase,
+
+    /**
+     * Writes one change to every member of a series.
+     *
+     * Present because a series is several rows: a shared field has to reach all
+     * of them, and doing that from the slots would put the rule in two places.
+     */
+    val updateSeries: UpdateTaskSeriesUseCase,
 )
 
 /**

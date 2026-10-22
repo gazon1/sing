@@ -564,6 +564,10 @@ private class FakeTaskDao(
         }.sortedBy { it.dueDate }
     }
 
+    override fun observeSeriesForUser(seriesId: String, userId: String): Flow<List<TaskEntity>> = store.map {
+        it.values.filter { t -> t.userId == userId && t.seriesId == seriesId }.sortedBy { it.dueDate }
+    }
+
     override fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>> =
         kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
             val directlyTagged = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()

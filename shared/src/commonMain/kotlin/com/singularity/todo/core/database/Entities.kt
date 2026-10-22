@@ -26,7 +26,7 @@ data class SyncColumns(
     tableName = "tasks",
     indices = [
         Index("user_id"), Index("due_date"), Index("archived_at"), Index("project_id"),
-        Index("recurrence_rule"),
+        Index("recurrence_rule"), Index("series_id"),
     ],
 )
 data class TaskEntity(
@@ -51,6 +51,14 @@ data class TaskEntity(
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
     @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
+    /**
+     * The id of the series this row belongs to; `null` for a task that stands alone.
+     *
+     * The column name is spelled out on purpose: without an explicit
+     * [ColumnInfo] the property name and the column name diverge, and Room's
+     * auto-migration then writes a statement the SQL validator rejects.
+     */
+    @ColumnInfo("series_id") val seriesId: String? = null,
     @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]", // wikilink backlinks
     @ColumnInfo("ai_suppressed_tag_ids", defaultValue = "[]") val aiSuppressedTagIds: String = "[]",
     @ColumnInfo("created_at") val createdAt: Long,

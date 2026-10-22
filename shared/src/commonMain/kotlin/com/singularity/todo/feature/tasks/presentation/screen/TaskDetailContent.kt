@@ -67,6 +67,7 @@ import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEdi
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorMenuItem
 import com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorModel
+import com.singularity.todo.feature.tasks.presentation.components.detail.TaskSeriesCard
 import com.singularity.todo.feature.tasks.presentation.nav.LocalTasksNavigator
 import com.singularity.todo.feature.tasks.presentation.state.FirstRun
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
@@ -372,6 +373,21 @@ fun TaskDetailContent(
                                             onOpenTask = { navigator.openDetail(it) },
                                         )
                                     }
+                                    // The series card. Rendered only for a task that
+                                    // belongs to one: a task that stands alone has
+                                    // nothing to say about other occurrences.
+                                    TaskSeriesCard(
+                                        members = ui.seriesMembers,
+                                        onOpenMember = { navigator.openDetail(it) },
+                                        onApplyToAll = {
+                                            coordinator.onIntent(
+                                                TaskDetailIntent.Domain.ApplyToAllOccurrences,
+                                            )
+                                        },
+                                        onDeleteSeries = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+                                        },
+                                    )
                                     TimeTrackingSection(
                                         state = ui.timeSlotState,
                                         onStart = { coordinator.onIntent(TaskDetailIntent.Domain.Start) },
