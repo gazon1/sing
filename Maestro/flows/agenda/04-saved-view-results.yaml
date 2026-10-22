@@ -46,7 +46,11 @@ tags:
 # flag, so the discard guard has nothing to guard and back goes straight out.
 # The guard only appears while the draft has unsaved edits — see
 # 03-saved-views-crud.yaml, which renames without saving and does get it.
-- hideKeyboard
+#
+# No `hideKeyboard` here: the keyboard was already hidden above, and a
+# `hideKeyboard` with nothing to hide is a BACK keypress — which the editor
+# reads as "dismiss me". Measured on a real phone (2026-10-28). See
+# docs/decisions/2026-10-28-the-keyboard-was-already-down.md.
 - scrollUntilVisible:
     element:
       id: top_bar_back_button

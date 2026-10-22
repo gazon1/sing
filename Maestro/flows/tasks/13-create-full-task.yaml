@@ -90,8 +90,13 @@ tags:
 - tapOn:
     text: "OK"
 
-# ── Hide keyboard and save ─────────────────────────────────────────────
-- hideKeyboard
+# ── Save ──────────────────────────────────────────────────────────────
+#
+# No `hideKeyboard` here: the keyboard was already hidden above (the due-date
+# picker is not a text field), and a `hideKeyboard` with nothing to hide is a
+# BACK keypress — which the editor dialog reads as "dismiss me". Measured on a
+# real phone (2026-10-28). See
+# docs/decisions/2026-10-28-the-keyboard-was-already-down.md.
 - tapOn:
     id: task_editor_save
 
