@@ -27,6 +27,10 @@ a repository, a use case and a crash reporter at once, so they are exactly where
 missing binding hides. The count went into the test's own output as a *number*, which
 reads like a measurement and is actually a hole.
 
+The registry that resolves them is a registry, not a list: a ninth such definition —
+`NoteProposalsViewModel`, added by `2026-10-22-the-write-path-asks-first` — fails the
+graph test until it is listed there. That is the behaviour the registry was built for.
+
 **The Android half of the graph was resolved by no test at all.** The graph test builds
 its graph from `testPlatformModule()` — a set of fakes standing in for the platform.
 Every Android binding in `PlatformModule.android.kt` was therefore never created by
@@ -121,7 +125,7 @@ why. The list is in the test, next to the reason.
 ## Consequences
 
 - `desktopApp/src/jvmTest/kotlin/com/singularity/todo/DomainGraphResolutionTest.kt` —
-  the eight parameterised definitions are resolved; the registry is checked in both
+  the parameterised definitions are resolved; the registry is checked in both
   directions.
 - `shared/src/androidHostTest/kotlin/com/singularity/todo/core/di/AndroidGraphResolutionTest.kt`
   — new: the Android graph, resolved.

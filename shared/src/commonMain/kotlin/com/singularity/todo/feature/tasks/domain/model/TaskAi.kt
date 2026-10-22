@@ -11,7 +11,16 @@ sealed interface AiActionResult {
 }
 
 /** Stable, value-classified set of actions a user can trigger from the AI sheet. */
-enum class TaskAiAction { RefineTitle, GenerateDescription, GenerateChecklist, Decompose, SuggestTime }
+enum class TaskAiAction {
+    RefineTitle,
+    GenerateDescription,
+    GenerateChecklist,
+    Decompose,
+    SuggestTime,
+
+    /** The one physical action to take first, and the sign that it is done. */
+    FirstStep,
+}
 
 /**
  * Pure formatter for AI action results.

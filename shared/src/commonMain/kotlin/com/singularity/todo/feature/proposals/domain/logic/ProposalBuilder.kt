@@ -39,24 +39,14 @@ object ProposalBuilder {
         userId: UserId,
         source: ProposalSource,
         clock: Clock,
-    ): Pair<AiProposal, List<ProposalItem>> {
-        val proposalId = ProposalId.generate()
-        val itemId = ProposalItemId.generate()
-        val now = clock.now()
-        val item = newItem(kind, taskId.value, itemId, proposalId)
-        val proposal = AiProposal(
-            id = proposalId,
-            targetKind = AiProposal.TARGET_KIND_TASK,
-            targetId = taskId.value,
-            userId = userId,
-            source = source,
-            status = ProposalStatus.Pending,
-            createdAt = now,
-            updatedAt = now,
-            items = listOf(item),
-        )
-        return proposal to listOf(item)
-    }
+    ): Pair<AiProposal, List<ProposalItem>> = forTarget(
+        kind = kind,
+        targetKind = AiProposal.TARGET_KIND_TASK,
+        targetId = taskId.value,
+        userId = userId,
+        source = source,
+        clock = clock,
+    )
 
     /**
      * Builds a single-item proposal for a note-bound action.
@@ -73,15 +63,42 @@ object ProposalBuilder {
         userId: UserId,
         source: ProposalSource,
         clock: Clock,
+    ): Pair<AiProposal, List<ProposalItem>> = forTarget(
+        kind = kind,
+        targetKind = AiProposal.TARGET_KIND_NOTE,
+        targetId = noteId,
+        userId = userId,
+        source = source,
+        clock = clock,
+    )
+
+    /**
+     * Builds a single-item proposal against any kind of target.
+     *
+     * The general form, for the targets that are neither a task nor a note — a
+     * project, a tag. The specialised forms above say the target kind for the two
+     * common cases, because a caller that gets the kind wrong writes a proposal the
+     * confirmation screen will not find.
+     *
+     * @param targetKind one of the `AiProposal.TARGET_KIND_*` constants.
+     * @param targetId the target's id, in string form.
+     */
+    fun forTarget(
+        kind: ProposalItemKind,
+        targetKind: String,
+        targetId: String,
+        userId: UserId,
+        source: ProposalSource,
+        clock: Clock,
     ): Pair<AiProposal, List<ProposalItem>> {
         val proposalId = ProposalId.generate()
         val itemId = ProposalItemId.generate()
         val now = clock.now()
-        val item = newItem(kind, noteId, itemId, proposalId)
+        val item = newItem(kind, targetId, itemId, proposalId)
         val proposal = AiProposal(
             id = proposalId,
-            targetKind = AiProposal.TARGET_KIND_NOTE,
-            targetId = noteId,
+            targetKind = targetKind,
+            targetId = targetId,
             userId = userId,
             source = source,
             status = ProposalStatus.Pending,
@@ -137,8 +154,13 @@ object ProposalBuilder {
     )
 }
 
-/** Human-readable summary derived from a [ProposalItemKind]. */
-private val ProposalItemKind.humanSummary: String
+/**
+ * Human-readable summary derived from a [ProposalItemKind].
+ *
+ * The line the user reads in the confirmation screen, so it says what will happen
+ * rather than which variant of the domain type was chosen.
+ */
+val ProposalItemKind.humanSummary: String
     get() = when (this) {
         is ProposalItemKind.SetTaskField -> when (field) {
             com.singularity.todo.feature.proposals.domain.model.TaskField.Title -> "Update title"

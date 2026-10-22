@@ -3,6 +3,7 @@ package com.singularity.todo.feature.proposals.domain.port
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
@@ -34,6 +35,18 @@ interface ProposalRepository {
      * Emits again whenever a proposal or any of its items changes.
      */
     fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>>
+
+    /**
+     * Watch every proposal on [noteId], newest first, with their items resolved.
+     *
+     * The note twin of [watchProposalsForTask]: an AI action on a note proposes a
+     * change to that note, and a proposal nobody can reach is a proposal the user can
+     * only answer by telling the assistant to stop.
+     *
+     * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
+     * Emits again whenever a proposal or any of its items changes.
+     */
+    fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>>
 
     /** Watch one proposal with its items. Emits null if it does not exist. */
     fun watchProposal(id: ProposalId): Flow<AiProposal?>

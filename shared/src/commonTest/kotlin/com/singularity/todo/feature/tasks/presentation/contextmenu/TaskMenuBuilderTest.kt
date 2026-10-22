@@ -158,7 +158,7 @@ class TaskMenuBuilderTest {
     }
 
     @Test
-    fun `AI submenu contains 5 actions`() {
+    fun `AI submenu contains 6 actions`() {
         val menu = buildTaskContextMenu(
             makeTaskUi(),
             hasAiContext = true,
@@ -166,7 +166,7 @@ class TaskMenuBuilderTest {
         )
         val aiSub = menu.filterIsInstance<MenuNode.SubMenu>()
             .find { it.id == "ai_actions" }!!
-        assertEquals(5, aiSub.children.size)
+        assertEquals(6, aiSub.children.size)
     }
 
     @Test

@@ -40,4 +40,5 @@ private fun TaskAiAction.label(): String = when (this) {
     TaskAiAction.GenerateChecklist -> "Generate checklist"
     TaskAiAction.Decompose -> "Decompose into sub-tasks"
     TaskAiAction.SuggestTime -> "Suggest time"
+    TaskAiAction.FirstStep -> "Find the first step"
 }

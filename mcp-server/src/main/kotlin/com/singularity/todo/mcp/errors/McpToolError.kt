@@ -14,8 +14,17 @@ package com.singularity.todo.mcp.errors
  * caught by the tool registrar's try/catch.
  */
 sealed class McpToolError : Throwable() {
-    /** Missing or invalid input field. */
-    data class Validation(val field: String, val text: String) : McpToolError()
+    /**
+     * Missing or invalid input field.
+     *
+     * [cause] carries the failure that produced it: the caller's answer says what was
+     * wrong with the arguments, and the stack trace says which reader produced them.
+     */
+    data class Validation(
+        val field: String,
+        val text: String,
+        override val cause: Throwable? = null,
+    ) : McpToolError()
 
     /** Requested resource does not exist in the user's data. */
     data class NotFound(val resource: String, val id: String) : McpToolError()

@@ -11,6 +11,8 @@ import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationV
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
 import com.singularity.todo.feature.nav.TasksRoute
+import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsViewModel
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
@@ -54,11 +56,13 @@ import kotlin.test.assertTrue
  *
  * ## The definitions that need a runtime parameter
  *
- * Eight definitions take a parameter the caller supplies — a ViewModel that edits one
+ * The definitions that take a runtime parameter
+ *
+ * Nine definitions take a parameter the caller supplies — a ViewModel that edits one
  * entity needs that entity's id. They used to be *skipped* here: the test counted them
  * as "needs a parameter" and moved on, which left their own dependencies unverified. A
  * definition whose dependency is missing is exactly the defect this test exists to
- * catch, and the eight were the definitions most likely to have one — they are the
+ * catch, and they were the definitions most likely to have one — they are the
  * ones that reach into a repository, a use case and a crash reporter at once.
  *
  * They are resolved now, with the parameters listed in [runtimeParameters]. The list is
@@ -214,6 +218,8 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> = mapOf(
     AgendaViewModel::class to listOf(sampleAgendaDefinition()),
     // SavedAgendaViewModel(mode)
     SavedAgendaViewModel::class to listOf(SavedAgendaScreenMode.Create(sampleAgendaDefinition())),
+    // NoteProposalsViewModel(noteId) — the pending-proposal panel of one note
+    NoteProposalsViewModel::class to listOf(NoteId("note-1")),
 )
 
 /** An [AgendaDefinition] with no sections — enough to construct a ViewModel with it. */

@@ -4,6 +4,7 @@ import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
@@ -37,6 +38,12 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
             .map(::withItems)
     }
 
+    override fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>> = proposals.map { map ->
+        map.values.filter { it.targetKind == AiProposal.TARGET_KIND_NOTE && it.targetId == noteId.value }
+            .sortedByDescending { it.createdAt }
+            .map(::withItems)
+    }
+
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
         proposals.map { map -> map[id.value]?.let(::withItems) }
 
@@ -54,7 +61,10 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         }
 
     override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
-        proposals.update { it + (proposal.id.value to proposal.copy(status = derived(proposal.id.value))) }
+        // The items first. A proposal's status is derived from its items, so a
+        // proposal stored before its items would be derived as resolved — the
+        // opposite of what a proposal with pending items is. The order is the
+        // one the DAO has: items, then the row that counts them.
         proposal.items.forEach { item ->
             // Mirrors the unique (proposal_id, fingerprint) index.
             val clash = items.value.values.any {
@@ -62,6 +72,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
             }
             if (!clash) items.update { it + (item.id.value to item) }
         }
+        proposals.update { it + (proposal.id.value to proposal.copy(status = derived(proposal.id.value))) }
     }
 
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.value[id.value]

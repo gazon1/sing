@@ -7,6 +7,7 @@ import com.singularity.todo.feature.ai.use_cases.ImproveNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
 import com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.domain.editor.extractActionsLambda
@@ -17,6 +18,7 @@ import com.singularity.todo.feature.notes.domain.editor.summarizeNoteLambda
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreview
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsViewModel
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -64,7 +66,8 @@ fun notesModule(): org.koin.core.module.Module = module {
 
     // NoteEditor: ai is optional — improveNote is null when AI is not configured
     // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
-    // proposals + applyProposal wire the note-AI-through-proposals flow (MR-A3).
+    // proposals wire the note-AI-through-proposals flow (MR-A3): the editor saves the
+    // proposed change, and the note's own screen shows it for the user's word.
     //
     // `getOptionalOrNull`, not `getOrNull`: an AI binding that *exists* but cannot
     // be created is a broken binding, not a missing feature, and it used to take
@@ -88,11 +91,22 @@ fun notesModule(): org.koin.core.module.Module = module {
                     ?.let(::suggestTagsLambda),
             ),
             proposals = get<ProposalRepository>(),
-            applyProposal = get<ApplyProposalItemUseCase>(),
             log = get<Logger>(),
             currentUser = get<ProfileAwareCurrentUser>(),
             clock = get<Clock>(),
             // scope omitted — the default derives its failure policy from crashReporter
+            crashReporter = get<CrashReportingPort>(),
+        )
+    }
+
+    // The AI's proposed changes to a note, and the user's answer to them. The note
+    // id is a runtime parameter — it arrives with the route.
+    viewModel { (noteId: NoteId) ->
+        NoteProposalsViewModel(
+            noteId = noteId,
+            proposals = get<ProposalRepository>(),
+            applyProposalItem = get<ApplyProposalItemUseCase>(),
+            currentUser = get<ProfileAwareCurrentUser>(),
             crashReporter = get<CrashReportingPort>(),
         )
     }

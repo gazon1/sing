@@ -10,26 +10,45 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.ai.prompts.Prompts
+import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
+import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CancellationException
+import kotlin.time.Clock
 
 @Serializable
-data class WeeklyPlanInput(val tasks: List<String>)
+data class WeeklyPlanInput(
+    /** The tasks to plan, when the reader names them. */
+    val tasks: List<String> = emptyList(),
+    /** The app's own set of tasks to plan, when the reader names one instead. */
+    val selection: TaskSelection? = null,
+)
 
 @Serializable
 data class WeeklyPlanOutput(val items: List<String>)
 
-class WeeklyPlanTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
-    SimpleTool<WeeklyPlanInput>(TypeToken.of(WeeklyPlanInput::class.java), NAME, DESCRIPTION) {
+class WeeklyPlanTool(
+    private val promptExecutor: PromptExecutor,
+    private val model: LLModel,
+    private val taskRepository: TaskRepository,
+    private val clock: Clock,
+    private val timeZoneProvider: TimeZoneProvider,
+) : SimpleTool<WeeklyPlanInput>(TypeToken.of(WeeklyPlanInput::class.java), NAME, DESCRIPTION) {
 
     private val logger = Logger.withTag("WeeklyPlan")
 
     override suspend fun execute(args: WeeklyPlanInput): String {
+        val tasks = args.selection
+            ?.let { selection ->
+                TaskToolSupport.select(selection, taskRepository, clock, timeZoneProvider.current())
+            }
+            ?: args.tasks
         val p = prompt(Prompt.Empty, KoogClock.System) {
             system(Prompts.weeklyPlanSystem)
-            user(Prompts.weeklyPlanUser(args.tasks))
+            user(Prompts.weeklyPlanUser(tasks))
         }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)

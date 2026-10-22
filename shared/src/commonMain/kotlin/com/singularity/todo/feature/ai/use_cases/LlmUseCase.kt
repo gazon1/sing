@@ -7,6 +7,9 @@ import com.singularity.todo.feature.ai.tools.DecomposeTaskTool
 import com.singularity.todo.feature.ai.tools.ExtractActionsInput
 import com.singularity.todo.feature.ai.tools.ExtractActionsOutput
 import com.singularity.todo.feature.ai.tools.ExtractActionsTool
+import com.singularity.todo.feature.ai.tools.FirstStepInput
+import com.singularity.todo.feature.ai.tools.FirstStepOutput
+import com.singularity.todo.feature.ai.tools.FirstStepTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistInput
 import com.singularity.todo.feature.ai.tools.GenerateChecklistOutput
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
@@ -94,6 +97,21 @@ class DecomposeTaskUseCase(tool: DecomposeTaskTool) :
     ) {
     suspend operator fun invoke(title: String, description: String? = null): Result<List<String>> =
         execute(DecomposeTaskInput(title, description)).map { it.subTasks }
+}
+
+/**
+ * The first physical action of a task, and the sign that the action is done.
+ *
+ * The one action, not a list — the difference from [DecomposeTaskUseCase] is the
+ * contract and the prompt, not the name.
+ */
+class FirstStepUseCase(tool: FirstStepTool) :
+    LlmUseCase<FirstStepInput, FirstStepOutput>(
+        tool,
+        FirstStepOutput.serializer(),
+    ) {
+    suspend operator fun invoke(title: String, description: String? = null): Result<FirstStepOutput> =
+        execute(FirstStepInput(title, description))
 }
 
 class ImproveNoteUseCase(private val tool: TypedTool<ImproveNoteInput, ImproveNoteOutput>) {

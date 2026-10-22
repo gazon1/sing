@@ -40,6 +40,8 @@ internal fun AppDestination.stableContentKey(): String = when (this) {
 
     is AppDestination.AiChat -> "ai-chat"
 
+    is AppDestination.Review -> "review"
+
     is AppDestination.Search -> "search"
 
     is AppDestination.Archive -> "archive"

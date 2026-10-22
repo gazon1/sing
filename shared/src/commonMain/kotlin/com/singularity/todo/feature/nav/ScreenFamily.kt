@@ -98,7 +98,11 @@ private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) 
     is AppDestination.NotesGraph,
     -> ScreenFamily.Notes
 
-    AppDestination.AiChat -> ScreenFamily.AiChat
+    // The review screen shows what the assistant proposed, so it belongs to the
+    // assistant's family: opening it from the chat is a push within one feature.
+    AppDestination.AiChat,
+    AppDestination.Review,
+    -> ScreenFamily.AiChat
 
     AppDestination.Search -> ScreenFamily.Search
 

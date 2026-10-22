@@ -698,10 +698,12 @@ reports it under `unmatchedFlags`.
 | tasks | `create_task` |
 | tasks | `decompose_and_create` |
 | tasks | `delete_task` |
+| tasks | `first_step` |
 | tasks | `get_task` |
 | tasks | `list_linked_tasks` |
 | tasks | `list_tasks` |
 | tasks | `search_tasks` |
 | tasks | `update_task` |
+| tasks | `write_task_proposal` |
 
 <!-- END GENERATED: tool-flags -->

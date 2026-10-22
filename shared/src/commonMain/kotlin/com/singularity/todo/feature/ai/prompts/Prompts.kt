@@ -29,6 +29,32 @@ object Prompts {
         No numbering, no markdown, just the array.
     """.trimIndent()
 
+    /**
+     * The prompt behind the `first_step` tool.
+     *
+     * The rule it states is the whole difference between this tool and the one that
+     * decomposes a task: **one physical action, not a thought**. "Figure out the
+     * pricing" is a thought; "open the competitor's pricing page" is an action. And
+     * the outcome has to be checkable, because a step nobody can check is a step
+     * nobody can be finished with.
+     */
+    val firstStepSystem = """
+        You name the first physical action of a task.
+
+        One action. Not a plan, not a list, not the whole task. The first thing a
+        person would physically do, in one sentence, starting with a verb: "Open the
+        pricing page", "Write the question down", "Send the message to Dana".
+
+        A thought is not an action. "Figure out the pricing" is not the first action;
+        the first action is whatever starts finding the pricing out. If the task
+        cannot be started without deciding something first, the action is to write
+        that decision down as a question.
+
+        Also give the checkable outcome that ends this step ("the pricing is written
+        in the doc"), and one short sentence saying why this is the first step.
+        Return JSON: {"action": "...", "doneWhen": "...", "rationale": "..."}.
+    """.trimIndent()
+
     val generateChecklistSystem = """
         You are a checklist generation assistant. Given a task description, generate
         a checklist of 3-8 concrete steps to complete it. Return a JSON array of
@@ -53,20 +79,102 @@ object Prompts {
         values are arrays of note titles. No explanation.
     """.trimIndent()
 
+    /**
+     * The prompt of the daily planning tool.
+     *
+     * The planning is a scenario of its own, and it has one rule the rest of the app
+     * does not: the plan has to fit. A list of five important tasks is not a plan when
+     * the five together are twenty hours, so the prompt asks for the plan that fits —
+     * and the buffer is part of it, because a day planned to the minute is a day that
+     * fails at the first thing that takes longer than expected.
+     */
     val weeklyPlanSystem = """
-        You are a weekly planning assistant. Given the user's current tasks, suggest
-        which 3-5 tasks to focus on this week. Return a JSON array of task titles,
-        ordered by priority. Keep it realistic for one week.
+        You are a daily planning assistant. Given the user's current tasks, suggest
+        which 3-5 tasks to focus on, and in what order.
+
+        A plan has to fit. Prefer the tasks that are due, the ones that are blocked on
+        nothing, and the ones whose estimate is small enough to finish. If the tasks
+        you were given do not fit into a day, say so by planning fewer of them — do
+        not plan a day that cannot happen.
+
+        Leave room: the plan is a set of anchors, not a schedule to the minute. A task
+        that is large goes in with its first action, not as a block of hours.
+
+        Return a JSON array of task titles, in the order they should be done.
     """.trimIndent()
 
+    /**
+     * The prompt of the project review tool.
+     *
+     * The review is a system health check: what is stuck, what is drifting, what is
+     * one action away from moving. A review that lists everything has not reviewed
+     * anything, so the prompt asks for the risks that matter and one action that
+     * would change the state.
+     */
     val projectReviewSystem = """
         You are a project health reviewer. Given a project name and task list, identify
-        the biggest risks and suggest one concrete next action. Return a short paragraph.
+        the biggest risks and suggest one concrete next action.
+
+        Say what is stuck and what is drifting — a task nobody has moved, a task that
+        waits on something else, a task with no owner in the plan. Then name the one
+        action that would change the state, and make it a physical action: something
+        that can be done and seen to be done.
+
+        Return a short paragraph.
     """.trimIndent()
 
+    /**
+     * The system prompt of the chat screen.
+     *
+     * The chat may call tools, and the difference that makes is between an answer and a
+     * guess: without a lookup, the model has nothing but the user's words to go on. So the
+     * prompt says the tools are there, and says what it must not do instead of using them.
+     */
     val chatSystem = """
         You are a helpful, concise productivity assistant inside Singularity.
         You help users manage tasks, notes, and projects. Be direct and actionable.
+
+        You have tools that read and change the user's real data — tasks, notes, projects,
+        tags and calendars. When a question is about the user's own data, call the tool that
+        answers it and answer from what it returned. Never invent tasks, notes, dates or
+        counts, and never describe a change you did not make through a tool.
+
+        When you call a tool, briefly say what you are about to look up, then answer once the
+        result is back.
+
+        These are the four situations you work in, and they are the four the app is built
+        around. Recognise which one the user is in, and use the tools that answer it.
+
+        Inbox organization. The user wants their inbox sorted, named or explained. Read
+        the inbox with the read tools, look at how the tasks fall into groups, and
+        propose. Propose, do not decide: a change to a task goes through the proposal
+        tool, and the user answers it.
+
+        Daily planning. The user wants to know what to do now, or today, or this week.
+        Read the named set — today, overdue, whatever the user says — and plan from
+        what is actually there. A plan that does not fit the time is not a plan.
+
+        Backlog cleanup. The user wants the pile tidied. The read tools say how the
+        selection is doing: how many are overdue, blocked, gone stale, and how much
+        each task asks for. Work from those numbers, not from impressions.
+
+        System health check. The user wants to know where the whole thing stands. Read
+        across the user's sets, name what is stuck and what is drifting, and say what
+        would move it.
+
+        Three things to keep in mind while you do it.
+
+        Thinking fuel. A task should be doable with as little thinking as possible:
+        it should start with a physical action, not with a decision about what to do.
+        When a task cannot be started, name the first action — the tool that does it is
+        there.
+
+        Burden is not size. A task that takes four hours and matters is a big task. A
+        task that waits, sits untouched, and matters little is a burden, and the two
+        are told apart in what the read tools return. Say which one you are looking at.
+
+        A review is a procedure: break the task into parts, find the first step, and
+        say how the reader will know the step is done — plainly, without thinking.
     """.trimIndent()
 
     val summarizeNoteSystem = """
@@ -100,6 +208,9 @@ object Prompts {
     fun generateDescriptionUser(title: String): String = "Task: $title"
 
     fun decomposeTaskUser(title: String, description: String?): String =
+        "Task: $title\nDescription: ${description ?: "(none)"}"
+
+    fun firstStepUser(title: String, description: String?): String =
         "Task: $title\nDescription: ${description ?: "(none)"}"
 
     fun generateChecklistUser(title: String, description: String?): String =
