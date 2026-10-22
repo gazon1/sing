@@ -6,12 +6,14 @@ import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
+import com.singularity.todo.feature.proposals.presentation.ReviewViewModel
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import kotlin.time.Clock
 
@@ -59,6 +61,19 @@ fun proposalModule(): Module = module {
             tags = get(),
             planner = get(),
             dispatch = get(),
+        )
+    }
+
+    // The review screen: the proposals waiting for a decision. An explicit lambda
+    // rather than `viewModelOf`, because the ViewModel has defaults for the crash
+    // reporter and the scope, and Koin's reflective resolution does not apply Kotlin
+    // default arguments.
+    viewModel {
+        ReviewViewModel(
+            proposals = get(),
+            applyProposalItem = get(),
+            currentUser = get(),
+            crashReporter = get(),
         )
     }
 }

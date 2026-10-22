@@ -112,7 +112,7 @@ when the answer is "excluded".
 |---|---|---|
 | `core/ui/components/MessageBubble.kt` | linkified | the assistant's answer is prose, and prose is where links turn up |
 | `feature/genui/render/material3/atoms/TextRenderer.kt` | linkified | a generated screen's text; the model's own words may carry links |
-| `feature/tasks/presentation/components/detail/TaskDetailProposalSection.kt` | linkified | the model's summary of what it proposes |
+| `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
 | `feature/notes/presentation/screen/NotePreviewScreen.kt` | selectable | the note body; its links are the note's own, handled by the screen |
 | `feature/tasks/presentation/components/detail/LogbookSection.kt` | selectable | note titles and time rows — the "add note" button is excluded from the selection |
 | `feature/tasks/presentation/components/detail/LinkedBacklinksCard.kt` | selectable | the titles of the notes that link back |

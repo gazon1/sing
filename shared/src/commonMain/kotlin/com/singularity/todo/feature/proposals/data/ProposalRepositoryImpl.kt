@@ -7,6 +7,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -49,6 +50,12 @@ class ProposalRepositoryImpl(
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
             dao.watchProposalsForTarget(taskId.value, AiProposal.TARGET_KIND_TASK, userId.value)
+                .map { rows -> rows.map { row -> hydrate(row) } }
+        }
+
+    override fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>> =
+        currentUser.scopedUserId.flatMapLatest { userId ->
+            dao.watchProposalsForTarget(noteId.value, AiProposal.TARGET_KIND_NOTE, userId.value)
                 .map { rows -> rows.map { row -> hydrate(row) } }
         }
 

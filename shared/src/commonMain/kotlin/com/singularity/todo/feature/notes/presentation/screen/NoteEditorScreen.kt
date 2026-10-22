@@ -49,12 +49,20 @@ import com.singularity.todo.feature.notes.components.InternalLinkPickerSheet
 import com.singularity.todo.feature.notes.presentation.components.NoteAiActionSheet
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsIntent
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsViewModel
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.rememberEditorSession
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
 import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.filterIsInstance
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
@@ -84,6 +92,13 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
             }
     }
 
+    // The AI's proposed changes to this note. A note that is being created has none
+    // yet, so the ViewModel is asked about an empty id and shows nothing.
+    val proposalsViewModel: NoteProposalsViewModel = koinViewModel {
+        parametersOf(NoteId.fromString(route.noteId?.value.orEmpty()))
+    }
+    val proposalsState by proposalsViewModel.stateFlow.collectAsStateWithLifecycle()
+
     var showAiSheet by remember { mutableStateOf(false) }
     NoteEditorScreenContent(
         editorState = editorState,
@@ -101,6 +116,19 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
         onAiAction = { action -> viewModel.onIntent(NotesEditorIntent.RunAiAction(action)) },
         showAiSheet = showAiSheet,
         onDismissAiSheet = { showAiSheet = false },
+        pendingProposals = proposalsState.proposals,
+        onConfirmProposal = { itemId ->
+            proposalsViewModel.onIntent(NoteProposalsIntent.Confirm(itemId))
+        },
+        onRejectProposal = { itemId, reason ->
+            proposalsViewModel.onIntent(NoteProposalsIntent.Reject(itemId, reason))
+        },
+        onConfirmAllProposals = { proposalId ->
+            proposalsViewModel.onIntent(NoteProposalsIntent.ConfirmAll(proposalId))
+        },
+        onDismissProposal = { proposalId ->
+            proposalsViewModel.onIntent(NoteProposalsIntent.Dismiss(proposalId))
+        },
     )
 
     NotificationHost(
@@ -128,6 +156,11 @@ fun NoteEditorScreenContent(
     onAiAction: ((com.singularity.todo.feature.notes.NoteAiAction) -> Unit)? = null,
     showAiSheet: Boolean = false,
     onDismissAiSheet: () -> Unit = {},
+    pendingProposals: List<AiProposal> = emptyList(),
+    onConfirmProposal: (ProposalItemId) -> Unit = {},
+    onRejectProposal: (ProposalItemId, String?) -> Unit = { _, _ -> },
+    onConfirmAllProposals: (ProposalId) -> Unit = {},
+    onDismissProposal: (ProposalId) -> Unit = {},
 ) {
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
 
@@ -190,6 +223,14 @@ fun NoteEditorScreenContent(
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
+            // The changes the AI proposed for this note, waiting for the user's word.
+            ProposalCardsSection(
+                proposals = pendingProposals,
+                onConfirm = onConfirmProposal,
+                onReject = onRejectProposal,
+                onConfirmAll = { proposalId -> onConfirmAllProposals(proposalId) },
+                onDismiss = { proposalId -> onDismissProposal(proposalId) },
+            )
             EditorTitleAndBody(
                 session = session,
                 titleState = titleState,

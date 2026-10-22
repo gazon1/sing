@@ -11,23 +11,16 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
-import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
-import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
-import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeIdGenerator
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeProposalRepository
-import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterIsInstance
@@ -80,27 +73,14 @@ class NoteEditorTest {
         val currentUser = FakeProfileAwareCurrentUser()
         val proposals = FakeProposalRepository(clock)
         val tasks = FakeTaskRepository()
-        val tags = FakeTagsRepository()
-        val checklist = FakeChecklistRepository()
-        val timeTracking = FakeTimeTrackingRepository(clock)
         val notes = notesRepo
         val projects: ProjectsRepository = FakeProjectsRepository(currentUser)
-        val deleteProject = DeleteProjectUseCase(projects, tasks)
-        val applyProposal = ApplyProposalItemUseCase(
-            proposals = proposals,
-            tasks = tasks,
-            notes = notes,
-            tags = tags,
-            planner = ProposalPlanner(clock),
-            dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, deleteProject, clock),
-        )
         return NoteEditor(
             repo = notes,
             linkRepo = emptyLinkRepo,
             idGen = FakeIdGenerator("note"),
             ai = NoteAiController(improveNote = null),
             proposals = proposals,
-            applyProposal = applyProposal,
             log = Logger.withTag("NoteEditor"),
             currentUser = currentUser,
             // The same fixed clock the proposal fixture uses, so an AI proposal's

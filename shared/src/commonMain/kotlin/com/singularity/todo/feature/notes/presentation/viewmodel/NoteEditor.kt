@@ -42,7 +42,6 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
-import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.launch
@@ -75,7 +74,6 @@ internal class NoteEditor(
     private val idGen: IdGenerator,
     private val ai: NoteAiController,
     private val proposals: ProposalRepository,
-    private val applyProposal: ApplyProposalItemUseCase,
     private val log: Logger,
     private val currentUser: ProfileAwareCurrentUser,
     // Stamps the `modified` field of an AI proposal. Read from the system clock it
