@@ -42,6 +42,15 @@ data class DateRowCallbacks(
     val onChangeTime: (LocalTime?) -> Unit,
     val onClick: (() -> Unit)? = null,
     val onClear: (() -> Unit)? = null,
+    /**
+     * Sets several dates at once.
+     *
+     * `null` means the row cannot take a set of dates — the single-date picker
+     * is the only thing it opens. Not defaulted to a no-op lambda on purpose: a
+     * no-op would be a *supplied* value, and the sheet host would then believe
+     * the multi-date path is wired while the picker wrote nowhere.
+     */
+    val onChangeDates: ((Set<LocalDate>) -> Unit)? = null,
 )
 
 /** Callback bundle for a toggle (checkbox) attribute. */

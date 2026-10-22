@@ -48,6 +48,7 @@ scenario-results-are-authoritative-in-ci
 scope-reporter-agreement
 selector-and-tag-identity
 sync-phase-contracts
+task-series
 tasks-tokens-follow-the-theme
 text-field-state-migration
 text-selection-and-links

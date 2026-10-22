@@ -47,6 +47,7 @@ import kotlin.test.Test
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class AgendaBadgePolicyFlowTest {
     @Test
     fun pinned_task_shows_pinned_badge() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->

@@ -4,6 +4,7 @@ package com.singularity.todo.feature.calendar
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
@@ -28,6 +29,8 @@ import kotlinx.datetime.Month
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 
@@ -69,6 +72,7 @@ class CalendarViewModelTest {
             reminderRepo = fakeReminderRepo,
             logger = Logger.withTag("CalendarTest"),
             today = anchor, // deterministic — same as anchor so date math is predictable
+            draftStore = FakeDraftStore(),
         ),
         initialDate = initialDate,
         initialMode = initialMode,
@@ -94,6 +98,60 @@ class CalendarViewModelTest {
                 updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
             ),
         )
+    }
+
+    // ─── date selection mode ───────────────────────────────────────────────
+    //
+    // The mode picks several days for one task. A long press on a day that
+    // holds tasks enters it; a tap then picks a day instead of opening it.
+    //
+    // The selection is asserted on [CalendarViewModel.dateSelection] rather than
+    // on the screen state: the screen state only exists once the calendar's data
+    // has loaded, and this harness never gets there — see the file's header. The
+    // picking does not depend on the data, so it is not tested through it.
+
+    @Test
+    fun `entering the selection mode selects the day that was pressed`() = runTest {
+        val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
+
+        vm.onIntent(CalendarIntent.EnterDateSelectionMode(LocalDate(2026, Month.SEPTEMBER, 16)))
+
+        assertTrue(vm.dateSelection.value.isActive, "the mode is on")
+        assertEquals(setOf(LocalDate(2026, Month.SEPTEMBER, 16)), vm.dateSelection.value.dates)
+    }
+
+    @Test
+    fun `a tap in the selection mode picks a day instead of opening it`() = runTest {
+        val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
+        vm.onIntent(CalendarIntent.EnterDateSelectionMode(LocalDate(2026, Month.SEPTEMBER, 16)))
+
+        vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 18)))
+
+        assertEquals(
+            setOf(LocalDate(2026, Month.SEPTEMBER, 16), LocalDate(2026, Month.SEPTEMBER, 18)),
+            vm.dateSelection.value.dates,
+        )
+    }
+
+    @Test
+    fun `a second tap on the same day unpicks it`() = runTest {
+        val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
+        vm.onIntent(CalendarIntent.EnterDateSelectionMode(LocalDate(2026, Month.SEPTEMBER, 16)))
+
+        vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 16)))
+
+        assertTrue(vm.dateSelection.value.dates.isEmpty(), "a day that is tapped twice is not picked")
+    }
+
+    @Test
+    fun `leaving the selection mode forgets the picked days`() = runTest {
+        val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
+        vm.onIntent(CalendarIntent.EnterDateSelectionMode(LocalDate(2026, Month.SEPTEMBER, 16)))
+
+        vm.onIntent(CalendarIntent.ExitDateSelectionMode)
+
+        assertFalse(vm.dateSelection.value.isActive)
+        assertTrue(vm.dateSelection.value.dates.isEmpty())
     }
 
     // ─── initial state ─────────────────────────────────────────────────────

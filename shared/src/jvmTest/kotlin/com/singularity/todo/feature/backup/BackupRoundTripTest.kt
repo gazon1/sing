@@ -52,6 +52,7 @@ import kotlin.test.assertTrue
  * after the restore — is the last assertion here.
  */
 @Tag("slow")
+@Tag("slow:data")
 class BackupRoundTripTest {
 
     private val tempDirLazy = lazy {

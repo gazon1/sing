@@ -62,6 +62,7 @@ import kotlin.test.assertTrue
  * text it describes, and it is read without materialising a record.
  */
 @Tag("slow")
+@Tag("slow:data")
 class SearchCostDoesNotGrowTest {
 
     private lateinit var tempDir: File

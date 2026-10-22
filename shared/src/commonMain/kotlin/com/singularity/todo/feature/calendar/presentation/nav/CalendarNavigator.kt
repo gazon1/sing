@@ -50,6 +50,20 @@ open class CalendarNavigator(
     }
 
     /**
+     * Open the task create screen on the draft that holds the picked days.
+     *
+     * The days travel in the draft, not in the route: a list of dates does not
+     * belong in a back stack, and the draft survives the death of the process.
+     */
+    open fun openCreateTaskWithDates(draftKey: String) {
+        onExitGraph(
+            AppDestination.TasksGraph(
+                start = AppDestination.TasksStartRoute.Create(draftKey = draftKey),
+            ),
+        )
+    }
+
+    /**
      * Go back one entry in the Calendar graph.
      * - If stack size > 1: pop last entry.
      * - If stack size == 1 (at start route): exit the nested graph.

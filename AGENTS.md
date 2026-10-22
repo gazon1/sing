@@ -20,7 +20,7 @@
 
 Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один.
 `main` двигается параллельными траншами — чужие изменения принимай как данность и
-перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main | head`.
+перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main`.
 
 **Механическая защита от divergence (#268):**
 - `pre-rebase` hook (`.githooks/pre-rebase`) — блокирует rebase на локальный main,
@@ -29,6 +29,24 @@
   ветки и без рефа `origin/main`, поэтому гейт падал на каждом прогоне настройкой раннера,
   а не расхождением. Локально ту же проверку делает `pre-rebase` — на тот ref, на который
   собираешься переносить коммиты.
+
+## Worktree: делегату — свой, канонический checkout — владельцу
+
+**Делегированная задача (субагент) получает свой worktree.** Канонический checkout
+принадлежит сессии, которая его заняла: две сессии в одном дереве — это две правки
+в одном рабочем дереве и ветка, занятая чужой работой.
+
+```bash
+git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
+```
+
+- **Не переключай ветку в чужом worktree** — список чужих: `git worktree list` (там, где `main`,
+  ветка занята). Свою ветку — только в своём worktree.
+- `./gw` даёт worktree приватный `GRADLE_USER_HOME`: `./gradlew --stop` в одном worktree убивает
+  демоны всех остальных, а общий `~/.gradle` — общая блокировка кэша модулей.
+- **Два Gradle-вызова одновременно не запускай** — ни два своих, ни свой и чужой: блокируется
+  общий кэш, и падает не та сборка, которую ждут.
+- Свой временный worktree сноси через `git worktree remove --force <path>`; чужой — не трогай.
 
 ## Структура
 
@@ -81,6 +99,11 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 `-Ptest.tags=fast,slow` в CI молча его исключит (`TestTagCoverageTest`). **`slow` = класс
 пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn),
 не «долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
+
+**Под-тег `slow` — что именно медленно.** Медленный класс несёт второй тег из словаря:
+`slow:konsist`, `slow:migration`, `slow:compose`, `slow:data`, `slow:platform`. Основной тег
+(`fast`/`slow`) остаётся: CI выбирает по нему, и класс без него не попал бы ни в один прогон.
+Словарь закрытый — гейт `TestTagCoverageTest` проверяет и основной тег, и под-тег.
 
 ```kotlin
 // Три формы теста (singularity-todo-test-helpers skill):
@@ -136,7 +159,19 @@ class MyViewModel(
 **`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
 (`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
 **Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
-recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR `2026-10-04-configuration-cache-hardening` §A3.
+recompiles and re-executes; `--rerun-tasks` — только отладочная костыль. ADR `2026-10-04-configuration-cache-hardening` §A3.
+
+**Добавил `TestTag` → пересобери каталог.** `Maestro/TAGS.md` — золотой файл: его
+сгенерированная часть сверяется с `TestTags.kt`, и расхождение падает в
+`TestTagsCatalogJvmTest` — то есть на полном JVM-прогоне (≈40 мин). Пересборка:
+
+```bash
+./gradlew :shared:jvmTest -PupdateGoldens=true   # переписывает сгенерированную часть TAGS.md
+```
+
+`scripts/check-test-tags-catalog.py` делает ту же сверку за секунды, без JVM, —
+он и стоит в гейтах; полный прогон нужен, чтобы *переписать* файл, а не чтобы
+*узнать*, что он устарел.
 
 ## expect/actual порты
 
@@ -150,8 +185,10 @@ recompiles and re-executes; `--rerun-tasks` is only a debugging crutch. ADR `202
 just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
 ./check.sh                    # реестр гейтов + тесты + Android + detekt
 bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
+just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
 ./gradlew :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
 ./gradlew :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
+./gradlew :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
 ./gradlew :androidApp:assembleDebug   # Android
 ./gradlew :desktopApp:run      # Desktop (xvfb-run -a)
 ./gradlew :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
@@ -159,6 +196,12 @@ bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты
 just lint        # detekt (shared + desktopApp), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
 ```
+
+**Карта затронутых тестов — `just tests::impact`.** Ответ на вопрос «что эта правка
+ломает?» считается по дереву, а не выдумывается: правка в области тянет тесты этой
+области, правка в классе тянет тесты, которые этот класс упоминают, изменённый тест
+тянет сам себя. Это **кандидаты**, а не вердикт: карта никогда не говорит «вне карты
+безопасно» — она говорит, что стоит прогнать первым.
 
 **Пуш в ветку PR — без `--no-verify`.** `pre-push` hook (`.githooks/pre-push`) проверяет
 **пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть
@@ -179,6 +222,32 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
 
 > `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
+
+**Порядок detekt.** Сначала `:shared:detekt` — там почти весь код, и замечание там
+останавливает проверку через две минуты, а не через четыре модуля:
+
+```bash
+./gradlew :shared:detekt                                  # сначала — 90% кода
+./gradlew :desktopApp:detekt :androidApp:detekt :mcp-server:detekt   # потом остальные
+```
+
+**Компилируй сразу после связной правки.** Правка, которая тянет за собой соседний
+файл (сигнатура, интерфейс, DI-биндинг), проверяется компиляцией в ту же минуту:
+`./gradlew :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`).
+Открытие полного прогона на сломанной компиляции стоит сорока минут ожидания,
+и диагностика «упало в тестах» уводит не туда: компиляция падает раньше и падает
+другой строкой.
+
+**Гейтовый venv принадлежит checkout'у.** `sgate` — editable-установка `scripts/src/`,
+поэтому венв, поставленный в другом worktree, меряет *тот* checkout: гейт зелёный,
+а проверял он чужое дерево. `bash scripts/ci/preflight-gate-tools.sh` печатает, чей
+это checkout (строка `sgate`; `FOREIGN` — не тот). Свой венв на checkout:
+
+```bash
+SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
+    bash scripts/ci/setup-local-tools.sh
+export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
+```
 
 ## CI/CD
 
@@ -235,6 +304,12 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия, `android_logs` для крашей.
 **Desktop:** `./gradlew :desktopApp:test` или `xvfb-run -a ./gradlew :desktopApp:run`.
 
+**Desktop-тесты — по скиллу `singularity-todo-desktop-compose-ui-tests`:** харнесс,
+ожидания, диагностический bundle и — отдельным разделом — компонентные тесты
+(экран в изоляции): размер окна, `ModalBottomSheet` в своём окне, long-press через
+`SemanticsActions.OnLongClick`. Читай его до написания теста: ответы на «как
+дождаться узла» и «почему long-press не срабатывает» лежат там, а не в коде.
+
 **Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` · `find-usages` ·
 `render-compose-preview` · `version-lookup` · `open-file`; **Journeys:** `android journey create|run <name>`.
 Подробности: `singularity-todo-android-cli` skill.
@@ -243,7 +318,12 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 
 > **Эмулятор**: `ensure-emulator` — единственная точка входа за устройством; свой `adb devices | awk`
 > найдёт только уже поднятый девайс. Пин `SERIAL=…` recovery не выключает. Не подкручивайте `-gpu` —
-> дефолтный host GPU периодически падает в gfxstream (скилл `singularity-todo-emulator-launch`).
+> дефолтный host GPU периодически падает в gfxstream.
+>
+> **Читай скилл `singularity-todo-emulator-launch` целиком, а не по памяти.** Там рецепт запуска,
+> `settings put secure show_ime_with_hard_keyboard 0` после **каждого** перезапуска AVD и разбор
+> падений gfxstream по сигнатуре. Без этой строки клавиатура остаётся поднятой, и все замеры
+> флоу после рестарта неверны — так потеряно 6 замеров в одной сессии (2026-10-28).
 
 ## 🤖 Coroutine test failures
 
@@ -263,6 +343,15 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**; **грубые изменения Room
    schema** без `SCHEMA_VERSION` + `AutoMigration`
+8. **Пайпить вывод команды в `tail`/`head`** — `cmd | tail -3` убивает `cmd` сигналом SIGPIPE:
+   код выхода пайпа — это код выхода `tail`, а не команды, и `git push` уходит с 141, не
+   отправив ничего. Перенаправляй в файл (`cmd > /tmp/probe/push.log 2>&1`) и читай файл.
+   Замер: 6 пушей в одной сессии ушли с 141 и «успешным» кодом выхода.
+9. **Пушить по SSH без keepalive, когда pre-push длинный** — git открывает соединение с
+   GitHub *до* хука, и пока хук крутит detekt (несколько минут), соединение простаивает:
+   GitHub закрывает его, и пуш падает с 141, хотя хук только что напечатал
+   `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive:
+   `git config core.sshCommand "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"`.
 
 ## 🧠 Decision log
 

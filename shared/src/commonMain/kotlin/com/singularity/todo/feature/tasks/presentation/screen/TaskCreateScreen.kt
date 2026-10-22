@@ -49,8 +49,8 @@ import org.koin.core.parameter.parametersOf
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = null) {
-    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, sectionPrefillKey) }
+fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
+    val vm: TaskCreateViewModel = koinViewModel { parametersOf(initialDueDate, draftKey) }
     // The injected clock, not the system one. This screen hands `now` down to the
     // editor and stamps draft attachments with it, so a test that pins a clock in
     // Koin controls both. `koinInject` rather than a parameter: this is a nav
@@ -111,6 +111,15 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
             taskId = null,
             priority = state.draft.priority,
             dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
+            // The *whole* set, primary date first. The row has to be able to say
+            // "12 окт, 17 окт, 3 ноя" — a list without its primary date would
+            // name two of the three.
+            dueDates = listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date) +
+                state.draft.extraDueDates,
+            // The create editor is where several dates make sense: the work does
+            // not exist yet, so there is nothing to split. Everywhere else a task
+            // has one date.
+            multiDateEnabled = true,
             dueTime = state.draft.dueTime,
             startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
             startTime = state.draft.startTime,
@@ -140,6 +149,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, sectionPrefillKey: String? = nu
                 onChangeTime = { vm.onIntent(TaskCreateIntent.SetDueTime(it)) },
                 onClick = { sheets.show(TaskEditorSheet.Date) },
                 onClear = { vm.onIntent(TaskCreateIntent.DueDateCleared) },
+                onChangeDates = { dates -> vm.onIntent(TaskCreateIntent.SetDueDates(dates)) },
             ),
             startDate = DateRowCallbacks(
                 onChangeDate = { vm.onIntent(TaskCreateIntent.SetStartDate(it)) },

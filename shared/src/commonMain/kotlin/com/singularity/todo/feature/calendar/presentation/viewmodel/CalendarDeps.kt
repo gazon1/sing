@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.calendar.presentation.viewmodel
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 
@@ -30,4 +31,12 @@ data class CalendarDeps(
     val reminderRepo: ReminderRepository,
     val today: kotlinx.datetime.LocalDate,
     val logger: Logger,
+    /**
+     * Where the picked days are written before the editor is opened.
+     *
+     * The draft is the only channel between the calendar and the editor: the
+     * days travel in it, not in a route parameter, so they survive the death of
+     * the process and never reach the back stack.
+     */
+    val draftStore: DraftStore,
 )

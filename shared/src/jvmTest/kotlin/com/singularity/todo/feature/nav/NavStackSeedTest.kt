@@ -189,7 +189,7 @@ class NavStackSeedTest {
         )
         assertEquals(
             TasksRoute.Create(null, "work"),
-            AppDestination.TasksStartRoute.Create(sectionPrefillKey = "work").toTasksRoute(null),
+            AppDestination.TasksStartRoute.Create(draftKey = "work").toTasksRoute(null),
             "The section a saved view was showing must reach the new-task screen.",
         )
         assertEquals(

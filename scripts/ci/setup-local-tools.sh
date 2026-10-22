@@ -29,6 +29,18 @@
 #   export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"
 #
 # The venv location can be overridden with SINGULARITY_TOOLS_VENV.
+#
+# A venv belongs to the checkout it was installed from. The gate CLI is an
+# editable install of scripts/src/, so it resolves to the tree it was installed
+# from — a venv made in one worktree measures that worktree, and every gate run
+# through it reports about a tree that is not in front of you. Two checkouts, two
+# venvs:
+#
+#   SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
+#       bash scripts/ci/setup-local-tools.sh
+#
+# Re-running the script over an existing venv recreates it and repoints it at
+# this checkout; the script says so first when the venv serves another one.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -60,7 +72,30 @@ MSG
 fi
 
 echo "==> creating the venv at $VENV"
-uv venv "$VENV"
+if [ -d "$VENV" ]; then
+    # An existing venv may belong to another checkout. The gate CLI is an
+    # editable install of scripts/src/, so it resolves to the tree it was
+    # installed from: recreating the venv here repoints that other checkout's
+    # gates at this one. Say so before doing it — and say what to do instead.
+    existing_origin="$("$VENV/bin/python" -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)' 2>/dev/null || true)"
+    if [ -n "$existing_origin" ] && [ "${existing_origin#"$ROOT/scripts/src"}" = "$existing_origin" ]; then
+        cat >&2 <<MSG
+
+The venv at $VENV already serves another checkout:
+    $existing_origin
+
+Recreating it here repoints that checkout's gates at this one. If that checkout
+is still in use, give this one a venv of its own instead:
+
+    SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$ROOT")" \\
+        bash scripts/ci/setup-local-tools.sh
+
+MSG
+    fi
+    uv venv --clear "$VENV"
+else
+    uv venv "$VENV"
+fi
 
 echo "==> installing the gate suite (the local package, editable) and junitparser"
 VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src" junitparser
@@ -90,6 +125,10 @@ cat <<MSG
 The gate suite is ready. Put the venv on PATH for this shell:
 
     export PATH="$VENV/bin:\$PATH"
+
+The gate CLI now serves this checkout:
+
+    "$VENV/bin/python" -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)'
 
 Then check what is still missing:
 

@@ -32,6 +32,7 @@ import kotlin.test.assertTrue
  * "pure, in-process", not "quick".
  */
 @Tag("slow")
+@Tag("slow:data")
 class GenuiSurfaceCorpusTest {
 
     private val parser = A2uiParser(SingularityCatalog)

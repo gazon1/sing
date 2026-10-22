@@ -35,6 +35,7 @@ import kotlin.test.assertTrue
  * 3. a record that matched in its description carries no range in its title.
  */
 @Tag("slow")
+@Tag("slow:data")
 class FtsMatchOffsetsTest {
 
     private lateinit var tempDir: File

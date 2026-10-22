@@ -44,6 +44,7 @@ import org.robolectric.RobolectricTestRunner
  * three bindings that cannot be created off a device.
  */
 @Tag("slow")
+@Tag("slow:platform")
 @RunWith(RobolectricTestRunner::class)
 class ToolSurfaceWiringTest {
 

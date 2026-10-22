@@ -154,6 +154,7 @@ when the answer is "excluded".
 | `feature/agenda/presentation/screen/AgendaContent.kt` | excluded | its rows are swipeable task rows with a long press |
 | `feature/agenda/presentation/screen/SelectorParameterSheet.kt` | excluded | the section heading over the tag chips |
 | `feature/archive/ArchiveScreen.kt` | excluded | its rows are task cards, and the gesture is theirs |
+| `feature/calendar/presentation/components/calendar/CalendarSelectionBar.kt` | excluded | the count of the chosen days and the bar's button labels |
 | `feature/checklist/components/ChecklistItemRow.kt` | excluded | the overflow menu's item label |
 | `feature/notes/components/InternalLinkPickerSheet.kt` | excluded | the search field's placeholder |
 | `feature/notes/components/NoteCard.kt` | excluded | the row swipes — the gesture belongs to the card |
@@ -167,6 +168,7 @@ when the answer is "excluded".
 | `feature/tasks/presentation/components/detail/TaskDescriptionField.kt` | excluded | the description field's placeholder |
 | `feature/tasks/presentation/components/detail/TaskDetailExtraSections.kt` | excluded | the action's label |
 | `feature/tasks/presentation/components/detail/TaskEditorEstimateSheet.kt` | excluded | the picker's option labels |
+| `feature/tasks/presentation/components/detail/TaskSeriesCard.kt` | excluded | each row opens its member task, and the actions are button labels |
 | `feature/tasks/presentation/components/TaskCard.kt` | excluded | the row's long press opens the task's menu |
 
 ## 5. The rules

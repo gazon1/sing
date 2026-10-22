@@ -312,6 +312,20 @@ PLACEMENTS: dict[str, Placement] = {
 # changes that predate the rule are in `config/docs/review-verdicts-baseline.txt`,
 # and that list only shrinks — accepting a new exception is an edit a reviewer
 # can see, not a side effect of a maintenance command."""),
+    "the tag catalogue matches the tags": Placement(
+        kind=PlacementKind.STATIC,
+        command='sgate the_tag_catalogue_matches_the_tags',
+        note="""# The catalogue of the ids a Maestro flow may address.
+#
+# `Maestro/TAGS.md` is a golden file, and its reader is a JVM test — so a tag
+# added today and a catalogue not rewritten are both green until someone runs
+# the forty-minute suite. This gate is the same comparison without the JVM: it
+# parses `TestTags.kt` and the generated section of the catalogue and says in a
+# second whether they still agree.
+#
+# It reports; it does not rewrite. Regeneration needs the JVM
+# (`-PupdateGoldens=true`), and the gate names that command when it finds a
+# difference."""),
     "GitHub workflows are valid": Placement(
         kind=PlacementKind.STATIC,
         command='github_workflows_valid',

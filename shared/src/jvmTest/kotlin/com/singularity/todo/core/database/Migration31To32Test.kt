@@ -37,6 +37,7 @@ import kotlin.test.assertTrue
  * test also proves the hand-copied rebuild SQL matches the v32 entity schema.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration31To32Test {
 
     private lateinit var tempDir: File

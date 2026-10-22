@@ -41,6 +41,7 @@ import kotlin.test.Test
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
+@Tag("slow:compose")
 class CalendarSyncProviderScenarioTest {
     @Test
     @DisplayName("CAL-SYNC-PROVIDER-01 switching provider swaps the panel without leaking the other's state")

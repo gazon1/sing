@@ -98,6 +98,7 @@ import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -563,6 +564,11 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
         to: String,
     ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
 
+    override fun observeSeriesForUser(
+        seriesId: String,
+        userId: String,
+    ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
+
     override fun watchByTag(userId: String, tagId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
@@ -761,6 +767,30 @@ open class FakeTaskRepository(
             store.upsert(item)
             item
         }
+    }
+
+    override suspend fun createSeries(tasks: List<Task>): Result<List<Task>> = runCatchingCancellable {
+        tasks.forEach { store.upsert(it) }
+        tasks
+    }
+
+    override suspend fun updateAll(tasks: List<Task>): Result<List<Task>> = runCatchingCancellable {
+        val uid = currentUserId()
+        tasks.forEach { item ->
+            store[item.id.value]?.takeIf { it.userId == uid }
+                ?: throw IllegalArgumentException("Task not found or not owned: ${item.id.value}")
+            store.upsert(item)
+        }
+        tasks
+    }
+
+    override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> = currentUser.observeForCurrentUser { uid ->
+        store.state.onStart { emit(store.state.value) }
+            .map { map ->
+                map.values
+                    .filter { it.userId == uid && it.seriesId == seriesId }
+                    .sortedBy { it.dueDate }
+            }
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> {
@@ -1563,9 +1593,22 @@ class FakeProjectsRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<Project>> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list ->
-            list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+    /**
+     * How many times the whole table was asked for.
+     *
+     * A search that reads every project to find that it matches none of them is
+     * a read of the whole table — on every search, and again on every change to
+     * it. The count is what a measurement of that cost is made of.
+     */
+    var observeAllCalls: Int = 0
+        private set
+
+    override fun observeAll(): Flow<List<Project>> {
+        observeAllCalls++
+        return currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+            }
         }
     }
 
@@ -1778,11 +1821,23 @@ class FakeTagsRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> =
-        currentUser.observeForCurrentUser { uid ->
+    /**
+     * How many times the whole table was asked for.
+     *
+     * A search that reads every tag to find that it matches none of them is a
+     * read of the whole table — on every search, and again on every change to
+     * it. The count is what a measurement of that cost is made of.
+     */
+    var observeAllCalls: Int = 0
+        private set
+
+    override fun observeAll(): Flow<List<com.singularity.todo.feature.tags.Tag>> {
+        observeAllCalls++
+        return currentUser.observeForCurrentUser { uid ->
             store.state.onStart { emit(store.state.value) }
                 .map { list -> list.values.filter { it.userId == uid } }
         }
+    }
 
     /** Scoped to the current user, matching production's `watchByIdForUser`. */
     override fun observe(id: TagId): Flow<com.singularity.todo.feature.tags.Tag?> =
@@ -2031,12 +2086,24 @@ open class FakeNotesRepository(
 
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
-    override fun observeAll(): Flow<List<com.singularity.todo.feature.notes.Note>> =
-        currentUser.observeForCurrentUser { uid ->
+    /**
+     * How many times the whole table was asked for.
+     *
+     * A search that reads every note to find that it matches none of them is a
+     * read of the whole table — on every search, and again on every change to
+     * it. The count is what a measurement of that cost is made of.
+     */
+    var observeAllCalls: Int = 0
+        private set
+
+    override fun observeAll(): Flow<List<com.singularity.todo.feature.notes.Note>> {
+        observeAllCalls++
+        return currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter { it.userId == uid && it.archivedAt == null && it.deletedAt == null }
             }
         }
+    }
 
     override fun observe(
         id: com.singularity.todo.feature.notes.NoteId,

@@ -1,7 +1,7 @@
 ---
 name: singularity-todo-desktop-compose-ui-tests
 status: active
-description: Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. Use when adding a flow test that mirrors a Maestro flow, when a desktop test fails on a missing node or an ambiguous selector, when a test HANGS or the VM never leaves Loading, or when a test needs seeded data. Covers the runDesktopAppTest harness, the failure diagnostics bundle, the in-memory platform module (DAO parity guard), the Koin load order, and the shell's contentDescription selectors.
+description: Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. Use when adding a desktop compose UI test — a flow test that mirrors a Maestro flow or a component test that mounts one screen in isolation — when a desktop test fails on a missing node or an ambiguous selector, when a test HANGS or the VM never leaves Loading, when a long press does not fire, when a ModalBottomSheet renders below the window, or when a test needs seeded data. Covers the runDesktopAppTest harness, the failure diagnostics bundle, the in-memory platform module (DAO parity guard), the Koin load order, the shell's contentDescription selectors, and the component-test rules (window size, sheet window, long press).
 ---
 
 # Desktop Compose UI tests
@@ -61,13 +61,96 @@ Helpers in `test/helpers/`, split by role (all top-level extensions on
 |---|---|
 | `DesktopNavigation.kt` | `tapTab`, `openDrawer`, `goBack`, `assertCurrentTab`, `DesktopShell` |
 | `DesktopAssertions.kt` | `await*` and `assert*`, plus `TIMEOUT_MS` and `explainMissingTag` |
-| `DesktopInteractions.kt` | `click*` and `typeIntoTag` / `clearAndTypeIntoTag` |
+| `DesktopInteractions.kt` | `click*`, `longClickTag`, and `typeIntoTag` / `clearAndTypeIntoTag` |
 | `TasksRobot.kt` | `tasks(koin)` — the `given`/`assert`/`open` robot |
 | `DesktopAppHarness.kt` | `runDesktopAppTest`, `seedTask`, `seedBuyMilk` |
 
 `TIMEOUT_MS` lives in `DesktopAssertions.kt` because the wait helpers are its only
 real users — a nav-only timeout constant invites someone to wait on navigation
 with an assertion-tuned budget.
+
+## Component tests: one screen, mounted alone
+
+A flow test mounts the whole `App()`. A **component test** mounts one composable
+and drives it — that is the right shape for a sheet, a grid or a card whose
+behaviour does not need the shell around it. The helper is
+`runIsolatedComposeTest` (in `test/helpers/IsolatedComposeTest.kt`):
+
+```kotlin
+@Test
+fun `three tapped days are confirmed`() = runIsolatedComposeTest(width = 420, height = 1600) {
+    var confirmed: Set<LocalDate>? = null
+    setContent {
+        MultiDatePickerSheet(
+            initialDates = emptySet(),
+            onConfirm = { confirmed = it },
+            onDismiss = {},
+            today = today,
+            maxDates = TaskSeriesPlanner.MAX_DATES,
+        )
+    }
+
+    clickTag(TestTags.MultiDatePicker.day("2026-10-05"))
+    assertTextDisplayed("Выбрано: 3")
+}
+```
+
+Three things about it are not obvious and each one costs an hour the first time.
+
+### The window size is part of the test
+
+`runIsolatedComposeTest(width = 1024, height = 768)` — the defaults. The cells of
+a month grid are a seventh of the window's width, so a grid that is wider than
+it is tall puts its lower rows **below the fold**: the test cannot click them,
+and neither can a person on a short screen. Narrow the window (and raise it) so
+the whole grid fits:
+
+| The component wants | The window |
+|---|---|
+| a month grid | narrow and tall — `width = 420, height = 1600` |
+| a row or a card | the defaults are fine |
+
+A click on a node that is off-screen does not fail with "not found" — it fails
+with a timeout, which reads like a broken selector. When a node cannot be
+clicked, check the window before you check the tag.
+
+### A `ModalBottomSheet` is drawn in its own window
+
+A sheet is a separate window with a **fixed height of about 1080** — it does not
+follow the test window. On a 768-pixel-tall window the sheet's content ends up
+*below* the window: the node is composed, and it is not on screen. The window of
+the component test has to be tall enough to hold the whole sheet, and narrow
+enough that its content does not stretch across a metre of screen:
+
+```kotlin
+runIsolatedComposeTest(width = 420, height = 1600)   // a sheet's own window fits
+```
+
+The same rule applies inside a flow test: the sheet's window is the shell's
+window, so a sheet whose content does not fit is a sheet a person cannot use
+either — that is a finding about the screen, not about the test.
+
+### A long press does not fire from a real gesture
+
+A long press is recognised by a timeout **inside the gesture detector**, and
+that timeout runs on the clock of the composition — not on the clock the desktop
+test drives. A press held for a thousand milliseconds of test time is a press
+the detector has not seen the end of yet, so `performTouchInput { longClick() }`
+never fires here. Use the semantic action, which is the same handler the gesture
+ends up calling:
+
+```kotlin
+longClickTag(TestTags.Calendar.day("2026-10-15"))
+```
+
+`longClickTag` (`DesktopInteractions.kt`) waits with `awaitAnyDisplayed` and
+presses the node that is *on screen*. That last part matters in a pager: a
+neighbouring month is composed next to the current one and carries the same day
+tag, so a plain lookup finds the off-screen copy first, and a gesture that
+starts outside the window presses nothing.
+
+What the test is about here is *which* node answers the long press, not how long
+the platform holds a pointer down — the semantic action tests exactly that.
 
 | Helper | Use |
 |---|---|

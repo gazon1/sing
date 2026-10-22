@@ -29,6 +29,7 @@ sche... | — | — |
 | issue registry covers every change | blocking | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
 | AGENTS.md pointers resolve | blocking | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
 | review verdicts cover every change | blocking | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
+| the tag catalogue matches the tags | blocking | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |
 | detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
 | detekt rule registry | blocking | detekt rule registry | — | — |

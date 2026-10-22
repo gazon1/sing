@@ -30,6 +30,7 @@ import kotlin.test.assertTrue
  * had drifted away from `@Entity`, so any upsert would silently no-op).
  */
 @Tag("slow")
+@Tag("slow:data")
 class DesktopRestartSmokeTest {
 
     private lateinit var tempDir: File

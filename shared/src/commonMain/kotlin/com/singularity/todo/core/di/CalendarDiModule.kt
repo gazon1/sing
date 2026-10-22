@@ -40,6 +40,7 @@ fun calendarModule(): Module = module {
                 reminderRepo = get<ReminderRepository>(),
                 logger = Logger.withTag("Calendar"),
                 today = todayAt(get<Clock>(), get<TimeZoneProvider>().current()),
+                draftStore = get(),
             ),
             initialDate = LocalDate(year, month, 1),
             initialMode = mode,

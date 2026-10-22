@@ -30,6 +30,7 @@ import kotlin.time.Instant
  * eaten the body.
  */
 @Tag("slow")
+@Tag("slow:data")
 class AdrStorageUpdateTest {
 
     private val temporaries = mutableListOf<File>()

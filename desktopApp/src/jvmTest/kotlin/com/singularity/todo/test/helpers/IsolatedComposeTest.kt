@@ -25,13 +25,22 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
  * For integration tests that need Koin, database, or FailureBundle capture,
  * use [runDesktopAppTest] instead.
  *
+ * @param width The width of the test window in pixels. The default is the
+ *   project's usual 1024. A narrower window makes a full-width component — a
+ *   month grid, say — fit on the screen: a grid whose cells are a seventh of
+ *   the window width is taller than the window, and the cells below the fold
+ *   cannot be clicked at all.
+ * @param height The height of the test window in pixels.
+ *
  * @see runDesktopAppTest
  * @see com.singularity.todo.test.helpers.IsolatedComposeTest
  */
 @OptIn(ExperimentalTestApi::class)
 fun runIsolatedComposeTest(
+    width: Int = 1024,
+    height: Int = 768,
     test: suspend DesktopComposeUiTest.() -> Unit,
-) = runDesktopComposeUiTest {
+) = runDesktopComposeUiTest(width = width, height = height) {
     try {
         test()
     } catch (t: Throwable) {

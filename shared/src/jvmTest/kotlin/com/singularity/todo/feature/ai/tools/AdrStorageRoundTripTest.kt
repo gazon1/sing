@@ -27,6 +27,7 @@ import kotlin.test.assertTrue
  * [AdrStorageResolutionTest], which is `fast`.
  */
 @Tag("slow")
+@Tag("slow:data")
 class AdrStorageRoundTripTest {
 
     private val temporaries = mutableListOf<File>()

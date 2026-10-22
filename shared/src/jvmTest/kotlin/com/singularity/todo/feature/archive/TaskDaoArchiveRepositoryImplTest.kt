@@ -36,6 +36,7 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
+@Tag("slow:data")
 class TaskDaoArchiveRepositoryImplTest {
 
     private val user = UserId("u1")

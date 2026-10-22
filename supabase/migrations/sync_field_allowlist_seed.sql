@@ -26,6 +26,7 @@ insert into sync_field_allowlist (entity_type, field, writable) values
     ('task', 'emoji', true),
     ('task', 'estimateMinutes', true),
     ('task', 'recurrence', true),
+    ('task', 'seriesId', true),
     ('task', 'createdAt', true),
     ('task', 'updatedAt', true),
     ('note', 'id', true),

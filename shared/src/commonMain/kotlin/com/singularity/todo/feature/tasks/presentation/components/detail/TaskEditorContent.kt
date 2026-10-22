@@ -118,6 +118,7 @@ private fun TaskEditorContent(
     onPriorityClear: (() -> Unit)?,
     dueDate: LocalDate?,
     dueTime: LocalTime?,
+    dueDates: List<LocalDate> = emptyList(),
     onDueDateClear: (() -> Unit)?,
     showDueDate: Boolean = true,
     onPriorityClick: (() -> Unit)? = null,
@@ -263,6 +264,7 @@ private fun TaskEditorContent(
                 TaskEditorDueDateRow(
                     dueDate = dueDate,
                     dueTime = dueTime,
+                    dueDates = dueDates,
                     onDueDateClick = onDueDateClick ?: { sheets.show(TaskEditorSheet.Date) },
                     onDueDateClear = onDueDateClear,
                     labelTestTag = TestTags.TASK_EDITOR_DUE_DATE_ROW_LABEL,
@@ -514,6 +516,7 @@ private fun TaskEditorScaffold(
         onPriorityClear = callbacks.priority.onClear,
         dueDate = model.dueDate,
         dueTime = model.dueTime,
+        dueDates = model.dueDates,
         onDueDateClear = callbacks.dueDate.onClear,
         showDueDate = true,
         onPriorityClick = callbacks.priority.onClick,

@@ -345,6 +345,18 @@ gate blocking "AGENTS.md pointers resolve" python3 scripts/check-agents-pointers
 # and that list only shrinks — accepting a new exception is an edit a reviewer
 # can see, not a side effect of a maintenance command.
 gate blocking "review verdicts cover every change" python3 scripts/check-review-verdicts.py --quiet
+# The catalogue of the ids a Maestro flow may address.
+#
+# `Maestro/TAGS.md` is a golden file, and its reader is a JVM test — so a tag
+# added today and a catalogue not rewritten are both green until someone runs
+# the forty-minute suite. This gate is the same comparison without the JVM: it
+# parses `TestTags.kt` and the generated section of the catalogue and says in a
+# second whether they still agree.
+#
+# It reports; it does not rewrite. Regeneration needs the JVM
+# (`-PupdateGoldens=true`), and the gate names that command when it finds a
+# difference.
+gate blocking "the tag catalogue matches the tags" sgate the_tag_catalogue_matches_the_tags
 
 # Workflow + YAML lint, two real tools over the corpus the gates above only
 # parse. actionlint checks GitHub Actions *semantics* — expressions, action

@@ -24,6 +24,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.blockingDependencyIdsForUser
 import com.singularity.todo.feature.tasks.withExtras
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
@@ -195,6 +196,46 @@ class TaskRepositoryImpl(
             toUpdate
         }
     }
+
+    override suspend fun createSeries(tasks: List<Task>): Result<List<Task>> = runCatchingCancellable {
+        unitOfWork.write {
+            val currentUid = currentUser.scopedUserId.value
+            tasks.map { item ->
+                currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+                val toInsert = item.copy(userId = currentUid)
+                taskDao.upsert(toInsert.toEntity())
+                saveOutgoingLinks(toInsert.id, toInsert.description)
+                toInsert.tags.forEach { tagId ->
+                    taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
+                }
+                syncRepository.enqueue(toInsert)
+                toInsert
+            }
+        }
+    }
+
+    override suspend fun updateAll(tasks: List<Task>): Result<List<Task>> = runCatchingCancellable {
+        unitOfWork.write {
+            val currentUid = currentUser.scopedUserId.value
+            tasks.map { item ->
+                currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+                // The same guard the single-row update has: an upsert onto a missing
+                // row would create it, and a series edit must never invent a member.
+                taskDao.getByIdForUser(item.id.value, currentUid.value)
+                    ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
+                val toUpdate = item.copy(userId = currentUid)
+                taskDao.upsert(toUpdate.toEntity())
+                saveOutgoingLinks(toUpdate.id, toUpdate.description)
+                syncRepository.enqueue(toUpdate)
+                toUpdate
+            }
+        }
+    }
+
+    override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> =
+        currentUser.observeForCurrentUser { uid ->
+            taskDao.withExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
+        }
 
     private suspend fun saveOutgoingLinks(id: TaskId, description: String?) {
         val links = description?.let { extractOutgoingLinks(it) }.orEmpty()
@@ -540,6 +581,7 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     archivedAt = archivedAt.toEpochMillisOrNull(),
     isPinned = isPinned,
     recurrenceRule = recurrence?.let { StableJson.encodeToString(RecurrenceSpec.serializer(), it) },
+    seriesId = seriesId?.value,
     aiSuppressedTagIds = StableJson.encodeToString(
         SetSerializer(String.serializer()),
         aiSuppressedTagIds.map { it.value }.toSet(),

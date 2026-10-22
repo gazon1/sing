@@ -5,7 +5,6 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.minus
-import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
@@ -20,28 +19,25 @@ import kotlinx.datetime.plus
  * has to spell the date the same way. The spelling is a contract with the
  * Maestro flows, not a property of the date type, which is why it is spelled
  * out here rather than inherited from `LocalDate.toString()`.
+ *
+ * The spelling itself lives in `core/ui`, where every month-shaped picker can
+ * reach it; this function stays as the calendar's public name for it.
  */
 fun isoLocalDate(date: LocalDate): String =
-    "${date.year}-${
-        date.month.number.toString()
-            .padStart(2, '0')
-    }-${
-        date.day.toString()
-            .padStart(2, '0')
-    }"
+    com.singularity.todo.core.ui.components.isoLocalDate(date)
 
 /**
  * Returns the full 6-week grid for a month view, including trailing days from
  * adjacent months (Mon-anchored), starting from the Monday before the 1st of
  * the month (or on the 1st itself if it is a Monday).
+ *
+ * The grid itself lives in `core/ui` — every month-shaped picker needs it, and a
+ * sheet in the shared layer cannot reach into a feature. This function stays as
+ * the calendar's public name for it, so neither the calendar's callers nor its
+ * tests have to know where the arithmetic is.
  */
-fun monthGridDates(anyDateInMonth: LocalDate): List<LocalDate> {
-    val firstOfMonth = LocalDate(anyDateInMonth.year, anyDateInMonth.month, 1)
-    // Kotlinx-datetime: Monday=0 (ordinal), ..., Sunday=6.
-    // We want Mon-anchored grid, so subtract (ordinal - 0) days.
-    val gridStart = firstOfMonth.minus(firstOfMonth.dayOfWeek.ordinal, DateTimeUnit.DAY)
-    return (0 until 42).map { gridStart.plus(it, DateTimeUnit.DAY) } // 6 weeks × 7 days
-}
+fun monthGridDates(anyDateInMonth: LocalDate): List<LocalDate> =
+    com.singularity.todo.core.ui.components.sheet.monthGridDates(anyDateInMonth)
 
 /** Returns the visible date range for the given [viewMode] and [anchor] date. */
 fun visibleRange(anchor: LocalDate, viewMode: CalendarViewMode): List<LocalDate> = when (viewMode) {

@@ -31,6 +31,7 @@ import kotlin.test.assertTrue
  * 5. the same holds for notes, projects and tags.
  */
 @Tag("slow")
+@Tag("slow:data")
 class FtsSearchJvmTest {
 
     private lateinit var tempDir: File

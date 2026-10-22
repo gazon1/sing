@@ -37,6 +37,7 @@ import kotlin.test.assertTrue
  * `MigrationTestHelper` would use.
  */
 @Tag("slow")
+@Tag("slow:migration")
 class Migration32To33Test {
 
     private lateinit var tempDir: File

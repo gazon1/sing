@@ -10,6 +10,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
@@ -26,6 +27,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import org.junit.jupiter.api.Tag
@@ -86,7 +88,7 @@ class TaskCreateViewModelTest {
         return TaskCreateViewModel(
             deps = deps,
             initialDueDate = null,
-            sectionPrefillKey = null,
+            draftKey = null,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
     }
@@ -233,8 +235,115 @@ class TaskCreateViewModelTest {
         assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
     }
 
-    // ─── Race guard (compareAndSet) ─────────────────────────────────────────
+    // ─── Several dates ──────────────────────────────────────────────────────
+    //
+    // A draft with several dates becomes a series: one task per date, all
+    // sharing one series id. A draft with one date stays an ordinary task.
 
+    @Test
+    fun `SetDueDates with three dates creates three tasks that share one series id`() = runTest {
+        val dates = setOf(
+            LocalDate(2026, Month.OCTOBER, 5),
+            LocalDate(2026, Month.OCTOBER, 12),
+            LocalDate(2026, Month.OCTOBER, 19),
+        )
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.TitleChanged("Pay the rent"))
+        vm.onIntent(TaskCreateIntent.SetDueDates(dates))
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val created = fakeTaskRepo.tasks.value.values
+        assertEquals(3, created.size, "one task per date")
+        val seriesIds = created.map { it.seriesId }.toSet()
+        assertEquals(1, seriesIds.size, "every member shares one series id")
+        assertTrue(seriesIds.first() != null, "a series of three is a series")
+        val createdDates = created.mapNotNull { it.dueDate }.sorted()
+        val expectedDates = dates.toList().sorted()
+        assertEquals(expectedDates, createdDates, "each member keeps its own date")
+    }
+
+    @Test
+    fun `SetDueDates with one date creates an ordinary task`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.TitleChanged("Single"))
+        vm.onIntent(TaskCreateIntent.SetDueDates(setOf(LocalDate(2026, Month.OCTOBER, 5))))
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val created = fakeTaskRepo.tasks.value.values
+        assertEquals(1, created.size)
+        assertNull(created.first().seriesId, "one date is not a series")
+    }
+
+    @Test
+    fun `SetDueDates with no dates clears the date`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.TitleChanged("Undated"))
+        vm.onIntent(TaskCreateIntent.SetDueDates(setOf(LocalDate(2026, Month.OCTOBER, 5))))
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.SetDueDates(emptySet()))
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
+    }
+
+    @Test
+    fun `a second date drops the repeat rule and says so`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.TitleChanged("Recurring"))
+        vm.onIntent(
+            TaskCreateIntent.SetRecurrence(
+                RecurrenceSpec.Interval(
+                    base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
+                    amount = 1,
+                    unit = DateTimeUnit.WEEK,
+                ),
+            ),
+        )
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(
+            TaskCreateIntent.SetDueDates(
+                setOf(LocalDate(2026, Month.OCTOBER, 5), LocalDate(2026, Month.OCTOBER, 12)),
+            ),
+        )
+        runCurrent()
+
+        assertEquals(
+            "Повтор отменён: выбрано несколько дат",
+            vm.state.value.error,
+            "the user is told that the rule was dropped",
+        )
+        vm.onIntent(TaskCreateIntent.SaveClicked)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val created = fakeTaskRepo.tasks.value.values
+        assertEquals(2, created.size)
+        assertTrue(created.all { it.recurrence == null }, "a series never holds a rule")
+    }
+
+    // ─── Race guard (compareAndSet) ─────────────────────────────────────────
     @Test
     fun `parallel SaveClicked calls are guarded by compareAndSet — only one save`() = runTest {
         val vm = createVm(backgroundScope)

@@ -42,6 +42,7 @@ import kotlin.test.fail
  * `2026-09-30-draft-save-failure-and-testtag-honesty`.
  */
 @Tag("slow")
+@Tag("slow:data")
 class TestTagsWiringTest {
 
     /**

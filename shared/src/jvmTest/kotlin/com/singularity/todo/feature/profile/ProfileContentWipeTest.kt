@@ -62,6 +62,7 @@ import kotlin.time.Clock
  * and every row of the profile carries it.
  */
 @Tag("slow")
+@Tag("slow:data")
 class ProfileContentWipeTest {
 
     private val alice = UserId("alice")

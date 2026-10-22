@@ -48,6 +48,10 @@ object AppDatabaseFactory {
      * [Migration42To43] is the other exception: it creates the full-text
      * indexes, and an index is a virtual table that no schema differ describes.
      *
+     * [Migration45To46] is the third: the derived auto-migration rewrites the
+     * whole `tasks` table, and dropping the table fires the foreign key that
+     * points the notes at a task. A column can be added without that rewrite.
+     *
      * During **active schema development** (adding a new migration), you may
      * temporarily re-add `.fallbackToDestructiveMigration(dropAllTables = true)`
      * to this builder to skip writing the migration by hand. **Remove it before
@@ -80,6 +84,10 @@ object AppDatabaseFactory {
                 // Rewrites the stored links so the one grammar reads them, and
                 // backfills the note-to-task relation that was never filled.
                 Migration44To45(),
+                // Adds tasks.series_id without rewriting the `tasks` table: the
+                // derived auto-migration drops the table, and the notes that point
+                // at a task lose that point. See Migration45To46.
+                Migration45To46(),
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),

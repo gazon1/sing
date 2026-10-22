@@ -51,6 +51,7 @@ import kotlin.time.Instant
  * 3. a quoted phrase does not match the same words standing further apart.
  */
 @Tag("slow")
+@Tag("slow:data")
 class SearchUseCaseFtsTest {
 
     private lateinit var tempDir: File

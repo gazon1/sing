@@ -248,6 +248,24 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="test-tags-catalogue",
+        cmd=[sys.executable, "scripts/check-test-tags-catalog.py", "--check"],
+        # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+        # this entry exists so Part B proves the gate can actually fail.
+        #
+        # Without this twin the gate had a control in the registry and nothing
+        # that ran: Part J asks "does every registered gate have a positive
+        # control?", and it looked for the answer among the twins. A control
+        # that no twin names is a control nobody executes — the gate is
+        # registered, the probe is written, and the two never meet.
+        why=(
+            "the catalogue is the promise about which ids a flow may address, and a tag "
+            "whose value was renamed in the code leaves the promise describing the old "
+            "world: the flow keeps using an id that no screen answers to, and the failure "
+            "lands on a device rather than in a gate"
+        ),
+    ),
+    ScriptGate(
         name="hooks-path",
         cmd=[sys.executable, "scripts/check-hooks-path.py", "--quiet"],
         # Untrack *every* hook, not one. The gate asks "does the configured hooks

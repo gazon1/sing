@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -74,6 +75,9 @@ import kotlinx.datetime.plus
  * @param state The current agenda UI state.
  * @param title Title to display in the top app bar.
  * @param onIntent Called when the user performs an action.
+ * @param onMultiDateCreate Called when the user taps the "task on several days"
+ *   action. The screen opens the date picker; the content only offers the entry
+ *   point, so the picker is not a preview that lies about being usable.
  * @param onSavedViewsClick Called when the user taps the saved views action.
  * @param onSaveCurrentClick Called when the user taps the save-current-agenda action.
  * @param contextMenuHost Slot for the task context menu renderer.
@@ -87,6 +91,7 @@ fun AgendaContent(
     greeting: String = "",
     onIntent: (AgendaIntent) -> Unit,
     onSavedViewsClick: (() -> Unit)? = null,
+    onMultiDateCreate: (() -> Unit)? = null,
     onSaveCurrentClick: (() -> Unit)? = null,
     spotlightRegistry: SpotlightAnchorRegistry? = null,
     contextMenuHost: @Composable (
@@ -166,6 +171,18 @@ fun AgendaContent(
                             }
                         },
                         actions = {
+                            if (onMultiDateCreate != null) {
+                                IconButton(
+                                    onClick = onMultiDateCreate,
+                                    modifier = Modifier
+                                        .testTag(TestTags.AGENDA_MULTI_DATE_BUTTON),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.DateRange,
+                                        contentDescription = "Задача на несколько дат",
+                                    )
+                                }
+                            }
                             if (onSavedViewsClick != null) {
                                 IconButton(
                                     onClick = onSavedViewsClick,

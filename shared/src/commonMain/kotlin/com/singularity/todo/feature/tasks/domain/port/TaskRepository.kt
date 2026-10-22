@@ -8,7 +8,9 @@ import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.datetime.LocalDate
 
 /**
@@ -166,6 +168,29 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     suspend fun setDependency(from: TaskId, to: TaskId, verb: DependencyVerb, enabled: Boolean): Result<Unit>
 
     suspend fun exists(id: TaskId): Boolean
+
+    // ── Series ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Creates every row of a series in one transaction.
+     *
+     * One transaction is the point: a series that landed halfway would be a set of
+     * rows that share an id but describe different work, and no reader could tell.
+     * A failure therefore leaves nothing behind.
+     */
+    suspend fun createSeries(tasks: List<Task>): Result<List<Task>>
+
+    /**
+     * Writes every row of a series in one transaction, with the same
+     * read-before-write guard the single-row [update] has.
+     */
+    suspend fun updateAll(tasks: List<Task>): Result<List<Task>>
+
+    /** Observes the rows of [seriesId] for the currently active user, in date order. */
+    fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>>
+
+    /** The rows of [seriesId] as of now — the one-shot form of [observeSeries]. */
+    suspend fun getSeries(seriesId: TaskSeriesId): List<Task> = observeSeries(seriesId).first()
 
     // ── User-scoped observers ──────────────────────────────────────────────────
 

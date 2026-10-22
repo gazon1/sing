@@ -30,6 +30,7 @@ import kotlin.test.assertEquals
  *   about, with no error on either side.
  */
 @Tag("slow")
+@Tag("slow:data")
 class OwnerReassignDaoTest {
 
     private lateinit var tempDir: File

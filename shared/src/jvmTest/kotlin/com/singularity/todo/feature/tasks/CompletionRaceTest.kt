@@ -56,6 +56,7 @@ import kotlin.test.assertTrue
  * - **t2** is closed by the write that carries the condition. It refuses.
  */
 @Tag("slow")
+@Tag("slow:data")
 class CompletionRaceTest {
 
     private val alice = UserId("alice")

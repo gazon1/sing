@@ -37,6 +37,7 @@ import kotlin.test.assertTrue
  * crosses a process boundary, not that it is slow.
  */
 @Tag("slow")
+@Tag("slow:data")
 class UnitOfWorkIsAtomicTest {
 
     private lateinit var tempDir: File

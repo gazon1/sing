@@ -200,7 +200,7 @@ class TestTagCoverageTest {
     }
 
     /**
-     * Tagged classes in [file] whose tag value is outside [CI_SELECTABLE_TAGS].
+     * Tagged classes in [file] whose tag values do not hold together.
      *
      * The hole this closes: `every_test_class_declares_a_tag` matches the annotation,
      * not its argument, and JUnit's `includeTags("fast","slow")` matches the argument.
@@ -208,6 +208,12 @@ class TestTagCoverageTest {
      * absent from every CI run while the gate that exists to prevent exactly that
      * stays green. A non-literal argument (`@Tag(FAST)`) is reported too: the value
      * cannot be verified statically, and every tag in this repo is a literal.
+     *
+     * A class may carry more than one tag: the primary one (`fast` or `slow`) and a
+     * sub-tag naming why it is slow. Two rules hold for that: the primary tag must be
+     * there — a class that carried only `slow:konsist` would be in no CI run at all —
+     * and every sub-tag must come from [SLOW_SUBTAGS], so that a typo cannot quietly
+     * take a class out of the run it was meant for.
      */
     private fun unselectableTagValuesIn(file: File): List<String> {
         val lines = file.readText().split("\n")
@@ -223,13 +229,29 @@ class TestTagCoverageTest {
             val tagLines = annotationBlock.filter { tagAnnotation.containsMatchIn(it) }
             if (tagLines.isEmpty()) return@forEachIndexed
 
-            val value = tagLines.firstNotNullOfOrNull { tagValue.find(it)?.groupValues?.get(1) }
-            when {
-                value == null ->
-                    offenders += "$relative:${index + 1} $name — @Tag argument is not a string literal"
+            val values = tagLines.map { tagValue.find(it)?.groupValues?.get(1) }
+            if (values.any { it == null }) {
+                offenders += "$relative:${index + 1} $name — @Tag argument is not a string literal"
+                return@forEachIndexed
+            }
+            val present = values.filterNotNull()
+            val primary = present.filter { it in CI_SELECTABLE_TAGS }
+            val subTags = present.filter { it !in CI_SELECTABLE_TAGS }
 
-                value !in CI_SELECTABLE_TAGS ->
-                    offenders += "$relative:${index + 1} $name — @Tag(\"$value\")"
+            when {
+                primary.isEmpty() ->
+                    offenders += "$relative:${index + 1} $name — no @Tag(\"fast\") or @Tag(\"slow\"): " +
+                        "CI selects on those, so the class would be in no run"
+
+                subTags.any { it !in SLOW_SUBTAGS } ->
+                    offenders += "$relative:${index + 1} $name — " +
+                        subTags.filter { it !in SLOW_SUBTAGS }
+                            .joinToString { "@Tag(\"$it\")" } +
+                        " is not a known sub-tag"
+
+                subTags.isNotEmpty() && primary.size > 1 ->
+                    offenders += "$relative:${index + 1} $name — more than one primary tag: " +
+                        primary.joinToString { "@Tag(\"$it\")" }
             }
         }
         return offenders
@@ -306,6 +328,28 @@ class TestTagCoverageTest {
          * class tag; adding a third value is a change to ci.yml first and here second.
          */
         private val CI_SELECTABLE_TAGS = setOf("fast", "slow")
+
+        /**
+         * The sub-tags a slow class may carry, naming *why* it is slow.
+         *
+         * A sub-tag never replaces the primary tag: CI selects on `fast`/`slow`, so a
+         * class that carried only `slow:konsist` would be absent from every CI run
+         * while this gate stayed green. The sub-tag is a second annotation, next to
+         * the primary one, and it names the category so that
+         * `-Ptest.tags=slow:konsist` can run one part of the slow half.
+         *
+         * The list is closed on purpose. A free-text sub-tag is a typo waiting to
+         * happen, and a typo in a tag is invisible: the class is absent from every
+         * run the typo was meant for, and every gate that checks the tag still
+         * passes.
+         */
+        private val SLOW_SUBTAGS = setOf(
+            "slow:konsist",
+            "slow:migration",
+            "slow:compose",
+            "slow:data",
+            "slow:platform",
+        )
 
         /**
          * Both the imported `@Tag("…")` and the fully-qualified

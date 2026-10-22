@@ -16,6 +16,15 @@ sealed interface TaskCreateIntent : MviIntent {
     data class SetPriority(val priority: com.singularity.todo.feature.tasks.domain.model.TaskPriority) :
         TaskCreateIntent
     data class SetDueDate(val date: LocalDate?) : TaskCreateIntent
+
+    /**
+     * Sets the dates of the task at once — the primary date and the extra ones.
+     *
+     * An empty set means "no date". A set of one is an ordinary dated task: the
+     * single-date path is not a special case of the series, it is the same task
+     * it was before.
+     */
+    data class SetDueDates(val dates: Set<LocalDate>) : TaskCreateIntent
     data class SetDueTime(val time: LocalTime?) : TaskCreateIntent
     data object DueDateCleared : TaskCreateIntent
     data class SetStartDate(val date: LocalDate?) : TaskCreateIntent

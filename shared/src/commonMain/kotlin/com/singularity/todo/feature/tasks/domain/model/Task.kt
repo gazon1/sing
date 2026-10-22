@@ -175,6 +175,18 @@ data class Task(
      * @see RecurrenceSpec
      */
     val recurrence: RecurrenceSpec? = null,
+    /**
+     * The series this task belongs to, or `null` when it stands alone.
+     *
+     * A series is several rows carrying the same id — one piece of work scheduled
+     * on several dates. The shared fields are edited once for the whole series;
+     * the date, the completion state, the checklist and the reminders stay with
+     * the occurrence.
+     *
+     * @see TaskSeriesId
+     * @see com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
+     */
+    val seriesId: TaskSeriesId? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: UserId,

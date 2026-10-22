@@ -23,12 +23,19 @@ missing=0
 report() {
     # report <status> <tool> <what needs it>
     local status=$1 tool=$2 needs=$3
-    if [ "$status" = "ok" ]; then
-        printf '  %-14s ok      %s\n' "$tool" "$needs"
-    else
-        printf '  %-14s MISSING %s\n' "$tool" "$needs"
-        missing=$((missing + 1))
-    fi
+    case "$status" in
+        ok)
+            printf '  %-14s ok      %s\n' "$tool" "$needs"
+            ;;
+        foreign)
+            printf '  %-14s FOREIGN %s\n' "$tool" "$needs"
+            missing=$((missing + 1))
+            ;;
+        *)
+            printf '  %-14s MISSING %s\n' "$tool" "$needs"
+            missing=$((missing + 1))
+            ;;
+    esac
 }
 
 have_python_module() {
@@ -39,10 +46,32 @@ have_binary() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Where the importable sgate actually comes from.
+#
+# An editable install resolves to the source tree it was installed from, so this
+# names the *checkout* the gate CLI belongs to. A presence check cannot see the
+# difference: a venv installed from another worktree answers "sgate is there",
+# and every gate then measures that other checkout — the gate reports green
+# about a tree that is not the one in front of you.
+sgate_origin() {
+    python3 -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)' 2>/dev/null || true
+}
+
 echo "Gate tooling:"
 
 if have_python_module sgate; then
-    report ok sgate "the gate CLI (the local package in scripts/src/)"
+    origin="$(sgate_origin)"
+    case "$origin" in
+        "$ROOT/scripts/src/sgate"*)
+            report ok sgate "the gate CLI (this checkout's scripts/src/)"
+            ;;
+        "")
+            report ok sgate "the gate CLI (the local package in scripts/src/)"
+            ;;
+        *)
+            report foreign sgate "the gate CLI — it serves $origin, not this checkout"
+            ;;
+    esac
 else
     report no sgate "the gate CLI (the local package in scripts/src/)"
 fi
@@ -84,6 +113,14 @@ $missing tool(s) the gate suite needs are missing. Install them with:
 
     bash scripts/ci/setup-local-tools.sh
     export PATH="\$HOME/.venvs/singularity-todo/bin:\$PATH"
+
+A venv belongs to the checkout it was installed from: the gate CLI is an
+editable install of scripts/src/, so a venv made in another worktree measures
+that other checkout. Give each checkout its own venv:
+
+    SINGULARITY_TOOLS_VENV="\$HOME/.venvs/singularity-todo-\$(basename "\$PWD")" \\
+        bash scripts/ci/setup-local-tools.sh
+    export PATH="\$HOME/.venvs/singularity-todo-\$(basename "\$PWD")/bin:\$PATH"
 
 (uv is the installer; see https://docs.astral.sh/uv/getting-started/installation/ if
 uv itself is not on PATH. The venv location can be overridden with

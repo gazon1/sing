@@ -15,6 +15,7 @@ import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -62,6 +63,7 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
+@Tag("slow:data")
 abstract class TaskRepositoryContractTest {
 
     private val alice = UserId("alice")
@@ -94,6 +96,73 @@ abstract class TaskRepositoryContractTest {
         val result = repo.create(task("t1", title = "Buy milk"))
         assertTrue(result.isSuccess)
         assertEquals("Buy milk", result.getOrNull()?.title)
+    }
+
+    // ─── Series ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `createSeries writes every member and they share one series id`() = runTest {
+        val repo = newRepository(alice)
+        val seriesId = TaskSeriesId("series-1")
+        val members = listOf(
+            task("s1", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 5)),
+            task("s2", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 12)),
+            task("s3", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 19)),
+        )
+
+        val result = repo.createSeries(members)
+        assertTrue(result.isSuccess)
+        advanceUntilIdle()
+
+        val stored = repo.observeSeries(seriesId).first()
+        assertEquals(3, stored.size, "every member of the series is written")
+        assertTrue(stored.all { it.seriesId == seriesId })
+    }
+
+    @Test
+    fun `updateAll writes every member`() = runTest {
+        val repo = newRepository(alice)
+        val seriesId = TaskSeriesId("series-2")
+        val members = listOf(
+            task("u1").copy(seriesId = seriesId),
+            task("u2").copy(seriesId = seriesId),
+        )
+        repo.createSeries(members)
+        advanceUntilIdle()
+
+        val result = repo.updateAll(members.map { it.copy(title = "Changed") })
+        assertTrue(result.isSuccess)
+        advanceUntilIdle()
+
+        val stored = repo.observeSeries(seriesId).first()
+        assertEquals(2, stored.size)
+        assertTrue(stored.all { it.title == "Changed" }, "the change reached every member")
+    }
+
+    @Test
+    fun `updateAll refuses a member that does not exist`() = runTest {
+        val repo = newRepository(alice)
+        val seriesId = TaskSeriesId("series-3")
+        val members = listOf(
+            task("v1").copy(seriesId = seriesId),
+            task("v2").copy(seriesId = seriesId),
+        )
+        repo.createSeries(members)
+        advanceUntilIdle()
+
+        val result = repo.updateAll(members.map { it.copy(title = "Changed") } + task("ghost"))
+        assertTrue(result.isFailure, "an upsert onto a missing row would invent a member")
+    }
+
+    @Test
+    fun `observeSeries is scoped to the current user`() = runTest {
+        val aliceRepo = newRepository(alice)
+        val bobRepo = newRepository(bob)
+        val seriesId = TaskSeriesId("series-4")
+        aliceRepo.createSeries(listOf(task("w1").copy(seriesId = seriesId)))
+        advanceUntilIdle()
+
+        assertEquals(0, bobRepo.observeSeries(seriesId).first().size, "another profile sees nothing")
     }
 
     // ─── User scoping ───────────────────────────────────────────────────────────

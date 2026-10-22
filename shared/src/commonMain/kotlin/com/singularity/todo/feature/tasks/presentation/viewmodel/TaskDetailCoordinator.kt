@@ -358,6 +358,7 @@ class TaskDetailCoordinator(
                 is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
                 is TaskDetailExtras.Ready -> ex.timeSlotState
             },
+            seriesMembers = entityState.seriesMembers,
             firstRun = when (val ex = extras) {
                 is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
                 is TaskDetailExtras.Ready -> ex.firstRun
@@ -425,6 +426,8 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.SetRecurrence,
             is TaskDetailIntent.Domain.SetDependencies,
             is TaskDetailIntent.Domain.SetEstimate,
+            is TaskDetailIntent.Domain.ApplyToAllOccurrences,
+            is TaskDetailIntent.Domain.DeleteSeries,
             -> entity.onIntent(intent)
 
             is TaskDetailIntent.Domain.ToggleChecklistItem,
