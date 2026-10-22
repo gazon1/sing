@@ -232,6 +232,101 @@ class RegistrySanityTest(unittest.TestCase):
         self.assertGreaterEqual(mod.MIN_EXPORTS, 2)
 
 
+class RoundTripRenderingTest(unittest.TestCase):
+    """The generated round-trip test — the part of the chain no file can prove.
+
+    The gate cannot read whether a migration produces the schema its successor
+    claims; that is a property of running the chain. The test that runs it is
+    generated from the exported schemas, so the question becomes "is the
+    committed file what the generator produces" — which is answerable.
+    """
+
+    def test_a_step_becomes_a_case(self):
+        source = mod.render_roundtrip_test([(5, 6)])
+        self.assertIn('@ParameterizedTest', source)
+        self.assertIn('            5,\n', source)
+        self.assertIn('roundTripFrom(version)', source)
+        self.assertIn('class MigrationRoundTripTest', source)
+
+    def test_the_file_declares_one_function(self):
+        """Forty methods in one class is forty functions, and detekt's bar is sixteen.
+
+        The generated file is one parameterized case over the versions, so the
+        file holds one function and still reports one case per version.
+        """
+        source = mod.render_roundtrip_test([(v, v + 1) for v in range(5, 45)])
+        self.assertEqual(source.count("fun `"), 1, 'the generated file must hold one function')
+        self.assertIn('            5,\n', source)
+        self.assertIn('            44,\n', source)
+
+    def test_the_rendering_is_a_pure_function_of_the_steps(self):
+        """The file the gate reads and the file it would write are one string.
+
+        A check that compares against something else reports a stale file as
+        current, and the file nobody looks at is the one that changed.
+        """
+        steps = [(5, 6), (6, 7)]
+        self.assertEqual(mod.render_roundtrip_test(steps), mod.render_roundtrip_test(steps))
+        self.assertNotEqual(mod.render_roundtrip_test(steps), mod.render_roundtrip_test([(5, 6)]))
+
+    def test_the_generated_file_says_it_is_generated(self):
+        source = mod.render_roundtrip_test([(5, 6)])
+        self.assertIn('GENERATED FILE', source)
+        self.assertIn('--write', source)
+
+    def test_the_steps_start_at_the_support_floor(self):
+        """Below the floor there is no migration to run, so there is no test."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            steps = mod.migration_steps(root)
+            self.assertEqual(steps, [(5, 6)], f'expected the chain from the floor, got {steps}')
+
+    def test_the_rule_is_silent_on_a_current_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            found = mod.check_roundtrip_test_current(root)
+            self.assertEqual([str(v) for v in found], [], f'unexpected findings: {found}')
+
+    def test_the_rule_fires_on_a_stale_file(self):
+        """The defect: the file is still there and no longer covers the newest step."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            path = root / mod.ROUND_TRIP_TEST_RELATIVE
+            path.write_text(path.read_text().replace('            5,\n', '            4,\n'))
+            found = mod.check_roundtrip_test_current(root)
+            self.assertTrue(
+                any(v.rule == 'roundtrip-test-current' for v in found),
+                f'expected the rule to fire, got {[str(v) for v in found] or "clean"}',
+            )
+
+    def test_the_rule_fires_when_the_helper_is_gone(self):
+        """The generated test calls a helper; a missing helper is a broken build."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            (root / mod.ROUND_TRIP_SUPPORT_RELATIVE).unlink()
+            found = mod.check_roundtrip_test_current(root)
+            self.assertTrue(
+                any(v.rule == 'roundtrip-test-current' for v in found),
+                f'expected the rule to fire, got {[str(v) for v in found] or "clean"}',
+            )
+
+    def test_the_repository_file_is_what_the_generator_produces(self):
+        path = mod.ROOT / mod.ROUND_TRIP_TEST_RELATIVE
+        self.assertTrue(path.is_file(), f'{mod.ROUND_TRIP_TEST_RELATIVE} is missing')
+        steps = mod.migration_steps(mod.ROOT)
+        self.assertGreater(len(steps), 0, 'the repository has no migration steps to cover')
+        self.assertEqual(
+            path.read_text(),
+            mod.render_roundtrip_test(steps),
+            'the committed round-trip test is stale — regenerate it with '
+            '`python3 scripts/check-room-schema-integrity.py --write`',
+        )
+
+
 class RealTreeTest(unittest.TestCase):
     """The gate must be clean against the repository it ships in.
 
