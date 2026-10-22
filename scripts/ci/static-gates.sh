@@ -453,6 +453,41 @@ gate blocking "YAML is structurally valid" yaml_is_structurally_valid
 # PyPI wheel of the upstream Rust binary) through .github/actions/setup-python-tools.
 gate blocking "doc links" sgate doc_links
 
+# The navigation doc says what opens what, and it is pointed at from the nav3
+# skill — so an agent that follows the pointer reads it. `doc links` above
+# checks that the links in it resolve; it cannot see that a *claim* about
+# behaviour has stopped being true, because the link is fine and the sentence
+# is wrong.
+#
+# Two rows went false on 2026-10-22 and nothing noticed: the deep-link row for
+# `singularity://view/{viewId}` still named `SavedAgendaEdit` after the code
+# moved to `SavedAgendaResults`, and the platform row still said the desktop
+# tasks stack pushes the `Detail` start onto the stack after the code changed
+# to seed the stack with the requested route itself.
+#
+# The gate compares the doc against the code: the types a deep-link row names
+# must be the types the matcher names, every link the code declares must have a
+# row, and a claim that the tasks stack is pushed onto must agree with what the
+# platform assemblers do.
+gate blocking "navigation doc matches the code" sgate navigation_doc_matches_the_code
+
+# The DI fixture table says what to hand a Koin definition that takes its
+# arguments at runtime. The definition lives in `shared/.../core/di/`, the
+# fixture in `desktopApp/.../jvmTest/`, and nothing kept them in step.
+#
+# On 2026-10-22 `TaskDetailCoordinator` was given a route instead of a
+# `TaskId`, the definition was updated, and the fixture was not — so the graph
+# could not be created. The test that catches it lives in the full desktop
+# suite: an hour of wall clock away on a loaded host, at the very end of the
+# work.
+#
+# This gate reads the same two facts from the sources and compares them without
+# a JVM, so it runs in seconds, in the static gates and in the pre-push hook.
+# It is a text comparison, so it is a floor and not a proof: it catches a
+# definition and a fixture that disagree about which type they are talking
+# about, and leaves a value built by a factory function to the runtime test.
+gate blocking "DI fixture matches the definitions" sgate di_fixture_matches_the_definitions
+
 # The other reference shape: a path inside backticks, and a dated ADR slug
 # cited without its `.md`. It was registered in the Python registry with a
 # positive control and a green run, and no gate line anywhere invoked it —

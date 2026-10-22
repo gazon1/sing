@@ -53,6 +53,8 @@ sche... | — | — |
 | the platform reference ports are true | blocking | check-platform-reference-ports.py — the platform reference against the code. | — | — |
 | doc dead refs | blocking | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
 | doc links | blocking | doc links | — | — |
+| navigation doc matches the code | blocking | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
+| DI fixture matches the definitions | blocking | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |
 | GitHub workflows are valid | blocking | GitHub workflows are valid | — | — |
 | YAML is structurally valid | blocking | YAML is structurally valid | — | — |
 | gate registries agree | blocking | check_gate_registries.py — the two gate registries agree on what exists. | — | — |
