@@ -93,7 +93,9 @@ with no property to change it. The idle timeout and the smaller heap deliver
 the same saving without giving up the isolation.
 
 **D6. Part A applies everywhere, CI included.** The CI runner has 16 GB; the
-old ceiling was 18 GB.
+old ceiling was 18 GB, the new one is 12 GB. This is also where the first
+measurement of the daemon's heap turned out to be wrong — CI was the surface
+that could show it, and it did, on the first run of the branch.
 
 ## The measured numbers
 
@@ -103,17 +105,60 @@ own GC log.
 
 ### The daemon's heap
 
+The FIRST measurement was about one task, and it was wrong about a build.
+
 | `-Xmx` | result |
 |---|---|
 | 1536 MB | `Evacuation Failure` at 1535M/1536M — the collector hit the ceiling and the build only survived because the heap was about to be reclaimed |
-| **2048 MB** | **BUILD SUCCESSFUL in 3m12s**, peak heap **1807 MB** after GC |
+| 2048 MB | BUILD SUCCESSFUL in 3m12s, peak heap **1807 MB** after GC — for **one** compilation of the shared module |
 
-The peak leaves ~240 MB of headroom, and one evacuation failure event — the
-compiler was close to the ceiling. 2048 MB is therefore the *smallest* value that
-works, not a comfortable one; the alternative is 2560 MB, which would push the
-per-worktree ceiling past the budget in D6.
+2048 MB was written down as "the smallest value that leaves room". Then CI ran
+the branch on 2026-10-22 and died:
 
-The old value was 3072 MB.
+```
+> Task :shared:compileAndroidMain FAILED
+> Task :shared:compileKotlinJvm FAILED
+java.lang.RuntimeException: java.lang.OutOfMemoryError: Java heap space
+```
+
+Because a build is not a single task. CI compiles the shared module twice (the
+Android target and the JVM target), then the desktop and android modules, and
+the Kotlin compiler — running in-process — holds the live set of all of it in
+the one heap. The 1807 MB was one compilation; the build is several.
+
+The second measurement used the task set CI actually compiles, `--no-parallel`
+as CI runs it, and read the daemon's RSS:
+
+| `-Xmx` | result |
+|---|---|
+| 2048 MB | `OutOfMemoryError: Java heap space` — the CI failure, reproduced |
+| 4096 MB | BUILD SUCCESSFUL, peak RSS **5.67 GB** — the daemon sat AT the cap through the whole compile |
+| **6144 MB** | **BUILD SUCCESSFUL**, peak RSS **5.9 GB** — the heap grew past the 4 GB cap, so the live set is ~4.3 GB and 4 GB was never enough |
+
+4096 MB "worked" locally and would not have worked in CI: the daemon was
+heap-bound the whole way, and CI's step additionally holds Kover's agent and
+the detekt analysis in the same heap. 6144 MB is the smallest round number
+above the measured live set with room for the rest of the daemon.
+
+The old value was 3072 MB — but the old build did not run the Kotlin compiler
+inside the Gradle daemon at all, and the Kotlin daemon's heap was never
+bounded: the plugin's default is a quarter of the machine's RAM, which is
+15 GB on this host and 4 GB on a CI runner. "One daemon of 6 GB" replaces
+"one daemon of 3 GB plus a second JVM with an unbounded heap".
+
+### The workers
+
+`org.gradle.workers.max` was 8, then 4, and is now **2** — and the reason is
+memory, not CPUs.
+
+8 oversubscribed the 16 vCPUs (`/proc/pressure/cpu` measured
+`some avg10=48.79` on 2026-10-22: about half the time tasks waited for a CPU).
+Four matched the core count. But the compilation runs INSIDE the daemon, so
+four workers mean four concurrent compilations sharing one heap — and one
+compilation's live set is ~4.3 GB. Two fits under the 6 GB ceiling; four would
+OOM the daemon exactly as CI did. Two also leaves the slot pool room to run
+three builds at once (6 compilations, 6 of 16 cores) instead of fighting over
+them.
 
 ### The test forks' heap
 
@@ -141,13 +186,21 @@ platform state between classes, and the `FileSystemContract` temp paths).
 
 | component | heap |
 |---|---|
-| Gradle daemon | 2048 MB |
+| Gradle daemon | 6144 MB |
 | Kotlin daemon | none — the compilation is in-process |
 | test forks | 4 × 1536 MB = 6144 MB |
-| **total per active worktree** | **8192 MB = 8 GB** |
+| **total per active worktree** | **12288 MB = 12 GB** |
+
+The two big components do not run at the same time: the daemon's 6 GB are
+live during COMPILATION, when no test fork exists, and the forks' 6 GB are
+live during the TESTS, when the compiler has finished. The peak a worktree
+actually reaches is therefore ~8 GB — but 12 GB is the number that is true
+without an assumption, so it is the number written down.
 
 Against a 62 GB machine with a swap that was already full, that is the number
-that matters.
+that matters. It is also the number the fleet is bounded by: the idle timeout
+(ten minutes) and the three-slot pool mean three to five daemons are live at
+once, not thirty-three.
 
 ### The idle timeout
 
