@@ -19,6 +19,25 @@ import kotlin.test.assertNull
  * The registry is the only place that decides what a link means, so this table
  * is the contract between the app and everything outside it — a calendar event,
  * a notification, a magic-link email, the desktop CLI.
+ *
+ * ## Why this test lives in `jvmTest` and not in `commonTest`
+ *
+ * nav3 parses a deep link with the platform's own URI type: on Android that is
+ * `android.net.Uri`, and `DeepLinkUri` calls `Uri.parse` the moment a matcher
+ * is built. In a plain JVM unit test that method is the unmocked stub, so the
+ * matcher throws `RuntimeException: Method parse in android.net.Uri not mocked`
+ * before a single assertion runs — the class fails on the Android source set and
+ * passes on the JVM, from the same bytes.
+ *
+ * Robolectric would fix the symptom, but `androidHostTest` reaches it through
+ * the JUnit 4 / Vintage engine, which does not map Jupiter's `@Tag` — the class
+ * would then be *skipped* in every tagged run. A test that can vanish is worse
+ * than no test, so the table is verified where it can actually run: on the JVM,
+ * where nav3's JetBrains artifact answers the same contract.
+ *
+ * What this leaves uncovered is nav3's Android URI parsing, which is the
+ * library's code and not ours; the Android wiring that reaches it is covered by
+ * `MainActivity`'s resolution path and the platform manifest.
  */
 @Tag("fast")
 class DeepLinkRegistryTest {
