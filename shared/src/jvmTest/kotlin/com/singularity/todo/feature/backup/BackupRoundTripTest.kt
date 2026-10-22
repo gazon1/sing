@@ -22,6 +22,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
@@ -130,6 +131,77 @@ class BackupRoundTripTest {
                 updatedAt = Clock.System.now(),
             ),
         )
+    }
+
+    @Test
+    fun `a dependency edge keeps its verb through the round trip`() = runTest {
+        val owner = UserId("backup-user")
+        seedGraph(owner)
+
+        val fs = JvmFileSystem()
+        val destPath = File(tempDir, "verbs.zip").absolutePath
+
+        val exported = exporter(fs).export(
+            exportOptions {
+                this.userId = owner
+                this.destPath = destPath
+                includeAttachments = false
+            },
+        )
+        assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+        val restored = importer(fs).import(
+            importOptions {
+                sourcePath = destPath
+                targetUserId = owner
+                overwriteExisting = true
+            },
+        )
+        assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+
+        val edges = targetDb.taskDao().listAllDependenciesForUser(owner.value)
+        val verbs = edges.associate { it.taskId to it.verb }
+        assertEquals(
+            mapOf("blocks" to "BLOCKS", "follows" to "FOLLOWS_UP"),
+            verbs,
+            "a relation that only follows up must not come back as a block",
+        )
+    }
+
+    /**
+     * Writes a small graph with two kinds of edge into the source database.
+     *
+     * One edge blocks, the other only follows up. The two mean different
+     * things: the first makes the task wait, the second does not. A backup that
+     * kept the ends of the edge and dropped the meaning turned the second into
+     * the first — and the close rule reads exactly these edges.
+     */
+    private suspend fun seedGraph(owner: UserId) {
+        val auth = FakeAuthRepository(Session.Anonymous(owner))
+        val currentUser = FakeProfileAwareCurrentUser(auth)
+        val repository = TaskRepositoryImpl(
+            taskDao = sourceDb.taskDao(),
+            textIndex = sourceDb.textIndex(currentUser),
+            clock = Clock.System,
+            currentUser = currentUser,
+            syncRepository = FakeSyncRepository(),
+            dependencyValidator = DependencyValidatorImpl(sourceDb.taskDao(), currentUser),
+            unitOfWork = FakeUnitOfWork(),
+        )
+        val now = Clock.System.now()
+        listOf("dep", "blocks", "follows").forEach { id ->
+            repository.create(
+                Task(
+                    id = TaskId(id),
+                    title = "Task $id",
+                    userId = owner,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        }
+        repository.setDependency(TaskId("blocks"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
+        repository.setDependency(TaskId("follows"), TaskId("dep"), DependencyVerb.FOLLOWS_UP, enabled = true)
     }
 
     /** The exporter reads the source database. */

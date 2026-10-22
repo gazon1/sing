@@ -66,3 +66,56 @@ fun blockedCompletionText(taskTitle: String, blockerTitles: List<String>): Strin
     return "$subject has unfinished prerequisites:\n" +
         blockerTitles.joinToString(separator = "\n") { "• $it" }
 }
+
+/**
+ * The confirmation shown when the user closes a *selection* in which some tasks
+ * have unfinished prerequisites.
+ *
+ * The same question as the single close, asked about a selection — and the same
+ * rule behind it: a bulk close is a close, so it asks too.
+ *
+ * @param blockedTaskTitles the titles of the tasks in the selection that are in the way.
+ * @param totalCount how many tasks the selection holds.
+ * @param onConfirm called when the user chooses to close the selection anyway.
+ * @param onDismiss called when the user backs out; nothing was written.
+ */
+@Composable
+fun BlockedBulkCompletionDialog(
+    blockedTaskTitles: List<String>,
+    totalCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) = ConfirmActionDialog(
+    title = BLOCKED_BULK_COMPLETION_TITLE,
+    text = blockedBulkCompletionText(blockedTaskTitles, totalCount),
+    confirmButtonText = BLOCKED_COMPLETION_CONFIRM,
+    dismissButtonText = BLOCKED_COMPLETION_DISMISS,
+    onConfirm = onConfirm,
+    onDismiss = onDismiss,
+)
+
+/** The heading of the blocked-bulk-completion dialog. */
+const val BLOCKED_BULK_COMPLETION_TITLE = "Some tasks are blocked"
+
+/**
+ * The body of the blocked-bulk-completion dialog: the tasks in the selection
+ * that are in the way.
+ *
+ * A pure function for the same reason as the single close's: the names are the
+ * whole point of the dialog, and a dialog that does not name them is a dialog
+ * that cannot be acted on.
+ *
+ * @param blockedTaskTitles the titles of the tasks in the way.
+ * @param totalCount how many tasks the selection holds.
+ */
+fun blockedBulkCompletionText(blockedTaskTitles: List<String>, totalCount: Int): String {
+    val blocked = blockedTaskTitles.size
+    val subject = if (blocked == 1) {
+        "1 of the $totalCount selected tasks"
+    } else {
+        "$blocked of the $totalCount selected tasks"
+    }
+    if (blockedTaskTitles.isEmpty()) return "$subject has unfinished prerequisites."
+    return "$subject has unfinished prerequisites:\n" +
+        blockedTaskTitles.joinToString(separator = "\n") { "• $it" }
+}

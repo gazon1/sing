@@ -8,6 +8,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.Reminder
 import com.singularity.todo.feature.reminders.ReminderId
 import com.singularity.todo.feature.reminders.ReminderScheduler
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
@@ -18,6 +19,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
@@ -33,6 +35,7 @@ import com.singularity.todo.test.fakes.FakeReminderRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -155,18 +158,48 @@ internal class SlotFakes(
 
     fun context() = TaskContextDeps(clock = FakeClock(SLOT_NOW), debounceMs = 300L)
 
-    /** Records the recurring-completion call so the completion slot can be asserted on. */
+    /**
+     * The recurring completion the slot asked for — the call, not the write.
+     *
+     * A recurring close goes through the use case rather than through a write of
+     * `completedAt`, and this is where that is asserted.
+     */
+    var recurringCalled: TaskId? = null
+
+    /**
+     * The recurring completion that was actually written.
+     *
+     * The call and the write are two things: a refusal is a call that wrote
+     * nothing, and a test that cannot tell them apart cannot assert that
+     * nothing was written before the user's answer.
+     */
     var recurringCompleted: TaskId? = null
 
+    /**
+     * A stand-in for the real use case that mirrors its refusal.
+     *
+     * The real use case refuses in its write while a prerequisite is open, and
+     * the slot asks the user when the write says no. A stub that only recorded
+     * the call would answer "no" to nothing, and the slot would have nothing
+     * to ask about — so the stub refuses the same way the real use case does,
+     * and records the write only when it is allowed to happen.
+     */
     private val stubCompleteRecurring = object : CompleteRecurringTaskUseCase(
         repo = taskRepo,
+        unitOfWork = FakeUnitOfWork(),
         clock = FakeClock(SLOT_NOW),
         timeZoneProvider = TEST_TZ,
         calculator = RecurrenceCalculator,
     ) {
-        override suspend fun invoke(taskId: TaskId): Result<Task> {
+        override suspend fun invoke(taskId: TaskId, force: Boolean): Result<Task> {
+            recurringCalled = taskId
+            val task = taskRepo.get(taskId)
+                ?: return Result.failure(IllegalStateException("Stub — no such task: $taskId"))
+            if (!force && Blocking.activeBlockers(task, taskRepo.tasks.value.values.toList()).isNotEmpty()) {
+                return Result.failure(BlockedTasksException(setOf(taskId)))
+            }
             recurringCompleted = taskId
-            return Result.failure(IllegalStateException("Stub — not implemented in slot tests"))
+            return Result.success(task)
         }
     }
 }

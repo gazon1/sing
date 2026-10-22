@@ -30,18 +30,23 @@ open class TaskMutationsUseCase(protected val repo: TaskRepository) {
      * The write refuses as well, on its own: a prerequisite can be reopened
      * between the check and the write, and the write is the one that has the
      * last word.
+     *
+     * @param force close even the tasks whose prerequisite is open. The caller
+     *   passes `true` only after the user has confirmed.
      */
-    suspend fun bulkComplete(ids: List<TaskId>): Result<Unit> = runCatchingCancellable {
+    suspend fun bulkComplete(ids: List<TaskId>, force: Boolean = false): Result<Unit> = runCatchingCancellable {
         // Atomic: fail-fast if any ID doesn't exist, before mutating anything.
         ids.forEach { id ->
             if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
         }
-        val blocked = repo.blockedTaskIds(ids)
-        if (blocked.isNotEmpty()) {
-            return Result.failure(BlockedTasksException(blocked))
+        if (!force) {
+            val blocked = repo.blockedTaskIds(ids)
+            if (blocked.isNotEmpty()) {
+                return Result.failure(BlockedTasksException(blocked))
+            }
         }
         ids.forEach { id ->
-            val completed = repo.complete(id).getOrThrow()
+            val completed = repo.complete(id, force).getOrThrow()
             if (!completed) {
                 // The write refused although the check said nothing was in the
                 // way: a prerequisite was reopened in between.

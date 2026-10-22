@@ -75,7 +75,7 @@ class DependencyValidatorTest {
     fun `analyzeDependencies returns no cycle for isolated task`() = runTest {
         val analysis = sut(InMemoryTaskDao()).analyzeDependencies(TaskId("t1"))
         assertFalse(analysis.containsCycle)
-        assertTrue(analysis.blockers.isEmpty())
+        assertTrue(analysis.cycleEdges.isEmpty())
     }
 
     @Test
@@ -86,7 +86,7 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertFalse(analysis.containsCycle)
-        assertTrue(analysis.blockers.isEmpty())
+        assertTrue(analysis.cycleEdges.isEmpty())
     }
 
     @Test
@@ -108,7 +108,7 @@ class DependencyValidatorTest {
         val deps = dao(Triple("t-a", "t-a", "BLOCKS"))
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        assertTrue(analysis.blockers.isNotEmpty())
+        assertTrue(analysis.cycleEdges.isNotEmpty())
     }
 
     @Test
@@ -120,7 +120,7 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        assertTrue(analysis.blockers.isNotEmpty())
+        assertTrue(analysis.cycleEdges.isNotEmpty())
     }
 
     @Test
@@ -131,7 +131,7 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        val bToA = analysis.blockers.find {
+        val bToA = analysis.cycleEdges.find {
             it.ownerTaskId == TaskId("t-b") && it.dependencyTaskId == TaskId("t-a")
         }
         assertTrue(bToA != null, "Expected t-b -> t-a edge in cycle blockers")
@@ -167,7 +167,7 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.FOLLOWS_UP, analysis.blockers.first().verb)
+        assertEquals(DependencyVerb.FOLLOWS_UP, analysis.cycleEdges.first().verb)
     }
 
     @Test
@@ -178,7 +178,7 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.DUPLICATES, analysis.blockers.first().verb)
+        assertEquals(DependencyVerb.DUPLICATES, analysis.cycleEdges.first().verb)
     }
 
     @Test
@@ -189,7 +189,7 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.FIXES, analysis.blockers.first().verb)
+        assertEquals(DependencyVerb.FIXES, analysis.cycleEdges.first().verb)
     }
 
     @Test
@@ -200,6 +200,6 @@ class DependencyValidatorTest {
         )
         val analysis = sut(deps).analyzeDependencies(TaskId("t-a"))
         assertTrue(analysis.containsCycle)
-        assertEquals(DependencyVerb.SUPERSEDES, analysis.blockers.first().verb)
+        assertEquals(DependencyVerb.SUPERSEDES, analysis.cycleEdges.first().verb)
     }
 }

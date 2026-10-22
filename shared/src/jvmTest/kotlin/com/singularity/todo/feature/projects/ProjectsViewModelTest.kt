@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 
 /**
@@ -151,6 +152,57 @@ class ProjectsViewModelTest {
         val error = assertIs<ProjectsUiState.Error>(vm.stateFlow.value)
         assertEquals("Work", error.searchQuery.text)
         assertEquals(ProjectSortOrder.Color, error.sortOrder)
+    }
+
+    // ─── the closed projects ──────────────────────────────────────────────
+
+    @Test
+    fun `a closed project leaves the list and comes back on its own list`() = runTest {
+        seedProject("p1", "Open project")
+        seedProject("p2", "Closed project")
+        val vm = createVm()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        fakeProjectRepo.close(ProjectId.fromString("p2"), 1_000L).getOrThrow()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val state = assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
+        assertEquals(
+            listOf("Open project"),
+            state.projects.map { it.project.name },
+            "a closed project leaves the project list",
+        )
+        assertEquals(
+            listOf("Closed project"),
+            state.closedProjects.map { it.name },
+            "and it is still reachable, with the way back",
+        )
+    }
+
+    @Test
+    fun `opening a closed project puts it back in the list`() = runTest {
+        seedProject("p2", "Closed project")
+        val vm = createVm()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        fakeProjectRepo.close(ProjectId.fromString("p2"), 1_000L).getOrThrow()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        vm.onIntent(ProjectsIntent.Reopen(ProjectId.fromString("p2")))
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val state = assertIs<ProjectsUiState.Content>(vm.stateFlow.value)
+        assertEquals(
+            listOf("Closed project"),
+            state.projects.map { it.project.name },
+            "the project is back in the list",
+        )
+        assertTrue(state.closedProjects.isEmpty(), "and it is no longer a closed one")
     }
 
     // ─── delete (via use-case, not state) ──────────────────────────────────

@@ -103,7 +103,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { CreateTaskUseCase(get(), get(), get()) }
     factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
-    factory { CompleteRecurringTaskUseCase(get(), get(), get(), get()) }
+    factory { CompleteRecurringTaskUseCase(get(), get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
     // The rule of opening a task: it brings its closed project back with it.

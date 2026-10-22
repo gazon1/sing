@@ -57,7 +57,7 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
             if (current in visited) continue
             if (current == targetId) return setOf(targetId) // early exit: target reachable
             visited.add(current)
-            val deps = taskDao.getDependencyIdsForUser(current, uid).first()
+            val deps = taskDao.getOrderingEdgeIdsForUser(current, uid).first()
             for (depId in deps) {
                 if (depId !in visited) worklist.add(depId)
             }
@@ -72,6 +72,14 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
      * The algorithm uses BFS to explore all reachable nodes from [taskId].
      * If [taskId] is reached via a path that doesn't start with the initial edge
      * (i.e., a non-trivial cycle), a cycle exists.
+     *
+     * ## The graph this walks
+     *
+     * The **ordering graph**: every edge, whatever its verb. A relation that
+     * does not make a task wait still orders the work, and two relations that
+     * point at each other are a cycle of order even when neither of them
+     * blocks anything. The blocking graph — the `BLOCKS` edges — is a
+     * different projection, and it is the one the close rule reads.
      */
     override suspend fun analyzeDependencies(taskId: TaskId): DependencyAnalysis {
         val uid = currentUser.scopedUserId.value
@@ -93,7 +101,7 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
             visited.add(current)
 
             // Get immediate dependencies of current task — take only first emission
-            val deps = taskDao.getDependencyIdsForUser(current, uid.value).first()
+            val deps = taskDao.getOrderingEdgeIdsForUser(current, uid.value).first()
 
             for (depId in deps) {
                 if (depId == startId) {
@@ -126,11 +134,11 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
         }
 
         if (cycleEdges.isEmpty()) {
-            return DependencyAnalysis(containsCycle = false, blockers = emptyList())
+            return DependencyAnalysis(containsCycle = false, cycleEdges = emptyList())
         }
 
         // Convert cycle edges to TaskDependency objects
-        val blockers = cycleEdges.mapNotNull { (from, to) ->
+        val cycleDependencies = cycleEdges.mapNotNull { (from, to) ->
             val allDeps = taskDao.observeTypedDependenciesForUser(from, uid.value).first()
             val crossRef = allDeps.find { it.dependsOnTaskId == to }
             crossRef?.let {
@@ -142,6 +150,6 @@ class DependencyValidatorImpl(private val taskDao: TaskDao, private val currentU
             }
         }
 
-        return DependencyAnalysis(containsCycle = true, blockers = blockers)
+        return DependencyAnalysis(containsCycle = true, cycleEdges = cycleDependencies)
     }
 }

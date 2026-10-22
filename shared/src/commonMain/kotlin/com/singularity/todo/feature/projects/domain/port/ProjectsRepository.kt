@@ -10,6 +10,11 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Contract for projects persistence.
  */
+// 13 functions: the project's whole contract in one place. Splitting it into
+// a live-projects contract and a closed-projects contract would move a
+// boundary nobody asked for — every caller that touches a project touches
+// both sides of it.
+@Suppress("TooManyFunctions")
 interface ProjectsRepository :
     GenericUserScopedRepository<Project, ProjectId>,
     SoftDeletable<Project, ProjectId> {
@@ -49,6 +54,16 @@ interface ProjectsRepository :
 
     /** All non-deleted projects with task counts for the current user. */
     fun observeProjectsWithCounts(): Flow<List<ProjectWithCountRow>>
+
+    /**
+     * The projects the user closed, most recently closed first.
+     *
+     * The mirror of [observeProjectsWithCounts]: a closed project leaves the
+     * project list, and this is where it goes. Without it, a project closed by
+     * mistake could only be got back through one of its tasks — and a project
+     * with no tasks could not be got back at all.
+     */
+    fun observeClosed(): Flow<List<Project>>
 
     /** Children of a parent project, scoped to current user. */
     fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>>

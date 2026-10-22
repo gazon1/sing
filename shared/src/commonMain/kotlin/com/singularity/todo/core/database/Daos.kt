@@ -236,6 +236,23 @@ interface TaskDao {
     suspend fun markCompleteIfNotBlockedForUser(id: String, ts: Long, userId: String, verb: String): Int
 
     /**
+     * Moves a task to its next due date, leaving every other field alone.
+     *
+     * The roll-forward of a recurring task changes the due date and nothing
+     * else, so it is a narrow write. A full-row update would carry the row as
+     * it was read back over a change another device made in the meantime — and
+     * the completion it would carry along is the very thing the guard has to
+     * refuse.
+     *
+     * @return the number of rows written: `0` means there was no such task.
+     */
+    @Query(
+        "UPDATE tasks SET due_date = :dueDate, updated_at = :updatedAt " +
+            "WHERE id = :id AND user_id = :userId",
+    )
+    suspend fun setDueDateForUser(id: String, dueDate: String?, updatedAt: Long, userId: String): Int
+
+    /**
      * The ids among [taskIds] that have an open blocking prerequisite.
      *
      * A targeted read: it resolves the edges of the given tasks only, instead of
@@ -304,11 +321,26 @@ interface TaskDao {
     fun getTagIdsForUser(taskId: String, userId: String): Flow<List<String>>
 
     // ── Task dependencies ─────────────────────────────────────────────────────
+    //
+    // Two projections of the same graph, and they answer different questions.
+    //
+    // The **ordering graph** is every edge, whatever its verb: it is the shape
+    // of "what comes before what", and it is where a cycle is looked for.
+    // The **blocking graph** is the `BLOCKS` edges only: they are the ones
+    // that make a task wait, and the only ones that refuse a close.
+    //
+    // A relation that does not make a task wait — "follows up on", "duplicates"
+    // — still orders the work, so it takes part in the cycle analysis, and it
+    // still leaves the task free to be closed. The two answers are not the
+    // same, and the difference is the point: two tasks that follow up on each
+    // other are in a cycle of order, and neither of them is waiting.
 
-    @Query("SELECT depends_on_task_id FROM task_dependencies WHERE task_id = :taskId")
-    fun getDependencyIdsForTask(taskId: String): Flow<List<String>>
-
-    /** Scoped to the owning task's user; the cross-ref table has no `user_id`. */
+    /**
+     * The ids of every edge of [taskId], whatever its verb — the **ordering
+     * graph**.
+     *
+     * Scoped to the owning task's user; the cross-ref table has no `user_id`.
+     */
     @Query(
         """
         SELECT depends_on_task_id FROM task_dependencies
@@ -316,22 +348,24 @@ interface TaskDao {
         AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    fun getDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>>
-
-    @Query("SELECT task_id FROM task_dependencies WHERE depends_on_task_id = :taskId")
-    fun getBlockingTaskIdsForTask(taskId: String): Flow<List<String>>
+    fun getOrderingEdgeIdsForUser(taskId: String, userId: String): Flow<List<String>>
 
     /**
-     * Scoped variant of [getBlockingTaskIdsForTask] — returns only task_ids owned by [userId].
+     * The ids of the edges of [taskId] that make it wait — the **blocking
+     * graph**.
+     *
+     * [verb] is the verb that blocks (`BLOCKS`); the other verbs order the
+     * work without making the task wait for it. This is the projection the
+     * close rule reads, and the one the badge means.
      */
     @Query(
         """
-        SELECT td.task_id FROM task_dependencies td
-        WHERE td.depends_on_task_id = :taskId
-        AND td.task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        SELECT depends_on_task_id FROM task_dependencies
+        WHERE task_id = :taskId AND verb = :verb
+        AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
         """,
     )
-    fun getBlockingTaskIdsForUser(taskId: String, userId: String): Flow<List<String>>
+    fun getBlockingEdgeIdsForUser(taskId: String, userId: String, verb: String): Flow<List<String>>
 
     /**
      * Inserts a dependency cross-ref only when the owning task belongs to [userId].
@@ -793,6 +827,21 @@ interface ProjectDao {
             "ORDER BY sort_order ASC, name ASC",
     )
     fun watchAll(userId: String): Flow<List<ProjectEntity>>
+
+    /**
+     * The projects the user closed: finished, not deleted, and reachable only
+     * through this list.
+     *
+     * A closed project leaves [watchAll] — it is finished, not gone. But it has
+     * to be reachable somehow: without a list of the closed ones, a project
+     * closed by mistake could only be got back through one of its tasks, and a
+     * project with no tasks could not be got back at all.
+     */
+    @Query(
+        "SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 AND closed_at IS NOT NULL " +
+            "ORDER BY closed_at DESC, name ASC",
+    )
+    fun watchClosedForUser(userId: String): Flow<List<ProjectEntity>>
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
     @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")

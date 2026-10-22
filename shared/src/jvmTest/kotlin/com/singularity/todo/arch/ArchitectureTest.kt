@@ -614,9 +614,7 @@ class ArchitectureTest {
         // task_dependencies cross-ref table has no user_id column; the task_id
         // parameter comes from an already-scoped task list (the caller only works
         // with tasks owned by the current profile).
-        "TaskDao.getDependencyIdsForTask",
-        "TaskDao.getDependencyIdsForUser",
-        "TaskDao.getBlockingTaskIdsForTask",
+        "TaskDao.getOrderingEdgeIdsForUser",
     )
 
     /**

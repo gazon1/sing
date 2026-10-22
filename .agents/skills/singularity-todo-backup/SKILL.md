@@ -15,7 +15,7 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 ```
 
 **Key files** (all under `shared/src/commonMain/kotlin/com/singularity/todo/`):
-- `core/backup/BackupFormat.kt` — constants (FORMAT_VERSION=1, SCHEMA_VERSION=1, entry names)
+- `core/backup/BackupFormat.kt` — constants (FORMAT_VERSION=1, SCHEMA_VERSION=5, entry names)
 - `core/backup/BackupManifest.kt` — `@Serializable` with computed `isCompatibleWith`
 - `core/backup/BackupPayload.kt` — `@Serializable` wrapper with schemaVersion + all DTO lists
 - `core/backup/BackupDtos.kt` — 6 DTOs: TaskDto, NoteDto, ProjectDto, TagDto, AttachmentDto, TaskTagDto. **Sync metadata stripped on toDto()**
@@ -174,5 +174,5 @@ interface BackupRepository {
 ## Dual Versioning
 
 - `FORMAT_VERSION` — zip container format (currently 1)
-- `SCHEMA_VERSION` — payload schema (currently 1)
+- `SCHEMA_VERSION` — payload schema (currently 5)
 - `validateManifest()` checks: formatVersion ≤ current, schemaVersion ≤ current, payload checksum

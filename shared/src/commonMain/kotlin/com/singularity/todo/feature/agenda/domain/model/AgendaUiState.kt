@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.model
 import androidx.compose.runtime.Immutable
+import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
@@ -13,6 +14,9 @@ import kotlinx.datetime.LocalDate
  * @param selectedTaskIds The set of task IDs currently selected.
  * @param pendingBlockedClose A task whose prerequisites are still open, waiting for the
  *        user to confirm closing it anyway. Null when no confirmation is pending.
+ * @param pendingBlockedBulkClose A selection in which some tasks have open prerequisites,
+ *        waiting for the user to confirm closing the selection anyway. Null when no
+ *        confirmation is pending.
  */
 @Immutable
 sealed interface AgendaUiState {
@@ -24,6 +28,7 @@ sealed interface AgendaUiState {
         val isSelectionMode: Boolean = false,
         val selectedTaskIds: Set<TaskId> = emptySet(),
         val pendingBlockedClose: BlockedCloseRequest? = null,
+        val pendingBlockedBulkClose: BlockedBulkCloseRequest? = null,
     ) : AgendaUiState
     data class Error(val message: String) : AgendaUiState
 }
