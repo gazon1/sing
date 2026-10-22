@@ -34,13 +34,17 @@ Usage:
         [--mode blocking|advisory] \\
         [--sabotage-path docs/navigation.md --sabotage-old "OLD" --sabotage-new "NEW"]
 
-The two generated files (`scripts/ci/static-gates.sh` and
-`docs/scripts/gate-registry.md`) are **not** written here: they are rendered
-from the manifest, and the command prints the two commands that render them.
+The command closes the loop before it returns: it renders the two generated
+files (`scripts/ci/static-gates.sh` and `docs/scripts/gate-registry.md`) from
+the manifest, proves that the shell registry actually runs the new gate, and
+runs the gate once. A registration that stops before that leaves three things
+to remember — and the one that matters is the easiest to forget: that the gate
+runs at all.
 
 Exit codes:
-  0 = the gate was registered
-  1 = the arguments or the anchors were not what they must be
+  0 = the gate was registered, rendered, reached and run
+  1 = the arguments or the anchors were not what they must be, or the gate
+      does not run yet
   2 = a file could not be written
 """
 from __future__ import annotations
@@ -302,13 +306,106 @@ def main() -> int:
     print(f"  slug      {slug}")
     print(f"  command   sgate {command}")
     print()
-    print("Now render the two generated files:")
-    print("  python3 -m sgate render-static-gates --write")
-    print("  python3 -m sgate render-registry")
+
+    # The loop closes here: the gate is rendered into the two generated files,
+    # checked for reachability, and run once. A command that registered a gate
+    # and stopped left three things to remember — and the one that matters is
+    # the one that is easiest to forget: that the gate runs at all.
+    if not render_generated_files():
+        return 1
+    if not gate_is_reachable(script):
+        return 1
+    if not gate_passes(script):
+        return 1
+
     print()
-    print("And prove the gate can fail:")
-    print(f"  python3 scripts/check-gate-wiring.py --can-fail")
+    print("Now prove the gate can fail:")
+    print("  python3 scripts/check-gate-wiring.py --can-fail")
     return 0
+
+
+def _sgate_env() -> dict[str, str]:
+    """The environment a `sgate` command runs in: this checkout's code."""
+    env = dict(os.environ)
+    src = str(ROOT / "scripts" / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return env
+
+
+def render_generated_files() -> bool:
+    """Rewrite the two generated files, so the new gate is in them."""
+    for arguments in (["render-static-gates", "--write"], ["render-registry"]):
+        result = subprocess.run(
+            [sys.executable, "-m", "sgate", *arguments],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env=_sgate_env(),
+        )
+        if result.returncode != 0:
+            print(result.stdout + result.stderr, file=sys.stderr)
+            print(
+                f"`sgate {' '.join(arguments)}` failed — the generated files are not "
+                "what the manifest renders.",
+                file=sys.stderr,
+            )
+            return False
+    print("Rendered: scripts/ci/static-gates.sh, docs/scripts/gate-registry.md")
+    return True
+
+
+def gate_is_reachable(script: str) -> bool:
+    """Whether the shell registry actually runs this gate's script.
+
+    A gate that is registered but not reachable is a gate that runs on no one:
+    the registry is what the suite reads, and a name in the Python registry
+    alone changes nothing.
+    """
+    sys.path.insert(0, str(ROOT / "scripts" / "src"))
+    from sgate.commands._registry import GATES
+    from sgate.gate_reachability import covered_scripts
+
+    shell_gates: list[tuple[str, str, str]] = []
+    for line in (ROOT / "scripts" / "ci" / "static-gates.sh").read_text(encoding="utf-8").splitlines():
+        match = re.match(r'^gate (blocking|advisory) "([^"]+)" (.+)$', line)
+        if match:
+            shell_gates.append((match.group(1), match.group(2), match.group(3)))
+
+    # The shell registry names a gate by its *command* (`sgate <command>`),
+    # and the registry knows it by its display name. The two are joined by the
+    # name the command was derived from.
+    registry_by_command = {command_name(spec.name): spec for spec in GATES}
+    covered = covered_scripts(ROOT, shell_gates, registry_by_command)
+    if script in covered:
+        print(f"Reachable: {script} is run by the shell registry")
+        return True
+    print(
+        f"{script} is registered, but no gate line of the shell registry runs it. "
+        "A gate that runs on no one is not a gate.",
+        file=sys.stderr,
+    )
+    return False
+
+
+def gate_passes(script: str) -> bool:
+    """Run the new gate once, on the tree as it stands."""
+    result = subprocess.run(
+        [sys.executable, script, "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print(f"Passes: {script} --check")
+        return True
+    print(result.stdout + result.stderr, file=sys.stderr)
+    print(
+        f"{script} --check does not pass on the tree as it stands. A gate that is "
+        "red on the day it lands is a gate nobody reads.",
+        file=sys.stderr,
+    )
+    return False
 
 
 if __name__ == "__main__":
