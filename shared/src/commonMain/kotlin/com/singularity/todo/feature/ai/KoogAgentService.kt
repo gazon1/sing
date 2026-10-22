@@ -6,9 +6,9 @@ import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.ai.RecordingTool
+import com.singularity.todo.core.ai.ToolCallLoop
 import com.singularity.todo.core.ai.filterTools
 import com.singularity.todo.core.ai.resolveModelWithFlags
 import com.singularity.todo.core.observability.ToolCallRecorder
@@ -96,6 +96,17 @@ class KoogAgentService(
         )
     }
 
+    /**
+     * The tools the chat screen may call, in the shape the tool-call loop needs.
+     *
+     * The registry holds them as [ai.koog.agents.core.tools.ToolBase], because that is the
+     * type the builder collects; every tool this project writes is a [Tool], and the loop
+     * needs the narrower type because it calls the tool without the per-call metadata the
+     * agent runtime threads through.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private val callableTools: List<Tool<*, *>> = agentTools.tools.map { it as Tool<*, *> }
+
     private fun createAgent(systemPrompt: String, modelId: String): AIAgent<String, String> {
         val flags = remoteConfigPort.observe().value.modelFlags
         return AIAgent.builder()
@@ -131,7 +142,12 @@ class KoogAgentService(
     }
 
     /**
-     * Streams chat responses token-by-token using [PromptExecutorPort.executeStreaming].
+     * Streams chat responses token-by-token, letting the model call tools along the way.
+     *
+     * The model is offered the same tools the [AIAgent] behind [generate] is offered, and
+     * the same ones the kill switch left standing. Without this, the chat screen answered
+     * questions about the user's own data from the model's imagination, while the tools sat
+     * there unused.
      */
     override fun streamChat(message: String): Flow<String> = flow {
         val apiKey = requireApiKey()
@@ -150,18 +166,11 @@ class KoogAgentService(
             user(message)
         }
 
-        streamingExecutor.executeStreaming(p, model, emptyList())
-            .collect { frame ->
-                when (frame) {
-                    is StreamFrame.TextDelta -> emit(frame.text)
-                    is StreamFrame.ReasoningDelta -> { /* skip reasoning tokens */ }
-                    is StreamFrame.ToolCallDelta -> { /* skip tool call tokens */ }
-                    is StreamFrame.End -> { /* stream complete */ }
-                    is StreamFrame.TextComplete -> { /* final text, already emitted via deltas */ }
-                    is StreamFrame.ReasoningComplete -> { /* skip */ }
-                    is StreamFrame.ToolCallComplete -> { /* skip */ }
-                }
+        ToolCallLoop(tools = callableTools)
+            .run(p) { conversation, descriptors ->
+                streamingExecutor.executeStreaming(conversation, model, descriptors)
             }
+            .collect { chunk -> emit(chunk) }
     }
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatchingCancellable {

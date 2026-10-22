@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ai
 
 import ai.koog.agents.core.tools.Tool
+import ai.koog.serialization.JSONSerializer
 import com.singularity.todo.core.observability.ToolCallContext
 import com.singularity.todo.core.observability.ToolCallError
 import com.singularity.todo.core.observability.ToolCallRecorder
@@ -46,4 +47,16 @@ class RecordingTool<TArgs, TResult>(
     ) {
         delegate.execute(args)
     }
+
+    /**
+     * The delegate decides how its result reads, not this wrapper.
+     *
+     * A tool that returns plain text must not have that text wrapped in JSON quotes on the
+     * way back to the model, and only the delegate knows which of the two it is. The base
+     * implementation encodes the result generically, which for a text result means the
+     * model receives `"the text"` instead of `the text` — a difference the model reads as
+     * part of the payload rather than as the tool's answer.
+     */
+    override fun encodeResultToString(result: TResult, serializer: JSONSerializer): String =
+        delegate.encodeResultToString(result, serializer)
 }
