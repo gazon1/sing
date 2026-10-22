@@ -84,6 +84,10 @@ object SyncContract {
         "emoji",
         "estimateMinutes",
         "recurrence",
+        // Series — the id that ties the rows of one piece of work together.
+        // The server must accept it, or a synced task is rejected as a document
+        // with an unknown field.
+        "seriesId",
         // Metadata
         "createdAt",
         "updatedAt",

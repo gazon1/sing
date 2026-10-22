@@ -84,6 +84,6 @@ fun TasksNavGraph(
 internal fun tasksScreenEntryProvider() = entryProvider {
     entry<TasksRoute.Detail>(clazzContentKey = { it.stableContentKey() }) { route -> TaskDetailScreen(route) }
     entry<TasksRoute.Create>(clazzContentKey = { it.stableContentKey() }) { route ->
-        TaskCreateScreen(route.initialDueDate, route.sectionPrefillKey)
+        TaskCreateScreen(route.initialDueDate, route.draftKey)
     }
 }

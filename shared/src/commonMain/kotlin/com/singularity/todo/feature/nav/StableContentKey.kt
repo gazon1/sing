@@ -112,7 +112,7 @@ private fun AppDestination.recordContentKey(): String = when (this) {
 
 /** @see AppDestination.stableContentKey */
 internal fun AppDestination.TasksStartRoute.stableContentKey(): String = when (this) {
-    is AppDestination.TasksStartRoute.Create -> "task-create:" + (sectionPrefillKey ?: "plain")
+    is AppDestination.TasksStartRoute.Create -> "task-create:" + (draftKey ?: "plain")
 
     // The task's id, and nothing else: the view the task was opened from is context,
     // not identity, and a key that carried it would change when that context does.
@@ -173,7 +173,7 @@ internal fun TasksRoute.stableContentKey(): String = when (this) {
     is TasksRoute.Detail -> "task:" + taskId.value
 
     is TasksRoute.Create -> "task-create:" + (initialDueDate?.toString() ?: "plain") +
-        ":" + (sectionPrefillKey ?: "")
+        ":" + (draftKey ?: "")
 }
 
 /** @see AppDestination.stableContentKey */

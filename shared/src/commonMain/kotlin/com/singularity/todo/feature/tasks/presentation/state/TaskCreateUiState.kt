@@ -41,6 +41,19 @@ data class TaskDraft(
     val description: FieldOwnedText = FieldOwnedText.empty(),
     val priority: TaskPriority = TaskPriority.None,
     val dueDate: DueDateOption = DueDateOption.None,
+    /**
+     * The other dates of the same work, beyond the primary one in [dueDate].
+     *
+     * The primary date stays a [DueDateOption] so that "Today" and "Tomorrow" keep
+     * meaning the day of the *save*, not the day the draft was first written: a
+     * draft restored the next morning is still "today", not "yesterday". The extra
+     * dates are concrete, because there is no relative form for them — they are
+     * days the user picked.
+     *
+     * Empty means "one date" (or "no date", when [dueDate] is
+     * [DueDateOption.None]).
+     */
+    val extraDueDates: List<LocalDate> = emptyList(),
     val dueTime: LocalTime? = null,
     val startDate: DueDateOption = DueDateOption.None,
     val startTime: LocalTime? = null,

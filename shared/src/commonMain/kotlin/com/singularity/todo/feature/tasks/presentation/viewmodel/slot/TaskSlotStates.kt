@@ -21,6 +21,13 @@ data class TaskEntityState(
     val project: Project? = null,
     val tags: List<Tag> = emptyList(),
     val availableTasks: List<Task> = emptyList(),
+    /**
+     * The members of the series this task belongs to, in date order.
+     *
+     * Empty for a task that stands alone — which is most of them. The list is
+     * what the series card renders and what the "apply to all" action writes to.
+     */
+    val seriesMembers: List<Task> = emptyList(),
 )
 
 /** The completion-related projection the hero row renders. */

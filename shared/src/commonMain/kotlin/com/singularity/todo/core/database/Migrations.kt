@@ -131,3 +131,18 @@ class Migration16To17 : AutoMigrationSpec
  * @see com.singularity.todo.docs.decisions.2026-10-21-blocked-completion-guard
  */
 class Migration43To44 : AutoMigrationSpec
+
+/**
+ * Migration from v45 to v46 — adds the nullable `series_id` column to tasks.
+ *
+ * A series is one piece of work scheduled on several dates: several task rows that
+ * share a series id, each keeping its own date and its own completion state.
+ *
+ * Adding a nullable column with no default is a safe auto-migration: every task
+ * that existed before the upgrade reads back with `seriesId == null`, which is
+ * exactly what "not part of a series" means. Nothing has to be backfilled, and
+ * nothing can be lost.
+ *
+ * @see com.singularity.todo.docs.decisions.2026-10-22-task-series-materialized-copies
+ */
+class Migration45To46 : AutoMigrationSpec

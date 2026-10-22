@@ -22,6 +22,7 @@ import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
@@ -84,6 +85,16 @@ class AgendaViewModel(
      * hazard, where it did fire as an NPE.
      */
     val definition: AgendaDefinition = definition
+
+    /**
+     * Today, in the user's own time zone.
+     *
+     * The date picker in the top bar has to mark today, and a picker that
+     * marked the host's day would be wrong for every user east or west of it.
+     * The zone is the one the agenda itself resolves its dates in, so the two
+     * cannot disagree about which day it is.
+     */
+    val today: kotlinx.datetime.LocalDate = todayAt(deps.clock, deps.timeZone.current())
 
     // ── Selection state ──────────────────────────────────────────────────────────
     //
@@ -240,7 +251,7 @@ class AgendaViewModel(
         when (intent) {
             is AgendaIntent.TaskClicked -> with(intent) {
                 if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
-                    scope.launch { handleToggleSelection(taskId) }
+                    scope.launch { updateSelection(selectedIds(), toggled = taskId) }
                 } else {
                     scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
                 }
@@ -270,7 +281,7 @@ class AgendaViewModel(
                 if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
                     // Already in selection mode — ignore long-press, click handles selection.
                 } else {
-                    scope.launch { handleEnterSelectionMode(taskId) }
+                    scope.launch { updateSelection(setOf(taskId)) }
                 }
             }
 
@@ -297,16 +308,20 @@ class AgendaViewModel(
                 scope.launch { handleCreateInSection(intent.sectionId) }
             }
 
+            is AgendaIntent.CreateOnDates -> with(intent) {
+                scope.launch { handleCreateOnDates(intent.dates) }
+            }
+
             is AgendaIntent.EnterSelectionMode -> with(intent) {
-                scope.launch { handleEnterSelectionMode(intent.taskId) }
+                scope.launch { updateSelection(setOf(taskId)) }
             }
 
             is AgendaIntent.ToggleSelection -> with(intent) {
-                scope.launch { handleToggleSelection(intent.taskId) }
+                scope.launch { updateSelection(selectedIds(), toggled = taskId) }
             }
 
             is AgendaIntent.ExitSelectionMode -> with(intent) {
-                handleExitSelectionMode()
+                updateSelection(emptySet())
             }
 
             is AgendaIntent.DeleteSelected -> with(intent) {
@@ -397,36 +412,31 @@ class AgendaViewModel(
     private fun selectedIds(): Set<TaskId> =
         (currentState as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
 
-    /** Enter multi-selection mode, selecting [taskId]. */
-    private fun handleEnterSelectionMode(taskId: TaskId) = updateState { current ->
-        (current as? AgendaUiState.Loaded)?.copy(
-            isSelectionMode = true,
-            selectedTaskIds = setOf(taskId),
-        ) ?: current
-    }
-
     /**
-     * Toggle [taskId] in the current selection.
+     * Write the selection and derive the mode from it.
      *
-     * Deselecting the last task leaves selection mode, because the action row and
-     * the per-row checkbox are both driven by that flag.
+     * One function for the three selection gestures, because the flag and the set
+     * are one thing: the mode is on exactly while something is selected. Three
+     * handlers each remembered to set both, and the third one that did not would
+     * have left a selection the action row could not act on.
+     *
+     * @param ids The selection to write.
+     * @param toggled A task to add to [ids] or take out of it, when the gesture is
+     *   a tap on one row rather than a wholesale replacement. Deselecting the last
+     *   task leaves selection mode, because the action row and the per-row
+     *   checkbox are both driven by that flag.
      */
-    private fun handleToggleSelection(taskId: TaskId) = updateState { current ->
+    private fun updateSelection(ids: Set<TaskId>, toggled: TaskId? = null) = updateState { current ->
         val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
-        val updated = if (taskId in loaded.selectedTaskIds) {
-            loaded.selectedTaskIds - taskId
-        } else {
-            loaded.selectedTaskIds + taskId
+        val next = when {
+            toggled == null -> ids
+            toggled in ids -> ids - toggled
+            else -> ids + toggled
         }
-        loaded.copy(isSelectionMode = updated.isNotEmpty(), selectedTaskIds = updated)
-    }
-
-    /** Exit selection mode, clearing all selected tasks. */
-    private fun handleExitSelectionMode() = updateState { current ->
-        (current as? AgendaUiState.Loaded)?.copy(
-            isSelectionMode = false,
-            selectedTaskIds = emptySet(),
-        ) ?: current
+        loaded.copy(
+            isSelectionMode = next.isNotEmpty(),
+            selectedTaskIds = next,
+        )
     }
 
     /**
@@ -438,7 +448,7 @@ class AgendaViewModel(
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkDelete(ids)
-        handleExitSelectionMode()
+        updateSelection(emptySet())
 
         result.fold(
             onSuccess = {
@@ -462,7 +472,7 @@ class AgendaViewModel(
         val result = deps.taskMutations.bulkComplete(ids)
         result.fold(
             onSuccess = {
-                handleExitSelectionMode()
+                updateSelection(emptySet())
                 emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "completed"))
             },
             onFailure = { error ->
@@ -482,7 +492,7 @@ class AgendaViewModel(
                     )
                 } else {
                     crashReporter.report(error, BULK_COMPLETE_FAILED)
-                    handleExitSelectionMode()
+                    updateSelection(emptySet())
                     emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
                 }
             },
@@ -502,7 +512,7 @@ class AgendaViewModel(
         if (ids.isEmpty()) return
         deps.taskMutations.bulkComplete(ids, force = true)
             .onSuccess {
-                handleExitSelectionMode()
+                updateSelection(emptySet())
                 emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "completed"))
             }
             .onFailure { error ->
@@ -646,11 +656,34 @@ class AgendaViewModel(
                 ?: DueDateOption.None,
         )
 
-        // Save to DraftStore under section-specific key
-        val key = "section_create_draft_$sectionId"
+        // Save to DraftStore under the section's key. The key is built in one
+        // place — TaskDraftKeys — so the navigator that points the editor at it
+        // cannot name a different draft.
+        val key = TaskDraftKeys.agendaSection(sectionId)
         deps.draftStore.save(key, draft, TaskDraft.serializer())
 
         emit(AgendaUiEvent.CreateInSection(sectionId))
+    }
+
+    /**
+     * Writes the picked days into a draft and asks for the editor.
+     *
+     * The draft is the channel: the agenda does not create the task, and the
+     * editor does not know where the days came from. Writing a draft and
+     * pointing the editor at it means the task is created by exactly the same
+     * code as a task created from the calendar.
+     */
+    private suspend fun handleCreateOnDates(dates: Set<kotlinx.datetime.LocalDate>) {
+        val sorted = dates.sorted()
+        if (sorted.isEmpty()) return
+        val primary = sorted.first()
+        val draft = TaskDraft(
+            dueDate = DueDateOption.Custom(primary, primary.toString()),
+            extraDueDates = sorted.drop(1),
+        )
+        val key = TaskDraftKeys.AGENDA_MULTI_DATE
+        deps.draftStore.save(key, draft, TaskDraft.serializer())
+        emit(AgendaUiEvent.OpenCreateWithDates(key))
     }
 
     companion object {

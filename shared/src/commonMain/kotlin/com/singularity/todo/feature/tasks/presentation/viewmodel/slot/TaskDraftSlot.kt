@@ -56,8 +56,14 @@ class TaskDraftSlot(
 
     // replay = 0: a keystroke is only worth persisting once the user pauses.
     // buffer = 4: absorbs a burst across frames without dropping the latest value.
-    private val titleEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 4)
-    private val descriptionEdits = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 4)
+    //
+    // The flow carries the intent, not the bare text, because the intent is what
+    // says whether the write belongs to the whole series or to this occurrence —
+    // and that question has exactly one answer in the codebase.
+    private val titleEdits =
+        MutableSharedFlow<TaskDetailIntent.Domain.TitleChanged>(replay = 0, extraBufferCapacity = 4)
+    private val descriptionEdits =
+        MutableSharedFlow<TaskDetailIntent.Domain.DescriptionChanged>(replay = 0, extraBufferCapacity = 4)
 
     init {
         val debounceMs = context.debounceMs.milliseconds
@@ -66,10 +72,9 @@ class TaskDraftSlot(
             combine(
                 taskFlow.filterNotNull(),
                 titleEdits.debounce(debounceMs),
-            ) { task, title -> task to title }
-                .collect { (task, title) ->
-                    core.updateTask(task.id) { it.copy(title = title) }
-                        .onFailure { onError("Save failed") }
+            ) { task, edit -> task to edit }
+                .collect { (task, edit) ->
+                    write(task, edit) { copy(title = edit.title) }
                 }
         }
 
@@ -77,11 +82,33 @@ class TaskDraftSlot(
             combine(
                 taskFlow.filterNotNull(),
                 descriptionEdits.debounce(debounceMs),
-            ) { task, description -> task to description }
-                .collect { (task, description) ->
-                    core.updateTask(task.id) { it.copy(description = description.ifBlank { null }) }
-                        .onFailure { onError("Save failed") }
+            ) { task, edit -> task to edit }
+                .collect { (task, edit) ->
+                    write(task, edit) { copy(description = edit.description.ifBlank { null }) }
                 }
+        }
+    }
+
+    /**
+     * Writes the edit to the whole series when the field is shared, and to this
+     * occurrence alone when it is not.
+     *
+     * Title and description describe the *work*, so in a series they belong to
+     * every member: a series whose three rows carry three titles says three
+     * different things about the same job, and no rule says which is right.
+     */
+    private fun write(
+        task: Task,
+        intent: TaskDetailIntent.Domain,
+        transform: Task.() -> Task,
+    ) = scope.launch {
+        val seriesId = task.seriesId
+        if (seriesId != null && sharedFieldOf(intent) != null) {
+            core.updateSeries.updateSeries(seriesId) { it.transform() }
+                .onFailure { onError("Save failed") }
+        } else {
+            core.updateTask(task.id) { it.transform() }
+                .onFailure { onError("Save failed") }
         }
     }
 
@@ -99,12 +126,12 @@ class TaskDraftSlot(
         when (intent) {
             is TaskDetailIntent.Domain.TitleChanged -> {
                 draftState.setTitle(intent.title)
-                titleEdits.tryEmit(intent.title)
+                titleEdits.tryEmit(intent)
             }
 
             is TaskDetailIntent.Domain.DescriptionChanged -> {
                 draftState.setDescription(intent.description)
-                descriptionEdits.tryEmit(intent.description)
+                descriptionEdits.tryEmit(intent)
             }
         }
     }

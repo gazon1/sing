@@ -60,6 +60,16 @@ sealed interface AgendaIntent : MviIntent {
     /** User tapped '+' in a section header to create a task pre-filled from that section. */
     data class CreateInSection(val sectionId: String) : AgendaIntent
 
+    /**
+     * The user picked several days and asked for one task on all of them.
+     *
+     * The days are concrete: they came out of a grid, not out of "today" or
+     * "tomorrow". The task itself is not created here — the days go into a
+     * draft, and the editor creates the task, so that a task on several days is
+     * created by the same code whichever screen asked for it.
+     */
+    data class CreateOnDates(val dates: Set<kotlinx.datetime.LocalDate>) : AgendaIntent
+
     // ── Selection mode ──────────────────────────────────────────────────────────
 
     /**

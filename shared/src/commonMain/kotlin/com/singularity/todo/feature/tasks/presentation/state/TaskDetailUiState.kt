@@ -49,6 +49,13 @@ data class TaskDetailUi(
     val logbookEntries: List<LogbookEntry> = emptyList(),
     /** Time tracking state for this task. */
     val timeSlotState: TaskTimeSlotState = TaskTimeSlotState.Idle,
+    /**
+     * The members of the series this task belongs to, in date order.
+     *
+     * Empty for a task that stands alone — which is most of them. The series
+     * card renders from this list and offers the actions that reach all of it.
+     */
+    val seriesMembers: List<Task> = emptyList(),
     /** First-run state for this task. */
     val firstRun: FirstRun = FirstRun.Unresolved,
 ) {

@@ -42,6 +42,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseC
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.nav.TaskDeepLink
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
@@ -103,6 +104,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { CreateTaskUseCase(get(), get(), get()) }
     factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
+    factory { UpdateTaskSeriesUseCase(get()) }
     factory { CompleteRecurringTaskUseCase(get(), get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
@@ -150,6 +152,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                     createTask = get(),
                     completeRecurring = get(),
                     completion = get(),
+                    updateSeries = get(),
                 ),
                 children = TaskChildrenDeps(
                     checklistRepository = get(),
@@ -186,7 +189,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
         )
     }
 
-    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?, sectionPrefillKey: String?) ->
+    viewModel { (initialDueDate: kotlinx.datetime.LocalDate?, draftKey: String?) ->
         TaskCreateViewModel(
             deps = TaskCreateDeps(
                 createFromDraft = get(),
@@ -194,7 +197,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                 draftStore = get(),
             ),
             initialDueDate = initialDueDate,
-            sectionPrefillKey = sectionPrefillKey,
+            draftKey = draftKey,
             crashReporter = get(),
         )
     }

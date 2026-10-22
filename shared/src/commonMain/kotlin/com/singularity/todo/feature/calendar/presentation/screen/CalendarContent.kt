@@ -3,6 +3,7 @@ package com.singularity.todo.feature.calendar.presentation.screen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,6 +19,7 @@ import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
+import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarSelectionBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.CalendarTopBar
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MiniCalendarPanel
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView
@@ -88,34 +90,27 @@ fun CalendarContent(
                     headerLabelOverride = liveHeaderLabel,
                 )
 
-                when (loadedState.viewMode) {
-                    CalendarViewMode.MONTH -> MonthGridView(
-                        monthAnchor = loadedState.anchor,
-                        today = loadedState.today,
-                        selectedDate = loadedState.selectedDate,
-                        tasksByDate = loadedState.tasksByDate,
-                        onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
-                        onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
-                        onMonthPageChanged = { month -> onIntent(CalendarIntent.MonthPageChanged(month)) },
-                        onEmptyCellLongPress = { date -> onIntent(CalendarIntent.EmptyCellLongPressed(date)) },
-                        modifier = Modifier.fillMaxSize(),
-                        pagerState = pagerState ?: rememberPagerState(initialPage = 120) { 240 },
-                    )
-
-                    else -> TimeGridView(
-                        dates = loadedState.visibleDates,
-                        tasksByDate = loadedState.tasksByDate,
-                        today = loadedState.today,
-                        selectedTaskId = loadedState.selectedTaskId,
-                        onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
-                        modifier = Modifier.fillMaxSize(),
+                // The grid takes the rest of the height, so the selection bar below
+                // it has room. Without the weight the grid would take all of it and
+                // the bar would be pushed off the screen.
+                Box(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    CalendarGrid(
+                        loadedState = loadedState,
+                        onIntent = onIntent,
+                        pagerState = pagerState,
                     )
                 }
             }
 
-            // Mini calendar side panel (slides in from right)
+            // Mini calendar side panel (slides in from right).
+            //
+            // Hidden while the days are being picked: two grids whose taps mean
+            // different things — "open this day" and "pick this day" — is a trap
+            // the user walks into without being told.
             AnimatedVisibility(
-                visible = loadedState.isMiniCalendarOpen,
+                visible = loadedState.isMiniCalendarOpen && !loadedState.isDateSelectionMode,
                 enter = slideInHorizontally(initialOffsetX = { it }),
                 exit = slideOutHorizontally(targetOffsetX = { it }),
             ) {
@@ -130,6 +125,56 @@ fun CalendarContent(
                     onClose = { onIntent(CalendarIntent.DismissMiniCalendar) },
                 )
             }
+
+            // The bar that offers to turn the picked days into one task. It lives
+            // under the grid, not over it: the grid is what the user is picking in.
+            if (loadedState.isDateSelectionMode) {
+                CalendarSelectionBar(
+                    selectedCount = loadedState.selectedDates.size,
+                    onCreateTask = { onIntent(CalendarIntent.CreateTaskOnSelectedDates) },
+                    onCancel = { onIntent(CalendarIntent.ExitDateSelectionMode) },
+                )
+            }
         }
+    }
+}
+
+/**
+ * The grid of the calendar — the month grid, or the time grid of a week.
+ *
+ * Its own composable so that [CalendarContent] stays inside the complexity
+ * budget: the grid is a whole interaction, and inlining it pushed the screen
+ * over.
+ */
+@Composable
+private fun CalendarGrid(
+    loadedState: CalendarUiState.Loaded,
+    onIntent: (CalendarIntent) -> Unit,
+    pagerState: PagerState?,
+) {
+    when (loadedState.viewMode) {
+        CalendarViewMode.MONTH -> MonthGridView(
+            monthAnchor = loadedState.anchor,
+            today = loadedState.today,
+            selectedDate = loadedState.selectedDate,
+            tasksByDate = loadedState.tasksByDate,
+            onDayClick = { onIntent(CalendarIntent.DayClicked(it)) },
+            onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
+            onMonthPageChanged = { month -> onIntent(CalendarIntent.MonthPageChanged(month)) },
+            onEmptyCellLongPress = { date -> onIntent(CalendarIntent.EmptyCellLongPressed(date)) },
+            selectedDates = loadedState.selectedDates,
+            onDayLongPress = { date -> onIntent(CalendarIntent.EnterDateSelectionMode(date)) },
+            modifier = Modifier.fillMaxSize(),
+            pagerState = pagerState ?: rememberPagerState(initialPage = 120) { 240 },
+        )
+
+        else -> TimeGridView(
+            dates = loadedState.visibleDates,
+            tasksByDate = loadedState.tasksByDate,
+            today = loadedState.today,
+            selectedTaskId = loadedState.selectedTaskId,
+            onTaskClick = { task -> onIntent(CalendarIntent.TaskClicked(task.id)) },
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }

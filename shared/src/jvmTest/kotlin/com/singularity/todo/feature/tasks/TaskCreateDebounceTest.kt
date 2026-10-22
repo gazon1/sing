@@ -76,7 +76,7 @@ class TaskCreateDebounceTest {
         return TaskCreateViewModel(
             deps = deps,
             initialDueDate = null,
-            sectionPrefillKey = null,
+            draftKey = null,
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
     }

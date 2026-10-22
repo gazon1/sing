@@ -10,13 +10,19 @@ import com.singularity.todo.feature.calendar.domain.logic.headerLabel
 import com.singularity.todo.feature.calendar.domain.logic.lastDayOfMonth
 import com.singularity.todo.feature.calendar.domain.logic.visibleRange
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
+import com.singularity.todo.feature.calendar.domain.model.CalendarDateSelection
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
+import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -58,6 +64,21 @@ class CalendarViewModel(
     /** Today's date, stable for the lifetime of this VM (captured at construction). */
     private val today: LocalDate = deps.today
 
+    /**
+     * The days picked for one task.
+     *
+     * The single source of the selection: the screen projects it into
+     * [CalendarUiState.Loaded], and the intents write it. It is a flow of its
+     * own because the picking does not depend on the calendar's data — a user
+     * can pick days before the tasks of the month have loaded, and a rule that
+     * only worked once the data arrived would be a rule that sometimes did
+     * nothing.
+     */
+    private val _dateSelection = MutableStateFlow(CalendarDateSelection())
+
+    /** The days picked for one task, readable whether or not the screen has loaded. */
+    val dateSelection: StateFlow<CalendarDateSelection> = _dateSelection.asStateFlow()
+
     /** Selection state — anchor date, view mode, mini panel open/closed. */
     private val _calendarState = MutableStateFlow(
         CalendarState(
@@ -71,10 +92,11 @@ class CalendarViewModel(
         vmScope.launch {
             combine(
                 _calendarState,
+                _dateSelection,
                 deps.reminderRepo.observeRecurringTaskIds(),
-            ) { cal, recurringIds ->
-                cal to recurringIds
-            }.flatMapLatest { (cal, recurringIds) ->
+            ) { cal, selection, recurringIds ->
+                Triple(cal, selection, recurringIds)
+            }.flatMapLatest { (cal, selection, recurringIds) ->
                 // Extend query window by ±7 days so neighbouring months are preloaded
                 val from = firstDayOfMonth(cal.anchor).minus(7, DateTimeUnit.DAY)
                 val to = lastDayOfMonth(cal.anchor).plus(7, DateTimeUnit.DAY)
@@ -89,7 +111,10 @@ class CalendarViewModel(
                                 )
                             }
                             .groupBy { it.date }
-                        cal.toLoadedState(tasksByDate, today)
+                        cal.toLoadedState(tasksByDate, today).copy(
+                            selectedDates = selection.dates,
+                            isDateSelectionMode = selection.isActive,
+                        )
                     }
             }.collect { setState(it) }
         }
@@ -124,14 +149,21 @@ class CalendarViewModel(
 
             is CalendarIntent.DayClicked -> {
                 val current = _calendarState.value
-                _calendarState.value = current.copy(
-                    viewMode = if (current.viewMode == CalendarViewMode.MONTH) {
-                        CalendarViewMode.DAY
-                    } else {
-                        current.viewMode
-                    },
-                    anchor = intent.date,
-                )
+                // In the selection mode a tap picks a day; it does not open it.
+                // Without this the first tap of a multi-selection would throw the
+                // user out of the mode they just entered.
+                if (_dateSelection.value.isActive) {
+                    _dateSelection.value = _dateSelection.value.toggle(intent.date)
+                } else {
+                    _calendarState.value = current.copy(
+                        viewMode = if (current.viewMode == CalendarViewMode.MONTH) {
+                            CalendarViewMode.DAY
+                        } else {
+                            current.viewMode
+                        },
+                        anchor = intent.date,
+                    )
+                }
             }
 
             CalendarIntent.ToggleMiniCalendar -> {
@@ -162,10 +194,44 @@ class CalendarViewModel(
                     emit(CalendarUiEvent.ShowCreateTaskSheet(intent.date))
                 }
             }
+
+            is CalendarIntent.EnterDateSelectionMode -> {
+                _dateSelection.value = _dateSelection.value.enter(intent.date)
+            }
+
+            is CalendarIntent.ToggleDateSelection -> {
+                _dateSelection.value = _dateSelection.value.toggle(intent.date)
+            }
+
+            CalendarIntent.ExitDateSelectionMode -> {
+                _dateSelection.value = _dateSelection.value.exit()
+            }
+
+            CalendarIntent.CreateTaskOnSelectedDates -> createTaskOnSelectedDates()
         }
     }
 
-    /** Internal calendar state (anchor, mode, mini panel). */
+    /**
+     * Writes the picked days into a draft and asks for the editor.
+     *
+     * The draft is the channel: the calendar does not create the task, and the
+     * editor does not know where the days came from. Writing a draft and
+     * pointing the editor at it means the task is created by exactly the same
+     * code as a task created from the agenda.
+     */
+    private fun createTaskOnSelectedDates() = vmScope.launch {
+        val dates = _dateSelection.value.dates.sorted()
+        if (dates.isEmpty()) return@launch
+        val primary = dates.first()
+        val draft = TaskDraft(
+            dueDate = DueDateOption.Custom(primary, primary.toString()),
+            extraDueDates = dates.drop(1),
+        )
+        deps.draftStore.save(TaskDraftKeys.CALENDAR_MULTI_DATE, draft, TaskDraft.serializer())
+        emit(CalendarUiEvent.NavigateToCreateWithDates(TaskDraftKeys.CALENDAR_MULTI_DATE))
+    }
+
+    /** Internal calendar state (anchor, mode, mini panel, date selection). */
     private data class CalendarState(val anchor: LocalDate, val viewMode: CalendarViewMode, val isMiniOpen: Boolean) {
         fun toLoadedState(
             tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,

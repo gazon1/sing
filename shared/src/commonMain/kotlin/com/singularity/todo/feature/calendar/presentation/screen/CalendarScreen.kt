@@ -37,6 +37,7 @@ fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
         when (event) {
             is CalendarUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
             is CalendarUiEvent.ShowCreateTaskSheet -> navigator.openCreateTask(event.initialDueDate)
+            is CalendarUiEvent.NavigateToCreateWithDates -> navigator.openCreateTaskWithDates(event.draftKey)
             is CalendarUiEvent.ShowError -> { /* handled separately */ }
         }
     }
