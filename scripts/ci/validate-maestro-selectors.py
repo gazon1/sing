@@ -207,6 +207,10 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_parent_task",
     # taskItem("Anonymous task") — AUTH-FIRSTRUN-01 anonymous first-run flow
     "task_item_anonymous_task",
+    # taskItem(...) — seeded by the SEARCH-08 flow: one title begins with the
+    # term, the other only contains it
+    "task_item_architecture_of_the_house",
+    "task_item_airport_run",
     # pomodoroTaskChip(...) — from seed flows
     "pomodoro_task_chip_buy_milk",
     # savedAgendaCard(...) — used in flows

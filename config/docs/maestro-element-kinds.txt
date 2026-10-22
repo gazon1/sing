@@ -134,7 +134,9 @@ task_item_${RUN_ID}_rendertesttask2026 item
 task_item_${RUN_ID}_task_from_inbox_tab item
 task_item_${RUN_ID}_task_from_today_tab item
 task_item_${RUN_ID}_water_the_plants item
+task_item_airport_run item
 task_item_anonymous_task item
+task_item_architecture_of_the_house item
 task_item_buy_milk item
 task_item_clearsearchtask2026 item
 task_item_offline_task item

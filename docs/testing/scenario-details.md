@@ -893,6 +893,22 @@ Steps:
 
 **Expected:** The saved search persists across navigation. Tapping it restores the query text and the matching results, so the user does not have to re-type a frequently-used search.
 
+#### `SEARCH-08` — A term matches the beginning of a word, and not its middle
+
+**confirmed** · P1 · `#SEARCH`
+
+**Given:** A task exists whose title holds the word "architecture", and another whose title holds the word "airport". Nothing else carries either word, so both answers are unambiguous.
+
+Steps:
+
+1. Open the quick search from the menu sheet.
+2. Type "arch".
+3. Observe the results.
+4. Clear the query and type "port".
+5. Observe the results.
+
+**Expected:** The first search finds the task titled "architecture": a term matches the beginning of a word. The second does not find the task titled "airport": the term matches the beginning of a word and not its middle. The search answers one question — "which records carry this word" — and the index answers it.
+
 ### feature.settings
 
 #### `SETTINGS-01` — Changing the theme mode leaves Settings intact and navigable
