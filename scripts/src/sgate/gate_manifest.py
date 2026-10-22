@@ -259,6 +259,22 @@ PLACEMENTS: dict[str, Placement] = {
 # means from the text of a call, and a guess is wrong in more ways than a
 # comparison is. The inventory is closed now, so the remaining findings are
 # decisions rather than gaps, and the empty list is the assertion."""),
+    "issue registry covers every change": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-issue-registry.py --quiet',
+        note="""# The registry is the source of truth for a change, and nothing checked it.
+#
+# Four changes landed in main without an entry in `.specify/issues/`: the close
+# rule consolidation and the three that followed it. Nothing failed — the specs
+# validated, CI was green — and the registry simply did not mention them. A
+# change the registry does not know about is a change the next session cannot
+# find: the decision, the spec and the tasks are in the tree, but nothing points
+# at them and nothing says they are this branch's work.
+#
+# The fix is one command, the same one that writes the record:
+# `python3 scripts/openspec-import-all.py`. The gate checks both directions of
+# the fact: every change has a record, and every record points back at its
+# change."""),
     "GitHub workflows are valid": Placement(
         kind=PlacementKind.STATIC,
         command='github_workflows_valid',

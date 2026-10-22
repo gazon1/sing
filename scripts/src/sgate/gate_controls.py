@@ -217,6 +217,17 @@ SCRIPT_GATES = [
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
     ScriptGate(
+        name="issue-registry",
+        cmd=[sys.executable, "scripts/check-issue-registry.py", "--quiet"],
+        why=(
+            "a record that points at another change is a record of something else, and it "
+            "looks like coverage: the next session reads the record, believes the change "
+            "is known, and never learns what the change actually was. Four changes reached "
+            "main with no entry at all, which is the same defect one step further from the "
+            "surface"
+        ),
+    ),
+    ScriptGate(
         name="hooks-path",
         cmd=[sys.executable, "scripts/check-hooks-path.py", "--quiet"],
         # Untrack *every* hook, not one. The gate asks "does the configured hooks
