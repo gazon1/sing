@@ -7,6 +7,7 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | Script | What it checks |
 |---|---|
 | `scripts/check-adr-references.py` | check_adr_references.py — find references to ADRs that no longer exist. |
+| `scripts/check-ai-write-tools.py` | check-ai-write-tools.py — a tool that writes a user's data must say so. |
 | `scripts/check-baseline-ratchet.py` | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. |
 | `scripts/check-build-output-readers.py` | check-build-output-readers.py — a step that reads build output must read it first. |
 | `scripts/check-ci-workflow-shape.py` | check_ci_workflow_shape.py — the shape of the CI workflow's Gradle block. |
