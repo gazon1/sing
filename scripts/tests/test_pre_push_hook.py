@@ -183,6 +183,21 @@ class PrePushHookTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode, 'the push went out with a finding in it')
         self.assertIn('temporary worktree', output, 'the verdict was taken about the pushed tree')
 
+    def test_a_changed_editorconfig_sends_the_verdict_to_the_pushed_tree(self):
+        """ktlint reads .editorconfig from inside detekt, so it is part of the verdict."""
+        self._install_hook()
+        self._install_stubs()
+        self._write('.editorconfig', 'root = true\n')
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        # The editorconfig changes locally: the rules detekt applies change with it.
+        self._write('.editorconfig', 'root = true\nmax_line_length = 120\n')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('temporary worktree', output, 'the verdict was taken about the pushed tree')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -62,9 +62,10 @@ two places:
 - **the current worktree**, when it holds byte-identical content for
   everything detekt can read (the Kotlin sources, the build scripts that
   decide which source sets are scanned, the detekt config and baseline, the
-  custom rules, the version catalog). Then the worktree *is* the pushed tree,
-  and judging it there is warm: the Gradle daemon and the build directories
-  are the ones this checkout has been using;
+  custom rules, the version catalog, and `.editorconfig` — ktlint reads it
+  from inside detekt, so it decides which rules are applied). Then the
+  worktree *is* the pushed tree, and judging it there is warm: the Gradle
+  daemon and the build directories are the ones this checkout has been using;
 - **a throwaway worktree at the pushed sha**, in every other case. The
   structural gates already check one out for the same sha, and it is reused.
 

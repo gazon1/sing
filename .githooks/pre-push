@@ -338,7 +338,11 @@ DETEKT_TASKS=(:shared:detekt :desktopApp:detekt)
 #   - the Kotlin sources detekt analyses;
 #   - the build scripts that decide which source sets are scanned;
 #   - the detekt config, the baseline and the custom rules;
-#   - the version catalog the build scripts read.
+#   - the version catalog the build scripts read;
+#   - .editorconfig — ktlint reads it from inside detekt (max_line_length,
+#     ktlint_class_signature_rule_force_multiline_when_parameter_count…),
+#     so a worktree with a different .editorconfig is judged by different
+#     rules than the tree it is standing in for.
 #
 # A worktree that differs in any of them is a different tree, and a verdict
 # about it is a verdict about something nobody is pushing.
@@ -349,6 +353,7 @@ DETEKT_PATHSPECS=(
     'build-logic/**'
     'detekt-rules/**'
     'gradle/**'
+    '.editorconfig'
 )
 
 # The content of every Kotlin file in a tree, as one hash. Tracked and
