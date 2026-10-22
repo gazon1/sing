@@ -60,6 +60,20 @@ affected:
     fi
 
 [group('tests')]
+[doc('Run the tests this change can break — the map, computed from the tree')]
+[working-directory(justfile_directory())]
+impact:
+    #!/bin/bash
+    set -euo pipefail
+    # `tests::affected` answers at module level; this one answers at class level.
+    # The map is computed from the same tree the tests read: a change in a scope
+    # maps the tests of that scope, and a change in a class maps the tests that
+    # mention it. The map is a candidate set, not a verdict — it never says that
+    # a test outside it is safe, only which ones are worth running first.
+    # See scripts/test-impact-map.py and the ADR that explains the rules.
+    python3 scripts/test-impact-map.py --run
+
+[group('tests')]
 [doc('Run jvmTest (Room + SQLite on JVM)')]
 [working-directory(justfile_directory())]
 jvm:
