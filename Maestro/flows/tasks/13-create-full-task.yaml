@@ -23,34 +23,62 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 
-# ── Priority row visible ─────────────────────────────────────────────────
+# ── Attribute rows ─────────────────────────────────────────────────────
+#
+# Every attribute row exists in the editor, but the editor is taller than a
+# phone viewport: a row that is below the fold is not on the screen at all,
+# and "not on the screen" is not the same claim as "not in the editor". So
+# each row is scrolled into view before it is asserted — the flow below says
+# what it means, and the scroll is how the row gets there.
+- scrollUntilVisible:
+    element:
+      id: task_editor_priority_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_priority_row
-
-# ── Due date row visible ────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_due_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_due_row
-
-# ── Start date row visible ─────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_start_date_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_start_date_row
-
-# ── Project row visible ────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_project_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_project_row
-
-# ── Tags row visible ───────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_tags_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_tags_row
-
-# ── Recurrence row visible ────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_recurrence_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_recurrence_row
-
-# ── Pin row visible ────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: task_editor_pin_row
+    direction: DOWN
+    timeout: 8000
 - assertVisible:
     id: task_editor_pin_row
-
 # ── Fill title ─────────────────────────────────────────────────────────
 - tapOn:
     id: task_editor_title_input

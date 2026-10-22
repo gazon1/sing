@@ -83,7 +83,10 @@ tags:
     id: task_editor_recurrence_label
 
 # ── Save ──────────────────────────────────────────────────────────────
-- hideKeyboard
+# No `hideKeyboard` here. The keyboard was already dismissed above, and a
+# second dismissal is a BACK keypress — which closed the editor and took the
+# save button with it. That is why the flow ended on "task_editor_save not
+# found" while the editor was perfectly reachable a step earlier.
 - tapOn:
     id: task_editor_save
 
