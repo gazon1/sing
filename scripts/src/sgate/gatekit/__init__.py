@@ -29,6 +29,14 @@ from sgate.gatekit.findings import (
 )
 from sgate.gatekit.markdown import code_spans, rows_matching, table_rows, type_names
 from sgate.gatekit.paths import assert_inside, generated_path, is_inside
+from sgate.gatekit.tables import (
+    TableRule,
+    cell_identifier,
+    compare_names,
+    names_of,
+    rows_at_header,
+    unknown_verdicts,
+)
 from sgate.gatekit.kotlin import (
     declared_classes,
     declared_objects,
@@ -45,7 +53,10 @@ __all__ = [
     "blocking_findings",
     "code_spans",
     "declared_classes",
+    "TableRule",
     "assert_inside",
+    "cell_identifier",
+    "compare_names",
     "declared_objects",
     "gate_command",
     "generated_path",
@@ -53,7 +64,10 @@ __all__ = [
     "kotlin_files",
     "link_matchers",
     "link_specs",
+    "names_of",
+    "rows_at_header",
     "rows_matching",
     "table_rows",
     "type_names",
+    "unknown_verdicts",
 ]

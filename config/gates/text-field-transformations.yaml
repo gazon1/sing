@@ -1,0 +1,12 @@
+# The transformation table of the text-field skill.
+#
+# The table names a transformation, the rule it applies, and the facts the
+# code enforces. The gate reads the Kotlin to find the transformations; this
+# file says how the table is shaped.
+doc: .agents/skills/singularity-todo-text-field-states/SKILL.md
+table:
+  header: "| Transformation | Rule | Checked |"
+  name_column: 0
+columns:
+  rule: 1
+  facts: 2
