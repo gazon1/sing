@@ -687,6 +687,28 @@ def _gradle_controls_enabled() -> bool:
     return os.environ.get(GRADLE_ENV) == "1"
 
 
+def _gate_env() -> dict[str, str]:
+    """The environment a gate runs in: this checkout's code first.
+
+    A gate command may be `python3 -m sgate …` — and then the `sgate` the
+    interpreter finds is whatever is installed, which on a machine with
+    several clones is an editable install of *another* checkout. Such a gate
+    reads that checkout's registry and reports its verdict as this one's: the
+    control for "the registry of the gates is current" passed a sabotaged
+    registry for exactly that reason.
+
+    `PYTHONPATH` points at this checkout's `scripts/src`, so the import finds
+    the code on disk here. The path comes from where the script lives, not
+    from the installed package — a path taken from the package is a path into
+    whichever tree was installed.
+    """
+    env = dict(os.environ)
+    src = str(ROOT / "scripts" / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return env
+
+
 def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
     """Run one gate to completion, or kill it at the deadline.
 
@@ -699,7 +721,13 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
         timeout_s = GRADLE_GATE_TIMEOUT_S if _is_gradle_gate(cmd) else GATE_TIMEOUT_S
     try:
         proc = subprocess.run(
-            cmd, cwd=ROOT, capture_output=True, text=True, check=False, timeout=timeout_s
+            cmd,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_s,
+            env=_gate_env(),
         )
     except subprocess.TimeoutExpired:
         return TIMEOUT_RC
@@ -717,6 +745,16 @@ def _atomic_write(path: Path, content: str) -> None:
     """
     tmp = path.with_name(path.name + ".sgate-tmp")
     tmp.write_text(content, encoding="utf-8")
+    # The mode travels with the content. A temporary file has the default
+    # permissions, and a rename brings them with it — so a restored file
+    # would lose its executable bit, and the tree would come back from a
+    # sabotage changed in a way nobody asked for.
+    try:
+        mode = path.stat().st_mode & 0o7777
+    except OSError:
+        mode = None
+    if mode is not None:
+        os.chmod(tmp, mode)
     os.replace(tmp, path)
 
 
