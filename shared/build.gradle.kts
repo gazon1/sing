@@ -440,6 +440,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     //
     // A `-Ptest.tags` filter deliberately does *not* mark the run partial — tag selection is
     // what CI does on purpose, and the floors are recorded against it.
+    //
+    // `tags=` IS recorded, though: it is the population this run measured, and the gate
+    // needs it to answer "were the slow classes supposed to run here?". Without it, a
+    // nightly run that silently stopped selecting @Tag("slow") classes would look
+    // exactly like a PR run that never selected them.
+    val testTags = (project.findProperty("test.tags") as String?) ?: ""
     val manifestDir = layout.buildDirectory.dir("test-results/$name")
     doLast {
         val filters = filter.includePatterns
@@ -452,13 +458,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
             task=$name
             partial=$partial
             filters=${filters.joinToString(",")}
+            tags=$testTags
             executedClasses=$executed
             finishedAt=${System.currentTimeMillis()}
             """.trimIndent() + "\n",
         )
         logger.lifecycle(
             "jvmTest run manifest: ${if (partial) "PARTIAL" else "full"} " +
-                "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""})",
+                "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""}" +
+                "${if (testTags.isNotEmpty()) ", tags=$testTags" else ""})",
         )
     }
     // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
