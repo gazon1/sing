@@ -62,3 +62,52 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/ci/preflight-gate-tools.sh` | Says which tool is missing and how to get it, before a gate cannot run. |
 | `scripts/ci/new-gate.py` | Registers a gate in every place it has to be, in one command. |
 | `scripts/detekt-summary.py` | Prints the detekt findings by rule and by place, instead of XML per finding. |
+
+## The modules of the gate suite
+
+The package the gate scripts import. The list is read from the files: a module that is added shows up here, and one that is removed goes.
+
+| Module | What it is for |
+|---|---|
+| `sgate.__main__` | Enables: python -m sgate |
+| `sgate.cli` | top-level Click CLI entry point. |
+| `sgate.commands` | Click command modules, one per gate. |
+| `sgate.commands._gate_runner` | decorators for gate command execution. |
+| `sgate.commands._parsers` | shared output-parser helpers for backlog gates. |
+| `sgate.commands._registry` | single source of truth for gate metadata. |
+| `sgate.commands._runner` | shared gate execution logic. |
+| `sgate.commands.adr_references_are_valid` | sgate.commands.adr_references — custom gate: ADR references are valid. |
+| `sgate.commands.adr_status_policy` | shim for: ADR status policy. |
+| `sgate.commands.base` | base class and registration helpers for all gate Click commands. |
+| `sgate.commands.build_output_readers` | native Click for: build-output readers precede the invocations that rewrite them. |
+| `sgate.commands.conventions` | shim for check-script-conventions.py. |
+| `sgate.commands.decisions_digest_within_budget` | custom gate: DIGEST.md within budget. |
+| `sgate.commands.gate_costs` | what the gates cost, and what that cost says. |
+| `sgate.commands.gradle_test_population` | native Click for: gradle invocations keep one test population. |
+| `sgate.commands.info` | sgate info: show detailed gate info. |
+| `sgate.commands.render_registry` | generate docs/scripts/gate-registry.md from Click command docstrings. |
+| `sgate.commands.render_static_gates` | render the gate lines of static-gates.sh. |
+| `sgate.commands.room_schema_integrity` | native Click for: room schema integrity. |
+| `sgate.commands.run_all` | sgate run-all: run all gates in parallel. |
+| `sgate.commands.settings_read_by_a_feature` | sgate.commands.dead_settings — custom gate: persisted settings with no consumer. |
+| `sgate.commands.suite_docs` | run all documentation gates concurrently. |
+| `sgate.commands.suite_lint` | run all lint-rule governance gates concurrently. |
+| `sgate.commands.test_task_external_inputs_declared` | native Click for: test-task external inputs declared. |
+| `sgate.commands.whereami` | print the checkout this sgate belongs to. |
+| `sgate.commands.wiring` | shim for check-gate-wiring.py Part A. |
+| `sgate.controls` | declarative positive controls for gates. |
+| `sgate.gate_controls` | the control machinery: appliers, gate records, tables. |
+| `sgate.gate_manifest` | one table of placements for every gate. |
+| `sgate.gate_reachability` | which gate scripts a surface can actually reach. |
+| `sgate.gatekit` | sgate.gates — the pieces every gate is built from. |
+| `sgate.gatekit.cli` | sgate.gates.cli — the shape every gate command has. |
+| `sgate.gatekit.findings` | sgate.gates.findings — what a gate found, and how sure it is. |
+| `sgate.gatekit.kotlin` | sgate.gates.kotlin — what the Kotlin sources declare and mention. |
+| `sgate.gatekit.markdown` | sgate.gates.markdown — reading the tables a document claims things in. |
+| `sgate.gatekit.paths` | where a gate is allowed to write. |
+| `sgate.gatekit.rules` | sgate.gates.rules — a document-against-the-code rule that is data. |
+| `sgate.gates` | gate registry loader. |
+| `sgate.log` | loguru logger configured for sgate. |
+| `sgate.models` | typed JSON payloads for gate results. |
+| `sgate.output` | structured output for gates. |
+| `sgate.repo` | repo-root resolution and path constants. |

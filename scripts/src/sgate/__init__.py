@@ -1,23 +1,23 @@
 """sgate — unified CLI package for singularity-todo gate scripts.
 
-Public exports
---------------
-click            : the Click library used for all CLI commands
-gate_fail        : emit one gate violation (structured + GitHub Actions annotation)
-gate_warn        : emit a non-blocking warning
-logger           : loguru logger — structured logging for CI (stderr output)
-GateCommand      : base Click command class for all gate commands
-CLEAN, VALIDATION_FAILURE, IO_ERROR, CONFIG_ERROR, INTERNAL_ERROR
-                  : standard exit codes
+The public API is `__all__`, and nothing else: the names in it are the names
+a caller may use. The modules behind the package are not listed here — a list
+of them written by hand is a list that loses a module, and the one this
+docstring used to carry had been missing `gatekit`, `controls`,
+`gate_manifest`, `models` and `gate_reachability` for weeks.
+
+Two places hold the inventory instead, and both read it from the files:
+
+  * `docs/tools/catalog.md` — what every module of the package is for,
+    rendered by `python3 scripts/check-tools-catalog.py --write`;
+  * `scripts/tests/test_sgate_module_inventory.py` — that every module
+    imports, and that no module is shadowed by a package of the same name.
 
 `KIWI_UNAVAILABLE` (4) is still defined for compatibility with the generated
 gate shims, but no gate emits it: the Kiwi TCMS stand is gone, and the three
 traceability gates that used to declare themselves Kiwi-dependent never needed
 it. A soft skip that reads as a pass is worse than a hard failure, so `run-all`
 no longer treats a non-zero exit as green.
-
-Internal modules (not published as public API):
-    log, output, repo, gates, cli, commands.base
 """
 from __future__ import annotations
 

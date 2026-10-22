@@ -102,6 +102,26 @@ def gate_scripts(root: Path) -> list[Path]:
     return sorted((root / "scripts").glob("check-*.py"))
 
 
+def package_modules(root: Path) -> list[tuple[str, Path]]:
+    """Every module of the `sgate` package, as (dotted name, file).
+
+    The package docstring used to carry this list by hand, and the list was
+    wrong: the modules that came later were not in it, and nothing noticed,
+    because nothing read it. It is read here from the files themselves.
+    """
+    package_root = root / "scripts" / "src" / "sgate"
+    modules: list[tuple[str, Path]] = []
+    for path in sorted(package_root.rglob("*.py")):
+        parts = list(path.relative_to(package_root).parts)
+        if parts[-1] == "__init__.py":
+            parts = parts[:-1]
+        else:
+            parts[-1] = parts[-1][: -len(".py")]
+        if parts:
+            modules.append((".".join(["sgate", *parts]), path))
+    return modules
+
+
 def render(root: Path) -> str:
     """The catalogue as the tree stands today."""
     lines: list[str] = []
@@ -130,6 +150,21 @@ def render(root: Path) -> str:
     lines.append("|---|---|")
     for relative, summary in EXTRA_TOOLS:
         lines.append(f"| `{relative}` | {summary} |")
+    lines.append("")
+    lines.append("## The modules of the gate suite")
+    lines.append("")
+    lines.append(
+        "The package the gate scripts import. The list is read from the files: "
+        "a module that is added shows up here, and one that is removed goes."
+    )
+    lines.append("")
+    lines.append("| Module | What it is for |")
+    lines.append("|---|---|")
+    for name, path in package_modules(root):
+        summary = first_line_of_docstring(path)
+        if summary.startswith(name + " "):
+            summary = summary[len(name) + 1 :].lstrip(" —-")
+        lines.append(f"| `{name}` | {summary} |")
     lines.append("")
     return "\n".join(lines)
 
