@@ -185,6 +185,16 @@ internal object TextFieldShapeScan {
     fun imports(path: String): List<String> = file(path).imports.map { it.name }
 
     /**
+     * The text of every file of `commonMain`, with the path it belongs to.
+     *
+     * For the rules that read a file's whole text rather than a declaration's:
+     * a rule about a call site, where the call may sit in an initializer and
+     * not in a function at all.
+     */
+    fun allFileTexts(): List<Pair<String, String>> =
+        files.entries.map { (path, file) -> path to file.text }
+
+    /**
      * The path of a file, relative to `com/singularity/todo/`.
      *
      * The tree mirrors the packages, so the path *is* the name — no resolution
