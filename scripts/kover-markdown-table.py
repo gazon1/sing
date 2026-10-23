@@ -10,19 +10,24 @@ counters — the class count and the three instruction/branch/line totals.
 
 Why the class count is the one to read
 --------------------------------------
-The percentages alone cannot tell a full report from a partial one. The same
-2.82M instructions were reported for the fast population and for the full one,
-while the number of CLASSES differed (4634 against 4642): the fast run does
-not load the eight classes that only the slow population reaches, and Kover's
-report counts the classes it saw. A reader who compares "27.7%" with the
-recorded floor and sees a number that looks like a fifth of the codebase has
-misread the report — and then spends an hour measuring something that was
-never broken.
+The percentages alone cannot tell a full report from a partial one. The fast
+population's report held 4735 classes over 579,002 instructions on 2026-10-23,
+while the full population's report of 2026-10-22 held 4642 classes over 565,144:
+the fast report is not a fraction of the universe, it is the same universe on a
+tree that grew. A reader who compares "28.7%" with the recorded floor and sees a
+number that looks like a fifth of the codebase has misread the report — and then
+spends an hour measuring something that was never broken.
 
 The class count is the number that distinguishes the two, so it is printed.
 It is also the number that says which POPULATION the report measured: the
 fast population covers fewer classes than the full one, and the coverage
 floors are recorded per population for exactly that reason.
+
+The denominator is the report's ROOT counters. A number read out of the XML by
+summing every counter of a type counts each instruction once per level it is
+nested in — method, class, source file, package, root — and so reads five
+times the report's own denominator, while the percentages (a ratio) stay
+correct. That is how a wrong denominator survives a real measurement.
 
 Usage:
     python3 scripts/kover-markdown-table.py [xml_path]

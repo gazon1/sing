@@ -78,18 +78,28 @@ Every number below is a run on this branch on 2026-10-22, not an expectation.
   The step asks `config/test-populations.properties` whether the name is one of
   the known ones; the file is the list of names, not the step.
 - **The fast population** (2.1, 3.2, 3.3, 7.3): `./gw :koverVerify -Ptest.tags=fast`
-  → BUILD SUCCESSFUL in 37m 25s. The report holds 4634 classes over 2.82M
-  instructions — the same class universe as the full run (4642 classes, the same
-  2.82M instructions), with less coverage. Measured 27.73 instruction / 23.23
-  branch / 31.26 line; the floors are 27 / 23 / 31. The run was taken with the
-  raw tag lever; the population `fast` maps to the same tags
+  → BUILD SUCCESSFUL in 37m 25s. Measured 27.73 instruction / 23.23 branch / 31.26
+  line; the floors are 27 / 23 / 31. The run was taken with the raw tag lever; the
+  population `fast` maps to the same tags
   (`config/test-populations.properties`: `fast=fast`), so the two spellings
   select the same classes.
+  Re-measured on 2026-10-23 on the branch that ships this change:
+  `./gw :koverReport -Ptest.population=fast` → BUILD SUCCESSFUL in 35m 46s, and
+  the report holds **4735 classes over 579,002 instructions** — measured 28.78
+  instruction / 23.92 branch / 32.06 line. More classes than the full run below
+  held on 2026-10-22, because the tree grew in between: the fast report is not
+  a fraction of the universe, it is the same universe on a later tree.
 - **The full population** (7.4): `./gw :koverVerify -Ptest.tags=fast,slow`
   → BUILD SUCCESSFUL in 33m 23s, with `:koverVerify` executed rather than
   up-to-date. Measured 55.88 / 40.44 / 57.23 against the floors 27 / 20 / 27.
   The run manifest recorded `tags=fast,slow` and 440 executed classes. The
-  population that names this run is `full` (`full=fast,slow`).
+  population that names this run is `full` (`full=fast,slow`). Its report holds
+  4642 classes over 565,144 instructions.
+- **The denominator is the report's ROOT counters.** The number this change
+  published at first — "2.82M instructions" for both runs — was the sum of every
+  `INSTRUCTION` counter in the Kover XML, so it read five times the report's own
+  denominator; the percentages were unaffected, because a ratio is the same at
+  every level. The figures above are the root counters of the two reports.
 - **The count floors** (7.3): `check-test-runs.py --require shared:jvmTest,
   desktopApp:test,mcp-server:test,shared:testAndroidHostTest` → "Test run floors
   met" — shared:jvmTest 440 classes / 3689 tests, desktopApp:test 62 classes /
@@ -138,5 +148,6 @@ Every number below is a run on this branch on 2026-10-22, not an expectation.
       published page carries it, and `:koverVerify` prints the estimate before
       it starts.
 - [x] 9.8 Both Kover readers print the class count, which is the number that
-      says WHICH report this is: the fast and the full population reported the
-      same instruction totals and different class counts (4634 against 4642).
+      says WHICH report this is: the fast population's report of 2026-10-23
+      holds 4735 classes over 579,002 instructions, and the full population's
+      report of 2026-10-22 holds 4642 classes over 565,144.

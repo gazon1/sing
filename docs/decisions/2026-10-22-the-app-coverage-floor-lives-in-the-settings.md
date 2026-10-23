@@ -86,17 +86,28 @@ population.
 **D3. Two sets of floors, each written down from a measurement of its own population.**
 The full set keeps the values measured on 2026-10-15 (27 / 20 / 27). The fast set was
 measured on 2026-10-22 on a `-Ptest.tags=fast` run over the same set of tasks CI runs
-(27 / 23 / 31, from 27.73 / 23.23 / 31.26).
+(27 / 23 / 31, from 27.73 / 23.23 / 31.26), and re-measured on 2026-10-23 on the branch
+that ships this decision: **28.78 / 23.92 / 32.06** over 4735 classes and 579,002
+instructions. The floors stay where they were — a floor is a floor and not a target.
 
 The fast measurement was checked for completeness before it was written down, and the
-check is what makes it a floor rather than a number: the report holds **4634 classes over
-2.82M instructions**, against the full run's **4642 classes over the same 2.82M
-instructions**. Same class universe, less coverage — which is what a narrower
-population is supposed to look like. A report that had measured a fifth of the codebase
-would have shown a fifth of the denominator too, and its percentages would have been
-just as plausible. (A first attempt at this measurement did exactly that: 27.72 / 23.23
-/ 31.25 on a denominator five times too small — the same percentages, a fifth of the
-classes. It was discarded and re-measured.)
+check is what makes it a floor rather than a number: the report holds **4735 classes over
+579,002 instructions** — more classes than the full run of 2026-10-22 held (**4642 over
+565,144**), because the tree grew in between. The fast report is not a fraction of the
+universe; it is the same universe on a later tree. A report that had measured a fifth of
+the codebase would have shown a fifth of the classes too, and its percentages would have
+been just as plausible.
+
+**The denominator is the report's root counters, and a first attempt got that wrong.**
+The number this decision published at first was "2.82M instructions" for both runs. It
+was the sum of every `INSTRUCTION` counter in the Kover XML — the method, class,
+source-file, package and root levels together — and so five times the report's own
+denominator (565,144 for the full run of 2026-10-22, whose root counter is the number
+the report actually measures). The percentages were unaffected, because a ratio is the
+same at every level: that is how a wrong denominator survived a real measurement and
+looked plausible. The reader now sums the root counters, and the class count is printed
+next to the percentages for the same reason it always was: the percentages alone cannot
+tell a full report from a partial one.
 
 **D3a. The full floor is left conservative, on purpose.** A later full run
 (2026-10-22, `-Ptest.tags=fast,slow`) measured **55.89 instruction / 40.45 branch / 57.23

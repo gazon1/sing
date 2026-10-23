@@ -385,12 +385,18 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
     private fun printTable(rows: List<ModuleCoverage>) {
         // The CLASS column is the one that says WHICH report this is. The
         // percentages alone cannot tell a full report from a partial one: the
-        // fast population and the full population reported the same 2.82M
-        // instructions, while their class counts differed (4634 against 4642),
-        // because the fast run does not load the eight classes only the slow
-        // population reaches. A reader who compares "27.7%" with a recorded
-        // floor and reads it as a fifth of the codebase has misread the
-        // report — and then measures something that was never broken.
+        // fast population's report held 4735 classes over 579,002 instructions
+        // on 2026-10-23, while the full population's report of 2026-10-22 held
+        // 4642 classes over 565,144 — the fast report is not the smaller of
+        // the two universes, it is the same one on a tree that grew. A reader
+        // who compares "28.7%" with a recorded floor and reads it as a fifth
+        // of the codebase has misread the report — and then measures something
+        // that was never broken.
+        //
+        // (The number published before this column existed — 2.82M
+        // instructions — was the sum of every INSTRUCTION counter in the XML,
+        // so five times the report's own denominator. The percentages were
+        // unaffected: the ratio is the same at every level.)
         println("| Module | CLASS (covered/total) | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
         println("|---|---|---|---|---|")
         for (r in rows) {

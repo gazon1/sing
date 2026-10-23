@@ -5,9 +5,10 @@ question about coverage. It did not answer the question that mattered: how many
 CLASSES the report covered.
 
 The percentages alone cannot tell a full report from a partial one. The fast
-population and the full population reported the same instruction totals, while
-their class counts differed — the fast run does not load the classes that only
-the slow population reaches. A reader who saw "27.7%" against a recorded floor
+population's report of 2026-10-23 holds 4735 classes over 579,002
+instructions, and the full population's report of 2026-10-22 holds 4642 classes
+over 565,144 — the fast report is not a fraction of the universe, it is the same
+universe on a tree that grew. A reader who saw "28.7%" against a recorded floor
 and read it as a fifth of the codebase had misread the report, and then spent
 an hour measuring something that was never broken.
 
@@ -99,7 +100,7 @@ class KoverMarkdownTableTest(unittest.TestCase):
         self.assertNotEqual(counters['INSTRUCTION'][0], 185)
 
     def test_two_reports_with_the_same_instructions_differ_in_classes(self) -> None:
-        fast = self.write('fast.xml', _report(class_count=4634, instructions=315830))
+        fast = self.write('fast.xml', _report(class_count=4735, instructions=315830))
         full = self.write('full.xml', _report(class_count=4642, instructions=315830))
         fast_counters = mod.parse_summary(fast)
         full_counters = mod.parse_summary(full)
