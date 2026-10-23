@@ -1,7 +1,5 @@
 package com.singularity.todo.feature.profile
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.ProfileDao
@@ -12,6 +10,7 @@ import com.singularity.todo.feature.profile.presentation.AccountSettingsViewMode
 import com.singularity.todo.feature.profile.presentation.ChangePasswordViewModel
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import kotlin.time.Clock
 
@@ -52,7 +51,7 @@ fun profileModule(fixedProfileId: ProfileId? = null): Module = module {
             // a fixed-profile process never constructs it at all.
             ProfileRepositoryImpl(
                 profileDao = dao,
-                dataStore = null,
+                profileStateStore = null,
                 clock = clock,
                 scope = scope,
                 fixedProfileId = fixedProfileId,
@@ -60,7 +59,11 @@ fun profileModule(fixedProfileId: ProfileId? = null): Module = module {
         } else {
             ProfileRepositoryImpl(
                 profileDao = dao,
-                dataStore = get<DataStore<Preferences>>(),
+                // The active profile's own file — the one thing in it is the profile
+                // the user is working in.
+                profileStateStore = get(named("profile_state")),
+                // The file it used to live in, read once to move the key out of it.
+                legacyProfileStateStore = get(named("user_settings")),
                 clock = clock,
                 scope = scope,
             )

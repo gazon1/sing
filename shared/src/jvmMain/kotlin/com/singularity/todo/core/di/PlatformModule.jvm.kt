@@ -155,6 +155,15 @@ actual fun platformModule(): Module = module {
     single(qualifier = named("state")) { stateDs }
     single(qualifier = named("settings")) { settingsLegacyDs }
 
+    // The active profile, in a file of its own.
+    //
+    // Its own file so that the settings file can be opened by a second process — the
+    // tool server an external agent is handed — without that file saying anything
+    // about the profile the user is working in. See ActiveProfileState.
+    single(qualifier = named("profile_state")) {
+        cachedJvmDataStore(File(userHome, ".singularity-todo/profile_state.preferences_pb"))
+    }
+
     // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
     single<DataStore<Preferences>> { userSettingsDs }
 

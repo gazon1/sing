@@ -186,6 +186,18 @@ actual fun platformModule(): Module = module {
         }
     }
 
+    // profile_state.preferences_pb — the active profile, and nothing else.
+    //
+    // Its own file so that the settings file can be opened by a second process — the
+    // tool server an external agent is handed — without that file saying anything
+    // about the profile the user is working in. See ActiveProfileState.
+    single<DataStore<Preferences>>(qualifier = named("profile_state")) {
+        val context = get<Context>()
+        PreferenceDataStoreFactory.create {
+            context.filesDir.resolve("profile_state.preferences_pb")
+        }
+    }
+
     // Primary DataStore<Preferences> binding — what SettingsRepository consumes.
     // Delegates to the named `user_settings` binding so we keep one instance.
     single<DataStore<Preferences>> {
