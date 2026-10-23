@@ -38,6 +38,8 @@ sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
 
+from scripts.tests._git_env import GitEnvTestCase  # noqa: E402
+
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
 #: The verdict script the hook calls, and the module graph it reads to decide
@@ -83,7 +85,7 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
     )
 
 
-class PrePushHookTest(unittest.TestCase):
+class PrePushHookTest(GitEnvTestCase):
     """The hook, driven through a real push."""
 
     def setUp(self) -> None:

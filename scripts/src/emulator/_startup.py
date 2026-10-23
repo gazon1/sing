@@ -45,13 +45,32 @@ class Acquisition(NamedTuple):
         return bool(self.serial)
 
 
+# ── device kind ────────────────────────────────────────────────────────────────
+
+def is_emulator_serial(serial: str) -> bool:
+    """True when the serial names an AVD console port, e.g. ``emulator-5554``.
+
+    One decision, one place.  adb reports an emulator with a serial of the
+    form ``emulator-<port>`` and a physical device with its hardware serial
+    (or an ``ip:port`` pair), so the prefix is the whole distinction.
+
+    Why it matters: an emulator is ours — booting it, waking it and
+    unlocking it is part of driving it.  A physical device belongs to a
+    person who may be holding it, and waking their screen or changing their
+    settings is an intrusion into something we do not own.  Every caller
+    that acts on a device asks this question first, and it is asked here
+    once, so it cannot be answered differently in two places.
+    """
+    return bool(serial) and serial.startswith("emulator-")
+
+
 def _is_physical_pin(pin: str) -> bool:
     """True when the pin names real hardware, so no AVD may ever be started for it.
 
     Starting an AVD for a pinned physical device would silently land on
     emulator-5554 and not match the pin, so this is a hard stop, not a hint.
     """
-    return bool(pin) and not pin.startswith("emulator-")
+    return bool(pin) and not is_emulator_serial(pin)
 
 
 # ── startup lock ──────────────────────────────────────────────────────────────
@@ -230,7 +249,7 @@ def start_avd(pin: str) -> int:
     ]
 
     # Pin semantics: SERIAL=emulator-5556 → console port 5556.
-    if _is_emulator_pin(pin):
+    if is_emulator_serial(pin):
         emulator_args += ["-port", pin.removeprefix("emulator-")]
 
     startup_attempts = 3
@@ -280,11 +299,6 @@ def start_avd(pin: str) -> int:
     return EXIT_TIMEOUT
 
 
-def _is_emulator_pin(pin: str) -> bool:
-    """True when the pin names an AVD console port (``emulator-5554``)."""
-    return bool(pin) and pin.startswith("emulator-")
-
-
 # ── preparation ───────────────────────────────────────────────────────────────
 
 def prepare_device(serial: str) -> None:
@@ -297,14 +311,24 @@ def prepare_device(serial: str) -> None:
     so every flow measured after that measured a screen half-covered by a
     keyboard.  Six measurements in one session were wrong that way (2026-10-28).
 
-    The first two steps are the project's standard unlock — the same pair the
-    physical-device skill uses.  The third is the setting an AVD with a
-    hardware keyboard needs, and it is applied to whatever device was
-    acquired, as it was before this moved here.
+    The first two steps are the project's standard unlock.  The third is the
+    setting an AVD with a hardware keyboard needs.
+
+    A physical device is left completely untouched, and this is deliberate:
+    the owner of that phone is very likely standing next to it, and waking
+    somebody's screen, unlocking their phone and changing their settings
+    behind their back is an intrusion into a device we do not own.  Someone
+    who pushed their phone for us asked for a push, not for their handset to
+    be woken up at the other end.  An emulator is ours — nobody is holding
+    it — so there the preparation is exactly what it always was.  The
+    distinction is made by :func:`is_emulator_serial`, one function, so it
+    cannot be answered differently in two places.
 
     Nothing here raises: a device that does not answer these three commands
     is still a device, and the caller decides what to do about it.
     """
+    if not is_emulator_serial(serial):
+        return
     adb_on(serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
     adb_on(serial, "shell", "input", "keyevent", "82")
     adb_on(serial, "shell", "settings", "put", "secure", "show_ime_with_hard_keyboard", "0")

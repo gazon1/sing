@@ -835,6 +835,77 @@ class DevicePreparationTest(unittest.TestCase):
             "the IME setting is written in more than one place: it will drift",
         )
 
+    # ── the emulator / physical-device distinction ───────────────────────────
+
+    def _prepared_commands(self, serial: str) -> list[str]:
+        """Prepare `serial` and return every adb command that was run."""
+        seen: list[str] = []
+
+        def recording(*args, **kwargs):
+            seen.append(" ".join(str(a) for a in args))
+            return ""
+
+        with unittest.mock.patch.object(_startup, "adb_on", side_effect=recording):
+            _startup.prepare_device(serial)
+        return seen
+
+    def test_preparing_an_emulator_wakes_unlocks_and_hides_the_ime(self):
+        """An emulator is ours, so it is prepared exactly as it always was."""
+        commands = self._prepared_commands("emulator-5554")
+        self.assertTrue(
+            any("input keyevent KEYCODE_WAKEUP" in c for c in commands),
+            f"the emulator was never woken: {commands}",
+        )
+        self.assertTrue(
+            any("input keyevent 82" in c for c in commands),
+            f"the emulator was never unlocked: {commands}",
+        )
+        self.assertTrue(
+            any("show_ime_with_hard_keyboard" in c and c.rstrip().endswith("0")
+                for c in commands),
+            f"the IME was left on: {commands}",
+        )
+
+    def test_preparing_a_physical_device_does_nothing_at_all(self):
+        """A phone that belongs to someone else is not ours to wake.
+
+        The owner is very likely standing next to it; waking their screen,
+        unlocking their phone and changing their settings is an intrusion
+        into a device we do not own.
+        """
+        commands = self._prepared_commands("R58M1234ABC")
+        self.assertEqual(
+            [], commands,
+            "a physical device was touched by prepare_device: it must be left alone",
+        )
+
+    def test_acquiring_a_physical_device_does_not_prepare_it(self):
+        """The acquisition path must not prepare a physical device either."""
+        seen: list[str] = []
+
+        def recording(args: list[str], *, timeout: float = 5, **kwargs):
+            seen.append(" ".join(args))
+            return _make_fake_try_run(_std_table("R58M1234ABC"))(args, timeout=timeout, **kwargs)
+
+        with unittest.mock.patch.object(_device, "try_run_detailed", recording):
+            acq = _startup.acquire_device("R58M1234ABC")
+        self.assertTrue(acq, f"the device was not acquired: {acq}")
+        preparation = [
+            c for c in seen
+            if "input keyevent" in c or "show_ime_with_hard_keyboard" in c
+        ]
+        self.assertEqual(
+            [], preparation,
+            f"acquiring a physical device prepared it: {preparation}",
+        )
+
+    def test_the_device_kind_decision_tells_emulator_from_hardware(self):
+        """One function answers "is this an emulator?" for every caller."""
+        self.assertTrue(_startup.is_emulator_serial("emulator-5554"))
+        self.assertTrue(_startup.is_emulator_serial("emulator-5556"))
+        self.assertFalse(_startup.is_emulator_serial("R58M1234ABC"))
+        self.assertFalse(_startup.is_emulator_serial(""))
+
 
 if __name__ == "__main__":
     unittest.main()

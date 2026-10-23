@@ -108,87 +108,15 @@ tail -40 /tmp/probe/push.log
 
 ## Тесты
 
-`commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
-`jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
-`test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
-`-Ptest.population=fast` в CI (и `-Ptest.population=full` в ночном прогоне) молча его
-исключит
-(`TestTagCoverageTest`). **`slow` = класс пересекает границу процесса** (Compose-харнесс,
-реальный файл/БД/часы, Konsist-скан, spawn), не «долгий». Никаких skipped: `@Disabled` или
-упавший assumption guard валят `check-test-runs.py`.
+**Правила и рецепты тестов — `docs/architecture/tests.md`:** где живут тесты
+(`commonTest` выполняется внутри `:shared:jvmTest`), fake вместо моков, теги `fast`/`slow`
+и под-теги, VM-тесты через харнесс `testVm`, coroutine-тесты, диагностика падений
+(`build/diagnostics/<TestClass>/coroutines.txt`), BAN list, пересборка каталога тегов
+`Maestro/TAGS.md`. Иди туда, когда пишешь тест или разбираешь падение.
 
-**Под-тег `slow` — что именно медленно.** Медленный класс несёт второй тег из словаря:
-`slow:konsist`, `slow:migration`, `slow:compose`, `slow:data`, `slow:platform`. Основной тег
-(`fast`/`slow`) остаётся: CI выбирает по нему, и класс без него не попал бы ни в один прогон.
-Словарь закрытый — гейт `TestTagCoverageTest` проверяет и основной тег, и под-тег.
-
-```kotlin
-// Три формы теста (singularity-todo-test-helpers skill):
-testVm({ vm: MyVm -> vm.state }) { MyVm(deps, scope = this) }
-ctx.act { it.onIntent(Intent.Load) }
-ctx.assertIs<UiState.Content>()
-awaitState { vm.state.value is UiState.Content }   // виртуальное время, не delay()
-```
-
-**Тест VM — через харнесс** (`testVm` из `shared/src/commonTest/.../test/helpers/RunVmTest.kt`),
-и это гейт: `SharedHarnessConventionsTest`, правило «runVmTest is used for ViewModel tests» —
-свой scope руками = падение. Исключения и их причины — `EXEMPT_VM_TEST` в
-`shared/src/jvmTest/.../arch/SharedHarnessConventionsTest.kt` (карта «файл → причина»;
-типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
-не может быть тестовым).
-
-**`@Tag("slow")` — тест, который локальный цикл не гоняет.** Дефолтный прогон
-исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
-лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.tags=fast,slow`) обязан
-выполнить каждый `slow`-класс — это проверяет `scripts/check-slow-tests-ran.py` (шаг CI сразу
-после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
-`adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
-
-### BAN list
-
-| Запрещено | Почему | Альтернатива |
-|---|---|---|
-| `stateIn` в ViewModel | держит upstream active 5s, ломает тесты без subscriber | `MutableStateFlow + scope.launch { }.collect {}` |
-| `viewModelScope` в production | tight coupling, нетестируемо | инъектированный `AutoCloseableCoroutineScope` |
-| `runBlocking` в production | blocking поток, deadlock risk | `scope.launch { }` |
-| `delay(N)` в тестах | реальное время, не virtual time | `advanceUntilIdle()` + debounce mocking |
-| `vm.state.launchIn(scope)` | костыль вокруг `stateIn` | canonical VM pattern |
-
-### Canonical VM pattern
-
-```kotlin
-class MyViewModel(
-    private val deps: MyDeps,
-    private val scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(),
-) : ViewModel() {
-    init { addCloseable(scope) }
-    private val _state = MutableStateFlow<UiState>(UiState.Loading)
-    val state: StateFlow<UiState> = _state.asStateFlow()
-    init { scope.launch { repo.observe().collect { _state.value = it } } }
-}
-```
-
-Подробности: `singularity-todo-testable-vm`, `singularity-todo-vm-migration-playbook`.
-
-### Testing notes
-
-**`kotlin.test.assertTrue` does NOT accept a lambda as message** — use `assertTrue(condition, "description")`.
-**`import kotlin.io.path.*` bypasses detekt's `NoWildcardImports` rule** — use explicit imports
-(`kotlin.io.path.exists`, `kotlin.io.path.readText`, `kotlin.io.path.isRegularFile`).
-**Stale-test-classes is NOT a thing (verified 2026-10-04)** — a plain rerun after editing a test
-recompiles and re-executes; `--rerun-tasks` — только отладочная костыль. ADR `2026-10-04-configuration-cache-hardening` §A3.
-
-**Добавил `TestTag` → пересобери каталог.** `Maestro/TAGS.md` — золотой файл: его
-сгенерированная часть сверяется с `TestTags.kt`, и расхождение падает в
-`TestTagsCatalogJvmTest` — то есть на полном JVM-прогоне (≈40 мин). Пересборка:
-
-```bash
-./gradlew :shared:jvmTest -PupdateGoldens=true   # переписывает сгенерированную часть TAGS.md
-```
-
-`scripts/check-test-tags-catalog.py` делает ту же сверку за секунды, без JVM, —
-он и стоит в гейтах; полный прогон нужен, чтобы *переписать* файл, а не чтобы
-*узнать*, что он устарел.
+**Запуск.** `./gw :shared:jvmTest` — быстрый цикл (только `fast`);
+`-Ptest.population=full` — полный набор, как в CI; `-Ptest.tags=slow:migration` — одна
+категория медленных.
 
 ## expect/actual порты
 
@@ -198,208 +126,36 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
 
 ## Сборка
 
-**`./gw` вместо `./gradlew`.** Параллельные worktree делят `~/.gradle`, а делённый
-Gradle Home — это общий лок кэша и общий реестр демонов: сборка толкается с
-соседями и идёт в разы дольше. `./gw` даёт worktree приватный `GRADLE_USER_HOME`
-(кеши и JDK остаются общими — их не пишут одновременно). Мелочь, но на машине
-с несколькими checkout'ами это разница между 5 и 40 минутами.
+**Порядок проверки — `docs/architecture/verification.md`:** `./gw` вместо `./gradlew`
+(приватный `GRADLE_USER_HOME` на worktree), карта команд (`just gate`, `./check.sh`,
+`bash scripts/ci/static-gates.sh`, `just tests::impact`), порядок detekt
+(`:shared:detekt` первым), компиляция сразу после связной правки, долгий запуск как одна
+фоновая задача, гейтовый venv, загрузка хоста (`./sg host-load`), покрытие и floors,
+«находки detekt — одним файлом». Иди туда перед запуском гейтов.
 
-```bash
-just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
-./check.sh                    # реестр гейтов + тесты + Android + detekt
-bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
-just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
-./gw :shared:jvmTest     # быстрый цикл (без популяции = только fast)
-./gw :shared:jvmTest -Ptest.population=full   # полный набор, как в CI
-./gw :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
-./gw :androidApp:assembleDebug   # Android
-./gw :desktopApp:run      # Desktop (xvfb-run -a)
-./gw :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
-./gw :shared:exportToolSurface   # перегенерировать config/docs/tool-surface.json
-
-just lint        # detekt (все модули с baseline), enforcing
-just detekt-fix  # auto-fix detekt + ktlint in-place
-
-python3 scripts/detekt-summary.py   # находки detekt по правилам, а не XML дампом
-```
-
-**Карта затронутых тестов — `just tests::impact`.** Ответ на вопрос «что эта правка
-ломает?» считается по дереву, а не выдумывается: правка в области тянет тесты этой
-области, правка в классе тянет тесты, которые этот класс упоминают, изменённый тест
-тянет сам себя. Это **кандидаты**, а не вердикт: карта никогда не говорит «вне карты
-безопасно» — она говорит, что стоит прогнать первым.
-
-**Пуш в ветку PR — без `--no-verify`.** `pre-push` hook (`.githooks/pre-push`) проверяет
-**пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть
-находок). Пропуск хука отправляет ту же находку в CI — минуты вместо получаса. `--no-verify` —
-только для WIP-коммитов.
-
-**Pre-push несёт и правила дерева** (на пушимое дерево, не на рабочее): указатели `AGENTS.md`
-(`scripts/check-agents-pointers.py`), запись реестра ченджа (`scripts/check-issue-registry.py`),
-вердикт ревью ченджа (`scripts/check-review-verdicts.py`). Всё вместе — меньше двух секунд;
-полный сьют гейтов в хук не входит намеренно (1 м 17 с, и две трети его — гейты, которые
-обязаны прогонять всё).
-
-**Находки detekt — одним файлом:** `shared/build/reports/detekt/detekt.xml` (путь, строка, правило);
-консоль Gradle даёт только счётчик. **Правило и его подоплёка — в комментариях
-`config/detekt/detekt.yml`**: там, почему порог такой; кастомные правила — в `detekt-rules/`
-(напр. `NoDroppedUiStateProperty`: свойство состояния — обязательный параметр **каждого**
-варианта, дефолт запрещён). `ClassSignature` — сигнатура data class, влезающая в строку, пишется
-в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
-
-> **Хост бывает занят.** Параллельно на машине могут крутиться Gradle других
-> сессий — они делят CPU, RAM и Gradle home, но не `shared/build`. Полный
-> `:shared:jvmTest -Ptest.tags=fast,slow` в таком случае идёт час вместо
-> получаса, и таймаут-тесты (`CoroutineDiagnosticsTest`) флейкают от нагрузки, а
-> не от кода.
->
-> Спроси у хоста, а не у памяти: `./sg host-load` (или `--json`). Порог — **2.0
-> на ядро**, измерено: на 16 ядрах load 16 (1.0/ядро) даёт `:shared:jvmTest` за
-> 8 минут, load 42–52 (2.6–3.2/ядро) — за 24. Занят → целевой набор
-> (`--tests`) или ждать; полный прогон — когда целевой зелёный.
->
-> **Отчёт detekt** — это XML на находку. `scripts/detekt-summary.py` печатает
-> то же самое по правилам и местам в два-три экрана; выгружать `detekt.xml`
-> целиком в контекст — это сотни строк ради ответа, который помещается в первые
-> двадцать.
-
-> `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
-
-**Порядок detekt.** Сначала `:shared:detekt` — там почти весь код, и замечание там
-останавливает проверку через две минуты, а не через четыре модуля:
-
-```bash
-./gw :shared:detekt                                  # сначала — 90% кода
-./gw :desktopApp:detekt :androidApp:detekt :mcp-server:detekt   # потом остальные
-```
-
-**Компилируй сразу после связной правки.** Правка, которая тянет за собой соседний
-файл (сигнатура, интерфейс, DI-биндинг), проверяется компиляцией в ту же минуту:
-`./gw :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`).
-Открытие полного прогона на сломанной компиляции стоит сорока минут ожидания,
-и диагностика «упало в тестах» уводит не туда: компиляция падает раньше и падает
-другой строкой.
-
-**Долгий запуск — одна фоновая задача и один ожидатель.** Запусти в фоне, пиши лог в
-уникальный файл и дальше жди уведомления о завершении; читай вывод, когда задача
-завершилась, а не по таймеру. Формулировка «проверяй по необходимости» — приглашение
-поллить, и у него нет критерия завершения: в одной сессии 211 из 314 tool-вызовов были
-просмотрами состояния (39 % — `task_output`, остальное — опросы в bash), а полезной
-работы было 103 вызова. Сколько именно ждать — берётся из измерения
-(`docs/testing/gate-costs.md`), а не из догадки: прогон, который стоит 37 минут, не
-«проверяется» через 30 секунд — это десять раундов контекста впустую.
-
-**Гейтовый venv принадлежит checkout'у.** `sgate` — editable-установка `scripts/src/`,
-поэтому венв, поставленный в другом worktree, меряет *тот* checkout: гейт зелёный,
-а проверял он чужое дерево. `bash scripts/ci/preflight-gate-tools.sh` печатает, чей
-это checkout (строка `sgate`; `FOREIGN` — не тот). Свой венв на checkout:
-
-```bash
-SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
-    bash scripts/ci/setup-local-tools.sh
-export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
-```
-
-> `xvfb-run` есть не везде: `:desktopApp:test` идёт без дисплея, а `:desktopApp:run`
-> — GUI, и ему нужен X-сервер (`xvfb-run -a ./gw :desktopApp:run`). Если `xvfb-run`
-> не установлен, это не повод пропускать тесты — они headless.
-
-> **Каталог инструментов — производный файл.** `config/docs/tool-surface.json`
-> читает MCP-сервер и агент; он генерируется (`./gw :shared:exportToolSurface`) и
-> проверяется гейтом. Меняешь схему или описание инструмента — перегенерируй
-> сразу, иначе гейт скажет, что каталог устарел, а не что ты изменил.
-
-> **Гейты — одной командой, со сводкой.** `sgate run-all` печатает таблицу и панель
-> на каждый упавший гейт: это много строк, из которых читателю нужны только
-> падения. `sgate run-all --summary` печатает по строке на каждый упавший гейт
-> с причиной — этого хватает, чтобы решить, что делать дальше. Полный отчёт нужен
-> только когда причина из сводки непонятна.
->
-> ```bash
-> sgate run-all --summary              # сводка: по строке на упавший гейт
-> sgate run-all                        # полный отчёт (таблица + панели)
-> sgate run-all --gate "write tool"    # один гейт по имени
-> ```
->
-> **Долгий запуск — одна фоновая задача, а не цикл опроса.** Задача сама
-> печатает финальные строки (`BUILD SUCCESSFUL` по каждому шагу) — тогда опрос
-> не нужен вовсе. Десять `sleep 30 && tail` — это десять раундов контекста
-> впустую. Лог, который нужен потом, пиши в файл с уникальным именем
-> (`build/diagnostics/<что>-<метка>.log`), а не перетирай общий.
->
-> Если ждать всё-таки нужно — жди инструментом: `./wait-for <log> <паттерн>`
-> ждёт строку в логе и печатает хвост **один раз** (код 0 — нашлась, 1 —
-> таймаут, 2 — неверные аргументы). Опрос циклом — это тот же ждёшь, только
-> дороже.
-
-**Floor покрытия приложения живёт в `settings.gradle.kts`.** Блок `kover { }` в
-корневом `build-скрипте` инертен: у корневого проекта нет своего Kover-расширения, и
-`plugins.withId("…kover") { … }` там не выполняется никогда (проверено `println`-зондом).
-Правила читаются из settings-level `kover { reports { verify { } } }`. Гейт
-`coverage floor declaration` (`scripts/check-coverage-floor-declaration.py`) не даёт
-объявлению вернуться в мёртвое место, а `coverage task list` следит, чтобы в измерение
-попадал каждый модуль, чьи классы в знаменателе.
+**Две вещи, нужные в каждом ходе.** `./gw` вместо `./gradlew`: делённый Gradle Home —
+это общий лок кэша и общий реестр демонов, и сборка идёт в разы дольше.
+`./gw :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`) — сразу после
+связной правки (сигнатура, интерфейс, DI-биндинг): полный прогон на сломанной
+компиляции стоит сорока минут ожидания.
 
 ## CI/CD
 
-Единственный список гейтов — **реестр** (`scripts/src/sgate/commands/_registry.py` +
-`scripts/src/sgate/gate_manifest.py`); `scripts/ci/static-gates.sh` и
-`docs/scripts/gate-registry.md` **генерируются** из него, руками их не правь:
-`PYTHONPATH=scripts/src python3 -m sgate render-static-gates --write` и
-`python3 -m sgate render-registry`. Джоб `static` в `ci.yml` и `check.sh` берут
-тот же реестр: гейт не может жить на одной поверхности и отсутствовать на другой.
-Новый гейт = одна запись в реестре + строка `gate blocking|advisory <name> <cmd>`;
-`|| true` на строке `gate` запрещён. Branch protection требует **один** check —
-`CI gate`. Состав workflow'ев, частей A–G мета-гейта и рецепты — скилл
-`singularity-todo-quality-tools`.
+**Что делает CI — `docs/architecture/ci.md`:** джобы `ci.yml` (`static`, `meta`, `tests`,
+`android`, `ci-gate`), слои проверок, реестр гейтов как единственный источник
+(`scripts/src/sgate/`), чем CI отличается от pre-push-хука, гейты-«меры» с floors,
+ожидание CI одной командой (`gh pr checks --watch`). Иди туда, когда разбираешь красный
+CI или добавляешь гейт.
 
-**Ждёшь CI — одной командой, а не циклом опроса:**
+**Реестр гейтов — единственный список.** `scripts/ci/static-gates.sh` и
+`docs/scripts/gate-registry.md` генерируются из него, руками их не правь. Новый гейт =
+одна запись в реестре + строка `gate blocking|advisory <name> <cmd>`; `|| true` на строке
+`gate` запрещён. Branch protection требует **один** check — `CI gate`. Состав workflow'ев,
+частей A–G мета-гейта и рецепты — скилл `singularity-todo-quality-tools`.
 
-```bash
-gh pr checks <pr> --watch --interval 60   # ждёт до конца, печатает вердикт
-```
-
-Десять `sleep 30 && gh pr checks` — это десять раундов контекста впустую, и
-ровно то, что запрещает абзац про долгие запуски выше. `--watch` ждёт сам и
-отдаёт финальный вердикт одной строкой.
-
-**Инструменты гейтов ставятся, а не подкладываются в `PYTHONPATH`.** На машине
-нескольких клонов `sgate` на PATH — editable-установка *чужого* клона, и гейт
-проверит чужой код, назвав его своим. Ставится один раз на клон:
-
-```bash
-bash scripts/ci/setup-local-tools.sh          # uv-venv + editable-установка scripts/src
-export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"
-sgate whereami                                 # путь должен совпасть с этим клоном
-```
-
-`bash scripts/ci/preflight-gate-tools.sh` проверяет это и говорит, что чинить.
-Ручной `PYTHONPATH` в скриптах — не путь: юнит-тесты гейтов запускают их с
-минимальным окружением (`env={'PATH': ...}`), и пакет, видимый только через
-`PYTHONPATH`, для них невидим. Наш `sgate run-all` сам запускает гейты этого
-клона (`run_all.py` → `_repo_env()`), поэтому чужая установка на PATH результат
-гейтов не портит — но и руками `sgate` звать тогда нельзя.
-
-**Гейты «меры», а не «булевы»** — все блокирующие; спека:
-`openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.
-`check-test-runs.py --require <set>` (прогнал меньше классов/тестов, чем floor, **или** пропустил
-хоть один) · `:koverVerify` (INSTRUCTION/BRANCH/LINE покрытие `com.singularity.todo.*` ниже floor 27/20/27)
-· `check-flaky-tests.py --current DIR --previous DIR` · `unittest discover -s scripts/tests`
-(регрессия в самих гейтах, ~3 мин на 1750 тестов). Floor = **минимальный** легитимный прогон:
-падение — расследовать, не регенерировать.
-
-**Перед PR — ревью отдельным агентом** (`code-review-pr-workflow`): он получает диф, а не код,
-и у него нет давления контекста реализации — поэтому он ловит то, чего не ловит гейт (контракт
-состояния, алиас, запись в реестр issues). Гейт ловит механику; ревью ловит смысл.
-
-**Вердикт ревью — файл, а не воспоминание.** У каждого ченджа, который не в базлайне, есть
-`.specify/reviews/<slug>.md`: чендж, вердикт (`pass`/`fail`), дата, PR и что нашёл ревью.
-Имя файла — **slug без date-префикса**: у каталога `2026-10-22-the-read-surface` вердикт
-лежит в файле с именем `the-read-surface`.
-Гейт `review verdicts cover every change` требует его; ченджи, появившиеся до правила, — в
-`config/docs/review-verdicts-baseline.txt` (список только сокращается: `--update-baseline`
-подчищает, но не добавляет; добавить запись — ручная правка, видимая в диффе). Каркас,
-который только что создал spec-kit, от правила свободен, пока его не написали.
+**Пуш в ветку PR — без `--no-verify`:** pre-push hook проверяет **пушимое дерево**
+(структурные гейты + `detekt --auto-correct` + правила дерева). Подробности —
+`docs/architecture/verification.md`.
 
 ## 🤖 Dogfooding: MCP Server
 
@@ -452,10 +208,10 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 
 ## 🤖 Coroutine test failures
 
-Любой JVM-тест при падении пишет `build/diagnostics/<TestClass>/coroutines.txt` (состояние,
-контекст, job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше kotlinx указывают,
-где корутина была, умерла она там, где `lastObservedStackTrace`, а одинаковые стектрейсы — не
-доказательство утечки. ADR `2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
+Падение JVM-теста пишет `build/diagnostics/<TestClass>/coroutines.txt` (состояние, контекст,
+job-иерархия, стектрейлы) — читай **первым**: кадры приложения раньше kotlinx указывают, где
+корутина была и где она умерла; одинаковые стектрейсы — не доказательство утечки. ADR
+`2026-10-03-kotlinx-coroutines-debug.md`, разбор — шаг 5 `debugging-investigation`.
 
 ## ❌ Что НЕ делать
 

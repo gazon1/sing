@@ -24,6 +24,7 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+from scripts.tests._git_env import GitEnvTestCase
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'setup-worktree.sh'
@@ -35,7 +36,7 @@ echo "$(mktemp -d)"
 """
 
 
-class SetupWorktreeTest(unittest.TestCase):
+class SetupWorktreeTest(GitEnvTestCase):
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='setup-worktree-'))
         self.repo = self.tmp / 'repo'
