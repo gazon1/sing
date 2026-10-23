@@ -336,6 +336,10 @@ DETEKT_FAILED=0
 # How many trees were actually judged: a verdict that was not taken is not a
 # clean verdict, and the summary must not claim otherwise.
 DETEKT_JUDGED=0
+# How many trees had nothing to judge — the change moved neither Kotlin nor
+# rules. Nothing was checked there, so nothing was found: that is "not taken",
+# not "clean".
+DETEKT_NOTHING=0
 judged_shas=" "
 
 for i in "${!PUSH_REFS[@]}"; do
@@ -377,8 +381,8 @@ for i in "${!PUSH_REFS[@]}"; do
     fi
 
     # The base of the pushed range: the tree the remote already holds. It is
-    # what the change is measured against. A brand new branch has no base, and
-    # then every module is judged — the safe direction.
+    # what the change is measured against. A branch the remote does not have
+    # yet is measured against the trunk instead (the script's default).
     base=""
     if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
         base="$remote_sha"
@@ -386,23 +390,32 @@ for i in "${!PUSH_REFS[@]}"; do
 
     new_temp_root
     verdict_rc=0
+    verdict_out=""
     if [ -n "$base" ]; then
-        python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
             --sha "$local_sha" \
             --repo "$REPO_ROOT" \
             --fallback-tree "$fallback" \
             --base "$base" \
-            --log-dir "$TMP_ROOT/verdict" || verdict_rc=$?
+            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
     else
-        python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
             --sha "$local_sha" \
             --repo "$REPO_ROOT" \
             --fallback-tree "$fallback" \
-            --log-dir "$TMP_ROOT/verdict" || verdict_rc=$?
+            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
     fi
+    printf '%s\n' "$verdict_out"
+
+    # A verdict that found nothing to judge is not a verdict: nothing was
+    # checked, so nothing was found. The summary says "not taken" rather than
+    # "clean", because a clean tree is a claim and this is not one.
+    case "$verdict_out" in
+        *"nothing to judge"*) DETEKT_NOTHING=$((DETEKT_NOTHING + 1)) ;;
+        *) DETEKT_JUDGED=$((DETEKT_JUDGED + 1)) ;;
+    esac
 
     if [ "$verdict_rc" = "0" ]; then
-        DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
         continue
     fi
 
@@ -426,8 +439,10 @@ if [ "$DETEKT_FAILED" = "1" ]; then
 fi
 
 echo ""
-if [ "$DETEKT_JUDGED" = "0" ]; then
+if [ "$DETEKT_JUDGED" = "0" ] && [ "$DETEKT_NOTHING" = "0" ]; then
     echo "detekt verdict: not taken — nothing was pushed to judge"
+elif [ "$DETEKT_JUDGED" = "0" ]; then
+    echo "detekt verdict: not taken — this change moves no Kotlin and no rules"
 else
     echo "detekt verdict: the pushed tree is clean for the modules the change can affect"
     echo "detekt coverage: CI judges every module; the hook judges the ones this change reaches"

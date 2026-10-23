@@ -159,6 +159,26 @@ class PrePushHookTest(unittest.TestCase):
         self.assertIn('detekt', output)
         self.assertIn('FAILED', output)
 
+    def test_a_push_that_moves_no_kotlin_is_not_a_clean_verdict(self):
+        """Nothing was judged, so nothing was found — the summary must not claim clean."""
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        # The trunk the change is measured against.
+        head = _git('rev-parse', 'HEAD', cwd=self.repo).stdout.strip()
+        _git('update-ref', 'refs/remotes/origin/main', head, cwd=self.repo)
+        # A change that moves neither Kotlin nor rules.
+        self._write('docs/note.md', 'a note\n')
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a note', cwd=self.repo)
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('nothing to judge', output)
+        self.assertIn('detekt verdict: not taken', output)
+
     def test_the_verdict_is_taken_in_the_worktree_when_it_holds_the_pushed_tree(self):
         self._install_hook()
         self._install_stubs()

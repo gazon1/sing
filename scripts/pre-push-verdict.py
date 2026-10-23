@@ -385,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"   detekt verdict taken on {report['tree_label']}")
     if report["judged"]:
+        print(f"   detekt verdict: judged {len(report['tasks'])} modules")
         print(f"   modules judged: {', '.join(report['tasks'])}")
         print(f"   why: {report['coverage_reason']}")
         print(
@@ -392,7 +393,9 @@ def main(argv: list[str] | None = None) -> int:
             "a violation in a module it does not touch is CI's to find",
         )
     else:
-        print(f"   no detekt run was needed: {report['coverage_reason']}")
+        # Not "the tree is clean": nothing was judged, so nothing was found.
+        # The hook reads this line and says "not taken", not "clean".
+        print(f"   detekt verdict: nothing to judge — {report['coverage_reason']}")
     for task in report["failed_tasks"]:
         print(f"   detekt {task}: FAILED — see {report['log_dir']}")
     if report["corrected"]:
