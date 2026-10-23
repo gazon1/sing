@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
@@ -96,9 +97,9 @@ class TaskEntitySlot(
 
             is TaskDetailIntent.Domain.SetProject -> mutate(task, intent) { copy(projectId = intent.projectId) }
 
-            is TaskDetailIntent.Domain.SetTags -> mutate(task, intent) { copy(tags = intent.tagIds) }
+            is TaskDetailIntent.Domain.SetTags -> setTags(task, intent.tagIds)
 
-            is TaskDetailIntent.Domain.RemoveTag -> mutate(task, intent) { copy(tags = tags - intent.tagId) }
+            is TaskDetailIntent.Domain.RemoveTag -> setTags(task, task.tags - intent.tagId)
 
             is TaskDetailIntent.Domain.SetKind -> mutate(
                 task,
@@ -137,6 +138,23 @@ class TaskEntitySlot(
 
             TaskDetailIntent.Domain.DetachFromSeries -> detachFromSeries(task)
         }
+    }
+
+    /**
+     * Writes the tags of the task.
+     *
+     * The tags live in a cross-ref table, and the path that writes them is the
+     * one that knows what they should be: `setTags`. A write that carried them
+     * only in the task would leave the database saying something else about the
+     * work than the screen does — and the push would carry the emptiness of a
+     * read as the claim that the work has no tags.
+     *
+     * A series is handled by the same path: the tags are a shared field of a
+     * series, and `setTags` repairs the series around the task it changed.
+     */
+    private fun setTags(task: Task, tagIds: List<TagId>) = scope.launch {
+        core.taskRepo.setTags(task.id, tagIds)
+            .onFailure { onError("Failed to set tags") }
     }
 
     /**
