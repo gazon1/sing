@@ -570,6 +570,43 @@ def render_roundtrip_test(steps: list[tuple[int, int]]) -> str:
     return ROUND_TRIP_HEADER + body + "}\n"
 
 
+#: The line length detekt enforces (`MaximumLineLength`).
+MAX_LINE_LENGTH = 120
+
+#: The number of functions detekt allows in one class (`TooManyFunctions`).
+MAX_FUNCTIONS_PER_CLASS = 16
+
+
+def kotlin_convention_findings(source: str) -> list[str]:
+    """What detekt would say about a generated Kotlin file — without Gradle.
+
+    The generator wrote forty methods into one class, and detekt said
+    `TooManyFunctions`; then it wrote a `@ValueSource` on one line, and ktlint
+    said `MaximumLineLength`. Both facts were discovered by running Gradle
+    twice, eight minutes each, on a machine that was busy with somebody else's
+    build. The two rules are mechanical: they can be checked in milliseconds,
+    and a generator that checks its own output before writing it cannot produce
+    code the linter will reject.
+
+    The thresholds are detekt's own, read from `config/detekt/detekt.yml`, and
+    the check is deliberately narrow: lines that are too long, and classes with
+    too many functions. Those are the two that a generator can break by
+    accident.
+    """
+    findings: list[str] = []
+    for number, line in enumerate(source.split("\n"), start=1):
+        if len(line) > MAX_LINE_LENGTH:
+            findings.append(
+                f"line {number} is {len(line)} characters long — the limit is {MAX_LINE_LENGTH}"
+            )
+    functions = sum(1 for line in source.split("\n") if line.lstrip().startswith("fun "))
+    if functions > MAX_FUNCTIONS_PER_CLASS:
+        findings.append(
+            f"the file declares {functions} functions — the limit is "
+            f"{MAX_FUNCTIONS_PER_CLASS} per class"
+        )
+    return findings
+
 def create_sql_columns(create_sql: str) -> list[str] | None:
     """The columns a `CREATE TABLE` declares, in order.
 
@@ -686,7 +723,15 @@ def check_roundtrip_test_current(root: Path) -> list[Violation]:
             )
         )
         return out
-    if test_path.read_text(encoding="utf-8") != render_roundtrip_test(steps):
+    on_disk = test_path.read_text(encoding="utf-8")
+    for finding in kotlin_convention_findings(on_disk):
+        out.append(
+            Violation(
+                "roundtrip-test-current",
+                f"{test_path.name} does not follow the conventions detekt enforces: {finding}",
+            )
+        )
+    if on_disk != render_roundtrip_test(steps):
         out.append(
             Violation(
                 "roundtrip-test-current",
@@ -992,6 +1037,16 @@ def self_test() -> int:
         """The generated test is gone entirely."""
         (root / ROUND_TRIP_TEST_RELATIVE).unlink()
 
+    def _over_long_line_in_generated_test(root: Path) -> None:
+        """The generated test holds a line detekt would reject.
+
+        The generator wrote a `@ValueSource` on one line, and ktlint said
+        `MaximumLineLength` — found by a Gradle run, eight minutes on a busy
+        host. The rule has to see it without Gradle.
+        """
+        p = root / ROUND_TRIP_TEST_RELATIVE
+        p.write_text(p.read_text() + "\n" + "// " + ("x" * MAX_LINE_LENGTH) + "\n", encoding="utf-8")
+
     def _export_ddl_disagrees(root: Path) -> None:
         """The export's DDL declares a column its own column list does not.
 
@@ -1019,6 +1074,11 @@ def self_test() -> int:
     expect_caught("manual migration claimed but unregistered", _manual_not_registered, "chain-continuous")
     expect_caught("stale support floor", _stale_floor, "floor-consistent")
     expect_caught("stale round-trip test", _stale_roundtrip_test, "roundtrip-test-current")
+    expect_caught(
+        "over-long line in the generated test",
+        _over_long_line_in_generated_test,
+        "roundtrip-test-current",
+    )
     expect_caught("missing round-trip test", _missing_roundtrip_test, "roundtrip-test-current")
     expect_caught("export DDL disagrees with its columns", _export_ddl_disagrees, "export-ddl-matches-fields")
 
@@ -1070,8 +1130,20 @@ def cli(ctx: click.Context, run_self_test: bool, emit_json: bool, do_write: bool
     if do_write:
         steps = migration_steps(ROOT)
         path = generated_path(ROOT, ROUND_TRIP_TEST_RELATIVE)
+        rendered = render_roundtrip_test(steps)
+        # The generator checks its own output before writing it: a file that
+        # detekt would reject is a file that costs two Gradle runs to find out.
+        findings = kotlin_convention_findings(rendered)
+        if findings:
+            click.echo(
+                "the generated Kotlin does not follow the conventions detekt enforces:",
+                err=True,
+            )
+            for finding in findings:
+                click.echo(f"  {finding}", err=True)
+            raise ctx.exit(VALIDATION_FAILURE)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(render_roundtrip_test(steps), encoding="utf-8")
+        path.write_text(rendered, encoding="utf-8")
         click.echo(f"wrote {path.relative_to(ROOT)} — {len(steps)} migration step(s)")
         raise ctx.exit(CLEAN)
 
