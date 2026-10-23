@@ -673,6 +673,21 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "jvmTest.root",
         layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // The exported Room schemas, read at runtime by the generated round-trip test.
+    //
+    // `MigrationRoundTripSupport.schemaFile(version)` resolves
+    // `shared/schemas/com.singularity.todo.core.database.AppDatabase/<version>.json`
+    // and opens it. That tree is not a compile input of :shared, so the task's
+    // up-to-date check did not see it: an export that changed — a re-export with
+    // different columns, which is exactly the defect `check-room-schema-integrity.py`
+    // now catches statically — left :shared:jvmTest UP-TO-DATE, and the round-trip
+    // test re-reported a verdict about a schema it had never re-read.
+    //
+    // Declared as a directory rather than per version, because the test reads one file
+    // per step and the set of steps changes with the chain.
+    inputs.dir(layout.projectDirectory.dir("schemas"))
+        .withPropertyName("exportedRoomSchemas")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // The positive control of UnannotatedTestMemberTest reads a committed class that is
     // broken on purpose, and this tree is on no compile path, so nothing else declares
     // it. Declared here for the same reason as every input above: a gate that cannot be
