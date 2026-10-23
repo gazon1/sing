@@ -7,6 +7,7 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | Script | What it checks |
 |---|---|
 | `scripts/check-adr-references.py` | check_adr_references.py — find references to ADRs that no longer exist. |
+| `scripts/check-agents-pointers.py` | check-agents-pointers.py — every file path `AGENTS.md` names exists. |
 | `scripts/check-ai-write-tools.py` | check-ai-write-tools.py — a tool that writes a user's data must say so. |
 | `scripts/check-baseline-ratchet.py` | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. |
 | `scripts/check-build-output-readers.py` | check-build-output-readers.py — a step that reads build output must read it first. |
@@ -37,11 +38,13 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/check-provenance.py` | check-provenance.py — a derivation marker in production code must be registered. |
 | `scripts/check-rebase-compiles.py` | Post-rebase compile gate for DI and import-sensitive modules. |
 | `scripts/check-release-tags.py` | check-release-tags.py — every release must be able to describe itself. |
+| `scripts/check-review-verdicts.py` | check-review-verdicts.py — every change carries the verdict of its review. |
 | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported |
 | `scripts/check-rule-intent.py` | check-rule-intent.py — a rule that reports findings must be a rule you chose. |
 | `scripts/check-script-conventions.py` | check-script-conventions.py — enforce naming, docstring, and import conventions for gate scripts. |
 | `scripts/check-selectable-text-coverage.py` | Find text surfaces that are neither selectable nor classified. |
 | `scripts/check-skill-drift.py` | check-skill-drift.py — the declared toolbox must be the implemented toolbox (#526). |
+| `scripts/check-slow-tests-ran.py` | check-slow-tests-ran.py — every `@Tag("slow")` class ran in the full suite. |
 | `scripts/check-supabase-schema-integrity.py` | check-supabase-schema-integrity.py — the versioned sync schema is self-consistent. |
 | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hiding. |
 | `scripts/check-sync-allowlist-regenerated.py` | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from |
