@@ -59,6 +59,7 @@ sche... | — | — |
 | maestro selectors valid | blocking | `scripts/ci/validate-maestro-selectors.py` | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
 | maestro keyboard commands have something to hide | blocking | `scripts/check-maestro-keyboard-commands.py` | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
 | maestro flows do not name a pixel | blocking | `scripts/check-maestro-screen-geometry.py` | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
+| a pull request carries the review of an agent | blocking | `scripts/ci/check-agent-review.py` | check-agent-review.py — a pull request carries the review of a separate agent. | — | — |
 | maestro results are within the floor | blocking | `scripts/ci/check-maestro-results.py` | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
 | profile reset inventory is true | blocking | `scripts/ci/check-profile-reset-inventory.py` | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
 | the text-field transformation table is true | blocking | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |

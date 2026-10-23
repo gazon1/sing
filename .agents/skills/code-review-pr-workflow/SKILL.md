@@ -75,8 +75,15 @@ What could break, and how you would notice. "None — docs only" is a valid answ
 
 ### The review verdict
 
-After the reviewer agent has answered, its verdict is a file — not a memory of
-the session that asked for it. A change that is not in
+After the reviewer agent has answered, its verdict is written down twice, and
+the two are different things.
+
+The **review itself** is a comment on the pull request — see "The review is a
+comment on the pull request" below. The comment is what a person reads and
+what the `Agent review` job reads.
+
+The **verdict of a change** is a file — not a memory of the session that asked
+for it. A change that is not in
 `config/docs/review-verdicts-baseline.txt` carries one at
 `.specify/reviews/<slug>.md` (the slug without the date prefix):
 
@@ -109,6 +116,11 @@ a verdict that carries the digest of a contract that is not there any more is
 a finding — and whether the re-issue was earned is the reviewer's question,
 because a re-issue is a claim in a diff like any other.
 
+The two verdicts are allowed to disagree, and neither one is checked against
+the other: the file's `fail` says the review found something, and the
+comment's `fail` keeps the pull request red until a later review says `pass`.
+One of them is a record, the other is a gate.
+
 ### Draft vs. ready
 
 Push as **draft** when any of these hold; they are the same list a reviewer will check:
@@ -136,6 +148,43 @@ literal instead of the behaviour.
 An agent reviewing its own diff inherits the assumptions the diff was built on. For a
 change over a few hundred lines, dispatch a fresh sub-agent with only the diff and the
 ADR — it sees what you cannot unsee. Give it the diff, not the session history.
+
+### The review is a comment on the pull request
+
+The review is written down **on the pull request**, as a comment that **opens** with the
+marker `<!-- agent-review -->` and states a verdict:
+
+```
+<!-- agent-review -->
+## Agent review
+
+**Verdict:** pass
+```
+
+`pass` says the review found nothing that blocks the change; `fail` says it found
+something. A `fail` keeps the pull request red: the findings have to be dealt with, and
+a later review has to say `pass` again. A review that finds something and a pull request
+that merges anyway are two different things, and only one of them is right.
+
+The comment has to *open* with the marker, and the verdict has to be the whole value of
+its line: `**Verdict:** pass or fail` is a sentence about verdicts, and the check
+reads no verdict in it. The marker and the format are written down in three places, so
+a comment that quotes them is not a review — and the check is built to say so.
+
+This is not a formality. The job `Agent review` (`scripts/ci/check-agent-review.py`)
+asks the pull request for that comment, and the `CI gate` waits for that job: a pull
+request without the review does not go green. A review that happened in a session and
+left nothing behind is a review the next reader cannot see.
+
+**The gate is counted again when the review lands.** The check runs on the pull
+request, so the run that opened it finds no review and is red. After the review is
+posted, re-run the workflow: apply the `agent-reviewed` label (a pull-request-scoped
+trigger), or push. A run triggered by a *comment* would not help — GitHub counts the
+checks of such a run on the default branch, so the green would land on main and not on
+the pull request.
+
+The reviewer and the author run under the same account, so "separate" is a fact about
+the session — a fresh agent that only saw the diff — and not about the login.
 
 ---
 

@@ -890,6 +890,17 @@ statement about the app.
 A swipe may be a share of the screen, or the element that scrolls. Both mean
 the same gesture on every display.""",
     ),
+    "a pull request carries the review of an agent": Placement(
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "CI runs it as the `Agent review` job of ci.yml, on the pull request and on "
+            "the comments it carries: the review is a comment, and a comment arrives "
+            "after the pull request was opened. It asks GitHub about a pull request, so "
+            "there is nothing for it to read in a checkout — a local run would have "
+            "nothing to read and would say so."
+        ),
+        tracked_by=".github/workflows/ci.yml#The review the agent left on the pull request",
+    ),
     "maestro results are within the floor": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(
