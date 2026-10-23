@@ -89,6 +89,12 @@ work came back, and it did not.
   application shell.
 - `Notification.Undo` grew a callback. The screens that do not navigate on a
   declined offer do not pass it.
+- The host keeps one notification slot. Another notification that arrives while
+  the toast is showing replaces it, and the screen does not leave. That is a
+  narrow hole, and the obvious fix is worse: an offer that was cut short would
+  have to leave the screen anyway, and the message that cut it short would go
+  with it. A toast that outlives its screen needs a host that outlives the
+  screen — that is the separate change named above.
 
 ## Links
 

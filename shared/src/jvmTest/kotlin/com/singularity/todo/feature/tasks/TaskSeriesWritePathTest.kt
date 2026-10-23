@@ -258,6 +258,51 @@ class TaskSeriesWritePathTest {
     }
 
     @Test
+    fun `the pull path writes the tags of the row that arrived`() = runTest {
+        val repo = repo(alice)
+        val tag = TagId("tag-1")
+        seedSeries(
+            repo,
+            task("t1", updatedAt = Instant.fromEpochMilliseconds(1_000)),
+            task("t2", updatedAt = Instant.fromEpochMilliseconds(1_000)),
+        )
+
+        // The row that arrives carries the tags of the work, and the local row
+        // has to carry them too: a pull that wrote the row and lost the tags
+        // would leave the series saying two things about the work.
+        repo.upsert(
+            task(
+                "t1",
+                title = "Pay the rent in full",
+                tags = listOf(tag),
+                updatedAt = Instant.fromEpochMilliseconds(3_000),
+            ),
+        )
+        advanceUntilIdle()
+
+        val stored = repo.observeSeries(seriesId).first().associateBy { it.id.value }
+        assertEquals(listOf(tag), stored.getValue("t1").tags, "the tags of the row that arrived are stored")
+        assertEquals(listOf(tag), stored.getValue("t2").tags, "the series says one thing about the tags")
+    }
+
+    @Test
+    fun `changing the tags of one member changes them for the whole series`() = runTest {
+        val repo = repo(alice)
+        val tag = TagId("tag-1")
+        seedSeries(
+            repo,
+            task("t1", updatedAt = Instant.fromEpochMilliseconds(1_000)),
+            task("t2", updatedAt = Instant.fromEpochMilliseconds(1_000)),
+        )
+
+        repo.setTags(TaskId("t1"), listOf(tag)).getOrThrow()
+        advanceUntilIdle()
+
+        val stored = repo.observeSeries(seriesId).first()
+        assertTrue(stored.all { it.tags == listOf(tag) }, "the tags reached every member: $stored")
+    }
+
+    @Test
     fun `another user's row does not touch this profile's series`() = runTest {
         val repo = repo(alice)
         seedSeries(
