@@ -41,7 +41,19 @@ so the cases that matter grew with the rule:
     binds a name the settings file never declares: in both cases the floor
     the task checks is not the floor this repository declares;
   - a floor without a `require(...)` minimum is a finding: a floor that can be
-    lowered without a visible change is a floor that cannot fail.
+    lowered without a visible change is a floor that cannot fail;
+  - a minimum of ZERO is a finding: `require(FLOOR >= 0)` is written like a
+    minimum and lets the floor go to zero, and a gate that looks for the
+    PRESENCE of a minimum cannot tell the difference;
+  - a minimum below the one the wiring gate holds every kover verify rule to
+    is a finding: the two gates must not disagree about what a usable floor
+    is;
+  - a bound with ARITHMETIC behind the name is a finding: `FLOOR - 40` is a
+    different number from the floor, and the name in front of it satisfies
+    every other check of the gate;
+  - a module that binds a floor and declares NO verify rule is a finding: a
+    floor that is bound and never checked is a floor that cannot fail, and
+    the whole block can go without leaving a rule name behind to look for.
 """
 
 import importlib.util
@@ -385,6 +397,82 @@ class CoverageFloorDeclarationTest(unittest.TestCase):
         self.assertTrue(
             any('require' in f and 'DETEKT_RULE_BRANCH_FLOOR' in f for f in findings),
             f'expected the missing minimum to be reported: {findings}',
+        )
+
+    def test_a_require_minimum_of_zero_is_a_finding(self) -> None:
+        """A minimum of zero is written like a minimum and is not one.
+
+        `require(FLOOR >= 0)` lets the floor go to zero, and a gate that only
+        looks for the PRESENCE of a minimum cannot tell the difference.
+        """
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace(
+                'require(DETEKT_RULE_BRANCH_FLOOR >= 60)', 'require(DETEKT_RULE_BRANCH_FLOOR >= 0)'
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('minimum of zero' in f for f in findings),
+            f'expected the zero minimum to be reported: {findings}',
+        )
+
+    def test_a_require_minimum_below_the_gate_minimum_is_a_finding(self) -> None:
+        """A module's floor may not have a smaller minimum than the gate.
+
+        The wiring gate holds every kover verify rule to `_KOVER_MIN_FLOOR`;
+        a floor whose own minimum is below that could be lowered past what
+        the gate watches, and the two would disagree about what a usable
+        floor is.
+        """
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace(
+                'require(DETEKT_RULE_BRANCH_FLOOR >= 60)', 'require(DETEKT_RULE_BRANCH_FLOOR >= 5)'
+            ),
+        )
+        self.write('detekt-rules/build.gradle.kts', MODULE_BINDS_THE_SETTINGS_FLOOR)
+        findings = self.findings()
+        self.assertTrue(
+            any('below the' in f and '_KOVER' not in f and '60' in f for f in findings),
+            f'expected the weak minimum to be reported: {findings}',
+        )
+
+    def test_a_bound_value_with_arithmetic_on_it_is_a_finding(self) -> None:
+        """`FLOOR - 40` is a different number from the floor.
+
+        The name in front of it satisfies every other check of the gate, so
+        the arithmetic behind the name has to be caught on its own.
+        """
+        self.write(
+            'detekt-rules/build.gradle.kts',
+            MODULE_BINDS_THE_SETTINGS_FLOOR.replace(
+                'minValue = DETEKT_RULE_BRANCH_FLOOR',
+                'minValue = DETEKT_RULE_BRANCH_FLOOR - 40',
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('arithmetic' in f for f in findings),
+            f'expected the arithmetic to be reported: {findings}',
+        )
+
+    def test_a_module_that_binds_a_floor_and_declares_no_verify_rule_is_a_finding(self) -> None:
+        """A floor that is bound and never checked is a floor that cannot fail.
+
+        Deleting the whole `verify { … }` block leaves a rule NAME to look
+        for, and there is none — the module reads the number and binds it to
+        nothing.
+        """
+        without_verify = MODULE_BINDS_THE_SETTINGS_FLOOR
+        start = without_verify.find('            verify {')
+        end = without_verify.find('\n', without_verify.find('}', without_verify.find('minValue')))
+        end = without_verify.find('\n', end) + 1
+        self.write('detekt-rules/build.gradle.kts', without_verify[:start] + without_verify[end:])
+        findings = self.findings()
+        self.assertTrue(
+            any('no `verify' in f for f in findings),
+            f'expected the missing rule to be reported: {findings}',
         )
 
 

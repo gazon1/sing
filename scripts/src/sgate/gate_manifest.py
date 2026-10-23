@@ -624,7 +624,7 @@ them can fail.""",
     "scenario specs valid": Placement(
         kind=PlacementKind.STATIC,
         command='sgate scenario_specs_valid',
-        note="""detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%).
+        note="""detekt-rules branch coverage floor: 60% (below 2026-10-15 measured 65.6%, 725/1105).
 This gate runs in ci.yml's `tests` job (where Gradle is available), not here:
 it is the Gradle task `:detekt-rules:koverVerify`, named by ci.yml's
 "Kover verify (detekt-rules)" step and by check.sh step 9b. The floor itself

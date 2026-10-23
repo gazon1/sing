@@ -877,7 +877,7 @@ jobs:
           ./gradlew -q :detekt-rules:koverLog -Ptest.population="$TEST_POPULATION" 2>&1 | \
             grep "^detekt-rules branch coverage" >> "$GITHUB_STEP_SUMMARY" || true
 
-      # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%),
+      # detekt-rules branch coverage floor: 60% (below 2026-10-15 measured 65.6%, 725/1105),
       # declared once — DETEKT_RULE_BRANCH_FLOOR in settings.gradle.kts, bound by
       # the module's rule — and enforced by Kover's own verify rule, not by a script
       # that parses Kover's XML. Blocking.

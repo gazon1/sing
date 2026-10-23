@@ -80,6 +80,18 @@ Six halves, and all are needed:
    minimum there. A floor that can be lowered without a visible change is a
    floor that cannot fail, and the minimum is what makes the lowering
    visible.
+7. The minimum is a MINIMUM, not a formula. `require(FLOOR >= 0)` is written
+   like a minimum and lets the floor go to zero; a floor a module checks is
+   held to the minimum the wiring gate holds every kover verify rule to
+   (`_KOVER_MIN_FLOOR`, from the registry), so the two gates cannot disagree
+   about what a usable floor is.
+8. A bound is the declared constant, not an expression of it. `minValue =
+   FLOOR - 40` is a different number from the floor, and the name in front
+   of it satisfies every other check of this gate.
+9. A module that binds a floor declares the rule that checks it. A floor
+   that is bound and never checked is a floor that cannot fail, and the
+   whole `verify { … }` block can go without leaving a rule NAME behind to
+   look for.
 
 What this does not do
 ---------------------
@@ -115,7 +127,22 @@ import re
 import sys
 
 import click
-from sgate.commands.base import run  # noqa: PLC0415 — scripts are not a package
+
+# The sgate package lives in this checkout's own `scripts/src`, and a sibling
+# worktree is a different tree under the same package name: an import that
+# happens first is already bound to it. When this file is loaded by a test
+# harness via importlib, sys.path[0] is `scripts/tests` and the package is
+# invisible — so this file's own location is authoritative. The minimum this
+# gate holds a floor to is read from the registry of THIS checkout, because the
+# registry is where the other gate holds it too, and two gates that read the
+# number from different trees cannot disagree about what they disagree about.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
+from sgate.commands._registry import _KOVER_MIN_FLOOR  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -175,6 +202,15 @@ _MIN_VALUE = re.compile(
 )
 _MIN_VALUE_LITERAL = re.compile(
     r"minValue\s*(?:\.\s*set\s*\(\s*(\d+(?:\.\d+)?)\s*\)|=\s*(\d+(?:\.\d+)?))"
+)
+
+#: A bound that continues with an operator: `minValue = FLOOR - 40` is a
+#: different number from the floor, and the name in front of it hides that.
+#: The name is what every other check of this gate looks at, so an expression
+#: behind it would pass them all.
+_MIN_VALUE_ARITHMETIC = re.compile(
+    r"minValue\s*(?:=\s*([A-Za-z_][A-Za-z0-9_]*)\s*[-+*/]"
+    r"|\.\s*set\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*[-+*/])"
 )
 
 #: `val NAME = …` at the top level of a Kotlin script.
@@ -415,6 +451,17 @@ def binding_findings(text: str) -> list[str]:
             continue
         line = rule_line + body[: binding.start()].count("\n")
         bound = binding.group(1) or binding.group(2)
+        arithmetic = _MIN_VALUE_ARITHMETIC.search(body)
+        if arithmetic is not None:
+            adjusted = arithmetic.group(1) or arithmetic.group(2)
+            findings.append(
+                f"{DECLARATION_FILE}:{line}: the verify rule {rule!r} binds "
+                f"{adjusted!r} and then does arithmetic on it — the number the rule "
+                f"checks is not the number that was declared. A floor that is "
+                f"adjusted after it is read is a floor nobody declared, and the "
+                f"name in front of it satisfies every other check of this gate."
+            )
+            continue
         if bound not in declarations:
             findings.append(
                 f"{DECLARATION_FILE}:{line}: the verify rule {rule!r} binds {bound!r}, and "
@@ -476,6 +523,16 @@ def module_rule_findings(
             continue
         line = rule_line + body[: binding.start()].count("\n")
         bound = binding.group(1) or binding.group(2)
+        arithmetic = _MIN_VALUE_ARITHMETIC.search(body)
+        if arithmetic is not None:
+            adjusted = arithmetic.group(1) or arithmetic.group(2)
+            findings.append(
+                f"{relative}:{line}: the verify rule {rule!r} binds {adjusted!r} and "
+                f"then does arithmetic on it — the number the rule checks is not the "
+                f"number {DECLARATION_FILE} declares. A floor that is adjusted after "
+                f"it is read is a floor nobody declared."
+            )
+            continue
         if bound not in settings_declarations:
             findings.append(
                 f"{relative}:{line}: the verify rule {rule!r} binds {bound!r}, and "
@@ -484,6 +541,37 @@ def module_rule_findings(
                 f"checks it — a floor bound to a name nobody declares is a floor nobody "
                 f"enforces."
             )
+    return findings
+
+
+def missing_verify_findings(
+    relative: str,
+    text: str,
+    settings_floors: set[str],
+) -> list[str]:
+    """A module that binds a floor must declare the rule that checks it.
+
+    A floor that is bound and never checked is a floor that cannot fail: the
+    module reads the number, the number is bound to nothing, and the task that
+    would enforce it passes whatever the coverage was. Deleting the whole
+    `verify { … }` block has to be a finding — a rule NAME that is missing is
+    a different defect, and this one has no name to look for.
+    """
+    findings: list[str] = []
+    binds = [
+        (name, line)
+        for name, (initializer, line) in floor_declarations(text).items()
+        if _GRADLE_EXTRA.search(initializer) and name in settings_floors
+    ]
+    if not binds or declares_verify_rules(text):
+        return findings
+    name, line = binds[0]
+    findings.append(
+        f"{relative}:{line}: the module binds the coverage floor {name!r}, and "
+        f"declares no `verify {{ … }}` rule to check it. A floor that is bound and "
+        f"never checked is a floor that cannot fail — the task passes whatever the "
+        f"coverage was."
+    )
     return findings
 
 
@@ -521,21 +609,61 @@ def outside_settings_findings(
     return findings
 
 
-def require_minimum_findings(text: str) -> list[str]:
+def require_minimum_findings(text: str, module_bound: set[str]) -> list[str]:
     """The findings about the `require(…)` minimum of each declared floor.
 
     The minimum is what makes lowering a floor visible: it fails the
     configuration instead of quietly passing. A floor without one can be
     lowered to zero without anybody noticing, which is the "a floor that
     cannot fail" defect.
+
+    And the minimum has to BE a minimum. `require(FLOOR >= 0)` is written like
+    one and is not one: it lets the floor go to zero, and the presence check
+    cannot tell the difference. So the threshold is read, and it is held to
+    the minimum the wiring gate holds every kover verify rule to
+    (`_KOVER_MIN_FLOOR`, from the registry) for a floor a MODULE checks — the
+    two gates cannot disagree about what a usable floor is.
     """
     findings: list[str] = []
+    declarations = _val_declarations(text)
     for name, (_, line) in floor_declarations(text).items():
-        if re.search(rf"require\s*\(\s*{re.escape(name)}\s*>=\s*\d+", text) is None:
+        match = re.search(rf"require\s*\(\s*{re.escape(name)}\s*>=\s*(\d+)", text)
+        if match is None:
             findings.append(
                 f"{DECLARATION_FILE}:{line}: the floor {name} has no `require(...)` "
                 f"minimum beside its declaration — a floor that can be lowered without a "
                 f"visible change is a floor that cannot fail."
+            )
+            continue
+        threshold = int(match.group(1))
+        if threshold <= 0:
+            findings.append(
+                f"{DECLARATION_FILE}:{line}: the floor {name} carries the minimum "
+                f"require({name} >= {threshold}) — a minimum of zero is not a minimum, "
+                f"and a floor that can be lowered to zero is a floor that cannot fail."
+            )
+            continue
+        declared = declarations.get(name)
+        if declared is not None:
+            try:
+                value = int(declared[0].strip())
+            except ValueError:
+                value = None
+            if value is not None and threshold > value:
+                findings.append(
+                    f"{DECLARATION_FILE}:{line}: the floor {name} is declared as "
+                    f"{value}, and its minimum require({name} >= {threshold}) is stricter "
+                    f"than the floor itself — the configuration fails on the tree as it "
+                    f"stands."
+                )
+                continue
+        if name in module_bound and threshold < _KOVER_MIN_FLOOR:
+            findings.append(
+                f"{DECLARATION_FILE}:{line}: the floor {name} is checked by a module, "
+                f"and its minimum require({name} >= {threshold}) is below the "
+                f"{_KOVER_MIN_FLOOR} that the wiring gate holds every kover verify rule "
+                f"to. A module's floor may not have a smaller minimum than the gate that "
+                f"watches it."
             )
     return findings
 
@@ -564,22 +692,24 @@ def check() -> list[str]:
                 f"constant that is not there is a floor nobody enforces."
             )
 
-    errors.extend(binding_findings(text))
-    errors.extend(require_minimum_findings(text))
-
     settings_declarations = _val_declarations(text)
     settings_floors = set(floor_declarations(text))
 
+    errors.extend(binding_findings(text))
+
+    module_bound: set[str] = set()
     for script in build_scripts():
         relative = script.relative_to(ROOT).as_posix()
         body = _strip_comments(script.read_text(encoding="utf-8"))
 
         errors.extend(module_rule_findings(relative, body, settings_declarations))
+        module_bound |= _floors_bound_by_rules(body)
 
         if relative == DECLARATION_FILE:
             continue
 
         errors.extend(outside_settings_findings(relative, body, settings_floors))
+        errors.extend(missing_verify_findings(relative, body, settings_floors))
 
         if relative == "build.gradle.kts" and declares_verify_rules(body):
             errors.append(
@@ -601,7 +731,22 @@ def check() -> list[str]:
                 f"question — under a name the reader will take for the aggregate one."
             )
 
+    # The minimum is read after the modules are known: a floor a module checks
+    # is held to the minimum the wiring gate holds it to, and that is a fact
+    # about the modules.
+    errors.extend(require_minimum_findings(text, module_bound))
+
     return errors
+
+
+def _floors_bound_by_rules(text: str) -> set[str]:
+    """The names that the verify rules of this file bind."""
+    bound: set[str] = set()
+    for body, _ in _rule_bodies(text).values():
+        match = _MIN_VALUE.search(body)
+        if match is not None:
+            bound.add(match.group(1) or match.group(2))
+    return bound
 
 
 @click.command()

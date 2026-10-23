@@ -40,7 +40,8 @@ named list rather than a percentage nobody can act on. Then work the list.
 not belong in the root `check` yet: the root kover aggregation covers the
 product modules and its floors are a separate concern with their own gate.
 
-The floor is declared once, in `detekt-rules/build.gradle.kts`, and everything
+The floor is declared once — in `settings.gradle.kts`, since 2026-10-23, with the
+module binding it — and everything
 else reads it from there. Two things used to restate it: `scripts/ci/kover-verify-gate.sh`
 (a shell gate that generated the XML and compared it in Python) and
 `scripts/check-detekt-rule-coverage.py` (a Python parser of that XML, wired as a
