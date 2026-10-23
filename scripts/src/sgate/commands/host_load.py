@@ -79,6 +79,19 @@ build in the middle of a compile.
 
 The measurements live in ``docs/testing/host-pressure.md``.
 
+Where drafts may live
+----------------------
+
+The prune command prints ``rm -rf`` on the paths it names, so the directory
+it scans has to be a place where a session's leftovers live — never a place
+where the system lives. A scratch directory is accepted when it is one of the
+temporary directories (``/tmp``, ``/var/tmp``, ``$TMPDIR``), a directory
+inside one of them, or a directory the user marked as a drafts directory (it
+carries the marker file ``.sgate-drafts``). Everything else — the filesystem
+root, the home directory, ``/srv`` — is refused, and the refusal is printed:
+``--scratch /`` would otherwise name ``/afs``, ``/media`` or ``/srv`` for
+removal.
+
 Exit codes:
   0 = the host was measured (busy or idle — this is a report, not a gate)
   2 = the load could not be read (a platform without it)
@@ -87,6 +100,7 @@ from __future__ import annotations
 
 import json as _json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -94,7 +108,7 @@ import time
 
 import click
 
-from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, register
+from sgate.commands.base import CLEAN, CONFIG_ERROR, IO_ERROR, VALIDATION_FAILURE, register
 from sgate.log import logger
 from sgate.repo import ROOT
 
@@ -130,6 +144,24 @@ DRAFT_INODE_COST = 54_912
 #: for 24 hours — 39 times that longest run — cannot belong to a running
 #: command; it belongs to a session that ended.
 STALE_DRAFT_HOURS = 24
+
+#: The file that marks a directory as a place where session drafts may live.
+#:
+#: A directory outside the temporary directories is accepted only when it
+#: carries this marker: the user says "drafts live here", and the command
+#: says it back when it refuses a directory.
+DRAFTS_DIR_MARKER = ".sgate-drafts"
+
+#: The temporary directories whose children may be drafts.
+#:
+#: ``/tmp`` and ``/var/tmp`` are the usual ones, and ``$TMPDIR`` is the one
+#: the environment names. The filesystem root is never one of them: a temp
+#: root of ``/`` would make every directory a scratch directory, and the whole
+#: point of the rule is that it is not.
+TEMP_ROOTS = ("/tmp", "/var/tmp")
+
+#: The path a `find` error line names, e.g. "find: '/tmp/x/y': Permission denied".
+_FIND_ERROR_PATH = re.compile(r"^find: '(?P<path>.*)': ")
 
 
 def measure() -> dict[str, object]:
@@ -190,10 +222,77 @@ def host_load(emit_json: bool) -> None:
 
 #: How long a walk of the scratch directory may take, in seconds.
 #:
-#: The walk is the expensive part of the command — it reads every inode of the
-#: scratch tree — so it gets a bound: a scratch directory that cannot be walked
-#: in two minutes is not a scratch directory anybody should be pruning.
+#: The walk is the expensive part of the command — it reads the mtime of every
+#: entry of the scratch tree — so it gets a bound: a scratch directory that
+#: cannot be walked in two minutes is not a scratch directory anybody should be
+#: pruning.
 SCAN_TIMEOUT_SECONDS = 120
+
+
+def _temp_roots() -> set[str]:
+    """The directories whose children may be drafts.
+
+    The temporary directories of the machine: the two the FHS names, and the
+    one the environment names. The filesystem root is left out — a temp root
+    of ``/`` would make every directory a scratch directory, and the point of
+    the rule is that it is not.
+    """
+    roots = set(TEMP_ROOTS)
+    for candidate in (os.environ.get("TMPDIR"), tempfile.gettempdir()):
+        if candidate:
+            roots.add(candidate)
+    absolute = {os.path.abspath(root) for root in roots}
+    return {root for root in absolute if root not in ("", os.path.sep)}
+
+
+def is_drafts_directory(path: str, temp_roots: set[str] | None = None) -> bool:
+    """Whether the directory is a place where session drafts may live.
+
+    Two ways to say yes: the directory is a temporary directory or lives
+    inside one, or the user marked it as a drafts directory by putting the
+    marker file in it. Everything else — the filesystem root, the home
+    directory, ``/srv`` — is a no.
+
+    ``temp_roots`` is the set of temporary directories to accept; it defaults
+    to the machine's own.
+    """
+    absolute = os.path.abspath(path)
+    if os.path.isfile(os.path.join(absolute, DRAFTS_DIR_MARKER)):
+        return True
+    if temp_roots is None:
+        roots = _temp_roots()
+    else:
+        roots = {os.path.abspath(root) for root in temp_roots}
+    for root in roots:
+        if absolute == root or absolute.startswith(root.rstrip("/") + os.sep):
+            return True
+    return False
+
+
+def _mount_points() -> list[str]:
+    """Every mount point of the machine."""
+    points: list[str] = []
+    try:
+        with open("/proc/mounts", encoding="utf-8") as mounts:
+            for line in mounts:
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                points.append(parts[1])
+    except OSError as exc:
+        logger.error(f"the mounts could not be read: {exc}")
+    return points
+
+
+def mount_points_under(path: str, points: list[str]) -> list[str]:
+    """The mount points inside a directory.
+
+    ``rm -rf`` walks into a mounted filesystem and deletes what it finds
+    there, while ``find -xdev`` stops at the mount — so a draft that holds a
+    mount of its own is not a draft the prune command may name.
+    """
+    prefix = os.path.abspath(path).rstrip("/") + "/"
+    return [point for point in points if point.startswith(prefix)]
 
 
 def _mount_of(path: str) -> tuple[str, str]:
@@ -263,21 +362,30 @@ def measure_filesystem(path: str) -> dict[str, object]:
     }
 
 
-def _child_inode_counts(scratch: str) -> dict[str, int]:
-    """How many inodes each direct child of the scratch directory holds.
+def _walk_scratch(scratch: str, cutoff_moment: float) -> tuple[dict[str, int], set[str], set[str]]:
+    """One walk of the scratch tree, three answers.
 
-    One walk of the whole tree, counted per top-level entry. The ranking is by
-    inodes and not by bytes, because the filesystem runs out of inodes long
-    before it runs out of bytes: a tmpfs here holds 32 GiB and 1,048,576
-    inodes, and the drafts fill the second one first.
+    * the inode count of every child — the ranking;
+    * the children that hold something newer than the cutoff — the alive ones;
+    * the children whose subtree could not be read — the unknown ones.
 
-    `find` reports the directories it may not read and still counts the rest,
-    so a non-zero exit is not a failure here — only an empty answer is.
+    One walk and not one per child: the scratch directory on this host holds
+    41,414 entries, and a probe per child would be 41,414 processes. The walk
+    stops at the filesystem of the scratch directory (``-xdev``): a mounted
+    filesystem under it is not part of the scratch tree, and the prune command
+    never walks into one either.
+
+    ``find`` reports the directories it may not read and still walks the rest,
+    so a non-zero exit is not a failure here — the paths it could not read
+    are read out of its stderr and marked unknown, and an unknown child is
+    never proposed for deletion.
     """
     counts: dict[str, int] = {}
+    recent: set[str] = set()
+    unreadable: set[str] = set()
     try:
         completed = subprocess.run(
-            ["find", scratch, "-xdev", "-mindepth", "1", "-printf", "%P\n"],
+            ["find", scratch, "-xdev", "-mindepth", "1", "-printf", "%P\t%T@\n"],
             capture_output=True,
             text=True,
             check=False,
@@ -285,40 +393,46 @@ def _child_inode_counts(scratch: str) -> dict[str, int]:
         )
     except (OSError, subprocess.SubprocessError) as exc:
         logger.error(f"the scratch directory could not be walked: {exc}")
-        return counts
+        return counts, recent, unreadable
     for line in completed.stdout.splitlines():
-        name = line.split("/", 1)[0]
-        if name:
-            counts[name] = counts.get(name, 0) + 1
+        name, _, stamp = line.partition("\t")
+        child = name.split("/", 1)[0]
+        if not child:
+            continue
+        counts[child] = counts.get(child, 0) + 1
+        try:
+            moment = float(stamp)
+        except ValueError:
+            continue
+        if moment > cutoff_moment:
+            recent.add(child)
+    for line in completed.stderr.splitlines():
+        child = _child_of(scratch, _path_from_find_error(line))
+        if child:
+            unreadable.add(child)
     if not counts and completed.returncode != 0:
         first = completed.stderr.strip().splitlines()[:1]
         logger.error(f"the scratch directory could not be walked: {first}")
-    return counts
+    return counts, recent, unreadable
 
 
-def _touched_recently(path: str, cutoff: str) -> bool:
-    """Whether anything inside the directory was modified after the cutoff.
+def _path_from_find_error(line: str) -> str:
+    """The path a ``find`` error line names."""
+    match = _FIND_ERROR_PATH.match(line.strip())
+    return match.group("path") if match else ""
 
-    The probe stops at the first hit, so a directory that is being written to
-    answers at once and a directory that is dead costs one walk. A probe that
-    cannot answer says "yes, it is live": a directory whose state is unknown is
-    never proposed for deletion.
-    """
+
+def _child_of(scratch: str, path: str) -> str:
+    """The name of the child of the scratch directory that holds a path."""
+    if not path:
+        return ""
     try:
-        completed = subprocess.run(
-            ["find", path, "-xdev", "-newermt", cutoff, "-print", "-quit"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=SCAN_TIMEOUT_SECONDS,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        logger.error(f"'{path}' could not be probed: {exc}")
-        return True
-    if completed.returncode != 0:
-        logger.error(f"'{path}' could not be probed: {completed.stderr.strip()}")
-        return True
-    return bool(completed.stdout.strip())
+        relative = os.path.relpath(path, scratch)
+    except ValueError:
+        return ""
+    if relative in (".", "..") or relative.startswith(".." + os.sep):
+        return ""
+    return relative.split(os.sep)[0]
 
 
 def _size_of(path: str) -> int:
@@ -342,67 +456,118 @@ def _size_of(path: str) -> int:
         return 0
 
 
-def _cutoff(stale_hours: int) -> str:
-    """The timestamp a draft has to be older than to count as dead."""
-    moment = time.time() - stale_hours * 3600
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(moment))
+def _cutoff(stale_hours: int) -> float:
+    """The moment a draft has to be older than to count as dead."""
+    return time.time() - stale_hours * 3600
 
 
 def scan_drafts(
     scratch: str,
     limit: int = 5,
     stale_hours: int = STALE_DRAFT_HOURS,
+    mount_points: list[str] | None = None,
 ) -> list[dict[str, object]]:
-    """The biggest drafts in the scratch directory, and which of them are dead.
+    """The drafts to report: the biggest dead ones, and the biggest live ones.
 
-    A draft is a directory a previous session left behind. Three rules keep
+    A draft is a directory a previous session left behind. Four rules keep
     the answer safe, and none of them is a guess about names:
 
     * hidden entries are skipped — on this host the scratch directory holds a
       live AppImage mount under a dot-name, and a dot-name is never a draft;
-    * mount points are skipped — a mounted filesystem is not a draft;
+    * symlinks are skipped — a link is not a draft, and the age of the link
+      says nothing about the age of what it points at;
+    * mount points are skipped — a mounted filesystem is not a draft, and a
+      draft that holds a mount of its own is not named either;
     * a directory that was touched inside the staleness window is *live* — that
       is a session at work, not the leftovers of one, and the prune command
-      never names it.
+      never names it;
+    * a directory that could not be read is *unknown* — and unknown is never
+      proposed for deletion either.
 
-    The report names the big ones whether they are dead or not: the question
-    "where did the inodes go" has an answer even when every draft is still
-    being written to.
+    The limit counts the **dead** drafts. The caller asked how many dead
+    drafts to name, and a limit that counted the live ones as well answered
+    "there is nothing to prune" while dead drafts sat further down the list —
+    the false verdict this command exists to prevent. So the whole list is
+    walked, the dead drafts are ranked on their own, and the biggest of them
+    are the ones named; the biggest live ones are named beside them, because
+    the question "where did the inodes go" has an answer even when every draft
+    is still being written to.
     """
-    counts = _child_inode_counts(scratch)
+    counts, recent, unreadable = _walk_scratch(scratch, _cutoff(stale_hours))
     if not counts:
         return []
 
-    cutoff = _cutoff(stale_hours)
-    drafts: list[dict[str, object]] = []
+    points = _mount_points() if mount_points is None else mount_points
+    dead: list[dict[str, object]] = []
+    live: list[dict[str, object]] = []
+    unknown: list[dict[str, object]] = []
     ranked = sorted(counts.items(), key=lambda item: item[1], reverse=True)
     for name, inodes in ranked:
-        if len(drafts) >= limit:
-            break
         if name.startswith("."):
             continue
         path = os.path.join(scratch, name)
-        if not os.path.isdir(path) or os.path.ismount(path):
+        if os.path.islink(path) or not os.path.isdir(path) or os.path.ismount(path):
             continue
-        drafts.append(
-            {
-                "path": path,
-                "inodes": inodes,
-                "bytes": _size_of(path),
-                "dead": not _touched_recently(path, cutoff),
-                "staleHours": stale_hours,
-            },
-        )
-    return drafts
+        entry: dict[str, object] = {
+            "path": path,
+            "inodes": inodes,
+            "dead": False,
+            "staleHours": stale_hours,
+        }
+        if mount_points_under(path, points):
+            entry["holdsMount"] = True
+            live.append(entry)
+            continue
+        if name in recent:
+            live.append(entry)
+            continue
+        if name in unreadable:
+            entry["unknown"] = True
+            unknown.append(entry)
+            continue
+        entry["dead"] = True
+        dead.append(entry)
+
+    named = dead[:limit] + live[:limit] + unknown[:limit]
+    for entry in named:
+        entry["bytes"] = _size_of(str(entry["path"]))
+    return sorted(named, key=lambda entry: int(entry["inodes"]), reverse=True)
+
+
+def _is_system_directory(path: str) -> bool:
+    """Whether the path is a directory of the system itself.
+
+    The filesystem root, a directory directly under it, and the home
+    directory are never a session's draft: naming one of them in an
+    ``rm -rf`` would delete the system, not a leftover.
+    """
+    absolute = os.path.abspath(path)
+    if absolute == os.path.sep:
+        return True
+    if os.path.dirname(absolute) == os.path.sep:
+        return True
+    return absolute == os.path.expanduser("~")
 
 
 def prune_command(drafts: list[dict[str, object]]) -> str:
     """The command that removes the dead drafts — and nothing else.
 
     The command is printed, never run: this command reports the state of the
-    host, and the decision to delete a directory is the caller's.
+    host, and the decision to delete a directory is the caller's. A path that
+    is a directory of the system is never named, whatever the scan found:
+    the second guard behind the scratch-directory rule.
     """
-    dead = [str(draft["path"]) for draft in drafts if draft.get("dead")]
+    dead: list[str] = []
+    for draft in drafts:
+        if not draft.get("dead"):
+            continue
+        path = str(draft["path"])
+        if _is_system_directory(path):
+            logger.error(
+                f"'{path}' is a system directory and is not named by the prune command",
+            )
+            continue
+        dead.append(path)
     if not dead:
         return ""
     return "rm -rf " + " ".join(shlex.quote(path) for path in dead)
@@ -449,12 +614,29 @@ def host_check(
     in the scratch directory, and the command that removes them. Nothing is
     deleted: the command is a suggestion, printed for the caller to run.
 
+    The scratch directory has to be a place where drafts live — a temporary
+    directory, a directory inside one, or one the user marked with the file
+    ``.sgate-drafts``. A directory of the system is refused, because the
+    command it prints is an ``rm -rf``.
+
     Exit codes:
       0 = the host was measured (tight or not — this is a report, not a gate)
       1 = the host is tight and `--fail-when-tight` was asked for
       2 = the state of the host could not be read
+      3 = the scratch directory is not a place where drafts live
     """
     scratch_dir = os.path.abspath(scratch or tempfile.gettempdir())
+    if not os.path.isdir(scratch_dir):
+        click.echo(f"the scratch directory '{scratch_dir}' is not a directory", err=True)
+        raise ctx.exit(CONFIG_ERROR)
+    if not is_drafts_directory(scratch_dir):
+        click.echo(
+            f"the scratch directory '{scratch_dir}' is not a place where drafts live — "
+            f"pass a directory under {', '.join(sorted(_temp_roots()))}, or one that "
+            f"carries the marker file {DRAFTS_DIR_MARKER}",
+            err=True,
+        )
+        raise ctx.exit(CONFIG_ERROR)
     filesystems = [measure_filesystem(scratch_dir), measure_filesystem(str(ROOT))]
     drafts = scan_drafts(scratch_dir, limit=max(top, 0))
     scratch_state = str(filesystems[0]["state"])
@@ -473,6 +655,7 @@ def host_check(
             "tightInodePercent": TIGHT_INODE_PERCENT,
             "staleHours": STALE_DRAFT_HOURS,
             "draftInodeCost": DRAFT_INODE_COST,
+            "scanTimeoutSeconds": SCAN_TIMEOUT_SECONDS,
         },
     }
 
@@ -526,7 +709,7 @@ def _print_report(filesystems: list[dict[str, object]], payload: dict[str, objec
             click.echo(
                 f"    {draft['path']}  {draft['inodes']} inodes  "
                 f"{_human_bytes(int(draft['bytes']))}  "
-                f"{'dead' if draft.get('dead') else 'live'}",
+                f"{_draft_state(draft)}",
             )
     else:
         click.echo(f"  no drafts in {payload['scratch']}")
@@ -534,6 +717,17 @@ def _print_report(filesystems: list[dict[str, object]], payload: dict[str, objec
         click.echo(f"  prune (this command deletes nothing): {payload['pruneCommand']}")
     else:
         click.echo(f"  nothing to prune (no draft untouched over {STALE_DRAFT_HOURS} h)")
+
+
+def _draft_state(draft: dict[str, object]) -> str:
+    """How the report names one draft: dead, live, unknown — or live for a reason."""
+    if draft.get("dead"):
+        return "dead"
+    if draft.get("holdsMount"):
+        return "live (holds a mount)"
+    if draft.get("unknown"):
+        return "unknown (could not be read)"
+    return "live"
 
 
 register(host_load)

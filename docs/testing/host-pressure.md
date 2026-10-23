@@ -60,6 +60,40 @@ The divisor that turns free inodes into "how many more sessions fit". It is
 still fit rather than a raw inode count, because the draft is the unit a
 session spends.
 
+### The scan is bounded at 120 seconds
+
+The walk of the scratch tree is the expensive part of the command: it reads
+the mtime of every entry, because a draft is dead only when *nothing* in it
+has been touched inside the staleness window. On this host the scratch tree
+holds 935,585 entries, and one walk of it costs **5.6–6.2 s** measured on
+2026-10-23 at a load of 24 on 16 cores.
+
+The bound is `host_load.SCAN_TIMEOUT_SECONDS` — 120 s, twenty times the loaded
+measurement. It does not fire on a healthy scratch directory; it fires on one
+that cannot be walked in two minutes, which is not a scratch directory
+anybody should be pruning.
+
+## Where the drafts may live
+
+The command prints an `rm -rf`, so the directory it scans has to be a place
+where a session's leftovers live — never a place where the system lives. A
+scratch directory is accepted when it is
+
+* one of the temporary directories — `/tmp`, `/var/tmp`, `$TMPDIR` — or a
+  directory inside one of them; or
+* a directory the user marked as a drafts directory, by putting the file
+  `.sgate-drafts` in it.
+
+Everything else is refused, and the refusal is printed: the filesystem root,
+the home directory, `/srv`. Without that rule `--scratch /` names `/afs`,
+`/media` and `/srv` for removal — all three of them are directories of the
+system, and all three of them exist on the machine where the command was
+written.
+
+The refusal is the first guard; the second is in the prune command itself,
+which never names the filesystem root, a directory directly under it, or the
+home directory, whatever the scan found.
+
 ## What the command does, and does not do
 
 It reads the real state of the machine and it deletes nothing:
@@ -67,16 +101,31 @@ It reads the real state of the machine and it deletes nothing:
 * it reports the inode pressure of the scratch filesystem and of the checkout —
   the two places a run writes;
 * it names the biggest drafts, with their inode count and their size, and marks
-  each one **dead** (nothing has touched it inside the staleness window) or
-  **live** (a session is writing to it);
+  each one **dead** (nothing has touched it inside the staleness window),
+  **live** (a session is writing to it) or **unknown** (it could not be read);
 * it prints the command that removes the dead drafts — `rm -rf …`, quoted —
   and never runs it.
 
-Three rules keep the prune suggestion safe, and none of them is a guess about
-names: hidden entries are skipped (the scratch directory on this host holds a
-live AppImage mount under a dot-name), mount points are skipped (a mounted
-filesystem is not a draft), and a directory touched inside the staleness window
-is never named by the prune command.
+Five rules keep the prune suggestion safe, and none of them is a guess about
+names:
+
+* hidden entries are skipped — the scratch directory on this host holds a live
+  AppImage mount under a dot-name;
+* symlinks are skipped — a link is not a draft, and the age of the link says
+  nothing about the age of what it points at;
+* mount points are skipped, and so is a draft that holds a mount of its own —
+  `rm -rf` walks into a mounted filesystem, while `find -xdev` stops at it;
+* a directory touched inside the staleness window is never named by the prune
+  command;
+* a directory that could not be read is never named either — unknown is not
+  dead.
+
+`--top N` counts the **dead** drafts, not the whole list. The caller asked
+how many dead drafts to name, and a limit that counted the live ones as well
+answered "there is nothing to prune" while dead drafts sat further down the
+list — the false verdict this command exists to prevent. The biggest live
+drafts are named beside the dead ones, so the question "where did the inodes
+go" has an answer even when every draft is still being written to.
 
 ```bash
 sgate host-check             # the summary
@@ -93,7 +142,7 @@ thirty seconds left or thirty minutes. The tool that replaces it is
 `./wait-for`:
 
 ```bash
-./wait-for build/diagnostics/jvmTest-fast.log "BUILD SUCCESSFUL"
+./wait-for shared/build/diagnostics/jvmTest-fast.log "BUILD SUCCESSFUL"
 ```
 
 It waits for the line that means the run is over and prints the tail exactly
