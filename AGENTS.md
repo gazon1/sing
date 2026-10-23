@@ -218,6 +218,12 @@ just tests::impact    # тесты, которые эта правка може�
 ./gw :shared:exportToolSurface   # перегенерировать config/docs/tool-surface.json
 
 just lint        # detekt (все модули с baseline), enforcing
+
+> **Дешёвая проверка — отдельно, когда нужен её ответ.** `./gw :shared:detekt` —
+> пара минут; `./gw :shared:jvmTest -Ptest.tags=slow:konsist` — десятки минут.
+> В одной команде вердикт detekt придёт в конце, вместе с медленной: правило
+> «сначала дешёвое» экономит не минуты, а цикл ожидания. И не гоняй detekt
+> вручную перед пушем: pre-push гоняет его сам и блокирует пуш на находке.
 just detekt-fix  # auto-fix detekt + ktlint in-place
 
 python3 scripts/detekt-summary.py   # находки detekt по правилам, а не XML дампом
@@ -348,8 +354,14 @@ export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 `PYTHONPATH=scripts/src python3 -m sgate render-static-gates --write` и
 `python3 -m sgate render-registry`. Джоб `static` в `ci.yml` и `check.sh` берут
 тот же реестр: гейт не может жить на одной поверхности и отсутствовать на другой.
-Новый гейт = одна запись в реестре + строка `gate blocking|advisory <name> <cmd>`;
-`|| true` на строке `gate` запрещён. Branch protection требует **один** check —
+Новый гейт = **две** записи и две перерисовки: `GateSpec` в
+`scripts/src/sgate/commands/_registry.py` (имя, режим, команда) и `Placement` в
+`scripts/src/sgate/gate_manifest.py` (где он живёт: `STATIC` + команда + проза
+над строкой), потом `PYTHONPATH=scripts/src python3 -m sgate render-static-gates --write`
+и `python3 -m sgate render-registry`. Строку `gate blocking|advisory <name> <cmd>`
+в `static-gates.sh` **руками не пишут** — она генерируется из манифеста, и гейт
+`render-static-gates --check` упадёт на правленый руками файл. `|| true` на
+строке `gate` запрещён. Branch protection требует **один** check —
 `CI gate`. Состав workflow'ев, частей A–G мета-гейта и рецепты — скилл
 `singularity-todo-quality-tools`.
 
@@ -362,6 +374,12 @@ gh pr checks <pr> --watch --interval 60   # ждёт до конца, печат
 Десять `sleep 30 && gh pr checks` — это десять раундов контекста впустую, и
 ровно то, что запрещает абзац про долгие запуски выше. `--watch` ждёт сам и
 отдаёт финальный вердикт одной строкой.
+
+**Один `--watch` на PR — и никаких снимков рядом с ним.** Пока идёт `--watch`,
+состояние не снимают: `gh pr checks` для «как там» — это тот же цикл опроса,
+только тише. Дорогой локальный прогон — тоже: `python3 -m unittest discover -s
+scripts/tests` (≈2,5 мин) запускают **один раз**, пишут вывод в файл и читают
+сводку по совпадениям, а не гоняют заново ради второго вопроса.
 
 **Инструменты гейтов ставятся, а не подкладываются в `PYTHONPATH`.** На машине
 нескольких клонов `sgate` на PATH — editable-установка *чужого* клона, и гейт

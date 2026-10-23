@@ -136,6 +136,17 @@ For contrast, the controls that exist in the other two types:
 (`.github/workflows/ci.yml:406`), so it does execute — the gap is that it cannot
 *distinguish* "clean" from "scanner broken".
 
+**One assertion has left this class since the audit.** The rule *the question
+asked of the index is built by the rule* (`ArchitectureTest.kt:330`) was added on
+2026-10-23 and shipped without a control; it gained one the same day —
+`positiveControlDetectsAQuestionBuiltByHand` runs the scan over a synthetic
+file that builds the question by hand, outside `core/search`, and fails if the
+scan finds nothing. The count above is therefore 26 as of the audit and 25
+after it. The two layers still differ: the detekt layer derives its inventory
+from the sources (`scripts/gen-detekt-rule-table.py:266`), and the Konsist
+layer has no equivalent derivation — so this count is a reading, and a rule
+added today is invisible to it until someone re-reads this file.
+
 ## 4. Other rule-like checks
 
 ### 4a. Script gates — registry coverage is enforced; two gaps

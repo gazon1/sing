@@ -6,6 +6,7 @@ import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -120,6 +121,22 @@ class ArchitectureTest {
                     pkg.startsWith("$PKG.feature.") && pkg.contains(".$layer")
                 }
                 .filter { file -> file.importFqns().any(forbidden) }
+
+        /**
+         * Whether the source builds the question the index is asked by hand.
+         *
+         * A pure function of the package and the source, so that the positive
+         * control can run it over a synthetic file: a rule that has never been
+         * seen to fire is a rule that has stopped working.
+         *
+         * @param packageName the package the file is in.
+         * @param source the file's code, without its comments.
+         */
+        private fun buildsTheQuestionByHand(packageName: String, source: String): Boolean =
+            packageName != "$PKG.core.search" && INDEX_QUESTION.containsMatchIn(source)
+
+        /** The shape of a hand-built question: the type, and a call. */
+        private val INDEX_QUESTION = Regex("TextMatchQuery\\s*\\(")
 
         private fun <T> assertNoOffenders(offenders: List<T>, rule: String, describe: (T) -> String) {
             if (offenders.isEmpty()) return
@@ -337,14 +354,39 @@ class ArchitectureTest {
         // The rule and the shape it produces live in `core/search`, next to the
         // plan and the port. Everything else asks the rule.
         val offenders = scope.files
-            .filter { file ->
-                file.packageName() != "$PKG.core.search" &&
-                    Regex("TextMatchQuery\\s*\\(").containsMatchIn(file.codeOnly())
-            }
+            .filter { file -> buildsTheQuestionByHand(file.packageName(), file.codeOnly()) }
         assertNoOffenders(
             offenders,
             "the index question is built by the rule, in core/search",
         ) { it.path }
+    }
+
+    /**
+     * Positive control: the scan above is proven able to fail.
+     *
+     * The scan runs over a synthetic file that *does* build the question by
+     * hand, outside `core/search`. If this ever passes, the scan has stopped
+     * detecting — and an assertion that cannot fail is not an assertion:
+     * `docs/architecture/rule-control-audit.md` §3 calls that class of rule
+     * "Type C", and the rule above is one of them until this control exists.
+     */
+    @Test
+    fun positiveControlDetectsAQuestionBuiltByHand() {
+        val synthetic = """
+            package com.singularity.todo.feature.tasks.data
+
+            fun search(text: String): TextMatchQuery = TextMatchQuery(listOf(text))
+        """.trimIndent()
+
+        assertTrue(
+            buildsTheQuestionByHand("com.singularity.todo.feature.tasks.data", synthetic),
+            "the scan found nothing in a file that builds the index question by hand — " +
+                "the scan has stopped detecting, so the rule above is vacuous",
+        )
+        assertFalse(
+            buildsTheQuestionByHand("com.singularity.todo.core.search", synthetic),
+            "the scan reported a question built inside core/search, where the rule itself lives",
+        )
     }
 
     @Test

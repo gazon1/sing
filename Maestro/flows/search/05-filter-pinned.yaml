@@ -2,6 +2,7 @@
 #
 # Two tasks exist: one pinned, one not. The test opens the filter sheet
 # and toggles pinned-only on/off.
+# прогнан на устройстве: нет (2026-10-23) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: search-filter-pinned
 tags:
@@ -20,8 +21,12 @@ tags:
     timeout: 30000
 
 # Pin the first task via detail view.
+#
+# The Today tab, not the Inbox one: both tasks were seeded with `due=today`,
+# and a task with a due date is in the Today bucket, not in the Inbox. The
+# flow used to tap the Inbox tab and then wait for a task that was not there.
 - tapOn:
-    id: nav_tab_inbox
+    id: nav_tab_today
 - extendedWaitUntil:
     visible:
       id: task_item_pinnedtask2026
@@ -56,10 +61,20 @@ tags:
       id: search_input
     timeout: 5000
 
-# Type query to surface both tasks.
+# Type the query that surfaces both tasks — and switch the mode, because the
+# two titles share no beginning.
+#
+# "PinnedTask2026" and "UnpinnedTask2026" have no common prefix, so no word
+# query can find both of them: the word rule finds a word by its beginning.
+# The query "Task2026" is in the middle of both titles, which is exactly what
+# the contains mode is for — the escape-hatch of the word rule, and the reason
+# it exists (F6). The flow used to type "Task2026" in the word mode, where it
+# found nothing.
 - tapOn:
     id: search_input
 - inputText: "Task2026"
+- tapOn:
+    id: search_mode_contains
 - extendedWaitUntil:
     visible:
       id: task_item_pinnedtask2026

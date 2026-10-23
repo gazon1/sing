@@ -37,6 +37,7 @@ _spec.loader.exec_module(_gate)
 
 check_cli_framework = _gate.check_cli_framework
 check_package_resolution = _gate.check_package_resolution
+check_sgate_runner = _gate.check_sgate_runner
 find_argparse_import = _gate.find_argparse_import
 
 
@@ -260,3 +261,73 @@ class PackageResolutionRules(unittest.TestCase):
     def test_the_real_scripts_directory_has_no_violation(self):
         """The repository obeys the rules it declares."""
         self.assertEqual(check_package_resolution(SCRIPTS), [])
+
+
+class SgateRunnerRules(unittest.TestCase):
+    """R2.7 — the shared runner, or a declared reason why not.
+
+    The runner is what makes a gate script's exit code mean the same thing as
+    every other gate's. A script that cannot use it has to say so, and the
+    reason has to be there: an exception without a reason is an oversight
+    wearing a rule's clothes.
+    """
+
+    def setUp(self):
+        self.directory = pathlib.Path(tempfile.mkdtemp())
+
+    def write(self, name: str, source: str) -> pathlib.Path:
+        path = self.directory / name
+        path.write_text(source, encoding="utf-8")
+        return path
+
+    def errors(self) -> list[str]:
+        return check_sgate_runner(self.directory)
+
+    def test_a_script_that_uses_the_runner_is_fine(self):
+        self.write(
+            "check-good.py",
+            "from sgate.commands.base import run\n",
+        )
+        self.assertEqual(self.errors(), [])
+
+    def test_a_script_that_neither_uses_the_runner_nor_says_why_is_reported(self):
+        self.write("check-bad.py", "import click\n")
+        errors = self.errors()
+        self.assertTrue(any("R2.7" in error for error in errors), errors)
+
+    def test_the_marker_may_be_declared_with_a_reason(self):
+        self.write(
+            "check-good.py",
+            "# no-sgate: this script has to run when the package is missing.\n"
+            "import click\n",
+        )
+        self.assertEqual(self.errors(), [])
+
+    def test_the_marker_without_a_reason_is_reported(self):
+        # The reason is the point of the marker: "this script is different" is
+        # not a reason, it is the thing that needs one.
+        self.write(
+            "check-bad.py",
+            "# no-sgate:\nimport click\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("without a reason" in error for error in errors), errors)
+
+    def test_a_marker_mentioned_in_a_docstring_is_not_a_declaration(self):
+        # A docstring that *documents* the marker is not a script that
+        # *declares* it — the same distinction the argparse detector makes.
+        self.write(
+            "check-bad.py",
+            '"""This script would say: # no-sgate: because of a reason."""\n',
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.7" in error for error in errors), errors)
+
+    def test_a_file_that_does_not_parse_is_reported_not_raised(self):
+        self.write("check-broken.py", "def oops(:\n")
+        errors = self.errors()
+        self.assertTrue(any("does not parse" in error for error in errors), errors)
+
+    def test_the_real_scripts_directory_has_no_violation(self):
+        """The repository obeys the rules it declares."""
+        self.assertEqual(check_sgate_runner(SCRIPTS), [])

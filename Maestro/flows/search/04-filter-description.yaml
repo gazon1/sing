@@ -4,6 +4,7 @@
 # the filter sheet and toggles has-description on/off. Due to the Tune
 # icon having no testTag in the TopAppBar, the filter sheet is opened
 # via content description tap.
+# прогнан на устройстве: нет (2026-10-23) — прогон на устройстве не выполнялся
 appId: com.singularity.todo
 name: search-filter-description
 tags:
@@ -35,10 +36,21 @@ tags:
       id: search_input
     timeout: 5000
 
-# Type query to surface both tasks.
+# Type the query that surfaces both tasks.
+#
+# The query is "Task", and it is a *word-prefix* query: the word rule finds a
+# word by its beginning, and "Task" is the beginning of both titles. The flow
+# used to type "Task2026" — a query that spans the difference between the two
+# titles and is therefore a prefix of neither. It was written before the word
+# rule, when the app matched anywhere in the text; under the rule that is
+# now in force it matched nothing at all, and the flow asserted against a
+# result the app could not produce.
+#
+# The case of a term in the middle of a word is the contains mode's, and
+# `09-contains-mode.yaml` is the flow that covers it.
 - tapOn:
     id: search_input
-- inputText: "Task2026"
+- inputText: "Task"
 - extendedWaitUntil:
     visible:
       id: task_item_taskwithdesc2026
