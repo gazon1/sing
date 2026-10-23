@@ -67,6 +67,11 @@ tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
+Экспорты схемы Room — каталог `shared/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
+В `jvmTest` их читает **один** владелец: `MigrationRoundTripSupport.applyExportedSchema(N, connection)`
+(и `schemaFile(N)` — путь к экспорту). Тест миграции пишет «посади вот это — проверь вот это»,
+а не SQL; свой экземпляр фикстуры — это copy-paste, который ловит `MigrationFixtureHasOneOwnerTest`.
+
 **Паттерны.** Канонический CRUD-паттерн (новой фичи) — `docs/architecture/crud-pattern.md`.
 DI: Koin 4.x (pure DSL): формы DSL, KOIN-W003, где лежат биндинги — `docs/architecture/koin-di.md`.
 
@@ -106,9 +111,10 @@ tail -40 /tmp/probe/push.log
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
-`-Ptest.tags=fast,slow` в CI молча его исключит (`TestTagCoverageTest`). **`slow` = класс
-пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn),
-не «долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
+`-Ptest.tags=fast` в CI (и `-Ptest.tags=fast,slow` в ночном прогоне) молча его исключит
+(`TestTagCoverageTest`). **`slow` = класс пересекает границу процесса** (Compose-харнесс,
+реальный файл/БД/часы, Konsist-скан, spawn), не «долгий». Никаких skipped: `@Disabled` или
+упавший assumption guard валят `check-test-runs.py`.
 
 **Под-тег `slow` — что именно медленно.** Медленный класс несёт второй тег из словаря:
 `slow:konsist`, `slow:migration`, `slow:compose`, `slow:data`, `slow:platform`. Основной тег
@@ -202,8 +208,8 @@ just gate         # ВСЕ гейты: check.sh → detekt → just cr → just 
 ./check.sh                    # реестр гейтов + тесты + Android + detekt
 bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
 just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
-./gw :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
-./gw :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
+./gw :shared:jvmTest     # быстрый цикл (без популяции = только fast)
+./gw :shared:jvmTest -Ptest.population=full   # полный набор, как в CI
 ./gw :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
 ./gw :androidApp:assembleDebug   # Android
 ./gw :desktopApp:run      # Desktop (xvfb-run -a)
@@ -244,8 +250,12 @@ python3 scripts/detekt-summary.py   # находки detekt по правила�
 > сессий — они делят CPU, RAM и Gradle home, но не `shared/build`. Полный
 > `:shared:jvmTest -Ptest.tags=fast,slow` в таком случае идёт час вместо
 > получаса, и таймаут-тесты (`CoroutineDiagnosticsTest`) флейкают от нагрузки, а
-> не от кода. Проверяй `uptime` перед полным прогоном; по умолчанию гоняй
-> целевой набор (`--tests`), а полный — когда целевой зелёный.
+> не от кода.
+>
+> Спроси у хоста, а не у памяти: `./sg host-load` (или `--json`). Порог — **2.0
+> на ядро**, измерено: на 16 ядрах load 16 (1.0/ядро) даёт `:shared:jvmTest` за
+> 8 минут, load 42–52 (2.6–3.2/ядро) — за 24. Занят → целевой набор
+> (`--tests`) или ждать; полный прогон — когда целевой зелёный.
 >
 > **Отчёт detekt** — это XML на находку. `scripts/detekt-summary.py` печатает
 > то же самое по правилам и местам в два-три экрана; выгружать `detekt.xml`
@@ -306,6 +316,11 @@ export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 > не нужен вовсе. Десять `sleep 30 && tail` — это десять раундов контекста
 > впустую. Лог, который нужен потом, пиши в файл с уникальным именем
 > (`build/diagnostics/<что>-<метка>.log`), а не перетирай общий.
+>
+> Если ждать всё-таки нужно — жди инструментом: `./wait-for <log> <паттерн>`
+> ждёт строку в логе и печатает хвост **один раз** (код 0 — нашлась, 1 —
+> таймаут, 2 — неверные аргументы). Опрос циклом — это тот же ждёшь, только
+> дороже.
 
 ## CI/CD
 

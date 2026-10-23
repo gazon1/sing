@@ -30,8 +30,9 @@ short on purpose. The parts that trip up newcomers:
   asserting outgoing calls and nothing else.
 - **Every test class carries a `@Tag`.** `fast` unless the test crosses a process
   boundary — a real database, a real file, a Compose harness, a spawn. `slow` does
-  not mean "takes a while". CI runs `-Ptest.tags=fast,slow`, and an untagged class
-  is silently excluded.
+  not mean "takes a while". CI runs `-Ptest.tags=fast` on a pull request and
+  `-Ptest.tags=fast,slow` on the nightly, and an untagged class is silently
+  excluded by both.
 - **No `delay()` in tests.** Use `awaitState` / `advanceUntilIdle` and virtual
   time.
 - **A full `:shared:jvmTest` batch that dies with `EOFException` in a "Gradle

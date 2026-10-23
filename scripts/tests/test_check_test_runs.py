@@ -453,6 +453,98 @@ class ExpectedFastClassesTest(unittest.TestCase):
         self.assertIsNone(ctr.expected_fast_classes("no:such-source-set"))
 
 
+class ExpectedSlowClassesTest(unittest.TestCase):
+    """The slow half, against the real repository.
+
+    The count floor cannot see a slow class that did not run: it is one-sided,
+    so a run that executed fewer slow classes than the previous one is still
+    above it. The declared-class comparison is the only check that can see it,
+    and it needs the slow population's declared list to compare against.
+    """
+
+    def test_shared_jvmtest_declares_a_non_trivial_set_of_slow_classes(self):
+        found = ctr.expected_slow_classes("shared:jvmTest")
+        self.assertIsNotNone(found)
+        self.assertGreater(
+            len(found),
+            10,
+            f"only {len(found or ())} slow classes found in shared — the scanner is "
+            "probably not reading the source tree, which would make the check vacuous",
+        )
+
+    def test_the_fast_and_slow_sets_do_not_overlap(self):
+        fast = ctr.expected_fast_classes("shared:jvmTest")
+        slow = ctr.expected_slow_classes("shared:jvmTest")
+        self.assertEqual(
+            fast & slow,
+            set(),
+            "a class cannot be in both populations — that would make the slow "
+            "check compare a class against itself",
+        )
+
+    def test_unknown_source_set_yields_none_not_an_empty_set(self):
+        self.assertIsNone(ctr.expected_slow_classes("no:such-source-set"))
+
+
+class PopulationIncludesSlowTest(unittest.TestCase):
+    """Which population did this run measure?
+
+    The manifest the build writes is the authoritative signal: the run recorded
+    the selector it used. The executed set is the fallback for source sets that
+    write no manifest — and it cannot catch the worst case, which is why the
+    manifest exists.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self._saved_root = ctr.ROOT
+        self._saved_sets = ctr.SOURCE_SETS
+        ctr.ROOT = self.tmp
+        ctr.SOURCE_SETS = {"shared:jvmTest": "results/jvmTest"}
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        ctr.ROOT = self._saved_root
+        ctr.SOURCE_SETS = self._saved_sets
+
+    def _write_manifest(self, tags):
+        detail = self.tmp / "results" / "jvmTest"
+        detail.mkdir(parents=True, exist_ok=True)
+        (detail / "run-manifest.properties").write_text(
+            f"task=jvmTest\npartial=false\ntags={tags}\n", encoding="utf-8"
+        )
+
+    def test_the_manifest_says_the_run_measured_the_slow_population(self):
+        self._write_manifest("fast,slow")
+        self.assertTrue(
+            ctr.population_includes_slow("shared:jvmTest", set(), {"SlowTest"})
+        )
+
+    def test_the_manifest_says_the_run_measured_the_fast_population(self):
+        self._write_manifest("fast")
+        self.assertFalse(
+            ctr.population_includes_slow(
+                "shared:jvmTest", {"SlowTest"}, {"SlowTest"}
+            )
+        )
+
+    def test_without_a_manifest_an_executed_slow_class_is_the_signal(self):
+        """The fallback: a declared slow class that produced a report can only
+        have run if the population included slow."""
+        self.assertTrue(
+            ctr.population_includes_slow(
+                "shared:jvmTest", {"SlowTest"}, {"SlowTest", "OtherSlowTest"}
+            )
+        )
+
+    def test_without_a_manifest_and_without_a_slow_report_the_population_is_unknown(self):
+        self.assertFalse(
+            ctr.population_includes_slow(
+                "shared:jvmTest", {"FastTest"}, {"SlowTest"}
+            )
+        )
+
+
 class ScannerFailureIsLoudTest(unittest.TestCase):
     """A scanner that will not import must fail the gate, not disable it.
 

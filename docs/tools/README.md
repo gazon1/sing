@@ -20,7 +20,8 @@ its own command. The shell file is **generated** — the declarations live in
 
 ```bash
 python3 -m sgate render-static-gates --write    # the shell registry
-python3 -m sgate render-registry                # docs/scripts/gate-registry.md
+python3 -m sgate render-registry                # docs/scripts/gate-registry.md — the gates
+python3 scripts/check-tools-catalog.py --write  # docs/tools/catalog.md — the suite around them
 ```
 
 ## Whose code runs

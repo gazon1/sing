@@ -1,7 +1,6 @@
 package com.singularity.todo.core.database
 
 import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.core.sync.RoomSyncStateRepository
@@ -12,10 +11,6 @@ import com.singularity.todo.core.sync.InMemorySyncPrefs
 import kotlinx.coroutines.flow.first
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
@@ -60,37 +55,6 @@ class SyncStateMigrationTest {
         tempDir.deleteRecursively()
     }
 
-    /** Applies every entity DDL + `setupQueries` from the exported v33 schema. */
-    private fun applyV33Fixture(connection: SQLiteConnection) {
-        // commonMain.root = <shared>/src/commonMain/kotlin → schemas live at <shared>/schemas/…
-        val sharedDir = File(System.getProperty("commonMain.root")!!)
-            .parentFile.parentFile.parentFile
-        val schemaJson = File(
-            sharedDir,
-            "schemas/com.singularity.todo.core.database.AppDatabase/33.json",
-        )
-        assertTrue(schemaJson.exists(), "v33 schema not found at $schemaJson")
-
-        val database = Json.parseToJsonElement(schemaJson.readText()).jsonObject["database"]!!.jsonObject
-        for (entity in database["entities"]!!.jsonArray) {
-            val obj = entity.jsonObject
-            val tableName = obj["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(
-                obj["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName),
-            )
-            for (index in obj["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content
-                        .replace("\${TABLE_NAME}", tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-        connection.execSQL("PRAGMA user_version = 33")
-    }
-
     private fun rawStrings(connection: SQLiteConnection, sql: String, column: Int = 0): List<String> {
         val statement = connection.prepare(sql)
         val out = mutableListOf<String>()
@@ -103,7 +67,7 @@ class SyncStateMigrationTest {
     }
 
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { applyV33Fixture(it) }
+        createSqlDriver().open(dbPath).use { applyExportedSchema(33, it) }
         return AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
 

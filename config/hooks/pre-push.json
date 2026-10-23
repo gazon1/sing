@@ -1,25 +1,12 @@
 {
   "purpose": "What the pre-push hook judges, and what only CI judges. The hook is a fast local gate over the tree that is being pushed; CI is the authority over the whole tree. This file is the record of the difference — and scripts/check-hook-gates.py checks that the code still matches it, in both directions.",
 
-  "structural_gates": [
-    {
-      "name": "version catalog",
-      "script": "scripts/build-version-catalog-gate.py",
-      "why": "a hardcoded version literal is a version nobody bumps"
-    },
-    {
-      "name": "maestro selectors",
-      "script": "scripts/ci/validate-maestro-selectors.py",
-      "why": "a selector that names no test tag is a flow that fails on a device, minutes later"
-    },
-    {
-      "name": "ui wait budgets",
-      "script": "scripts/check-ui-wait-budgets.py",
-      "why": "the instrumented suite and the Maestro flows wait for the same screen and cannot share a constant"
-    }
-  ],
-
-  "verdict_delegate": "scripts/pre-push-verdict.py",
+  "hook_scripts": {
+    "declared_in": "scripts/src/sgate/commands/_registry.py",
+    "declaration": "PRE_PUSH_SCRIPTS and PRE_PUSH_TREE_RULES",
+    "verdict_delegate": "scripts/pre-push-verdict.py",
+    "why": "one declaration serves the hook, the test fixture that drives it and this record — a gate added to the hook and to neither was a failing test only the full run found"
+  },
 
   "detekt": {
     "judged_by_the_hook": "the modules the pushed change can affect — computed from the module graph in scripts/changed-modules.py, never a list written here",

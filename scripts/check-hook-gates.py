@@ -3,23 +3,23 @@
 
 What went wrong
 ---------------
-The pre-push hook ran three of the forty-one gates and judged two of the eight
-detekt modules. Both numbers were written as lines in a bash script, and
-nothing compared them with the other side: the CI judged all eight modules,
-the hook judged two, and the difference was recorded nowhere. A reader of the
-hook saw "detekt" and read it as "detekt" — the whole tree.
+The pre-push hook judged two of the eight detekt modules and the CI judged
+all of them. Both numbers were written as lines in a bash script, and nothing
+compared them with the other side: the difference was recorded nowhere, and a
+reader of the hook saw "detekt" and read it as "detekt" — the whole tree.
 
 A gate that is added to CI and not to the hook is the ordinary case and not a
 bug; what is a bug is a difference nobody wrote down. So the difference is
 written down — in `config/hooks/pre-push.json` — and this gate checks that the
 code still matches the record, in both directions:
 
-  - every gate the record says the hook runs is invoked by the hook;
-  - every gate script the hook invokes is in the record;
-  - the detekt modules the record says CI judges are the ones CI judges;
-  - those modules are the ones the module graph knows about;
+  - the scripts the hook calls are the ones the registry declares
+    (`PRE_PUSH_SCRIPTS` and the tree rules) plus the verdict delegate;
+  - the hook calls the delegate;
   - the hook does not name a detekt module itself — the set is computed, so a
     list written into the hook is drift waiting to happen;
+  - the detekt modules the record says CI judges are the ones CI judges;
+  - those modules are the ones the module graph knows about;
   - the partiality is stated: the hook judges what the change reaches, CI
     judges everything.
 
@@ -40,7 +40,17 @@ import sys
 
 import click
 
-from sgate.commands.base import run
+# The sgate package lives in this checkout's own `scripts/src`, and a sibling
+# worktree is a different tree under the same package name: an import that
+# happens first is already bound to it. When this file is loaded by a test
+# harness via importlib, sys.path[0] is `scripts/tests` and the package is
+# invisible — so this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / 'src')
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -50,8 +60,10 @@ REGISTRY = ROOT / 'config' / 'hooks' / 'pre-push.json'
 HOOK = ROOT / '.githooks' / 'pre-push'
 CI_WORKFLOW = ROOT / '.github' / 'workflows' / 'ci.yml'
 
-#: A script the hook runs: `python3 "$REPO_ROOT/scripts/<path>"`.
-HOOK_SCRIPT_RE = re.compile(r'\$REPO_ROOT/(scripts/[\w./-]+\.py)')
+#: A script the hook runs: `python3 "$REPO_ROOT/scripts/<path>"` or
+#: `python3 "$tree/scripts/<path>"` — the hook runs some gates against the
+#: repository and some against the tree that is being pushed.
+HOOK_SCRIPT_RE = re.compile(r'(?:\$REPO_ROOT|\$tree)/(scripts/[\w./-]+\.py)')
 
 #: A detekt task named in the CI workflow.
 CI_DETEKT_RE = re.compile(r':([\w-]+):detekt')
@@ -80,6 +92,20 @@ def load_module_graph():
     return module
 
 
+def declared_hook_scripts() -> tuple[set[str], set[str]]:
+    """The scripts the registry declares the hook runs, and the tree rules.
+
+    The declaration lives in the sgate registry, because the hook and the test
+    fixture that drives it already read it from there. This gate reads it too,
+    so the three — hook, fixture, record — cannot drift apart.
+    """
+    from sgate.commands._registry import PRE_PUSH_SCRIPTS, PRE_PUSH_TREE_RULES
+
+    fixed = set(PRE_PUSH_SCRIPTS) - {f'scripts/{rule}.py' for rule in PRE_PUSH_TREE_RULES}
+    rules = {f'scripts/{rule}.py' for rule in PRE_PUSH_TREE_RULES}
+    return fixed, rules
+
+
 def ci_detekt_modules(ci_path: pathlib.Path) -> set[str]:
     """The detekt modules the CI workflow judges."""
     if not ci_path.is_file():
@@ -92,6 +118,8 @@ def collect_errors(
     hook_path: pathlib.Path,
     ci_path: pathlib.Path,
     graph_modules: set[str] | None = None,
+    declared: set[str] | None = None,
+    tree_rules: set[str] | None = None,
 ) -> tuple[list[str], dict]:
     """The disagreements between the record, the hook and the CI.
 
@@ -114,31 +142,32 @@ def collect_errors(
             registry = {}
 
     hook_text = hook_path.read_text(encoding='utf-8') if hook_path.is_file() else ''
-
-    declared = [
-        gate.get('script', '')
-        for gate in registry.get('structural_gates', [])
-        if isinstance(gate, dict)
-    ]
-    delegate = registry.get('verdict_delegate', '')
-    if delegate:
-        declared.append(delegate)
-
     hook_scripts = set(HOOK_SCRIPT_RE.findall(hook_text))
 
-    for script in declared:
-        if script and script not in hook_scripts:
-            errors.append(
-                f'the record says the hook runs {script}, and the hook does not invoke it — '
-                f'either the hook lost the gate or the record is stale',
-            )
+    hook_section = registry.get('hook_scripts', {}) if isinstance(registry.get('hook_scripts'), dict) else {}
+    delegate = hook_section.get('verdict_delegate', '')
 
-    for script in sorted(hook_scripts):
-        if script not in declared:
+    if declared is None:
+        declared = set()
+    if tree_rules is None:
+        tree_rules = set()
+
+    # The hook and the declaration must agree, in both directions.
+    for script in sorted(declared - tree_rules):
+        if script not in hook_scripts:
             errors.append(
-                f'the hook runs {script}, and the record does not mention it — '
+                f'the registry declares that the hook runs {script}, and the hook does not '
+                f'call it — either the hook lost the gate or the declaration is stale',
+            )
+    for script in sorted(hook_scripts - declared - tree_rules):
+        if script != delegate:
+            errors.append(
+                f'the hook runs {script}, and the registry does not declare it — '
                 f'a gate that is in the code but in no record is a gate nobody knows about',
             )
+
+    if delegate and delegate not in hook_scripts:
+        errors.append(f'the hook does not delegate the detekt decision to {delegate}')
 
     detekt = registry.get('detekt', {}) if isinstance(registry.get('detekt'), dict) else {}
     recorded = set(detekt.get('judged_by_ci', []))
@@ -173,9 +202,6 @@ def collect_errors(
             'from the module graph, and a list written into the hook goes stale silently',
         )
 
-    if delegate and delegate not in hook_scripts:
-        errors.append(f'the hook does not delegate the detekt decision to {delegate}')
-
     partiality = detekt.get('partiality', '')
     if not partiality or 'CI' not in partiality:
         errors.append(
@@ -184,7 +210,7 @@ def collect_errors(
         )
 
     facts = {
-        'structural_gates': len(declared) - (1 if delegate else 0),
+        'hook_scripts': len(declared - tree_rules) + len(tree_rules),
         'ci_modules': len(recorded) + len(outside_modules),
         'partiality': partiality,
     }
@@ -199,7 +225,10 @@ def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     """Check that the hook, the CI and the record of both still agree."""
     graph = load_module_graph()
     graph_modules = set(graph.TASKS) if graph is not None else None
-    errors, facts = collect_errors(REGISTRY, HOOK, CI_WORKFLOW, graph_modules)
+    declared, tree_rules = declared_hook_scripts()
+    errors, facts = collect_errors(
+        REGISTRY, HOOK, CI_WORKFLOW, graph_modules, declared, tree_rules,
+    )
 
     if emit_json:
         click.echo(json.dumps(
@@ -221,7 +250,7 @@ def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
         raise ctx.exit(CLEAN if check else VALIDATION_FAILURE)
 
     click.echo(
-        f'check-hook-gates: OK — the hook runs {facts["structural_gates"]} structural gates '
+        f'check-hook-gates: OK — the hook runs {facts["hook_scripts"]} declared scripts '
         f'and delegates detekt;',
     )
     click.echo(

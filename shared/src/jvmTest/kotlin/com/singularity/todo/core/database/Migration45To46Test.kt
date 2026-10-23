@@ -1,13 +1,8 @@
 package com.singularity.todo.core.database
 
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
@@ -56,31 +51,9 @@ class Migration45To46Test {
     private fun sharedDir(): File =
         File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
 
-    /** Applies every entity DDL + `setupQueries` from the exported v45 schema. */
-    private fun applyV45Fixture(connection: SQLiteConnection) {
-        val schemaJson = File(sharedDir(), "schemas/com.singularity.todo.core.database.AppDatabase/45.json")
-        assertTrue(schemaJson.exists(), "v45 schema not found at $schemaJson")
-
-        val database = Json.parseToJsonElement(schemaJson.readText()).jsonObject["database"]!!.jsonObject
-        for (entity in database["entities"]!!.jsonArray) {
-            val obj = entity.jsonObject
-            val tableName = obj["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(obj["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName))
-            for (index in obj["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-        connection.execSQL("PRAGMA user_version = 45")
-    }
-
     private fun openMigrated(): AppDatabase {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV45Fixture(connection)
+            applyExportedSchema(45, connection)
             // A task that exists *before* the upgrade: it has to come back as a
             // task that stands alone, not as a member of a series.
             connection.execSQL(

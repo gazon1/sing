@@ -168,6 +168,16 @@ def _read_tags(source: str, class_name: str | None = None) -> list[str]:
     return []
 
 
+#: Теги, по которым CI выбирает класс.
+#:
+#: Ровно то же множество, что `CI_SELECTABLE_TAGS` в TestTagCoverageTest: класс
+#: несёт ОСНОВНОЙ тег (`fast` или `slow`), а медленный — ещё и под-тег
+#: (`slow:data`, `slow:migration`, …), который говорит, что именно медленно.
+#: Под-тег не заменяет основной: `includeTags("slow")` — точное совпадение, и
+#: под-тег в выборку CI не входит.
+CI_SELECTABLE_TAGS = frozenset({"fast", "slow"})
+
+
 def _read_tag(source: str, class_name: str | None = None) -> str:
     """Тег уровня КЛАССА, а не первый @Tag в файле.
 
@@ -181,12 +191,23 @@ def _read_tag(source: str, class_name: str | None = None) -> str:
     Ищем ближайший @Tag над объявлением нужного класса: тот же приём, что в
     TestTagCoverageTest. Тег на отдельном методе класс не делает slow.
 
-    Класс может нести несколько тегов (`slow` и `slow:konsist`), и этот
-    ответ — по-прежнему один, ближайший. Правилу «класс помечен slow» нужен
-    весь список: `_read_tags`.
+    Возвращаем ОСНОВНОЙ тег — тот, по которому выбирает CI. Медленный класс
+    несёт два тега: основной (`@Tag("slow")`) и под-тег (`@Tag("slow:data")`),
+    который говорит, ЧТО именно медленно. Ближайший к объявлению — под-тег, и
+    вернуть его было бы неверно: под-тег не входит ни в одну CI-выборку
+    (`includeTags("slow")` — это точное совпадение), поэтому класс с одним
+    лишь под-тегом не выбирается ни одним прогоном, а класс с двумя тегами
+    выбирается по основному. Ровно то же различение проводит
+    TestTagCoverageTest: `CI_SELECTABLE_TAGS = {"fast", "slow"}`.
+
+    Правилу «какие теги у класса» нужен весь список: `_read_tags`.
     """
-    tags = _read_tags(source, class_name)
-    return tags[0] if tags else "untagged"
+    for value in _read_tags(source, class_name):
+        if value in CI_SELECTABLE_TAGS:
+            return value
+    # Под-тег без основного: класс не выбирается ни одной CI-выборкой, и
+    # честный ответ на вопрос «кто его запустит» — никто.
+    return "untagged"
 
 
 # JUnit-аннотации, порождающие прогон. @ParameterizedTest обязателен:
