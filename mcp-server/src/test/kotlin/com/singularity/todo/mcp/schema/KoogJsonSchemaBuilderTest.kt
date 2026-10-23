@@ -155,7 +155,7 @@ class KoogJsonSchemaBuilderTest {
         checklistRepository = FakeChecklistRepository(),
         clock = FakeClock(),
         timeZoneProvider = UtcTimeZone,
-        settingsRepository = FakeSettingsRepository(),
+        tasksSettingsRepository = FakeSettingsRepository(),
     )
 
     private fun getTaskTool() = GetTaskTool(
@@ -163,7 +163,7 @@ class KoogJsonSchemaBuilderTest {
         checklistRepository = FakeChecklistRepository(),
         clock = FakeClock(),
         timeZoneProvider = UtcTimeZone,
-        settingsRepository = FakeSettingsRepository(),
+        tasksSettingsRepository = FakeSettingsRepository(),
     )
 
     private fun searchTasksTool(): SearchTasksTool {

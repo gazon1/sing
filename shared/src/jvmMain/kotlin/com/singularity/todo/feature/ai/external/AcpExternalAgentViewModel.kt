@@ -31,6 +31,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CompletableDeferred
@@ -169,6 +170,18 @@ class AcpExternalAgentViewModel(
 
     private var session: AcpAgentSession? = null
     private var turnJob: Job? = null
+
+    /**
+     * How many turns have been started, and which one is the current one.
+     *
+     * A turn that has been stopped keeps running for a moment — the agent is asked to
+     * stop, and the request is a request — and it can end after the next turn has
+     * begun. Its outcome belongs to the turn it ended, not to the one on screen, so
+     * every outcome carries the turn it came from and a turn that is no longer the
+     * current one cannot write to the state.
+     */
+    private var turnNumber: Long = 0
+    private var currentTurn: Long = 0
     private var pendingPermission: CompletableDeferred<PermissionDecision>? = null
 
     init {
@@ -224,7 +237,16 @@ class AcpExternalAgentViewModel(
                     return@launch
                 }
 
-                is AcpAgentLaunch.Started -> openSession(agent, launch.session, toolAccess)
+                is AcpAgentLaunch.Started -> {
+                    // The agent's process exists from the moment it is launched, so the
+                    // session is held before the handshake and not after it. A connect
+                    // that is cancelled during the handshake — the reader navigated away
+                    // — has to end the agent anyway: a third-party process that outlives
+                    // the screen keeps the user's credentials and the application's data
+                    // directory open, and nothing else would close it.
+                    session = launch.session
+                    openSession(agent, launch.session, toolAccess)
+                }
             }
         }
     }
@@ -242,14 +264,30 @@ class AcpExternalAgentViewModel(
             // screen going away. The client translates the protocol's own cancellation —
             // the one a dead agent raises — into a failure, so a cancellation that
             // reaches this point is the caller's, and it has to survive.
+            //
+            // The process was spawned before the handshake, so it exists whether or not
+            // the handshake finished. A cancelled connect ends it: the screen is going
+            // away and the agent goes with it, rather than being left running for a
+            // conversation nobody is in.
+            runCatchingCancellable { agentSession.terminate() }
+            if (session === agentSession) session = null
             throw e
         } catch (e: Exception) {
             updateState { it.copy(connection = AcpConnection.Failed(e.message ?: "The agent did not answer.")) }
             runCatchingCancellable { agentSession.close() }
+            if (session === agentSession) session = null
             return
         }
 
-        session = agentSession
+        if (session !== agentSession) {
+            // The session was closed while the handshake was in flight — the reader
+            // pressed Disconnect while the agent was still answering. The agent is not
+            // connected, and it is ended here rather than left running for a
+            // conversation that was already closed.
+            runCatchingCancellable { agentSession.close() }
+            return
+        }
+
         updateState {
             it.copy(connection = AcpConnection.Connected(agent.displayName), toolAccess = toolAccess)
         }
@@ -305,7 +343,17 @@ class AcpExternalAgentViewModel(
         val text = _state.value.input.text.trim()
         if (text.isEmpty()) return
         val openSession = session ?: return
-        if (_state.value.isRunning) return
+        if (_state.value.isRunning) {
+            // The refusal is a message, not a silence: the reader pressed Send and
+            // nothing happened, and "nothing happened" is the answer that leaves the
+            // reader pressing it again.
+            tryEmit(UiEvent.Error("A turn is already running. Stop it before sending another."))
+            return
+        }
+
+        val turnId = ++turnNumber
+        currentTurn = turnId
+        val previousTurn = turnJob
 
         val assistantId = idGen.next()
         updateState {
@@ -321,11 +369,16 @@ class AcpExternalAgentViewModel(
         }
 
         turnJob = vmScope.launch {
+            // A turn that is still running is ended before the next one starts. Two
+            // prompts on one session are two conversations, and the protocol promises
+            // nothing sensible about the second one; and the turn that is ending
+            // belongs to the turn that started it.
+            previousTurn?.cancelAndJoin()
             var outcome: AgentTurnOutcome? = null
             try {
                 openSession.prompt(text).collect { event ->
                     when (event) {
-                        is AcpTurnEvent.Activity -> applyActivity(assistantId, event.event)
+                        is AcpTurnEvent.Activity -> applyActivity(turnId, assistantId, event.event)
                         is AcpTurnEvent.Finished -> outcome = event.outcome
                     }
                 }
@@ -343,7 +396,7 @@ class AcpExternalAgentViewModel(
             // The absence of a completion event is the failure. There is no path that
             // ends a turn without one and calls it a success.
             val finalOutcome = outcome ?: AgentTurnOutcome.Failed("The agent stopped without answering.")
-            setOutcome(finalOutcome)
+            setOutcome(turnId, finalOutcome)
         }
     }
 
@@ -355,18 +408,31 @@ class AcpExternalAgentViewModel(
      * two answers to one question, and the second one is the lie. So the outcome is
      * written only while it is still unset, and a late event cannot change how the
      * turn ended.
+     *
+     * The outcome also carries the turn it belongs to. A turn that was stopped keeps
+     * running for a moment, and it can end after the next turn has begun; its outcome
+     * is that turn's, and writing it onto the next one would tell the reader the
+     * running turn finished when it has not.
      */
-    private fun setOutcome(outcome: AgentTurnOutcome) {
+    private fun setOutcome(turnId: Long, outcome: AgentTurnOutcome) {
         updateState {
-            if (it.turnOutcome != null) {
-                it
-            } else {
-                it.copy(isRunning = false, turnOutcome = outcome)
+            when {
+                turnId != currentTurn -> it
+                it.turnOutcome != null -> it
+                else -> it.copy(isRunning = false, turnOutcome = outcome)
             }
         }
     }
 
-    private fun applyActivity(assistantId: String, event: AgentEvent) {
+    /**
+     * Records what the agent did — for the turn that is on screen.
+     *
+     * The activity carries the turn it belongs to, for the same reason the outcome
+     * does: a turn that was stopped keeps running for a moment, and what it says on
+     * its way out belongs to that turn, not to the one the reader is looking at.
+     */
+    private fun applyActivity(turnId: Long, assistantId: String, event: AgentEvent) {
+        if (turnId != currentTurn) return
         when (event) {
             is AgentEvent.TextDelta -> updateState { state ->
                 state.copy(
@@ -403,6 +469,12 @@ class AcpExternalAgentViewModel(
      */
     private fun cancel() {
         val openSession = session ?: return
+        val turnId = currentTurn
+        // The job of the turn being stopped, captured here. The field is reassigned by
+        // the next turn, and the teardown has to wait for *this* turn: a teardown that
+        // waited for the wrong one would either give up on a turn that is still running
+        // or wait for one that has not started.
+        val turn = turnJob
         vmScope.launch {
             openSession.cancel()
             // The outstanding request is refused, and the refusal is allowed to reach
@@ -415,10 +487,10 @@ class AcpExternalAgentViewModel(
             // point.
             pendingPermission?.complete(PermissionDecision.Declined)
             pendingPermission = null
-            setOutcome(AgentTurnOutcome.Cancelled)
+            setOutcome(turnId, AgentTurnOutcome.Cancelled)
             updateState { it.copy(permission = null) }
 
-            endTurnThatOutlivedTheRequest(openSession)
+            endTurnThatOutlivedTheRequest(openSession, turn)
         }
     }
 
@@ -428,9 +500,11 @@ class AcpExternalAgentViewModel(
      * The turn's job is waited for, briefly. If it is still running afterwards, the
      * agent is torn down: a process that will not stop is not a turn the reader can
      * leave.
+     *
+     * @param turn the job of the turn that was stopped, captured when it was stopped.
      */
-    private suspend fun endTurnThatOutlivedTheRequest(openSession: AcpAgentSession) {
-        val running = turnJob ?: return
+    private suspend fun endTurnThatOutlivedTheRequest(openSession: AcpAgentSession, turn: Job?) {
+        val running = turn ?: return
         val ended = withTimeoutOrNull(CANCEL_GRACE) { running.join() } != null
         if (!ended) {
             openSession.terminate()

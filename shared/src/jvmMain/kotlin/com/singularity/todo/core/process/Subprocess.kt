@@ -103,11 +103,15 @@ class DuplexProcess internal constructor(
     }
 
     /**
-     * Closes the pipes and the process.
+     * Closes the pipes.
      *
      * Idempotent, and it closes the child's standard input *first*: that is how the
      * child learns the conversation is over, and a child that waits for input would
      * otherwise keep the pipes open until it is destroyed.
+     *
+     * The **process** is not closed here. It is ended by the process tree, which owns
+     * it and everything it started — a child that is still writing to a closed pipe
+     * would be killed by a signal it never saw coming.
      */
     fun close() {
         if (!closed.compareAndSet(false, true)) return

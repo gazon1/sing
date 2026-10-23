@@ -71,10 +71,7 @@ fun wipeIfNotRoomManaged(dbPath: String): Boolean {
     return when (val outcome = probe(dbPath)) {
         is ProbeOutcome.RoomManaged -> false
 
-        is ProbeOutcome.NotOurs -> {
-            deleteDatabaseFiles(file)
-            true
-        }
+        is ProbeOutcome.NotOurs -> deleteDatabaseFiles(file)
 
         is ProbeOutcome.Uncertain -> {
             log.w {
@@ -151,9 +148,26 @@ private fun hasSqliteHeader(dbPath: String): Boolean = try {
  * Only called for a file that is provably not the application's. The companions go with it
  * because a `-wal` or `-shm` file without its database is a file nobody can open, and
  * leaving them behind would make the next start look like a corrupt database.
+ *
+ * But the companions go **only if the database itself is gone**. A `-wal` holds the
+ * transactions that were committed but not yet checkpointed, so removing it while the
+ * database survives loses committed data — and the delete can fail while the file
+ * remains (a file held open by a running application, a read-only file, a file on a
+ * filesystem that says no). The rule the specification states is that the companions
+ * must not be removed unless the database was removed, and this is where that rule is
+ * kept.
+ *
+ * @return `true` if the database was deleted.
+ *
+ * Internal rather than private, for the same reason as the exported tool surfaces: the
+ * rule about the companions is a contract, and a contract no test pins is a contract a
+ * rename breaks. The public entry point cannot reach this branch with a database that
+ * cannot be deleted — the probe has already decided the file is a database — so the
+ * test drives this function directly.
  */
-private fun deleteDatabaseFiles(file: File) {
-    file.delete()
+internal fun deleteDatabaseFiles(file: File): Boolean {
+    if (!file.delete()) return false
     File("${file.path}-wal").delete()
     File("${file.path}-shm").delete()
+    return true
 }

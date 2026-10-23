@@ -26,6 +26,8 @@ import com.singularity.todo.test.helpers.TestVmContext
 import com.singularity.todo.test.helpers.testVmContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.TestScope
@@ -277,6 +279,73 @@ class AcpExternalAgentViewModelTest {
         assertNotNull(assistant, "the agent has a message of its own")
     }
 
+    @Test
+    fun `a connect that is cancelled ends the agent`() = runTest {
+        val session = ScriptedSession { true }
+        // The handshake never finishes: the agent does not answer.
+        session.connectBlocks = true
+        val scope = AutoCloseableCoroutineScope(coroutineContext + Job(coroutineContext[Job]))
+        val ctx = viewModel(session, scope = scope)
+
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+        runCurrent()
+
+        assertFalse(session.terminated, "the agent is still connecting")
+
+        // The reader navigates away. The screen's scope is closed, and the handshake is
+        // cancelled with it — and the agent's process was spawned before the handshake,
+        // so it exists whether or not the handshake finished.
+        scope.close()
+        runCurrent()
+
+        assertTrue(session.terminated, "the agent's process was ended")
+    }
+
+    @Test
+    fun `a stopped turn cannot end the turn that follows it`() = runTest {
+        // The first turn waits for the test to let it end; the second never ends on
+        // its own, so the state has to keep saying that a turn is running.
+        val firstTurnMayFinish = CompletableDeferred<Unit>()
+        val session = ScriptedSession { me ->
+            if (me.prompts.size == 1) {
+                firstTurnMayFinish.await()
+                // The first turn ends *late* — after the next one has begun — and it
+                // ends with a completion, which is the event that would finalise a turn
+                // if the outcome did not know which turn it belonged to.
+                true
+            } else {
+                awaitCancellation()
+            }
+        }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx)
+        runCurrent()
+
+        // The reader stops the turn. The turn's job keeps running for a moment — the
+        // agent is asked to stop, and the request is a request — so the reader can
+        // send another message while it is still winding down.
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+        runCurrent()
+        assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the turn was stopped")
+
+        // The first turn is released *before* the second one starts, so its completion
+        // is already waiting when the second turn begins. The first turn's outcome
+        // belongs to a turn that is no longer the current one, and it must not end the
+        // turn the reader is looking at.
+        firstTurnMayFinish.complete(Unit)
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+        runCurrent()
+
+        assertTrue(ctx.state.value.isRunning, "the second turn is still running")
+        assertNull(ctx.state.value.turnOutcome, "and the first turn did not end it")
+
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+        runCurrent()
+    }
+
     // ── The warning ────────────────────────────────────────────────────────────
 
     @Test
@@ -298,13 +367,14 @@ class AcpExternalAgentViewModelTest {
     private fun TestScope.viewModel(
         session: ScriptedSession,
         toolServerAvailable: Boolean = true,
+        scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(coroutineContext),
     ): TestVmContext<AcpExternalAgentViewModel, AcpExternalAgentUiState> = testVmContext(
         vm = AcpExternalAgentViewModel(
             idGen = SequenceIdGenerator(),
             profileRepository = FakeProfileRepository(),
             commandProvider = commandProvider(toolServerAvailable),
             launcher = FixedLauncher(session),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
+            scope = scope,
         ),
         stateOf = { it.stateFlow },
         scope = this,
@@ -352,6 +422,9 @@ class AcpExternalAgentViewModelTest {
         /** Set when the application ended the agent rather than the agent agreeing to stop. */
         var terminated = false
 
+        /** Set when the handshake never finishes: the agent does not answer. */
+        var connectBlocks = false
+
         /** Completes when the agent is asked to stop, so a script can end its turn then. */
         val cancelledSignal = CompletableDeferred<Unit>()
 
@@ -368,7 +441,10 @@ class AcpExternalAgentViewModelTest {
             return response.outcome
         }
 
-        override suspend fun connect(): AcpAgentInfo = AcpAgentInfo("scripted-agent", "1.0")
+        override suspend fun connect(): AcpAgentInfo {
+            if (connectBlocks) awaitCancellation()
+            return AcpAgentInfo("scripted-agent", "1.0")
+        }
 
         override fun prompt(message: String): Flow<AcpTurnEvent> = flow {
             prompts += message

@@ -2,6 +2,7 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
+import com.singularity.todo.core.database.contract.deleteDatabaseFiles
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.io.TempDir
@@ -135,6 +136,30 @@ class StaleDbCleanerTest {
 
         assertTrue(wal.exists(), "The write-ahead log is still there")
         assertTrue(shm.exists(), "And the shared-memory file")
+    }
+
+    @Test
+    fun `the companion files survive when the database cannot be deleted`() {
+        // A database that cannot be deleted: a directory that is not empty. A file
+        // delete cannot remove it — whatever rights the process has, and whoever is
+        // running the test — so the rule is exercised as a fact about the rule and not
+        // as a fact about the machine. The rule is that the companions go only when
+        // the database has gone: a write-ahead log removed while its database
+        // survives holds the transactions that lived only in the log.
+        val path = dbPath()
+        File(path).mkdirs()
+        File(path, "not-empty").writeBytes(byteArrayOf(1))
+        val wal = File("$path-wal")
+        val shm = File("$path-shm")
+        wal.writeBytes(byteArrayOf(1, 2, 3))
+        shm.writeBytes(byteArrayOf(4, 5, 6))
+
+        val deleted = deleteDatabaseFiles(File(path))
+
+        assertFalse(deleted, "A database that could not be deleted was not deleted")
+        assertTrue(File(path).exists(), "And it is still there")
+        assertTrue(wal.exists(), "So its write-ahead log is still there")
+        assertTrue(shm.exists(), "And so is its shared-memory file")
     }
 
     @Test

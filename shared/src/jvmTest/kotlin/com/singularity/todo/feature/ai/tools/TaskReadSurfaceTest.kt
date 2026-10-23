@@ -87,7 +87,7 @@ class TaskReadSurfaceTest {
             checklistRepository = FakeChecklistRepository(),
             clock = clock,
             timeZoneProvider = zone,
-            settingsRepository = settings,
+            tasksSettingsRepository = settings,
         )
 
     private fun read(output: String): JsonObject = Json.parseToJsonElement(output).jsonObject

@@ -2,6 +2,7 @@ package com.singularity.todo.core.process
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * The process tree, exercised against **real** processes.
@@ -91,6 +94,58 @@ class ProcessTreeTest {
         assertFalse(root.isAlive, "and so is the parent")
         process.close()
         removeMarker(marker)
+    }
+
+    @Test
+    fun `a tree that ignored the polite signal is still ended by the graceful path`() = runTest {
+        // The agent that ignores SIGTERM. One real bridge does, and the screen's own
+        // comment says so: asking it to stop is a request it may decline.
+        val process = Subprocess.spawnDuplex(listOf("sh", "-c", STUBBORN_AGENT))
+        val root = process.process.toHandle()
+        val tree = ProcessTree(root, gracePeriod = 200.milliseconds)
+
+        // The urgent path asks the tree to leave. It must not consume the graceful
+        // path's chance to run — that is the whole point of the two being separate.
+        tree.destroyNow()
+        assertTrue(root.isAlive, "the process ignores the polite signal")
+
+        tree.close()
+
+        assertFalse(root.isAlive, "and the graceful path still ends it")
+        process.close()
+    }
+
+    @Test
+    fun `the urgent path ends a tree that ignores the polite signal`() = runTest {
+        // The screen's teardown has no scope left to wait in, so the urgent path
+        // cannot wait for the tree to die — but it must still make sure that it dies.
+        val process = Subprocess.spawnDuplex(listOf("sh", "-c", STUBBORN_AGENT))
+        val root = process.process.toHandle()
+        val tree = ProcessTree(root, gracePeriod = 200.milliseconds)
+
+        tree.destroyNow()
+        assertTrue(root.isAlive, "the polite signal changes nothing")
+
+        // The escalation is carried by a thread of its own, so the wait here is a real
+        // one: the process is real, and its death is not on the virtual clock.
+        root.onExit().get(EXIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        assertFalse(root.isAlive, "and the urgent path makes sure the tree leaves")
+        process.close()
+    }
+
+    private companion object {
+        /**
+         * A shell that ignores SIGTERM and waits.
+         *
+         * `trap "" TERM` makes the signal a no-op for the shell, so the polite request
+         * reaches it and changes nothing — which is what an agent that declines to
+         * stop looks like from here.
+         */
+        const val STUBBORN_AGENT = "trap \"\" TERM; sleep 5"
+
+        /** How long a real process is given to die before the test gives up on it. */
+        const val EXIT_TIMEOUT_SECONDS = 10L
     }
 
     /**

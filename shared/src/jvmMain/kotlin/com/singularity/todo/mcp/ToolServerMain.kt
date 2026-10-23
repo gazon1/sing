@@ -109,7 +109,7 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
     }
 
     if (!bootstrapKoin(fixedProfileId, protocolOut)) exitProcess(EXIT_STARTUP)
-    val dependencies = ServerDependencies.fromKoin()
+    val dependencies = resolveDependencies(protocolOut) ?: exitProcess(EXIT_STARTUP)
     if (!verifyDatabase(dependencies, protocolOut)) exitProcess(EXIT_STARTUP)
     // A profile that does not exist is not a profile the server may serve: the tools
     // would write under an id nobody owns, and the user would find their tasks
@@ -177,7 +177,14 @@ private fun bootstrapKoin(fixedProfileId: String?, protocolOut: PrintStream): Bo
     startKoin {
         // A process that was told which profile to serve never opens the store that holds
         // the active profile — the store takes a file lock, and the application is holding
-        // it. That is decided by the module list, not by anything the server does later.
+        // it. That is decided by the module list, not by anything the server does later:
+        // the profile repository is built without a store, and the tools read their one
+        // setting through the narrow port, which answers with the default rather than
+        // pulling the application's settings store in with it.
+        //
+        // The active profile has a file of its own — `profile_state.preferences_pb` — so
+        // the settings file this server does open, for the AI configuration, does not
+        // say anything about which profile the user is working in.
         modules(
             listOf(platformModule(), coreLoggingModule()) + domainModule(fixedProfileId?.let(ProfileId::fromString)),
         )
@@ -191,6 +198,33 @@ private fun bootstrapKoin(fixedProfileId: String?, protocolOut: PrintStream): Bo
         message = "The server could not start: its dependencies are unavailable.",
     )
     false
+}
+
+/**
+ * Resolves the server's dependencies, or says on the protocol channel why it could not.
+ *
+ * The same one-place failure as the rest of the start-up. Resolving the tool list
+ * builds every collaborator the server has, and any of them can fail to build — a
+ * missing binding, a host that cannot be read, a database that cannot be opened.
+ * Left unguarded, such a failure escaped `main`: a stack trace on standard error and
+ * an exit, with **nothing on the protocol channel at all**. A client waiting for an
+ * answer saw the connection close and no reason, which is the one answer a client
+ * cannot act on.
+ */
+// The same one-place failure as the rest of the start-up: a dependency that cannot be
+// built is a start-up failure, and the caller gets a JSON-RPC error and a non-zero exit
+// code, not a stack trace.
+@Suppress("TooGenericExceptionCaught") // start-up has to fail in one place, whatever the failure was
+private fun resolveDependencies(protocolOut: PrintStream): ServerDependencies? = try {
+    ServerDependencies.fromKoin()
+} catch (e: Throwable) {
+    log.e(e) { "The server's dependencies could not be resolved: ${e.message}" }
+    writeJsonRpcError(
+        protocolOut,
+        code = -32000,
+        message = "The server could not start: its dependencies are unavailable.",
+    )
+    null
 }
 
 /** Whether a profile with this id exists. */
