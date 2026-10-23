@@ -67,8 +67,21 @@ import sys
 import zipfile
 from pathlib import Path
 
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
+_scripts_src = str(Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
 import click
 from sgate.commands.base import run
+from sgate.gatekit.gradle import module_build_relpaths
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -110,13 +123,22 @@ APACHE_2_0_MD5 = "3b83ef96387f14655fc854ddc3c6bd57"
 # by NOTICE alone.
 NOTICE_REQUIRED_ATTRIBUTIONS = ("Tasks.org", "Orgzly")
 
-# Build files that ship in the free build.
-APACHE_BUILD_FILES = (
-    "shared/build.gradle.kts",
-    "androidApp/build.gradle.kts",
-    "desktopApp/build.gradle.kts",
-    "mcp-server/build.gradle.kts",
-)
+# Build files that ship in the free build are the build files of every module
+# except `:pro` — the source-available catalogue is not part of the free build,
+# and it is the one module whose dependencies are allowed to be non-OSI. The
+# list is read from `settings.gradle.kts` rather than written here, so a module
+# added to the build is covered by this rule without anybody remembering to
+# add it to a list that had already drifted.
+PRO_MODULE = "pro"
+
+
+def apache_build_files(root: Path) -> list[str]:
+    """The build files that ship in the free build."""
+    return [
+        rel
+        for rel in module_build_relpaths(root)
+        if not rel.startswith(f"{PRO_MODULE}/")
+    ]
 
 FSL_SPDX = "SPDX-License-Identifier: FSL-1.1-ALv2"
 APACHE_SPDX = re.compile(r"SPDX-License-Identifier:\s*(Apache-2\.0|GPL|LGPL|AGPL)", re.I)
@@ -171,7 +193,7 @@ def check_no_denied_dependencies(root: Path) -> list[Violation]:
     if not DENIED_GROUPS:
         return [Violation("DENIED_GROUPS is empty — the vendor rule could not fail")]
     out: list[Violation] = []
-    for rel in APACHE_BUILD_FILES:
+    for rel in apache_build_files(root):
         path = root / rel
         if not path.is_file():
             continue
@@ -406,6 +428,7 @@ _COMPLIANT_FSL = (
     "class Thing(private val log: Logger)\n"
 )
 _SETTINGS = (
+    'include(":shared")\n'
     "val withPro: Boolean = providers.gradleProperty(\"withPro\").orElse(\"false\")\n"
     "if (withPro) {\n    include(\":pro\")\n}\n"
 )

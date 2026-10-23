@@ -63,6 +63,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gatekit` | sgate.gates — the pieces every gate is built from. |
 | `sgate.gatekit.cli` | sgate.gates.cli — the shape every gate command has. |
 | `sgate.gatekit.findings` | sgate.gates.findings — what a gate found, and how sure it is. |
+| `sgate.gatekit.gradle` | what the Gradle build declares. |
 | `sgate.gatekit.kotlin` | sgate.gates.kotlin — what the Kotlin sources declare and mention. |
 | `sgate.gatekit.markdown` | sgate.gates.markdown — reading the tables a document claims things in. |
 | `sgate.gatekit.paths` | where a gate is allowed to write. |

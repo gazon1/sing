@@ -28,6 +28,14 @@ from sgate.gatekit.findings import (
     blocking_findings,
 )
 from sgate.gatekit.markdown import code_spans, rows_matching, table_rows, type_names
+from sgate.gatekit.gradle import (
+    build_files_of,
+    blocks,
+    has_block,
+    included_modules,
+    module_build_files,
+    modules,
+)
 from sgate.gatekit.paths import assert_inside, generated_path, is_inside
 from sgate.gatekit.tables import (
     TableRule,
@@ -51,6 +59,8 @@ __all__ = [
     "Finding",
     "advisory_findings",
     "blocking_findings",
+    "build_files_of",
+    "blocks",
     "code_spans",
     "declared_classes",
     "TableRule",
@@ -60,10 +70,14 @@ __all__ = [
     "declared_objects",
     "gate_command",
     "generated_path",
+    "has_block",
+    "included_modules",
     "is_inside",
     "kotlin_files",
     "link_matchers",
     "link_specs",
+    "module_build_files",
+    "modules",
     "names_of",
     "rows_at_header",
     "rows_matching",
