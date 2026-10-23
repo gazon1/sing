@@ -89,10 +89,18 @@ one of the consumers — it reads the configuration of the repository it is
 placed in, and under a hook the inherited `GIT_DIR` would have it answer about
 another repository entirely.
 
-One script keeps its own copy, and the reason is worth writing down:
-`scripts/pre-push-verdict.py` travels into the tree that is being pushed,
-alone, and that tree need not carry the package. A script that cannot import
-the answer has to carry it.
+No script keeps its own copy any more, and the reason the copy existed is
+worth writing down, because it is the reason it could go: the copy was
+`scripts/pre-push-verdict.py`, and it existed because that script "travels
+into the tree that is being pushed, alone, and that tree need not carry the
+package". It does not travel alone. The hook invokes it from the checkout —
+`python3 "$REPO_ROOT/scripts/pre-push-verdict.py"` — and the checkout carries
+`scripts/src`, so the answer is importable from where the script is run. The
+script loads it by path, the way it loads `scripts/changed-modules.py`: the
+package `sgate` pulls in `click` and `loguru` when it is imported, and the
+hook calls this script with the ambient `python3`, which is not guaranteed to
+have either. A verdict that dies on an import is a push that fails for a
+reason that has nothing to do with the verdict.
 
 The same rule landed on `main` in parallel, in PR #992: the hook drops the
 environment for every step it runs in the pushed tree, and two of the fixtures

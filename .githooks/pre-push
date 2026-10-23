@@ -823,7 +823,9 @@ echo ""
 # It never fails the push, for two reasons that are both true most of the
 # time: CI has not seen this commit yet — that is the usual answer for a first
 # push — and a push may not depend on the network. The line is information;
-# the verdict that blocks a push is the one above.
+# the verdict that blocks a push is the one above. The network call is given
+# a deadline, because "a push must not depend on the network" is not true of
+# a call that waits for the network to give up.
 echo ""
 echo "=== CI verdict (about the pushed commits) ==="
 if ! command -v gh >/dev/null 2>&1; then
@@ -831,21 +833,35 @@ if ! command -v gh >/dev/null 2>&1; then
 elif ! python3 -c "import click" >/dev/null 2>&1; then
     echo "   ci verdict: SKIPPED (click is not installed)"
 else
-    # The repository of the remote, when it is on GitHub: the tool's own
-    # default names the upstream, which is the wrong repository in a fork.
+    # The repository of the remote, when it is on GitHub. The tool's own
+    # default names the upstream, which is the wrong repository in a fork —
+    # and a remote that is not on GitHub has no repository to ask about, so
+    # the step says so instead of asking about somebody else's.
     ci_verdict_args=()
+    ci_verdict_repo=""
     origin_url="$(git remote get-url origin 2>/dev/null || true)"
     case "$origin_url" in
         *github.com[:/]*/*)
-            origin_repo="$(printf '%s' "$origin_url" | sed -E 's#.*github\.com[:/]+##; s#\.git$##')"
-            ci_verdict_args=(--repo "$origin_repo")
+            ci_verdict_repo="$(printf '%s' "$origin_url" | sed -E 's#.*github\.com[:/]+##; s#\.git$##')"
+            ci_verdict_args=(--repo "$ci_verdict_repo")
             ;;
     esac
-    for sha in "${PUSH_LOCAL_SHAS[@]}"; do
-        [ "$sha" != "$ZERO_SHA" ] || continue
-        ci_verdict_line="$(python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha" "${ci_verdict_args[@]}" 2>&1 || true)"
-        echo "   $ci_verdict_line"
-    done
+    if [ -z "$ci_verdict_repo" ]; then
+        echo "   ci verdict: SKIPPED (origin is not a GitHub repository)"
+    else
+        # One line per commit, not per ref: two refs of one commit are one
+        # commit, and the answer about it is one answer.
+        ci_verdict_seen=""
+        for sha in "${PUSH_LOCAL_SHAS[@]}"; do
+            [ "$sha" != "$ZERO_SHA" ] || continue
+            case "$ci_verdict_seen" in
+                *"|$sha|"*) continue ;;
+            esac
+            ci_verdict_seen="$ci_verdict_seen|$sha|"
+            ci_verdict_line="$(timeout 20 python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha" ${ci_verdict_args[@]+"${ci_verdict_args[@]}"} 2>&1 || true)"
+            echo "   $ci_verdict_line"
+        done
+    fi
 fi
 echo ""
 

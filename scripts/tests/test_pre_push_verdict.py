@@ -30,10 +30,32 @@ import unittest.mock
 
 import importlib.util
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
+#: The canonical answer, and the file it comes from.
+GITENV_PATH = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
+GITENV_MODULE_NAME = 'sgate_gatekit_gitenv'
 
-from sgate.gatekit import gitenv  # noqa: E402
-from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
+
+def load_gitenv():
+    """The canonical module, loaded the way the script loads it.
+
+    The script registers the module under a name of its own, so the script and
+    this test hold the *same* module object — the identity check below is
+    therefore a statement about the script, not about the cache. The file the
+    module came from is checked separately, so the cache cannot vouch for
+    itself.
+    """
+    module = sys.modules.get(GITENV_MODULE_NAME)
+    if module is not None:
+        return module
+    spec = importlib.util.spec_from_file_location(GITENV_MODULE_NAME, GITENV_PATH)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[GITENV_MODULE_NAME] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+gitenv = load_gitenv()
+_clean_git_env = gitenv.tree_env
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'pre-push-verdict.py'
 spec = importlib.util.spec_from_file_location('pre_push_verdict', MODULE_PATH)
@@ -408,6 +430,11 @@ class GitEnvironmentTest(unittest.TestCase):
     def test_the_verdict_uses_the_canonical_git_environment(self):
         """One answer: the function the gates and the tests use is this one."""
         self.assertIs(mod.tree_env, gitenv.tree_env)
+        self.assertEqual(
+            pathlib.Path(gitenv.__file__).resolve(),
+            GITENV_PATH.resolve(),
+            'the answer is the one the repository owns, not a copy of it',
+        )
 
     def test_a_foreign_git_environment_does_not_leak_into_the_judged_tree(self):
         """The behaviour that answer buys: git inside the tree means that tree."""

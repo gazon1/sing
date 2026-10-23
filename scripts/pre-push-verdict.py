@@ -70,24 +70,41 @@ import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 
-# `scripts/src` on sys.path, and it has to be there *before* the import that
-# uses it: this script must resolve `sgate` against *this* checkout, not
-# against whatever `sgate` happens to be installed — an editable install of a
-# sibling worktree is a different tree under the same package name. When this
-# file is loaded by a test harness via importlib, sys.path[0] is `scripts/tests`
-# and the package is invisible; this file's own location is authoritative.
-_scripts_src = str(ROOT / "scripts" / "src")
-if _scripts_src not in sys.path:
-    sys.path.insert(0, _scripts_src)
-
 # The one answer to "which git variables must a command inside a tree not
-# inherit". It lives in `sgate.gatekit.gitenv` because the gates, the hook and
-# the tests all need it, and a second copy of the list in this file is a list
-# that goes stale: the hook drops three of the four names while this script
-# dropped four, and nobody noticed because both were right about the tree they
-# ran in. ADR
+# inherit". It lives in `scripts/src/sgate/gatekit/gitenv.py` because the
+# gates, the hook and the tests all need it, and a second copy of the list in
+# this file is a list that goes stale: the hook drops three of the four names
+# while this script dropped four, and nobody noticed because both were right
+# about the tree they ran in. ADR
 # `docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`.
-from sgate.gatekit.gitenv import tree_env  # noqa: E402
+#
+# It is loaded *by path*, the way `scripts/changed-modules.py` is loaded below,
+# and not imported as `sgate.gatekit.gitenv`: the package `sgate` imports
+# `click` and `loguru` when it is imported, and the hook runs this script with
+# the ambient `python3`, which is not guaranteed to have either. A verdict that
+# dies on an import is a push that fails for a reason that has nothing to do
+# with the verdict.
+GITENV_MODULE_NAME = "sgate_gatekit_gitenv"
+
+
+def load_gitenv():
+    """The canonical git environment, loaded from its file.
+
+    The module is cached under a name of its own, so that the script and the
+    test that checks the script uses *this* answer are holding the same
+    function object and not two copies of the same file.
+    """
+    path = ROOT / "scripts" / "src" / "sgate" / "gatekit" / "gitenv.py"
+    module = sys.modules.get(GITENV_MODULE_NAME)
+    if module is not None:
+        return module
+    spec = importlib.util.spec_from_file_location(GITENV_MODULE_NAME, path)
+    if spec is None or spec.loader is None:
+        raise VerdictUnavailable(f"could not load the git environment from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[GITENV_MODULE_NAME] = module
+    spec.loader.exec_module(module)
+    return module
 
 #: The paths that can change a detekt verdict:
 #:   - the Kotlin sources detekt analyses;
@@ -140,6 +157,10 @@ DEFAULT_GRADLE = "./gw"
 
 class VerdictUnavailable(Exception):
     """The verdict could not be taken — there is no tree to judge."""
+
+
+#: The answer, taken from the file that owns it.
+tree_env = load_gitenv().tree_env
 
 
 def load_module_graph():

@@ -68,10 +68,22 @@ GATE_TEST_RUNNER = REPO_ROOT / 'scripts' / 'run-gate-tests.py'
 #: thing a reader has to remember to ask for.
 CI_VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'ci-verdict.py'
 
+#: The canonical answer to "which git variables must a command inside a tree
+#: not inherit". The verdict script loads it by path, the way the checkout
+#: carries it.
+GITENV_SCRIPT = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
+
 #: A stand-in for the GitHub CLI: it reports one run of the CI workflow, the
 #: way `gh run list` reports it. The hook asks about the commit it pushes, and
 #: the answer has to name the workflow, the run and the conclusion.
+#:
+#: It writes down what it was asked, so the test can check the question and
+#: not only the answer: a stand-in that answers every question alike proves
+#: that the hook printed a line, not that it asked about the commit it pushes.
 FAKE_GH = """#!/usr/bin/env bash
+if [ -n "${FAKE_GH_LOG:-}" ]; then
+  printf '%s\\n' "$*" >> "$FAKE_GH_LOG"
+fi
 cat <<'JSON'
 [{"databaseId": 39888579980, "conclusion": "success", "status": "completed", "url": "https://github.com/gazon1/sing/actions/runs/39888579980", "workflowName": "CI"}]
 JSON
@@ -242,6 +254,11 @@ class PrePushHookTest(unittest.TestCase):
         if with_runner:
             self._write('scripts/run-gate-tests.py', GATE_TEST_RUNNER.read_text(encoding='utf-8'))
 
+        # The answer the verdict script takes is in the checkout too: the hook
+        # runs the script from the checkout, and the checkout carries the file
+        # the script loads. A checkout without it is not a checkout.
+        self._write('scripts/src/sgate/gatekit/gitenv.py', GITENV_SCRIPT.read_text(encoding='utf-8'))
+
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
         _git('add', '-A', cwd=self.repo)
@@ -359,9 +376,17 @@ class PrePushHookTest(unittest.TestCase):
         gh = bin_dir / 'gh'
         gh.write_text(FAKE_GH, encoding='utf-8')
         gh.chmod(0o755)
+        # The push goes to the local remote, and the *fetch* url of that remote
+        # is the GitHub repository the hook asks about — a fork, so that the
+        # derivation of the repository is part of the question.
         _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'set-url', 'origin', 'git@github.com:example/fork.git', cwd=self.repo)
+        _git('remote', 'set-url', '--push', 'origin', str(self.remote), cwd=self.repo)
+        gh_log = self.tmp / 'gh.log'
         env = _clean_git_env()
         env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+        env['FAKE_GH_LOG'] = str(gh_log)
+        pushed = _git('rev-parse', 'HEAD', cwd=self.repo).stdout.strip()
 
         result = subprocess.run(
             ['git', 'push', 'origin', 'main'],
@@ -374,6 +399,47 @@ class PrePushHookTest(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertIn('ci.yml  run 39888579980  success', output)
         self.assertEqual(0, result.returncode, output)
+        # The question, and not only the answer: the hook asked about the
+        # commit it pushes, and about the repository it pushes to.
+        asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
+        self.assertIn(f'--commit {pushed}', asked)
+        self.assertIn('--repo example/fork', asked)
+
+    def test_a_push_to_a_remote_that_is_not_github_asks_nobody(self):
+        """The step must not ask about a repository the remote is not.
+
+        The tool's own default names the upstream, so a step that ran without
+        naming the repository would ask about somebody else's runs — the very
+        mistake the derivation exists to avoid.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ci-verdict.py', CI_VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        bin_dir = self.tmp / 'bin'
+        bin_dir.mkdir()
+        gh = bin_dir / 'gh'
+        gh.write_text(FAKE_GH, encoding='utf-8')
+        gh.chmod(0o755)
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        gh_log = self.tmp / 'gh.log'
+        env = _clean_git_env()
+        env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+        env['FAKE_GH_LOG'] = str(gh_log)
+
+        result = subprocess.run(
+            ['git', 'push', 'origin', 'main'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        output = result.stdout + result.stderr
+        self.assertIn('ci verdict: SKIPPED (origin is not a GitHub repository)', output)
+        self.assertEqual(0, result.returncode, output)
+        asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
+        self.assertEqual('', asked, 'nobody was asked about a repository the remote is not')
 
     def test_a_violation_in_the_pushed_tree_fails_the_push(self):
         self._install_hook()
