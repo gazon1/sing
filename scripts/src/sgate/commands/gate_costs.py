@@ -64,6 +64,9 @@ from sgate.log import logger
 
 #: The repository whose CI runs are measured. The command runs where the code does.
 CI_REPOSITORY = "gazon1/sing"
+# The branch whose run prices the loop. Every change goes through it, so its
+# run is the same work every time — which is what a price describes.
+CI_BRANCH = "main"
 
 #: The version of the baseline and of the measurement file this command reads.
 SCHEMA_VERSION = 1
@@ -463,6 +466,13 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
     for name in sorted(jobs):
         lines.append(f"| {name} | {_format_ms(jobs[name])} |")
     lines.append("")
+    conclusion = ci.get("conclusion")
+    if isinstance(conclusion, str) and conclusion:
+        # The verdict belongs with the durations: a run that failed is a price
+        # like any other, and a reader who does not see it will read a failed
+        # run as the price of a green one.
+        lines.append(f"The run finished as **{conclusion}**.")
+        lines.append("")
     return lines
 
 
@@ -588,12 +598,28 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
     not this machine, and the local baseline refuses to compare across machines for
     the same reason. So they are published as "the last run", with no median and no
     baseline: a record, not a threshold.
+
+    The run has to be a FINISHED one. A run that is still going has no duration
+    for the jobs that have not finished yet, and no conclusion to print — and a
+    record of half a run is published as the price of the whole loop, which is
+    the one thing a price must not be. So the runner is asked for completed runs,
+    and a run that has not finished is not recorded at all.
+
+    And it has to be the run of the BRANCH, not of whatever pull request was
+    pushed last. A price is about the loop, and the loop that blocks a merge is
+    the one the branch runs: the same workflow, every time, on every change. A
+    pull request's run belongs to that pull request — its conclusion says
+    something about that change, not about the loop, and a reader who finds the
+    price of the loop written next to a foreign branch's failed run reads a
+    price for something that was never measured.
     """
     listed = _gh(
         "run", "list",
         "--repo", repository,
         "--workflow", "ci.yml",
+        "--branch", CI_BRANCH,
         "--limit", "1",
+        "--status", "completed",
         "--json", "databaseId,url,createdAt,conclusion",
     )
     if listed is None:
@@ -634,7 +660,14 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
 
 
 def _duration_ms(started: object, completed: object) -> int | None:
-    """How long a job took, in milliseconds, from two timestamps."""
+    """How long a job took, in milliseconds, from two timestamps.
+
+    A job that was SKIPPED has no duration. The runner still reports two
+    timestamps for it, and they are not in order — a job that never ran is
+    recorded as finishing a second before it started. A negative price is not a
+    price, and a job that did not run has nothing to price, so a span that is
+    not positive is no measurement at all.
+    """
     if not isinstance(started, str) or not isinstance(completed, str):
         return None
     try:
@@ -642,7 +675,8 @@ def _duration_ms(started: object, completed: object) -> int | None:
         second = datetime.fromisoformat(completed.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return int((second - first).total_seconds() * 1000)
+    milliseconds = int((second - first).total_seconds() * 1000)
+    return milliseconds if milliseconds > 0 else None
 
 
 def measure_coverage_costs(populations: tuple[str, ...] = ("fast", "full")) -> dict[str, int]:
@@ -714,8 +748,10 @@ def _coverage_cost_header(
         "starts, so that nobody sets a 15-minute timeout on a 37-minute task.",
         f"Measured on {measured_at} with a warm Gradle cache, on the development host "
         f"({os.cpu_count()} vCPU). A CI runner has 4 vCPU: the same run there is "
-        "slower, which is why the CI job's timeout is set from the upper end and not "
-        "from this number.",
+        "slower, so the CI job's timeout is this measurement times the runner "
+        "margin — twice it, the margin the gate uses. `scripts/check-coverage-timeout.py` "
+        "is what says so: a timeout that no longer covers the measurement fails "
+        "that gate instead of the run.",
         "To re-measure: `sgate gate-costs --record --coverage` (about an hour: it "
         "runs the instrumented coverage once per population).",
     ]
