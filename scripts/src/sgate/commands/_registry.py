@@ -79,6 +79,39 @@ class CmdType(StrEnum):
 #: ``scripts/check-adr-module-boundary.py``, deleted on 2026-10-15 when the
 #: owner retired that gate. Both are gone — a command that cannot pass is not
 #: a gate, it is a way to run a stack trace.
+#: The tree rules the pre-push hook runs against the tree being pushed.
+#:
+#: The hook carried the list in its own loop, and the test that drives the hook
+#: carried a second list — the scripts it stubs. A gate added to the hook and
+#: not to the fixture was a failing test, and the failure was found by the full
+#: run rather than by the edit that caused it. One declaration now serves both
+#: sides: the hook reads the rules, the test reads the scripts.
+PRE_PUSH_TREE_RULES: tuple[str, ...] = (
+    "check-agents-pointers",
+    "check-issue-registry",
+    "check-review-verdicts",
+)
+
+#: Every script the pre-push hook runs.
+#:
+#: The hook skips a rule the pushed tree does not have, so the list is what the
+#: hook *may* run; the tree decides what it does. The test stubs all of them,
+#: because a hook that calls a script nobody stubbed fails for a reason that
+#: has nothing to do with what the test is about.
+PRE_PUSH_SCRIPTS: tuple[str, ...] = (
+    "scripts/build-version-catalog-gate.py",
+    "scripts/check-ui-wait-budgets.py",
+    "scripts/ci/validate-maestro-selectors.py",
+    "scripts/check-di-fixture-sync.py",
+    "scripts/check-navigation-doc-sync.py",
+    # The hook calls these two as well, and the declaration did not name them:
+    # a script the hook runs and the declaration does not list is a gate the
+    # test fixture does not stub — a failing test that only the full run
+    # finds. scripts/check-hook-gates.py is what found it.
+    "scripts/check-maestro-flow-catalogue.py",
+    "scripts/check-test-tags-catalog.py",
+) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
+
 COMMAND_MODULES: dict[str, str] = {
     "adr_references_are_valid": "gate",
     "adr_status_policy": "gate",
@@ -90,9 +123,11 @@ COMMAND_MODULES: dict[str, str] = {
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
     "gate_costs": "gate",
+    "host_load": "utility",
     "info": "utility",
     "render_registry": "utility",
     "render_static_gates": "utility",
+    "whereami": "utility",
     "wiring": "utility",
     "run_all": "driver",
     "suite_docs": "suite",
@@ -187,6 +222,18 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "tests do not compile `src/androidMain`. Only the CI job said so. The "
             "host test is a Robolectric test, so naming it here costs a minute and "
             "no emulator."
+        ),
+    ),
+    ":shared:verifyToolSurface": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI reaches it through `ToolSurfaceExportTest` in `:shared:jvmTest`, "
+            "which compares the committed `config/docs/tool-surface.json` with the "
+            "surface the code declares. The Gradle task is the fast rehearsal of "
+            "that check for the local loop: it exports to a scratch file and "
+            "compares, without waiting for the twenty-minute suite. Naming it "
+            "in `ci.yml` as well would buy a second run of a check CI already "
+            "performs — and a second Gradle invocation on every PR."
         ),
     ),
     ":adr-cli:installDist": GradleTaskParity(
@@ -371,6 +418,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="hook gates are declared once",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-hook-gates.py"),
+    ),
+    GateSpec(
         name="unwired surfaces",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -397,6 +450,27 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-ai-write-tools.py"),
     ),
     GateSpec(
+        name="coverage task list",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-task-list.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
+        name="coverage floor declaration",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-floor-declaration.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
+        name="coverage timeout",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-timeout.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -408,6 +482,20 @@ _REGISTERED: tuple[GateSpec, ...] = (
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-issue-registry.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
+        name="AGENTS.md pointers resolve",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-agents-pointers.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
+        name="review verdicts cover every change",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-review-verdicts.py"),
         script_args=("--quiet",),
     ),
     GateSpec(
@@ -610,6 +698,41 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.SHELL,
         script=Path("scripts/check-doc-links.sh"),
     ),
+    # The navigation doc says what opens what. `doc links` above checks that the
+    # links in it resolve; it cannot see that a *claim* about behaviour has
+    # stopped being true, because the link is fine and the sentence is wrong.
+    #
+    # Two rows of `docs/navigation.md` went false on 2026-10-22 and nothing
+    # noticed: the deep-link row for `singularity://view/{viewId}` still named
+    # `SavedAgendaEdit` after the code moved to `SavedAgendaResults`, and the
+    # platform row still said the desktop tasks stack pushes the `Detail` start
+    # onto the stack after the code changed to seed the stack with the
+    # requested route. The doc is pointed at from the nav3 skill, so an agent
+    # that follows the pointer reads both.
+    GateSpec(
+        name="navigation doc matches the code",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-navigation-doc-sync.py"),
+        script_args=("--check",),
+    ),
+    # The DI fixture table says what to hand a Koin definition that takes its
+    # arguments at runtime. The definition lives in `shared/.../core/di/`, the
+    # fixture in `desktopApp/.../jvmTest/`, and nothing kept them in step: on
+    # 2026-10-22 `TaskDetailCoordinator` was given a route instead of a
+    # `TaskId`, the definition was updated, the fixture was not, and the graph
+    # could not be created. The test that catches it lives in the full desktop
+    # suite — an hour away on a loaded host, at the very end of the work.
+    #
+    # This gate reads the same two facts from the sources and compares them
+    # without a JVM, so it runs in the static gates and in the pre-push hook.
+    GateSpec(
+        name="DI fixture matches the definitions",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-di-fixture-sync.py"),
+        script_args=("--check",),
+    ),
     # The two linters that are not Python scripts. They are named functions in
     # static-gates.sh, because a gate the CLI cannot dispatch is a gate only one
     # surface can run — and the two registries then disagree about what exists.
@@ -786,6 +909,22 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
+        # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
+        GateSpec(
+            name="the link grammar has one home",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-link-grammar.py"),
+            script_args=("--check",),
+        ),
+        # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+        GateSpec(
+            name="the tool catalogue is current",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-tools-catalog.py"),
+            script_args=("--check",),
+        ),
 )
 
 
@@ -877,6 +1016,27 @@ GATE_CONTROLS: dict[str, Control] = {
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
+    # hook-gates: the record of what the hook judges drifts away from the hook
+    # and from the CI. The probe removes one detekt module from the record —
+    # exactly the state a new CI module leaves behind: CI judges the module, the
+    # record does not mention it, and nothing says so. A reader of the hook
+    # would read "detekt" as "the whole tree" and be wrong.
+    'hook-gates': Control(
+        kind='sabotage',
+        proves='scripts/check-hook-gates.py',
+        argv=('{python}', 'scripts/check-hook-gates.py'),
+        path='config/hooks/pre-push.json',
+        edit=Edit(
+            kind='replace',
+            old='      ":mcp-server:detekt",\n',
+            new='',
+            count=1,
+        ),
+        why='the hook judges three gates of forty-one and the modules a change reaches; the CI judges '
+            'every module. That difference is written down in config/hooks/pre-push.json, and the '
+            'record is the only place it can be read. A module the CI judges and the record does not '
+            'mention is a difference nobody can see — which is the state this gate exists for',
+    ),
     'skill-drift': Control(kind='sabotage', proves='scripts/check-skill-drift.py', argv=('{python}', 'scripts/check-skill-drift.py'), path='.agents/skills/singularity-todo-decisions-workflow/SKILL.md', edit=Edit(kind='replace', old='`singularity-adr validate`', new='`singularity-adr verifai`', count=1), why='a skill that lists commands the tool does not have sends an agent to run something that does not exist'),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),
     'maestro-flow-catalogue': Control(kind='sabotage', proves='scripts/check-maestro-flow-catalogue.py', argv=('{python}', 'scripts/check-maestro-flow-catalogue.py'), path='config/docs/maestro-flows.txt', edit=Edit(kind='regex', pattern=r'^Maestro/flows/smoke/01-launch-today\.yaml\n', repl='', flags='MULTILINE'), why='a flow deleted from the tree without a word leaves the suite smaller and the run green: the suite reports the flows that are left, and the one that is gone is a line in a diff nobody reads. Removing a line from the catalogue puts the flow back into the tree without putting it back into the promise, which is the state this gate exists to refuse'),
@@ -887,6 +1047,8 @@ GATE_CONTROLS: dict[str, Control] = {
     'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/close-rule-consolidation.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/close-rule-consolidation', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
+    'agents-pointers': Control(kind='sabotage', proves='scripts/check-agents-pointers.py', argv=('{python}', 'scripts/check-agents-pointers.py', '--quiet'), path='AGENTS.md', edit=Edit(kind='append', new='\nSee `docs/decisions/definitely-not-a-file.md` for the reasoning.\n'), why='a pointer that names a file that is not there sends the next session to look for it: the note that was written to remove the stop becomes the stop'),
+    'review-verdicts': Control(kind='sabotage', proves='scripts/check-review-verdicts.py', argv=('{python}', 'scripts/check-review-verdicts.py', '--quiet'), path='config/docs/review-verdicts-baseline.txt', edit=Edit(kind='replace', old='a-closed-project-is-reachable\n', new='', count=1), why='a change that leaves the baseline stops carrying a verdict, and a review that leaves no trace is a promise with nothing behind it: the next session cannot tell whether the change was reviewed, what was found, or whether the findings were fixed'),
     'ai-write-tools': Control(kind='sabotage', proves='scripts/check-ai-write-tools.py', argv=('{python}', 'scripts/check-ai-write-tools.py'), path='config/docs/ai-direct-writes.txt', edit=Edit(kind='regex', pattern=r'^CreateTagTool: .*\n', repl='', flags='MULTILINE'), why='a tool that writes a user\'s data without saying so is a change the user never saw. Removing one entry from the registry is the smallest version of that failure: the tool still writes, the registry stops saying why, and nothing else in the build notices — the gate has to notice, because the registry is the only place the decision was written down'),
     # gate-registries: the gate that compares the two registries. Its input is
     # the shell registry, so the sabotage adds a gate line the Python registry
@@ -995,9 +1157,11 @@ GATE_CONTROLS: dict[str, Control] = {
     'dependency-usage': Control(kind='sabotage', proves='scripts/check-dependency-usage.py', argv=('{python}', 'scripts/check-dependency-usage.py', '--quiet'), path='scripts/dependency-usage-allowlist.txt', edit=Edit(kind='drop_lines', old='kermit-koin'), why="a dependency declared, resolved and imported by nothing costs a full release's build time and ships undetected — material-kolor sat on the classpath for one"),
     'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
+    'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
     'maestro-results': Control(kind='fixture', proves='scripts/ci/check-maestro-results.py', argv=('{python}', 'scripts/ci/check-maestro-results.py', '--scope', 'full', '--results-dir', '{tmp}/results', '--catalogue', '{tmp}/catalogue.txt', '--floor', '{tmp}/floor.txt', '--debt', '{tmp}/debt.yaml', '--environment', '{tmp}/results/environment.json'), fixture='setup_maestro_results', why="a Maestro run that failed a flow the floor does not allow, and a flow the run produced no report for — the two ways a run quietly stops being the run the repository promised. The input is a run on an emulator, so it cannot exist in a clean checkout: the control synthesises it", needs_clean_run=False),
+    'gate-tooling-origin': Control(kind='fixture', proves='scripts/check-gate-tooling-origin.py', argv=('{python}', '{tmp}/foreign/check-gate-tooling-origin.py'), fixture='setup_gate_tooling_origin', why="the gate CLI is installed editable, so the venv on PATH decides which checkout's scripts/src/sgate the gate CLI is — and a foreign CLI reads a foreign registry and reports about a foreign tree. The run looks green and says nothing about the tree in front of it. The input is the interpreter's import path, not a committed file, so the control synthesises it: a copy of the gate standing next to a package named sgate, which the copy must answer FOREIGN about", needs_clean_run=False),
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost', needs_clean_run=False, until='2026-12-31', tracked_by='.github/workflows/ci.yml#Executed test counts'),
     'instrumented-test-floor': Control(kind='sabotage', proves='scripts/check-instrumented-test-floor.py', argv=('{python}', 'scripts/check-instrumented-test-floor.py', '--report-dir', 'scripts/tests/fixtures/instrumented-report'), path='config/docs/instrumented-test-floor.txt', edit=Edit(kind='regex', pattern='^tests \\d+$', repl='tests 99999', flags='MULTILINE'), why='the instrumented tier runs on a schedule, on pushes to main and on demand — and a suite that runs on a schedule is a suite whose size nobody watches. A deleted test class leaves the run green, because the report lists the tests that are left. The floor is the record of what the tier used to be, and the control moves it to a number no run can reach'),
     'adr-references': Control(kind='sabotage', proves='scripts/check-adr-references.py', argv=('{python}', 'scripts/check-adr-references.py'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/2026-10-05-nonexistent-adr.md` for details.\n'), why='a prose reference to a dated-ADR slug carries no path, so a moved or deleted ADR leaves a dangling claim nothing else sees'),
@@ -1022,9 +1186,51 @@ GATE_CONTROLS: dict[str, Control] = {
         ),
         tracked_by='.github/workflows/ci.yml#Gradle (tests + coverage + detekt)',
     ),
-    'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.tags=fast,slow\n', new='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.tags=fast,slow\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
-    'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.tags=fast,slow', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
+    'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
+    'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
     'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n        .withPropertyName("maestroFlows")\n        .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
+    # The app coverage floor, declared where Kover reads it.
+    #
+    # The floors were declared in the root build script for months, in a
+    # `plugins.withId("org.jetbrains.kotlinx.kover")` block that never executed
+    # — probed with a `println`, the line never appeared. The root project has
+    # no Kover extension of its own to configure, so the floors it declared
+    # were evaluated by no task: the CI step that reads them was green no
+    # matter what the coverage was, and the ADR that recorded them said, in so
+    # many words, that "nothing Python-side could have proved it" — which was
+    # true only because of WHERE the declaration was.
+    #
+    # The probe puts the declaration back where it was: a Kover verify block
+    # with an app rule in the root build script. The gate must say so.
+    'coverage-floor-declaration': Control(kind='sabotage', proves='scripts/check-coverage-floor-declaration.py', argv=('{python}', 'scripts/check-coverage-floor-declaration.py', '--quiet'), path='build.gradle.kts', edit=Edit(kind='append', new='\nkover {\n    reports {\n        verify {\n            rule("app instruction coverage") {\n                bound { minValue = 99 }\n            }\n        }\n    }\n}\n'), why='the app coverage floor is the aggregate one, and only the settings-level block can measure it: a verify block in the root build script is read by no task at all, and one in a module measures that module under a name the reader will take for the aggregate. That is how a declared floor went unenforced for months while the step that reads it stayed green'),
+    # The CI timeout covers the instrumented run, and the instrumented run is
+    # measured.
+    #
+    # The coverage job's timeout was a literal — 75 minutes — and the cost of
+    # the instrumented run was priced nowhere, so the number nobody could check
+    # was the number that decided whether a healthy run was killed. The gate
+    # reads the measured cost and the timeout and says so when the timeout
+    # cannot cover the measurement.
+    #
+    # The probe shrinks the timeout to 30 minutes: the measured fast run takes
+    # 37 min 25 s, and the runner is slower than the measurement host. The gate
+    # must fail and name both numbers.
+    'coverage-timeout': Control(kind='sabotage', proves='scripts/check-coverage-timeout.py', argv=('{python}', 'scripts/check-coverage-timeout.py', '--quiet'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    timeout-minutes: 75', new='    timeout-minutes: 30', count=1), why='a timeout that fires on a healthy instrumented run reports a failure that says nothing about the code: the coverage job is killed at the moment it was about to report, and the report is the thing the job exists for'),
+    # The coverage report measures every module that is in it.
+    #
+    # The list of test tasks that feed the aggregated report is written by
+    # hand, in the root build script. A module added to the build is not added
+    # to that list, so its tests never run in the coverage job — and the
+    # report says nothing about it while the reader assumes it does. The
+    # worst case is not "a number is missing": it is a module whose classes
+    # ARE in the denominator and whose tests never ran, which the report
+    # scores as 0% covered — a number that reads like a coverage problem and
+    # is a measurement one.
+    #
+    # The probe removes one entry from the list. `:adr-core` holds the app's
+    # ADR rules, so its classes are in the denominator: with its test task
+    # gone from the list, the gate must say so.
+    'coverage-task-list': Control(kind='sabotage', proves='scripts/check-coverage-task-list.py', argv=('{python}', 'scripts/check-coverage-task-list.py', '--quiet'), path='build.gradle.kts', edit=Edit(kind='replace', old='        ":adr-core:jvmTest",', new='', count=1), why='a module whose classes are in the coverage denominator but whose tests never run is scored as 0% covered: the number reads like a coverage problem and is a measurement one, and nothing else in the build notices it'),
     'detekt-rule-coverage-floor': Control(kind='sabotage', proves='gw', argv=('./gw', '-q', ':detekt-rules:koverVerify'), path='detekt-rules/build.gradle.kts', edit=Edit(kind='regex', pattern='^(val DETEKT_RULE_BRANCH_FLOOR = )\\d+$', repl='\\g<1>100', flags='MULTILINE'), why='branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through', needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Kover verify (detekt-rules)'),
     # The waiver-premise control. It renames the CI step the one waived
     # control's `tracked_by` points at, so the anchor names a step that no
@@ -1035,7 +1241,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # The edit is on the workflow rather than on the registry because that is
     # the thing that rots: the registry's promise is a pointer, and a pointer
     # whose target has been renamed is exactly what nothing used to notice.
-    'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags=fast,slow\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
+    'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.population="$TEST_POPULATION"\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
     # script-conventions: the rule that gate scripts use Click. The probe adds
     # the import the rule looks for, to a script no other control touches.
     #
@@ -1066,6 +1272,85 @@ GATE_CONTROLS: dict[str, Control] = {
             "DI module, so the report has to name it"
         ),
     ),
+    # The fixture table handing a definition the wrong type is the drift this
+    # gate exists for, and the probe is the drift itself: the row that says
+    # `TaskId` where the definition says `TasksRoute.Detail` is exactly what
+    # was committed on 2026-10-22, and the graph could not be created.
+    'di-fixture-sync': Control(
+        kind='sabotage',
+        proves='scripts/check-di-fixture-sync.py',
+        argv=('{python}', 'scripts/check-di-fixture-sync.py', '--check'),
+        path='desktopApp/src/jvmTest/kotlin/com/singularity/todo/DomainGraphResolutionTest.kt',
+        edit=Edit(
+            kind='replace',
+            old='TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1")))',
+            new='TaskDetailCoordinator::class to listOf(TaskId("task-1"))',
+            count=1,
+        ),
+        why=(
+            "a ViewModel that takes a route and a fixture that hands it a task id is a "
+            "graph that cannot be built, and the only test that says so lives in the "
+            "full desktop suite — an hour away on a loaded host. The probe puts the "
+            "wrong type back into the table, so the gate has to name the mismatch"
+        ),
+    ),
+    # A navigation row that names a type the matcher does not name sends every
+    # agent that follows the pointer the wrong way. The probe puts back the row
+    # that was true before 2026-10-22, so the gate has to see the difference.
+    'navigation-doc-sync': Control(
+        kind='sabotage',
+        proves='scripts/check-navigation-doc-sync.py',
+        argv=('{python}', 'scripts/check-navigation-doc-sync.py', '--check'),
+        path='docs/navigation.md',
+        edit=Edit(
+            kind='replace',
+            old='`AgendaGraph(SavedAgendaResults(viewId))`',
+            new='`AgendaGraph(SavedAgendaEdit(viewId))`',
+            count=1,
+        ),
+        why=(
+            "the doc is a pointer: it is what an agent reads to learn what opens what, "
+            "and it is pointed at from the nav3 skill. The probe restores the row that "
+            "went false on 2026-10-22 — the deep link naming an editor the matcher "
+            "never opens — so the gate has to catch a claim the code does not support"
+        ),
+    ),
+        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
+        'link-grammar': Control(
+            kind='sabotage',
+            proves='scripts/check-link-grammar.py',
+            argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
+            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/domain/model/CalendarSyncEvent.kt',
+            edit=Edit(
+                kind='replace',
+                old='package com.singularity.todo.feature.calendar_sync.domain.model',
+                new='package com.singularity.todo.feature.calendar_sync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
+                count=1,
+            ),
+            why=(
+                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
+            ),
+        ),
+        # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
+        'tools-catalog': Control(
+            kind='sabotage',
+            proves='scripts/check-tools-catalog.py',
+            argv=('{python}', 'scripts/check-tools-catalog.py', '--check',),
+            # The catalogue lists the scripts the registry does not name, so the
+            # sabotage changes one of those: a script that is a gate is
+            # described in the registry document, and changing its summary would
+            # not make the catalogue stale.
+            path='scripts/check-openspec-stale.py',
+            edit=Edit(
+                kind='replace',
+                old='Warn when an active OpenSpec change is older than 14 days.',
+                new='Warn when an active OpenSpec change is older than a fortnight.',
+                count=1,
+            ),
+            why=(
+                'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
 }
 
 
@@ -1073,6 +1358,18 @@ GATE_CONTROLS: dict[str, Control] = {
 # Each names what does the proving instead: "no control" is only acceptable when
 # something else is, and the reader has to be told what.
 GATE_EXEMPTIONS: dict[str, Control] = {
+    'scripts/check-gate-tooling-origin.py': Control(
+        kind='exempt',
+        proves='scripts/check-gate-tooling-origin.py',
+        tracked_by='scripts/tests/test_check_gate_tooling_origin.py',
+        reason=(
+            'its subject is the installation, not the tree: the answer is where the '
+            'importable `sgate` package lives, and no committed file decides that — so a '
+            'sabotage of the tree cannot make it fail. The control is the test that '
+            'synthesises the state the gate exists to report: a foreign package on the '
+            'path, which the gate must catch as FOREIGN.'
+        ),
+    ),
     'scripts/check-selectable-text-coverage.py': Control(
         kind='exempt',
         proves='scripts/check-selectable-text-coverage.py',

@@ -64,6 +64,11 @@ tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
+Экспорты схемы Room — каталог `shared/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
+В `jvmTest` их читает **один** владелец: `MigrationRoundTripSupport.applyExportedSchema(N, connection)`
+(и `schemaFile(N)` — путь к экспорту). Тест миграции пишет «посади вот это — проверь вот это»,
+а не SQL; свой экземпляр фикстуры — это copy-paste, который ловит `MigrationFixtureHasOneOwnerTest`.
+
 ## Канонический CRUD-паттерн (новой фичи)
 
 `Ids.kt` (@JvmInline value class) → `*Domain.kt` (валидация) → `*Repository.kt`
@@ -102,7 +107,8 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
-`-Ptest.tags=fast,slow` в CI молча его исключит (`TestTagCoverageTest`). **`slow` = класс
+`-Ptest.population=fast` в CI (и `-Ptest.population=full` в ночном прогоне) молча его
+исключит (`TestTagCoverageTest`). **`slow` = класс
 пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn),
 не «долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
 
@@ -125,6 +131,13 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 `shared/src/jvmTest/.../arch/SharedHarnessConventionsTest.kt` (карта «файл → причина»;
 типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
 не может быть тестовым).
+
+**`@Tag("slow")` — тест, который локальный цикл не гоняет.** Дефолтный прогон
+исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
+лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.population=full`) обязан
+выполнить каждый `slow`-класс — это проверяет `scripts/check-slow-tests-ran.py` (шаг CI сразу
+после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
+`adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
 
 ### BAN list
 
@@ -178,175 +191,55 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
 `PlatformModule.*.kt`. Единственный expect/actual seam — `platformModule()`.
 Инвентарь портов, фабричные функции, время и NavGraphs — `docs/PLATFORM-REFERENCE.md`.
 
-## Сборка
+## Сборка и гейты
 
-**`./gw` вместо `./gradlew`.** Параллельные worktree делят `~/.gradle`, а делённый
-Gradle Home — это общий лок кэша и общий реестр демонов: сборка толкается с
-соседями и идёт в разы дольше. `./gw` даёт worktree приватный `GRADLE_USER_HOME`
-(кеши и JDK остаются общими — их не пишут одновременно). Мелочь, но на машине
-с несколькими checkout'ами это разница между 5 и 40 минутами.
+Справочник — скиллы `singularity-todo-build-and-gates` (сборка, detekt, гейты,
+загрузка хоста, долгие запуски) и `singularity-todo-ci-cd` (реестр гейтов,
+поверхности CI, ожидание прогона, вердикт ревью). Ниже — строки-указатели.
 
-```bash
-just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
-./check.sh                    # реестр гейтов + тесты + Android + detekt
-bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
-just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
-./gw :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
-./gw :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
-./gw :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
-./gw :androidApp:assembleDebug   # Android
-./gw :desktopApp:run      # Desktop (xvfb-run -a)
-./gw :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
-./gw :shared:exportToolSurface   # перегенерировать config/docs/tool-surface.json
-
-just lint        # detekt (все модули с baseline), enforcing
-just detekt-fix  # auto-fix detekt + ktlint in-place
-```
-
-**Карта затронутых тестов — `just tests::impact`.** Ответ на вопрос «что эта правка
-ломает?» считается по дереву, а не выдумывается: правка в области тянет тесты этой
-области, правка в классе тянет тесты, которые этот класс упоминают, изменённый тест
-тянет сам себя. Это **кандидаты**, а не вердикт: карта никогда не говорит «вне карты
-безопасно» — она говорит, что стоит прогнать первым.
-
-**Пуш в ветку PR — без `--no-verify`.** `pre-push` hook (`.githooks/pre-push`) проверяет
-**пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть
-находок). Пропуск хука отправляет ту же находку в CI — минуты вместо получаса. `--no-verify` —
-только для WIP-коммитов.
-
-**Находки detekt — одним файлом:** `shared/build/reports/detekt/detekt.xml` (путь, строка, правило);
-консоль Gradle даёт только счётчик. **Правило и его подоплёка — в комментариях
-`config/detekt/detekt.yml`**: там, почему порог такой; кастомные правила — в `detekt-rules/`
-(напр. `NoDroppedUiStateProperty`: свойство состояния — обязательный параметр **каждого**
-варианта, дефолт запрещён). `ClassSignature` — сигнатура data class, влезающая в строку, пишется
-в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
-
-> `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
-
-**Порядок detekt.** Сначала `:shared:detekt` — там почти весь код, и замечание там
-останавливает проверку через две минуты, а не через четыре модуля:
-
-```bash
-./gw :shared:detekt                                  # сначала — 90% кода
-./gw :desktopApp:detekt :androidApp:detekt :mcp-server:detekt   # потом остальные
-```
-
-**Компилируй сразу после связной правки.** Правка, которая тянет за собой соседний
-файл (сигнатура, интерфейс, DI-биндинг), проверяется компиляцией в ту же минуту:
-`./gw :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`).
-Открытие полного прогона на сломанной компиляции стоит сорока минут ожидания,
-и диагностика «упало в тестах» уводит не туда: компиляция падает раньше и падает
-другой строкой.
-
-**Гейтовый venv принадлежит checkout'у.** `sgate` — editable-установка `scripts/src/`,
-поэтому венв, поставленный в другом worktree, меряет *тот* checkout: гейт зелёный,
-а проверял он чужое дерево. `bash scripts/ci/preflight-gate-tools.sh` печатает, чей
-это checkout (строка `sgate`; `FOREIGN` — не тот). Свой венв на checkout:
-
-```bash
-SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
-    bash scripts/ci/setup-local-tools.sh
-export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
-```
-
-> `xvfb-run` есть не везде: `:desktopApp:test` идёт без дисплея, а `:desktopApp:run`
-> — GUI, и ему нужен X-сервер (`xvfb-run -a ./gw :desktopApp:run`). Если `xvfb-run`
-> не установлен, это не повод пропускать тесты — они headless.
-
-> **Каталог инструментов — производный файл.** `config/docs/tool-surface.json`
-> читает MCP-сервер и агент; он генерируется (`./gw :shared:exportToolSurface`) и
-> проверяется гейтом. Меняешь схему или описание инструмента — перегенерируй
-> сразу, иначе гейт скажет, что каталог устарел, а не что ты изменил.
-
-> **Гейты — одной командой, со сводкой.** `sgate run-all` печатает таблицу и панель
-> на каждый упавший гейт: это много строк, из которых читателю нужны только
-> падения. `sgate run-all --summary` печатает по строке на каждый упавший гейт
-> с причиной — этого хватает, чтобы решить, что делать дальше. Полный отчёт нужен
-> только когда причина из сводки непонятна.
->
-> ```bash
-> sgate run-all --summary              # сводка: по строке на упавший гейт
-> sgate run-all                        # полный отчёт (таблица + панели)
-> sgate run-all --gate "write tool"    # один гейт по имени
-> ```
->
-> **Долгий запуск — одна фоновая задача, а не цикл опроса.** Задача сама
-> печатает финальные строки (`BUILD SUCCESSFUL` по каждому шагу) — тогда опрос
-> не нужен вовсе. Десять `sleep 30 && tail` — это десять раундов контекста
-> впустую. Лог, который нужен потом, пиши в файл с уникальным именем
-> (`build/diagnostics/<что>-<метка>.log`), а не перетирай общий.
+- **`./gw` вместо `./gradlew`** — приватный `GRADLE_USER_HOME` на worktree; общий
+  `~/.gradle` — общий лок кэша и общий реестр демонов (5 минут против 40).
+- **Хост бывает занят** — `./sg host-load` (порог 2.0/ядро, измерен): занят →
+  целевой набор (`--tests`) или ждать; полный прогон — когда целевой зелёный.
+- **Долгий запуск — одна фоновая задача, а не цикл опроса.** `./wait-for <log>
+  <паттерн>` ждёт строку в логе и печатает хвост один раз.
+- **Компилируй сразу после связной правки** — `./gw :shared:compileKotlinJvm`
+  (для тестов `:shared:jvmTestClasses`), иначе падение компиляции прячется за
+  «упало в тестах» и стоит сорока минут ожидания.
+- **Пуш в ветку PR — без `--no-verify`**: pre-push hook проверяет пушимое дерево
+  (структурные гейты + `detekt --auto-correct`); пропуск хука отправляет ту же
+  находку в CI.
 
 ## CI/CD
 
 Единственный список гейтов — **реестр** (`scripts/src/sgate/commands/_registry.py` +
 `scripts/src/sgate/gate_manifest.py`); `scripts/ci/static-gates.sh` и
-`docs/scripts/gate-registry.md` **генерируются** из него, руками их не правь:
-`PYTHONPATH=scripts/src python3 -m sgate render-static-gates --write` и
-`python3 -m sgate render-registry`. Джоб `static` в `ci.yml` и `check.sh` берут
-тот же реестр: гейт не может жить на одной поверхности и отсутствовать на другой.
-Новый гейт = одна запись в реестре + строка `gate blocking|advisory <name> <cmd>`;
-`|| true` на строке `gate` запрещён. Branch protection требует **один** check —
-`CI gate`. Состав workflow'ев, частей A–G мета-гейта и рецепты — скилл
-`singularity-todo-quality-tools`.
+`docs/scripts/gate-registry.md` **генерируются** из него, руками их не правь.
+Джоб `static` в `ci.yml` и `check.sh` берут тот же реестр: гейт не может жить на
+одной поверхности и отсутствовать на другой. Branch protection требует **один**
+check — `CI gate`. Справочник — скилл `singularity-todo-ci-cd`.
 
-**Гейты «меры», а не «булевы»** — все блокирующие; спека:
-`openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.
-`check-test-runs.py --require <set>` (прогнал меньше классов/тестов, чем floor, **или** пропустил
-хоть один) · `:koverVerify` (INSTRUCTION/BRANCH/LINE покрытие `com.singularity.todo.*` ниже floor 27/20/27)
-· `check-flaky-tests.py --current DIR --previous DIR` · `unittest discover -s scripts/tests`
-(регрессия в самих гейтах, ≈20 мс). Floor = **минимальный** легитимный прогон: падение —
-расследовать, не регенерировать.
+**Ждёшь CI — одной командой, а не циклом опроса:**
 
-**Перед PR — ревью отдельным агентом** (`code-review-pr-workflow`): он получает диф, а не код,
-и у него нет давления контекста реализации — поэтому он ловит то, чего не ловит гейт (контракт
-состояния, алиас, запись в реестр issues). Гейт ловит механику; ревью ловит смысл.
+```bash
+gh pr checks <pr> --watch --interval 60   # ждёт до конца, печатает вердикт
+```
 
-## 🤖 Dogfooding: MCP Server
+Десять `sleep 30 && gh pr checks` — это десять раундов контекста впустую, и
+ровно то, что запрещает абзац про долгие запуски выше. `--watch` ждёт сам и
+отдаёт финальный вердикт одной строкой.
 
-Агенты подключаются к `:mcp-server` через stdio и правят задачи/проекты/заметки/теги/ADR.
-Запуск: `./gradlew :mcp-server:build && java -jar mcp-server/build/libs/mcp-server-jvm-*.jar --profile=ai-agent`.
-Полный список tools (22 write/read + 13 AI gen) — `docs/architecture/mcp-server.md`.
+## 🤖 Dogfooding, spec-kit, Run-loop
 
-MCP tools меняют state только через репозитории; `write_adr` пишет в `docs/decisions/`;
-timestamps — `kotlin.time.Instant`; business errors → `isError:true`, internal → `-32603`.
-Каждый AI-вызов пишет в `llm_usage` (tokens, `cost_usd_micros`, `duration_ms`, `profile_id`).
-Профили изолируют данные: `ai-agent` (🤖) для dogfooding, `personal` (🏠) для своих задач.
-
-## 🔄 spec-kit (Primary Workflow Automation)
-
-spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool install specify-cli`. Полный справочник (slash-команды `/speckit.specify|plan|tasks|implement|converge|checklist|analyze`, `specify workflow run ...`, hooks, constitution) — `docs/spec-kit-guide.md`.
-
-- **Behavior change** → workflow `openspec-change`; **ADR-only** (нет spec-level изменения) → `adr-create`; **не нужен:** bug fix, test-only, dep update, doc-only, rename без контрактного изменения
-- Hooks: после implement — `singularity-adr validate` (`.specify/extensions.yml`); после правок ADR — `./scripts/refresh-decisions-digest.sh`
-- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта).
-- Constitution: `.specify/constitutions/singularity-todo.md`
-
-## 🔧 Run-loop (UI-верификация)
-
-**Android:** `mcp__android_emulator__android_{preflight,build_and_run,ui_status,screenshot,ui_describe,
-ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после действия, `android_logs` для крашей.
-**Desktop:** `./gradlew :desktopApp:test` или `xvfb-run -a ./gradlew :desktopApp:run`.
-
-**Desktop-тесты — по скиллу `singularity-todo-desktop-compose-ui-tests`:** харнесс,
-ожидания, диагностический bundle и — отдельным разделом — компонентные тесты
-(экран в изоляции): размер окна, `ModalBottomSheet` в своём окне, long-press через
-`SemanticsActions.OnLongClick`. Читай его до написания теста: ответы на «как
-дождаться узла» и «почему long-press не срабатывает» лежат там, а не в коде.
-
-**Android CLI (agentic):** `android studio check` · `analyze-file` · `find-declaration` · `find-usages` ·
-`render-compose-preview` · `version-lookup` · `open-file`; **Journeys:** `android journey create|run <name>`.
-Подробности: `singularity-todo-android-cli` skill.
-
-**DB inspect:** `adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/` + `adb pull` → `sqlite3 /tmp/singularity.db ".schema"` (android); desktop — `sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"`.
-
-> **Эмулятор**: `ensure-emulator` — единственная точка входа за устройством; свой `adb devices | awk`
-> найдёт только уже поднятый девайс. Пин `SERIAL=…` recovery не выключает. Не подкручивайте `-gpu` —
-> дефолтный host GPU периодически падает в gfxstream.
->
-> **Читай скилл `singularity-todo-emulator-launch` целиком, а не по памяти.** Там рецепт запуска,
-> `settings put secure show_ime_with_hard_keyboard 0` после **каждого** перезапуска AVD и разбор
-> падений gfxstream по сигнатуре. Без этой строки клавиатура остаётся поднятой, и все замеры
-> флоу после рестарта неверны — так потеряно 6 замеров в одной сессии (2026-10-28).
+- **MCP-сервер** (задачи/проекты/заметки/теги/ADR из агента) — скилл
+  `singularity-todo-mcp-dogfooding`; полный список tools — `docs/architecture/mcp-server.md`.
+- **spec-kit / OpenSpec** (решение «change или ADR», артефакты, верификация) —
+  скилл `singularity-todo-openspec-workflow`; полный справочник — `docs/spec-kit-guide.md`.
+  Реестр ченджей — `.specify/issues/<slug>.yaml`, запись создаётся **сразу** после
+  создания ченджа.
+- **UI-верификация** — скиллы `singularity-todo-emulator-launch` (запуск и
+  восстановление AVD), `singularity-todo-desktop-compose-ui-tests` (харнесс и
+  компонентные тесты), `singularity-todo-android-cli` (CLI и разбор БД).
 
 ## 🤖 Coroutine test failures
 
@@ -362,7 +255,11 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 3. **MockK / Mockito** — fakes для state-тестов; MockK только для исходящих вызовов
 4. **Pass-through CRUD use cases** — VMs инжектят репозиторий напрямую (AI — допустимо);
    enforced by `PassThroughUseCase` detekt rule
-5. **`java.io.File` напрямую** — только через `FileSystem` порт
+5. **`java.io.File` в `commonMain`** — только через `FileSystem` порт (`core/files/`).
+   В `jvmMain`/`androidMain` это и есть реализация порта, там `java.io.File` — правильный
+   инструмент; то же в тестах, которые читают дерево исходников. Правило держит
+   feature-код, а не платформенный слой: в репозитории `java.io.File` встречается
+   в 110 файлах, и запрет без границы учит только игнорировать запрет.
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**; **грубые изменения Room
    schema** без `SCHEMA_VERSION` + `AutoMigration`
@@ -375,6 +272,22 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
    GitHub закрывает его, и пуш падает с 141, хотя хук только что напечатал
    `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive:
    `git config core.sshCommand "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"`.
+
+## 🗂 Коммиты
+
+Один коммит — одна мысль; в этом репозитории так принято, и diff на 100 файлов
+читается плохо. Когда работа распадается на части (фичи, пункты списка,
+«это и это вместе»), разложи её **до** коммита, а не после:
+
+1. `git add -p` по логическим кускам — или `git add <путь>` по файлам целиком,
+   если куски совпадают с файлами;
+2. один `git commit` на кусок, с сообщением в стиле репозитория:
+   `feat(area): что изменилось` + абзац «почему» + ссылки на ADR и OpenSpec;
+3. каждый коммит должен собираться и проходить гейты сам по себе — иначе
+   bisect указывает на место, которого не существует.
+
+Регенерируемые файлы (`scripts/ci/static-gates.sh`, `docs/scripts/gate-registry.md`,
+`docs/SKILLS-CATALOG.md`) в коммит попадают вместе с тем, что их породило.
 
 ## 🧠 Decision log
 

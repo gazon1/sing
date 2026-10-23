@@ -12,6 +12,14 @@ ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent.parent.paren
 assert (ROOT / ".git").exists(), f"Expected .git at {ROOT}"
 assert (ROOT / "scripts").is_dir(), f"Expected scripts/ at {ROOT}"
 
+# The importable package root — the directory that holds the `sgate` package.
+#
+# It is a constant rather than a string repeated in the callers because a path
+# written out twice is a path that drifts: the callers that need "this
+# checkout's code" all need *this* directory, and the check that they do is
+# the check that they point at the same place.
+SRC: pathlib.Path = ROOT / "scripts" / "src"
+
 # Gate registry
 STATIC_GATES_SH: pathlib.Path = ROOT / "scripts" / "ci" / "static-gates.sh"
 assert STATIC_GATES_SH.exists(), f"Expected static-gates.sh at {STATIC_GATES_SH}"
@@ -24,6 +32,7 @@ GATE_BENCHMARKS_JSON: pathlib.Path = ROOT / "config" / "docs" / "gate-benchmarks
 
 # The published cost of the verification loop
 GATE_COSTS_MD: pathlib.Path = ROOT / "docs" / "testing" / "gate-costs.md"
+COVERAGE_COST_PROPERTIES: pathlib.Path = ROOT / "config" / "docs" / "coverage-cost.properties"
 
 # The measurement of the cycle that just ran. Untracked: it is a reading of this
 # machine at this moment, and the committed baseline is what survives it.

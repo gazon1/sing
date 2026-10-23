@@ -5,6 +5,17 @@ description: Launch and recover the Android emulator on this dev host. Covers th
 
 # Emulator Launch and Recovery (this host)
 
+## The agent-facing tools
+
+The emulator is reachable from an agent through a small set of MCP tools:
+`mcp__android_emulator__android_preflight`, `android_build_and_run`,
+`android_ui_status`, `android_screenshot`, `android_ui_describe`,
+`android_ui_resolve`, `android_ui_tap`, `android_ui_type_text`, `android_logs`.
+
+Take a screenshot before and after an action, and read `android_logs` when
+the app crashes. The CLI alternative is the `android` command — see the
+skill `singularity-todo-android-cli`.
+
 ## Use the script, not this file, for anything scripted
 
 `ensure-emulator` prints a ready serial on stdout, or starts the AVD
@@ -15,6 +26,16 @@ recovery primitive for the whole repo:
 SERIAL=$(ensure-emulator)     # start if needed, wait for boot
 run-maestro                   # runs per-flow and relaunches on its own
 ```
+
+**Where it lives:** `scripts/src/emulator/` — the CLI is `_cli.py`, and
+`acquire_device` in `_startup.py` is the primitive every caller goes through
+(`ensure-emulator`, the Maestro CLI, the Maestro runner, the e2e script). The
+preparation it does — waking the device, unlocking it, and putting the soft
+keyboard away — is `prepare_device` in the same file. Change it there, not in
+a caller: it used to be written three times, and the copy that was missing was
+the one that mattered, because the AVD that had just been restarted came up
+with the keyboard on and every flow measured after that measured a
+half-covered screen.
 
 **Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
 is exactly the crash case recovery exists for, so `SERIAL=emulator-5554

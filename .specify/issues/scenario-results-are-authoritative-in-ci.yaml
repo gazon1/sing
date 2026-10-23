@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/scenario-results-are-authoritative-in-ci/proposal.md
-  design: openspec/changes/scenario-results-are-authoritative-in-ci/design.md
-  adr: openspec/changes/scenario-results-are-authoritative-in-ci/adr.md
   tasks: openspec/changes/scenario-results-are-authoritative-in-ci/tasks.md
 specs_dir: openspec/changes/scenario-results-are-authoritative-in-ci/specs
 is_stub: false

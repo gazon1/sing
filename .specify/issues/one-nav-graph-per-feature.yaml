@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/one-nav-graph-per-feature/proposal.md
-  design: openspec/changes/one-nav-graph-per-feature/design.md
-  adr: openspec/changes/one-nav-graph-per-feature/adr.md
   tasks: openspec/changes/one-nav-graph-per-feature/tasks.md
 specs_dir: openspec/changes/one-nav-graph-per-feature/specs
 is_stub: false

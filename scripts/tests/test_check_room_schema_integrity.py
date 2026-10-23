@@ -21,6 +21,7 @@ parser that breaks on the next edit.
 """
 
 import importlib.util
+import json
 import pathlib
 import sys
 import tempfile
@@ -217,6 +218,139 @@ class FloorConsistencyTest(unittest.TestCase):
         self.assertEqual(mod.check_floor_is_consistent(set(), 7), [])
 
 
+class ColumnsAgreeTest(unittest.TestCase):
+    """The export and the entities must describe the same tables.
+
+    Room writes the export at build time, so an entity that grew a column and
+    was never re-exported is invisible until a build runs and Room's own
+    validation says the schema does not match — on the second minute of CI, on
+    the branch that made the change. This rule answers the same question from
+    the sources.
+    """
+
+    def _tree(self, entity_source: str, fields: list[dict]) -> pathlib.Path:
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        schema_dir = root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase'
+        schema_dir.mkdir(parents=True)
+        (schema_dir / '6.json').write_text(json.dumps({
+            'database': {'version': 6, 'entities': [{'tableName': 'tasks', 'fields': fields}]}
+        }))
+        source_dir = root / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database'
+        source_dir.mkdir(parents=True)
+        (source_dir / 'TaskEntity.kt').write_text(entity_source)
+        return root
+
+    def test_a_matching_export_is_clean(self):
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([str(v) for v in found], [])
+
+    def test_a_column_the_export_does_not_have_is_found(self):
+        """The defect: the entity grew a column and nobody re-exported."""
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String, val title: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+        self.assertIn('title', str(found[0]))
+
+    def test_a_table_the_export_does_not_have_is_found(self):
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        other = root / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database/Ghost.kt'
+        other.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+        self.assertIn('ghosts', str(found[0]))
+
+    def test_a_column_the_entity_does_not_declare_is_found(self):
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}, {'columnName': 'ghost', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+        self.assertIn('ghost', str(found[0]))
+
+    def test_no_entities_at_all_is_a_finding_not_a_pass(self):
+        """A rule that compares nothing must say so."""
+        root = self._tree(
+            'class TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+
+
+class ScenarioTestCurrentTest(unittest.TestCase):
+    """The generated scenario test is what the scenario files say.
+
+    The scenarios are data and the test is generated from them, so the two can
+    disagree — and a test file that disagrees with the data is a test of
+    something else.
+    """
+
+    SCENARIO_YAML = (
+        "from: 31\n"
+        "to: 32\n"
+        "scenarios:\n"
+        "  - name: a claim\n"
+        "    seed: []\n"
+        "    expect:\n"
+        "      - sql: \"SELECT 1\"\n"
+        "        equals: 1\n"
+    )
+
+    def _tree(self, with_test: bool = True, generated: str = "") -> pathlib.Path:
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        scenario_dir = root / mod.SCENARIO_DIR_RELATIVE
+        scenario_dir.mkdir(parents=True)
+        (scenario_dir / '31-to-32.yaml').write_text(self.SCENARIO_YAML, encoding='utf-8')
+        if with_test:
+            path = root / mod.SCENARIO_TEST_RELATIVE
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(generated or mod.render_scenario_test(mod.load_scenarios(scenario_dir)),
+                            encoding='utf-8')
+        return root
+
+    def test_a_current_file_is_clean(self):
+        root = self._tree()
+        self.assertEqual(mod.check_scenarios_current(root), [])
+
+    def test_a_stale_file_is_found(self):
+        root = self._tree(generated='// stale\n')
+        found = mod.check_scenarios_current(root)
+        self.assertEqual([v.rule for v in found], ['migration-scenarios-current'])
+        self.assertIn('regenerate', str(found[0]))
+
+    def test_a_missing_file_is_found(self):
+        root = self._tree(with_test=False)
+        found = mod.check_scenarios_current(root)
+        self.assertEqual([v.rule for v in found], ['migration-scenarios-current'])
+        self.assertIn('missing', str(found[0]))
+
+    def test_a_tree_without_scenarios_is_not_a_finding(self):
+        """No scenario directory means no claim to check, not a broken claim."""
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.assertEqual(mod.check_scenarios_current(root), [])
+
+
 class RegistrySanityTest(unittest.TestCase):
     """The constants that encode the project's history must be self-consistent."""
 
@@ -230,6 +364,129 @@ class RegistrySanityTest(unittest.TestCase):
 
     def test_min_exports_allows_a_chain(self):
         self.assertGreaterEqual(mod.MIN_EXPORTS, 2)
+
+
+class RoundTripRenderingTest(unittest.TestCase):
+    """The generated round-trip test — the part of the chain no file can prove.
+
+    The gate cannot read whether a migration produces the schema its successor
+    claims; that is a property of running the chain. The test that runs it is
+    generated from the exported schemas, so the question becomes "is the
+    committed file what the generator produces" — which is answerable.
+    """
+
+    def test_a_step_becomes_a_case(self):
+        source = mod.render_roundtrip_test([(5, 6)])
+        self.assertIn('@ParameterizedTest', source)
+        self.assertIn('            5,\n', source)
+        self.assertIn('roundTripFrom(version)', source)
+        self.assertIn('class MigrationRoundTripTest', source)
+
+    def test_the_file_declares_one_function(self):
+        """Forty methods in one class is forty functions, and detekt's bar is sixteen.
+
+        The generated file is one parameterized case over the versions, so the
+        file holds one function and still reports one case per version.
+        """
+        source = mod.render_roundtrip_test([(v, v + 1) for v in range(5, 45)])
+        self.assertEqual(source.count("fun `"), 1, 'the generated file must hold one function')
+        self.assertIn('            5,\n', source)
+        self.assertIn('            44,\n', source)
+
+    def test_the_generated_code_follows_the_conventions_detekt_enforces(self):
+        """The generator's output is checked before it is written.
+
+        The generator wrote forty methods into one class, and detekt said
+        `TooManyFunctions`; then it wrote a `@ValueSource` on one line, and
+        ktlint said `MaximumLineLength`. Both were found by running Gradle
+        twice — eight minutes each, on a host busy with somebody else's build.
+        The rules are mechanical, so they are checked in milliseconds.
+        """
+        source = mod.render_roundtrip_test([(v, v + 1) for v in range(5, 45)])
+        self.assertEqual([], mod.kotlin_convention_findings(source))
+
+    def test_a_line_detekt_would_reject_is_found_without_gradle(self):
+        source = mod.render_roundtrip_test([(5, 6)]) + "// " + ("x" * mod.MAX_LINE_LENGTH) + "\n"
+        findings = mod.kotlin_convention_findings(source)
+        self.assertTrue(
+            any("characters long" in finding for finding in findings),
+            findings,
+        )
+
+    def test_too_many_functions_are_found_without_gradle(self):
+        source = "\n".join(f"    fun case{index}() {{}}" for index in range(mod.MAX_FUNCTIONS_PER_CLASS + 1))
+        findings = mod.kotlin_convention_findings(source)
+        self.assertTrue(
+            any("functions" in finding for finding in findings),
+            findings,
+        )
+
+    def test_the_rendering_is_a_pure_function_of_the_steps(self):
+        """The file the gate reads and the file it would write are one string.
+
+        A check that compares against something else reports a stale file as
+        current, and the file nobody looks at is the one that changed.
+        """
+        steps = [(5, 6), (6, 7)]
+        self.assertEqual(mod.render_roundtrip_test(steps), mod.render_roundtrip_test(steps))
+        self.assertNotEqual(mod.render_roundtrip_test(steps), mod.render_roundtrip_test([(5, 6)]))
+
+    def test_the_generated_file_says_it_is_generated(self):
+        source = mod.render_roundtrip_test([(5, 6)])
+        self.assertIn('GENERATED FILE', source)
+        self.assertIn('--write', source)
+
+    def test_the_steps_start_at_the_support_floor(self):
+        """Below the floor there is no migration to run, so there is no test."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            steps = mod.migration_steps(root)
+            self.assertEqual(steps, [(5, 6)], f'expected the chain from the floor, got {steps}')
+
+    def test_the_rule_is_silent_on_a_current_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            found = mod.check_roundtrip_test_current(root)
+            self.assertEqual([str(v) for v in found], [], f'unexpected findings: {found}')
+
+    def test_the_rule_fires_on_a_stale_file(self):
+        """The defect: the file is still there and no longer covers the newest step."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            path = root / mod.ROUND_TRIP_TEST_RELATIVE
+            path.write_text(path.read_text().replace('            5,\n', '            4,\n'))
+            found = mod.check_roundtrip_test_current(root)
+            self.assertTrue(
+                any(v.rule == 'roundtrip-test-current' for v in found),
+                f'expected the rule to fire, got {[str(v) for v in found] or "clean"}',
+            )
+
+    def test_the_rule_fires_when_the_helper_is_gone(self):
+        """The generated test calls a helper; a missing helper is a broken build."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            mod._make_compliant(root)
+            (root / mod.ROUND_TRIP_SUPPORT_RELATIVE).unlink()
+            found = mod.check_roundtrip_test_current(root)
+            self.assertTrue(
+                any(v.rule == 'roundtrip-test-current' for v in found),
+                f'expected the rule to fire, got {[str(v) for v in found] or "clean"}',
+            )
+
+    def test_the_repository_file_is_what_the_generator_produces(self):
+        path = mod.ROOT / mod.ROUND_TRIP_TEST_RELATIVE
+        self.assertTrue(path.is_file(), f'{mod.ROUND_TRIP_TEST_RELATIVE} is missing')
+        steps = mod.migration_steps(mod.ROOT)
+        self.assertGreater(len(steps), 0, 'the repository has no migration steps to cover')
+        self.assertEqual(
+            path.read_text(),
+            mod.render_roundtrip_test(steps),
+            'the committed round-trip test is stale — regenerate it with '
+            '`python3 scripts/check-room-schema-integrity.py --write`',
+        )
 
 
 class RealTreeTest(unittest.TestCase):

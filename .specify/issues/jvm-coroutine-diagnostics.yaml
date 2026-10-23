@@ -13,9 +13,7 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/jvm-coroutine-diagnostics/proposal.md
-  design: openspec/changes/jvm-coroutine-diagnostics/design.md
-  adr: openspec/changes/jvm-coroutine-diagnostics/adr.md
   tasks: openspec/changes/jvm-coroutine-diagnostics/tasks.md
-specs_dir: openspec/changes/jvm-coroutine-diagnostics/specs
+specs_dir: null
 is_stub: false
 openspec_path: openspec/changes/jvm-coroutine-diagnostics

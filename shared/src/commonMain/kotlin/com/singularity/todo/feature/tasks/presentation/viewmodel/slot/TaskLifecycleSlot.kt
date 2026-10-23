@@ -4,6 +4,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSchedulingDeps
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskLifecycleIntent
@@ -35,6 +36,7 @@ class TaskLifecycleSlot(
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
     private val onUndoDelete: (Task) -> Unit,
+    private val onUndoDeleteSeries: (List<TaskId>) -> Unit,
     private val onNavigateBack: () -> Unit,
     private val onSaved: (String) -> Unit,
 ) : FeatureSlot<TaskLifecycleState, TaskLifecycleIntent> {
@@ -48,6 +50,8 @@ class TaskLifecycleSlot(
             TaskDetailIntent.Domain.Archive -> archive()
             TaskDetailIntent.Domain.Restore -> restore()
             TaskDetailIntent.Domain.Unarchive -> unarchive()
+            TaskDetailIntent.Domain.DeleteSeries -> deleteSeries()
+            is TaskDetailIntent.Domain.RestoreSeries -> restoreSeries(intent.taskIds)
         }
     }
 
@@ -88,6 +92,50 @@ class TaskLifecycleSlot(
                 // server recovers.
                 onError("Restore failed")
             }
+    }
+
+    /**
+     * Archives every occurrence of the series, and offers to put them back.
+     *
+     * A series is several dates of one work, and the work is not something the
+     * user throws away by accident — so the undo is not a confirmation dialog
+     * with a list of dates to read: it is a way back, offered right after the
+     * deletion, with the number of dates the user is about to lose.
+     *
+     * The screen does not navigate away here: the toast that carries the offer
+     * lives in this screen, so leaving before the toast has been seen would
+     * take the way back with it. The screen leaves when the offer is declined —
+     * the screen decides that, because it is the one that knows how the toast is
+     * hosted.
+     */
+    private fun deleteSeries() = scope.launch {
+        val task = taskFlow.value ?: return@launch
+        val seriesId = task.seriesId ?: return@launch
+        core.updateSeries.archiveSeries(seriesId)
+            .onSuccess { ids ->
+                onUndoDeleteSeries(ids)
+            }
+            .onFailure { onError("Failed to delete the series") }
+    }
+
+    /**
+     * Puts back the occurrences of a series that was deleted.
+     *
+     * Every id is restored on its own: one that cannot be restored is reported
+     * and the others still come back, because a partly restored series is
+     * better than a series that stayed in the trash.
+     */
+    private fun restoreSeries(taskIds: List<TaskId>) = scope.launch {
+        if (taskIds.isEmpty()) return@launch
+        var restored = 0
+        var failed = false
+        taskIds.forEach { id ->
+            core.taskRepo.restore(id)
+                .onSuccess { restored++ }
+                .onFailure { failed = true }
+        }
+        if (restored > 0) onSaved("Series restored")
+        if (failed) onError("Restore failed")
     }
 
     /**

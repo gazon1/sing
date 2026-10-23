@@ -44,6 +44,7 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.rememberAppFilePicker
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
+import com.singularity.todo.core.ui.components.formatDateCount
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.rememberDialogState
@@ -127,6 +128,22 @@ fun TaskDetailContent(
                         title = "Task deleted",
                         actionLabel = "Undo",
                         onAction = { coordinator.onIntent(TaskDetailIntent.Domain.Restore) },
+                    ),
+                )
+
+                is TaskDetailUiEvent.UndoDeleteSeries -> notifications.send(
+                    Notification.Undo(
+                        title = "Серия удалена · ${formatDateCount(event.dates)}",
+                        actionLabel = "Вернуть",
+                        onAction = {
+                            coordinator.onIntent(TaskDetailIntent.Domain.RestoreSeries(event.taskIds))
+                        },
+                        // The screen leaves when the offer is declined — not before it
+                        // is made. The toast lives in this screen's composition, so a
+                        // navigation that came first would destroy the very offer it
+                        // was supposed to accompany: the user would see the series
+                        // archived and no way back.
+                        onDeclined = { navigator.back() },
                     ),
                 )
 
@@ -383,6 +400,9 @@ fun TaskDetailContent(
                                             coordinator.onIntent(
                                                 TaskDetailIntent.Domain.ApplyToAllOccurrences,
                                             )
+                                        },
+                                        onDetach = {
+                                            coordinator.onIntent(TaskDetailIntent.Domain.DetachFromSeries)
                                         },
                                         onDeleteSeries = {
                                             coordinator.onIntent(TaskDetailIntent.Domain.DeleteSeries)

@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/2026-10-22-the-write-path-asks-first/proposal.md
   design: openspec/changes/2026-10-22-the-write-path-asks-first/design.md
-  adr: openspec/changes/2026-10-22-the-write-path-asks-first/adr.md
   tasks: openspec/changes/2026-10-22-the-write-path-asks-first/tasks.md
 specs_dir: openspec/changes/2026-10-22-the-write-path-asks-first/specs
 is_stub: false

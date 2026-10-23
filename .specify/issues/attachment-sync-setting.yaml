@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/attachment-sync-setting/proposal.md
-  design: openspec/changes/attachment-sync-setting/design.md
-  adr: openspec/changes/attachment-sync-setting/adr.md
   tasks: openspec/changes/attachment-sync-setting/tasks.md
 specs_dir: openspec/changes/attachment-sync-setting/specs
 is_stub: false

@@ -310,3 +310,34 @@ class PublishedPageTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheHostLoad(unittest.TestCase):
+    """A duration is a property of the gate and the host together."""
+
+    def test_the_load_is_recorded(self):
+        load = costs.host_load()
+        if not load:
+            self.skipTest("this platform does not report a load average")
+        self.assertIn("load1m", load)
+        self.assertIn("cpus", load)
+
+    def test_the_load_is_not_part_of_the_environment(self):
+        """The environment says whether two measurements are comparable at all.
+
+        The load changes every minute; a comparison that included it would
+        never hold, and every measurement would read as a different machine.
+        """
+        self.assertNotIn("load", costs.environment())
+
+    def test_the_load_is_described_in_a_sentence(self):
+        described = costs._describe_load({"load1m": 42.7, "cpus": 16})
+        self.assertIn("42.7", described)
+        self.assertIn("16 CPUs", described)
+
+    def test_a_missing_load_is_described_as_nothing(self):
+        self.assertEqual(costs._describe_load({}), "")
+
+    def test_the_measurement_carries_the_host(self):
+        measurement = costs.read_measurement()
+        self.assertIn("host", measurement)

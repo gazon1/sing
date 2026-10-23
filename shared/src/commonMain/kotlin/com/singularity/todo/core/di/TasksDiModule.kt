@@ -42,6 +42,8 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseC
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.nav.TaskDeepLink
@@ -105,6 +107,8 @@ fun tasksModule(): org.koin.core.module.Module = module {
     factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
     factory { UpdateTaskSeriesUseCase(get()) }
+    factory { DetachTaskFromSeriesUseCase(get()) }
+    factory { MergeTaskSeriesUseCase(get()) }
     factory { CompleteRecurringTaskUseCase(get(), get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
@@ -153,6 +157,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                     completeRecurring = get(),
                     completion = get(),
                     updateSeries = get(),
+                    detachFromSeries = get(),
                 ),
                 children = TaskChildrenDeps(
                     checklistRepository = get(),

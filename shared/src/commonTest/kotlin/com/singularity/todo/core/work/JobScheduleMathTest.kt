@@ -25,7 +25,8 @@ import kotlinx.datetime.plus
  * database, no spawned executor. The rule is "slow means it leaves the JVM's arithmetic",
  * not "slow means it takes a while".
  *
- * The tag must be here rather than assumed. CI runs `-Ptest.tags=fast,slow`, so an untagged
+ * The tag must be here rather than assumed. CI selects its population explicitly —
+ * `fast` on a pull request, `fast,slow` on the nightly — so an untagged
  * class is silently excluded — the failure mode TestTagCoverageTest exists to prevent, and
  * this class shipped untagged once.
  */

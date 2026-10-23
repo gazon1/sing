@@ -1,0 +1,28 @@
+# spec-kit issue record — hand-written.
+#
+# Not imported from an OpenSpec change: the importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand.
+---
+version: '1.0'
+type: openspec-change
+slug: task-series-presentation
+date: '2026-10-22'
+title: 'A series shows itself where it appears, and the statistics count works'
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- 2026-10-22-a-series-shows-itself-where-it-appears
+tags:
+- tasks
+- series
+- statistics
+- ui
+documents:
+  proposal: openspec/changes/task-series-presentation/proposal.md
+  design: openspec/changes/task-series-presentation/design.md
+  tasks: openspec/changes/task-series-presentation/tasks.md
+specs_dir: openspec/changes/task-series-presentation/specs
+is_stub: false
+openspec_path: openspec/changes/task-series-presentation

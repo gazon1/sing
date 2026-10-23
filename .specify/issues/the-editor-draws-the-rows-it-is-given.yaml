@@ -19,8 +19,6 @@ tags:
 - compose
 documents:
   proposal: openspec/changes/the-editor-draws-the-rows-it-is-given/proposal.md
-  design: openspec/changes/the-editor-draws-the-rows-it-is-given/design.md
-  adr: openspec/changes/the-editor-draws-the-rows-it-is-given/adr.md
   tasks: openspec/changes/the-editor-draws-the-rows-it-is-given/tasks.md
 specs_dir: openspec/changes/the-editor-draws-the-rows-it-is-given/specs
 is_stub: false

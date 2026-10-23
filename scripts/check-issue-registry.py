@@ -59,15 +59,24 @@ baseline, not a rule. What is checked is the direction that can still go wrong
 for work that is happening now: a change with no record, a record that names
 a different change, and two changes claiming one slug.
 
+The record's own links
+----------------------
+A record is a link to the change, not a claim about it, so the documents it
+names have to be there. The importer used to write all four names — proposal,
+design, adr, tasks — whether the change had them or not, so a record pointed
+at a `design.md` that was never written. The importer now writes only the
+documents that exist, and this gate holds it to that: a record naming a
+document that is not there is a link to nothing.
+
 The fix
 -------
 A missing record is created by:
 
     python3 scripts/openspec-import-all.py
 
-A record that names another change is rewritten by the same script with
-`--replace` — without it the importer skips a record that already exists,
-which is exactly the case that needs rewriting.
+A record that names another change, or a document that is not there, is
+rewritten by the same script with `--replace` — without it the importer skips
+a record that already exists, which is exactly the case that needs rewriting.
 
 Usage:
     python3 scripts/check-issue-registry.py            # report
@@ -117,6 +126,24 @@ def change_directories(changes_dir: pathlib.Path) -> list[pathlib.Path]:
     return found
 
 
+def archived_by_slug(changes_dir: pathlib.Path) -> dict[str, list[pathlib.Path]]:
+    """The archived change directories, keyed by the slug they carry.
+
+    Archiving moves a change and renames it: `openspec/changes/<slug>`
+    becomes `openspec/changes/archive/<date>-<slug>`. A record keeps the path
+    the change had before the move, so the record's documents are looked up
+    here by slug — the same way the record itself is matched to the change.
+    """
+    archive = changes_dir / ARCHIVE_DIR
+    if not archive.is_dir():
+        return {}
+    archived: dict[str, list[pathlib.Path]] = {}
+    for entry in sorted(archive.iterdir()):
+        if entry.is_dir():
+            archived.setdefault(slug_for(entry.name), []).append(entry)
+    return archived
+
+
 def recorded_path(entry: pathlib.Path) -> str | None:
     """The `openspec_path` a registry entry records, if it has one."""
     try:
@@ -125,6 +152,40 @@ def recorded_path(entry: pathlib.Path) -> str | None:
         return None
     match = re.search(r'^openspec_path:\s*(\S+)', text, re.M)
     return match.group(1) if match else None
+
+
+def recorded_documents(entry: pathlib.Path) -> dict[str, str]:
+    """The documents a registry entry names, as written in its `documents:` block.
+
+    The block is read with a pattern rather than a YAML parser on purpose: the
+    gate has to keep working on a tree where the parser is not installed, and
+    the block is a flat mapping of names to paths.
+    """
+    try:
+        text = entry.read_text(encoding='utf-8')
+    except OSError:
+        return {}
+    block = re.search(r'^documents:\s*$\n((?:[ \t]+.*\n?)*)', text, re.M)
+    if not block:
+        return {}
+    documents: dict[str, str] = {}
+    for line in block.group(1).splitlines():
+        pair = re.match(r'\s+([A-Za-z_][\w-]*):\s*(\S+)', line)
+        if pair:
+            documents[pair.group(1)] = pair.group(2)
+    return documents
+
+
+def recorded_specs_dir(entry: pathlib.Path) -> str | None:
+    """The `specs_dir` a registry entry records, if it records one that is set."""
+    try:
+        text = entry.read_text(encoding='utf-8')
+    except OSError:
+        return None
+    match = re.search(r'^specs_dir:\s*(\S+)', text, re.M)
+    if not match or match.group(1) in ('null', '~', "''", '""'):
+        return None
+    return match.group(1)
 
 
 def slug_of_recorded_path(recorded: str) -> str | None:
@@ -145,19 +206,38 @@ def slug_of_recorded_path(recorded: str) -> str | None:
     return None
 
 
+def _document_survived_in_archive(archived: list[pathlib.Path], path: str) -> bool:
+    """Whether a recorded path names a document the archived change still has.
+
+    The record keeps the path the change had before the move, so the file it
+    names is looked up by its name inside the archived directory.
+    """
+    name = pathlib.PurePosixPath(path).name
+    return any((directory / name).exists() for directory in archived)
+
+
 def find_problems(
     changes_dir: pathlib.Path,
     issues_dir: pathlib.Path,
-) -> tuple[list[str], list[str]]:
-    """The changes without a registry entry, and the entries pointing elsewhere.
+) -> tuple[list[str], list[str], list[str]]:
+    """The changes without a registry entry, the entries pointing elsewhere,
+    and the entries naming a document that is not there.
 
-    The two lists are separate because they are different failures with
-    different fixes: a missing entry is created by the import script, and a
-    mispointed one is rewritten by it with `--replace`.
+    The three lists are separate because they are different failures with
+    different fixes: a missing entry is created by the import script, a
+    mispointed one is rewritten by it with `--replace`, and an entry that
+    names a document the change never had is rewritten by the same command —
+    the importer writes only the documents that exist.
     """
     missing: list[str] = []
     mispointed: list[str] = []
+    dangling: list[str] = []
     seen_slugs: dict[str, list[str]] = {}
+    root = changes_dir.parent.parent
+    # One scan of the archive, not one per change: the archive holds every
+    # change that was ever filed away, and rescanning it for each of the
+    # open ones is the kind of cost that hides inside a gate nobody times.
+    archived = archived_by_slug(changes_dir)
 
     for change in change_directories(changes_dir):
         slug = slug_for(change.name)
@@ -184,6 +264,32 @@ def find_problems(
                 f'{recorded_slug!r} instead'
             )
 
+        # A record is a link to the change, not a claim about it. Every
+        # document it names has to be there: a record that points at a
+        # design.md the change never had sends the next session to a file
+        # that was never written.
+        #
+        # A document that is not where the record says is not always a lie:
+        # archiving moves the change and renames it, and the record keeps the
+        # path the change had before the move. That is resolved by slug, the
+        # same way the record itself is matched to its change.
+        archived_directories = archived.get(slug, [])
+        for name, path in sorted(recorded_documents(entry).items()):
+            if (root / path).exists():
+                continue
+            if _document_survived_in_archive(archived_directories, path):
+                continue
+            dangling.append(
+                f'{issues_dir.name}/{slug}.yaml names the {name} {path!r}, which does not exist'
+            )
+        specs_dir = recorded_specs_dir(entry)
+        if specs_dir and not (root / specs_dir).exists():
+            if not _document_survived_in_archive(archived_directories, specs_dir):
+                dangling.append(
+                    f'{issues_dir.name}/{slug}.yaml names the specs directory {specs_dir!r}, '
+                    f'which does not exist'
+                )
+
     # Two directories claiming one slug are two changes wearing one record's
     # name: the second one would pass this gate on the first one's record.
     for slug, names in sorted(seen_slugs.items()):
@@ -193,37 +299,47 @@ def find_problems(
                 f'one record cannot be the record of both'
             )
 
-    return missing, mispointed
+    return missing, mispointed, dangling
 
 
 @click.command()
 @click.option('--quiet', is_flag=True)
+@click.option(
+    '--root',
+    default=None,
+    help='the tree to check (default: the repository this script lives in)',
+)
 @click.pass_context
-def cli(ctx: click.Context, quiet: bool) -> None:
-    changes = change_directories(CHANGES_DIR)
+def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
+    tree = pathlib.Path(root).resolve() if root else ROOT
+    changes_dir = tree / 'openspec' / 'changes'
+    issues_dir = tree / '.specify' / 'issues'
+    changes = change_directories(changes_dir)
     if not changes:
         if not quiet:
-            click.echo(f'check-issue-registry: no changes under {CHANGES_DIR.relative_to(ROOT)} — nothing to record')
+            click.echo(f'check-issue-registry: no changes under {changes_dir} — nothing to record')
         raise ctx.exit(CLEAN)
 
-    missing, mispointed = find_problems(CHANGES_DIR, ISSUES_DIR)
+    missing, mispointed, dangling = find_problems(changes_dir, issues_dir)
 
     for problem in missing:
         click.echo(f'ERROR: no registry entry: {problem}')
     for problem in mispointed:
         click.echo(f'ERROR: registry entry points elsewhere: {problem}')
+    for problem in dangling:
+        click.echo(f'ERROR: registry entry names a document that is not there: {problem}')
 
-    if missing or mispointed:
+    if missing or mispointed or dangling:
         click.echo('')
         click.echo(
             'check-issue-registry: the registry is the source of truth for a change, and a '
             'change without an entry is a change the next session cannot find.'
         )
         click.echo('  fix with — python3 scripts/openspec-import-all.py')
-        if mispointed:
+        if mispointed or dangling:
             click.echo(
-                '  a record that names another change is rewritten by — '
-                'python3 scripts/openspec-import-all.py --replace'
+                '  an entry that names another change, or a document that is not there, is '
+                'rewritten by — python3 scripts/openspec-import-all.py --replace'
             )
         raise ctx.exit(VALIDATION_FAILURE)
 

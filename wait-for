@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+#
+# ./wait-for — wait for a pattern in a log, then print the tail once.
+#
+#   ./wait-for /tmp/build.log "BUILD SUCCESSFUL"
+#   ./wait-for /tmp/ci.log "##\[error\]" --timeout 3600 --lines 60
+#
+# WHY
+#
+# A long run is one background task, not a loop of "sleep 30 && tail". The loop
+# costs a round of context per poll, and it costs the same whether the run has
+# thirty seconds left or thirty minutes: the reader cannot tell the difference
+# between "nothing has happened yet" and "the run is stuck".
+#
+# This tool is the loop, in one place: it waits for the line that means the run
+# is over, and prints the tail exactly once — the tail, the matching lines, and
+# the verdict. The reader gets one output, at the moment the answer exists.
+#
+# EXIT CODES
+#
+#   0  the pattern appeared
+#   1  the timeout expired without it (the tail is printed anyway)
+#   2  the arguments do not make sense
+set -uo pipefail
+
+usage() {
+    cat <<'USAGE'
+usage: ./wait-for <log> <pattern> [--timeout SECONDS] [--interval SECONDS] [--lines N]
+
+  <log>       the file to watch; it may not exist yet
+  <pattern>   an extended regular expression to wait for
+  --timeout   how long to wait, in seconds (default 1800)
+  --interval  how often to look, in seconds (default 5)
+  --lines     how many lines of the tail to print (default 40)
+USAGE
+}
+
+log=""
+pattern=""
+timeout=1800
+interval=5
+lines=40
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --timeout)
+            timeout="${2:-}"
+            shift 2
+            ;;
+        --interval)
+            interval="${2:-}"
+            shift 2
+            ;;
+        --lines)
+            lines="${2:-}"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "wait-for: unknown option '$1'" >&2
+            usage >&2
+            exit 2
+            ;;
+        *)
+            if [[ -z "$log" ]]; then
+                log="$1"
+            elif [[ -z "$pattern" ]]; then
+                pattern="$1"
+            else
+                echo "wait-for: too many arguments" >&2
+                usage >&2
+                exit 2
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$log" || -z "$pattern" ]]; then
+    echo "wait-for: a log and a pattern are required" >&2
+    usage >&2
+    exit 2
+fi
+
+for value in "$timeout" "$interval" "$lines"; do
+    if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo "wait-for: the numbers must be whole numbers, got '$value'" >&2
+        exit 2
+    fi
+done
+
+if [[ "$interval" -lt 1 ]]; then
+    echo "wait-for: the interval must be at least a second" >&2
+    exit 2
+fi
+
+waited=0
+found=0
+
+while true; do
+    if [[ -f "$log" ]]; then
+        if grep -Eq -- "$pattern" "$log"; then
+            found=1
+            break
+        fi
+    fi
+
+    if [[ "$waited" -ge "$timeout" ]]; then
+        break
+    fi
+
+    sleep "$interval"
+    waited=$((waited + interval))
+done
+
+echo "=== $(basename "$log") — waited ${waited}s, pattern: ${pattern} ==="
+if [[ "$found" -eq 1 ]]; then
+    echo "--- matching lines ---"
+    grep -En -- "$pattern" "$log" | tail -20
+else
+    echo "--- the pattern never appeared ---"
+fi
+
+echo "--- last $lines lines ---"
+if [[ -f "$log" ]]; then
+    tail -n "$lines" "$log"
+else
+    echo "(the log '$log' does not exist)"
+fi
+
+if [[ "$found" -eq 1 ]]; then
+    exit 0
+fi
+exit 1

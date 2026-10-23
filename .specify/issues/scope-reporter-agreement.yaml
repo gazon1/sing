@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/scope-reporter-agreement/proposal.md
-  design: openspec/changes/scope-reporter-agreement/design.md
-  adr: openspec/changes/scope-reporter-agreement/adr.md
   tasks: openspec/changes/scope-reporter-agreement/tasks.md
 specs_dir: openspec/changes/scope-reporter-agreement/specs
 is_stub: false

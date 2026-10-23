@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/failure-visibility/proposal.md
-  design: openspec/changes/failure-visibility/design.md
-  adr: openspec/changes/failure-visibility/adr.md
   tasks: openspec/changes/failure-visibility/tasks.md
 specs_dir: openspec/changes/failure-visibility/specs
 is_stub: false

@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-20-working-days-are-a-set/proposal.md
-  design: openspec/changes/archive/2026-10-20-working-days-are-a-set/design.md
-  adr: openspec/changes/archive/2026-10-20-working-days-are-a-set/adr.md
   tasks: openspec/changes/archive/2026-10-20-working-days-are-a-set/tasks.md
 specs_dir: openspec/changes/archive/2026-10-20-working-days-are-a-set/specs
 is_stub: false

@@ -312,8 +312,30 @@ def _load_sync():
     return scanning
 
 
-def expected_fast_classes(label: str):
-    """Class names the source declares that are `@Tag("fast")`, or None if out of scope.
+def population_tags(population: str) -> tuple[str, ...]:
+    """The tags the named population selects.
+
+    Read from `config/test-populations.properties` through the one reader that
+    already exists — `workflow_gradle` — so this gate, the build and the
+    workflow all resolve a population name the same way. A second reader of
+    the same file is a second answer waiting to drift.
+    """
+    scripts_dir = str(pathlib.Path(__file__).resolve().parent / "src")
+    added = scripts_dir not in sys.path
+    if added:
+        sys.path.insert(0, scripts_dir)
+    try:
+        import workflow_gradle
+    except ImportError as exc:  # pragma: no cover — the package is in the repo
+        raise RuntimeError(f"workflow_gradle could not be imported: {exc!r}") from exc
+    finally:
+        if added:
+            sys.path.remove(scripts_dir)
+    return workflow_gradle.population_tags(population)
+
+
+def expected_classes_with_tag(label: str, tag: str):
+    """Class names the source declares that carry `@Tag(tag)`, or None if out of scope.
 
     None means *this gate has no opinion about that source set* — there are no
     roots configured for it. It never means "could not check": an unavailable
@@ -332,9 +354,62 @@ def expected_fast_classes(label: str):
         for kt in root.rglob("*Test.kt"):
             source = kt.read_text(encoding="utf-8", errors="replace")
             for name in sync.test_classes_in(source):
-                if sync.read_tag(source, name) == "fast":
+                if sync.read_tag(source, name) == tag:
                     names.add(name)
     return names
+
+
+def expected_fast_classes(label: str):
+    """Class names the source declares that are `@Tag("fast")`, or None if out of scope.
+
+    None means *this gate has no opinion about that source set* — there are no
+    roots configured for it. It never means "could not check": an unavailable
+    scanner raises [ScannerUnavailable] instead, because a check that quietly
+    does not run is indistinguishable from a check that passed.
+    """
+    return expected_classes_with_tag(label, "fast")
+
+
+def expected_slow_classes(label: str):
+    """Class names the source declares that are `@Tag("slow")`, or None if out of scope.
+
+    The mirror of [expected_fast_classes], and the other half of the same
+    guarantee: a run that measured the slow population must have executed
+    every declared slow class. The count floor cannot say that — it is
+    one-sided, so a run that executed fewer slow classes than the last one is
+    still "above the floor" (REQ-19).
+    """
+    return expected_classes_with_tag(label, "slow")
+
+
+def population_includes_slow(label: str, executed: set[str], slow_expected: set[str]) -> bool:
+    """Did this run measure a population that includes `@Tag("slow")` classes?
+
+    Two signals, in order of authority:
+
+    1. The run manifest's `population=` — the build wrote down which named
+       population it selected, so this is a fact rather than an inference. The
+       name is resolved through `config/test-populations.properties`, the same
+       file the build reads, so the gate and the build cannot disagree about
+       what "full" selects. A manifest written before the population existed
+       carries `tags=` instead, and that is the second spelling of the same
+       signal.
+    2. The executed set itself — a declared slow class that produced a report
+       can only have run if the population included slow.
+
+    Signal 2 alone cannot catch the worst case: a filter that selects NO slow
+    class at all is indistinguishable from a deliberate fast-only run. That is
+    why signal 1 exists, and why the manifest writes the selector down.
+    """
+    manifest = read_run_manifest(ROOT / SOURCE_SETS[label])
+    if manifest:
+        population = manifest.get("population", "")
+        if population:
+            return "slow" in population_tags(population)
+        tags = manifest.get("tags", "")
+        if tags:
+            return "slow" in {part.strip() for part in tags.split(",")}
+    return bool(executed & slow_expected)
 
 
 def executed_classes(detail_dir: pathlib.Path) -> set[str]:
@@ -366,7 +441,7 @@ def missing_classes(expected: set[str], executed: set[str]) -> list[str]:
 
 
 def read_run_manifest(detail_dir: pathlib.Path):
-    """The manifest `shared/build.gradle.kts` writes beside the XML, or None.
+    """The manifest the root build script writes beside the XML, or None.
 
     Absent is normal and means "before this existed", not "filtered": a tree whose test
     task predates the manifest must not be reported as a filtered run. So this returns None
@@ -590,19 +665,20 @@ def cli(
             "#",
             "# Record the SMALLEST count any legitimate run produces. The default local",
             "# run (no -Ptest.tags) excludes @Tag(\"slow\") and therefore runs every",
-            "# @Tag(\"fast\") class PLUS any untagged one — which is why it, and not CI,",
-            "# is the run to record. CI's `-Ptest.tags=fast,slow` selects tagged classes",
-            "# only, so it is *not* a superset of the local run: it is a different",
-            "# selection, narrower whenever a class is untagged. TestTagCoverageTest",
-            "# is what keeps that population at zero.",
-            "# Recording the CI numbers here instead would make every plain local run",
-            "# look like a regression.",
+            "# @Tag(\"fast\") class PLUS any untagged one — which is why it, and not the",
+            "# nightly, is the run to record. CI names a population rather than a tag",
+            "# list: `fast` on a pull request, which selects tagged classes only, and",
+            "# `full` on the nightly, which selects the slow ones too.",
+            "# Neither is a superset of the local run: both are a different selection,",
+            "# narrower whenever a class is untagged. TestTagCoverageTest is what keeps",
+            "# that population at zero. Recording the nightly numbers here instead",
+            "# would make every plain local run look like a regression.",
             "#",
             "# A DROP means a test class stopped being selected — an untagged class, a",
             "# JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do",
             "# not regenerate. A RISE just means tests were added — but see the warning",
-            "# --update-baseline prints on a rise, because a rise measured with",
-            "# `-Ptest.tags=fast,slow` is not a floor at all.",
+            "# --update-baseline prints on a rise, because a rise measured with a wider",
+            "# selection (`-Ptest.tags=fast,slow`) is not a floor at all.",
             "#",
             "# max-skipped is a CEILING, not a floor, and it is 0. A skipped test is a",
             "# silent green: JUnit counts it in tests= exactly like a passing one, so a",
@@ -706,8 +782,8 @@ def cli(
             print(
                 "\nWARNING: these counts ROSE. Confirm the run that produced them was the\n"
                 "floor-producing one (no -Ptest.tags, which excludes @Tag(\"slow\")),\n"
-                "not `-Ptest.tags=fast,slow`. A floor recorded from a wider run makes\n"
-                "every plain local run look like a regression:",
+                "not a wider selection such as `-Ptest.tags=fast,slow`. A floor recorded\n"
+                "from a wider run makes every plain local run look like a regression:",
                 file=sys.stderr,
             )
             for label, before, after in rises:
@@ -829,6 +905,33 @@ def cli(
             regressions.append(
                 f"{label}: {len(missing)} @Tag(\"fast\") class(es) declared in the "
                 f"sources produced no JUnit report: {', '.join(missing)}"
+            )
+
+        # The slow half. A run that measured the slow population must have
+        # executed every declared slow class — and the count floor cannot say
+        # so, because the floor is one-sided: a run that executed fewer slow
+        # classes than the previous one is still above it (REQ-19). Without
+        # this, a nightly that stopped selecting slow classes would report
+        # green and the loss would only surface as "the suite got faster".
+        try:
+            slow_expected = expected_slow_classes(label)
+        except ScannerUnavailable as exc:
+            regressions.append(
+                f"{label}: the slow-class check could not run — {exc}. A check that "
+                f"does not execute is not a passing check."
+            )
+            continue
+        if not slow_expected:
+            continue
+        if not population_includes_slow(label, executed, slow_expected):
+            # A fast-only population: slow classes were not supposed to run.
+            continue
+        missing_slow = missing_classes(slow_expected, executed)
+        if missing_slow:
+            regressions.append(
+                f"{label}: {len(missing_slow)} @Tag(\"slow\") class(es) declared in the "
+                f"sources produced no JUnit report, although this run selected the "
+                f"slow population: {', '.join(missing_slow)}"
             )
 
     if nothing_ran:

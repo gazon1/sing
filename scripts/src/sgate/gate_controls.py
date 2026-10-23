@@ -18,12 +18,19 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+
+#: The repository root, derived from this file's own location. This module
+#: imports nothing from the project on purpose — it is loaded by
+#: `check-gate-wiring.py`, which owns the path discipline that decides which
+#: checkout's registry is read — so the root has to come from here.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 #: A sabotage: a callable that changes the tree so a gate must fail.
 Control = Callable[[Path], None]
@@ -216,6 +223,67 @@ SCRIPT_GATES = [
         cmd=[sys.executable, "scripts/check-baseline-ratchet.py"],
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
+    # The app coverage floor, declared where Kover reads it.
+    #
+    # The floors were declared in the root build script for months, in a
+    # `plugins.withId("org.jetbrains.kotlinx.kover")` block that never executed
+    # — probed with a `println`, the line never appeared. The root project has
+    # no Kover extension of its own to configure, so the floors it declared
+    # were evaluated by no task. The CI step that reads them was green no
+    # matter what the coverage was.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    # The coverage report measures every module that is in it.
+    #
+    # The list of test tasks that feed the aggregated report is written by
+    # hand, in the root build script. A module added to the build is not added
+    # to that list, so its tests never run in the coverage job.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="coverage-task-list",
+        cmd=[sys.executable, "scripts/check-coverage-task-list.py", "--quiet"],
+        sabotage_path="build.gradle.kts",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a module whose classes are in the coverage denominator but whose "
+            "tests never run is scored as 0% covered, and the number reads "
+            "like a coverage problem rather than a measurement one"
+        ),
+    ),
+    ScriptGate(
+        name="coverage-floor-declaration",
+        cmd=[sys.executable, "scripts/check-coverage-floor-declaration.py", "--quiet"],
+        sabotage_path="build.gradle.kts",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a floor that is declared where nothing reads it is a floor nobody "
+            "enforces, and the step that reports it stays green"
+        ),
+    ),
+    # The CI timeout covers the instrumented run.
+    #
+    # The cost of the instrumented run is measured, and the timeout that has to
+    # cover it was a literal. The two are compared here, so that a timeout too
+    # small for the measurement is a finding rather than a killed job.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="coverage-timeout",
+        cmd=[sys.executable, "scripts/check-coverage-timeout.py", "--quiet"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a timeout that fires on a healthy instrumented run reports a failure "
+            "that says nothing about the code"
+        ),
+    ),
     ScriptGate(
         name="issue-registry",
         cmd=[sys.executable, "scripts/check-issue-registry.py", "--quiet"],
@@ -225,6 +293,26 @@ SCRIPT_GATES = [
             "is known, and never learns what the change actually was. Four changes reached "
             "main with no entry at all, which is the same defect one step further from the "
             "surface"
+        ),
+    ),
+    ScriptGate(
+        name="agents-pointers",
+        cmd=[sys.executable, "scripts/check-agents-pointers.py", "--quiet"],
+        why=(
+            "a pointer that does not resolve sends the next session looking for a file that "
+            "is not there: the note that was written to remove the stop becomes the stop. "
+            "The pointer that started it named the harness file for exemptions that live "
+            "in the conventions test"
+        ),
+    ),
+    ScriptGate(
+        name="review-verdicts",
+        cmd=[sys.executable, "scripts/check-review-verdicts.py", "--quiet"],
+        why=(
+            "a review that leaves no trace is a promise with nothing behind it: the next "
+            "session cannot tell whether the change was reviewed, what was found, or "
+            "whether the findings were fixed. The review of the issue-registry gate found "
+            "four real defects, and the tree said nothing about it"
         ),
     ),
     ScriptGate(
@@ -265,6 +353,20 @@ SCRIPT_GATES = [
             "hooks travel with the repository; local git config does not. A configured "
             "hooks path with nothing tracked under it is a gate that reports success "
             "because nothing ever asked it a question"
+        ),
+    ),
+    ScriptGate(
+        name="hook-gates",
+        cmd=[sys.executable, "scripts/check-hook-gates.py"],
+        # The sabotage is declared in the registry (config/hooks/pre-push.json
+        # loses one detekt module) and filled in from there: the file the
+        # control changes and the command it runs are the registry's, so the
+        # two copies cannot drift apart.
+        why=(
+            "the hook judges three gates of forty-one and the modules a change reaches; the CI "
+            "judges every module. That difference is written down in config/hooks/pre-push.json, "
+            "and the record is the only place it can be read. A module the CI judges and the "
+            "record does not mention is a difference nobody can see"
         ),
     ),
     ScriptGate(
@@ -553,11 +655,60 @@ SCRIPT_GATES = [
         cmd=["./scripts/check-doc-links.sh"],
         why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
     ),
+    # ai-write-tools: the registry declared this control on 2026-10-22, and the
+    # twin that runs it was never written — so the gate was registered, the
+    # control was declared, and nothing ever broke the file the gate reads.
+    # The registry holds the edit (it removes the one entry from
+    # `config/docs/ai-direct-writes.txt`), so the twin is the name and the
+    # command, and the harness fills in the rest.
+    ScriptGate(
+        name="ai-write-tools",
+        cmd=[sys.executable, "scripts/check-ai-write-tools.py"],
+        why="a tool that writes a user's data without saying so is a change the user never saw",
+    ),
     # backlog-issue-refs: removed — the gate and its script are gone, and the
     # snapshot it policed (94 OPEN issues, none with a Backlog field) was the
     # failure state it detected, so no control could tell "clean run" from
     # "sabotaged run": both exited 1. See the 2026-10-19 ADR on the three
     # removed gates.
+    #
+    # The two gates below were added on 2026-10-22, and both were written
+    # because a commit of that day made something false and nothing said so.
+    #
+    # di-fixture-sync: a ViewModel that takes a route and a fixture table that
+    # hands it a task id is a Koin graph that cannot be built. The probe puts
+    # the wrong type back into the table — the drift that was committed — and
+    # the gate has to name the mismatch.
+    ScriptGate(
+        name="di-fixture-sync",
+        cmd=[sys.executable, "scripts/check-di-fixture-sync.py", "--check"],
+        why="a definition and a fixture that disagree about their type crash the graph on the first screen that uses it, and the only test that says so is an hour away",
+    ),
+    # navigation-doc-sync: the navigation doc is a pointer — it is what an agent
+    # reads to learn what opens what. The probe restores the row that went
+    # false on 2026-10-22, so the gate has to catch a claim the code does not
+    # support.
+    ScriptGate(
+        name="navigation-doc-sync",
+        cmd=[sys.executable, "scripts/check-navigation-doc-sync.py", "--check"],
+        why="a row that names a type the code does not name sends every agent that follows the pointer the wrong way",
+    ),
+        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
+        ScriptGate(
+            name="link-grammar",
+            cmd=[sys.executable, "scripts/check-link-grammar.py", "--check"],
+            why=(
+                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
+            ),
+        ),
+        # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
+        ScriptGate(
+            name="tools-catalog",
+            cmd=[sys.executable, "scripts/check-tools-catalog.py", "--check"],
+            why=(
+                'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)
@@ -615,6 +766,50 @@ def _setup_measure_flake_rate(root: Path) -> None:
         body = '<failure message="boom"/>' if state == "fail" else ""
         (d / "TEST-A.xml").write_text(suite.format(n="one", b=body))
     (root / "empty-baseline.txt").write_text("", encoding="utf-8")
+
+def _setup_gate_tooling_origin(root: Path) -> None:
+    """A foreign `sgate` package within the gate's reach.
+
+    The gate asks where the importable `sgate` comes from, and a script's own
+    directory is the first entry on `sys.path` — so the fixture is a copy of
+    the gate standing next to a package named `sgate`. The copy asks the
+    question with the foreign package in reach, and the answer has to be
+    FOREIGN: a gate run whose CLI serves another checkout measures that
+    other tree, and it reports about it as if it were this one.
+
+    The copy is what makes this a fixture rather than a sabotage: the input is
+    the interpreter's import path, not a committed file, so there is nothing in
+    the tree to mutate.
+    """
+    foreign = root / "foreign"
+    (foreign / "sgate").mkdir(parents=True)
+    (foreign / "sgate" / "__init__.py").write_text("", encoding="utf-8")
+    shutil.copy2(
+        _REPO_ROOT / "scripts" / "check-gate-tooling-origin.py",
+        foreign / "check-gate-tooling-origin.py",
+    )
+
+def _setup_slow_tests_ran(root: Path) -> None:
+    """A `slow` class in the tree, and a report that does not mention it.
+
+    The gate reads the JUnit report of the full run and asks whether every
+    `@Tag("slow")` class is in it. This fixture writes the class and leaves it
+    out of the report — the state a default local run produces, where the
+    slow classes never execute — so the gate has to report it and exit
+    non-zero. A gate that only ever sees a report that lists everything proves
+    nothing about the case that matters.
+    """
+    source = root / "shared" / "src" / "commonTest" / "kotlin"
+    source.mkdir(parents=True, exist_ok=True)
+    (source / "SlowTest.kt").write_text(
+        "package com.singularity.todo\n\n"
+        "import org.junit.jupiter.api.Tag\n\n"
+        '@Tag("slow")\nclass SlowTest {\n    @Test\n    fun it_runs() = Unit\n}\n',
+        encoding="utf-8",
+    )
+    results = root / "shared" / "build" / "test-results" / "jvmTest"
+    results.mkdir(parents=True, exist_ok=True)
+
 
 def _setup_maestro_results(root: Path) -> None:
     """A Maestro run that failed a flow, and a flow that never reported at all.
@@ -706,6 +901,18 @@ FIXTURE_GATES = [
     # control `detekt-rule-coverage-floor`, which raises the constant and
     # requires the Gradle task to fail — see the note at the top of Part C.
     FixtureGate(
+        name="slow-tests-ran",
+        cmd=[sys.executable, "scripts/check-slow-tests-ran.py", "--root", "{tmp}"],
+        setup=_setup_slow_tests_ran,
+        why=(
+            "a test the local loop never runs is a test whose breakage nobody local ever "
+            "sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read "
+            "surface changed the shape of its answer, and was found by CI rather than by "
+            "anyone holding the tree"
+        ),
+        needs_clean_run=False,
+    ),
+    FixtureGate(
         name="maestro-results",
         cmd=[
             sys.executable,
@@ -720,6 +927,22 @@ FIXTURE_GATES = [
             "a Maestro run that failed a flow the floor does not allow, and a flow "
             "the run produced no report for — the two ways a run can quietly stop "
             "being the run the repository promised"
+        ),
+        needs_clean_run=False,
+    ),
+    # The gate the origin check needs: it was added in 2026-10-23 (#981) with
+    # no positive control, and every checkout that inherited it inherited the
+    # failure too — a gate nobody has tried to break is a gate nobody knows can
+    # fail, and this one cannot fail on anything in the tree.
+    FixtureGate(
+        name="gate-tooling-origin",
+        cmd=[sys.executable, "{tmp}/foreign/check-gate-tooling-origin.py"],
+        setup=_setup_gate_tooling_origin,
+        why=(
+            "a gate run whose CLI serves another checkout measures that other tree — "
+            "it reads that checkout's registry and reports about code this one does "
+            "not contain, and the run looks green while saying nothing about the "
+            "tree in front of it"
         ),
         needs_clean_run=False,
     ),

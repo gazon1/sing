@@ -47,6 +47,9 @@ object AgendaEvaluator {
         // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
         // table per call, so asking per row was quadratic in the task count.
         val blockedIds = Blocking.blockedTaskIds(tasks)
+        // How many dates each series has. The row says which work it is one date
+        // of, so the count is counted once for the whole list rather than per row.
+        val seriesSizes = seriesSizes(tasks)
         val context = SelectorContext(today = today, now = now, blockedIds = blockedIds)
         return definition.sections
             .sortedBy { it.order }
@@ -66,6 +69,7 @@ object AgendaEvaluator {
                             task = task,
                             badge = computeBadge(task, today, blockedIds),
                             isBlocked = task.id in blockedIds,
+                            seriesDates = task.seriesId?.let { seriesSizes[it.value] },
                         )
                     },
                     badge = matched.size.takeIf { it > 0 },
@@ -93,4 +97,16 @@ object AgendaEvaluator {
 
     private fun computeBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): AgendaBadge? =
         computeAgendaBadge(task, today, blockedIds)
+
+    /**
+     * How many dates each series has.
+     *
+     * The count is the number of rows that share the id — the dates the work is
+     * scheduled on. A task that stands alone is not in the table: it has no
+     * series to say anything about.
+     */
+    private fun seriesSizes(tasks: List<Task>): Map<String, Int> =
+        tasks.mapNotNull { it.seriesId?.value }
+            .groupingBy { it }
+            .eachCount()
 }

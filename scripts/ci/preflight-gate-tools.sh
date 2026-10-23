@@ -76,6 +76,34 @@ else
     report no sgate "the gate CLI (the local package in scripts/src/)"
 fi
 
+# ── Whose sgate is it? ────────────────────────────────────────────────────────
+#
+# On a machine with several checkouts of this repository, `sgate` on PATH is an
+# editable install pointing at one of them — not necessarily this one. The gate
+# suite would then certify another checkout's code and report the verdict as
+# this checkout's (ADR docs/decisions/2026-10-21-one-owner-of-stdout.md).
+#
+# The gate suite itself now runs this checkout's module (see
+# `sgate.commands.run_all`), so a foreign `sgate` on PATH does not corrupt the
+# result any more. It still misleads the person: a `sgate` typed by hand runs
+# somebody else's gates. So the preflight says so, and names the fix.
+#
+# The check asks the installed sgate where it lives rather than guessing from
+# the shell: `sgate whereami` prints the checkout the running package belongs
+# to, which is the only place that answer can come from.
+sgate_root=""
+if have_binary sgate; then
+    sgate_root="$(sgate whereami 2>/dev/null || true)"
+fi
+
+if [ -z "$sgate_root" ]; then
+    report no sgate "resolves to this checkout (the installed sgate cannot say where it lives)"
+elif [ "$sgate_root" = "$ROOT" ]; then
+    report ok sgate "resolves to this checkout"
+else
+    report no sgate "resolves to another checkout ($sgate_root) — this checkout is $ROOT"
+fi
+
 if have_python_module junitparser; then
     report ok junitparser "the per-test CI annotations"
 else
@@ -133,6 +161,15 @@ registry instead of this one's — a different set of gates, reported green.
 
 The same tools are installed in CI by .github/actions/setup-python-tools, so a run
 that passes here and fails there is a version difference, not a missing install.
+
+If the sgate on PATH belongs to another checkout of this repository, install this
+one over it — the venv holds an editable install, so it points at the checkout it
+was installed from:
+
+    bash scripts/ci/setup-local-tools.sh
+    export PATH="\$HOME/.venvs/singularity-todo/bin:\$PATH"
+
+The sgate command "whereami" prints the checkout the running sgate belongs to.
 MSG
     exit 1
 fi

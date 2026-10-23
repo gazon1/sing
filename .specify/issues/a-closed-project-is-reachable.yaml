@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-closed-project-is-reachable/proposal.md
-  design: openspec/changes/a-closed-project-is-reachable/design.md
-  adr: openspec/changes/a-closed-project-is-reachable/adr.md
   tasks: openspec/changes/a-closed-project-is-reachable/tasks.md
 specs_dir: openspec/changes/a-closed-project-is-reachable/specs
 is_stub: false

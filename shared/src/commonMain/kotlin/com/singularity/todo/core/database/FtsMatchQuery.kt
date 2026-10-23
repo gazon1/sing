@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.core.search.TextMatchQuery
 
@@ -53,7 +54,7 @@ import com.singularity.todo.core.search.TextMatchQuery
  * The expression is the *positive* half of the rule, and the index answers it.
  * The negative half — a term that must **not** be carried — has no expression:
  * FTS has no `NOT` operator. That half is the rule's business, in memory. See
- * `FreeTextRule`.
+ * [FreeTextRule].
  */
 object FtsMatchQuery {
 

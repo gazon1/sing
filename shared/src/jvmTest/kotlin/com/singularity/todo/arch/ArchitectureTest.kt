@@ -327,6 +327,27 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `the question asked of the index is built by the rule`() {
+        // The rule knows what the index can answer — see `FreeTextRule.plan()`.
+        // A caller that builds the question by hand answers that question
+        // again, somewhere else, and a question built wrongly still looks like
+        // an answer: three callers used to do it, and one of them built it for
+        // a rule the index cannot narrow at all.
+        //
+        // The rule and the shape it produces live in `core/search`, next to the
+        // plan and the port. Everything else asks the rule.
+        val offenders = scope.files
+            .filter { file ->
+                file.packageName() != "$PKG.core.search" &&
+                    Regex("TextMatchQuery\\s*\\(").containsMatchIn(file.codeOnly())
+            }
+        assertNoOffenders(
+            offenders,
+            "the index question is built by the rule, in core/search",
+        ) { it.path }
+    }
+
+    @Test
     fun `feature use cases do not import repository implementations`() {
         // UseCases sit between ViewModel and Repository. Depending on a *RepositoryImpl
         // directly couples a UseCase to a platform-specific implementation, breaking

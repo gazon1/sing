@@ -455,9 +455,11 @@ class HarnessConventionTest {
     @Test
     fun `every test class has a @Tag annotation`() {
         // A test without @Tag is invisible to the `fast` / `slow` filter that gates CI.
-        // All test classes must be tagged so that `-Ptest.tags=fast,slow` in CI can
+        // All test classes must be tagged so that the `-Ptest.tags` selection in CI can
         // include or exclude them deterministically — regardless of whether they are
-        // flow tests, composable tests, or any other kind.
+        // flow tests, composable tests, or any other kind. CI has two selections
+        // (`fast` on a pull request, `full` on the nightly) and a class with no
+        // tag is outside both of them.
         val classPattern = Regex(
             """^class\s+(\w+)\s*:\s*\w+\s*\{""",
             RegexOption.MULTILINE,
@@ -496,7 +498,7 @@ class HarnessConventionTest {
             "Test class(es) without @Tag annotation:\n" +
                 violations.joinToString("\n") { "  - $it" } +
                 "\n\nEvery test class must carry @Tag(\"fast\") or @Tag(\"slow\") so that " +
-                "`-Ptest.tags=fast,slow` in CI can include or exclude it deterministically. " +
+                "the `-Ptest.tags` selection in CI can include or exclude it deterministically. " +
                 "Exempt a file in EXEMPT_TAG with a reason.",
         )
     }

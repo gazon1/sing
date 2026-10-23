@@ -9,7 +9,6 @@ import concurrent.futures
 import json
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import threading
@@ -25,6 +24,27 @@ import sgate
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE, register
 from sgate.log import logger
 from sgate.models import GatePayload
+
+
+def _repo_env() -> dict[str, str]:
+    """The environment a gate subprocess runs in.
+
+    ``PYTHONPATH`` points at *this* checkout's ``scripts/src``, so a gate that
+    imports ``sgate`` — or any other module of this repository — runs the code
+    on disk here. Without it, an editable install of another checkout wins the
+    import, and the gate suite reports another checkout's verdict as this
+    one's (ADR `2026-10-21-one-owner-of-stdout.md`).
+
+    The path comes from ``sgate.repo`` rather than being written out here: a
+    path written twice is a path that drifts.
+    """
+    import os
+
+    env = dict(os.environ)
+    src = str(sgate.repo.SRC)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return env
 
 
 @dataclass
@@ -60,6 +80,16 @@ OUTPUT_TAIL_LINES = 40
 #: It is not enough for a gate that resolves a build: see `GATE_TIMEOUTS`.
 DEFAULT_GATE_TIMEOUT = 300
 
+#: The budget for the control phase. It runs a gate twice per control — once
+#: on the clean tree, once on the sabotaged one — so it needs more room than a
+#: single gate.
+#:
+#: It stays under the static job's own cap, because that cap is the real
+#: ceiling: a phase budget above it buys nothing, the job is killed instead of
+#: the phase, and the checkout is left with a sabotaged file in it. The
+#: relationship is asserted by `test_the_budget_fits_inside_the_static_job`.
+CONTROLS_PHASE_TIMEOUT = 1200
+
 #: Gates whose own work needs more than the default budget, and why.
 #:
 #: `declared dependencies are used` asks Gradle which files each configuration
@@ -73,10 +103,12 @@ DEFAULT_GATE_TIMEOUT = 300
 #: with the same tree and the same code. A gate that needs the build does not
 #: fit in a budget that was chosen for gates that do not.
 #:
-#: The budget stays under the job's own ten-minute cap, so a gate that hangs is
+#: The budget stays under the static job's own cap, so a gate that hangs is
 #: killed by the runner rather than by the job. The static job now restores the
 #: Gradle cache, which is what actually makes this gate fast; this number is the
-#: floor under a cold cache, not the plan.
+#: floor under a cold cache, not the plan. The cap itself moved to 25 minutes
+#: when the job started running the control phase as well; the budget and the
+#: cap are asserted against each other by the gate suite's own tests.
 #:
 #: The gate still fails if it finds anything. The budget buys the gate time to
 #: finish; it does not buy it a pass.
@@ -214,16 +246,21 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
         head, *args = tokens
 
         if head == "sgate":
-            # Delegated to sgate CLI (custom gate already migrated)
-            # Discover sgate binary: use the one on PATH, or the venv one in scripts/src
-            sgate_bin = shutil.which("sgate")
-            if sgate_bin is None:
-                # Fallback: find sgate in the venv used by this script
-                venv_python = sys.executable
-                sgate_bin = str(Path(venv_python).parent / "sgate")
-            cmd = [sgate_bin, *args, "--json"]
+            # Delegated to the sgate CLI — but to *this* checkout's sgate, not
+            # to the `sgate` on PATH.
+            #
+            # On a machine with several checkouts of this repository, the binary
+            # on PATH is an editable install pointing at one of them, not
+            # necessarily this one, and the gate suite would then certify
+            # somebody else's code while reporting it as this checkout's
+            # result (ADR `2026-10-21-one-owner-of-stdout.md`).
+            #
+            # The module is run with this checkout's `scripts/src` on the import
+            # path, which is the same arrangement the JSON-contract probe uses
+            # (`scripts/check-gate-json-contract.py`).
+            cmd = [sys.executable, "-m", "sgate", *args, "--json"]
             result = subprocess.run(cmd, capture_output=True, timeout=timeout,
-                                   cwd=repo_root)
+                                   cwd=repo_root, env=_repo_env())
 
         elif head == "python3":
             # Direct python3 script — use the sgate venv Python (has all dependencies)
@@ -235,7 +272,7 @@ def _run_gate_subprocess(mode: str, display_name: str, command: str) -> GateResu
             py_bin = str(venv_python.parent / "python")
             cmd = [py_bin, script_path] + args[1:]
             result = subprocess.run(cmd, capture_output=True, timeout=timeout,
-                                   cwd=repo_root)
+                                   cwd=repo_root, env=_repo_env())
 
         elif head.startswith("./"):
             # Direct shell script
@@ -376,6 +413,61 @@ def _write_gate_run(results: list[GateResult]) -> None:
         logger.warning(f"could not record how long the gates took: {exc}")
 
 
+#: The name the control phase is reported under. It is a gate of the suite in
+#: every sense but one: it runs alone, after the others.
+CONTROLS_PHASE_NAME = "the fast gates can fail"
+
+#: The command of the control phase: the sabotage harness, without the
+#: Gradle-backed controls (those need a daemon, and this phase runs in the
+#: fast loop).
+CONTROLS_PHASE_COMMAND = "python3 scripts/check-gate-wiring.py --can-fail"
+
+
+def _run_controls_phase(repo_root: str) -> GateResult:
+    """Prove that the gates can fail — the phase that edits the tree.
+
+    Every gate has a control: a change that must make it fail. The harness
+    applies the change, runs the gate, and puts the file back. A gate whose
+    control does not make it fail is a gate that is green forever — it was
+    found that way: a link-grammar gate whose pattern matched nothing, in a
+    suite that reported every gate as passed.
+
+    The phase runs *after* the gates, alone: the harness edits files in the
+    working tree, and a gate reading the tree while it is edited reads a tree
+    that is not there.
+    """
+    start = time.monotonic()
+    command = [sys.executable, "scripts/check-gate-wiring.py", "--can-fail"]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=CONTROLS_PHASE_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return GateResult(
+            name=CONTROLS_PHASE_NAME,
+            mode="blocking",
+            passed=False,
+            exit_code=124,
+            duration_ms=int((time.monotonic() - start) * 1000),
+            error=f"the control phase did not finish in {CONTROLS_PHASE_TIMEOUT}s",
+        )
+    duration = int((time.monotonic() - start) * 1000)
+    return GateResult(
+        name=CONTROLS_PHASE_NAME,
+        mode="blocking",
+        passed=completed.returncode == 0,
+        exit_code=completed.returncode,
+        duration_ms=duration,
+        error="" if completed.returncode == 0 else (completed.stdout + completed.stderr)[-4000:],
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
+
+
 @click.command("run-all")
 @click.option("--json", "emit_json", is_flag=True, help="Emit JSON output to stdout")
 @click.option("--summary", "summary_only", is_flag=True,
@@ -383,9 +475,15 @@ def _write_gate_run(results: list[GateResult]) -> None:
 @click.option("--concurrency", "-j", default=8, show_default=True, help="Number of parallel workers")
 @click.option("--gate", "gate_filters", multiple=True,
               help="Run only gates whose name contains any of these substrings")
+@click.option("--with-controls", "with_controls", is_flag=True,
+              help="Also prove that the gates can fail (runs after the gates, alone)")
 def run_all(emit_json: bool, summary_only: bool, concurrency: int,
-            gate_filters: tuple[str, ...]) -> None:
+            gate_filters: tuple[str, ...], with_controls: bool) -> None:
     """Run all gates from static-gates.sh registry in parallel.
+
+    With `--with-controls` the suite also proves that the gates *can* fail: the
+    sabotage harness runs after the parallel pass, because it edits the tree
+    the gates read.
 
     Exit codes:
       0 = all blocking gates passed
@@ -460,6 +558,10 @@ def run_all(emit_json: bool, summary_only: bool, concurrency: int,
             for future in concurrent.futures.as_completed(futures):
                 _ = future.result()
                 progress.advance(task)
+
+    if with_controls:
+        # After the parallel pass, and alone: the harness edits the tree.
+        results.append(_run_controls_phase(str(sgate.repo.ROOT)))
 
     # Sort: blocking first, then advisory; alphabetically within group
     order = {"blocking": 0, "advisory": 1}

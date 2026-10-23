@@ -1124,11 +1124,21 @@ class PartialRunScope(unittest.TestCase):
         recipe = REPO_ROOT / ".just/traceability/mod.just"
         return ci.read_text(encoding="utf-8"), recipe.read_text(encoding="utf-8")
 
-    def test_ci_does_not_pass_partial(self):
-        # CI runs `-Ptest.tags=fast,slow`, so the rule is accurate there and
-        # passing the flag on purpose would be a real loss of coverage.
+    def test_ci_does_not_pass_partial_unconditionally(self):
+        # CI measures TWO populations. On the full one the per-scenario rule is
+        # accurate, so passing the flag there would be a real loss of coverage.
+        # On a fast-only one every scenario carrier is a slow class, so the rule
+        # would fire on a subset the run was asked for — and the run would fail
+        # with "declared target produced zero testcases" against a run that
+        # measured exactly what it was asked to. The flag is therefore
+        # population-gated: present, but never unconditional.
         ci, _ = self._workflow_and_recipe()
-        self.assertNotIn("--partial", ci)
+        self.assertNotIn("results --partial", ci)
+        self.assertIn("ARGS+=(--partial)", ci)
+        # The population is a NAME now, so the gate reads the name: "fast" is
+        # the population whose every scenario carrier is a slow class, and
+        # "full" is the one where the per-scenario rule is accurate.
+        self.assertIn('if [ "$TEST_POPULATION" != "full" ]; then', ci)
 
     def test_local_recipe_does_pass_partial(self):
         # The counterpart: a developer on the fast cycle must not be told their
@@ -1139,8 +1149,14 @@ class PartialRunScope(unittest.TestCase):
     def test_the_two_wirings_stay_distinguishable(self):
         # If both stopped carrying the flag the drift would be invisible: CI
         # would keep enforcing by accident while local runs started failing.
+        # And if CI carried it unconditionally, the full population would lose
+        # the rule — so the two wirings have to stay different in KIND as well
+        # as in content: the local recipe always carries it, CI carries it
+        # behind a population check.
         ci, recipe = self._workflow_and_recipe()
-        self.assertNotEqual("--partial" in ci, "--partial" in recipe)
+        self.assertIn("results --partial", recipe)
+        self.assertNotIn("results --partial", ci)
+        self.assertIn("ARGS+=(--partial)", ci)
 
 
 class DeprecatedScenarioIsNotAHole(unittest.TestCase):

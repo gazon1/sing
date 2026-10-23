@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/calendar-palette-follows-the-theme/proposal.md
-  design: openspec/changes/calendar-palette-follows-the-theme/design.md
-  adr: openspec/changes/calendar-palette-follows-the-theme/adr.md
   tasks: openspec/changes/calendar-palette-follows-the-theme/tasks.md
 specs_dir: openspec/changes/calendar-palette-follows-the-theme/specs
 is_stub: false

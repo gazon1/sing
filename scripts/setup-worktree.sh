@@ -45,25 +45,13 @@ fi
 git config --worktree core.hooksPath .githooks
 echo "core.hooksPath -> .githooks (this worktree only; shared config untouched)"
 
-# A long pre-push holds git's SSH connection open and idle.
-#
-# Git opens the connection to the remote BEFORE the hook runs, and the detekt
-# verdict in the hook takes minutes — so the connection sits there with nothing
-# on it, GitHub closes it, and the push fails with 141 *after* the hook printed
-# its own verdict and said the tree was clean. Measured on 2026-10-28: the
-# first push of the pushed-tree verdict failed exactly this way.
-#
-# The answer is a client-side keepalive, not a faster hook: the analysis is
-# whole-module, and the analysis is the point.
-#
-# Only set when there is no value already — a configured core.sshCommand may
-# carry a different binary, a port or an identity, and overwriting it would
-# break the push in a way nobody would read as this.
-if [[ -z "$(git config --get core.sshCommand || true)" ]]; then
-    git config --worktree core.sshCommand \
-        "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"
-    echo "core.sshCommand -> ssh with a keepalive (a long pre-push must not outlive the connection)"
-fi
+# The SSH keepalive for the pre-push hook is NOT set here: it lives in the
+# SHARED config, written by `just setup-hooks`, because it is harmless in every
+# worktree and a per-worktree copy had to be applied by hand — so a fresh
+# worktree could still lose the connection during a long pre-push (git's SSH
+# connection idles while the hook runs detekt, GitHub closes it, and the push
+# fails with 141). A worktree that already has its own core.sshCommand keeps
+# it: the value may carry a different binary, a port or an identity.
 
 if [[ ! -d .githooks ]]; then
     echo "WARNING: this branch has no .githooks directory — hooks will not run here." >&2

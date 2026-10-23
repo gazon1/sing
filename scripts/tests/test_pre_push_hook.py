@@ -26,14 +26,28 @@ and the hook copy are all temporary, and the Gradle wrapper is a stand-in, so
 the tests take well under a second and need no build.
 """
 
+import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
+from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
+
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
+
+#: The verdict script the hook calls, and the module graph it reads to decide
+#: which modules to judge. Both travel with the repository — the hook calls the
+#: script, and the script computes the modules from the graph.
+VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'pre-push-verdict.py'
+CHANGED_MODULES = REPO_ROOT / 'scripts' / 'changed-modules.py'
 
 # The marker detekt would report on. The stand-in Gradle wrapper looks for it
 # in the Kotlin files of the tree it is run in.
@@ -62,13 +76,14 @@ SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
 
 
-def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
+def _git(*args: str, cwd: pathlib.Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         ['git', *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         check=True,
+        env=env,
     )
 
 
@@ -81,12 +96,31 @@ class PrePushHookTest(unittest.TestCase):
         self.repo = self.tmp / 'repo'
         self.remote = self.tmp / 'remote.git'
         self.repo.mkdir()
-        _git('init', '-q', '-b', 'main', cwd=self.repo)
-        _git('config', 'user.email', 'hook@example.com', cwd=self.repo)
-        _git('config', 'user.name', 'Hook Test', cwd=self.repo)
-        _git('config', 'commit.gpgsign', 'false', cwd=self.repo)
+        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
+        _git('config', 'user.email', 'hook@example.com', cwd=self.repo, env=self._env())
+        _git('config', 'user.name', 'Hook Test', cwd=self.repo, env=self._env())
+        _git('config', 'commit.gpgsign', 'false', cwd=self.repo, env=self._env())
         # The hook under test travels with the repository.
-        _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp)
+        _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp, env=self._env())
+        assert_own_repository(self, self.repo, self._env())
+
+    def _env(self) -> dict[str, str]:
+        """An environment in which git cannot reach past the fixture's own tree.
+
+        The fixture creates a repository in a temporary directory and runs git
+        commands in it. Git exports `GIT_DIR` for the hooks it runs, and a
+        fixture that runs inside a hook inherits it: `git init` then
+        reinitialises the repository the hook is about, `git add -A` stages
+        the fixture's directory against that repository's index — every
+        tracked file looks deleted — and `git commit` writes the fixture's
+        tree onto the developer's branch.
+
+        On 2026-10-23 these fixtures committed a 12124-file deletion into the
+        working repository, and the same tree went to the remote main. The
+        scrubbing and the ceiling make the command fail instead, and the
+        failure is in the test output rather than in the developer's history.
+        """
+        return sandbox_env(self.tmp)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative
@@ -98,27 +132,43 @@ class PrePushHookTest(unittest.TestCase):
 
     def _install_hook(self) -> None:
         self._write('.githooks/pre-push', HOOK.read_text(encoding='utf-8'), executable=True)
-        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo)
+        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo, env=self._env())
 
     def _install_stubs(self) -> None:
-        """The scripts the hook calls, and a Gradle wrapper that reports findings."""
+        """The scripts the hook calls, and a Gradle wrapper that reports findings.
+
+        The list of scripts comes from the registry — the same declaration the
+        hook reads its rules from. It used to be written out here, and the two
+        lists drifted: the hook called five scripts and this fixture stubbed
+        three, so every script added to the hook was a failing test that only
+        the full run found.
+        """
         self._write('gradlew', FAKE_GRADLEW, executable=True)
-        self._write('scripts/build-version-catalog-gate.py', PASSING_PYTHON_GATE)
-        self._write('scripts/check-ui-wait-budgets.py', PASSING_PYTHON_GATE)
-        self._write('scripts/ci/validate-maestro-selectors.py', PASSING_PYTHON_GATE)
+        # The verdict runs `./gw` — the wrapper that gives a worktree its own
+        # GRADLE_USER_HOME — so the stand-in is installed under that name too.
+        self._write('gw', FAKE_GRADLEW, executable=True)
+        for script in PRE_PUSH_SCRIPTS:
+            self._write(script, PASSING_PYTHON_GATE)
+        # The verdict and the module graph it reads are part of the repository:
+        # the hook calls the script, and the script computes the modules to
+        # judge from the graph. They are the real files, not stubs — the
+        # verdict is what these tests are about.
+        self._write('scripts/pre-push-verdict.py', VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._write('scripts/changed-modules.py', CHANGED_MODULES.read_text(encoding='utf-8'))
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
-        _git('add', '-A', cwd=self.repo)
-        _git('commit', '-q', '-m', message, cwd=self.repo)
+        _git('add', '-A', cwd=self.repo, env=self._env())
+        _git('commit', '-q', '-m', message, cwd=self.repo, env=self._env())
 
     def _push(self) -> subprocess.CompletedProcess:
-        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo, env=self._env())
         return subprocess.run(
             ['git', 'push', 'origin', 'main'],
             cwd=self.repo,
             capture_output=True,
             text=True,
+            env=self._env(),
         )
 
     # ── the cases ────────────────────────────────────────────────────────
@@ -144,6 +194,26 @@ class PrePushHookTest(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertIn('detekt', output)
         self.assertIn('FAILED', output)
+
+    def test_a_push_that_moves_no_kotlin_is_not_a_clean_verdict(self):
+        """Nothing was judged, so nothing was found — the summary must not claim clean."""
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        # The trunk the change is measured against.
+        head = _git('rev-parse', 'HEAD', cwd=self.repo).stdout.strip()
+        _git('update-ref', 'refs/remotes/origin/main', head, cwd=self.repo)
+        # A change that moves neither Kotlin nor rules.
+        self._write('docs/note.md', 'a note\n')
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a note', cwd=self.repo)
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('nothing to judge', output)
+        self.assertIn('detekt verdict: not taken', output)
 
     def test_the_verdict_is_taken_in_the_worktree_when_it_holds_the_pushed_tree(self):
         self._install_hook()

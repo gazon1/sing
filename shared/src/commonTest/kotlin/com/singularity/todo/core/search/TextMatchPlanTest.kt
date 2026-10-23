@@ -1,7 +1,5 @@
-package com.singularity.todo.feature.search.query
+package com.singularity.todo.core.search
 
-import com.singularity.todo.core.search.TextMatchPlan
-import com.singularity.todo.core.search.TextMatchQuery
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -13,9 +13,7 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-05-local-gate-repair/proposal.md
-  design: openspec/changes/archive/2026-10-05-local-gate-repair/design.md
-  adr: openspec/changes/archive/2026-10-05-local-gate-repair/adr.md
   tasks: openspec/changes/archive/2026-10-05-local-gate-repair/tasks.md
-specs_dir: openspec/changes/archive/2026-10-05-local-gate-repair/specs
+specs_dir: null
 is_stub: false
 openspec_path: openspec/changes/archive/2026-10-05-local-gate-repair

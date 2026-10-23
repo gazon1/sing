@@ -403,10 +403,13 @@ tasks.withType<Test>().configureEach {
             else -> includeTags(*tags.toTypedArray())
         }
     }
-    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
-    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
-    // parallel test runs don't overwrite each other's dumps.
-    maxHeapSize = "3g"
+    // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
+    // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
+    // Kover agent attached), and 1536 MB carries the whole suite without one.
+    // Forked test JVMs do NOT inherit org.gradle.jvmargs (that's the daemon only).
+    // HeapDumpPath is module-local so parallel test runs don't overwrite each
+    // other's dumps. ADR 2026-10-22-gradle-memory-budget.
+    maxHeapSize = "1536m"
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
@@ -441,42 +444,14 @@ tasks.withType<Test>().configureEach {
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     forkEvery = 1
 
-    // ── run manifest (#222) ────────────────────────────────────────────────────────
-    //
-    // Gradle leaves no record of whether a run was filtered, so `./gw :shared:jvmTest
-    // --tests 'SomeOneClass'` rewrites the XML directory with one class's results and
-    // every gate that reads it — `check-test-runs.py`,
-    // `check-flaky-tests.py` — reports a verdict it cannot source. The gates were right
-    // and useless: they said "a suite stopped running" about a tree where nothing had.
-    //
-    // One property decides it, and it is the one Gradle already tracks: a `--tests` filter
-    // populates `filter.includePatterns`, and nothing else does. (`commandLineIncludePatterns`
-    // was the accessor for exactly this until Gradle 9 removed it; `includePatterns` is the
-    // public one now and holds the same set.)
-    //
-    // A `-Ptest.tags` filter deliberately does *not* mark the run partial — tag selection is
-    // what CI does on purpose, and the floors are recorded against it.
-    val manifestDir = layout.buildDirectory.dir("test-results/$name")
-    doLast {
-        val filters = filter.includePatterns
-        val partial = filters.isNotEmpty()
-        val executed = manifestDir.get().asFile.listFiles()
-            ?.count { it.name.startsWith("TEST-") && it.name.endsWith(".xml") } ?: 0
-        manifestDir.get().asFile.resolve("run-manifest.properties").writeText(
-            """
-            # Written by shared/build.gradle.kts. Read by scripts/check-test-runs.py.
-            task=$name
-            partial=$partial
-            filters=${filters.joinToString(",")}
-            executedClasses=$executed
-            finishedAt=${System.currentTimeMillis()}
-            """.trimIndent() + "\n",
-        )
-        logger.lifecycle(
-            "jvmTest run manifest: ${if (partial) "PARTIAL" else "full"} " +
-                "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""})",
-        )
-    }
+    // The run manifest is written by the ROOT build script, for every module.
+    // It used to be written here, by this module alone, and the gate that asks
+    // "were the slow classes supposed to run here?" could only answer for
+    // `shared`: for `desktopApp` — where 49 of 62 classes are slow — the
+    // answer was a fallback that cannot tell "selected no slow class" from
+    // "deliberately fast-only". That distinction is the whole question, so the
+    // manifest is a convention, not a copy in one module.
+
     // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
     // comment here. It is load-bearing twice over: KoinPlatform state between classes, and —
     // as of the background-handler migration — the `FileSystemContract` temp paths, which
@@ -501,7 +476,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
-    maxHeapSize = "3g"
+    maxHeapSize = "1536m"
     // JFR profiling — enable with `-PJFR=true`. Records to build/reports/jfr/.
     // `jfc` settings file is in project root so it's not buried in build/.
     if (project.hasProperty("JFR")) {
@@ -717,6 +692,21 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
         "jvmTest.root",
         layout.projectDirectory.dir("src/jvmTest/kotlin").asFile.absolutePath,
     )
+    // The exported Room schemas, read at runtime by the generated round-trip test.
+    //
+    // `MigrationRoundTripSupport.schemaFile(version)` resolves
+    // `shared/schemas/com.singularity.todo.core.database.AppDatabase/<version>.json`
+    // and opens it. That tree is not a compile input of :shared, so the task's
+    // up-to-date check did not see it: an export that changed — a re-export with
+    // different columns, which is exactly the defect `check-room-schema-integrity.py`
+    // now catches statically — left :shared:jvmTest UP-TO-DATE, and the round-trip
+    // test re-reported a verdict about a schema it had never re-read.
+    //
+    // Declared as a directory rather than per version, because the test reads one file
+    // per step and the set of steps changes with the chain.
+    inputs.dir(layout.projectDirectory.dir("schemas"))
+        .withPropertyName("exportedRoomSchemas")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // The positive control of UnannotatedTestMemberTest reads a committed class that is
     // broken on purpose, and this tree is on no compile path, so nothing else declares
     // it. Declared here for the same reason as every input above: a gate that cannot be

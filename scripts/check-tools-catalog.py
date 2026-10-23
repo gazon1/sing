@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+"""check-tools-catalog.py — the catalogue of the gate scripts.
+
+The repository has forty-one gate scripts and a registry that says which of
+them run where. The registry says *that* a gate runs; it does not say what the
+gate is for, and a person who has never seen `check-room-schema-integrity.py`
+learns nothing from its name.
+
+So the catalogue is generated: every gate script, what it checks (the first
+line of its own docstring says so), and where it runs. It is generated rather
+than written because a hand-written list of forty-one tools is a list that
+loses a tool and nobody notices — the same argument the gate registry makes.
+
+ADR `docs/decisions/2026-10-22-the-gate-suite-runs-this-checkout.md`.
+
+Usage:
+    python3 scripts/check-tools-catalog.py --check    # fail when it is stale
+    python3 scripts/check-tools-catalog.py --write    # rewrite it
+
+Exit codes:
+  0 = the catalogue is current (or was written)
+  1 = the catalogue is not what the scripts say today
+  2 = the catalogue could not be read or written
+"""
+from __future__ import annotations
+
+import ast
+import pathlib
+from pathlib import Path
+import sys
+
+# The gate suite is a package of this repository. This script is run as
+# `python3 scripts/check-<name>.py`, and the `sgate` the interpreter finds may
+# be an editable install of *another* checkout — so this repository's own
+# `scripts/src` goes in front of it. The same thing
+# `scripts/check-gate-wiring.py` does for `workflow_gradle`.
+_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
+
+from sgate.commands.base import run
+from sgate.gatekit.cli import gate_command
+from sgate.gatekit.findings import BLOCKING, Finding
+from sgate.gatekit.paths import generated_path
+
+ROOT = Path(__file__).resolve().parent.parent
+CATALOG_RELATIVE = "docs/tools/catalog.md"
+
+#: The tools that are not gate scripts but are part of the same surface.
+EXTRA_TOOLS = [
+    (
+        "scripts/ci/static-gates.sh",
+        "The registry of the gates that need no JVM; `sgate run-all` reads it.",
+    ),
+    (
+        "scripts/ci/setup-local-tools.sh",
+        "Installs the gate suite into a uv venv — the local package, editable.",
+    ),
+    (
+        "scripts/ci/preflight-gate-tools.sh",
+        "Says which tool is missing and how to get it, before a gate cannot run.",
+    ),
+    (
+        "scripts/ci/new-gate.py",
+        "Registers a gate in every place it has to be, in one command.",
+    ),
+    (
+        "scripts/detekt-summary.py",
+        "Prints the detekt findings by rule and by place, instead of XML per finding.",
+    ),
+]
+
+
+def catalog_path(root: Path) -> Path:
+    """Where the catalogue lives — one function, so the check and the write agree.
+
+    The path is checked to be inside the repository. It used to be counted
+    from `__file__` by hand, and the count was wrong once: the catalogue was
+    written one directory above the repository, while the check compared
+    against a file inside it and called the catalogue current. The path that
+    changed was the one nobody read.
+    """
+    return generated_path(root, CATALOG_RELATIVE)
+
+
+def first_line_of_docstring(path: Path) -> str:
+    """The first line of a module's docstring — what the tool is for."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return ""
+    doc = ast.get_docstring(tree) or ""
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def gate_scripts(root: Path) -> list[Path]:
+    """Every gate script of a tree, sorted."""
+    return sorted((root / "scripts").glob("check-*.py"))
+
+
+def ungated_scripts(root: Path) -> list[Path]:
+    """The gate-shaped scripts that the registry does not name.
+
+    The registry says which gates exist; a `check-*.py` that it does not name is
+    run by a surface that is not the registry. It used to be invisible: the
+    catalogue listed every script next to every gate, so the two sets looked
+    the same size, and a script that a CI step runs looked like a gate.
+    """
+    from sgate.commands._registry import GATES
+
+    gated = {
+        spec.script.as_posix()
+        for spec in GATES
+        if spec.script is not None
+    }
+    return [path for path in gate_scripts(root) if path.relative_to(ROOT).as_posix() not in gated]
+
+
+def package_modules(root: Path) -> list[tuple[str, Path]]:
+    """Every module of the `sgate` package, as (dotted name, file).
+
+    The package docstring used to carry this list by hand, and the list was
+    wrong: the modules that came later were not in it, and nothing noticed,
+    because nothing read it. It is read here from the files themselves.
+    """
+    package_root = root / "scripts" / "src" / "sgate"
+    modules: list[tuple[str, Path]] = []
+    for path in sorted(package_root.rglob("*.py")):
+        parts = list(path.relative_to(package_root).parts)
+        if parts[-1] == "__init__.py":
+            parts = parts[:-1]
+        else:
+            parts[-1] = parts[-1][: -len(".py")]
+        if parts:
+            modules.append((".".join(["sgate", *parts]), path))
+    return modules
+
+
+def render(root: Path) -> str:
+    """The catalogue as the tree stands today."""
+    lines: list[str] = []
+    lines.append("# The gate catalogue")
+    lines.append("")
+    lines.append(
+        "The shape of the gate suite: the modules it is built from, the helper tools "
+        "around it, and the scripts that no gate runs. The gates themselves are "
+        "described once, in `docs/scripts/gate-registry.md` — that document says what "
+        "each gate is called, whether it stops the build, and what it checks. "
+        "Generated by `python3 scripts/check-tools-catalog.py --write` — "
+        "do not edit it by hand; the check `--check` fails when it is stale."
+    )
+    lines.append("")
+    lines.append("## Scripts outside the gate registry")
+    lines.append("")
+    lines.append(
+        "A gate script that no registry entry names is not a gate — it is run by a "
+        "surface that is not the registry: a step of the CI workflow, or the "
+        "preamble of the static job. They are listed here so that the difference "
+        "between a gate and a helper is visible rather than assumed."
+    )
+    lines.append("")
+    lines.append("| Script | What it is |")
+    lines.append("|---|---|")
+    for path in ungated_scripts(root):
+        relative = path.relative_to(ROOT).as_posix()
+        summary = first_line_of_docstring(path)
+        if summary.startswith(relative + " "):
+            summary = summary[len(relative) + 1 :].lstrip(" —-")
+        lines.append(f"| `{relative}` | {summary} |")
+    lines.append("")
+    lines.append("## The rest of the surface")
+    lines.append("")
+    lines.append("| Tool | What it is |")
+    lines.append("|---|---|")
+    for relative, summary in EXTRA_TOOLS:
+        lines.append(f"| `{relative}` | {summary} |")
+    lines.append("")
+    lines.append("## The modules of the gate suite")
+    lines.append("")
+    lines.append(
+        "The package the gate scripts import. The list is read from the files: "
+        "a module that is added shows up here, and one that is removed goes."
+    )
+    lines.append("")
+    lines.append("| Module | What it is for |")
+    lines.append("|---|---|")
+    for name, path in package_modules(root):
+        summary = first_line_of_docstring(path)
+        if summary.startswith(name + " "):
+            summary = summary[len(name) + 1 :].lstrip(" —-")
+        lines.append(f"| `{name}` | {summary} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def check(root: Path) -> list[Finding]:
+    """The difference between the catalogue and the scripts it describes."""
+    catalog = catalog_path(root)
+    current = catalog.read_text(encoding="utf-8") if catalog.exists() else ""
+    expected = render(root)
+    if current == expected:
+        return []
+    return [
+        Finding(
+            BLOCKING,
+            f"{CATALOG_RELATIVE} is not what the scripts say today. "
+            f"Run: python3 scripts/check-tools-catalog.py --write",
+        )
+    ]
+
+
+def write() -> int:
+    """Write the catalogue — into this repository, or nowhere."""
+    catalog = catalog_path(ROOT)
+    catalog.parent.mkdir(parents=True, exist_ok=True)
+    catalog.write_text(render(ROOT), encoding="utf-8")
+    print(f"wrote {CATALOG_RELATIVE}")
+    return 0
+
+
+cli = gate_command(
+    check,
+    name="check-tools-catalog",
+    title="the catalogue of the gate scripts",
+    default_root=ROOT,
+    note=(
+        "A catalogue that lost a tool is a catalogue that sends a reader to a tool "
+        "that is not there. The catalogue is generated from the scripts themselves."
+    ),
+    write=write,
+)
+
+
+if __name__ == "__main__":
+    raise SystemExit(run(cli))

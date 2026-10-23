@@ -99,7 +99,7 @@ import yaml
 # The gate is run from a workflow step and from a checkout that may not have
 # the tooling installed, so the repository's own packages are put on the path
 # rather than assumed to be there.
-_SRC = pathlib.Path(__file__).resolve().parent.parent.parent / "src"
+_SRC = pathlib.Path(__file__).resolve().parent.parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 

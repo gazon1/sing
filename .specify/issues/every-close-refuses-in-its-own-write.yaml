@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/every-close-refuses-in-its-own-write/proposal.md
-  design: openspec/changes/every-close-refuses-in-its-own-write/design.md
-  adr: openspec/changes/every-close-refuses-in-its-own-write/adr.md
   tasks: openspec/changes/every-close-refuses-in-its-own-write/tasks.md
 specs_dir: openspec/changes/every-close-refuses-in-its-own-write/specs
 is_stub: false

@@ -355,11 +355,12 @@ def main(
 
     logger.info(f"=== Maestro on {serial} ({deps.device_model(serial)}) ===")
 
-    # ── Wake + unlock + IME workaround ─────────────────────────────────────────
-    deps.adb_on(serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
-    deps.adb_on(serial, "shell", "input", "keyevent", "82")
-    deps.adb_on(serial, "shell", "settings", "put", "secure",
-                "show_ime_with_hard_keyboard", "0")
+    # ── Wake + unlock + IME ───────────────────────────────────────────────────
+    # Done by `acquire_device` (emulator._startup.prepare_device): an acquired
+    # device is a prepared device. It used to be done here as well, and the
+    # copy that was missing was the one that mattered — the AVD that had just
+    # been restarted after a crash came up with the IME on, and every flow
+    # measured after that was measuring a half-covered screen.
 
     # ── Install APK ────────────────────────────────────────────────────────────
     if skip_install:

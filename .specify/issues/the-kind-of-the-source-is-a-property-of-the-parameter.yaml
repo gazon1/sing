@@ -22,8 +22,6 @@ tags:
 - kind
 documents:
   proposal: openspec/changes/the-kind-of-the-source-is-a-property-of-the-parameter/proposal.md
-  design: openspec/changes/the-kind-of-the-source-is-a-property-of-the-parameter/design.md
-  adr: openspec/changes/the-kind-of-the-source-is-a-property-of-the-parameter/adr.md
   tasks: openspec/changes/the-kind-of-the-source-is-a-property-of-the-parameter/tasks.md
 specs_dir: openspec/changes/the-kind-of-the-source-is-a-property-of-the-parameter/specs
 is_stub: false

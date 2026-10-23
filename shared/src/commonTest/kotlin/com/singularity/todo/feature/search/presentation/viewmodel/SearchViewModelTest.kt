@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.presentation.viewmodel
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
@@ -11,7 +12,6 @@ import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
-import com.singularity.todo.feature.search.query.FreeTextRule
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query

@@ -51,6 +51,7 @@ import platform
 import shutil
 import statistics
 import subprocess
+import textwrap
 import time
 from datetime import datetime
 from pathlib import Path
@@ -104,6 +105,40 @@ def environment() -> dict[str, object]:
     }
 
 
+def host_load() -> dict[str, object]:
+    """How busy the machine was when the measurement was taken.
+
+    The cost of a gate is not a property of the gate alone: on a host that
+    already runs eight Gradle daemons, the same gate costs several times
+    more. A duration without the load it was measured under is a number
+    nobody can compare with anything.
+
+    This is deliberately *not* part of the environment: the environment says
+    whether two measurements are comparable at all, and the load changes
+    every minute — a comparison that included it would never hold.
+    """
+    try:
+        one, five, fifteen = os.getloadavg()
+    except (OSError, AttributeError):  # not every platform has it
+        return {}
+    return {
+        "load1m": round(one, 1),
+        "load5m": round(five, 1),
+        "load15m": round(fifteen, 1),
+        "cpus": os.cpu_count() or 0,
+    }
+
+
+def _describe_load(load: dict[str, object]) -> str:
+    """The load, in a sentence a reader can compare with another one."""
+    one = load.get("load1m")
+    cpus = load.get("cpus")
+    if not isinstance(one, (int, float)):
+        return ""
+    per_cpu = f" on {cpus} CPUs" if isinstance(cpus, int) and cpus else ""
+    return f"the host was at load {one}{per_cpu}"
+
+
 def _same_environment(left: dict[str, object], right: dict[str, object]) -> bool:
     """Whether two measurements were taken on the same machine."""
     return left == right
@@ -126,6 +161,7 @@ def read_measurement() -> dict[str, object]:
         "schemaVersion": SCHEMA_VERSION,
         "recordedAt": int(time.time() * 1000),
         "environment": environment(),
+        "host": host_load(),
         "gates": gates,
         "steps": steps,
     }
@@ -277,6 +313,36 @@ To refresh the numbers:
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
+## The price of the pre-push verdict
+
+The hook's detekt step is not in the block below: it runs on the tree that is
+being pushed, in the developer's checkout, and its cost is what the push
+waits for. Measured on 2026-10-23 with the hook's own invocation
+(`./gw :shared:detekt :desktopApp:detekt --auto-correct --rerun`):
+
+| Path | Seconds | What ran |
+|---|---|---|
+| warm — the current worktree | 561 s | `:shared:detekt` 7 min 26 s, `:desktopApp:detekt` 1 min 51 s |
+| cold — a fresh worktree at the same sha | 565 s | `:shared:detekt` 8 min 20 s |
+
+Two readings, and one caveat:
+
+- **`:shared` is the whale.** 227 000 lines, 239 packages, 90 % of the verdict.
+  The other modules are seconds to two minutes.
+- **Warm is not warm.** The two paths cost the same, because `./gw` gives every
+  worktree a private `GRADLE_USER_HOME` and the configuration cache is cold in
+  a fresh worktree regardless. Judging in the current worktree saves the build
+  directory, not the analysis — the number of modules is the lever.
+- **Caveat:** the load average on this host was 34–50 (ten agent sessions
+  share the machine), so the absolute numbers are an upper bound. The ratio
+  between the paths is the fact.
+
+The verdict was narrowed to the modules the change can reach (ADR
+`2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`), so the
+price now follows the change: one module for a narrow change, none for a
+change that moves neither Kotlin nor rules, and four for a change in
+`shared`. The local verdict is partial, and the hook says so.
+
 {BEGIN_MARKER}
 """
     footer = f"""{END_MARKER}
@@ -294,6 +360,13 @@ def _render_block(baseline: dict[str, object]) -> str:
         described = ", ".join(f"{key}={value}" for key, value in sorted(env.items()) if value != "")
         lines.append(f"Recorded on {recorded or 'an unrecorded date'} — {described}.")
         lines.append("")
+    load = baseline.get("host")
+    if isinstance(load, dict) and load:
+        described_load = _describe_load(load)
+        if described_load:
+            lines.append(f"Measured while {described_load} — the cost of a gate is a")
+            lines.append("property of the gate and the host together, and this is the host.")
+            lines.append("")
     lines.append("| What | Median |")
     lines.append("|------|--------|")
     for kind, title in (("steps", "Step"), ("gates", "Gate")):
@@ -305,8 +378,62 @@ def _render_block(baseline: dict[str, object]) -> str:
             median = entry.get("medianMs") if isinstance(entry, dict) else None
             lines.append(f"| {title}: {name} | {_format_ms(median)} |")
     lines.append("")
+    lines.extend(_render_coverage_block())
     lines.extend(_render_ci_block(baseline))
     return "\n".join(lines)
+
+
+def _read_coverage_costs() -> dict[str, str]:
+    """The measured cost of the instrumented coverage run, per population.
+
+    Its own file, and not a row of the table above: the instrumented run is
+    the one the Kover agent multiplies, and its cost decides whether a timeout
+    is adequate. The build reads the same file, so the number the build
+    prints and the number published here cannot drift apart.
+    """
+    path = sgate.repo.COVERAGE_COST_PROPERTIES
+    costs: dict[str, str] = {}
+    if not path.is_file():
+        return costs
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        costs[key.strip()] = value.strip()
+    return costs
+
+
+def _render_coverage_block() -> list[str]:
+    """The instrumented coverage run: what it costs, per population."""
+    costs = _read_coverage_costs()
+    if not costs:
+        return []
+    lines = ["### The instrumented coverage run", ""]
+    measured = costs.get("measuredAt")
+    machine = costs.get("machine")
+    if measured or machine:
+        lines.append(
+            f"Measured on {measured or 'an unrecorded date'}"
+            + (f" — {machine}" if machine else "")
+            + "."
+        )
+        lines.append("")
+    lines.append("| Population | Cost |")
+    lines.append("|---|---|")
+    for population in ("fast", "full"):
+        millis = costs.get(f"{population}.ms")
+        if millis is None:
+            continue
+        lines.append(f"| {population} | {_format_ms(int(millis))} |")
+    lines.append("")
+    lines.append(
+        "The uninstrumented `:shared:jvmTest` in the table above is a different "
+        "run: the Kover agent multiplies the cost of every test, and this is the "
+        "number a timeout has to be set from."
+    )
+    lines.append("")
+    return lines
 
 
 def _render_ci_block(baseline: dict[str, object]) -> list[str]:
@@ -518,16 +645,138 @@ def _duration_ms(started: object, completed: object) -> int | None:
     return int((second - first).total_seconds() * 1000)
 
 
+def measure_coverage_costs(populations: tuple[str, ...] = ("fast", "full")) -> dict[str, int]:
+    """Measure the instrumented coverage run, once per population.
+
+    This is the run the Kover agent multiplies: ~37 minutes for the fast
+    population on the development host. It is measured here rather than
+    copied from a log because the number decides whether a timeout is
+    adequate, and a timeout set from a stale number is a timeout set from a
+    guess.
+
+    A run that FAILS still costs the time it took — the coverage floor may be
+    below the recorded one — so the duration is taken either way, and the
+    failure is reported rather than swallowed.
+    """
+    measured: dict[str, int] = {}
+    for population in populations:
+        command = [
+            "./gw",
+            ":koverVerify",
+            f"-Ptest.population={population}",
+        ]
+        logger.info(f"measuring the instrumented coverage run: {population}")
+        started = time.monotonic()
+        result = subprocess.run(command, cwd=sgate.repo.ROOT, check=False)
+        elapsed = int((time.monotonic() - started) * 1000)
+        if result.returncode != 0:
+            logger.warning(
+                f"the '{population}' coverage run exited {result.returncode} — "
+                f"the duration is recorded anyway, but the run itself failed"
+            )
+        measured[population] = elapsed
+    return measured
+
+
+def _coverage_cost_header(
+    measured: dict[str, int],
+    measured_at: str,
+    uninstrumented_ms: int | None,
+) -> list[str]:
+    """The prose above the numbers, written where the numbers are written.
+
+    The rationale lives here, and not in the file: a re-measure that replaced
+    the file with a header of its own would erase the reason the number
+    exists — which is what a reader of the next timeout needs, and the two
+    numbers that look backwards.
+    """
+    costs = ", ".join(
+        f"{_format_ms(measured[population])} for the {population} population"
+        for population in sorted(measured)
+    )
+    against = (
+        f" — against {_format_ms(uninstrumented_ms)} for the uninstrumented "
+        "`:shared:jvmTest`"
+        if uninstrumented_ms
+        else ""
+    )
+    paragraphs = [
+        "The measured cost of the INSTRUMENTED coverage run.",
+        "This is NOT the same run as the uninstrumented `:shared:jvmTest` in the "
+        "table of `docs/testing/gate-costs.md`: the Kover agent multiplies the cost "
+        "of every test, and the instrumented run is the one that decides whether a "
+        f"timeout is adequate. On {measured_at} it took {costs}{against}.",
+        "Two numbers that look backwards are not: the full population is CHEAPER "
+        "than the fast one, because the fast population is a subset of the classes "
+        "and the instrumented overhead is per-class-per-run. The number to plan "
+        "against is the larger of the two.",
+        "The build reads this file: `:koverVerify` prints the estimate before it "
+        "starts, so that nobody sets a 15-minute timeout on a 37-minute task.",
+        f"Measured on {measured_at} with a warm Gradle cache, on the development host "
+        f"({os.cpu_count()} vCPU). A CI runner has 4 vCPU: the same run there is "
+        "slower, which is why the CI job's timeout is set from the upper end and not "
+        "from this number.",
+        "To re-measure: `sgate gate-costs --record --coverage` (about an hour: it "
+        "runs the instrumented coverage once per population).",
+    ]
+    lines: list[str] = []
+    for index, paragraph in enumerate(paragraphs):
+        if index:
+            lines.append("#")
+        lines.extend(f"# {line}" for line in textwrap.wrap(paragraph, width=76))
+    lines.append("")
+    return lines
+
+
+def write_coverage_costs(
+    measured: dict[str, int],
+    uninstrumented_ms: int | None = None,
+    measured_at: str | None = None,
+) -> None:
+    """Write the measured instrumented costs into their own file.
+
+    A separate file, and not a row of the baseline: this file is read by the
+    build (`:koverVerify` prints the estimate before it starts), and a build
+    reading the gate-costs baseline would make the loop's bookkeeping part of
+    the build's inputs.
+
+    The prose is written here too, so that re-measuring replaces the numbers
+    and leaves the reasoning that makes them readable.
+    """
+    path = sgate.repo.COVERAGE_COST_PROPERTIES
+    day = measured_at or datetime.now().astimezone().strftime("%Y-%m-%d")
+    lines = _coverage_cost_header(measured, day, uninstrumented_ms)
+    for population in sorted(measured):
+        lines.append(f"{population}.ms={measured[population]}")
+    lines.append(f"measuredAt={day}")
+    lines.append(f"machine={os.cpu_count()} vCPU, warm Gradle cache")
+    lines.append("")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 # ── The command ──────────────────────────────────────────────────────────────────
 
 
 @click.command("gate-costs")
 @click.option("--record", is_flag=True, help="Record the measured cycle into the committed baseline.")
 @click.option("--record-ci", is_flag=True, help="Record the last CI run's job durations into the baseline.")
+@click.option(
+    "--coverage",
+    is_flag=True,
+    help="Also measure the instrumented coverage run, once per population (slow: about an hour).",
+)
 @click.option("--render", is_flag=True, help="Render the published document from the baseline.")
 @click.option("--check", is_flag=True, help="Fail if the published document is not what the baseline says.")
 @click.option("--json", "emit_json", is_flag=True, help="Emit machine-readable output to stdout.")
-def gate_costs(record: bool, record_ci: bool, render: bool, check: bool, emit_json: bool) -> None:
+def gate_costs(
+    record: bool,
+    record_ci: bool,
+    coverage: bool,
+    render: bool,
+    check: bool,
+    emit_json: bool,
+) -> None:
     """Report, record, and publish what the verification loop costs.
 
     With no flag, the last measured cycle is printed next to the baseline, and
@@ -593,6 +842,26 @@ def gate_costs(record: bool, record_ci: bool, render: bool, check: bool, emit_js
         else:
             logger.info(f"{path} is current")
         raise SystemExit(CLEAN)
+
+    if coverage:
+        measured = measure_coverage_costs()
+        if not measured:
+            logger.error("the instrumented coverage run could not be measured")
+            raise SystemExit(IO_ERROR)
+        steps = baseline.get("steps")
+        uninstrumented = None
+        if isinstance(steps, dict):
+            entry = steps.get("shared:jvmTest")
+            if isinstance(entry, dict):
+                median = entry.get("medianMs")
+                if isinstance(median, int):
+                    uninstrumented = median
+        write_coverage_costs(measured, uninstrumented)
+        logger.info(
+            "measured the instrumented coverage run: "
+            + ", ".join(f"{name} {_format_ms(value)}" for name, value in sorted(measured.items()))
+        )
+        write_document(render_document(baseline))
 
     if record:
         recorded = _record(baseline, measurement)

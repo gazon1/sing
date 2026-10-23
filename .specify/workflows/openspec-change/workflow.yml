@@ -238,6 +238,17 @@ steps:
         CHANGE_TYPE="active-stub"
       fi
 
+      # A record names what exists. The registry gate holds every record to
+      # that, so a `specs_dir` that points at a directory this change never
+      # had is a finding, not a description. `null` is how the importer says
+      # "there is none", and the two writers say it the same way.
+      SPECS_DIR="openspec/changes/${DATE}-${SLUG}/specs"
+      if [ -d "$SPECS_DIR" ]; then
+        SPECS_DIR_LINE="$SPECS_DIR"
+      else
+        SPECS_DIR_LINE="null"
+      fi
+
       cat > "$ISSUE_FILE" << EOF
       # spec-kit issue record — created by openspec-change workflow
       # Source: openspec/changes/${DATE}-${SLUG}/
@@ -252,10 +263,7 @@ steps:
       speckit_workflow: openspec-change
       documents:
         proposal: openspec/changes/${DATE}-${SLUG}/proposal.md
-        design: openspec/changes/${DATE}-${SLUG}/design.md
-        adr: openspec/changes/${DATE}-${SLUG}/adr.md
-        tasks: openspec/changes/${DATE}-${SLUG}/tasks.md
-      specs_dir: openspec/changes/${DATE}-${SLUG}/specs
+      specs_dir: ${SPECS_DIR_LINE}
       openspec_path: openspec/changes/${DATE}-${SLUG}
       EOF
 

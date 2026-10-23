@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-profile-that-was-never-activated-was-reported-as-activated/proposal.md
-  design: openspec/changes/a-profile-that-was-never-activated-was-reported-as-activated/design.md
-  adr: openspec/changes/a-profile-that-was-never-activated-was-reported-as-activated/adr.md
   tasks: openspec/changes/a-profile-that-was-never-activated-was-reported-as-activated/tasks.md
 specs_dir: openspec/changes/a-profile-that-was-never-activated-was-reported-as-activated/specs
 is_stub: false

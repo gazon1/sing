@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-save-that-wrote-the-note-but-not-its-links-is-not-a-save/proposal.md
-  design: openspec/changes/a-save-that-wrote-the-note-but-not-its-links-is-not-a-save/design.md
-  adr: openspec/changes/a-save-that-wrote-the-note-but-not-its-links-is-not-a-save/adr.md
   tasks: openspec/changes/a-save-that-wrote-the-note-but-not-its-links-is-not-a-save/tasks.md
 specs_dir: openspec/changes/a-save-that-wrote-the-note-but-not-its-links-is-not-a-save/specs
 is_stub: false

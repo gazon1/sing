@@ -5,8 +5,8 @@ package com.singularity.todo.feature.notes.data
 import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.repository.assertCanWrite
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchTextIndex
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.notes.Note
@@ -160,7 +160,7 @@ class NotesRepositoryImpl(
     }
 
     override fun search(query: String): Flow<List<Note>> =
-        textIndex.observeNotes(TextMatchQuery(listOf(query)))
+        textIndex.observeNotes(FreeTextRule.singleTerm(query).indexQuery())
             .map { rows -> rows.map { it.record } }
 
     override suspend fun createWithContent(

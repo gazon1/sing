@@ -5,11 +5,19 @@
 # to run on every push without making people reach for --no-verify.
 #
 # What runs here vs. in CI:
-#   Here:    structural gates (seconds) + detekt auto-correct (~2 min)
+#   Here:    structural gates (seconds) + the detekt verdict over the modules
+#            the change can reach (a minute for a narrow change; ~9 min for a
+#            change in `shared`, measured 2026-10-23 — the price is published
+#            in docs/testing/gate-costs.md)
 #   CI:      full suite — jvmTest, desktopApp:test, mcp-server:test,
 #            kover, static-gates, Maestro flows
 #
 # WHAT IS CHECKED: the tree that is being pushed, not the checked-out worktree.
+#
+# WHAT IS NOT: the modules the change does not reach. The local verdict is
+# partial — CI judges every module. The difference is written down in
+# config/hooks/pre-push.json, and scripts/check-hook-gates.py keeps that record
+# and this hook in step.
 #
 # `git push` hands the hook the refs it is about to write:
 #     <local ref> <local sha> <remote ref> <remote sha>
@@ -275,6 +283,223 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "pre-push FAILED — the UI wait budgets disagree in the tree of $local_ref."
         echo "Run python3 scripts/check-ui-wait-budgets.py to see where, or push with --no-verify."
     fi
+
+    # The three rules that are cheap, that CI enforces, and that a contributor
+    # would otherwise only meet as a red CI run: the pointers AGENTS.md names,
+    # the registry entry of every change, and the review verdict of every
+    # change.
+    #
+    # They run against the pushed tree, not the worktree, for the same reason
+    # the gates above do: a rule that reads a different tree than the one
+    # being pushed checks the wrong thing.
+    #
+    # The rule that runs is the one **in the pushed tree** — the same copy CI
+    # would run, because CI runs the tree's own registry. Running today's
+    # script against an older tree applies rules that did not exist when that
+    # tree was written: a branch cut before this change would be blocked for
+    # violations CI would never report on it. A tree that does not have the
+    # rule does not have the rule, so the check is skipped and says so.
+    #
+    # Each rule costs well under a second — measured: the pointers gate 0.1 s,
+    # the registry gate 1.1 s, the verdict gate 0.2 s — so the local loop
+    # carries the same rules CI does, at a price nobody notices. The suite as a
+    # whole is not in this hook on purpose: it is a minute and a half, and it
+    # is where the incremental temptation lives. What is here is the part that
+    # is cheap and that a broken tree would otherwise carry to CI.
+    #
+    # Skipped rather than failed when click is not installed, like the wait
+    # budgets above: a gate that cannot run must not become a reason a push
+    # cannot happen, and CI runs it either way.
+    if ! python3 -c "import click" >/dev/null 2>&1; then
+        echo "   tree rules gate: SKIPPED (click is not installed)"
+    else
+        # The rules come from the registry, so the hook and the test that
+        # drives it cannot drift: a rule added to one and not the other was a
+        # failing test, found by the full run rather than by the edit.
+        TREE_RULES="$(cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT/scripts/src" python3 -c \
+            "from sgate.commands._registry import PRE_PUSH_TREE_RULES; print(' '.join(PRE_PUSH_TREE_RULES))" \
+            2>/dev/null || echo '')"
+        for rule in $TREE_RULES; do
+            if [ ! -f "$tree/scripts/$rule.py" ]; then
+                echo "   $rule gate: SKIPPED (the pushed tree does not have this rule)"
+                continue
+            fi
+            if (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
+                python3 "$tree/scripts/$rule.py" --quiet); then
+                echo "   $rule gate: OK"
+            else
+                echo "   $rule gate: FAILED"
+                GATES_FAILED=1
+                echo ""
+                echo "pre-push FAILED — $rule found something in the tree of $local_ref."
+                echo "Run python3 scripts/$rule.py to see where, or push with --no-verify."
+            fi
+        done
+    fi
+
+    # ── The gate suite's own tests ───────────────────────────────────────
+    #
+    # The test that caught a wrong timeout in the CI workflow lived in CI and
+    # nowhere else: the local shield did not run it, so the mistake cost 33
+    # minutes of CI instead of two and a half of local work. These tests are
+    # what says the gates can fail — a gate suite nobody has run is a gate
+    # suite that is green by accident.
+    #
+    # They run against the tree being pushed, like every other gate here: the
+    # CI job that runs them runs the pushed tree's copies.
+    #
+    # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR)
+    # for the hook it runs. A test that creates a repository of its own
+    # inherits those, and `git init` then reinitialises THIS repository
+    # instead of the test's: `git add -A` stages the test's directory against
+    # this repository's index — every tracked file looks deleted — and
+    # `git commit` writes the test's tree onto the branch being pushed. That
+    # happened on 2026-10-23: a fixture committed a 12124-file deletion into
+    # the working repository, and the same tree reached the remote main.
+    #
+    # So the suite runs without those names. The fixtures also scrub them
+    # themselves (scripts/tests/git_sandbox.py), because the suite is run
+    # outside a hook too, and this line is the belt to their braces.
+    if [ ! -d "$tree/scripts/tests" ]; then
+        echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
+    elif (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
+        echo "   gate suite tests: OK"
+    else
+        echo "   gate suite tests: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
+        echo "Run python3 -m unittest discover -s scripts/tests to see where, or push with --no-verify."
+    fi
+
+    # ── The promise files ─────────────────────────────────────────────────
+    #
+    # Some files in this repository promise something about the code next to
+    # them, and each promise has been broken at least once — always in CI,
+    # always hours later, always on somebody else's tree:
+    #
+    #   Maestro/TAGS.md                — the catalogue of the ids a flow may
+    #                                     address, generated from TestTags.kt
+    #   config/docs/maestro-flows.txt  — the catalogue of the flows themselves
+    #   .specify/issues/*.yaml         — the registry of every openspec change
+    #
+    # A checker for each of them exists and costs seconds. What was missing was
+    # the moment: the promise is kept when the file next to it changes, not
+    # when CI eventually notices.
+    #
+    # So the check runs here, against the tree that is being pushed, and only
+    # when that tree actually touches the file that carries the promise — a
+    # push that touches nothing relevant pays nothing.
+    #
+    # The checkers are run FROM the pushed tree (`$tree/scripts/...`), because
+    # each derives its repository root from its own file location: the copy in
+    # the tree is the copy that knows about the tree.
+    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+        PROMISE_RANGE=("$remote_sha..$local_sha")
+    else
+        PROMISE_RANGE=("$local_sha" --not --remotes)
+    fi
+    # The files the pushed commits touch. `git log --name-only` rather than
+    # `git diff`: the range is the pushed commits, and a file that a commit
+    # touched is a file this push carries.
+    PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+
+    # promise_touched <path> — did this push touch that path?
+    #
+    # `grep -c` and not `grep -q`: `-q` closes the pipe on the first hit, the
+    # writer takes SIGPIPE, and with `pipefail` the pipeline reports 141 —
+    # which is a broken pipe, not an answer.
+    promise_touched() {
+        printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+    }
+
+    # The output of a promise check, kept for the failure message.
+    #
+    # The checkers import the gate CLI, whose logger writes a DEBUG line per
+    # loaded module — noise that would bury the finding in a hook that people
+    # read when they are trying to push. The output is captured instead of
+    # streamed, and shown (without the DEBUG lines) only when the check fails.
+    PROMISE_OUT="$(mktemp "${TMPDIR:-/tmp}/pre-push-promise-XXXXXX")"
+
+    if promise_touched "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt$"; then
+        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/check-test-tags-catalog.py" --check --quiet) \
+            >"$PROMISE_OUT" 2>&1; then
+            echo "   tag catalogue gate: OK"
+        else
+            echo "   tag catalogue gate: FAILED"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — Maestro/TAGS.md does not match TestTags.kt in the tree of $local_ref."
+            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+            echo "Regenerate it: ./gradlew :shared:jvmTest -PupdateGoldens=true, or push with --no-verify."
+        fi
+    fi
+
+    if promise_touched "Maestro/flows/" || promise_touched "config/docs/maestro-flows.txt$"; then
+        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/check-maestro-flow-catalogue.py") \
+            >"$PROMISE_OUT" 2>&1; then
+            echo "   maestro flow catalogue gate: OK"
+        else
+            echo "   maestro flow catalogue gate: FAILED"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — the Maestro flow catalogue does not match the flows in the tree of $local_ref."
+            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+            echo "Add the new flow to config/docs/maestro-flows.txt, or push with --no-verify."
+        fi
+    fi
+
+    if promise_touched "openspec/changes/"; then
+        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/check-issue-registry.py" --quiet) \
+            >"$PROMISE_OUT" 2>&1; then
+            echo "   issue registry gate: OK"
+        else
+            echo "   issue registry gate: FAILED"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — an openspec change in the tree of $local_ref has no record in .specify/issues/."
+            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+            echo "Record it with: python3 scripts/openspec-import-all.py --replace, or push with --no-verify."
+        fi
+    fi
+
+    rm -f "$PROMISE_OUT"
+    # Two places where a commit can make a claim false and nothing says so.
+    #
+    # The DI fixture table says what to hand a Koin definition that takes its
+    # arguments at runtime, and the navigation doc says what opens what. Both
+    # are read by something else — a graph that is built, an agent that follows
+    # a pointer — and both drifted on 2026-10-22 while the suite that would
+    # have caught them was an hour away.
+    #
+    # They are text gates, so they cost seconds. The check is against the tree
+    # being pushed, like every other gate here.
+    if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        python3 "$tree/scripts/check-di-fixture-sync.py" --root "$tree" --check); then
+        echo "   DI fixture gate: OK"
+    else
+        echo "   DI fixture gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — a Koin definition and the DI fixture table disagree in the tree of $local_ref."
+        echo "Run python3 scripts/check-di-fixture-sync.py to see where, or push with --no-verify."
+    fi
+
+    if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        python3 "$tree/scripts/check-navigation-doc-sync.py" --root "$tree" --check); then
+        echo "   navigation doc gate: OK"
+    else
+        echo "   navigation doc gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — the navigation doc claims something the code does not do in the tree of $local_ref."
+        echo "Run python3 scripts/check-navigation-doc-sync.py to see where, or push with --no-verify."
+    fi
 done
 
 if [ "$GATES_FAILED" = "1" ]; then
@@ -284,38 +509,33 @@ if [ "$GATES_FAILED" = "1" ]; then
 fi
 
 echo ""
-echo "=== Structural gates OK ==="
+echo "=== Structural gates OK (against the pushed tree; a rule the pushed tree"
+echo "    does not have is skipped, not checked) ==="
 echo ""
 
 # ── detekt verdict (about the tree that is being pushed) ────────────────
 #
-# Two signals, and both of them are taken about the tree that is being pushed:
+# The decision — which tree to judge, and whether the tree changed under
+# detekt's feet — lives in scripts/pre-push-verdict.py, where it is
+# unit-tested. It used to be bash here, with two branches nothing exercised.
 #
-#   1. the run's own exit code — detekt's verdict on the findings it could
-#      not correct;
-#   2. the content digest before and after the run — the findings detekt DID
-#      correct. Auto-correct rewrites the file and reports success, so what it
-#      changed is the only evidence that the tree held a violation.
+# What the verdict means, in one paragraph: the tree that is being pushed is
+# judged, not the worktree. The current worktree is judged when it holds
+# byte-identical content for everything detekt can read — then it IS the
+# pushed tree, and judging it there is warm (this checkout's own Gradle home
+# and build directories). Otherwise a tree that holds the pushed content is
+# judged, so a violation that is only in the worktree is not reported against
+# a tree nobody pushed, and a violation that is in the pushed tree is not
+# missed because the worktree happens to be clean.
 #
-# The digest is a content hash over every Kotlin file, not
-# `git status --porcelain`: a file that was already modified before the run
-# keeps the same status line (" M path") after the correction, so a status
-# comparison cannot see that anything happened. The verdict has to be about
-# the content, or it is about nothing.
-#
-# WHERE the verdict is taken depends on what the worktree holds:
-#
-#   - the worktree holds byte-identical content for everything detekt reads:
-#     the worktree IS the pushed tree, and judging it there is warm — the
-#     Gradle daemon and the build directories are this checkout's own;
-#   - anything else: a throwaway worktree at the pushed sha. A violation that
-#     is only in the worktree is then not reported against a tree nobody
-#     pushed, and a violation that is in the pushed tree is not missed
-#     because the worktree happens to be clean.
+# Two signals make the verdict red, and both are needed: the run's exit code
+# (findings detekt could not correct) and the content digest before and after
+# the run (findings it did correct — auto-correct rewrites the file and
+# reports success, so what it changed is the only evidence of a violation).
 #
 # `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md):
-# one invocation per module (not a combined task list — the flag only reaches the
-# last task of an invocation).
+# one invocation per module (not a combined task list — the flag only reaches
+# the last task of an invocation).
 #
 # `--rerun` forces re-analysis: without it Gradle is UP-TO-DATE and corrects
 # nothing. `--rerun` re-runs the task it is given and leaves its dependencies
@@ -326,68 +546,18 @@ echo ""
 # `--rerun-tasks` re-runs the WHOLE task graph of the invocation, so every
 # Kotlin compilation of `:shared` and `:desktopApp` was re-done from scratch on
 # every push, only for detekt to re-analyse the sources that were compiled
-# anyway. `--rerun` re-runs detekt alone. Measured on this tree: the
-# `--rerun-tasks` invocation was still running after 18 minutes and was stopped;
-# the `--rerun` invocation finishes in a couple of minutes.
+# anyway. `--rerun` re-runs detekt alone.
 
 echo "=== Pre-push [$CURRENT_BRANCH] — detekt verdict (about the pushed tree) ==="
-
-DETEKT_TASKS=(:shared:detekt :desktopApp:detekt)
-
-# The paths that can change a detekt verdict:
-#   - the Kotlin sources detekt analyses;
-#   - the build scripts that decide which source sets are scanned;
-#   - the detekt config, the baseline and the custom rules;
-#   - the version catalog the build scripts read;
-#   - .editorconfig — ktlint reads it from inside detekt (max_line_length,
-#     ktlint_class_signature_rule_force_multiline_when_parameter_count…),
-#     so a worktree with a different .editorconfig is judged by different
-#     rules than the tree it is standing in for.
-#
-# A worktree that differs in any of them is a different tree, and a verdict
-# about it is a verdict about something nobody is pushing.
-DETEKT_PATHSPECS=(
-    ':(glob)**/*.kt'
-    ':(glob)**/*.kts'
-    'config/detekt/**'
-    'build-logic/**'
-    'detekt-rules/**'
-    'gradle/**'
-    '.editorconfig'
-)
-
-# The content of every Kotlin file in a tree, as one hash. Tracked and
-# untracked: detekt reads both, and a correction to an untracked file is as
-# much a violation as a correction to a tracked one.
-#
-# `git hash-object --stdin-paths` reads the paths FROM stdin — passing them as
-# arguments as well is an error, which is what the first version of this did.
-kotlin_digest() {
-    local tree="$1"
-    (
-        cd "$tree" || exit 1
-        {
-            git ls-files -- '*.kt' '*.kts'
-            git ls-files --others --exclude-standard -- '*.kt' '*.kts'
-        } | git hash-object --stdin-paths | git hash-object --stdin
-    )
-}
-
-# Does the current worktree hold exactly the content of $1 for everything
-# detekt can read?
-worktree_holds_sha() {
-    local sha="$1" untracked
-    git diff --quiet "$sha" -- "${DETEKT_PATHSPECS[@]}" 2>/dev/null || return 1
-    # Untracked files are invisible to `git diff`: a new Kotlin file in the
-    # worktree is analysed by detekt and is not in the pushed tree.
-    untracked="$(git status --porcelain --untracked-files=all -- "${DETEKT_PATHSPECS[@]}" 2>/dev/null | grep -c '^??' || true)"
-    [ "$untracked" = "0" ]
-}
 
 DETEKT_FAILED=0
 # How many trees were actually judged: a verdict that was not taken is not a
 # clean verdict, and the summary must not claim otherwise.
 DETEKT_JUDGED=0
+# How many trees had nothing to judge — the change moved neither Kotlin nor
+# rules. Nothing was checked there, so nothing was found: that is "not taken",
+# not "clean".
+DETEKT_NOTHING=0
 judged_shas=" "
 
 for i in "${!PUSH_REFS[@]}"; do
@@ -407,100 +577,77 @@ for i in "${!PUSH_REFS[@]}"; do
     esac
     judged_shas="$judged_shas $local_sha "
 
-    if [ -z "$remote_sha" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
-        RANGE=("${local_sha}" --not --remotes)
-    else
-        RANGE=("${remote_sha}..${local_sha}")
-    fi
-
     # Does this push carry Kotlin at all? Only the pushed commits count: the
     # verdict is about the pushed tree, and a Kotlin file that is only in the
     # worktree is not in it.
     #
-    # Skipping when it does not is how a Python-only push got held hostage by
-    # an unrelated Kotlin finding — and the author's response to a hook that
-    # blocks on someone else's code is `--no-verify`, which costs every other
-    # gate too. CI runs blocking detekt over the whole tree regardless, so
-    # skipping here stops a ~2 minute Gradle run on a change that cannot need
-    # it, and stops nothing else.
-    #
-    # Captured instead of piped: with `pipefail`, `grep -q` closing the pipe
-    # early can make the pipeline report SIGPIPE (141) for a hit.
-    if [ -z "$(git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null)" ]; then
-        echo "no Kotlin in $local_ref — the detekt verdict is not taken (blocking detekt still runs in CI)"
+    # The modules to judge are computed by scripts/pre-push-verdict.py from the
+    # module graph: a change in one module judges that module and the ones
+    # that compile against it, a change in the rules or in the build judges
+    # every module, and a change that moves neither Kotlin nor rules needs no
+    # detekt run at all. So the question "does this push carry Kotlin?" is
+    # answered there, by the same code that decides what to judge — not here,
+    # by a second rule that can disagree with it.
+    echo ""
+    echo "→ $local_ref → $remote_ref @ $local_sha"
+
+    # The worktree this hook already checked out for this sha, if any: the
+    # verdict falls back to it when the current worktree holds something else.
+    fallback=""
+    if [ -n "${REF_TREES[$i]:-}" ]; then
+        fallback="${REF_TREES[$i]}"
+    fi
+
+    # The base of the pushed range: the tree the remote already holds. It is
+    # what the change is measured against. A branch the remote does not have
+    # yet is measured against the trunk instead (the script's default).
+    base=""
+    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+        base="$remote_sha"
+    fi
+
+    new_temp_root
+    verdict_rc=0
+    verdict_out=""
+    if [ -n "$base" ]; then
+        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+            --sha "$local_sha" \
+            --repo "$REPO_ROOT" \
+            --fallback-tree "$fallback" \
+            --base "$base" \
+            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+    else
+        verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+            --sha "$local_sha" \
+            --repo "$REPO_ROOT" \
+            --fallback-tree "$fallback" \
+            --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
+    fi
+    printf '%s\n' "$verdict_out"
+
+    # A verdict that found nothing to judge is not a verdict: nothing was
+    # checked, so nothing was found. The summary says "not taken" rather than
+    # "clean", because a clean tree is a claim and this is not one.
+    case "$verdict_out" in
+        *"nothing to judge"*) DETEKT_NOTHING=$((DETEKT_NOTHING + 1)) ;;
+        *) DETEKT_JUDGED=$((DETEKT_JUDGED + 1)) ;;
+    esac
+
+    if [ "$verdict_rc" = "0" ]; then
         continue
     fi
 
-    # Which tree holds the pushed content?
-    if worktree_holds_sha "$local_sha"; then
-        judge_tree="$REPO_ROOT"
-        judge_label="the current worktree — byte-identical to ${local_sha:0:8}"
-    else
-        judge_tree="$(tree_for_sha "$local_sha" || true)"
-        if [ -z "$judge_tree" ]; then
-            if checkout_pushed_tree "$local_sha" "detekt-${local_sha:0:8}"; then
-                judge_tree="$CHECKOUT_TREE"
-            else
-                judge_tree=""
-            fi
-        fi
-        judge_label="a temporary worktree at ${local_sha:0:8}"
-    fi
-
-    if [ -z "$judge_tree" ]; then
+    DETEKT_FAILED=1
+    if [ "$verdict_rc" = "2" ]; then
         echo ""
-        echo "   !!! no tree holds ${local_sha:0:8} — the detekt verdict could not be taken"
-        DETEKT_FAILED=1
+        echo "pre-push FAILED — the detekt verdict could not be taken for $local_ref."
+        echo "The tree that is being pushed was not judged, so this push is not certified."
         continue
     fi
 
     echo ""
-    echo "→ $local_ref → $remote_ref @ $local_sha"
-    echo "   detekt verdict taken on $judge_label"
-    DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
-
-    new_temp_root
-    before="$(kotlin_digest "$judge_tree")"
-    detekt_failed=0
-
-    for task in "${DETEKT_TASKS[@]}"; do
-        log="$TMP_ROOT/detekt-${task//:/-}-${local_sha:0:8}.log"
-        rc=0
-        (
-            cd "$judge_tree" || exit 1
-            ./gradlew "$task" \
-                --auto-correct --rerun --no-daemon --console=plain
-        ) >"$log" 2>&1 || rc=$?
-        if [ "$rc" = "0" ]; then
-            echo "   detekt $task: OK"
-        else
-            detekt_failed=1
-            echo "   detekt $task: FAILED (exit $rc) — the last lines of the run:"
-            tail -n 30 "$log" | sed 's/^/      /'
-        fi
-    done
-
-    after="$(kotlin_digest "$judge_tree")"
-
-    if [ "$detekt_failed" = "1" ]; then
-        DETEKT_FAILED=1
-        echo ""
-        echo "pre-push FAILED — detekt reported findings in the tree that is being pushed ($local_ref)."
-        echo "Fix them and push again (or push with --no-verify)."
-    fi
-
-    if [ "$before" != "$after" ]; then
-        DETEKT_FAILED=1
-        echo ""
-        echo "pre-push FAILED — detekt corrected the tree that is being pushed ($local_ref)."
-        if [ "$judge_tree" = "$REPO_ROOT" ]; then
-            echo "The corrected files are in your working tree: review the diff, amend the commit, push again."
-            git --no-pager diff --stat
-        else
-            echo "The corrections were made in the temporary worktree — here is what detekt changed:"
-            git -C "$judge_tree" --no-pager diff
-        fi
-    fi
+    echo "pre-push FAILED — detekt reported findings in the tree that is being pushed ($local_ref)."
+    echo "Fix them and push again (or push with --no-verify)."
 done
 
 if [ "$DETEKT_FAILED" = "1" ]; then
@@ -510,12 +657,16 @@ if [ "$DETEKT_FAILED" = "1" ]; then
 fi
 
 echo ""
-if [ "$DETEKT_JUDGED" = "0" ]; then
-    echo "detekt verdict: not taken — this push carries no Kotlin"
+if [ "$DETEKT_JUDGED" = "0" ] && [ "$DETEKT_NOTHING" = "0" ]; then
+    echo "detekt verdict: not taken — nothing was pushed to judge"
+elif [ "$DETEKT_JUDGED" = "0" ]; then
+    echo "detekt verdict: not taken — this change moves no Kotlin and no rules"
 else
-    echo "detekt verdict: the pushed tree is clean"
+    echo "detekt verdict: the pushed tree is clean for the modules the change can affect"
+    echo "detekt coverage: CI judges every module; the hook judges the ones this change reaches"
 fi
 echo ""
+
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own

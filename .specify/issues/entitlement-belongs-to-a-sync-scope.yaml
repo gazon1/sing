@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/entitlement-belongs-to-a-sync-scope/proposal.md
-  design: openspec/changes/entitlement-belongs-to-a-sync-scope/design.md
-  adr: openspec/changes/entitlement-belongs-to-a-sync-scope/adr.md
   tasks: openspec/changes/entitlement-belongs-to-a-sync-scope/tasks.md
 specs_dir: openspec/changes/entitlement-belongs-to-a-sync-scope/specs
 is_stub: false

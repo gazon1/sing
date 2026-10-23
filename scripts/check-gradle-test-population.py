@@ -38,8 +38,16 @@ depends on one: `test`, `jvmTest`, `connectedDebugAndroidTest`, `check`,
 `build`, or anything under Kover — Kover reads the binary reports those test
 tasks produce, so a Kover task that runs them is a test run.
 
-A selector is `-Ptest.tags=<value>`. "Absent" is a selector too: it is Gradle's
-default, and it is not the same selector.
+A selector is `-Ptest.population=<name>` (the named selection) or
+`-Ptest.tags=<value>` (the raw tag list). "Absent" is a selector too: it is
+Gradle's default, and it is not the same selector.
+
+The two spellings are compared by their EFFECT — the tag list each one
+resolves to. `-Ptest.population=full` and `-Ptest.tags=fast,slow` select the
+same tests, so they are the same population, and a report that called them a
+disagreement would send the author hunting for a difference that is not
+there. The name-to-tags mapping is `config/test-populations.properties`, the
+one file the build and every gate read.
 
 Deliberately **not** a rule: that every test invocation must carry a selector.
 `check.sh` runs every test task with none, on purpose — the local default is
@@ -79,15 +87,20 @@ import pathlib
 import sys
 
 import click
-from sgate.commands.base import run
 
-# `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
-# loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
-# package is invisible; this file's own location is authoritative.
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
 _scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
 _added = _scripts_src not in sys.path
 if _added:
     sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
 import workflow_gradle as wg  # noqa: E402
 
 if _added:
@@ -135,6 +148,22 @@ def _surfaces() -> list[tuple[str, list[wg.Invocation]]]:
     return found
 
 
+def _rendered(invocation: wg.Invocation) -> str:
+    """How this invocation's selection reads in a report.
+
+    The name first: an invocation that asked for a population reads
+    `-Ptest.population=full`, and one that spelled the tags reads
+    `-Ptest.tags=fast,slow`. The comparison itself is made on the EFFECTIVE
+    selection (the resolved tag list), because that is what decides which
+    tests run — two spellings of the same population are not a disagreement.
+    """
+    if invocation.population:
+        return f"-Ptest.population={invocation.population}"
+    if invocation.selector:
+        return f"-Ptest.tags={invocation.selector}"
+    return "Gradle default"
+
+
 def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
     """Return `(violations, notes, listing)` for every surface in the repository."""
     violations: list[str] = []
@@ -145,13 +174,8 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
         if verbose:
             for invocation in invocations:
                 kind = "test-capable" if invocation.test_capable else "compile-only"
-                chosen = (
-                    f"-Ptest.tags={invocation.selector}"
-                    if invocation.selector
-                    else "Gradle default"
-                )
                 named = " ".join(invocation.tasks) if invocation.tasks else "(no task named)"
-                listing.append(f"  {invocation.location}: {kind}, {chosen}, tasks: {named}")
+                listing.append(f"  {invocation.location}: {kind}, {_rendered(invocation)}, tasks: {named}")
 
         tests = [inv for inv in invocations if inv.test_capable]
         if len(tests) < 2:
@@ -159,11 +183,7 @@ def evaluate(verbose: bool = False) -> tuple[list[str], list[str], list[str]]:
 
         selectors = {inv.selector for inv in tests}
         if len(selectors) > 1:
-            rendered = ", ".join(
-                (f"{inv.location} → -Ptest.tags={inv.selector}" if inv.selector
-                 else f"{inv.location} → Gradle default")
-                for inv in tests
-            )
+            rendered = ", ".join(f"{inv.location} → {_rendered(inv)}" for inv in tests)
             violations.append(
                 f"{surface}: {len(tests)} test-capable Gradle invocations disagree about "
                 f"the population — {rendered}"

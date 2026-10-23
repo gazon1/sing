@@ -107,9 +107,9 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # -Ptest.tags=fast,slow: the same selection ci.yml's nightly uses, so the
-      # rate describes the suite that actually gates release rather than a
-      # local-only default (which maps an absent -Ptest.tags to
+      # -Ptest.population=full: the same population ci.yml's nightly uses, so
+      # the rate describes the suite that actually gates release rather than a
+      # local-only default (which maps an absent population to
       # excludeTags("slow") and would silently drop the slow population).
       #
       # --no-parallel: org.gradle.parallel=true lets two test tasks fork JVMs
@@ -144,7 +144,7 @@ jobs:
           set -o pipefail
           ./gradlew --no-parallel --rerun-tasks \
             :shared:jvmTest :desktopApp:test \
-            -Ptest.tags=fast,slow \
+            -Ptest.population=full \
             2>&1 | tee attempt-${{ matrix.attempt }}.log
 
       # Uploaded unconditionally and under a per-attempt name: a result set that

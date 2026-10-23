@@ -81,15 +81,20 @@ import pathlib
 import sys
 
 import click
-from sgate.commands.base import run
 
-# `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
-# loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
-# package is invisible; this file's own location is authoritative.
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
 _scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
 _added = _scripts_src not in sys.path
 if _added:
     sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
 import workflow_gradle as wg  # noqa: E402
 
 if _added:

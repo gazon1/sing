@@ -421,7 +421,10 @@ class ExportedSurfaceTest(unittest.TestCase):
         export = self._export_with('list_tasks', description='A different description.')
         drift.TOOL_SURFACE_JSON = export
         problems = drift.surface_problems()
-        self.assertTrue(any('reading the source wrongly' in p for p in problems), problems)
+        self.assertTrue(
+            any("the sources read the description of" in p for p in problems),
+            problems,
+        )
 
     def test_a_flag_key_the_documentation_names_must_exist(self):
         """A flag that names no tool is silent, and the tool stays exposed."""

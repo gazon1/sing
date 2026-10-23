@@ -74,11 +74,12 @@ fakes only for the platform ports — and asserts:
 Two of the asserted tags are constant and two are derived from the task's title
 (`slug`), so the list covers both a static and a computed tag.
 
-The class is `@Tag("slow")` — it mounts the Compose harness — so it runs in CI's
-`-Ptest.tags=fast,slow` selection and not in the default local run:
+The class is `@Tag("slow")` — it mounts the Compose harness — so it runs in the nightly's
+`-Ptest.population=full` selection, and in neither the default local run nor a pull
+request's `-Ptest.population=fast` selection:
 
 ```bash
-./gradlew :desktopApp:test -Ptest.tags=fast,slow   # includes it
+./gradlew :desktopApp:test -Ptest.population=full   # includes it
 ./gradlew :desktopApp:test --tests '*ShellTestTagReachabilityTest*' -Ptest.tags=slow
 ```
 

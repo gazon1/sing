@@ -76,11 +76,18 @@ from pathlib import Path
 
 import click
 
-_SRC = Path(__file__).resolve().parent.parent / "src"
+_SRC = Path(__file__).resolve().parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
+from sgate.gatekit.tables import (  # noqa: E402
+    TableRule,
+    cell_identifier,
+    compare_names,
+    rows_at_header,
+    unknown_verdicts,
+)
 
 #: The document: the reader's map of the seam.
 DOCUMENT = Path("docs/PLATFORM-REFERENCE.md")
@@ -114,7 +121,12 @@ COMMON_ROOTS = (
 SEAM_REGISTRY = Path("shared/src/jvmTest/resources/platform-seams.tsv")
 
 #: The header of the ports table inside the document.
-TABLE_HEADER = "| Port | jvmMain | androidMain | Checked |"
+#: The shape of the table — which document, which header, which column is
+#: what. The rule is data: `config/gates/platform-reference-ports.yaml`.
+RULE = TableRule.from_file(
+    Path(__file__).resolve().parent.parent / "config" / "gates" / "platform-reference-ports.yaml"
+)
+TABLE_HEADER = RULE.header
 
 #: `single<Port> {` — a typed binding.
 _BINDING_RE = re.compile(r"\b(?:single|factory|viewModelOf|factoryOf|singleOf)\s*<")
@@ -247,41 +259,24 @@ def code_ports(root: Path) -> set[str]:
 
 
 def parse_table(document: str) -> list[Row]:
-    """The rows of the ports table in the document."""
-    lines = document.splitlines()
-    start = -1
-    for index, line in enumerate(lines):
-        if line.strip() == TABLE_HEADER:
-            start = index + 2
-            break
-    if start == -1:
-        return []
+    """The rows of the ports table in the document.
 
+    The table is found by its header, so a document that loses the table is a
+    document the gate reports rather than one it silently finds empty.
+    """
     rows: list[Row] = []
-    for line in lines[start:]:
-        stripped = line.strip()
-        if not stripped.startswith("|"):
-            break
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+    for cells in rows_at_header(document, RULE.header):
         if len(cells) != 4:
             break
         rows.append(
             Row(
-                port=_identifier(cells[0]),
-                jvm=_identifier(cells[1]),
-                android=_identifier(cells[2]),
+                port=cell_identifier(cells[0]),
+                jvm=cell_identifier(cells[1]),
+                android=cell_identifier(cells[2]),
                 checked=cells[3].strip().lower(),
             )
         )
     return rows
-
-
-def _identifier(cell: str) -> str:
-    """The identifier a cell names, or `-` when the cell names none."""
-    cleaned = cell.replace("`", "").strip()
-    if not cleaned or cleaned == "-":
-        return ""
-    return cleaned.split()[0]
 
 
 def check(rows: list[Row], ports: set[str], root: Path) -> list[Finding]:
@@ -290,31 +285,38 @@ def check(rows: list[Row], ports: set[str], root: Path) -> list[Finding]:
     jvm_types = declared_types(root, JVM_ROOTS)
     android_types = declared_types(root, ANDROID_ROOTS)
 
-    for port in sorted(ports):
-        if not any(row.port == port for row in rows):
-            findings.append(
-                Finding(
-                    kind="not-in-the-reference",
-                    port=port,
-                    detail=(
-                        "the code binds this port but the reference does not name it — "
-                        "add a row to the ports table"
-                    ),
-                )
+    # Both directions of the names: the code binds a port the reference does
+    # not name, and the reference names a port the code does not bind.
+    not_in_reference, _not_in_code = compare_names(
+        ports, [row.port for row in rows if row.port]
+    )
+    for port in not_in_reference:
+        findings.append(
+            Finding(
+                kind="not-in-the-reference",
+                port=port,
+                detail=(
+                    "the code binds this port but the reference does not name it — "
+                    "add a row to the ports table"
+                ),
             )
+        )
+
+    verdict_cells = [[row.port, "", "", row.checked] for row in rows]
+    for index, verdict in unknown_verdicts(verdict_cells, RULE):
+        row = rows[index]
+        findings.append(
+            Finding(
+                kind="unknown-verdict",
+                port=row.port or "-",
+                detail=(
+                    f"the row's Checked cell says {verdict!r}; it has to say "
+                    + " or ".join(repr(v) for v in RULE.verdicts)
+                ),
+            )
+        )
 
     for row in rows:
-        if row.checked not in {"checked", "prose"}:
-            findings.append(
-                Finding(
-                    kind="unknown-verdict",
-                    port=row.port or "-",
-                    detail=(
-                        f"the row's Checked cell says {row.checked!r}; it has to say "
-                        "'checked' or 'prose'"
-                    ),
-                )
-            )
         if row.checked == "prose":
             continue
         if row.port not in ports:

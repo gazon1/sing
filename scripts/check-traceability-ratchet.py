@@ -78,22 +78,24 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import click
-from sgate.commands.base import run
-
-from sgate.commands.base import CLEAN, VALIDATION_FAILURE
-
-ROOT = Path(__file__).resolve().parent.parent
-
 # The traceability package is installed from `scripts/src/pyproject.toml` and
 # imported here rather than shelled out to the CLI, so the numbers this gate
 # compares were produced by the same code the matrix was rendered from — a
 # subprocess that failed to import would otherwise be indistinguishable from a
 # clean run. The path insert covers the case where the repo tools are not
-# installed (a bare `python3 scripts/check-traceability-ratchet.py`).
-_SRC = ROOT / "scripts" / "src"
+# installed (a bare `python3 scripts/check-traceability-ratchet.py`), and it
+# comes before the imports that use it: an import that happens first is already
+# bound to the installed package, which may be another checkout's.
+_SRC = Path(__file__).resolve().parent / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
+
+import click  # noqa: E402
+from sgate.commands.base import run  # noqa: E402
+
+from sgate.commands.base import CLEAN, VALIDATION_FAILURE  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent
 
 DEFAULT_CONFIG = "config/docs/traceability-ratchet.json"
 

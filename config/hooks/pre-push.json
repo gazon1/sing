@@ -1,0 +1,29 @@
+{
+  "purpose": "What the pre-push hook judges, and what only CI judges. The hook is a fast local gate over the tree that is being pushed; CI is the authority over the whole tree. This file is the record of the difference — and scripts/check-hook-gates.py checks that the code still matches it, in both directions.",
+
+  "hook_scripts": {
+    "declared_in": "scripts/src/sgate/commands/_registry.py",
+    "declaration": "PRE_PUSH_SCRIPTS and PRE_PUSH_TREE_RULES",
+    "verdict_delegate": "scripts/pre-push-verdict.py",
+    "why": "one declaration serves the hook, the test fixture that drives it and this record — a gate added to the hook and to neither was a failing test only the full run found"
+  },
+
+  "detekt": {
+    "judged_by_the_hook": "the modules the pushed change can affect — computed from the module graph in scripts/changed-modules.py, never a list written here",
+    "judged_by_ci": [
+      ":shared:detekt",
+      ":desktopApp:detekt",
+      ":androidApp:detekt",
+      ":mcp-server:detekt",
+      ":adr-cli:detekt",
+      ":adr-core:detekt",
+      ":core-base:detekt",
+      ":detekt-rules:detekt"
+    ],
+    "partiality": "The hook judges the modules the change can affect. CI judges every module. A violation in a module the change does not reach is CI's to find — so the local verdict is partial, and it says so instead of reading as full.",
+
+    "judged_by_ci_outside_the_module_graph": {
+      ":pro:detekt": "the source-available pro catalogue — a separate build that only exists with -PwithPro, so the module graph does not know it and the hook does not judge it. CI runs it in the pro job."
+    }
+  }
+}

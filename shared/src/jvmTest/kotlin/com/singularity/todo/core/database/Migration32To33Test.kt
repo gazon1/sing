@@ -5,10 +5,6 @@ import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncOutboxEntity
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
@@ -52,37 +48,6 @@ class Migration32To33Test {
     @AfterTest
     fun tearDown() {
         tempDir.deleteRecursively()
-    }
-
-    /** Applies every entity DDL + `setupQueries` from the exported v32 schema. */
-    private fun applyV32Fixture(connection: SQLiteConnection) {
-        // commonMain.root = <shared>/src/commonMain/kotlin → schemas live at <shared>/schemas/…
-        val sharedDir = File(System.getProperty("commonMain.root")!!)
-            .parentFile.parentFile.parentFile
-        val schemaJson = File(
-            sharedDir,
-            "schemas/com.singularity.todo.core.database.AppDatabase/32.json",
-        )
-        assertTrue(schemaJson.exists(), "v32 schema not found at $schemaJson")
-
-        val database = Json.parseToJsonElement(schemaJson.readText()).jsonObject["database"]!!.jsonObject
-        for (entity in database["entities"]!!.jsonArray) {
-            val obj = entity.jsonObject
-            val tableName = obj["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(
-                obj["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName),
-            )
-            for (index in obj["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content
-                        .replace("\${TABLE_NAME}", tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-        connection.execSQL("PRAGMA user_version = 32")
     }
 
     private fun seed(connection: SQLiteConnection) {
@@ -151,7 +116,7 @@ class Migration32To33Test {
     @Test
     fun `v32 database upgrades to v33 with an outbox that can be pushed from`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV32Fixture(connection)
+            applyExportedSchema(32, connection)
             seed(connection)
         }
 
@@ -221,7 +186,7 @@ class Migration32To33Test {
     @Test
     fun `a backoff window set after the upgrade defers a patch`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV32Fixture(connection)
+            applyExportedSchema(32, connection)
             seed(connection)
         }
 

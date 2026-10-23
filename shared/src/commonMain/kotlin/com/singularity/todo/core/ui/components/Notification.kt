@@ -24,8 +24,18 @@ sealed interface Notification {
      *
      * [onAction] runs when the user taps [actionLabel]. The host clears the toast either
      * way, so [onAction] must be a dispatch rather than a suspension.
+     *
+     * [onDeclined] runs when the toast goes away *without* the action being taken — the
+     * user let it time out or swiped it away. It is what lets a screen that has to leave
+     * wait for the offer before it leaves: a toast that is destroyed by the navigation it
+     * was supposed to accompany is no offer at all.
      */
-    data class Undo(val title: String, val actionLabel: String = "Undo", val onAction: () -> Unit) : Notification
+    data class Undo(
+        val title: String,
+        val actionLabel: String = "Undo",
+        val onAction: () -> Unit,
+        val onDeclined: () -> Unit = {},
+    ) : Notification
 
     /** Request to navigate back. */
     data object NavigateBack : Notification

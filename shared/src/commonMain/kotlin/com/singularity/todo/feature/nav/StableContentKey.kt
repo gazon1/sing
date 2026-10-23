@@ -66,16 +66,11 @@ internal fun AppDestination.stableContentKey(): String = when (this) {
     // or for a nested graph. Their keys carry the record's id, so they are computed
     // in [recordContentKey]; the `when` above stays exhaustive over the hierarchy
     // and stays under the complexity limit.
-    is AppDestination.TasksGraph,
-    is AppDestination.TasksByProject,
-    is AppDestination.ProjectEditor,
-    is AppDestination.ProjectDetail,
-    is AppDestination.AttachmentViewer,
-    is AppDestination.ProjectsGraph,
-    is AppDestination.NotesGraph,
-    is AppDestination.CalendarGraph,
-    is AppDestination.AgendaGraph,
-    -> recordContentKey()
+    //
+    // The group is a type ([AppDestination.RecordDestination]), so it is named once:
+    // a `when` over it is exhaustive by the compiler, and a destination that joins
+    // the group does not compile until it has a key.
+    is AppDestination.RecordDestination -> recordContentKey()
 }
 
 /**
@@ -84,10 +79,16 @@ internal fun AppDestination.stableContentKey(): String = when (this) {
  * Split out of [AppDestination.stableContentKey] because one `when` over every
  * destination does not fit under the complexity limit. The outer `when` still names
  * every variant of [AppDestination], so a new destination does not compile until it
- * is classified there; the test that walks every destination checks that each one
- * really has a key.
+ * is classified there.
+ *
+ * There is no `else` branch, and that is the point: the receiver is
+ * [AppDestination.RecordDestination], a sealed type, so the compiler knows every
+ * destination of the group and refuses to compile until each one has a key. The
+ * membership of the group used to be written twice — here and in the outer `when` —
+ * and the two could drift apart, which reached the runtime as "no content key
+ * for ...".
  */
-private fun AppDestination.recordContentKey(): String = when (this) {
+private fun AppDestination.RecordDestination.recordContentKey(): String = when (this) {
     // The date is part of the key: two new-task screens that prefill different dates
     // are two different screens, and one screen's draft is not the other's.
     is AppDestination.TasksGraph -> "tasks-graph:" + start.stableContentKey() +
@@ -108,8 +109,6 @@ private fun AppDestination.recordContentKey(): String = when (this) {
     is AppDestination.CalendarGraph -> "calendar-graph:" + start.stableContentKey()
 
     is AppDestination.AgendaGraph -> "agenda-graph:" + start.stableContentKey()
-
-    else -> error("no content key for $this")
 }
 
 /** @see AppDestination.stableContentKey */

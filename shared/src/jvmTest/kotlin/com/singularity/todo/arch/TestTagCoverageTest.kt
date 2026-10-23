@@ -11,7 +11,9 @@ import kotlin.test.assertTrue
  * ## The defect this catches
  *
  * `shared/build.gradle.kts` and `desktopApp/build.gradle.kts` translate `-Ptest.tags`
- * into JUnit's `includeTags(...)`, and CI runs `-Ptest.tags=fast,slow`. JUnit matches
+ * into JUnit's `includeTags(...)`, and CI names its population explicitly —
+ * `fast` on a pull request, `full` on the nightly — a population selecting the
+ * tags `fast` and `fast,slow`. JUnit matches
  * tags **per class**: a class with no `@Tag` is simply not selected. The failure is
  * silent — the task still prints `BUILD SUCCESSFUL`.
  *
@@ -28,7 +30,7 @@ import kotlin.test.assertTrue
  * **class that declares a member JUnit executes** — not once per file. That set is
  * [RunnableTestMember]'s, and it is deliberately wider than `@Test`: matching
  * `@Test` alone reported `RecurrenceRuleMapperTest` and `RruleGeneratorTest` as
- * clean while CI, which runs `-Ptest.tags=fast,slow`, skipped both. Helper classes
+ * clean while CI, which selects tagged classes only, skipped both. Helper classes
  * that live in a `*Test.kt` file (fakes, harnesses such as `RunVmTest` /
  * `IsolatedComposeTest`) declare no test member and are correctly left untagged.
  *
@@ -47,7 +49,7 @@ import kotlin.test.assertTrue
  *
  * 1. **Is the class tagged, with a value CI selects, on an engine that reads
  *    tags?** — this class. Presence alone was not enough twice over: a value
- *    outside CI's `-Ptest.tags=fast,slow` list is as invisible as no tag at
+ *    outside the populations CI selects is as invisible as no tag at
  *    all, and a JUnit 4 class runs on the Vintage engine, where Jupiter's
  *    `@Tag` does not exist as a filter (`shared/build.gradle.kts` documents
  *    the `testAndroidHostTest` exemption those two checks protect).
@@ -114,8 +116,8 @@ class TestTagCoverageTest {
 
         assertTrue(
             untagged.isEmpty(),
-            "test classes without @Tag — CI runs -Ptest.tags=fast,slow, so an untagged " +
-                "class is silently excluded from every run:\n" +
+            "test classes without @Tag — CI runs the fast and full populations, so " +
+                "an untagged class is silently excluded from every run:\n" +
                 untagged.joinToString("\n") { "  $it" },
         )
     }
@@ -132,7 +134,7 @@ class TestTagCoverageTest {
 
         assertTrue(
             offenders.isEmpty(),
-            "test classes whose @Tag value CI's -Ptest.tags=fast,slow never selects — " +
+            "test classes whose @Tag value CI's populations never select — " +
                 "the annotation exists, so every source-level check passes, and the class " +
                 "still does not run once in CI. fast and slow are the whole vocabulary; " +
                 "a typo ('fasst') or a third value ('medium') is indistinguishable from " +
@@ -323,7 +325,7 @@ class TestTagCoverageTest {
         private val ANNOTATION = Regex("@\\w+.*")
 
         /**
-         * The only two class-level tag values CI's `-Ptest.tags=fast,slow` selects.
+         * The only two class-level tag values CI's populations select.
          * `all` is a selection sentinel (`-Ptest.tags=all` disables filtering), not a
          * class tag; adding a third value is a change to ci.yml first and here second.
          */

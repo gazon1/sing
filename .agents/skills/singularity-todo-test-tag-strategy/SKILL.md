@@ -80,8 +80,8 @@ tasks.withType<Test>().configureEach {
 
 | | filter | an untagged class |
 |---|---|---|
-| default (no `-Ptest.tags`) | `excludeTags("slow")` | **runs** |
-| CI (`-Ptest.tags=…`) | `includeTags(…)` | **silently skipped** |
+| default (no population) | `excludeTags("slow")` | **runs** |
+| CI (`-Ptest.population=…`) | `includeTags(…)` | **silently skipped** |
 
 JUnit matches tags **per class**. So under `includeTags(...)` a class with no `@Tag` is
 dropped from the run with no error, and Gradle still reports `BUILD SUCCESSFUL`. This is
@@ -120,8 +120,9 @@ do not rely on a tag to schedule it.
 ./gradlew :shared:commonTest -Ptest.tags=slow
 ./gradlew :shared:jvmTest -Ptest.tags=slow
 
-# Run both fast AND slow together
-./gradlew :shared:test -Ptest.tags=fast,slow
+# Run both fast AND slow together — the named population, the same one the
+# nightly asks for
+./gradlew :shared:test -Ptest.population=full
 
 # Android instrumented tests
 ./gradlew :shared:testAndroidHostTest -Ptest.tags=slow
@@ -129,16 +130,41 @@ do not rely on a tag to schedule it.
 
 ### CI Tag Handling
 
-In `.github/workflows/ci.yml`, the slow tests run separately:
+CI runs **two populations**, and the decision is made in ONE place — the
+"Select test population" step of the `tests` job in `.github/workflows/ci.yml` —
+and every later Gradle invocation in that job reads the resulting
+`$TEST_POPULATION`.
 
-```yaml
-- name: Fast tests
-  run: ./gradlew :shared:commonTest :shared:jvmTest
+| event | population | what runs |
+|---|---|---|
+| `pull_request` without the `run-full-tests` label | `fast` | the fast classes |
+| `pull_request` with the label | `full` | everything |
+| `push` | `fast` | the fast classes |
+| `schedule` (nightly, 01:00 UTC) | `full` | everything |
+| `workflow_dispatch` | `full` | everything |
 
-- name: Slow tests
-  run: ./gradlew :shared:test -Ptest.tags=slow
-  continue-on-error: true  # Allow failure for known slow failures
-```
+A population is a NAME. The tags it selects live in
+`config/test-populations.properties` — one file, read by the build, by the
+workflow and by the gates — so "full" cannot mean one thing to the build and
+another to a gate. `-Ptest.tags=…` still works and still wins over a
+population: it is the raw knob, for a selection no population names.
+
+The label is added to `pull_request`'s `types`, so adding it starts a run on its
+own — without a new commit — and keeps applying to the runs that follow.
+
+Two consequences worth knowing before you tag something:
+
+- **A `@Tag("slow")` class does not run on a pull request.** It runs on the
+  nightly. If a slow class is the one that would catch your change, say so, or
+  add the label.
+- **The coverage floors are per population.** A fast run is measured against the
+  fast floors and a nightly run against the full ones, so a pull request that
+  fails on coverage is failing against the *fast* floor, not the full one.
+
+The population parity gate (`scripts/check-gradle-test-population.py`) compares the
+selector strings of every test-capable invocation in a job — with one variable,
+all six invocations agree by construction, and a literal selector added
+alongside them is still caught.
 
 ## Pre-existing Slow Tests (16 tests)
 

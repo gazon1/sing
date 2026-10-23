@@ -22,6 +22,7 @@ import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
@@ -331,6 +332,10 @@ class AgendaViewModel(
             is AgendaIntent.CompleteSelected -> with(intent) {
                 scope.launch { handleBulkComplete() }
             }
+
+            is AgendaIntent.MergeSelectedSeries -> with(intent) {
+                scope.launch { handleMergeSeries() }
+            }
         }
     }
 
@@ -437,6 +442,59 @@ class AgendaViewModel(
             isSelectionMode = next.isNotEmpty(),
             selectedTaskIds = next,
         )
+    }
+
+    /**
+     * Merges the two series the selection spans.
+     *
+     * The selection has to span exactly two series: one series is already one
+     * piece of work, and three series is a question this action does not answer.
+     * The series of the first selected row keeps the identity — its id and what
+     * it says about the work — and the other one joins it.
+     */
+    private suspend fun handleMergeSeries() {
+        val ids = selectedIds()
+        if (ids.isEmpty()) return
+
+        val seriesIds = selectedSeriesIds(ids)
+        if (seriesIds.size != 2) {
+            emit(
+                AgendaUiEvent.BulkOperationDone(
+                    count = 0,
+                    operation = "merged",
+                    error = "Выберите две серии, чтобы объединить их",
+                ),
+            )
+            return
+        }
+
+        val result = deps.mergeSeries(seriesIds.first(), seriesIds.last())
+        updateSelection(emptySet())
+
+        result.fold(
+            onSuccess = {
+                emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "merged"))
+            },
+            onFailure = { error ->
+                crashReporter.report(error, BULK_MERGE_FAILED)
+                emit(
+                    AgendaUiEvent.BulkOperationDone(
+                        count = 0,
+                        operation = "merged",
+                        error = error.message,
+                    ),
+                )
+            },
+        )
+    }
+
+    /** The series the selected rows belong to, in the order they were selected. */
+    private fun selectedSeriesIds(ids: Set<TaskId>): List<TaskSeriesId> {
+        val rows = (currentState as? AgendaUiState.Loaded)
+            ?.sections
+            ?.flatMap { it.tasks }
+            .orEmpty()
+        return ids.mapNotNull { id -> rows.firstOrNull { it.task.id == id }?.task?.seriesId }.distinct()
     }
 
     /**
@@ -697,6 +755,7 @@ class AgendaViewModel(
         private const val SOFT_DELETE_FAILED = "agenda.soft_delete_failed"
         private const val RESTORE_FAILED = "agenda.restore_failed"
         private const val BULK_DELETE_FAILED = "agenda.bulk_delete_failed"
+        private const val BULK_MERGE_FAILED = "agenda.bulk_merge_failed"
         private const val BULK_COMPLETE_FAILED = "agenda.bulk_complete_failed"
     }
 }

@@ -83,6 +83,10 @@ dependencies {
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(kotlin("reflect"))
+    // The e2e test reads the database the spawned server wrote, to see what a tool
+    // call actually stored. The app opens SQLite through androidx.sqlite; a plain JDBC
+    // reader needs the driver itself, and the project already ships it for desktopApp.
+    testImplementation(libs.sqlite.jdbc)
     // Allure test reporting — generates JSON results for CI integration
     testImplementation(libs.allure.kotlin.junit5)
 
@@ -114,10 +118,13 @@ tasks.withType<Test>().configureEach {
             else -> includeTags(*tags.toTypedArray())
         }
     }
-    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
-    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
-    // parallel test runs don't overwrite each other's dumps.
-    maxHeapSize = "3g"
+    // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
+    // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
+    // Kover agent attached), and 1536 MB carries the whole suite without one.
+    // Forked test JVMs do NOT inherit org.gradle.jvmargs (that's the daemon only).
+    // HeapDumpPath is module-local so parallel test runs don't overwrite each
+    // other's dumps. ADR 2026-10-22-gradle-memory-budget.
+    maxHeapSize = "1536m"
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",

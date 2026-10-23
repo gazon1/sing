@@ -17,8 +17,6 @@ tags:
 - waiver
 documents:
   proposal: openspec/changes/the-gates-run-on-every-machine/proposal.md
-  design: openspec/changes/the-gates-run-on-every-machine/design.md
-  adr: openspec/changes/the-gates-run-on-every-machine/adr.md
   tasks: openspec/changes/the-gates-run-on-every-machine/tasks.md
 specs_dir: openspec/changes/the-gates-run-on-every-machine/specs
 is_stub: false

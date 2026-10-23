@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/notification-routing-must-be-total/proposal.md
-  design: openspec/changes/notification-routing-must-be-total/design.md
-  adr: openspec/changes/notification-routing-must-be-total/adr.md
   tasks: openspec/changes/notification-routing-must-be-total/tasks.md
 specs_dir: openspec/changes/notification-routing-must-be-total/specs
 is_stub: false

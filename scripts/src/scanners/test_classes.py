@@ -62,7 +62,7 @@ class RepoTest:
     module: str  # shared
     rel_path: str  # shared/src/commonTest/kotlin/.../TasksViewModelTest.kt
     feature: str  # feature.tasks | core.ui | arch | root
-    tag: str  # fast | slow | untagged
+    tag: str  # fast | slow | untagged | slow:<под-тег> — ближайший тег класса
     is_arch: bool  # класс из пакета arch — это проверки архитектуры
     declared_class: str  # имя класса, объявленного в файле (может отличаться от path.stem)
 
@@ -95,18 +95,42 @@ def _feature_of(fqn: str) -> str:
     return tail[0]
 
 
-def _read_tag(source: str, class_name: str | None = None) -> str:
-    """Тег уровня КЛАССА, а не первый @Tag в файле.
+#: `import org.junit.jupiter.api.Tag as JUnitTag` — файл пишет свои теги как
+#: `@JUnitTag("…")`. Два класса в репозитории импортируют аннотацию так, потому
+#: что короткое имя `Tag` занято доменной сущностью.
+_TAG_ALIAS_IMPORT = re.compile(
+    r'^\s*import\s+org\.junit\.jupiter\.api\.Tag\s+as\s+(\w+)\s*$'
+)
 
-    По правилам проекта каждый тестовый класс обязан иметь тег — иначе
-    -Ptest.tags его молча исключит из каждого прогона.
 
-    Раньше здесь стояло `re.search` по всему файлу, что неверно для файлов с
-    несколькими классами: `FakeRepositoryFidelityTest.kt` несёт `@Tag("fast")`
-    на постороннем объекте, и тестовый класс на строке 41 получал чужой тег.
+def _tag_pattern(lines: list[str]) -> re.Pattern[str]:
+    """Регулярка тега для этого файла — с учётом алиаса импорта.
 
-    Ищем ближайший @Tag над объявлением нужного класса: тот же приём, что в
-    TestTagCoverageTest. Тег на отдельном методе класс не делает slow.
+    Тот же приём, что в `TestTagCoverageTest`: алиасированный импорт означает,
+    что файл пишет теги как `@<Alias>(`, и обычная форма в нём не встречается.
+    Без этого два класса репозитория читались как `untagged` — а значит, любой
+    гейт, спрашивающий «помечен ли этот класс slow», о них не знал.
+    """
+    for line in lines:
+        alias = _TAG_ALIAS_IMPORT.match(line)
+        if alias:
+            return re.compile(r'@' + re.escape(alias.group(1)) + r'\(\s*"([^"]+)"\s*\)')
+    return re.compile(r'@(?:org\.junit\.jupiter\.api\.)?Tag\(\s*"([^"]+)"\s*\)')
+
+
+def _read_tags(source: str, class_name: str | None = None) -> list[str]:
+    """Все теги уровня КЛАССА, от ближайшего к декларации.
+
+    Класс может нести больше одного тега: с 2026-10-22 медленный класс носит
+    и основной тег `slow`, и под-тег из словаря — `slow:konsist`,
+    `slow:migration`, `slow:data`, `slow:compose`, `slow:platform`. Под-тег
+    говорит, ЧТО медленно; основной тег выбирает прогон
+    (`-Ptest.tags=fast,slow` включает класс по нему).
+
+    Поэтому «ближайший» ответ больше не достаточен: класс, у которого
+    под-тег стоит последним, читался как `slow:konsist` — и для правила
+    «класс помечен slow» выглядел не-slow. Список возвращает все теги, а
+    вывод о принадлежности к `slow` принимает решение вызывающий код.
     """
     # Обнулены только комментарии: `@Tag("fast")`, упомянутое в KDoc, — это не
     # аннотация, и читать её как тег нельзя. Содержимое строк обнулять нельзя:
@@ -121,22 +145,68 @@ def _read_tag(source: str, class_name: str | None = None) -> str:
     # `com.singularity.todo.feature.tags.Tag` уже импортирован и короткое
     # имя занято доменной сущностью. Ровно тот же приём, что в
     # TestTagCoverageTest; без него «быстрый» класс читался как untagged.
-    tag_re = re.compile(r'@(?:org\.junit\.jupiter\.api\.)?Tag\(\s*"([^"]+)"\s*\)')
+    tag_re = _tag_pattern(lines)
     for index, line in enumerate(lines):
         header = class_re.match(line.strip())
         if not header:
             continue
         if class_name and header.group(1) != class_name:
             continue
-        # Поднимаемся по аннотациям над объявлением.
+        # Поднимаемся по аннотациям над декларацией.
+        tags: list[str] = []
         for back in range(index - 1, -1, -1):
             stripped = lines[back].strip()
             if stripped.startswith("@"):
                 found = tag_re.search(stripped)
                 if found:
-                    return found.group(1)
+                    tags.append(found.group(1))
                 continue
             break
+        if tags or class_name:
+            return tags
+        # Класс без тегов, а имя класса не задано: ищем следующий.
+    return []
+
+
+#: Теги, по которым CI выбирает класс.
+#:
+#: Ровно то же множество, что `CI_SELECTABLE_TAGS` в TestTagCoverageTest: класс
+#: несёт ОСНОВНОЙ тег (`fast` или `slow`), а медленный — ещё и под-тег
+#: (`slow:data`, `slow:migration`, …), который говорит, что именно медленно.
+#: Под-тег не заменяет основной: `includeTags("slow")` — точное совпадение, и
+#: под-тег в выборку CI не входит.
+CI_SELECTABLE_TAGS = frozenset({"fast", "slow"})
+
+
+def _read_tag(source: str, class_name: str | None = None) -> str:
+    """Тег уровня КЛАССА, а не первый @Tag в файле.
+
+    По правилам проекта каждый тестовый класс обязан иметь тег — иначе
+    -Ptest.tags его молча исключит из каждого прогона.
+
+    Раньше здесь стояло `re.search` по всему файлу, что неверно для файлов с
+    несколькими классами: `FakeRepositoryFidelityTest.kt` несёт `@Tag("fast")`
+    на постороннем объекте, и тестовый класс на строке 41 получал чужой тег.
+
+    Ищем ближайший @Tag над объявлением нужного класса: тот же приём, что в
+    TestTagCoverageTest. Тег на отдельном методе класс не делает slow.
+
+    Возвращаем ОСНОВНОЙ тег — тот, по которому выбирает CI. Медленный класс
+    несёт два тега: основной (`@Tag("slow")`) и под-тег (`@Tag("slow:data")`),
+    который говорит, ЧТО именно медленно. Ближайший к объявлению — под-тег, и
+    вернуть его было бы неверно: под-тег не входит ни в одну CI-выборку
+    (`includeTags("slow")` — это точное совпадение), поэтому класс с одним
+    лишь под-тегом не выбирается ни одним прогоном, а класс с двумя тегами
+    выбирается по основному. Ровно то же различение проводит
+    TestTagCoverageTest: `CI_SELECTABLE_TAGS = {"fast", "slow"}`.
+
+    Правилу «какие теги у класса» нужен весь список: `_read_tags`.
+    """
+    for value in _read_tags(source, class_name):
+        if value in CI_SELECTABLE_TAGS:
+            return value
+    # Под-тег без основного: класс не выбирается ни одной CI-выборкой, и
+    # честный ответ на вопрос «кто его запустит» — никто.
     return "untagged"
 
 
