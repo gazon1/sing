@@ -1,10 +1,9 @@
-# A push carries what the database holds
-
-**Date:** 2026-10-23
-
-## Status
-
-Accepted
+---
+title: "A push carries what the database holds"
+date: 2026-10-23
+status: accepted
+tags: [tasks, sync, database]
+---
 
 ## Context
 
