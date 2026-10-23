@@ -101,9 +101,13 @@ not the checklist. The gate computes it:
 python3 scripts/check-review-verdicts.py --digest <slug>
 ```
 
-Write the documents **before** the review: a contract edited afterwards leaves
-a verdict that says "pass" about a change that is not there any more, and the
-gate says so.
+Write the documents **before** the review, and when a contract moves afterwards,
+**re-issue** the verdict rather than re-reading it: the change that edits the
+contract re-issues the verdict with the new digest, in the same diff, where a
+reviewer sees the move and the re-issue together. The gate reports the drift —
+a verdict that carries the digest of a contract that is not there any more is
+a finding — and whether the re-issue was earned is the reviewer's question,
+because a re-issue is a claim in a diff like any other.
 
 ### Draft vs. ready
 

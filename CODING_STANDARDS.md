@@ -91,10 +91,10 @@ A reviewing agent applies the same standard to the diff it is reading:
 
 A count is a claim about the tree, and the tree moves. A number written by hand
 in a living document is a claim that starts true and quietly stops being true:
-`docs/engineering/script-tooling-audit.md` says the corpus is 1676 Kotlin files
-and 447 test classes, and the tree is now 1915 files and 572 test classes.
-Nothing failed — the number was true when it was written, and nobody reading
-it could tell it apart from a number that was still true.
+`docs/engineering/script-tooling-audit.md` says the corpus is 1676 Kotlin
+files, and the tree is now 1915 (`git ls-files '*.kt' | wc -l`). Nothing
+failed — the number was true when it was written, and nobody reading it could
+tell it apart from a number that was still true.
 
 - **A count that the tree can change comes from a generator.** The repository
   already does this for the tag catalogue (`Maestro/TAGS.md` is generated and

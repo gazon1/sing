@@ -88,8 +88,8 @@ rule they sharpen:
   distinction that an ADR is history and a living document is the present. A
   count written by hand in a living document starts true and quietly stops
   being true: `docs/engineering/script-tooling-audit.md` says the corpus is
-  1676 Kotlin files and 447 test classes, and the tree is now 1915 files and
-  572 test classes. Nothing failed — the number was true when it was written.
+  1676 Kotlin files, and the tree is now 1915 (`git ls-files '*.kt' | wc -l`).
+  Nothing failed — the number was true when it was written.
 
 ## Rationale
 
@@ -137,10 +137,13 @@ that is always rewritten, and rewritten verdicts are verdicts nobody checks.
   The verdict file for `ci-fast-only-pr-full-on-schedule` now carries the
   digest of the contract as it stands, and its prose says plainly that the
   review was of PR #978's diff and that REQ-25 arrived later, in #986.
-- The documents of a change are written **before** the review. Editing the
-  contract afterwards leaves a verdict the gate reports, which is the intended
-  outcome and not a nuisance: the review has to be redone, because the thing it
-  judged has changed.
+- The documents of a change are written **before** the review, and a contract
+  that moves afterwards is **re-issued, not re-read**: the change that edits
+  the contract re-issues the verdict with the new digest, in the same diff,
+  where a reviewer sees the move and the re-issue together. The gate reports
+  the drift — that is what it is for — and whether the re-issue was earned is
+  the reviewer's question, because a re-issue is a claim in a diff like any
+  other.
 - The gate's own digest is the one the verdict records
   (`--digest <slug>`), so the recorded value and the checked value cannot
   disagree about how a digest is computed.

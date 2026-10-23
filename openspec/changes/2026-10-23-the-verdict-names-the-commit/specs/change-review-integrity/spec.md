@@ -29,10 +29,6 @@ The digest SHALL be computed over the documents themselves, and the gate SHALL
 compute it the same way the verdict records it — one implementation, so the
 recorded value and the checked value cannot disagree.
 
-A change whose contract was edited after the review SHALL leave a verdict that
-the gate reports, naming both digests: the one the verdict carries and the one
-the tree carries.
-
 **Rationale:** a verdict file proves that a review happened. It does not prove
 that the review was of the change in the tree, and the difference is invisible
 until a later session acts on a "pass" that was given to different text.

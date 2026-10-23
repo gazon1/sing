@@ -60,7 +60,7 @@
 - [x] 5.1 The change, its proposal and its spec delta.
 - [x] 5.2 The ADR.
 - [x] 5.3 The registry record, written by the importer.
-- [ ] 5.4 The verdict of the review, naming the commit and the digest. It is
+- [x] 5.4 The verdict of the review, naming the commit and the digest. It is
       written when the review of the finished diff has a verdict to record —
       a checklist item that names a file is ticked when the file is there.
 
@@ -136,3 +136,26 @@ carried into a file it did not mean to touch.
       for, so a captured list without the name could report the cache cleanup
       as the build. An unattributable run is attributed to no workflow now:
       the tool says there is no run, and the exit code is two.
+
+## 8. What the third review found
+
+The third review verified the second round's fixes against the tree — the
+restored records are byte-identical to `main`'s, the importer's guard holds
+even with `--replace` and its test fails when the guard is removed, the tool
+rejects an unattributable run, and the two false claims in the task list are
+gone. It found one blocker and three smaller ones.
+
+- [x] 8.1 **Blocking — the branch was red on its own rule.** The verdict of
+      this change did not exist. It exists now, and it carries the digest of
+      the contract as it stands — the contract moved when REQ-25's duplicate
+      paragraph was deleted, and the verdict was re-issued in the same diff,
+      which is the rule the change adds.
+- [x] 8.2 The ADR's Consequences still stated the old framing — "the review
+      has to be redone" — while its Decision section stated the re-issue rule.
+      Both state one rule now.
+- [x] 8.3 The review skill stated the old framing and never stated the
+      re-issue rule. It is the surface a review agent follows when it writes a
+      verdict for a change whose contract moved, so it states the rule now.
+- [x] 8.4 The illustration of "a number the tree can change" quoted a count
+      of test classes that no rule in the repository produces. It quotes one
+      number now, with the command that produces it.
