@@ -1085,6 +1085,18 @@ GATE_CONTROLS: dict[str, Control] = {
 # Each names what does the proving instead: "no control" is only acceptable when
 # something else is, and the reader has to be told what.
 GATE_EXEMPTIONS: dict[str, Control] = {
+    'scripts/check-gate-tooling-origin.py': Control(
+        kind='exempt',
+        proves='scripts/check-gate-tooling-origin.py',
+        tracked_by='scripts/tests/test_check_gate_tooling_origin.py',
+        reason=(
+            'its subject is the installation, not the tree: the answer is where the '
+            'importable `sgate` package lives, and no committed file decides that — so a '
+            'sabotage of the tree cannot make it fail. The control is the test that '
+            'synthesises the state the gate exists to report: a foreign package on the '
+            'path, which the gate must catch as FOREIGN.'
+        ),
+    ),
     'scripts/check-selectable-text-coverage.py': Control(
         kind='exempt',
         proves='scripts/check-selectable-text-coverage.py',
