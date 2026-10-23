@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# no-sgate: this script asks where the importable `sgate` comes from, so it
+# must run when that package is foreign or missing — importing it would bind
+# the very package whose origin it is asked about.
 """check-gate-tooling-origin.py — the gate CLI must serve THIS checkout.
 
 What went wrong

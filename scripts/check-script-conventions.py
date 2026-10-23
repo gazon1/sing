@@ -7,6 +7,9 @@ What this gate enforces (2026-10-20, audited):
   R2.1: Gate scripts use Click, not argparse
   R2.4: A gate script locates the repository itself, never through the
         installed package (R2.4-R2.6, added 2026-10-22)
+  R2.7: A gate script routes its exit code through the shared runner,
+        `sgate.commands.base.run` — or declares, in a comment, why it cannot
+        (added 2026-10-23)
 
 What it declares but does not enforce:
   R5.3: All imports use absolute imports (no relative `from .foo import`)
@@ -54,10 +57,12 @@ violation carrying the parser's own message.
 from __future__ import annotations
 
 import ast
+import io
 import json
 import os
 import pathlib
 import re
+import tokenize
 from pathlib import Path
 
 import click
@@ -423,6 +428,79 @@ def _check_scoped_imports(
     return errors
 
 
+#: The marker a gate script carries when it cannot use the shared runner.
+#:
+#: The runner is what maps a gate's own exit code onto the codes the gate
+#: suite reads, and it is what a gate script ends with. A script that cannot
+#: import it has to say so — and the reason is the point: "this script has to
+#: run when the package is missing" is a decision, and a decision that is not
+#: written down is a decision the next reader has to reverse-engineer.
+NO_SGATE_MARKER = re.compile(r"^#\s*no-sgate:\s*(?P<reason>.*)$")
+
+
+def _comments(source: str) -> list[str]:
+    """The comments of a Python source, as the tokenizer sees them.
+
+    A substring search would find the marker inside a docstring — and a
+    docstring that *documents* the marker is not a script that *declares* it.
+    """
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        return [token.string for token in tokens if token.type == tokenize.COMMENT]
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return []
+
+
+def _imports_the_runner(tree: ast.Module) -> bool:
+    """Whether the source imports `sgate.commands.base`."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "") == "sgate.commands.base":
+            return True
+    return False
+
+
+def check_sgate_runner(scripts_dir: Path) -> list[str]:
+    """R2.7 — the shared runner, or a declared reason why not.
+
+    The runner is one line at the end of a gate script, and it is what makes
+    the script's exit code mean the same thing as every other gate's. A
+    script that ends some other way is a gate whose verdict the suite reads
+    differently — and a script that cannot use the runner at all has to say
+    why, in a comment, so that the exception is a decision and not an
+    oversight.
+    """
+    errors: list[str] = []
+    for path in sorted(scripts_dir.glob("check-*.py")):
+        source = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            tree = ast.parse(source)
+        except SyntaxError as exc:
+            errors.append(f"{path.name}: does not parse as Python ({exc.msg}) — cannot check it")
+            continue
+
+        if _imports_the_runner(tree):
+            continue
+
+        markers = [
+            match
+            for comment in _comments(source)
+            if (match := NO_SGATE_MARKER.match(comment.strip())) is not None
+        ]
+        if not markers:
+            errors.append(
+                f"{path.name}: does not route its exit code through "
+                "`sgate.commands.base.run` (R2.7) — use the runner, or declare "
+                "`# no-sgate: <why>` in a comment"
+            )
+            continue
+        if not any(match.group("reason").strip() for match in markers):
+            errors.append(
+                f"{path.name}: declares `# no-sgate:` without a reason (R2.7) — the marker "
+                "says why the script cannot use the runner"
+            )
+    return errors
+
+
 @click.command()
 @click.option("--check", is_flag=True, help="Dry-run: report without a non-zero exit.")
 @click.option("--json", "emit_json", is_flag=True, help="Emit the verdict as JSON.")
@@ -436,6 +514,7 @@ def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     all_errors.extend(check_naming_and_structure(scripts_dir))
     all_errors.extend(check_json_flag(scripts_dir))
     all_errors.extend(check_package_resolution(scripts_dir))
+    all_errors.extend(check_sgate_runner(scripts_dir))
 
     if emit_json:
         click.echo(json.dumps(
