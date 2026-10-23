@@ -1,0 +1,33 @@
+# The tools that write a user's data directly, and why each one does.
+#
+# This list is a promise, not a description. `scripts/check-ai-write-tools.py`
+# holds the tools to it in both directions: a tool that writes a user's data and
+# is not listed here is a finding, and an entry here for a tool that no longer
+# writes directly is a finding too. Both mean the write path is not the write
+# path we said it was — and a write path that changes shape silently makes every
+# green run before it incomparable to every green run after.
+#
+# The list is the measure. When a tool is converted to the proposal path, its
+# entry goes away, and the list gets shorter — which is the direction the gate
+# wants. A list that only grows is a list nobody is working through.
+#
+# A proposal is a change nobody has agreed to yet: the user sees it, reads it and
+# decides. A tool that writes directly applies a change the user never saw, and
+# the same act decided by which tool the model happened to pick is a rule that
+# does not exist.
+#
+# The write path has one shape now. The create and update tools propose, the
+# delete tools propose, and `write_task_proposal` proposes. The entry below is
+# the last one that does not — and it is here because it is still true, not
+# because nobody looked.
+#
+# Format: `ToolName: the reason it writes directly`, one per line, sorted by
+# name. The reason says what is missing, so the next reader can tell whether the
+# gap is a missing proposal kind, a missing applier, or a decision to leave the
+# tool alone.
+#
+# To convert a tool: make it propose, delete its entry here, and say why in the
+# commit message. A tool that writes directly and is not listed here is the
+# defect the gate exists for, and it fails the build.
+
+CreateTagTool: the proposal vocabulary has no tag kinds at all — only a tag can be deleted, not changed or created

@@ -4,6 +4,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
@@ -37,6 +38,7 @@ class ProposalDispatch(
     private val checklist: ChecklistRepository,
     private val timeTracking: TimeTrackingRepository,
     private val notes: NotesRepository,
+    private val projects: ProjectsRepository,
     private val deleteProject: DeleteProjectUseCase,
     private val clock: Clock,
 ) {
@@ -60,35 +62,19 @@ class ProposalDispatch(
                 tasks.setTags(plan.taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
             }
 
+            is ProposalPlan.SetTaskTags -> {
+                // A set, not an addition: the proposal says the task carries these tags
+                // and no others, so the current set is replaced rather than merged.
+                tasks.setTags(plan.taskId, plan.tagIds.toList(), TagEditActor.AiProposal).getOrThrow()
+            }
+
             is ProposalPlan.AddChecklistItems -> plan.texts.forEach { text ->
                 checklist.addItem(plan.taskId.value, text).getOrThrow()
             }
 
-            is ProposalPlan.AddSubtasks -> plan.titles.forEach { title ->
-                val now = clock.now()
-                tasks.create(
-                    Task(
-                        id = TaskId.generate(),
-                        title = title,
-                        parentTaskId = plan.taskId,
-                        userId = userId,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                ).getOrThrow()
-            }
+            is ProposalPlan.AddSubtasks -> addSubtasks(plan, userId)
 
-            is ProposalPlan.AddTimeEntries -> plan.entries.forEach { entry ->
-                timeTracking.createManualEntry(
-                    taskId = plan.taskId,
-                    userId = userId,
-                    startedAt = entry.startedAt,
-                    endedAt = entry.endedAt,
-                    kind = TimeEntryKind.Work,
-                    note = entry.note,
-                    source = TimeEntrySource.AiProposal,
-                ).getOrThrow()
-            }
+            is ProposalPlan.AddTimeEntries -> addTimeEntries(plan, userId)
 
             is ProposalPlan.WriteNote -> {
                 val updated = when (plan.field) {
@@ -99,28 +85,27 @@ class ProposalDispatch(
                 notes.upsert(updated)
             }
 
+            is ProposalPlan.WriteProject -> {
+                projects.update(plan.project).getOrThrow()
+            }
+
+            is ProposalPlan.CreateTask -> {
+                tasks.create(plan.task).getOrThrow()
+            }
+
+            is ProposalPlan.CreateProject -> {
+                projects.create(plan.project).getOrThrow()
+            }
+
+            is ProposalPlan.CreateNote -> {
+                notes.create(plan.note).getOrThrow()
+            }
+
             is ProposalPlan.DeleteNote -> {
                 notes.archive(plan.noteId).getOrThrow()
             }
 
-            is ProposalPlan.ExtractNoteActions -> {
-                // ExtractActions creates tasks directly from the note content.
-                val now = clock.now()
-                plan.actions.forEach { actionText ->
-                    val title = actionText.trim()
-                    if (title.isNotEmpty()) {
-                        tasks.create(
-                            Task(
-                                id = TaskId.generate(),
-                                title = title,
-                                userId = userId,
-                                createdAt = now,
-                                updatedAt = now,
-                            ),
-                        ).getOrThrow()
-                    }
-                }
-            }
+            is ProposalPlan.ExtractNoteActions -> extractNoteActions(plan, userId)
 
             is ProposalPlan.DeleteTask -> {
                 tasks.softDelete(plan.delTaskId).getOrThrow()
@@ -132,6 +117,62 @@ class ProposalDispatch(
 
             is ProposalPlan.DeleteTag -> {
                 tags.delete(plan.tagId).getOrThrow()
+            }
+        }
+    }
+
+    /** Creates the subtasks a proposal asked for. */
+    private suspend fun addSubtasks(plan: ProposalPlan.AddSubtasks, userId: UserId) {
+        plan.titles.forEach { title ->
+            val now = clock.now()
+            tasks.create(
+                Task(
+                    id = TaskId.generate(),
+                    title = title,
+                    parentTaskId = plan.taskId,
+                    userId = userId,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            ).getOrThrow()
+        }
+    }
+
+    /** Logs the time entries a proposal asked for. */
+    private suspend fun addTimeEntries(plan: ProposalPlan.AddTimeEntries, userId: UserId) {
+        plan.entries.forEach { entry ->
+            timeTracking.createManualEntry(
+                taskId = plan.taskId,
+                userId = userId,
+                startedAt = entry.startedAt,
+                endedAt = entry.endedAt,
+                kind = TimeEntryKind.Work,
+                note = entry.note,
+                source = TimeEntrySource.AiProposal,
+            ).getOrThrow()
+        }
+    }
+
+    /**
+     * Creates the tasks a note's actions describe.
+     *
+     * `ExtractActions` creates tasks directly from the note content, so an empty
+     * action is skipped rather than becoming a task with no title.
+     */
+    private suspend fun extractNoteActions(plan: ProposalPlan.ExtractNoteActions, userId: UserId) {
+        val now = clock.now()
+        plan.actions.forEach { actionText ->
+            val title = actionText.trim()
+            if (title.isNotEmpty()) {
+                tasks.create(
+                    Task(
+                        id = TaskId.generate(),
+                        title = title,
+                        userId = userId,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                ).getOrThrow()
             }
         }
     }

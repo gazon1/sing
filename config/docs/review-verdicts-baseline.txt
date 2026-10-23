@@ -60,10 +60,10 @@ the-editor-and-the-rewrite-from-outside
 the-editor-draws-the-rows-it-is-given
 the-editor-owns-its-sheets-and-its-model
 the-field-shape-is-derived-not-read
+the-gates-are-this-checkout
 the-gates-run-on-every-machine
 the-genui-context-hands-out-the-source
 the-genui-count-travels-with-the-value
-the-index-says-where-the-word-is
 the-kind-of-the-source-is-a-property-of-the-parameter
 the-next-layer-of-contracts
 the-note-body-has-the-same-contract-as-the-title
@@ -74,7 +74,9 @@ the-review-is-a-place-you-can-go
 the-sheet-state-is-not-defaulted
 the-source-says-who-may-rewrite-the-field
 the-static-kind-is-a-guarantee
+the-substring-search-is-a-mode-the-surface-states
 the-write-path-asks-first
+the-write-path-has-one-shape
 theme-mode-offers-system-light-and-dark
 unwired-detector-test-double-exemption
 usage-recording-platform-parity

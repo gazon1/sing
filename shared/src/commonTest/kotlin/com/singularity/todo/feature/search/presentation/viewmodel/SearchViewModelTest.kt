@@ -11,10 +11,12 @@ import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
+import com.singularity.todo.feature.search.query.FreeTextRule
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
+import com.singularity.todo.feature.search.query.SearchMode
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SingularityQueryParser
@@ -82,6 +84,7 @@ class SearchViewModelTest {
             override suspend fun resolve(
                 query: Query,
                 userId: String,
+                mode: SearchMode,
             ): ResolvedSearchQuery =
                 ResolvedSearchQuery(
                     taskFilter = null,
@@ -89,6 +92,10 @@ class SearchViewModelTest {
                     sortOrder = query.sortOrder,
                     sortDescending = query.sortDescending,
                     options = query.options,
+                    // The plan of an empty rule: the mode says what the index could
+                    // do for it, and the stub answers the same way the real
+                    // resolver does.
+                    textMatchPlan = mode.plan(FreeTextRule()),
                 )
         }
 
@@ -139,6 +146,15 @@ class SearchViewModelTest {
             Task(
                 id = TaskId("t-milk"),
                 title = "Buy milk",
+                createdAt = NOW,
+                updatedAt = NOW,
+                userId = TestUsers.DEFAULT,
+            ),
+            // The record the mode exists for: the word "airport" carries the
+            // term "port" in its middle, and the word mode does not look there.
+            Task(
+                id = TaskId("t-airport"),
+                title = "Airport transfer",
                 createdAt = NOW,
                 updatedAt = NOW,
                 userId = TestUsers.DEFAULT,
@@ -444,6 +460,57 @@ class SearchViewModelTest {
             val state = vm.stateFlow.value
             assertEquals(SearchContent.Results, searchContent(state.query.text, state.results))
             assertEquals(listOf("Buy milk"), state.results.tasks.map { it.record.title })
+        }
+
+    // ─── The mode ──────────────────────────────────────────────────────────────
+    //
+    // The mode is part of the question: the same query asks a different thing
+    // in the contains mode, so the answer has to be asked again when the mode
+    // changes.
+
+    @Test
+    fun `the search starts in the word mode`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
+
+            assertEquals(SearchMode.Word, vm.stateFlow.value.mode)
+        }
+
+    @Test
+    fun `choosing the contains mode puts it in the state`() =
+        runTest {
+            val vm = createVm()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnModeChange(SearchMode.Contains))
+            runCurrent()
+
+            assertEquals(SearchMode.Contains, vm.stateFlow.value.mode)
+        }
+
+    @Test
+    fun `the contains mode finds what the word mode does not`() =
+        runTest {
+            val vm = createVmWithRealSearch()
+            runCurrent()
+
+            vm.onIntent(SearchIntent.OnQueryChange("port"))
+            advanceTimeBy(400L)
+            runCurrent()
+            assertTrue(
+                vm.stateFlow.value.results.tasks.isEmpty(),
+                "the word \"airport\" does not begin with \"port\"",
+            )
+
+            vm.onIntent(SearchIntent.OnModeChange(SearchMode.Contains))
+            advanceTimeBy(400L)
+            runCurrent()
+
+            assertEquals(
+                listOf("Airport transfer"),
+                vm.stateFlow.value.results.tasks.map { it.record.title },
+            )
         }
 
     // ─── Fake helpers ─────────────────────────────────────────────────────────

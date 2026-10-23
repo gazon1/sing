@@ -3,6 +3,7 @@ package com.singularity.todo.feature.proposals.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -33,6 +34,22 @@ enum class TaskField {
 
     @SerialName("estimate_minutes")
     EstimateMinutes,
+
+    /** The kind of work — `Task`, `Note`, and whatever else the app calls a kind. */
+    @SerialName("kind")
+    Kind,
+
+    /** The time of day the task is due, as `HH:mm`. */
+    @SerialName("due_time")
+    DueTime,
+
+    /** The project the task belongs to, as a project id. An empty value moves it out of every project. */
+    @SerialName("project")
+    Project,
+
+    /** Whether the task is deferred — `true` or `false`. */
+    @SerialName("someday")
+    Someday,
 }
 
 /**
@@ -54,6 +71,32 @@ enum class NoteField {
 }
 
 /**
+ * The project fields a [ProposalItemKind.SetProjectField] item may propose to change.
+ *
+ * A project had no shape of its own in the proposal vocabulary until the write
+ * tools were put on the proposal path: `SetTaskField` and `SetNoteField` could
+ * change a task and a note, and a project could only be deleted. So "change the
+ * project's name" was impossible not because anybody forgot, but because there
+ * was no kind for it.
+ */
+@Serializable
+enum class ProjectField {
+    @SerialName("name")
+    Name,
+
+    @SerialName("description")
+    Description,
+
+    /** The project's colour, as an ARGB integer. */
+    @SerialName("color")
+    Color,
+
+    /** The project's icon name. */
+    @SerialName("icon")
+    Icon,
+}
+
+/**
  * A time range proposed by [ProposalItemKind.AddTimeEntries].
  *
  * @param startedAt Epoch millis when the work started.
@@ -62,6 +105,53 @@ enum class NoteField {
  */
 @Serializable
 data class ProposedTimeEntry(val startedAt: Long, val endedAt: Long, val note: String? = null)
+
+/**
+ * The task a [ProposalItemKind.CreateTask] item proposes to bring into being.
+ *
+ * The values are the raw strings the model produced, and the planner parses and
+ * validates them before anything is claimed — so an unparseable date leaves the
+ * proposal pending instead of writing a task with a broken date.
+ */
+@Serializable
+data class ProposedTask(
+    val title: String,
+    val description: String? = null,
+    val priority: String = "None",
+    val kind: String = "Task",
+    val projectId: String? = null,
+    val parentTaskId: String? = null,
+    val tagIds: List<String> = emptyList(),
+    /** `YYYY-MM-DD`. */
+    val dueDate: String? = null,
+    /** `HH:mm`. */
+    val dueTime: String? = null,
+    val someday: Boolean = false,
+)
+
+/**
+ * The project a [ProposalItemKind.CreateProject] item proposes to bring into being.
+ */
+@Serializable
+data class ProposedProject(
+    val name: String,
+    val description: String? = null,
+    val color: Int = 0xFF2196F3.toInt(),
+    val icon: String? = null,
+)
+
+/**
+ * The note a [ProposalItemKind.CreateNote] item proposes to bring into being.
+ *
+ * @property bodyHtml The body as canonical HTML — the form the notes are stored in.
+ */
+@Serializable
+data class ProposedNote(
+    val title: String = "",
+    val bodyHtml: String? = null,
+    val isFolder: Boolean = false,
+    val parentNoteId: String? = null,
+)
 
 /**
  * The change a single [ProposalItem] asks for.
@@ -89,6 +179,17 @@ sealed interface ProposalItemKind {
     @Serializable
     @SerialName("SetTaskField")
     data class SetTaskField(val field: TaskField, val value: String) : ProposalItemKind
+
+    /**
+     * The owning task's tags become exactly [tagIds].
+     *
+     * A set, not an addition: `AddTags` and `RemoveTags` say what to add and what
+     * to take away, and neither can say "the task carries these tags and no
+     * others". A tool that rewrites a task's tags has to be able to say that.
+     */
+    @Serializable
+    @SerialName("SetTaskTags")
+    data class SetTaskTags(val tagIds: List<String>) : ProposalItemKind
 
     /** Add each of these tag names to the task. Unresolvable names are skipped. */
     @Serializable
@@ -126,6 +227,37 @@ sealed interface ProposalItemKind {
     @SerialName("SetNoteField")
     data class SetNoteField(val field: NoteField, val value: String) : ProposalItemKind
 
+    /**
+     * Set a scalar field on the owning project to [value].
+     *
+     * The value is the raw string the model produced; the planner parses and
+     * validates it against [ProjectField] before writing.
+     */
+    @Serializable
+    @SerialName("SetProjectField")
+    data class SetProjectField(val field: ProjectField, val value: String) : ProposalItemKind
+
+    /**
+     * Create a task with these fields.
+     *
+     * A creation is a change like any other, and it gets the same treatment: the
+     * proposal holds the task until the user says yes. The task does not exist
+     * yet, so the target id of the item is the id the task *will* have.
+     */
+    @Serializable
+    @SerialName("CreateTask")
+    data class CreateTask(val task: ProposedTask) : ProposalItemKind
+
+    /** Create a project with these fields. */
+    @Serializable
+    @SerialName("CreateProject")
+    data class CreateProject(val project: ProposedProject) : ProposalItemKind
+
+    /** Create a note or folder with these fields. */
+    @Serializable
+    @SerialName("CreateNote")
+    data class CreateNote(val note: ProposedNote) : ProposalItemKind
+
     /** Delete the owning note. */
     @Serializable
     @SerialName("DeleteNote")
@@ -150,7 +282,7 @@ sealed interface ProposalItemKind {
     @SerialName("DeleteProject")
     data class DeleteProject(val reason: String? = null) : ProposalItemKind
 
-    /** Soft-delete the owning tag. */
+    /** Delete the owning tag. */
     @Serializable
     @SerialName("DeleteTag")
     data class DeleteTag(val reason: String? = null) : ProposalItemKind
@@ -169,6 +301,8 @@ val ProposalItemKind.fingerprintTarget: String
     get() = when (this) {
         is ProposalItemKind.SetTaskField -> field.name
 
+        is ProposalItemKind.SetTaskTags -> tagIds.normalized()
+
         is ProposalItemKind.AddTags -> names.normalized()
 
         is ProposalItemKind.RemoveTags -> tagIds.normalized()
@@ -184,6 +318,14 @@ val ProposalItemKind.fingerprintTarget: String
                 .joinToString("|")
 
         is ProposalItemKind.SetNoteField -> field.name
+
+        is ProposalItemKind.SetProjectField -> field.name
+
+        is ProposalItemKind.CreateTask -> task.title.trim().lowercase()
+
+        is ProposalItemKind.CreateProject -> project.name.trim().lowercase()
+
+        is ProposalItemKind.CreateNote -> note.title.trim().lowercase()
 
         is ProposalItemKind.DeleteNote -> ""
 
@@ -208,45 +350,122 @@ private fun List<String>.normalized(): String =
  */
 fun ProposalItemKind.toJsonObject(): JsonObject = buildJsonObject {
     put("type", this@toJsonObject::class.simpleName ?: "Unknown")
-    when (this@toJsonObject) {
+    writeTaskPayload(this@toJsonObject, this)
+    writeEntityPayload(this@toJsonObject, this)
+    writeCreationPayload(this@toJsonObject, this)
+    writeDeletionPayload(this@toJsonObject, this)
+}
+
+/**
+ * The payload of the kinds a task carries.
+ *
+ * The payload is written by group rather than by one long `when`: the vocabulary
+ * grew, and a single `when` over every kind is a function nobody can read — and
+ * a function nobody can read is one that gets a new kind added to it wrongly.
+ */
+private fun writeTaskPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
+    when (kind) {
         is ProposalItemKind.SetTaskField -> {
-            put("field", field.name)
-            put("value", value)
+            into.put("field", kind.field.name)
+            into.put("value", kind.value)
         }
 
-        is ProposalItemKind.AddTags -> put("names", names.joinToString("\u001F"))
+        is ProposalItemKind.SetTaskTags -> into.put("tagIds", kind.tagIds.joinToString(LIST_SEPARATOR))
 
-        is ProposalItemKind.RemoveTags -> put("tagIds", tagIds.joinToString("\u001F"))
+        is ProposalItemKind.AddTags -> into.put("names", kind.names.joinToString(LIST_SEPARATOR))
 
-        is ProposalItemKind.AddChecklistItems -> put("texts", texts.joinToString("\u001F"))
+        is ProposalItemKind.RemoveTags -> into.put("tagIds", kind.tagIds.joinToString(LIST_SEPARATOR))
 
-        is ProposalItemKind.AddSubtasks -> put("titles", titles.joinToString("\u001F"))
+        is ProposalItemKind.AddChecklistItems -> into.put("texts", kind.texts.joinToString(LIST_SEPARATOR))
+
+        is ProposalItemKind.AddSubtasks -> into.put("titles", kind.titles.joinToString(LIST_SEPARATOR))
 
         is ProposalItemKind.AddTimeEntries -> {
-            put(
+            into.put(
                 "entries",
-                entries.joinToString("\u001E") { "${it.startedAt}\u001D${it.endedAt}\u001D${it.note.orEmpty()}" },
+                kind.entries.joinToString(RECORD_SEPARATOR) {
+                    "${it.startedAt}$FIELD_SEPARATOR${it.endedAt}$FIELD_SEPARATOR${it.note.orEmpty()}"
+                },
             )
         }
 
-        is ProposalItemKind.SetNoteField -> {
-            put("field", field.name)
-            put("value", value)
-        }
-
-        is ProposalItemKind.DeleteNote -> {
-            reason?.let { put("reason", it) }
-        }
-
-        is ProposalItemKind.ExtractActions -> put("actions", actions.joinToString("\u001F"))
-
-        is ProposalItemKind.DeleteTask -> reason?.let { put("reason", it) }
-
-        is ProposalItemKind.DeleteProject -> reason?.let { put("reason", it) }
-
-        is ProposalItemKind.DeleteTag -> reason?.let { put("reason", it) }
+        else -> Unit
     }
 }
+
+/** The payload of the kinds a note or a project carries. */
+private fun writeEntityPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
+    when (kind) {
+        is ProposalItemKind.SetNoteField -> {
+            into.put("field", kind.field.name)
+            into.put("value", kind.value)
+        }
+
+        is ProposalItemKind.SetProjectField -> {
+            into.put("field", kind.field.name)
+            into.put("value", kind.value)
+        }
+
+        else -> Unit
+    }
+}
+
+/** The payload of the kinds that bring something into being. */
+private fun writeCreationPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
+    when (kind) {
+        is ProposalItemKind.CreateTask -> {
+            into.put("title", kind.task.title)
+            kind.task.description?.let { into.put("description", it) }
+            into.put("priority", kind.task.priority)
+            into.put("kind", kind.task.kind)
+            kind.task.projectId?.let { into.put("projectId", it) }
+            kind.task.parentTaskId?.let { into.put("parentTaskId", it) }
+            into.put("tagIds", kind.task.tagIds.joinToString(LIST_SEPARATOR))
+            kind.task.dueDate?.let { into.put("dueDate", it) }
+            kind.task.dueTime?.let { into.put("dueTime", it) }
+            into.put("someday", kind.task.someday)
+        }
+
+        is ProposalItemKind.CreateProject -> {
+            into.put("name", kind.project.name)
+            kind.project.description?.let { into.put("description", it) }
+            into.put("color", kind.project.color)
+            kind.project.icon?.let { into.put("icon", it) }
+        }
+
+        is ProposalItemKind.CreateNote -> {
+            into.put("title", kind.note.title)
+            kind.note.bodyHtml?.let { into.put("bodyHtml", it) }
+            into.put("isFolder", kind.note.isFolder)
+            kind.note.parentNoteId?.let { into.put("parentNoteId", it) }
+        }
+
+        is ProposalItemKind.ExtractActions -> into.put("actions", kind.actions.joinToString(LIST_SEPARATOR))
+
+        else -> Unit
+    }
+}
+
+/** The payload of the kinds that take something away. */
+private fun writeDeletionPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
+    when (kind) {
+        is ProposalItemKind.DeleteNote -> kind.reason?.let { into.put("reason", it) }
+        is ProposalItemKind.DeleteTask -> kind.reason?.let { into.put("reason", it) }
+        is ProposalItemKind.DeleteProject -> kind.reason?.let { into.put("reason", it) }
+        is ProposalItemKind.DeleteTag -> kind.reason?.let { into.put("reason", it) }
+        else -> Unit
+    }
+}
+
+/**
+ * Separators used to pack list payloads into single text columns.
+ *
+ * Unit Separator and Record Separator rather than commas: a checklist item or a
+ * subtask title is free text and may legitimately contain a comma.
+ */
+private const val LIST_SEPARATOR = "\u001F"
+private const val RECORD_SEPARATOR = "\u001E"
+private const val FIELD_SEPARATOR = "\u001D"
 
 /** Reads a `JsonPrimitive` as a non-empty string, or null. */
 internal fun JsonObject.stringOrNull(key: String): String? =

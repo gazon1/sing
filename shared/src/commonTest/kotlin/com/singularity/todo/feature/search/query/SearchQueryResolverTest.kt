@@ -78,7 +78,7 @@ class SearchQueryResolverTest {
 
     @Test
     fun `empty query returns null filter`() = runTest {
-        val resolved = resolver.resolve(Query.EMPTY, userId)
+        val resolved = resolver.resolve(Query.EMPTY, userId, SearchMode.Word)
         assertNull(resolved.taskFilter)
         assertNull(resolved.dateRange)
         assertTrue(resolved.freeText.isNullOrBlank())
@@ -88,7 +88,7 @@ class SearchQueryResolverTest {
     fun `HasText accumulates freeText`() = runTest {
         val query = SingularityQueryParser("hello world").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertEquals("hello world", resolved.freeText)
         assertNull(resolved.taskFilter)
     }
@@ -97,7 +97,7 @@ class SearchQueryResolverTest {
     fun `free text terms become the rule every kind is matched by`() = runTest {
         val query = SingularityQueryParser("hello world").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
 
         assertEquals(listOf("hello", "world"), resolved.freeTextRule.terms.map { it.text })
         assertTrue(resolved.freeTextRule.terms.none { it.negated })
@@ -108,7 +108,7 @@ class SearchQueryResolverTest {
     fun `an OR query makes the free text terms alternatives`() = runTest {
         val query = SingularityQueryParser("hello OR world").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
 
         assertTrue(resolved.freeTextRule.combinesWithOr)
     }
@@ -117,7 +117,7 @@ class SearchQueryResolverTest {
     fun `a query with no free text has no rule`() = runTest {
         val query = SingularityQueryParser("priority:high").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
 
         assertTrue(resolved.freeTextRule.isEmpty)
     }
@@ -128,7 +128,7 @@ class SearchQueryResolverTest {
 
         val query = SingularityQueryParser("tag:work tag:unknown").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.unknownTagNames.contains("unknown"), "unknown tag should be tracked")
         assertTrue(resolved.resolvedTagIds.contains("tag_0"), "resolved tag should be tracked")
     }
@@ -139,7 +139,7 @@ class SearchQueryResolverTest {
 
         val query = SingularityQueryParser("tag:Work").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertIs<TaskFilter.ByTag>(resolved.taskFilter)
         assertEquals("tag_0", resolved.taskFilter.id.value)
     }
@@ -151,7 +151,7 @@ class SearchQueryResolverTest {
 
         val query = SingularityQueryParser("tag:Work tag:Home").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertIs<TaskFilter.ByTags>(resolved.taskFilter)
         assertTrue(resolved.taskFilter.matchAll)
         assertTrue(resolved.resolvedTagIds.contains("tag_0"))
@@ -164,7 +164,7 @@ class SearchQueryResolverTest {
 
         val query = SingularityQueryParser("project:Plans project:Missing").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.unknownProjectNames.contains("Missing"))
         assertEquals("proj_0", resolved.resolvedProjectId)
     }
@@ -175,7 +175,7 @@ class SearchQueryResolverTest {
 
         val query = SingularityQueryParser("project:Plans").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertIs<TaskFilter.ByProject>(resolved.taskFilter)
         assertEquals("proj_0", resolved.taskFilter.id.value)
     }
@@ -189,7 +189,7 @@ class SearchQueryResolverTest {
             options = Options(limit = 20, offset = 5),
         )
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertEquals(SortOrder.PRIORITY, resolved.sortOrder)
         assertTrue(resolved.sortDescending)
         assertEquals(20, resolved.options.limit)
@@ -200,7 +200,7 @@ class SearchQueryResolverTest {
     fun `pinned condition sets needsPostFilter`() = runTest {
         val query = SingularityQueryParser("pinned").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.needsPostFilter)
         assertNotNull(resolved.postFilter)
     }
@@ -209,7 +209,7 @@ class SearchQueryResolverTest {
     fun `archived condition sets needsPostFilter`() = runTest {
         val query = SingularityQueryParser("archived").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.needsPostFilter)
     }
 
@@ -217,7 +217,7 @@ class SearchQueryResolverTest {
     fun `has description condition sets needsPostFilter`() = runTest {
         val query = SingularityQueryParser("has:description").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.needsPostFilter)
     }
 
@@ -225,7 +225,7 @@ class SearchQueryResolverTest {
     fun `OR condition sets isOrPostFilter`() = runTest {
         val query = SingularityQueryParser("priority:high OR priority:urgent").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.isOrPostFilter)
         assertTrue(resolved.needsPostFilter)
     }
@@ -234,7 +234,7 @@ class SearchQueryResolverTest {
     fun `AND condition does NOT set isOrPostFilter`() = runTest {
         val query = SingularityQueryParser("priority:high tag:work").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.needsPostFilter)
         assertTrue(resolved.isOrPostFilter == false)
     }
@@ -245,7 +245,7 @@ class SearchQueryResolverTest {
 
         val query = SingularityQueryParser("-tag:Work").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         assertTrue(resolved.needsPostFilter)
     }
 
@@ -261,7 +261,7 @@ class SearchQueryResolverTest {
     fun `the free-text predicate of a narrowed rule does not ask again about the positives`() = runTest {
         val query = SingularityQueryParser("alpha").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         val unrelated = task(id = "t1", title = "Nothing to do with the word")
 
         val kept = resolved.postFilter(sequenceOf(unrelated)).map { it.id.value }.toList()
@@ -277,7 +277,7 @@ class SearchQueryResolverTest {
     fun `the free-text predicate of a narrowed rule still holds the negated term`() = runTest {
         val query = SingularityQueryParser("alpha NOT beta").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         val carrying = task(id = "t1", title = "Alpha and Beta")
         val other = task(id = "t2", title = "Alpha only")
 
@@ -292,7 +292,7 @@ class SearchQueryResolverTest {
         // *not* carry — is answered by the rule alone.
         val query = SingularityQueryParser("NOT alpha").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
         val carrying = task(id = "t1", title = "Alpha report")
         val other = task(id = "t2", title = "Beta report")
 
@@ -313,7 +313,7 @@ class SearchQueryResolverTest {
     fun `due today resolves against the injected clock, not the host`() = runTest {
         val query = SingularityQueryParser("due:today").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
 
         // FakeClock is pinned to 2026-09-16T10:00:00Z and TEST_TZ is UTC, so the
         // bound is 2026-09-16 regardless of when this runs. Before the injection
@@ -331,7 +331,7 @@ class SearchQueryResolverTest {
     fun `a relative due date is a fixed number of days from the injected today`() = runTest {
         val query = SingularityQueryParser("due:3d").parse()
 
-        val resolved = resolver.resolve(query, userId)
+        val resolved = resolver.resolve(query, userId, SearchMode.Word)
 
         assertEquals(
             LocalDate(2026, 9, 19),
@@ -350,9 +350,9 @@ class SearchQueryResolverTest {
         // not move 3 days in a suite that runs in seconds.
         val query = SingularityQueryParser("due:today").parse()
 
-        val before = resolver.resolve(query, userId).dateRange?.to
+        val before = resolver.resolve(query, userId, SearchMode.Word).dateRange?.to
         clock.advance(3.days)
-        val after = resolver.resolve(query, userId).dateRange?.to
+        val after = resolver.resolve(query, userId, SearchMode.Word).dateRange?.to
 
         assertEquals(LocalDate(2026, 9, 16), before)
         assertEquals(LocalDate(2026, 9, 19), after, "the resolved date must follow the injected clock")

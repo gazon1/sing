@@ -54,6 +54,7 @@ import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.presentation.RenameSearchDialog
 import com.singularity.todo.feature.search.presentation.SaveSearchDialog
+import com.singularity.todo.feature.search.presentation.SearchModeSwitch
 import com.singularity.todo.feature.search.presentation.SavedSearchesRow
 import com.singularity.todo.feature.search.presentation.SimpleFilterSheet
 import com.singularity.todo.feature.search.presentation.nav.LocalSearchNavigator
@@ -120,6 +121,11 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 onQueryChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
             )
 
+            SearchModeSwitch(
+                mode = state.mode,
+                onModeChange = { viewModel.onIntent(SearchIntent.OnModeChange(it)) },
+            )
+
             if (state.savedSearches.isNotEmpty()) {
                 SavedSearchesRow(
                     savedSearches = state.savedSearches,
@@ -131,23 +137,12 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                 )
             }
 
-            when (val content = searchContent(state.query.text, state.results)) {
-                SearchContent.IdlePrompt -> EmptyState(
-                    title = "Enter a search query",
-                    testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,
-                )
-
-                SearchContent.NoResults -> EmptyState(
-                    title = "No results found",
-                    testTag = TestTags.SEARCH_EMPTY_RESULTS,
-                )
-
-                SearchContent.Results -> SearchResultsList(
-                    results = state.results,
-                    navigator = navigator,
-                    onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
-                )
-            }
+            SearchOutcome(
+                content = searchContent(state.query.text, state.results),
+                results = state.results,
+                navigator = navigator,
+                onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
+            )
         }
     }
 }
@@ -210,6 +205,39 @@ private fun SearchSheetHosts(
             currentName = currentName,
             onDismiss = onDismissRename,
             onRename = { newName -> onRename(id, newName) },
+        )
+    }
+}
+
+/**
+ * What the search screen shows under the field and the switch.
+ *
+ * Three states, not two — see [SearchContent]. The idle prompt, the no-results
+ * state and the results are different products, and the screen says which one
+ * it is in.
+ */
+@Composable
+private fun SearchOutcome(
+    content: SearchContent,
+    results: SearchResults,
+    navigator: SearchNavigator,
+    onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
+) {
+    when (content) {
+        SearchContent.IdlePrompt -> EmptyState(
+            title = "Enter a search query",
+            testTag = TestTags.SEARCH_EMPTY_PLACEHOLDER,
+        )
+
+        SearchContent.NoResults -> EmptyState(
+            title = "No results found",
+            testTag = TestTags.SEARCH_EMPTY_RESULTS,
+        )
+
+        SearchContent.Results -> SearchResultsList(
+            results = results,
+            navigator = navigator,
+            onPin = onPin,
         )
     }
 }

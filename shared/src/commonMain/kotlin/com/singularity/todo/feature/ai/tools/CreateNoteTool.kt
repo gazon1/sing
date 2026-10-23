@@ -2,13 +2,15 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
-import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
-import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposedNote
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 
 @Serializable
@@ -20,60 +22,82 @@ data class CreateNoteInput(
     val parentNoteId: String? = null,
 )
 
+/**
+ * What came of the request.
+ *
+ * @property proposalCreated whether a proposal was stored. There is no note id
+ *   here: nothing was created, and an id would name a note that does not exist.
+ */
 @Serializable
-data class CreateNoteOutput(val noteId: String, val title: String)
+data class CreateNoteOutput(
+    val proposalCreated: Boolean,
+    val proposalId: String,
+    val title: String,
+    val error: String? = null,
+)
 
 /**
- * Creates a note or folder.
+ * Proposes a new note or folder, and lets the user decide whether it should exist.
  *
- * ## Why the create is unwrapped
+ * ## Why the body is converted before it is proposed
  *
- * `notesRepository.create` returns a `Result`, and discarding it is not a style
- * choice here: the id below is generated *before* the write, so a discarded
- * failure produces byte-identical output to a success — `{"noteId": "<an id
- * naming nothing>", "title": "..."}`. The model's only evidence about what
- * happened is that payload, so it goes on to open, link and cite a note that does
- * not exist. `.getOrThrow()` makes the tool call fail, which is the failure shape
- * the four `Delete*Tool` in this package already use.
- *
- * Every create/update tool here follows this. See openspec change
- * `a-write-tool-reports-the-write-it-did-not-perform`.
+ * Notes are stored with the body as canonical HTML. A proposal that carries
+ * markdown would be applied as markdown and the note would keep it in the legacy
+ * field forever. So the body is converted here, once, and the proposal carries
+ * the form the note will actually have.
  */
 class CreateNoteTool(
-    private val notesRepository: NotesRepository,
-    private val clock: Clock,
+    private val proposals: ProposalRepository,
     private val currentUser: ProfileAwareCurrentUser,
+    private val clock: Clock,
 ) : SimpleTool<CreateNoteInput>(TypeToken.of(CreateNoteInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: CreateNoteInput): String {
-        val now = clock.now()
+        val title = args.title.trim()
+
+        // The id the note will have if the user says yes.
         val noteId = NoteId.generate()
-        val userId = currentUser.scopedUserId.value
-        // Convert markdown to canonical HTML: notes are stored with bodyHtml as the
-        // canonical representation. Without this, AI-created notes have bodyMarkdown
-        // set but bodyHtml=null, and the editor falls back to toHtml() on open —
-        // which works but stores the markdown in the legacy field forever.
-        val bodyHtml = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
-        val note = Note(
-            id = noteId,
-            title = args.title,
-            bodyMarkdown = null, // markdown stored only as HTML
-            bodyHtml = bodyHtml,
-            isFolder = args.isFolder,
-            parentNoteId = args.parentNoteId?.let { NoteId.fromString(it) },
-            createdAt = now,
-            updatedAt = now,
-            userId = userId,
+        val kind = ProposalItemKind.CreateNote(
+            ProposedNote(
+                title = title,
+                bodyHtml = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) },
+                isFolder = args.isFolder,
+                parentNoteId = args.parentNoteId,
+            ),
         )
-        notesRepository.create(note).getOrThrow()
-        return Json.encodeToString(
+
+        val result = proposeChange(
+            proposals = proposals,
+            userId = currentUser.scopedUserId.value,
+            clock = clock,
+            items = proposalItems(listOf(kind), noteId.value),
+            targetKind = AiProposal.TARGET_KIND_NOTE,
+            targetId = noteId.value,
+        )
+
+        return ToolOutputJson.encodeToString(
             CreateNoteOutput.serializer(),
-            CreateNoteOutput(noteId.value, note.title),
+            CreateNoteOutput(
+                proposalCreated = result.isSuccess,
+                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                title = title,
+                error = result.exceptionOrNull()?.message,
+            ),
         )
     }
 
     companion object {
         const val NAME = "create_note"
-        const val DESCRIPTION = "Creates a new note or folder."
+
+        /**
+         * The description the model reads.
+         *
+         * It says the note is proposed rather than created, because a model that
+         * believes it has created a note will say so to the user.
+         */
+        const val DESCRIPTION =
+            "Proposes a new note or folder. The note is not created yet — the user sees it and " +
+                "decides. Say that it has been proposed, not that it has been created. " +
+                "The body is markdown."
     }
 }

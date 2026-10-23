@@ -2,7 +2,6 @@ package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.core.search.SearchTextIndex
-import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
@@ -12,6 +11,7 @@ import com.singularity.todo.feature.search.query.FreeTextRule
 import com.singularity.todo.feature.search.query.Options
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
+import com.singularity.todo.feature.search.query.SearchMode
 import com.singularity.todo.feature.search.query.titleMatchesFirst
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SingularityQueryParser
@@ -83,23 +83,35 @@ class SearchUseCase(
      * none of them.
      *
      * Sort order and pagination ([Options.limit]/[Options.offset]) apply to the task results only.
+     *
+     * @param mode The mode the free text is matched in. The word mode is asked of
+     *   the index; the contains mode reads the rows, because the index stores
+     *   words and cannot say whether a term occurs in the middle of one.
      */
-    suspend operator fun invoke(query: Query, userId: String): Flow<SearchResults> {
-        val resolved = queryResolver.resolve(query, userId)
-        return buildResultsFlow(resolved)
+    suspend operator fun invoke(
+        query: Query,
+        userId: String,
+        mode: SearchMode = SearchMode.Word,
+    ): Flow<SearchResults> {
+        val resolved = queryResolver.resolve(query, userId, mode)
+        return buildResultsFlow(resolved, mode)
     }
 
     /**
      * Backwards-compatible overload that accepts a raw query string.
      * Parses the string using [SingularityQueryParser] and delegates to [invoke].
      */
-    suspend operator fun invoke(queryString: String, userId: String): Flow<SearchResults> {
+    suspend operator fun invoke(
+        queryString: String,
+        userId: String,
+        mode: SearchMode = SearchMode.Word,
+    ): Flow<SearchResults> {
         val parser = SingularityQueryParser(queryString)
         val query = parser.parse()
-        return invoke(query, userId)
+        return invoke(query, userId, mode)
     }
 
-    private fun buildResultsFlow(resolved: ResolvedSearchQuery): Flow<SearchResults> {
+    private fun buildResultsFlow(resolved: ResolvedSearchQuery, mode: SearchMode): Flow<SearchResults> {
         val plan = resolved.textMatchPlan
 
         // ── Task flow ──────────────────────────────────────────────────────────
@@ -160,7 +172,7 @@ class SearchUseCase(
             // for is the order inside each group. See `titleMatchesFirst`.
             if (!rule.isEmpty) {
                 result = titleMatchesFirst(result) { record ->
-                    rule.satisfiesPositives { term -> TextMatch.matches(record.record.title, term) }
+                    rule.satisfiesPositives { term -> mode.matches(record.record.title, term) }
                 }
             }
 
@@ -182,9 +194,9 @@ class SearchUseCase(
         // F5 — a query with no free text selects no note, project or tag. The
         // structured terms of a query are filters over tasks, and there is no
         // free-text part to match anything else with.
-        val noteFlow = textMatchedNotes(plan, rule)
-        val projectFlow = textMatchedProjects(plan, rule)
-        val tagFlow = textMatchedTags(plan, rule)
+        val noteFlow = textMatchedNotes(plan, rule, mode)
+        val projectFlow = textMatchedProjects(plan, rule, mode)
+        val tagFlow = textMatchedTags(plan, rule, mode)
 
         return combine(taskFlow, noteFlow, projectFlow, tagFlow) { tasks, notes, projects, tags ->
             SearchResults(
@@ -204,7 +216,11 @@ class SearchUseCase(
      * then decides, in both cases — but only about the half the index did not
      * answer. See [FreeTextRule.accepts].
      */
-    private fun textMatchedNotes(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<IndexedRecord<Note>>> {
+    private fun textMatchedNotes(
+        plan: TextMatchPlan,
+        rule: FreeTextRule,
+        mode: SearchMode,
+    ): Flow<List<IndexedRecord<Note>>> {
         // A rule with no terms selects no note, and the answer is known before
         // the question is asked. Reading the table to learn that is a read of
         // every note of the profile — and a live one: it runs again on every
@@ -219,7 +235,7 @@ class SearchUseCase(
             }
         }
         return source.map { notes ->
-            notes.filter { note -> rule.accepts(plan) { term -> TextMatch.matches(note.record.title, term) } }
+            notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.record.title, term) } }
         }
     }
 
@@ -227,6 +243,7 @@ class SearchUseCase(
     private fun textMatchedProjects(
         plan: TextMatchPlan,
         rule: FreeTextRule,
+        mode: SearchMode,
     ): Flow<List<IndexedRecord<Project>>> {
         if (rule.isEmpty) return flowOf(emptyList())
 
@@ -239,13 +256,17 @@ class SearchUseCase(
         }
         return source.map { projects ->
             projects.filter { project ->
-                rule.accepts(plan) { term -> TextMatch.matches(project.record.name, term) }
+                rule.accepts(plan) { term -> mode.matches(project.record.name, term) }
             }
         }
     }
 
     /** The tags that satisfy the free-text rule. See [textMatchedNotes]. */
-    private fun textMatchedTags(plan: TextMatchPlan, rule: FreeTextRule): Flow<List<IndexedRecord<Tag>>> {
+    private fun textMatchedTags(
+        plan: TextMatchPlan,
+        rule: FreeTextRule,
+        mode: SearchMode,
+    ): Flow<List<IndexedRecord<Tag>>> {
         if (rule.isEmpty) return flowOf(emptyList())
 
         val source: Flow<List<IndexedRecord<Tag>>> = when (plan) {
@@ -256,7 +277,7 @@ class SearchUseCase(
             }
         }
         return source.map { tags ->
-            tags.filter { tag -> rule.accepts(plan) { term -> TextMatch.matches(tag.record.name, term) } }
+            tags.filter { tag -> rule.accepts(plan) { term -> mode.matches(tag.record.name, term) } }
         }
     }
 

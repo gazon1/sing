@@ -126,6 +126,19 @@ object TaskDomain {
     )
 
     /**
+     * The surfaces of a task that free text is matched against — its title and
+     * its description (F3).
+     *
+     * This is the one place that says what a task is searched by. The search
+     * screen and the task list both match free text against a task, and they
+     * have to agree on the surfaces — otherwise the same question gets two
+     * answers, and the answer depends on which screen asked it.
+     *
+     * @param task the task whose surfaces are asked for.
+     */
+    fun searchableText(task: Task): List<String?> = listOf(task.title, task.description)
+
+    /**
      * Checks if a task matches the given filter.
      * Pure predicate function - fully testable.
      */
@@ -150,8 +163,7 @@ object TaskDomain {
 
         // Word-prefix matching — the semantics of the full-text index, so that
         // the in-memory rule and the index answer the same question.
-        is TaskFilter.Search -> TextMatch.matches(task.title, filter.query) ||
-            TextMatch.matches(task.description, filter.query)
+        is TaskFilter.Search -> TextMatch.matchesAny(searchableText(task), filter.query)
 
         is TaskFilter.ByDateRange ->
             task.dueDate != null &&

@@ -7,6 +7,12 @@ import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.search.SearchUseCase
+import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
+import com.singularity.todo.feature.search.query.ProjectLookup
+import com.singularity.todo.feature.search.query.ProjectLookupResult
+import com.singularity.todo.feature.search.query.TagLookup
+import com.singularity.todo.feature.search.query.TagLookupResult
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -15,8 +21,12 @@ import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeSearchTextIndex
 import com.singularity.todo.test.fakes.FakeSettingsRepository
+import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -193,7 +203,7 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, scoped, "Findable AI-Agent task")
         seedTask(repo, UserId("local-user"), "Findable personal task")
 
-        val tool = SearchTasksTool(repo)
+        val tool = searchTool(repo, currentUser)
         val output = tool.execute(SearchTasksInput(query = "Findable", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
@@ -215,13 +225,56 @@ class ReadToolsProfileAwareTest {
         seedTask(repo, UserId("local-user"), "private personal task")
         seedTask(repo, resolveScopedUserId(currentUser, profiles), "agent task")
 
-        val tool = SearchTasksTool(repo)
+        val tool = searchTool(repo, currentUser)
         val output = tool.execute(SearchTasksInput(query = "task", limit = 50))
         val parsed = Json.parseToJsonElement(output).jsonObject
         val tasks = parsed["tasks"]!!.jsonArray
         val titles = tasks.map { (it.jsonObject["title"] as kotlinx.serialization.json.JsonPrimitive).content }.toSet()
         assertTrue("agent task" in titles)
         assertTrue("private personal task" !in titles, "personal data must not leak into agent search")
+    }
+
+    /**
+     * The search tool wired the way production wires it.
+     *
+     * The tool asks the application's own search, so the test has to build it:
+     * the use case over the fake repositories, the fake index over the same
+     * repositories, and the real resolver over in-memory name lookups. Anything
+     * less would test a search the application does not have.
+     */
+    private fun searchTool(
+        tasks: FakeTaskRepository,
+        currentUser: ProfileAwareCurrentUser,
+    ): SearchTasksTool {
+        val notes = FakeNotesRepository()
+        val projects = FakeProjectsRepository()
+        val tags = FakeTagsRepository()
+        return SearchTasksTool(
+            search = SearchUseCase(
+                taskRepo = tasks,
+                noteRepo = notes,
+                projectRepo = projects,
+                tagRepo = tags,
+                textIndex = FakeSearchTextIndex(tasks, notes, projects, tags),
+                queryResolver = DefaultSearchQueryResolver(
+                    tagLookup = object : TagLookup {
+                        override suspend fun findByName(userId: String, name: String): TagLookupResult? =
+                            tags.observeAll().first()
+                                .firstOrNull { it.userId.value == userId && it.name == name }
+                                ?.let { TagLookupResult(it.id.value, it.userId.value, it.name) }
+                    },
+                    projectLookup = object : ProjectLookup {
+                        override suspend fun findByName(userId: String, name: String): ProjectLookupResult? =
+                            projects.observeAll().first()
+                                .firstOrNull { it.userId.value == userId && it.name == name }
+                                ?.let { ProjectLookupResult(it.id.value, it.userId.value, it.name) }
+                    },
+                    clock = FakeClock(now),
+                    timeZone = UtcTimeZone,
+                ),
+            ),
+            currentUser = currentUser,
+        )
     }
 }
 

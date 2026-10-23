@@ -184,10 +184,13 @@ class WriteTaskProposalTool(
             "Propose a change to a task. The change is not applied yet — the user sees it and " +
                 "decides. Say that it has been proposed, not that it has been done. " +
                 "The operation is one of: set_title, set_description, set_priority, set_due_date, " +
-                "set_estimate, set_status, add_tags, remove_tags, add_checklist, add_subtasks. " +
-                "set_* takes the new value in \"value\"; add_* and remove_* take one entry per " +
-                "item in \"items\"; set_due_date takes a date as YYYY-MM-DD; set_estimate takes " +
-                "minutes; set_status takes \"active\" or \"completed\". " +
+                "set_estimate, set_status, set_kind, set_due_time, set_project, set_someday, " +
+                "add_tags, remove_tags, set_tags, add_checklist, add_subtasks. " +
+                "set_* takes the new value in \"value\"; add_*, remove_* and set_tags take one " +
+                "entry per item in \"items\"; set_due_date takes a date as YYYY-MM-DD; " +
+                "set_due_time takes a time as HH:mm; set_estimate takes " +
+                "minutes; set_status takes \"active\" or \"completed\"; set_someday takes " +
+                "\"true\" or \"false\"; set_project takes a project id. " +
                 "The reason is shown to the user with the change, so say why the change is being " +
                 "proposed."
     }

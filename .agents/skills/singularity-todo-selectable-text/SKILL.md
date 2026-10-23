@@ -113,7 +113,7 @@ when the answer is "excluded".
 | `core/ui/components/EmptyState.kt` | selectable | the empty state's title and subtitle are a message; the action keeps its own gesture |
 | `core/ui/components/MessageBubble.kt` | linkified | the assistant's answer is prose, and prose is where links turn up |
 | `feature/genui/render/material3/atoms/TextRenderer.kt` | linkified | a generated screen's text; the model's own words may carry links |
-| `feature/proposals/presentation/ReviewScreen.kt` | selectable | the empty review is a message the person reads |
+| `feature/proposals/presentation/ProposalsScreen.kt` | selectable | the empty list of proposals is a message the person reads |
 | `feature/agenda/presentation/screen/SavedAgendaContent.kt` | selectable | the missing-view report is a message the person reads |
 | `feature/agenda/presentation/screen/SavedAgendaScreen.kt` | selectable | the dialog explains the pattern it matches; the mode names stay labels |
 | `feature/ai/usage/AiUsageScreen.kt` | selectable | the model id and the tool name; the token counts are not |
@@ -138,6 +138,7 @@ when the answer is "excluded".
 | `feature/projects/presentation/components/ConfirmDeleteSheet.kt` | selectable | the dialog body names the project; the title and the buttons stay labels |
 | `feature/proposals/presentation/components/ProposalCard.kt` | linkified | the model's summary of what it proposes |
 | `feature/search/SearchScreen.kt` | selectable | the titles of the note, project and tag results |
+| `feature/search/presentation/SearchModeSwitch.kt` | selectable | the sentence that says what the contains mode costs; the two segment labels stay labels |
 | `feature/settings/screens/AgendaSettingsScreen.kt` | selectable | the empty state says where to create a view |
 | `feature/settings/screens/AiProviderSettingsScreen.kt` | selectable | the provider and model ids; the key and the endpoint are input fields and stay as they are |
 | `feature/settings/screens/FilesSettingsScreen.kt` | selectable | the explanation of where attachments are stored |

@@ -118,14 +118,37 @@ object ProposalBuilder {
         userId: UserId,
         source: ProposalSource,
         clock: Clock,
+    ): Pair<AiProposal, List<ProposalItem>> = multiForTarget(
+        items = items,
+        targetKind = AiProposal.TARGET_KIND_TASK,
+        targetId = taskId.value,
+        userId = userId,
+        source = source,
+        clock = clock,
+    )
+
+    /**
+     * Builds a multi-item proposal against any kind of target.
+     *
+     * The general form of [multiForTask]: a change that touches a project, a note
+     * or a tag has more than one thing to say, and a proposal holds them together
+     * so the user decides about the whole change at once.
+     */
+    fun multiForTarget(
+        items: List<ProposalItem>,
+        targetKind: String,
+        targetId: String,
+        userId: UserId,
+        source: ProposalSource,
+        clock: Clock,
     ): Pair<AiProposal, List<ProposalItem>> {
         val proposalId = ProposalId.generate()
         val now = clock.now()
         val updatedItems = items.map { it.copy(proposalId = proposalId) }
         val proposal = AiProposal(
             id = proposalId,
-            targetKind = AiProposal.TARGET_KIND_TASK,
-            targetId = taskId.value,
+            targetKind = targetKind,
+            targetId = targetId,
             userId = userId,
             source = source,
             status = ProposalStatus.Pending,
@@ -135,6 +158,21 @@ object ProposalBuilder {
         )
         return proposal to updatedItems
     }
+
+    /**
+     * One proposal item, with the summary the user reads and the fingerprint the
+     * machinery compares.
+     *
+     * A caller that builds items by hand has to remember both, and a caller that
+     * remembers one of them gets a card that says nothing or a rejection that does
+     * not stick. So the item is built here.
+     */
+    fun item(kind: ProposalItemKind, targetId: String): ProposalItem = newItem(
+        kind = kind,
+        targetId = targetId,
+        itemId = ProposalItemId.generate(),
+        proposalId = ProposalId.generate(),
+    )
 
     @Suppress("FunctionExpressionBody")
     private fun newItem(
@@ -174,7 +212,22 @@ val ProposalItemKind.humanSummary: String
             com.singularity.todo.feature.proposals.domain.model.TaskField.EstimateMinutes -> "Set estimate"
 
             com.singularity.todo.feature.proposals.domain.model.TaskField.Status -> "Set status"
+
+            com.singularity.todo.feature.proposals.domain.model.TaskField.Kind -> "Set the kind of work"
+
+            com.singularity.todo.feature.proposals.domain.model.TaskField.DueTime -> "Set due time"
+
+            com.singularity.todo.feature.proposals.domain.model.TaskField.Project -> "Change the project"
+
+            com.singularity.todo.feature.proposals.domain.model.TaskField.Someday ->
+                if (value.trim().equals("true", ignoreCase = true)) {
+                    "Defer the task"
+                } else {
+                    "Bring the task back"
+                }
         }
+        is ProposalItemKind.SetTaskTags -> "Set the tags"
+
         is ProposalItemKind.AddTags -> "Add tags"
 
         is ProposalItemKind.RemoveTags -> "Remove tags"
@@ -192,6 +245,19 @@ val ProposalItemKind.humanSummary: String
 
             com.singularity.todo.feature.proposals.domain.model.NoteField.Summary -> "Summarize note"
         }
+        is ProposalItemKind.SetProjectField -> when (field) {
+            com.singularity.todo.feature.proposals.domain.model.ProjectField.Name -> "Rename the project"
+
+            com.singularity.todo.feature.proposals.domain.model.ProjectField.Description ->
+                "Change the project description"
+
+            com.singularity.todo.feature.proposals.domain.model.ProjectField.Color -> "Recolor the project"
+
+            com.singularity.todo.feature.proposals.domain.model.ProjectField.Icon -> "Change the project icon"
+        }
+        is ProposalItemKind.CreateTask -> "Create a task"
+        is ProposalItemKind.CreateProject -> "Create a project"
+        is ProposalItemKind.CreateNote -> "Create a note"
         is ProposalItemKind.DeleteNote -> "Delete note"
         is ProposalItemKind.ExtractActions -> "${actions.size} action(s) from note"
         is ProposalItemKind.DeleteTask -> "Delete task"

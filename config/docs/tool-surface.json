@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "surfaceContractVersion": 1,
+    "surfaceContractVersion": 2,
     "tools": [
         {
             "name": "cluster_notes",
@@ -24,19 +24,19 @@
             "name": "create_note",
             "toolClass": "CreateNoteTool",
             "domain": "notes",
-            "description": "Creates a new note or folder.",
+            "description": "Proposes a new note or folder. The note is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. The body is markdown.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": false
         },
         {
             "name": "create_project",
             "toolClass": "CreateProjectTool",
             "domain": "projects",
-            "description": "Creates a new project.",
+            "description": "Proposes a new project. The project is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. colorHex is #RRGGBB or #AARRGGBB.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": false
         },
         {
             "name": "create_tag",
@@ -51,16 +51,16 @@
             "name": "create_task",
             "toolClass": "CreateTaskTool",
             "domain": "tasks",
-            "description": "Creates a new task. All fields optional except title.",
+            "description": "Proposes a new task. The task is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. All fields optional except title. Priority is none, low, medium, high or urgent. dueDate is YYYY-MM-DD, dueTime is HH:mm.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": false
         },
         {
             "name": "decompose_and_create",
             "toolClass": "DecomposeAndCreateTool",
             "domain": "tasks",
-            "description": "Asks the LLM to break a task into sub-tasks, then creates each sub-task in one call. Returns the created taskIds. planSource='llm' or 'empty' (LLM unavailable).",
+            "description": "Asks the LLM to break a task into sub-tasks, then proposes each sub-task in one call. The sub-tasks are proposed, not created — the user sees them and decides. planSource='llm' or 'empty' (LLM unavailable).",
             "readOnly": false,
             "destructive": false,
             "idempotent": false
@@ -294,7 +294,7 @@
             "name": "search_tasks",
             "toolClass": "SearchTasksTool",
             "domain": "tasks",
-            "description": "Search tasks by title (case-insensitive).",
+            "description": "Search tasks with the same query language the search screen uses. Free text matches titles, descriptions and tag names. Structured terms narrow the result: tag:NAME, tags:NAME1,NAME2, project:NAME, priority:NAME, due:WHEN, scheduled:WHEN, has:description, pinned, archived. due: and scheduled: take today, tomorrow, overdue, soon, or a date. A leading minus negates a term. sort:due, sort:priority, sort:title, sort:created and sort:updated order the result. Use this tool instead of guessing which task the user means.",
             "readOnly": true,
             "destructive": false,
             "idempotent": false
@@ -339,28 +339,28 @@
             "name": "update_note",
             "toolClass": "UpdateNoteTool",
             "domain": "notes",
-            "description": "Updates an existing note's title and/or body.",
+            "description": "Proposes a change to a note's title and/or body. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. Pass only what to change; a field left out is not touched. The body is markdown unless bodyHtml is given.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": false
         },
         {
             "name": "update_project",
             "toolClass": "UpdateProjectTool",
             "domain": "projects",
-            "description": "Updates an existing project.",
+            "description": "Proposes a change to a project. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. Pass only the fields to change; a field left out is not touched.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": false
         },
         {
             "name": "update_task",
             "toolClass": "UpdateTaskTool",
             "domain": "tasks",
-            "description": "Updates an existing task. Pass only fields to change.",
+            "description": "Proposes a change to a task. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. Pass only the fields to change; a field left out is not touched. Priority is none, low, medium, high or urgent. dueDate is YYYY-MM-DD, an empty string clears it. dueTime is HH:mm, an empty string clears it. tagIds replaces the whole set of tags.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": false
         },
         {
             "name": "weekly_plan",
@@ -384,7 +384,7 @@
             "name": "write_task_proposal",
             "toolClass": "WriteTaskProposalTool",
             "domain": "tasks",
-            "description": "Propose a change to a task. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. The operation is one of: set_title, set_description, set_priority, set_due_date, set_estimate, set_status, add_tags, remove_tags, add_checklist, add_subtasks. set_* takes the new value in \"value\"; add_* and remove_* take one entry per item in \"items\"; set_due_date takes a date as YYYY-MM-DD; set_estimate takes minutes; set_status takes \"active\" or \"completed\". The reason is shown to the user with the change, so say why the change is being proposed.",
+            "description": "Propose a change to a task. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. The operation is one of: set_title, set_description, set_priority, set_due_date, set_estimate, set_status, set_kind, set_due_time, set_project, set_someday, add_tags, remove_tags, set_tags, add_checklist, add_subtasks. set_* takes the new value in \"value\"; add_*, remove_* and set_tags take one entry per item in \"items\"; set_due_date takes a date as YYYY-MM-DD; set_due_time takes a time as HH:mm; set_estimate takes minutes; set_status takes \"active\" or \"completed\"; set_someday takes \"true\" or \"false\"; set_project takes a project id. The reason is shown to the user with the change, so say why the change is being proposed.",
             "readOnly": false,
             "destructive": false,
             "idempotent": false

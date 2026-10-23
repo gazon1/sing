@@ -71,9 +71,10 @@ class ApplyProposalItemUseCaseTest {
         proposals = proposals,
         tasks = tasks,
         notes = notes,
+        projects = projects,
         tags = tags,
         planner = ProposalPlanner(clock),
-        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, deleteProject, clock),
+        dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
     )
 
     // ── Fixtures ──────────────────────────────────────────────────────────────

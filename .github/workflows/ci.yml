@@ -413,6 +413,7 @@ jobs:
             --no-build-cache \
             --no-parallel \
             :mcp-server:jar \
+            :shared:verifyToolSurface \
             koverReport \
             koverHtml \
             :detekt-rules:test \

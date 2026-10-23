@@ -218,6 +218,9 @@ so that the two cannot answer differently. See
 `docs/decisions/2026-10-21-the-search-asks-the-index.md` and
 `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
 
+It is also the rule of the **word mode** — the mode the free text is matched
+in (F6).
+
 **F2b — the index answers the positive terms, the rule the negated ones.** A
 term that is not negated is answered by the full-text index, which knows the
 tokenizer; a term under `NOT` is answered by the in-memory rule, because FTS
@@ -250,6 +253,32 @@ requires every term (F2). A term under `NOT` must *not* match.
 **F5 — a query with no free text selects no note, project or tag.** The structured
 terms of a query are filters over tasks; they do not select the other kinds, and
 a query with no free text has no free-text part to match.
+
+**F6 — the mode is stated by the surface, and it changes the rule for every term.**
+The free text is matched in one of two modes. In the **word mode** a term
+matches a word of the searchable text by its beginning (F2a). In the
+**contains mode** a term matches when it occurs *anywhere* in the searchable
+text, case-insensitively: "port" finds "airport".
+
+The mode is stated by the surface that runs the search, and not by the query:
+the query language has no marker for it. A marker would mean two things at
+once — the `*` is the index's own prefix syntax, and a marker left in a saved
+query is invisible to whoever reads the query later — and it would let one
+query mix the two rules, one term by beginning and another by occurrence. The
+mode changes the rule for **every** term of the query at once: a query asks
+one question, and the mode says which question.
+
+The contains mode is not answered by the full-text index. The index stores
+words, not character positions, so it can find the beginning of a word and
+nothing else; a search in the contains mode reads the rows and filters them
+in memory. The surface says so, because a slower answer that is not announced
+is a slower answer that is not believed.
+
+The rule of the mode is one rule for every kind of record — a task by its
+title and its description, a note by its title, a project and a tag by their
+name (F3) — in both modes, so that a search cannot answer differently
+depending on the kind of thing it is looking for. The mode is written down in
+`docs/decisions/2026-10-22-the-substring-search-is-a-mode-the-surface-states.md`.
 
 ### 6.1 Why a conjunction, and not the alternatives
 
@@ -302,7 +331,9 @@ An implementation conforms if it satisfies §1–§6 and passes the behavioural 
 across nine classes, each carrying `@Tag`. The rule of §6 is also asserted per kind —
 task, note, project, tag — in
 `shared/src/commonTest/kotlin/com/singularity/todo/feature/search/SearchFreeTextRuleTest.kt`,
-because a rule that only holds for one kind of record is not a rule.
+because a rule that only holds for one kind of record is not a rule. The mode of F6 is
+asserted in `SearchModeTest` — the rule of each mode and the plan of each mode — and in
+`SearchContainsModeTest`, which asks the search the same query in both modes.
 
 The suite is organised by the sections above rather than by implementation unit, so a
 failure names a rule and not a class. Where a rule is easy to get subtly wrong — R1, R3,

@@ -9,11 +9,22 @@ import com.singularity.todo.feature.ai.tools.ListTasksTool
 import com.singularity.todo.feature.ai.tools.RefineTaskInput
 import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
+import com.singularity.todo.feature.search.SearchUseCase
+import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
+import com.singularity.todo.feature.search.query.ProjectLookup
+import com.singularity.todo.feature.search.query.ProjectLookupResult
+import com.singularity.todo.feature.search.query.TagLookup
+import com.singularity.todo.feature.search.query.TagLookupResult
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProposalRepository
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeSearchTextIndex
 import com.singularity.todo.test.fakes.FakeSettingsRepository
+import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -155,16 +166,39 @@ class KoogJsonSchemaBuilderTest {
         settingsRepository = FakeSettingsRepository(),
     )
 
-    private fun searchTasksTool() = SearchTasksTool(
-        taskRepository = FakeTaskRepository(),
-    )
+    private fun searchTasksTool(): SearchTasksTool {
+        val tasks = FakeTaskRepository()
+        val notes = FakeNotesRepository()
+        val projects = FakeProjectsRepository()
+        val tags = FakeTagsRepository()
+        return SearchTasksTool(
+            search = SearchUseCase(
+                taskRepo = tasks,
+                noteRepo = notes,
+                projectRepo = projects,
+                tagRepo = tags,
+                textIndex = FakeSearchTextIndex(tasks, notes, projects, tags),
+                queryResolver = DefaultSearchQueryResolver(
+                    tagLookup = object : TagLookup {
+                        override suspend fun findByName(userId: String, name: String): TagLookupResult? = null
+                    },
+                    projectLookup = object : ProjectLookup {
+                        override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
+                    },
+                    clock = FakeClock(),
+                    timeZone = UtcTimeZone,
+                ),
+            ),
+            currentUser = FakeProfileAwareCurrentUser(),
+        )
+    }
 
     private fun listLinkedTasksTool() = ListLinkedTasksTool(
         taskRepository = FakeTaskRepository(),
     )
 
     private fun createTaskTool() = CreateTaskTool(
-        taskRepository = FakeTaskRepository(),
+        proposals = FakeProposalRepository(kotlin.time.Clock.System),
         currentUser = FakeProfileAwareCurrentUser(),
         clock = kotlin.time.Clock.System,
     )

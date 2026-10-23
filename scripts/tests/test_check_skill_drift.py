@@ -210,7 +210,7 @@ class SurfaceProblemsTest(unittest.TestCase):
         name = sorted({n for n, _c, _d in renderer.catalog_entries()})[0]
         problems = self._problems({name: {"name": name, "description": "something else"}})
         self.assertTrue(
-            any("the gate is reading the source wrongly" in p for p in problems),
+            any("the shape the reader does not understand is in the source" in p for p in problems),
             problems,
         )
 

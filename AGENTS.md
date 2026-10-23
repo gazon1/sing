@@ -48,6 +48,12 @@ git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
   общий кэш, и падает не та сборка, которую ждут.
 - Свой временный worktree сноси через `git worktree remove --force <path>`; чужой — не трогай.
 
+**Правила ревью — в `CODING_STANDARDS.md`.** Файл читается на ревью, не при
+реализации: там то, что ни один гейт проверить не может (согласованность между
+файлами, «соответствует окружающему стилю», «сообщение говорит, что произошло»),
+и таблица проверяемых конвенций с гейтом под каждой. Ревьюишь — читай его
+первым; правило, у которого нет гейта, держит ревью на себе.
+
 ## Структура
 
 `androidApp/` — Android shell. `desktopApp/` — Desktop Compose entry.
@@ -181,19 +187,26 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
 
 ## Сборка
 
+**`./gw` вместо `./gradlew`.** Параллельные worktree делят `~/.gradle`, а делённый
+Gradle Home — это общий лок кэша и общий реестр демонов: сборка толкается с
+соседями и идёт в разы дольше. `./gw` даёт worktree приватный `GRADLE_USER_HOME`
+(кеши и JDK остаются общими — их не пишут одновременно). Мелочь, но на машине
+с несколькими checkout'ами это разница между 5 и 40 минутами.
+
 ```bash
 just gate         # ВСЕ гейты: check.sh → detekt → just cr → just gm agenda (SKIP_MAESTRO=1 — без flows)
 ./check.sh                    # реестр гейтов + тесты + Android + detekt
 bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
 just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
-./gradlew :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
-./gradlew :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
-./gradlew :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
-./gradlew :androidApp:assembleDebug   # Android
-./gradlew :desktopApp:run      # Desktop (xvfb-run -a)
-./gradlew :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
+./gw :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
+./gw :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
+./gw :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
+./gw :androidApp:assembleDebug   # Android
+./gw :desktopApp:run      # Desktop (xvfb-run -a)
+./gw :desktopApp:test     # Desktop UI tests (задача `test`, не `jvmTest`)
+./gw :shared:exportToolSurface   # перегенерировать config/docs/tool-surface.json
 
-just lint        # detekt (shared + desktopApp), enforcing
+just lint        # detekt (все модули с baseline), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
 ```
 
@@ -227,13 +240,13 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 останавливает проверку через две минуты, а не через четыре модуля:
 
 ```bash
-./gradlew :shared:detekt                                  # сначала — 90% кода
-./gradlew :desktopApp:detekt :androidApp:detekt :mcp-server:detekt   # потом остальные
+./gw :shared:detekt                                  # сначала — 90% кода
+./gw :desktopApp:detekt :androidApp:detekt :mcp-server:detekt   # потом остальные
 ```
 
 **Компилируй сразу после связной правки.** Правка, которая тянет за собой соседний
 файл (сигнатура, интерфейс, DI-биндинг), проверяется компиляцией в ту же минуту:
-`./gradlew :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`).
+`./gw :shared:compileKotlinJvm` (для тестов — `:shared:jvmTestClasses`).
 Открытие полного прогона на сломанной компиляции стоит сорока минут ожидания,
 и диагностика «упало в тестах» уводит не туда: компиляция падает раньше и падает
 другой строкой.
@@ -249,13 +262,45 @@ SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
 export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 ```
 
+> `xvfb-run` есть не везде: `:desktopApp:test` идёт без дисплея, а `:desktopApp:run`
+> — GUI, и ему нужен X-сервер (`xvfb-run -a ./gw :desktopApp:run`). Если `xvfb-run`
+> не установлен, это не повод пропускать тесты — они headless.
+
+> **Каталог инструментов — производный файл.** `config/docs/tool-surface.json`
+> читает MCP-сервер и агент; он генерируется (`./gw :shared:exportToolSurface`) и
+> проверяется гейтом. Меняешь схему или описание инструмента — перегенерируй
+> сразу, иначе гейт скажет, что каталог устарел, а не что ты изменил.
+
+> **Гейты — одной командой, со сводкой.** `sgate run-all` печатает таблицу и панель
+> на каждый упавший гейт: это много строк, из которых читателю нужны только
+> падения. `sgate run-all --summary` печатает по строке на каждый упавший гейт
+> с причиной — этого хватает, чтобы решить, что делать дальше. Полный отчёт нужен
+> только когда причина из сводки непонятна.
+>
+> ```bash
+> sgate run-all --summary              # сводка: по строке на упавший гейт
+> sgate run-all                        # полный отчёт (таблица + панели)
+> sgate run-all --gate "write tool"    # один гейт по имени
+> ```
+>
+> **Долгий запуск — одна фоновая задача, а не цикл опроса.** Задача сама
+> печатает финальные строки (`BUILD SUCCESSFUL` по каждому шагу) — тогда опрос
+> не нужен вовсе. Десять `sleep 30 && tail` — это десять раундов контекста
+> впустую. Лог, который нужен потом, пиши в файл с уникальным именем
+> (`build/diagnostics/<что>-<метка>.log`), а не перетирай общий.
+
 ## CI/CD
 
-Единственный список гейтов — **`scripts/ci/static-gates.sh`**, его вызывают и джоб `static`
-в `ci.yml`, и `check.sh`: гейт не может жить на одной поверхности и отсутствовать на другой.
-Новый гейт = одна строка `gate blocking|advisory <name> <cmd>`; `|| true` на строке `gate`
-запрещён. Branch protection требует **один** check — `CI gate`. Состав workflow'ев, частей
-A–G мета-гейта и рецепты — скилл `singularity-todo-quality-tools`.
+Единственный список гейтов — **реестр** (`scripts/src/sgate/commands/_registry.py` +
+`scripts/src/sgate/gate_manifest.py`); `scripts/ci/static-gates.sh` и
+`docs/scripts/gate-registry.md` **генерируются** из него, руками их не правь:
+`PYTHONPATH=scripts/src python3 -m sgate render-static-gates --write` и
+`python3 -m sgate render-registry`. Джоб `static` в `ci.yml` и `check.sh` берут
+тот же реестр: гейт не может жить на одной поверхности и отсутствовать на другой.
+Новый гейт = одна запись в реестре + строка `gate blocking|advisory <name> <cmd>`;
+`|| true` на строке `gate` запрещён. Branch protection требует **один** check —
+`CI gate`. Состав workflow'ев, частей A–G мета-гейта и рецепты — скилл
+`singularity-todo-quality-tools`.
 
 **Гейты «меры», а не «булевы»** — все блокирующие; спека:
 `openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.

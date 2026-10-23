@@ -9,42 +9,42 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.ai.prompts.Prompts
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposedTask
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Companion to [DecomposeTaskTool] that does both steps in one call: asks the LLM
- * for a sub-task plan, then writes each sub-task to the DB.
+ * for a sub-task plan, then proposes each sub-task.
  *
  * Why a separate tool:
  * - [DecomposeTaskTool] is intentionally plan-only (returns a JSON list and exits);
  *   callers have to repeat the orchestration of [CreateTaskTool] per sub-task.
  *   That pattern failed at least once in dogfooding when the LLM was down and the
  *   caller had to remember to fall back to a hand-rolled list.
- * - [DecomposeAndCreateTool] consolidates the workflow: one call, one response
- *   listing the created taskIds. The tool itself handles the "no LLM available"
- *   fallback by returning an empty list, so callers can detect that case from
- *   the response and provide a manual fallback at the agent level.
+ * - [DecomposeAndCreateTool] consolidates the workflow: one call, one proposal
+ *   holding every sub-task. The tool itself handles the "no LLM available"
+ *   fallback by proposing nothing, so callers can detect that case from the
+ *   response and provide a manual fallback at the agent level.
  *
- * Input fields mirror [CreateTaskTool] so the created sub-tasks inherit the same
+ * Input fields mirror [CreateTaskTool] so the proposed sub-tasks inherit the same
  * project / tag / priority context as the parent.
  *
- * @param parentTaskId Optional id of the parent task. When set, future versions
- *        (Task entity v10) will persist it on each sub-task. Today the field is
- *        surfaced for forward-compatibility but is **not** yet written to DB — the
- *        parent-child link exists only via the shared projectId / tagIds.
+ * ## Why it proposes and does not write
+ *
+ * A decomposition is the model's reading of a task, and a reading the user never
+ * saw is not something to write into their list. So the sub-tasks are proposed,
+ * the way a single created task is proposed, and the user decides about all of
+ * them at once.
  */
 @Serializable
 data class DecomposeAndCreateInput(
@@ -56,15 +56,24 @@ data class DecomposeAndCreateInput(
     val parentTaskId: String? = null,
 )
 
+/**
+ * What came of the request.
+ *
+ * @property proposedTaskCount how many tasks the proposal holds. Nothing was
+ *   created, so there are no task ids to report: an id naming a task that does
+ *   not exist would be a fact the model could not check.
+ */
 @Serializable
 data class DecomposeAndCreateOutput(
-    val parentTaskId: String?,
-    val subTaskIds: List<String>,
+    val proposalCreated: Boolean,
+    val proposalId: String,
+    val proposedTaskCount: Int,
     val planSource: String, // "llm" | "empty"
+    val error: String? = null,
 )
 
 class DecomposeAndCreateTool(
-    private val taskRepository: TaskRepository,
+    private val proposals: ProposalRepository,
     private val clock: Clock,
     private val promptExecutor: PromptExecutor,
     private val model: LLModel,
@@ -76,7 +85,6 @@ class DecomposeAndCreateTool(
     ) {
 
     override suspend fun execute(args: DecomposeAndCreateInput): String {
-        val now = clock.now()
         val userId = currentUser.scopedUserId.value
 
         // 1) plan via LLM
@@ -95,50 +103,76 @@ class DecomposeAndCreateTool(
             throw e
         } catch (_: Throwable) {
             // LLM unavailable (no API key, network down, quota). Behave like
-            // decompose_task itself: return an empty list so the caller knows
+            // decompose_task itself: propose nothing so the caller knows
             // to fall back. We do NOT throw — the MCP agent can keep going.
             subTitles = emptyList()
             planSource = "empty"
         }
 
-        // 2) create each sub-task.
-        //
-        // Unwrapped, and this is the eighth place the dropped-`Result` guard found after the
-        // other seven tools were fixed — and the worst of them, because this one creates in a
-        // loop. Without the unwrap a create that failed left its id in [subIds] anyway, so the
-        // model received a list of subtask ids naming tasks that were never written, and it
-        // builds its next action on that list. See openspec change
-        // `a-dropped-result-is-reported-where-it-happens`.
-        val subIds = subTitles.map { title ->
-            val subId = TaskId.generate()
-            taskRepository.create(
-                Task(
-                    id = subId,
+        // 2) propose each sub-task. The ids are the ids the tasks *will* have, so
+        // the proposal and the tasks agree on what they are.
+        val priority = canonicalPriority(args.priority)
+        if (priority == null) {
+            return ToolOutputJson.encodeToString(
+                DecomposeAndCreateOutput.serializer(),
+                DecomposeAndCreateOutput(
+                    proposalCreated = false,
+                    proposalId = "",
+                    proposedTaskCount = 0,
+                    planSource = planSource,
+                    error = "\"${args.priority.trim()}\" is not a priority. $PRIORITY_NAMES",
+                ),
+            )
+        }
+        val kinds = subTitles.map { title ->
+            ProposalItemKind.CreateTask(
+                ProposedTask(
                     title = title,
                     description = null,
-                    priority = runCatchingCancellable { TaskPriority.valueOf(args.priority) }
-                        .getOrDefault(TaskPriority.Medium),
-                    kind = TaskKind.Task,
-                    projectId = args.projectId?.let { ProjectId.fromString(it) },
-                    parentTaskId = args.parentTaskId?.let { TaskId.fromString(it) },
-                    tags = args.tagIds.map { TagId.fromString(it) },
-                    dueDate = null,
-                    dueTime = null,
-                    someday = false,
-                    createdAt = now,
-                    updatedAt = now,
-                    userId = userId,
+                    priority = priority.name,
+                    kind = "Task",
+                    projectId = args.projectId,
+                    parentTaskId = args.parentTaskId,
+                    tagIds = args.tagIds,
                 ),
-            ).getOrThrow()
-            subId.value
+            )
+        }
+        val ids = subTitles.map { TaskId.generate().value }
+        val items = proposalItems(kinds, ids.firstOrNull().orEmpty())
+            .mapIndexed { index, item -> item.copy(targetId = ids[index]) }
+
+        if (items.isEmpty()) {
+            return ToolOutputJson.encodeToString(
+                DecomposeAndCreateOutput.serializer(),
+                DecomposeAndCreateOutput(
+                    proposalCreated = false,
+                    proposalId = "",
+                    proposedTaskCount = 0,
+                    planSource = planSource,
+                    error = "The plan was empty, so there is nothing to propose.",
+                ),
+            )
         }
 
-        val out = DecomposeAndCreateOutput(
-            parentTaskId = args.parentTaskId,
-            subTaskIds = subIds,
-            planSource = planSource,
+        val result = proposeChange(
+            proposals = proposals,
+            userId = userId,
+            clock = clock,
+            items = items,
+            targetKind = AiProposal.TARGET_KIND_TASK,
+            targetId = args.parentTaskId ?: ids.first(),
         )
-        return Json.encodeToString(DecomposeAndCreateOutput.serializer(), out)
+
+        return ToolOutputJson.encodeToString(
+            DecomposeAndCreateOutput.serializer(),
+            DecomposeAndCreateOutput(
+                proposalCreated = result.isSuccess,
+                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposedTaskCount = items.size,
+                planSource = planSource,
+                error = result.exceptionOrNull()?.message,
+            ),
+        )
     }
 
     private fun parsePlan(text: String): List<String> = runCatching {
@@ -155,7 +189,8 @@ class DecomposeAndCreateTool(
     companion object {
         const val NAME = "decompose_and_create"
         const val DESCRIPTION =
-            "Asks the LLM to break a task into sub-tasks, then creates each sub-task in one call. " +
-                "Returns the created taskIds. planSource='llm' or 'empty' (LLM unavailable)."
+            "Asks the LLM to break a task into sub-tasks, then proposes each sub-task in one call. " +
+                "The sub-tasks are proposed, not created — the user sees them and decides. " +
+                "planSource='llm' or 'empty' (LLM unavailable)."
     }
 }

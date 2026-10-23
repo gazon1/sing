@@ -42,12 +42,23 @@ object ProposalOperation {
         "set_due_date" to TaskField.DueDate,
         "set_estimate" to TaskField.EstimateMinutes,
         "set_status" to TaskField.Status,
+        "set_kind" to TaskField.Kind,
+        "set_due_time" to TaskField.DueTime,
+        "set_project" to TaskField.Project,
+        "set_someday" to TaskField.Someday,
     )
 
-    /** The operations that add or remove entries, and the kind each one makes. */
+    /**
+     * The operations that add or remove entries, and the kind each one makes.
+     *
+     * An operation with nothing to say is not a change: "add_tags" with no
+     * entries proposes nothing, and the tool says so rather than storing an
+     * empty change.
+     */
     private val LIST_OPERATIONS: Map<String, (List<String>) -> ProposalItemKind> = linkedMapOf(
         "add_tags" to { items -> ProposalItemKind.AddTags(items) },
         "remove_tags" to { items -> ProposalItemKind.RemoveTags(items) },
+        "set_tags" to { items -> ProposalItemKind.SetTaskTags(items) },
         "add_checklist" to { items -> ProposalItemKind.AddChecklistItems(items) },
         "add_subtasks" to { items -> ProposalItemKind.AddSubtasks(items) },
     )
