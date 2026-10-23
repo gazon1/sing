@@ -1,0 +1,36 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: agent-surface-follow-ups
+date: '2026-10-23'
+title: agent-surface-follow-ups
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261023'
+  slug: the-agent-surface-says-what-it-does
+  title: The agent's surface says what it does
+  status: accepted
+  notes: The decision behind this change; the classification is published, the lifecycle is guarded and the protocol channel is explicit.
+- sequence: '20261023'
+  slug: acp-client-and-agent-activity
+  title: External agent in the app (ACP client) and agent activity visibility
+  status: accepted
+  notes: The decision behind the external agent; this change finishes the five items that decision's change left behind.
+tags:
+- acp
+- external-agent
+- write-contract
+- mcp
+documents:
+  proposal: openspec/changes/agent-surface-follow-ups/proposal.md
+  design: openspec/changes/agent-surface-follow-ups/design.md
+  adr: openspec/changes/agent-surface-follow-ups/adr.md
+  tasks: openspec/changes/agent-surface-follow-ups/tasks.md
+specs_dir: openspec/changes/agent-surface-follow-ups/specs
+is_stub: false
+openspec_path: openspec/changes/agent-surface-follow-ups
