@@ -138,8 +138,8 @@ val measuredFullPopulation = selectedTags.any { it == "slow" }
 // that is a weaker claim than the label above used to make: a later full run
 // (2026-10-22, `-Ptest.tags=fast,slow`) measured 55.88 / 40.44 / 57.23 — roughly
 // twice as much — and the 2026-10-15 figures are almost exactly what the FAST
-// population measures today (27.73 / 23.23 / 31.26), which says the 2026-10-15
-// "full" measurement was not a full-population measurement.
+// population measured on 2026-10-22 (27.73 / 23.23 / 31.26), which says the
+// 2026-10-15 "full" measurement was not a full-population measurement.
 //
 // So this floor is a floor the fast population's own measurement justifies,
 // applied to the full population as well: a number both populations meet, rather
@@ -163,8 +163,8 @@ val FULL_LINE_COVERAGE_FLOOR = 27
 // instructions. The floors stay where they were — a floor is a floor and not a
 // target, and the re-measurement clears it with margin.
 //
-// The measurement is a real aggregate and not a partial one: the report holds
-// 4735 classes over 579,002 instructions — MORE classes than the full run of
+// The FAST measurement is a real aggregate and not a partial one: the report
+// holds 4735 classes over 579,002 instructions — MORE classes than the full run of
 // 2026-10-22 held (4642 over 565,144), because the tree grew in between. A
 // report that had measured a fraction of the codebase would have shown a
 // fraction of the classes; that check is what makes this number usable as a

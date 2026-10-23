@@ -92,9 +92,10 @@ instructions. The floors stay where they were — a floor is a floor and not a t
 
 Both measurements are recorded in `config/docs/coverage-measurements.properties`, and
 that file is where this decision's numbers are read from. The gate
-`scripts/check-published-measurements.py` compares every number published here with
-the measurement it was read from, so a published number that differs from the report
-it came from is a finding rather than a sentence nobody checks.
+`scripts/check-published-measurements.py` compares the class count, the instruction
+total and the three measured percentages published here with the measurement they
+were read from, so a published number that differs from the report it came from is
+a finding rather than a sentence nobody checks.
 
 The fast measurement was checked for completeness before it was written down, and the
 check is what makes it a floor rather than a number: the report holds **4735 classes over
@@ -117,14 +118,22 @@ percentages alone cannot tell a full report from a partial one.
 
 The measurements themselves live in `config/docs/coverage-measurements.properties` —
 the class count, the instruction total, the branch and line totals, the three
-percentages and the day each was measured. A number that is published here and is not
-in that file is a measurement nobody recorded, and the gate that compares the two says
-so.
+percentages and the day each was measured. The gate compares the class count, the
+instruction total and the three percentages with that file, and it names the
+document, the line and both numbers when they differ. A number that is published
+here and is not in that file is a measurement nobody recorded, and the gate says so
+for the numbers it reads: the counts, and the percentages in the shape that names
+the unit of each of them ("55.88 instruction / 40.44 branch / 57.23 line"). The
+floors and the bare triples ("27 / 23 / 31", "27.73 / 23.23 / 31.26") are not
+measurements of the current run — the first is a policy number and the second is
+the measurement of an earlier day — and the gate does not read them. What it does
+read, it reads for every population: a number published for a day the record does
+not hold for that population is a finding too.
 
 **D3a. The full floor is left conservative, on purpose.** A later full run
 (2026-10-22, `-Ptest.tags=fast,slow`) measured **55.88 instruction / 40.44 branch / 57.23
 line** — roughly twice the 2026-10-15 figures, which are themselves almost exactly what
-the *fast* population measures today. The most likely reading is that the 2026-10-15
+the *fast* population measured on 2026-10-22 (27.73 / 23.23 / 31.26). The most likely reading is that the 2026-10-15
 "full" measurement was not a full-population measurement at all.
 
 The floor stays at 27 / 20 / 27 anyway. Raising it is a **policy** decision rather than

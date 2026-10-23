@@ -170,9 +170,11 @@ are a ratio, and a ratio is the same at every level of the report — so the
 wrong denominator looked right.
 
 The record is a file: the class count, the instruction total, the percentages
-and the day each was measured. This compares every class count and instruction
-total the repository publishes with it, and names the document, the line and
-both numbers when they differ.""",
+and the day each was measured. This compares every class count, instruction
+total, published percentage and published day the repository publishes with it,
+and names the document, the line and both numbers when they differ. It reads a
+fixed list of documents — a number published anywhere else is a claim this gate
+does not check, and that limit is written down in the gate's own docstring.""",
     ),
     "room schema integrity": Placement(
         kind=PlacementKind.STATIC,

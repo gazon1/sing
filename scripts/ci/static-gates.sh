@@ -259,9 +259,11 @@ gate blocking "declared dependencies are used" sgate declared_dependencies_are_u
 # wrong denominator looked right.
 #
 # The record is a file: the class count, the instruction total, the percentages
-# and the day each was measured. This compares every class count and instruction
-# total the repository publishes with it, and names the document, the line and
-# both numbers when they differ.
+# and the day each was measured. This compares every class count, instruction
+# total, published percentage and published day the repository publishes with it,
+# and names the document, the line and both numbers when they differ. It reads a
+# fixed list of documents — a number published anywhere else is a claim this gate
+# does not check, and that limit is written down in the gate's own docstring.
 gate blocking "published measurements match the record" python3 scripts/check-published-measurements.py
 gate blocking "room schema integrity" sgate room_schema_integrity
 # The skill that tells an agent which transformation to use for which text
