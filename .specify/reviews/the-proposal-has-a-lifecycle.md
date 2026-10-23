@@ -2,7 +2,7 @@
 change: the-proposal-has-a-lifecycle
 verdict: pass
 date: 2026-10-23
-pr: pending
+pr: 987
 ---
 
 ## What was reviewed
