@@ -19,6 +19,7 @@ import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
@@ -83,6 +84,14 @@ data class TaskCoreDeps(
      * of them, and doing that from the slots would put the rule in two places.
      */
     val updateSeries: UpdateTaskSeriesUseCase,
+
+    /**
+     * Takes one occurrence out of its series.
+     *
+     * The occasion for it is a date that turned out to be a different job. The
+     * occurrence keeps its date and stops claiming to be one of several.
+     */
+    val detachFromSeries: DetachTaskFromSeriesUseCase,
 )
 
 /**

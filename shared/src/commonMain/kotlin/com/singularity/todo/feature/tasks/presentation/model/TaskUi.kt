@@ -43,6 +43,8 @@ data class TaskUi(
     val blockedBy: Set<TaskId> = emptySet(),
     /** MR-1: true when at least one dependency is not yet completed. */
     val isBlocked: Boolean = false,
+    /** How many dates the series of this row has; null when it stands alone. */
+    val seriesDates: Int? = null,
 ) {
     // domainTask reference removed — AI actions future work will use repository lookup by id
 }

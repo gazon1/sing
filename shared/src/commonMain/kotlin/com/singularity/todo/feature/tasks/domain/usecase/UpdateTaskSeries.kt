@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 
@@ -48,19 +49,22 @@ class UpdateTaskSeriesUseCase(private val repo: TaskRepository) {
     }
 
     /**
-     * Archives every member of [seriesId].
+     * Archives every member of [seriesId] and returns the ids it archived.
      *
      * Archiving, not deleting: the trash is the same trash a single task goes
-     * to, so the user can undo the whole series from one place.
+     * to, so the user can undo the whole series from one place. The ids come
+     * back because the undo has to put back exactly what went away — a series
+     * that was rebuilt from "the members of that id" would restore a series
+     * that had meanwhile changed.
      */
-    suspend fun archiveSeries(seriesId: TaskSeriesId): Result<Int> {
+    suspend fun archiveSeries(seriesId: TaskSeriesId): Result<List<TaskId>> {
         val members = repo.getSeries(seriesId)
         if (members.isEmpty()) {
             return Result.failure(IllegalStateException("Series $seriesId has no members"))
         }
-        var archived = 0
+        val archived = mutableListOf<TaskId>()
         members.forEach { member ->
-            repo.softDelete(member.id).onSuccess { archived++ }
+            repo.softDelete(member.id).onSuccess { archived += member.id }
         }
         return Result.success(archived)
     }

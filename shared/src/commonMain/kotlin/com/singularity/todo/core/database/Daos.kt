@@ -67,6 +67,15 @@ interface TaskDao {
     fun observeSeriesForUser(seriesId: String, userId: String): Flow<List<TaskEntity>>
 
     /**
+     * The rows of one series, in date order — read once, not watched.
+     *
+     * The write path needs this: a row that is written is the row that says what
+     * the work is, and the other rows of the series are realigned to it.
+     */
+    @Query("SELECT * FROM tasks WHERE series_id = :seriesId AND user_id = :userId ORDER BY due_date ASC")
+    suspend fun getSeriesForUser(seriesId: String, userId: String): List<TaskEntity>
+
+    /**
      * Returns tasks that carry [tagId] either directly or via any tag group
      * inherited by their project.
      *

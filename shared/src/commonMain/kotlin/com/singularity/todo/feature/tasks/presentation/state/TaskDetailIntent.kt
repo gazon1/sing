@@ -192,7 +192,27 @@ sealed interface TaskDetailIntent : MviIntent {
          *
          * Distinct from [Delete], which archives only the occurrence on screen.
          */
-        data object DeleteSeries : Domain, TaskEntityIntent
+        data object DeleteSeries : Domain, TaskLifecycleIntent
+
+        /**
+         * Put back the occurrences of a series that was just deleted.
+         *
+         * The ids travel with the intent: the undo has to restore exactly the
+         * occurrences that went away, and the series may have changed since.
+         */
+        data class RestoreSeries(val taskIds: List<TaskId>) :
+            Domain,
+            TaskLifecycleIntent
+
+        /**
+         * Takes the occurrence on screen out of its series.
+         *
+         * The occasion for it is a date that turned out to be a different job:
+         * the occurrence keeps its date and becomes a task that stands alone.
+         * When it was the second of two, the one that stays stands alone as well —
+         * a series of one is not a series.
+         */
+        data object DetachFromSeries : Domain, TaskEntityIntent
 
         // ── Attachments ──────────────────────────────────────────────────────
 

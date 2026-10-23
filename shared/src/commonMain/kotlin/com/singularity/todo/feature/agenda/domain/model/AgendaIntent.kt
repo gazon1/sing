@@ -92,4 +92,14 @@ sealed interface AgendaIntent : MviIntent {
 
     /** Complete all selected tasks via [com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase.bulkComplete]. */
     data object CompleteSelected : AgendaIntent
+
+    /**
+     * Merges the two series the selection spans.
+     *
+     * The user notices it here: two rows that look like one piece of work, on
+     * two different dates, in two different series. The selection has to span
+     * exactly two series — one series is already one, and three is a different
+     * question.
+     */
+    data object MergeSelectedSeries : AgendaIntent
 }

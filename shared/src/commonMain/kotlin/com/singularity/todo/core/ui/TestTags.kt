@@ -332,6 +332,12 @@ object TestTags {
      * The top-bar button that opens the date picker for a task on several days.
      */
     const val AGENDA_MULTI_DATE_BUTTON = "agenda_multi_date_button"
+
+    /**
+     * The button of the selection bar that merges the two series the selection
+     * spans. It is there only when the selection does span two.
+     */
+    const val AGENDA_MERGE_SERIES_BUTTON = "agenda_merge_series_button"
     const val AGENDA_SAVE_CURRENT_BUTTON = "agenda_save_current_button"
     const val SAVED_AGENDA_LIST_BACK = "saved_agenda_list_back"
     const val SAVED_AGENDA_CREATE_FAB = "saved_agenda_create_fab"
@@ -799,6 +805,12 @@ object TestTags {
 
         /** Archives every occurrence of the series. */
         const val DELETE = "task_series_delete"
+
+        /** The button that takes this occurrence out of the series. */
+        const val DETACH = "task_series_detach"
+
+        /** The mark that says the row is one date of a series. */
+        const val MARKER = "task_series_marker"
     }
 
     // ─── Editor Overflow menu ─────────────────────────────────────────────

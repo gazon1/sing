@@ -143,7 +143,12 @@ class UpdateTaskSeriesUseCaseTest {
         val archived = useCase.archiveSeries(seriesId)
         advanceUntilIdle()
 
-        assertEquals(2, archived.getOrNull(), "both members are archived")
+        assertEquals(2, archived.getOrNull()?.size, "both members are archived")
+        assertEquals(
+            setOf("s1", "s2"),
+            archived.getOrNull()?.map { it.value }?.toSet(),
+            "the undo has to know exactly which occurrences went away",
+        )
         assertTrue(
             repo.tasks.value.values.all { it.archivedAt != null },
             "archiving one member and leaving the other live would split the series",

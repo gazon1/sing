@@ -569,6 +569,11 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
         userId: String,
     ): Flow<List<com.singularity.todo.core.database.TaskEntity>> = error("not implemented")
 
+    override suspend fun getSeriesForUser(
+        seriesId: String,
+        userId: String,
+    ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+
     override fun watchByTag(userId: String, tagId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 

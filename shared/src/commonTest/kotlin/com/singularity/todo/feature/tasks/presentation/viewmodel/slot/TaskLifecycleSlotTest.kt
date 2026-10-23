@@ -2,6 +2,8 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +34,7 @@ class TaskLifecycleSlotTest {
         taskFlow = source.state,
         onError = {},
         onUndoDelete = { onUndo(it.id.value) },
+        onUndoDeleteSeries = { ids -> onUndo(ids.joinToString(",") { id -> id.value }) },
         onNavigateBack = onBack,
         onSaved = {},
     )
@@ -93,6 +96,66 @@ class TaskLifecycleSlotTest {
     }
 
     @Test
+    fun `deleting a series archives every occurrence and offers the undo`() = runTest {
+        val fakes = SlotFakes()
+        val series = TaskSeriesId("s1")
+        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+        val undone = mutableListOf<String>()
+        val slot = slot(fakes, TaskSource(task("t1", seriesId = series)), backgroundScope, onUndo = { undone += it })
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+        runCurrent()
+
+        assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
+        assertNotNull(fakes.taskRepo.tasks.value["t2"]?.archivedAt)
+        assertEquals(listOf("t1,t2"), undone, "the undo has to know what went away")
+    }
+
+    @Test
+    fun `deleting a series keeps the screen until the offer is declined`() = runTest {
+        val fakes = SlotFakes()
+        val series = TaskSeriesId("s1")
+        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+        var navigated = false
+        val slot = slot(
+            fakes,
+            TaskSource(task("t1", seriesId = series)),
+            backgroundScope,
+            onBack = { navigated = true },
+        )
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+        runCurrent()
+
+        assertTrue(
+            !navigated,
+            "the toast that carries the way back lives in this screen — leaving first would " +
+                "destroy the offer it was supposed to accompany",
+        )
+    }
+
+    @Test
+    fun `restoring a series puts every occurrence back`() = runTest {
+        val fakes = SlotFakes()
+        val series = TaskSeriesId("s1")
+        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+        val slot = slot(fakes, TaskSource(task("t1", seriesId = series)), backgroundScope)
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+        runCurrent()
+        slot.onIntent(
+            TaskDetailIntent.Domain.RestoreSeries(listOf(TaskId("t1"), TaskId("t2"))),
+        )
+        runCurrent()
+
+        assertNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
+        assertNull(fakes.taskRepo.tasks.value["t2"]?.archivedAt)
+    }
+
+    @Test
     fun `restore brings the task back and clears the snapshot`() = runTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
@@ -133,6 +196,7 @@ class TaskLifecycleSlotTest {
             taskFlow = TaskSource(task("t1")).also { it.emit(task("t1")) }.state,
             onError = { errors += it },
             onUndoDelete = {},
+            onUndoDeleteSeries = {},
             onNavigateBack = {},
             onSaved = {},
         )
