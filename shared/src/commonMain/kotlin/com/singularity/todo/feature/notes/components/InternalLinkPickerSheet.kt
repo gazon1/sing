@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.notes.LinkKind
 import com.singularity.todo.feature.notes.LinkResult
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import kotlinx.coroutines.FlowPreview
@@ -55,6 +56,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * Generic Obsidian-style [[Note]] / [[Task]] link picker.
  *
  * The sheet is intentionally decoupled from Note and Task domain types.
+ * The search runs in the [SearchMode] the surface states — the caller passes it
+ * in, and the sheet asks the repository in that mode.
  * Callers provide a search function that returns [LinkResult] items — the
  * sheet only renders them. This enables reuse across features and keeps
  * `core/ui/components/` free of feature-domain imports.
@@ -63,8 +66,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```kotlin
  * InternalLinkPickerSheet(
  *     onSearch = { q ->
- *         val notes = noteRepo.searchNotes(q).first()
- *         val tasks = taskRepo.searchTasks(q).first()
+ *         val notes = noteRepo.searchNotes(q, SearchMode.Word).first()
+ *         val tasks = taskRepo.searchTasks(q, SearchMode.Word).first()
  *         notes.map { LinkResult(it.id.value, it.title, LinkKind.Note) } +
  *         tasks.map { LinkResult(it.id.value, it.title, LinkKind.Task) }
  *     },

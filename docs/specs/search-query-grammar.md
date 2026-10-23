@@ -430,8 +430,8 @@ the grammar the owners implement.
 | The matcher — does this text match? | `core/search/TextMatch.kt` → `TextMatch` | word (F2a) / contains |
 | The mode — Word or Contains | `core/search/SearchMode.kt` | the surface that runs the search (F8) |
 | The surface of a task | `feature/tasks/domain/TaskDomain.kt` → `searchableText` | the task's own title and description (F3) |
-| The callers of the index | `feature/notes/data/NotesRepositoryImpl.kt`, `feature/search/data/InternalLinkRepositoryImpl.kt`, `feature/tasks/data/TaskRepositoryImpl.kt` | they ask the rule for the question |
-| The surfaces that state the mode | `feature/notes/presentation/viewmodel/NotesListViewModel.kt`, `feature/notes/presentation/viewmodel/NoteEditor.kt`, `feature/tasks/domain/model/Task.kt` → `TaskFilter.Search` | each states the mode it searches in (F8) |
+| The callers of the index | `feature/search/SearchUseCase.kt`, `feature/notes/data/NotesRepositoryImpl.kt`, `feature/search/data/InternalLinkRepositoryImpl.kt`, `feature/tasks/data/TaskRepositoryImpl.kt` | they ask the rule for the question |
+| The surfaces that state the mode | `feature/notes/presentation/viewmodel/NotesListViewModel.kt` (word), `feature/notes/presentation/viewmodel/NoteEditor.kt` (word), `feature/tasks/domain/model/Task.kt` → `TaskFilter.Search` (word — the filter carries the mode, and the app does not build the filter today), `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` (contains), `feature/projects/presentation/screen/ProjectDetailBody.kt` (contains) | each states the mode it searches in (F8) |
 
 Three consequences, each of them a rule rather than a habit:
 
@@ -447,7 +447,11 @@ Three consequences, each of them a rule rather than a habit:
 - **The mode belongs to the surface, not to the query** (F6). The search screen
   owns the switch and the sentence that says what it costs; the notes list, the
   link autocompletion and the task list search by the word rule (F2a) and state
-  it (F8).
+  it (F8). The surfaces that filter the rows they already hold — the project
+  list and the "add an existing task" popup — state the contains mode, because
+  a term may occur anywhere in a name or in a title. A surface without the
+  switch states the mode it uses; that is the point of F8, not an exemption
+  from it.
 - **The mode is a parameter of the surface's contract, and the rule decides
   with it** (F6, F8). The surface states the mode; the rule answers what the
   index can do under it — `FreeTextRule.plan(mode)`. The decision used to be

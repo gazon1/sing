@@ -7,6 +7,7 @@ import com.singularity.todo.core.llm.AI_NOT_CONFIGURED
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.text.FieldOwnedText
@@ -106,7 +107,7 @@ class ProjectsViewModel(
                         val filtered = if (query.text.isBlank()) {
                             domainRows
                         } else {
-                            domainRows.filter { it.project.name.contains(query.text, ignoreCase = true) }
+                            domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project.name, query.text) }
                         }
                         val sorted = when (sort) {
                             ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }
@@ -221,5 +222,22 @@ class ProjectsViewModel(
                 ?: AI_NOT_CONFIGURED
             emit(ProjectsUiEvent.ProjectReviewResult(result))
         }
+    }
+
+    companion object {
+        /**
+         * The mode the project list searches in.
+         *
+         * The list is a surface, and a surface states the mode it searches in
+         * (F8). This one filters the rows it already holds, and the term may
+         * occur anywhere in the project's name — so it states the contains
+         * mode. The switch belongs to the search screen; a list that has no
+         * switch states the mode it uses, and that is a decision, not an
+         * accident.
+         *
+         * The contains mode folds the diacritics the way the index folds them
+         * (F7), so a search for "cafe" finds "Café" here as well.
+         */
+        val PROJECT_LIST_SEARCH_MODE: SearchMode = SearchMode.Contains
     }
 }

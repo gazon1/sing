@@ -47,6 +47,16 @@ class SearchModeTest {
     }
 
     @Test
+    fun `the contains mode folds the diacritics the way the index folds them`() {
+        // F7 — the two modes answer the same question the same way about the
+        // same text. The surfaces that filter the rows they hold use the
+        // contains mode, so this is what "cafe" finds in a project's name.
+        assertTrue(SearchMode.Contains.matches("Café transfer", "cafe"))
+        assertTrue(SearchMode.Word.matches("Café transfer", "cafe"))
+        assertFalse(SearchMode.Contains.matches("Café transfer", "caffe"))
+    }
+
+    @Test
     fun `a record is matched on any of its surfaces`() {
         assertTrue(SearchMode.Word.matchesAny(listOf("Trip", "Airport transfer"), "air"))
         assertFalse(SearchMode.Word.matchesAny(listOf("Trip", "Airport transfer"), "port"))

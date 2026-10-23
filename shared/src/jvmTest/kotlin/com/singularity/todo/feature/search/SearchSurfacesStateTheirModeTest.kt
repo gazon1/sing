@@ -12,6 +12,7 @@ import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
+import com.singularity.todo.feature.search.data.InternalLinkRepositoryImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -20,6 +21,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -56,6 +58,8 @@ class SearchSurfacesStateTheirModeTest {
     private lateinit var db: AppDatabase
     private lateinit var notes: NotesRepositoryImpl
     private lateinit var tasks: TaskRepositoryImpl
+    private lateinit var links: InternalLinkRepositoryImpl
+    private val clock = MutableClock()
 
     @BeforeTest
     fun setUp() = runTest {
@@ -68,7 +72,7 @@ class SearchSurfacesStateTheirModeTest {
         notes = NotesRepositoryImpl(
             noteDao = db.noteDao(),
             textIndex = db.textIndex(currentUser),
-            clock = Clock.System,
+            clock = clock,
             currentUser = currentUser,
             syncRepository = FakeSyncRepository(this),
             unitOfWork = FakeUnitOfWork(),
@@ -81,6 +85,12 @@ class SearchSurfacesStateTheirModeTest {
             syncRepository = FakeSyncRepository(this),
             dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
             unitOfWork = FakeUnitOfWork(),
+        )
+        links = InternalLinkRepositoryImpl(
+            noteDao = db.noteDao(),
+            taskDao = db.taskDao(),
+            textIndex = db.textIndex(currentUser),
+            currentUser = currentUser,
         )
     }
 
@@ -149,6 +159,35 @@ class SearchSurfacesStateTheirModeTest {
         assertTrue(
             tasks.observeByFilter(TaskFilter.Search("port", SearchMode.Contains)).first().isNotEmpty(),
             "the task is found by the surface it is searched by (F3)",
+        )
+    }
+
+    @Test
+    fun `the link autocomplete answers in the mode it is given`() = runTest {
+        tasks.create(task("t1", title = "Trip", description = "Airport transfer"))
+
+        assertEquals(
+            emptyList(),
+            links.searchTasks("port", SearchMode.Word).map { it.id.value },
+            "the word mode does not find the middle of a word",
+        )
+        assertEquals(
+            listOf("t1"),
+            links.searchTasks("port", SearchMode.Contains).map { it.id.value },
+            "the contains mode finds the term in the description as well as in the title",
+        )
+    }
+
+    @Test
+    fun `the notes of the contains mode come back newest first`() = runTest {
+        notes.createWithContent(NoteId("n1"), "Airport transfer", "# body", "<p>body</p>")
+        clock.advanceBy(1_000)
+        notes.createWithContent(NoteId("n2"), "Airport transfer", "# body", "<p>body</p>")
+
+        assertEquals(
+            listOf("n2", "n1"),
+            notes.search("port", SearchMode.Contains).first().map { it.id.value },
+            "the contains mode answers in the same order as the index does",
         )
     }
 

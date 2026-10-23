@@ -22,6 +22,13 @@ word rule, and the search screen could answer a question they could not — and
 nothing said so. The difference was silent, which is the kind of difference
 that reads as a bug when it is found and as a feature when it is wanted.
 
+**Two surfaces had no mode at all, and did not even follow a rule.** The
+project list and the "add an existing task" popup filtered their rows with
+`String.contains(ignoreCase = true)` — a third rule, written in two places,
+folding neither the diacritics nor anything else. A search for "cafe" missed
+"Café" there, while the search screen found it (F7). A surface that filters
+without stating a mode answers a question nobody wrote down.
+
 **One question was answered in two places.** `SearchMode.plan(rule)` returned
 `BroadScan` for the contains mode, and `FreeTextRule.plan()` answered the same
 question for the word mode. Two places answering one question are two answers,
@@ -43,9 +50,12 @@ surface's contract. The rule decides what the index can do with it.**
   question.
 - Every surface states the mode it searches in (F8 of the grammar). The notes
   list, the link autocompletion and the task filter state the word mode; the
-  search screen states the mode the person chose. A surface that does not
-  offer the switch states the mode it uses — that is different from a surface
-  whose mode is an accident of where the code happens to be written.
+  search screen states the mode the person chose. The project list and the
+  "add an existing task" popup state the contains mode: they filter the rows
+  they already hold, and a term may occur anywhere in a name or in a title. A
+  surface that does not offer the switch states the mode it uses — that is
+  different from a surface whose mode is an accident of where the code
+  happens to be written.
 - The contains mode is answered where a surface can answer it: the note search
   and the task filter read the rows and match them in memory, the same answer
   the search screen gives. The link autocompletion answers it the same way —
@@ -65,6 +75,9 @@ surface's contract. The rule decides what the index can do with it.**
   surfaces say so in the code that does it.
 - The rule of the mode is one rule for every kind of record (F3), so a surface
   that states a mode states the same mode the search screen states.
+- The contains mode folds the diacritics the way the index folds them (F7), so
+  the surfaces that state it now answer "cafe" with "Café" as well. Before this
+  they filtered with `String.contains`, which folded nothing.
 
 ## Alternatives rejected
 

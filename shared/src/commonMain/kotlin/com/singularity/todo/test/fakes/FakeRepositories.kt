@@ -2278,7 +2278,7 @@ open class FakeNotesRepository(
                 list.values.filter { note ->
                     note.userId == uid && note.archivedAt == null && note.deletedAt == null &&
                         mode.matches(note.title, query)
-                }
+                }.sortedByDescending { note -> note.updatedAt }
             }
         }
 
