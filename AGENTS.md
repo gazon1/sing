@@ -253,10 +253,18 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
 
 Единственный список гейтов — **реестр** (`scripts/src/sgate/commands/_registry.py` +
 `scripts/src/sgate/gate_manifest.py`); `scripts/ci/static-gates.sh` и
-`docs/scripts/gate-registry.md` **генерируются** из него, руками их не правь.
-Джоб `static` в `ci.yml` и `check.sh` берут тот же реестр: гейт не может жить на
-одной поверхности и отсутствовать на другой. Branch protection требует **один**
-check — `CI gate`. Справочник — скилл `singularity-todo-ci-cd`.
+`docs/scripts/gate-registry.md` **генерируются** из него, руками их не правь:
+`PYTHONPATH=scripts/src python3 -m sgate render-static-gates --write` и
+`python3 -m sgate render-registry`. Джоб `static` в `ci.yml` и `check.sh` берут
+тот же реестр: гейт не может жить на одной поверхности и отсутствовать на другой.
+Джоб `CI gate` в `ci.yml` — тот, что обязан быть зелёным; **branch protection на
+`main` не включена**, и включается она одной строкой, когда `main` станет надёжно
+зелёным:
+`gh api repos/{owner}/{repo}/branches/main/protection -X PUT
+-F required_status_checks='{"contexts":["CI gate"]}'` (шапка `ci.yml` говорит то
+же самое). Пока защиты нет, «зелёный CI» — это соглашение, а не блокировка:
+мерж проходит и с красным прогоном. Состав workflow'ев, частей A–G мета-гейта и
+рецепты — скилл `singularity-todo-quality-tools`.
 
 **Ждёшь CI — одной командой, а не циклом опроса:**
 

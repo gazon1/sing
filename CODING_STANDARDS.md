@@ -276,6 +276,31 @@ the two drift apart in the first place.
 
 ---
 
+## A rename reaches every surface that names the old thing
+
+A rename is a change with more than one edit, and the edits that are missing are
+the ones nobody notices — because the missing surface is a sentence in a
+document, or a label in a registry, or a path in a script that only fires in a
+branch of the workflow.
+
+- **Every surface that names the old name changes with it.** A command, a file
+  path, a label, a workflow branch condition, a registry entry, a generated
+  catalogue — whatever carries the old string.
+- **A document that asserts the old behaviour changes in the same commit.** A
+  document that says "the floor is 27" after the floor moved to 29 is not stale
+  documentation; it is a false claim that a reader will trust, and it outlives
+  the code it described. Fixing the sentence is part of the change, not a
+  follow-up for someone else to find.
+- **The claim has to be checked against the world, not against the diff.** A
+  reviewer asks: does this sentence still hold? Not "did this sentence change?"
+  A rename that leaves the workflow's branch unreachable is a rename that
+  deleted a feature.
+
+The gate cannot see this. It can see that a file was edited; it cannot see that
+a sentence elsewhere became false. That is the review's work.
+
+---
+
 These are checked; a reviewer verifies the check was run rather than
 re-deriving them.
 
