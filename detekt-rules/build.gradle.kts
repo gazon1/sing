@@ -106,54 +106,38 @@ tasks.withType<Test>().configureEach {
 // its copy of the floor are gone:
 // docs/decisions/2026-10-15-kover-floor-lives-in-the-build-file.md
 //
-// Two controls hold this file instead of a second copy of the number. Part C of
+// Two controls hold the declaration instead of a second copy of the number. Part C of
 // check-gate-wiring.py (kover_verify_rules_without_usable_floor) reads the
 // *declaration*: a bound it cannot resolve to at least _KOVER_MIN_FLOOR, or a
 // `minValue` that lives outside the `kover { }` block below, is a finding — the same
 // way a detekt block with ignoreFailures = true is one. The SABOTAGE control
-// `detekt-rule-coverage-floor` in that same file raises the constant below to 100 and
-// requires koverVerify to fail, because nothing Python-side reads the bound at run
-// time and therefore nothing Python-side can show the task honours it. It is the only
-// control there that runs Gradle, and the module's tests run before it in both
-// surfaces that call that script.
+// `detekt-rule-coverage-floor` in that same file raises the constant in
+// settings.gradle.kts to 100 and requires koverVerify to fail, because nothing
+// Python-side reads the bound at run time and therefore nothing Python-side can show
+// the task honours it. It is the only control there that runs Gradle, and the module's
+// tests run before it in both surfaces that call that script.
 //
 // Branch coverage, not line: a guard that never fires is the failure this measures,
 // and `just tkr` (`:detekt-rules:koverXmlReport :detekt-rules:koverLog`) prints
-// the per-rule table — its branch section generates the list below.
+// the per-rule table — its branch section generates the list that sits beside the
+// floor constant in settings.gradle.kts.
 
-// Branch-coverage floor for the custom rules: 60%, set below the 65.1% (627/963 branches)
-// measured 2026-10-10 via `just tkr`. A floor, not a target — raise it in the same
-// commit that raises coverage, and never lower it without recording why here; below 60
-// also means editing _KOVER_MIN_FLOOR in scripts/check-gate-wiring.py, which is
-// deliberate friction rather than an oversight.
+// The floor itself is DECLARED in settings.gradle.kts — one place for every
+// coverage floor of this repository — and this module only binds it, because Kover
+// reads the verify rule here and nowhere else. The value travels through
+// `gradle.extra`, the channel a settings script and a module's build script share;
+// a missing value is a configuration failure that says what to declare, not a floor
+// that silently defaults to zero.
 //
-// The gap is a list, not a percentage. `just tkr`'s branch section printed this on
-// 2026-10-15 — 65.6% (725/1105), worst ten by missed branch:
-// NoEmptyOnClickLambdaRule (31), NoPopupWithoutResourceIdMapping (29),
-// PassThroughUseCaseRule (22), NoSwallowedCancellation (20),
-// NoUnwiredReporterInBindingPolicy (17), NoRealDelayInTestRule (16),
-// IntentMethodNameRule (16), NoOpUpdateStateRule (16), NoCoroutineLaunchInInit (16),
-// ProhibitUserIdInObserveRule (15) — 34 of 60 rule classes had at least one missed
-// branch, so the head of the list is where the next test goes, not where it ends.
-val DETEKT_RULE_BRANCH_FLOOR = 60
-
-// The floor's minimum lives HERE, not in a gate script that reads it back out of this
-// file. It was `_KOVER_MIN_FLOOR = 60` in scripts/check-gate-wiring.py until 2026-10-15,
-// and that copy was a second home for one number — the exact "three copies of a floor"
-// defect ADR 2026-10-15-kover-floor-lives-in-the-build-file exists to end.
-//
-// The assertion is deliberately the *minimum acceptable*, not a restatement: raising the
-// floor needs no edit here, while lowering it past this line is the "a floor that cannot
-// fail" defect and has to be a deliberate, visible change to this line.
-//
-// `require` rather than a comment because a comment is what the Python regex was reading
-// by proxy. Here it runs on every configuration, including in CI, and a mistake is a
-// configuration failure instead of a passing gate.
-require(DETEKT_RULE_BRANCH_FLOOR >= 60) {
-    "detekt-rules branch coverage floor must not drop below 60% — a lower floor lets " +
-        "koverVerify pass on a suite that stopped exercising the rules, which is the " +
-        "defect this constant exists to prevent. Measured 65.6% on 2026-10-15."
-}
+// The declaration, its measurement and the list of the worst rules by missed branch
+// live beside the constant in settings.gradle.kts.
+val DETEKT_RULE_BRANCH_FLOOR: Int =
+    (gradle.extra["kover.detektRulesBranchCoverageFloor"] as? Int)
+        ?: error(
+            "settings.gradle.kts must declare the detekt-rules branch coverage floor and " +
+                "publish it as gradle.extra[\"kover.detektRulesBranchCoverageFloor\"] — the " +
+                "floor is declared in one place, and this module only binds it."
+        )
 
 kover {
     reports {

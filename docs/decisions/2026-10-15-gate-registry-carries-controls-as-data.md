@@ -50,6 +50,10 @@ Put a floor's minimum next to the floor.
   Verified: lowering the constant to 50 fails configuration with the intended
   message. The check runs on every configuration, so a mistake is a build
   failure rather than a passing gate.
+  — *The minimum still stands beside its declaration: since 2026-10-23 that
+  declaration is in `settings.gradle.kts`, where every coverage floor of this
+  repository lives, and the module binds it (the amendment of 2026-10-23 in
+  ADR `2026-10-15-kover-floor-lives-in-the-build-file`).*
 - **`scripts/src/sgate/controls.py` holds types, `_registry.py` holds data.** The
   types module has no `subprocess`, no `os.utime` and no git — because the
   registry is imported by every gate, executable content there would be loaded on

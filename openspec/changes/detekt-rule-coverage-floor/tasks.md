@@ -1,5 +1,15 @@
 # Tasks — detekt-rule-coverage-floor
 
+> **Where the floor lives now (2026-10-23).** The entries below are the record
+> of what was done and where it was done then: the floor was declared in
+> `detekt-rules/build.gradle.kts`, and the measurement of that day is the one
+> they quote. On 2026-10-23 the declaration moved to `settings.gradle.kts` — one
+> place for every coverage floor of this repository — and the module now binds
+> the constant declared there. The rule and the measurement did not change; the
+> address of the number did. See ADR
+> `docs/decisions/2026-10-15-kover-floor-lives-in-the-build-file.md`, section
+> "Amendment (2026-10-23)".
+
 - [x] Run `just kover-rules` and record the current per-rule line coverage in
       `detekt-rules/build.gradle.kts` as a named constant, with a comment giving
       the date and the command that produced it.

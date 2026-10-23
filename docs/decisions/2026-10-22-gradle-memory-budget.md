@@ -153,6 +153,21 @@ The two halves live in different gates because they are checked by different
 readers: the app floor is read by the aggregation plugin, and a module floor
 is read by the module.
 
+**Amendment (2026-10-23).** The rule above stands, but "a module floor in that
+module's own build script" meant the DECLARATION, and the declaration moved.
+Every coverage floor of this repository is now declared in
+`settings.gradle.kts` — including the `detekt-rules` one — while the RULE that
+enforces it stays in `detekt-rules/build.gradle.kts`, where that module's own
+Kover extension reads it, and the module binds the declared constant through
+`gradle.extra`. A settings script cannot be imported by a build script, so
+the binding has to live in the module; and a module that declared the number
+itself would be a second home for one number, which is the defect ADR
+`2026-10-15-kover-floor-lives-in-the-build-file.md` exists to end. So the
+number has one home and the rule has another, and nothing is evaluated where
+no task reads it. See
+`docs/decisions/2026-10-15-kover-floor-lives-in-the-build-file.md`, section
+"Amendment (2026-10-23)".
+
 ## The measured numbers
 
 Every value below was measured on this machine on 2026-10-22, with the

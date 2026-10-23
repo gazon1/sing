@@ -48,6 +48,9 @@ asks only the question a static check can answer: is there a bound, inside the
 - **One source.** The floor is `DETEKT_RULE_BRANCH_FLOOR` in
   `detekt-rules/build.gradle.kts`, consumed by the Kover `verify` rule and
   printed by the Kover `log` block. Nothing else holds a copy.
+  — *Superseded by the amendment below: the number is declared in
+  `settings.gradle.kts` since 2026-10-23; the rule and its binding stay in
+  the module.*
 - **Delete both restatements.** `scripts/ci/kover-verify-gate.sh` and
   `scripts/check-detekt-rule-coverage.py` are removed, together with the Python
   script's Part-F fixture entry and its `GATE_PARITY` entry. The Gradle task
@@ -71,6 +74,38 @@ asks only the question a static check can answer: is there a bound, inside the
   section, since branch is the quantity the floor enforces. A comment is a
   dated snapshot; the script is what is current.
 
+## Amendment (2026-10-23)
+
+**What changed.** The floor's NUMBER moved from `detekt-rules/build.gradle.kts`
+to `settings.gradle.kts`, where the app coverage floors have lived since
+2026-10-22. `DETEKT_RULE_BRANCH_FLOOR = 60` is now declared in the settings
+script, beside the app floors and their `require(…)` minimums. The module
+binds it: the value travels through
+`gradle.extra["kover.detektRulesBranchCoverageFloor"]`, and the module's Kover
+rule still reads `minValue = DETEKT_RULE_BRANCH_FLOOR`. The measured value
+(65.6 % on 2026-10-15) and the floor (60 %) did not change.
+
+**Why.** One place for the whole policy. The app floors and the module floor
+were two homes for one kind of statement — *this is the minimum acceptable
+coverage* — and the module's copy was the one the gate had to carry an
+exception for. `check-coverage-floor-declaration.py` used to exempt
+`detekt-rules` from "no build file outside the settings declares a floor".
+With the number in the settings file the exception is gone: every coverage
+floor of this repository is declared in `settings.gradle.kts`, every module
+rule binds the constant declared there, and the `require(…)` minimum stands
+beside the declaration.
+
+**What stayed.** The RULE and its binding stay in
+`detekt-rules/build.gradle.kts`, because that is where Kover reads it: the
+module's own `kover { reports { total { verify { … } } } }` block is the rule
+the task enforces. What moved is the number, not the rule.
+
+**The name.** This file's name — `kover-floor-lives-in-the-build-file` —
+records the decision of 2026-10-15 and is deliberately not renamed: every
+reference to this ADR resolves through the name, and renaming it would break
+them. The title still reads true in the general sense (the floor lives in a
+build file), but the build file is now the settings script.
+
 ## Rationale
 
 - **Drift needs three copies to be possible.** A shell gate and a Python parser
@@ -93,8 +128,10 @@ asks only the question a static check can answer: is there a bound, inside the
 
 - The first bullet of §Decision is now superseded: `_KOVER_MIN_FLOOR` in
   `check-gate-wiring.py` no longer exists. The floor lives in the Gradle build
-  file alone, enforced at configuration time by `require(DETEKT_RULE_BRANCH_FLOOR >= 60)`.
-  Raising or lowering the floor is one edit in `detekt-rules/build.gradle.kts`. The
+  files alone — the settings script since 2026-10-23, where every coverage
+  floor of this repository is declared — enforced at configuration time by
+  `require(DETEKT_RULE_BRANCH_FLOOR >= 60)`. Raising or lowering the floor is
+  one edit in `settings.gradle.kts`. The
   deliberate friction described in the original text — a second edit required in Python
   — was removed when the registry was given its data-only role and the Python copy
   was deleted as dead code (Step 9, PR #655).
@@ -120,6 +157,8 @@ asks only the question a static check can answer: is there a bound, inside the
 
 - `openspec/changes/detekt-rule-coverage-floor` — the change this decision
   records; its `tasks.md` carries the positive-control run.
+- `docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md` —
+  the app floor's own home, and the reason the module floor joined it.
 - `docs/decisions/2026-10-05-positive-tests-for-every-detekt-rule.md` — why
   branch coverage inside the rules is the number that matters.
 - `docs/decisions/2026-10-05-positive-control-registry-is-derived.md` — the
