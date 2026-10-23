@@ -444,6 +444,66 @@ class MeasureVerdictCostTest(unittest.TestCase):
         self.assertEqual(record["status"], "stale")
         self.assertIn("does not say which commands", record["staleReason"])
 
+    def test_a_record_that_names_no_command_is_stale(self):
+        """An empty map says nothing, and nothing cannot be checked."""
+        self.out.write_text(
+            json.dumps({
+                "schemaVersion": 2,
+                "measuredAt": "2999-01-01",
+                "status": "fresh",
+                "staleReason": "",
+                "expiresDays": 30,
+                "sha": "deadbeef",
+                "treeDigest": "",
+                "environment": {},
+                "host": {},
+                "verdict": {},
+                "phases": [],
+                "measuredCommands": {},
+                "notes": [],
+            }),
+            encoding="utf-8",
+        )
+
+        result = run_measurer("--out", str(self.out), "--refresh", "--repo", str(self.tmp))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = self._record()
+        self.assertEqual(record["status"], "stale")
+        self.assertIn("names none", record["staleReason"])
+
+    def test_a_record_that_names_some_of_the_commands_is_stale(self):
+        """A partial record is a record whose other phases cannot be checked."""
+        self.out.write_text(
+            json.dumps({
+                "schemaVersion": 2,
+                "measuredAt": "2999-01-01",
+                "status": "fresh",
+                "staleReason": "",
+                "expiresDays": 30,
+                "sha": "deadbeef",
+                "treeDigest": "",
+                "environment": {},
+                "host": {},
+                "verdict": {},
+                "phases": [],
+                "measuredCommands": {
+                    "detekt": (
+                        "./gw :shared:detekt --rerun --continue --no-daemon --console=plain"
+                    ),
+                },
+                "notes": [],
+            }),
+            encoding="utf-8",
+        )
+
+        result = run_measurer("--out", str(self.out), "--refresh", "--repo", str(self.tmp))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = self._record()
+        self.assertEqual(record["status"], "stale")
+        self.assertIn("does not say which command", record["staleReason"])
+
 
 class ThePublishedVerdictSectionTest(unittest.TestCase):
     """The page: rendered from the record, and honest about what it has."""

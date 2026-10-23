@@ -135,6 +135,23 @@ partiality.
 - The hook no longer names a detekt module anywhere; `check-hook-gates.py`
   fails if it does.
 
+## The asymmetry was silent, and now it is not
+
+The claim on both sides of the record said "CI judges every module". It did
+not. CI's detekt list is hand-written — eight module names in the workflow —
+while the module graph reads `settings.gradle.kts` and knows more: `:pro`
+(conditionally) and `:tools:unwritten-properties` (nested, and its verdict is
+its test suite). The gate `scripts/check-hook-gates.py` compared the record
+with the graph in ONE direction — the record ⊆ the graph — and never the
+other. So a module added to the build and forgotten in the workflow was
+judged by the local verdict and certified by nobody, and nothing went red.
+
+The record now says what is true ("CI judges the modules its own list
+names"), the hook says the same, and the gate compares the other direction
+too: a module the graph knows and neither CI nor the record names is an
+error. The claim and the check are the same change — a false claim that
+nothing tests is a claim that decays.
+
 ## Links
 
 - `scripts/pre-push-verdict.py` — the verdict, and the module selection

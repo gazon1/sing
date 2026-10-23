@@ -124,7 +124,8 @@ def problems() -> list[str]:
         found.append(
             f"this checkout is {'bare' if is_bare() else 'not bare'}, and the declaration "
             f'says it must not be — every command in a bare checkout refuses to run. '
-            "Repair it with 'git config core.bare false'.",
+            "Repair it with 'scripts/doctor.sh --fix', which writes this worktree's own "
+            "config and leaves the shared one alone.",
         )
 
     # The shape of the value is check-hooks-path.py's business: that the path

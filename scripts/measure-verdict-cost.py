@@ -602,9 +602,19 @@ def command_drift(
     recorded = record.get("measuredCommands")
     if not isinstance(recorded, dict):
         return ["the record does not say which commands it was measured with"]
+    if not recorded:
+        return ["the record says which commands it was measured with, and names none"]
     reasons: list[str] = []
     for phase in COMPARABLE_PHASES:
         if phase not in recorded:
+            # A phase the record does not mention is a phase whose command
+            # cannot be checked — and an uncheckable measurement is not a
+            # current measurement. A record that names SOME phases is a
+            # partial record, and a partial record is stale.
+            reasons.append(
+                f"the record does not say which command the `{phase}` phase was "
+                f"measured with, and a price that cannot be checked is not a current price"
+            )
             continue
         expected = commands.get(phase)
         if expected is None:

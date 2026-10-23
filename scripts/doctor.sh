@@ -330,7 +330,7 @@ else
     report bad "not bare" "core.bare=$bare — every command in this checkout will refuse"
     if [[ "$fix" == "1" ]]; then
         if write_worktree_config core.bare false; then
-            echo "        fixed: core.bare=false (in $worktree_config — the shared config is untouched)"
+            echo "        written: core.bare=false (in $worktree_config — the shared config is untouched)"
             note_inert_worktree_config
         else
             echo "        NOT fixed: git refused the write to $worktree_config"
@@ -359,7 +359,7 @@ if [[ "$hooks_broken" == "true" && "$fix" == "1" ]]; then
     expected_dir="$(resolve_against_root "$expected_hooks")"
     if [[ -x "$expected_dir/pre-push" ]]; then
         if write_worktree_config core.hooksPath "$expected_hooks"; then
-            echo "        fixed: core.hooksPath=$expected_hooks (in $worktree_config — the shared config is untouched)"
+            echo "        written: core.hooksPath=$expected_hooks (in $worktree_config — the shared config is untouched)"
             note_inert_worktree_config
         else
             echo "        NOT fixed: git refused the write to $worktree_config"
