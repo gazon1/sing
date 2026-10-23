@@ -289,6 +289,16 @@ export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 `CI gate`. Состав workflow'ев, частей A–G мета-гейта и рецепты — скилл
 `singularity-todo-quality-tools`.
 
+**Ждёшь CI — одной командой, а не циклом опроса:**
+
+```bash
+gh pr checks <pr> --watch --interval 60   # ждёт до конца, печатает вердикт
+```
+
+Десять `sleep 30 && gh pr checks` — это десять раундов контекста впустую, и
+ровно то, что запрещает абзац про долгие запуски выше. `--watch` ждёт сам и
+отдаёт финальный вердикт одной строкой.
+
 **Гейты «меры», а не «булевы»** — все блокирующие; спека:
 `openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.
 `check-test-runs.py --require <set>` (прогнал меньше классов/тестов, чем floor, **или** пропустил
