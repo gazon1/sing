@@ -99,3 +99,37 @@ Every number below is a run on this branch on 2026-10-22, not an expectation.
 - **The population parity gate** (7.2) and the repository's own gates:
   `scripts/ci/static-gates.sh` → 40 passed, 0 failed;
   `python3 -m unittest discover -s scripts/tests` → 1748 tests, OK.
+
+## 9. A population is a name, and the report counts what it measures
+
+- [x] 9.1 `config/test-populations.properties` — the one file that maps a
+      population name to the tags it selects. Read by the build (the root build
+      script hands every module the tag list), by the settings script (which
+      picks the floors by population) and by the gates (which compare what a
+      job's invocations declared).
+- [x] 9.2 `-Ptest.population=fast|full` in the CI workflow, in every Gradle
+      invocation, and in the settings script. `-Ptest.tags` still works and
+      still wins; passing both is an error, not a preference.
+- [x] 9.3 The run manifest is written by the root build script for EVERY
+      module's test task, and records the population as well as the tags.
+      Measured: `:mcp-server:test -Ptest.population=fast` wrote
+      `population=fast`, `tags=fast`, `executedClasses=5`.
+- [x] 9.4 `:adr-core:jvmTest` joins the `koverReport` list — the module holds
+      the app's ADR rules, so its classes were in the denominator while its
+      tests never ran. `:adr-cli` is excluded from the coverage scope with
+      `skipProjects`: it is build tooling, and it is not built during the
+      coverage job.
+- [x] 9.5 `scripts/check-coverage-task-list.py` — every project with JVM tests
+      is either in the `koverReport` list or excluded from the coverage scope.
+      The probe removes `:adr-core:jvmTest` from the list, and the gate says so.
+- [x] 9.6 `scripts/check-coverage-floor-declaration.py` — the app floors are
+      declared in `settings.gradle.kts`, and no other build script declares a
+      verify block under the name of the app floor. The probe puts a verify
+      block back into the root build script, and the gate says so.
+- [x] 9.7 The instrumented coverage run is priced: `config/docs/
+      coverage-cost.properties` holds the measured cost per population, the
+      published page carries it, and `:koverVerify` prints the estimate before
+      it starts.
+- [x] 9.8 Both Kover readers print the class count, which is the number that
+      says WHICH report this is: the fast and the full population reported the
+      same instruction totals and different class counts (4634 against 4642).
