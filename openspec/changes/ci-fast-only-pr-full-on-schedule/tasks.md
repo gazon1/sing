@@ -71,18 +71,25 @@
 Every number below is a run on this branch on 2026-10-22, not an expectation.
 
 - **The population decision** (1.2, 1.4): the validation step's own shell was
-  extracted from `ci.yml` and run with each value —
-  `fast` → exit 0, `fast,slow` → exit 0, `""` → exit 1
-  (`unknown TEST_TAGS=''`), `slow` → exit 1, `FAST` → exit 1.
+  extracted from `ci.yml` and run with each value (measured 2026-10-23 on the
+  branch that names the population) —
+  `fast` → exit 0, `full` → exit 0, `""` → exit 1
+  (`unknown TEST_POPULATION=''`), `slow` → exit 1, `FAST` → exit 1.
+  The step asks `config/test-populations.properties` whether the name is one of
+  the known ones; the file is the list of names, not the step.
 - **The fast population** (2.1, 3.2, 3.3, 7.3): `./gw :koverVerify -Ptest.tags=fast`
   → BUILD SUCCESSFUL in 37m 25s. The report holds 4634 classes over 2.82M
   instructions — the same class universe as the full run (4642 classes, the same
   2.82M instructions), with less coverage. Measured 27.73 instruction / 23.23
-  branch / 31.26 line; the floors are 27 / 23 / 31.
+  branch / 31.26 line; the floors are 27 / 23 / 31. The run was taken with the
+  raw tag lever; the population `fast` maps to the same tags
+  (`config/test-populations.properties`: `fast=fast`), so the two spellings
+  select the same classes.
 - **The full population** (7.4): `./gw :koverVerify -Ptest.tags=fast,slow`
   → BUILD SUCCESSFUL in 33m 23s, with `:koverVerify` executed rather than
   up-to-date. Measured 55.88 / 40.44 / 57.23 against the floors 27 / 20 / 27.
-  The run manifest recorded `tags=fast,slow` and 440 executed classes.
+  The run manifest recorded `tags=fast,slow` and 440 executed classes. The
+  population that names this run is `full` (`full=fast,slow`).
 - **The count floors** (7.3): `check-test-runs.py --require shared:jvmTest,
   desktopApp:test,mcp-server:test,shared:testAndroidHostTest` → "Test run floors
   met" — shared:jvmTest 440 classes / 3689 tests, desktopApp:test 62 classes /
