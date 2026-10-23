@@ -356,6 +356,20 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="hook-gates",
+        cmd=[sys.executable, "scripts/check-hook-gates.py"],
+        # The sabotage is declared in the registry (config/hooks/pre-push.json
+        # loses one detekt module) and filled in from there: the file the
+        # control changes and the command it runs are the registry's, so the
+        # two copies cannot drift apart.
+        why=(
+            "the hook judges three gates of forty-one and the modules a change reaches; the CI "
+            "judges every module. That difference is written down in config/hooks/pre-push.json, "
+            "and the record is the only place it can be read. A module the CI judges and the "
+            "record does not mention is a difference nobody can see"
+        ),
+    ),
+    ScriptGate(
         name="skill-drift",
         cmd=[sys.executable, "scripts/check-skill-drift.py"],
         # A wrong command name *inside* the generated block. Editing it by hand is

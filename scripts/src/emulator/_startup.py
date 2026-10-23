@@ -15,6 +15,7 @@ import emulator as _emu
 import emulator._device as _device
 from emulator._device import (
     adb,
+    adb_on,
     device_is_ready,
     find_ready,
     first_ready_device,
@@ -284,6 +285,37 @@ def _is_emulator_pin(pin: str) -> bool:
     return bool(pin) and pin.startswith("emulator-")
 
 
+# ── preparation ───────────────────────────────────────────────────────────────
+
+def prepare_device(serial: str) -> None:
+    """Wake the device, unlock it, and take the soft keyboard out of the way.
+
+    One meaning, one place.  "Acquired and ready" used to be written three
+    times — in the Maestro CLI, in the Maestro runner and in the e2e script —
+    and the copy that was missing was the one that mattered most: the AVD that
+    ``acquire_device`` had just started after a crash came up with the IME on,
+    so every flow measured after that measured a screen half-covered by a
+    keyboard.  Six measurements in one session were wrong that way (2026-10-28).
+
+    The first two steps are the project's standard unlock — the same pair the
+    physical-device skill uses.  The third is the setting an AVD with a
+    hardware keyboard needs, and it is applied to whatever device was
+    acquired, as it was before this moved here.
+
+    Nothing here raises: a device that does not answer these three commands
+    is still a device, and the caller decides what to do about it.
+    """
+    adb_on(serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    adb_on(serial, "shell", "input", "keyevent", "82")
+    adb_on(serial, "shell", "settings", "put", "secure", "show_ime_with_hard_keyboard", "0")
+
+
+def _prepared(serial: str) -> Acquisition:
+    """Hand back a device that is awake, unlocked, and ready to be measured."""
+    prepare_device(serial)
+    return Acquisition(serial, EXIT_OK)
+
+
 # ── acquisition ───────────────────────────────────────────────────────────────
 
 def acquire_device(pin: str) -> Acquisition:
@@ -301,27 +333,27 @@ def acquire_device(pin: str) -> Acquisition:
     # failing loudly beats booting an emulator that cannot match the pin.
     if _is_physical_pin(pin):
         if device_is_ready(pin):
-            return Acquisition(pin, EXIT_OK)
+            return _prepared(pin)
         logger.error(f"Device '{pin}' is present but not ready.")
         logger.error(adb("devices") or "")
         return Acquisition(None, EXIT_NOT_READY)
 
     if serial := find_ready(pin):
-        return Acquisition(serial, EXIT_OK)
+        return _prepared(serial)
 
     try:
         with startup_lock(_emu.cfg.lock_timeout):
             # Re-check inside the lock: the previous holder may have booted a
             # device we can simply use.
             if serial := find_ready(pin):
-                return Acquisition(serial, EXIT_OK)
+                return _prepared(serial)
             rc = start_avd(pin)
     except TimeoutError:
         # The holder was probably mid-boot and succeeds at about this moment.
         # One last look before reporting a lock failure, or a healthy run loses
         # the race and reports EXIT_LOCK for a device that is already up.
         if serial := find_ready(pin):
-            return Acquisition(serial, EXIT_OK)
+            return _prepared(serial)
         logger.error("Timed out waiting for another ensure-emulator run.")
         return Acquisition(None, EXIT_LOCK)
 
@@ -331,7 +363,8 @@ def acquire_device(pin: str) -> Acquisition:
             logger.debug(f"readiness probe '{result.failed_probe}' did not pass")
         return Acquisition(None, rc)
 
-    return Acquisition(find_ready(pin), EXIT_OK)
+    serial = find_ready(pin)
+    return _prepared(serial) if serial else Acquisition(None, EXIT_OK)
 
 
 def ensure_device(serial: str) -> str | None:

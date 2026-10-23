@@ -16,6 +16,16 @@ SERIAL=$(ensure-emulator)     # start if needed, wait for boot
 run-maestro                   # runs per-flow and relaunches on its own
 ```
 
+**Where it lives:** `scripts/src/emulator/` — the CLI is `_cli.py`, and
+`acquire_device` in `_startup.py` is the primitive every caller goes through
+(`ensure-emulator`, the Maestro CLI, the Maestro runner, the e2e script). The
+preparation it does — waking the device, unlocking it, and putting the soft
+keyboard away — is `prepare_device` in the same file. Change it there, not in
+a caller: it used to be written three times, and the copy that was missing was
+the one that mattered, because the AVD that had just been restarted came up
+with the keyboard on and every flow measured after that measured a
+half-covered screen.
+
 **Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
 is exactly the crash case recovery exists for, so `SERIAL=emulator-5554
 ensure-emulator` restarts the AVD instead of reporting failure. Only a pinned

@@ -49,6 +49,7 @@ _REAL_IMPLS = {
     "apk_sha_from_device": _provenance.apk_sha_from_device,
     "gradle_install_debug": maestro_device.gradle_install_debug,
     "acquire_device": _startup.acquire_device,
+    "prepare_device": _startup.prepare_device,
     "adb": _device.adb,
     "adb_on": _device.adb_on,
     "reset_adb_server": maestro_device.reset_adb_server,

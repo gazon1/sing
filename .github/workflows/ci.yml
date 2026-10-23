@@ -516,12 +516,19 @@ jobs:
       # in a row; one installer now serves both jobs.
 
       # Emit GitHub annotations per failing/retry-passed test from JUnit XML.
-      # Parses desktop JUnit XML with junitparser and emits ::error / ::notice commands.
+      # Reads EVERY module's JUnit XML (the glob is rooted at the repository, so
+      # shared, mcp-server, desktopApp and any other module are all covered) and
+      # emits ::error / ::notice commands carrying the failure MESSAGE.
+      #
+      # The path used to be the desktopApp directory alone, so a failure in
+      # mcp-server or shared reached the log as "AssertionFailedError at
+      # SomeTest.kt:400" with no message — and reading the message meant
+      # reproducing the failure locally and digging through the XML by hand.
       # continue-on-error: annotation failures are advisory and must not crash CI.
       - name: Per-test GitHub annotations (advisory)
         if: ${{ !cancelled() }}
         continue-on-error: true
-        run: python3 scripts/junit-annotations.py desktopApp/build/test-results/test/
+        run: python3 scripts/junit-annotations.py --glob "*/build/test-results/**/*.xml" .
 
       # Three separate invocations, not one comma-separated list. The parity table
       # in check-gate-wiring.py keys on the exact spelling of the argument, so

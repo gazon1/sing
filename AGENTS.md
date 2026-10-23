@@ -46,6 +46,9 @@ git worktree add /home/max/work/singularity-todo-<slug> -b <slug>/<что>
   демоны всех остальных, а общий `~/.gradle` — общая блокировка кэша модулей.
 - **Два Gradle-вызова одновременно не запускай** — ни два своих, ни свой и чужой: блокируется
   общий кэш, и падает не та сборка, которую ждут.
+- **Кто каким worktree владеет и какой демон сколько живёт** — `scripts/gradle-daemons.sh`:
+  читает `/proc`, печатает pid, возраст, версию и worktree. `ps -eo …args` даёт тот же
+  ответ дампом в ~40 KB — его и не делай.
 - Свой временный worktree сноси через `git worktree remove --force <path>`; чужой — не трогай.
 
 **Правила ревью — в `CODING_STANDARDS.md`.** Файл читается на ревью, не при
@@ -69,38 +72,39 @@ notes, pomodoro, profile, projects, reminders, search, settings, statistics, tag
 (и `schemaFile(N)` — путь к экспорту). Тест миграции пишет «посади вот это — проверь вот это»,
 а не SQL; свой экземпляр фикстуры — это copy-paste, который ловит `MigrationFixtureHasOneOwnerTest`.
 
-## Канонический CRUD-паттерн (новой фичи)
+**Паттерны.** Канонический CRUD-паттерн (новой фичи) — `docs/architecture/crud-pattern.md`.
+DI: Koin 4.x (pure DSL): формы DSL, KOIN-W003, где лежат биндинги — `docs/architecture/koin-di.md`.
 
-`Ids.kt` (@JvmInline value class) → `*Domain.kt` (валидация) → `*Repository.kt`
-(интерфейс: `Result<T>`, suspend, Flow) → `*RepositoryImpl.kt` (Room) → `*UseCase.kt`
-(**только реальная логика**, не pass-through — enforced by `PassThroughUseCase` detekt rule)
-→ `*ViewModel.kt` (`StateFlow<SealedUiState>`, sealed Intent, инъектированный scope)
-→ `*Screen.kt` (Compose).
+## Инструменты: харнесс → rtk → сырая команда
 
-## DI: Koin 4.x (pure DSL)
+**Бери самый узкий инструмент, который даёт ответ.** Сначала инструменты харнесса
+(`grep`, `glob`, `read`) — их вывод уже отфильтрован. Дальше `rtk` (`/home/max/.local/bin/rtk`) —
+он сжимает вывод. Сырая команда — последний шаг, когда нужен точный байт.
 
-**DI-валидация:** `koin-compiler-plugin 1.2.1` (build-logic/Plugins.kt) даёт
-compile-time проверку графа; аннотации (`@Single`, `@Factory`) не используются.
-**Никогда** не используй `*domainModule().toTypedArray()` в `modules()` — это даёт
-KOIN-W003 (graph unverifiable). Используй list composition:
-`modules(listOf(...) + domainModule() + listOf(...))`.
-
-| DSL | Когда |
+| Задача | Инструмент |
 |---|---|
-| `single { Repo(get()) }` | singleton |
-| `viewModelOf(::Vm)` | все VM без runtime-параметров (**prefer**) |
-| `viewModel { (p: Param) -> Vm(get(), p) }` | VM с runtime-параметрами |
-| `koinViewModel()` / `koinViewModel { parametersOf(p) }` | инъекция VM в Composable (не `koinInject()`) |
-| `factory { Vm(...) }` | **Never** для VM — memory leak |
-| `koinInject()` | репозитории и сервисы (не VM) |
+| найти в коде, найти файл, прочитать файл | `grep` / `glob` / `read` харнесса |
+| список файлов каталога | `rtk ls` |
+| история коммитов | `rtk git log` |
+| прогон тестов | `rtk test ./gradlew :shared:jvmTest` |
+| отчёт линтера (detekt, ktlint) | `rtk err <команда>` |
+| сводка длинного вывода | `rtk summary <команда>` |
 
-**Где лежат биндинги.** `core/di/Modules.kt` — **фасад-агрегатор** (`coreLoggingModule()` +
-`domainModule(): List<Module>`), не источник истины. Реальные биндинги — в per-domain
-`core/di/{Core,Calendar,Notes,Projects,Tags,Tasks}DiModule.kt` и `feature/*/*DiModule.kt`
-(каждая отдаёт свою `*Module()`), платформенные — в `core/di/PlatformModule.{jvm,android}.kt`.
+**Фоновая задача — один вызов с ожиданием:** `task_output(task_id, wait_ms=30000)` ждёт
+до 30 секунд за вызов; без `wait_ms` результат возвращается мгновенно и раунд уходит впустую.
 
-> Список, а не `includes()`: `includes()` создаёт child scope, и биндинги из него не видны соседним
-> модулям на parent level (ADR `2026-09-27-di-module-aggregator-narrative.md`; скилл `singularity-todo-koin-di`).
+## Код выхода важен → вывод в файл
+
+**Сведение вывода для чтения — норма:** `| head`, `| grep -c`, `| wc -l` сокращают объём и не ломают команду.
+**Код выхода важен (`git push`, гейт, тест) — пиши вывод в файл:**
+
+```bash
+cmd > /tmp/probe/push.log 2>&1
+rc=$?
+tail -40 /tmp/probe/push.log
+```
+
+В пайпе код выхода — код последней команды, а `git push | tail` убивает push по SIGPIPE (141) — пуш не уходит, а выглядит успешным. Для пушей в репозитории есть обёртка `scripts/push.sh`: пишет лог в файл и печатает код выхода.
 
 ## Тесты
 
@@ -440,9 +444,11 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 > дефолтный host GPU периодически падает в gfxstream.
 >
 > **Читай скилл `singularity-todo-emulator-launch` целиком, а не по памяти.** Там рецепт запуска,
-> `settings put secure show_ime_with_hard_keyboard 0` после **каждого** перезапуска AVD и разбор
-> падений gfxstream по сигнатуре. Без этой строки клавиатура остаётся поднятой, и все замеры
-> флоу после рестарта неверны — так потеряно 6 замеров в одной сессии (2026-10-28).
+> разбор падений gfxstream по сигнатуре и код-путь, где живёт сам примитив. Подготовку устройства
+> (wake + unlock + `settings put secure show_ime_with_hard_keyboard 0`) делает `acquire_device`
+> сам — при каждом запуске AVD. Если ты поднял AVD руками, минуя `ensure-emulator`, примени её
+> сам: с поднятой клавиатурой все замеры флоу после рестарта неверны — так потеряно 6 замеров
+> в одной сессии (2026-10-28).
 
 ## 🤖 Coroutine test failures
 
@@ -466,15 +472,12 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**; **грубые изменения Room
    schema** без `SCHEMA_VERSION` + `AutoMigration`
-8. **Пайпить вывод команды в `tail`/`head`** — `cmd | tail -3` убивает `cmd` сигналом SIGPIPE:
-   код выхода пайпа — это код выхода `tail`, а не команды, и `git push` уходит с 141, не
-   отправив ничего. Перенаправляй в файл (`cmd > /tmp/probe/push.log 2>&1`) и читай файл.
-   Замер: 6 пушей в одной сессии ушли с 141 и «успешным» кодом выхода.
-9. **Пушить по SSH без keepalive, когда pre-push длинный** — git открывает соединение с
+8. **Пушить по SSH без keepalive, когда pre-push длинный** — git открывает соединение с
    GitHub *до* хука, и пока хук крутит detekt (несколько минут), соединение простаивает:
    GitHub закрывает его, и пуш падает с 141, хотя хук только что напечатал
-   `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive:
-   `git config core.sshCommand "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"`.
+   `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive в общем
+   git-конфиге: `just setup-hooks` ставит `core.sshCommand` (`ssh -o ServerAliveInterval=30
+   -o ServerAliveCountMax=10`) один раз для репозитория — он безопасен для всех worktree'ов.
 
 ## 🗂 Коммиты
 

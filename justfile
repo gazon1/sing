@@ -176,3 +176,27 @@ setup-hooks:
 
     echo "=== Hooks installed: $HOOKS_SOURCE ==="
     ls -la "$HOOKS_SOURCE"/pre-* "$HOOKS_SOURCE"/post-* | awk '{print "  " $NF}'
+
+    # A long pre-push holds git's SSH connection to the remote open and idle.
+    # Git opens the connection BEFORE the hook runs, and the detekt verdict in
+    # the hook takes minutes — so the connection sits there with nothing on it,
+    # GitHub closes it, and the push fails with 141 *after* the hook printed its
+    # own verdict and said the tree was clean.
+    #
+    # The keepalive belongs to the SHARED config, not to a worktree: it is
+    # harmless everywhere, and the per-worktree copy had to be applied by hand
+    # in every worktree — so a fresh worktree or the canonical checkout could
+    # still lose the connection. This recipe already writes the shared config
+    # (core.hooksPath above), so the keepalive is written next to it.
+    #
+    # Only set it when the shared config has no core.sshCommand: a configured
+    # value may carry a different binary, a port or an identity, and
+    # overwriting it would break the push in a way nobody would read as this.
+    # --local is the SHARED config file (the worktree file is --worktree).
+    if [[ -z "$(git config --local --get core.sshCommand || true)" ]]; then
+        git config --local core.sshCommand \
+            "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10"
+        echo "core.sshCommand -> ssh with a keepalive (a long pre-push must not outlive the connection)"
+    else
+        echo "core.sshCommand already configured -> left alone (it may carry a binary, port or identity)"
+    fi
