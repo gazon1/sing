@@ -23,6 +23,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianShortDate
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
 /**
@@ -50,7 +51,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 @Composable
 fun TaskSeriesCard(
-    members: List<Task>,
+    members: ImmutableList<Task>,
     onOpenMember: (TaskId) -> Unit,
     onApplyToAll: () -> Unit,
     onDetach: () -> Unit,

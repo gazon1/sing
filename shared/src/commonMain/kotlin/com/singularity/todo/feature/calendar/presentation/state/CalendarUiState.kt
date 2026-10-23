@@ -1,13 +1,27 @@
 package com.singularity.todo.feature.calendar.presentation.state
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.LocalDate
 
 /**
  * UI state for the Calendar screen.
+ *
+ * ## Why the collections are persistent, and why there is no `@Immutable`
+ *
+ * [ImmutableList] / [ImmutableMap] / [ImmutableSet] are known-stable
+ * constructs for the Compose compiler: a composable that takes one compares
+ * it by `equals` instead of by identity, and the calendar's day cells and task
+ * chips skip themselves when their day did not change.
+ *
+ * The screen state itself carries no `@Immutable`: that would make the
+ * compiler compare the whole month by `equals` on every observation of the
+ * state. Identity is the cheap and honest comparison at screen level; the
+ * leaves carry the stability. See docs/architecture/compose-stability.md.
  */
-@Immutable
 sealed interface CalendarUiState {
     /** Initial load. */
     data object Loading : CalendarUiState
@@ -28,8 +42,8 @@ sealed interface CalendarUiState {
     data class Loaded(
         val anchor: LocalDate,
         val viewMode: CalendarViewMode,
-        val visibleDates: List<LocalDate>,
-        val tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
+        val visibleDates: ImmutableList<LocalDate>,
+        val tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>,
         val today: LocalDate,
         val selectedDate: LocalDate,
         val isMiniCalendarOpen: Boolean = false,
@@ -41,7 +55,7 @@ sealed interface CalendarUiState {
          * Empty outside the mode. The set survives paging to another month: the
          * user picked days, and paging away must not throw the picking away.
          */
-        val selectedDates: Set<LocalDate> = emptySet(),
+        val selectedDates: ImmutableSet<LocalDate> = persistentSetOf(),
         /**
          * Whether the screen is in the date-selection mode.
          *

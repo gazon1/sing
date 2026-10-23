@@ -24,11 +24,96 @@ koinCompiler {
     // userLogs = true // uncomment to see detected definitions during development
 }
 
+// The stability contract — the list of types the Compose compiler treats as
+// stable. It is what makes a list row skip a recomposition when its task did
+// not change: an unstable parameter is compared by identity, and the Room
+// mapper builds a new instance on every read.
+//
+// The file is a single source of truth shared by every module that compiles
+// composables; `scripts/check-compose-stability-config.py` checks that the
+// names in it exist and that it is wired into each of them.
+//
+// `stabilityConfigurationFiles` (plural) rather than `stabilityConfigurationFile`
+// (singular): the singular form is deprecated and fails the build with an
+// error in this compiler version.
+val composeStabilityConfiguration: RegularFile =
+    rootProject.layout.projectDirectory.file("config/compose/stability_config.conf")
+
+composeCompiler {
+    stabilityConfigurationFiles.addAll(composeStabilityConfiguration)
+}
+
+// The contract is a compiler input, but the Compose compiler plugin passes it
+// as a plugin option — and plugin options are not part of the compile task's
+// up-to-date inputs. Without this declaration, editing the contract leaves the
+// compilation UP-TO-DATE: the new classification never reaches the bytecode,
+// and a contract change looks like it took effect when nothing changed.
+//
+// The same trap made the stability report unreliable, which is why the report
+// block below forces the compilation to re-run instead of relying on inputs.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    inputs.file(composeStabilityConfiguration)
+        .withPropertyName("composeStabilityConfiguration")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 /** kotlinx-coroutines-debug agent for jvmTest only. */
 val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
     isCanBeConsumed = false
     isCanBeResolved = true
 }
+
+// ---------------------------------------------------------------------------
+// Compose stability report — an audit instrument, not a build gate
+// ---------------------------------------------------------------------------
+//
+// The Compose compiler can write a report naming every composable parameter it
+// considers unstable. It is the authoritative answer to "which parameter costs
+// a recomposition", and grep cannot answer it: grep does not tell List from
+// ImmutableList, does not see parameters that arrive inside lambdas, and knows
+// nothing about slots.
+//
+// It is opt-in (`-PcomposeStabilityReport=true`) because the report is a build
+// artifact that no gate may depend on: it exists only when the compilation
+// actually ran, the jvm and android compilations write the same file names, and
+// the directory is git-ignored. Nothing in CI reads it.
+//
+// What protects the contract the report is used to design lives in the sources:
+// `scripts/check-compose-stability-config.py` (the stability contract names
+// types that exist and are wired) and the two detekt rules that forbid raw
+// collection parameters and mutable casts.
+//
+// One directory per compilation: jvm and android compile the same sources, so
+// a shared destination would have one report overwrite the other.
+val composeStabilityReportEnabled: Boolean =
+    providers.gradleProperty("composeStabilityReport").orNull?.toBoolean() ?: false
+
+val composeStabilityReportsRoot: Provider<Directory> =
+    layout.buildDirectory.dir("compose_compiler_reports")
+
+// A report that was not regenerated is worse than no report: it is read as a
+// measurement of the current code and is not one. The compiler's plugin options
+// are not part of the compile task's up-to-date inputs, so a changed stability
+// contract alone does not make the task re-run — the task would be UP-TO-DATE
+// and the report on disk would still describe the previous contract.
+//
+// So when the report is asked for, the compilation is not allowed to be
+// up-to-date. The cost is one full compile, and it is paid only by whoever
+// asked for the measurement.
+if (composeStabilityReportEnabled) {
+    tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
+        outputs.upToDateWhen { false }
+    }
+}
+
+// The compiler reads the destination from a plugin option, so the flag is
+// `-P plugin:<plugin-id>:<option>=<value>` — the id is the one the compiler
+// registers its command line processor under.
+fun composeStabilityReportArgs(target: String): List<String> = listOf(
+    "-P",
+    "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=" +
+        composeStabilityReportsRoot.get().asFile.absolutePath + "/" + target,
+)
 
 kotlin {
     // The one JDK every target is compiled with and every consumer runs on —
@@ -38,7 +123,13 @@ kotlin {
     // below keeps its bytecode level untouched (#413).
     jvmToolchain(21)
 
-    jvm()
+    jvm {
+        compilerOptions {
+            if (composeStabilityReportEnabled) {
+                freeCompilerArgs.addAll(composeStabilityReportArgs("jvm"))
+            }
+        }
+    }
 
     android {
         namespace = "com.singularity.todo.shared"
@@ -52,6 +143,9 @@ kotlin {
             freeCompilerArgs.add("-Xopt-in=kotlin.time.ExperimentalTime")
             // Suppress warning: expect/actual classes are in Beta
             freeCompilerArgs.add("-Xexpect-actual-classes")
+            if (composeStabilityReportEnabled) {
+                freeCompilerArgs.addAll(composeStabilityReportArgs("android"))
+            }
         }
         androidResources {
             enable = true
@@ -128,6 +222,18 @@ kotlin {
             // Coroutines
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
+
+            // Persistent collections — the Compose compiler treats ImmutableList /
+            // ImmutableSet / ImmutableMap as known-stable, so a leaf or a section
+            // declared with them is compared by equals instead of by identity.
+            // That is what lets a list row skip a recomposition. See
+            // docs/architecture/compose-stability.md.
+            //
+            // `api`, not `implementation`: the types are in this module's public
+            // API now — a state class holds an `ImmutableList`, a composable takes
+            // an `ImmutableMap` — so a consumer that calls those APIs has to be
+            // able to name the types.
+            api(libs.kotlinx.collections.immutable)
 
             // Serialization
             implementation(libs.kotlinx.serialization.json)

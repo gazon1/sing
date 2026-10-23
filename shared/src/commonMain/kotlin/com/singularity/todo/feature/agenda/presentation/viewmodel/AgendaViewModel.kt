@@ -17,6 +17,8 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
@@ -207,11 +209,11 @@ class AgendaViewModel(
                     // `setState`-ing the result — which is what this used to do —
                     // is a read-modify-write that can drop a concurrent selection.
                     updateState { current ->
-                        val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+                        val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
                         // A task that has left the agenda — completed or deleted
                         // elsewhere — must not stay selected: the id would otherwise
                         // ride along into a later bulk delete.
-                        val kept = previous.intersect(fresh.taskIds())
+                        val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
                         fresh.copy(isSelectionMode = kept.isNotEmpty(), selectedTaskIds = kept)
                     }
                 }
@@ -440,7 +442,7 @@ class AgendaViewModel(
         }
         loaded.copy(
             isSelectionMode = next.isNotEmpty(),
-            selectedTaskIds = next,
+            selectedTaskIds = next.toImmutableSet(),
         )
     }
 

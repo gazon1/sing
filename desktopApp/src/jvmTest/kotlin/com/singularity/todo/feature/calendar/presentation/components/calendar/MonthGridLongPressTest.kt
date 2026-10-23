@@ -17,6 +17,10 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * The long press on a calendar cell.
@@ -41,8 +45,8 @@ class MonthGridLongPressTest {
     private val busyDay = LocalDate(2026, 10, 20)
     private val emptyDay = LocalDate(2026, 10, 21)
 
-    private fun tasksByDate(): Map<LocalDate, List<CalendarTaskUi>> = mapOf(
-        busyDay to listOf(
+    private fun tasksByDate(): ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>> = persistentMapOf(
+        busyDay to persistentListOf(
             CalendarTaskUi(
                 id = TaskId("task-1"),
                 title = "Pay the rent",

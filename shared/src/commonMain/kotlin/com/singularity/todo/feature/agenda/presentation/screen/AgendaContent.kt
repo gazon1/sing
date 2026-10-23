@@ -57,6 +57,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
@@ -126,7 +130,7 @@ fun AgendaContent(
     }
 
     val isSelectionMode = state is AgendaUiState.Loaded && state.isSelectionMode
-    val selectedTaskIds = (state as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+    val selectedTaskIds = (state as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
     val selectedCount = selectedTaskIds.size
     // Merging is offered when the selection spans exactly two series: one series
     // is already one piece of work, and three is a question this action does not
@@ -306,7 +310,7 @@ private fun AgendaList(
     sections: List<RenderedSection>,
     today: LocalDate,
     isSelectionMode: Boolean,
-    selectedTaskIds: Set<TaskId>,
+    selectedTaskIds: ImmutableSet<TaskId>,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
     listState: LazyListState,
@@ -385,7 +389,7 @@ private fun AgendaTaskRow(
     rowItem: AgendaRowItem,
     today: LocalDate,
     isSelectionMode: Boolean,
-    selectedTaskIds: Set<TaskId>,
+    selectedTaskIds: ImmutableSet<TaskId>,
     onIntent: (AgendaIntent) -> Unit,
     onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
 ) {
@@ -405,7 +409,7 @@ private fun AgendaTaskRow(
         isCompleted = task.completedAt != null,
         isOverdue = isOverdue,
         isSelected = isSelected,
-        blockedBy = task.blockedBy,
+        blockedBy = task.blockedBy.toImmutableSet(),
         isBlocked = rowItem.isBlocked,
         seriesDates = rowItem.seriesDates,
     )
@@ -527,19 +531,21 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
                 RenderedSection(
                     id = "overdue",
                     name = "Overdue",
-                    tasks = listOf(AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue, isBlocked = false)),
+                    tasks = persistentListOf(
+                        AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue, isBlocked = false),
+                    ),
                     badge = 1,
                 ),
                 RenderedSection(
                     id = "today",
                     name = "Today",
-                    tasks = listOf(AgendaRowItem(task = todayTask, isBlocked = false)),
+                    tasks = persistentListOf(AgendaRowItem(task = todayTask, isBlocked = false)),
                     badge = null,
                 ),
                 RenderedSection(
                     id = "completed",
                     name = "Completed",
-                    tasks = listOf(
+                    tasks = persistentListOf(
                         AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed, isBlocked = false),
                     ),
                     badge = null,
@@ -547,7 +553,7 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
                 RenderedSection(
                     id = "upcoming",
                     name = "Upcoming",
-                    tasks = listOf(
+                    tasks = persistentListOf(
                         AgendaRowItem(task = pinnedTask, badge = AgendaBadge.Pinned, isBlocked = false),
                         AgendaRowItem(task = noDateTask, badge = AgendaBadge.NoDate, isBlocked = false),
                     ),
@@ -577,7 +583,7 @@ private fun AgendaContentSelectionModePreview() = PreviewThemed(darkTheme = fals
                 RenderedSection(
                     id = "today",
                     name = "Today",
-                    tasks = listOf(
+                    tasks = persistentListOf(
                         AgendaRowItem(task = task1, isBlocked = false),
                         AgendaRowItem(task = task2, isBlocked = false),
                     ),
@@ -586,7 +592,7 @@ private fun AgendaContentSelectionModePreview() = PreviewThemed(darkTheme = fals
             ),
             today = today,
             isSelectionMode = true,
-            selectedTaskIds = setOf(TaskId.fromString("t1")),
+            selectedTaskIds = persistentSetOf(TaskId.fromString("t1")),
         ),
         title = "Agenda",
         onIntent = {},
@@ -604,7 +610,7 @@ private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurf
                 RenderedSection(
                     id = "today",
                     name = "Today",
-                    tasks = listOf(
+                    tasks = persistentListOf(
                         AgendaRowItem(task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today)),
                         AgendaRowItem(task = PreviewSamples.task(id = "t2", title = "Send report", dueDate = today)),
                     ),

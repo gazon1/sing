@@ -16,6 +16,8 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * Hosts all bottom sheets for [TaskEditorContent].
@@ -195,8 +197,8 @@ fun TaskEditorSheetsHost(
 
         // ── Dependencies ────────────────────────────────────────────────────
         is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
-            currentDeps = model.blockedBy,
-            availableTasks = model.availableTasks,
+            currentDeps = model.blockedBy.toImmutableSet(),
+            availableTasks = model.availableTasks.toImmutableList(),
             onApply = { newDeps ->
                 callbacks.dependencies?.onChange?.invoke(newDeps)
                 onSheetDismiss()

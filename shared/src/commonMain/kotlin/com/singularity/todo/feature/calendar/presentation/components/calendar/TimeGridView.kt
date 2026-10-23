@@ -32,6 +32,9 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
@@ -48,8 +51,8 @@ private val TIME_COLUMN_WIDTH = 56.dp
  */
 @Composable
 fun TimeGridView(
-    dates: List<LocalDate>,
-    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
+    dates: ImmutableList<LocalDate>,
+    tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>,
     today: LocalDate,
     selectedTaskId: String? = null,
     onTaskClick: (CalendarTaskUi) -> Unit = {},
@@ -80,7 +83,7 @@ fun TimeGridView(
             )
             dates.forEach { date ->
                 AllDayCell(
-                    tasks = tasksByDate[date].orEmpty().filter { it.isAllDay },
+                    tasks = tasksByDate[date].orEmpty().filter { it.isAllDay }.toImmutableList(),
                     selectedTaskId = selectedTaskId,
                     onTaskClick = onTaskClick,
                     palette = palette,
@@ -155,7 +158,7 @@ private fun DayHeaderCell(date: LocalDate, isToday: Boolean, palette: CalendarPa
 
 @Composable
 private fun AllDayCell(
-    tasks: List<CalendarTaskUi>,
+    tasks: ImmutableList<CalendarTaskUi>,
     selectedTaskId: String?,
     onTaskClick: (CalendarTaskUi) -> Unit,
     palette: CalendarPalette,

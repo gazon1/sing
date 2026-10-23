@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
+import kotlinx.collections.immutable.ImmutableList
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.attachments.AttachmentTile
@@ -52,7 +53,7 @@ fun TaskDetailRecurrenceSection(recurrence: RecurrenceSpec, modifier: Modifier =
 @Suppress("FunctionSignature")
 @Composable
 fun TaskDetailChecklistSection(
-    checklist: List<ChecklistItem>,
+    checklist: ImmutableList<ChecklistItem>,
     onToggle: (ChecklistItem) -> Unit,
     onDelete: (ChecklistItemId) -> Unit,
     modifier: Modifier = Modifier,
@@ -128,7 +129,7 @@ fun TaskDetailChecklistSection(
  */
 @Composable
 fun TaskDetailAttachmentsSection(
-    attachments: List<Attachment>,
+    attachments: ImmutableList<Attachment>,
     onOpenAttachments: (() -> Unit)? = null,
     onDelete: ((AttachmentId) -> Unit)? = null,
     onOpen: ((AttachmentId) -> Unit)? = null,

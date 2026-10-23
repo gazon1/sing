@@ -148,6 +148,13 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-debug = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-debug", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlin-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
+# Persistent collections. The Compose compiler treats `ImmutableList` /
+# `ImmutableSet` / `ImmutableMap` as known-stable, so a composable parameter
+# declared with them is compared by `equals` instead of by identity — which is
+# what lets a list row skip a recomposition. The version was already pinned
+# (it arrived transitively through markdown-renderer); this makes the
+# dependency explicit, because the project now imports it.
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 
 # Android
 	junit4 = { module = "junit:junit", version.ref = "junit" }

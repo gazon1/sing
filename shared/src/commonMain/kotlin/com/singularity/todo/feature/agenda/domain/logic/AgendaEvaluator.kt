@@ -4,6 +4,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
+import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
@@ -71,7 +72,7 @@ object AgendaEvaluator {
                             isBlocked = task.id in blockedIds,
                             seriesDates = task.seriesId?.let { seriesSizes[it.value] },
                         )
-                    },
+                    }.toImmutableList(),
                     badge = matched.size.takeIf { it > 0 },
                     prefill = section.prefill,
                 )

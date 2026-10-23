@@ -15,6 +15,9 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiEvent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
@@ -112,7 +115,7 @@ class CalendarViewModel(
                             }
                             .groupBy { it.date }
                         cal.toLoadedState(tasksByDate, today).copy(
-                            selectedDates = selection.dates,
+                            selectedDates = selection.dates.toImmutableSet(),
                             isDateSelectionMode = selection.isActive,
                         )
                     }
@@ -241,8 +244,8 @@ class CalendarViewModel(
             return CalendarUiState.Loaded(
                 anchor = anchor,
                 viewMode = viewMode,
-                visibleDates = dates,
-                tasksByDate = tasksByDate,
+                visibleDates = dates.toImmutableList(),
+                tasksByDate = tasksByDate.mapValues { (_, tasks) -> tasks.toImmutableList() }.toImmutableMap(),
                 today = today,
                 selectedDate = anchor,
                 isMiniCalendarOpen = isMiniOpen,

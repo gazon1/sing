@@ -1,11 +1,13 @@
 package com.singularity.todo.feature.tasks.presentation.model
 
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.LocalDate
 
 /**
@@ -17,6 +19,19 @@ import kotlinx.datetime.LocalDate
  * Field [isOverdue] is computed in [toTaskUi] based on [dueDate] and [completedAt],
  * keeping the UI layer free of date logic.
  *
+ * ## Why the dependency set is persistent, and why the annotation is gone
+ *
+ * [blockedBy] was a `Set<TaskId>`, and the class carried `@Immutable`. The
+ * annotation was a claim the compiler could not check: a `Set` is an interface,
+ * so the compiler could not treat the value as stable, and `@Immutable` only
+ * made the *comparison* deep — every `equals` on a `TaskUi` walked the whole
+ * dependency set.
+ *
+ * [ImmutableSet] is a known-stable construct for the Compose compiler, so the
+ * type now says what the annotation used to claim. The annotation is gone
+ * because it is no longer needed and because an annotation that has to be
+ * *true* is not a decoration: it is a promise about a type.
+ *
  * ## Pre-MR-1 cleanup
  *
  * [domainTask] was removed — [isPinned] is now a direct field so the
@@ -24,8 +39,8 @@ import kotlinx.datetime.LocalDate
  * (future work) will look up the [Task] by [id] from the repository.
  *
  * @see 2026-09-18-task-dependencies
+ * @see 2026-10-22-compose-stability-contract
  */
-@Immutable
 data class TaskUi(
     val id: TaskId,
     val title: String,
@@ -40,7 +55,7 @@ data class TaskUi(
     val isOverdue: Boolean = false,
     val isSelected: Boolean = false,
     /** MR-1: IDs of tasks that must be completed before this task. */
-    val blockedBy: Set<TaskId> = emptySet(),
+    val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
     /** MR-1: true when at least one dependency is not yet completed. */
     val isBlocked: Boolean = false,
     /** How many dates the series of this row has; null when it stands alone. */
@@ -74,7 +89,7 @@ fun Task.toTaskUi(
     isOverdue = TaskComputed.isOverdue(this, today),
     isPinned = this.isPinned,
     priority = this.priority,
-    blockedBy = blockedBy,
+    blockedBy = blockedBy.toImmutableSet(),
     isBlocked = isBlocked,
 )
 
