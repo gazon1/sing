@@ -60,14 +60,22 @@ aggregation plugin reads its rules from there — that half is
 repeat it.
 
 What this gate covers is the MODULE floors: a floor that measures one module
-is read by that module's own Kover extension, so it belongs in that module's
-own build script, and the constant it binds has to be declared in the same
-file. A floor that is declared in the root build script is read by NOBODY:
-the root project has no Kover extension of its own to configure, and the
-aggregation plugin owns the aggregate. That is exactly how the app coverage
-floor went unenforced for months — and the detekt-rules floor is a MODULE
-floor, which is precisely why it stays in `detekt-rules/build.gradle.kts`
-where Kover reads it and must not be moved to the settings.
+is read by that module's own Kover extension, so its RULE lives in that
+module's own build script, and the constant it binds has to be declared
+somewhere this gate can see — in that same file, or in the settings file that
+declares every floor of this repository. A floor that is declared in the root
+build script is read by NOBODY: the root project has no Kover extension of its
+own to configure, and the aggregation plugin owns the aggregate. That is
+exactly how the app coverage floor went unenforced for months.
+
+The detekt-rules floor is a MODULE floor, and since 2026-10-23 it is declared
+in `settings.gradle.kts` like every other floor, while its RULE stays in
+`detekt-rules/build.gradle.kts` where Kover reads it. The declaration and the
+rule are two different things: the number lives in one place, the rule that
+enforces it lives where the module's Kover reads it, and the module binds the
+declared constant. What this gate checks is that the rule is where its Kover
+reads it — that the constant it binds is declared, and that no floor constant
+is declared in the root build script, where no task would ever evaluate it.
 
 What this does not do
 ---------------------
@@ -563,8 +571,10 @@ def _floor_findings(tree: pathlib.Path) -> list[str]:
     job — the aggregation plugin reads its rules from `settings.gradle.kts`, and
     that gate checks it. What is checked here is the MODULE floors: a floor
     that measures one module is read by that module's own Kover extension, so
-    the constant it binds has to be declared in the same file as the rule that
-    binds it.
+    the rule that binds it lives in that module's build script, and the
+    constant it binds has to be declared there — either as the module's own
+    declaration or as the binding of the constant declared in
+    `settings.gradle.kts`.
     """
     findings: list[str] = []
     modules = _modules(tree)
@@ -589,9 +599,10 @@ def _floor_findings(tree: pathlib.Path) -> list[str]:
                 findings.append(
                     f"{relative}:{line}: the coverage rule {name!r} binds {bound!r}, and "
                     f"nothing declares that name in this file. A floor bound to a constant "
-                    f"declared elsewhere is a floor read from a place its Kover does not "
-                    f"read — the constant has to be declared in the same build script as "
-                    f"the rule that binds it."
+                    f"nobody declares is a floor read from a place its Kover does not "
+                    f"read — the module has to declare the constant it binds: a module "
+                    f"binds the floor declared in {SETTINGS_SCRIPT} by reading it from "
+                    f"`gradle.extra`, and the binding is declared here."
                 )
             if project is None:
                 continue
@@ -621,8 +632,9 @@ def _floor_findings(tree: pathlib.Path) -> list[str]:
                     f"ROOT build script — where no Kover reads it. The root project has no "
                     f"Kover extension of its own to configure: the aggregation plugin owns "
                     f"the aggregate and reads the app floor from {SETTINGS_SCRIPT}, and a "
-                    f"module floor is read from that module's own build script. A floor "
-                    f"declared here is evaluated by no task."
+                    f"module floor is read by that module's own Kover extension, whose rule "
+                    f"lives in that module's build script. A floor declared here is "
+                    f"evaluated by no task."
                 )
     return findings
 

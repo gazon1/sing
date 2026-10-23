@@ -83,8 +83,8 @@ Six halves, and all are needed:
 7. The minimum is a MINIMUM, not a formula. `require(FLOOR >= 0)` is written
    like a minimum and lets the floor go to zero; a floor a module checks is
    held to the minimum the wiring gate holds every kover verify rule to
-   (`_KOVER_MIN_FLOOR`, from the registry), so the two gates cannot disagree
-   about what a usable floor is.
+   (`_KOVER_MIN_FLOOR`, read from the gate registry of THIS checkout), so the
+   two gates cannot disagree about what a usable floor is.
 8. A bound is the declared constant, not an expression of it. `minValue =
    FLOOR - 40` is a different number from the floor, and the name in front
    of it satisfies every other check of this gate.
@@ -122,32 +122,25 @@ Exit codes:
 
 from __future__ import annotations
 
+import ast
 import pathlib
 import re
 import sys
 
 import click
-
-# The sgate package lives in this checkout's own `scripts/src`, and a sibling
-# worktree is a different tree under the same package name: an import that
-# happens first is already bound to it. When this file is loaded by a test
-# harness via importlib, sys.path[0] is `scripts/tests` and the package is
-# invisible — so this file's own location is authoritative. The minimum this
-# gate holds a floor to is read from the registry of THIS checkout, because the
-# registry is where the other gate holds it too, and two gates that read the
-# number from different trees cannot disagree about what they disagree about.
-_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
-_added = _scripts_src not in sys.path
-if _added:
-    sys.path.insert(0, _scripts_src)
-
-from sgate.commands.base import run  # noqa: E402
-from sgate.commands._registry import _KOVER_MIN_FLOOR  # noqa: E402
+from sgate.commands.base import run  # noqa: PLC0415 — scripts are not a package
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+#: The gate registry of THIS checkout — the file the wiring gate reads its own
+#: minimum from. It is read by path and never imported through the installed
+#: `sgate` package; see `_registry_minimum`.
+REGISTRY_FILE = (
+    ROOT / "scripts" / "src" / "sgate" / "commands" / "_registry.py"
+)
 
 #: The one file the aggregation plugin reads its rules from — and the one
 #: file every coverage floor of this repository is declared in.
@@ -609,7 +602,50 @@ def outside_settings_findings(
     return findings
 
 
-def require_minimum_findings(text: str, module_bound: set[str]) -> list[str]:
+def _registry_minimum() -> tuple[int | None, str | None]:
+    """The minimum the wiring gate holds every kover verify rule to.
+
+    The number is a policy constant of the gate registry, and it is read from
+    the registry of THIS checkout — by path and by AST, never through the
+    installed `sgate` package. `sgate` is installed as an editable package,
+    and a sibling worktree can be what is installed: on this host
+    `import sgate` resolved into another worktree's tree, and a gate that read
+    the registry from there would hold this repository's floors to another
+    tree's minimum — silently, and with a verdict about the wrong
+    repository.
+
+    Returns the minimum, or None and the reason it could not be read. A
+    reason is not a reason to carry on: a gate that cannot know the minimum
+    has no verdict, and "checked nothing" must not look like "checked and
+    green".
+    """
+    path = REGISTRY_FILE
+    if not path.is_file():
+        return None, f"{path} is not there"
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as exc:
+        return None, f"{path} could not be read ({exc})"
+    for node in tree.body:
+        if not isinstance(node, ast.AnnAssign):
+            continue
+        target = node.target
+        if not isinstance(target, ast.Name) or target.id != "_KOVER_MIN_FLOOR":
+            continue
+        value = node.value
+        if value is None or not isinstance(value, ast.Constant):
+            continue
+        if isinstance(value.value, bool) or not isinstance(value.value, int):
+            continue
+        return value.value, None
+    return None, f"{path} declares no `_KOVER_MIN_FLOOR` integer this gate can read"
+
+
+def require_minimum_findings(
+    text: str,
+    module_bound: set[str],
+    minimum: int | None,
+) -> list[str]:
     """The findings about the `require(…)` minimum of each declared floor.
 
     The minimum is what makes lowering a floor visible: it fails the
@@ -620,9 +656,13 @@ def require_minimum_findings(text: str, module_bound: set[str]) -> list[str]:
     And the minimum has to BE a minimum. `require(FLOOR >= 0)` is written like
     one and is not one: it lets the floor go to zero, and the presence check
     cannot tell the difference. So the threshold is read, and it is held to
-    the minimum the wiring gate holds every kover verify rule to
-    (`_KOVER_MIN_FLOOR`, from the registry) for a floor a MODULE checks — the
-    two gates cannot disagree about what a usable floor is.
+    the minimum the wiring gate holds every kover verify rule to (for a floor
+    a MODULE checks) — the two gates cannot disagree about what a usable
+    floor is.
+
+    The minimum is None when the registry could not be read; then the
+    threshold is not compared, and the reason is reported by the caller as a
+    finding of its own.
     """
     findings: list[str] = []
     declarations = _val_declarations(text)
@@ -657,11 +697,11 @@ def require_minimum_findings(text: str, module_bound: set[str]) -> list[str]:
                     f"stands."
                 )
                 continue
-        if name in module_bound and threshold < _KOVER_MIN_FLOOR:
+        if minimum is not None and name in module_bound and threshold < minimum:
             findings.append(
                 f"{DECLARATION_FILE}:{line}: the floor {name} is checked by a module, "
                 f"and its minimum require({name} >= {threshold}) is below the "
-                f"{_KOVER_MIN_FLOOR} that the wiring gate holds every kover verify rule "
+                f"{minimum} that the wiring gate holds every kover verify rule "
                 f"to. A module's floor may not have a smaller minimum than the gate that "
                 f"watches it."
             )
@@ -733,8 +773,20 @@ def check() -> list[str]:
 
     # The minimum is read after the modules are known: a floor a module checks
     # is held to the minimum the wiring gate holds it to, and that is a fact
-    # about the modules.
-    errors.extend(require_minimum_findings(text, module_bound))
+    # about the modules. The minimum itself comes from the registry of this
+    # checkout — and a registry this gate cannot read is a finding, not a
+    # reason to check less: "checked nothing" must not look like "checked and
+    # green".
+    minimum, problem = _registry_minimum()
+    if problem is not None:
+        errors.append(
+            f"the minimum every kover verify rule is held to is unknown: {problem}. "
+            f"Without it this gate cannot tell whether the minimum a floor carries is "
+            f"the one the wiring gate holds rules to, so that half of the check does "
+            f"not run — and a check that does not run is indistinguishable from a check "
+            f"that passed."
+        )
+    errors.extend(require_minimum_findings(text, module_bound, minimum))
 
     return errors
 

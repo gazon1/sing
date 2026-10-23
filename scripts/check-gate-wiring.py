@@ -1129,8 +1129,8 @@ def check_fixture_gates() -> list[str]:
 
 #: The lowest kover verify floor this repository accepts, in percent.
 #:
-#: detekt-rules measured 65.1% branch coverage on 2026-10-10 and the floor was
-#: set to 60 in the same sweep. The floor is DECLARED in settings.gradle.kts
+#: detekt-rules measured 65.6% branch coverage (725/1105) on 2026-10-15 and the
+#: floor was set to 60 in the same sweep. The floor is DECLARED in settings.gradle.kts
 #: (DETEKT_RULE_BRANCH_FLOOR, since 2026-10-23) and BOUND by the module whose
 #: rule Kover reads, so the constant is not in the module's own file any more.
 #: The bound is only asked to be sane, not current: raising a floor needs no edit
