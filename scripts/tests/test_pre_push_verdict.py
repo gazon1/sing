@@ -34,6 +34,9 @@ spec = importlib.util.spec_from_file_location('pre_push_verdict', MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
+
 SOURCE = 'package com.example\n\nclass Example\n'
 
 #: A stand-in for ./gw. The mode says what detekt would do in this tree.
@@ -55,22 +58,38 @@ esac
 
 
 class VerdictTest(unittest.TestCase):
+    def _env(self) -> dict[str, str]:
+        """An environment in which git can only mean the fixture's own repository.
+
+        Git exports `GIT_DIR` for the hooks it runs, and a fixture that runs
+        inside a hook inherits it: `git init` then reinitialises the repository
+        the hook is about, `git add -A` stages the fixture's directory against
+        that repository's index — every tracked file looks deleted — and
+        `git commit` writes the fixture's tree onto the developer's branch.
+
+        On 2026-10-23 this file did exactly that: it committed a 12124-file
+        deletion into the working repository, and the same tree reached the
+        remote main. The scrubbing and the ceiling make the command fail
+        instead, and the failure is in the test output rather than in the
+        developer's history.
+        """
+        return sandbox_env(self.tmp)
+
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-verdict-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True)
+        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
+        _git('config', 'user.email', 'verdict@example.com', cwd=self.repo, env=self._env())
+        _git('config', 'user.name', 'Verdict', cwd=self.repo, env=self._env())
+        assert_own_repository(self, self.repo, self._env())
         source = self.repo / 'shared/src/main/kotlin/Example.kt'
         source.parent.mkdir(parents=True)
         source.write_text(SOURCE, encoding='utf-8')
-        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'a file'], cwd=self.repo, check=True)
-        self.sha = subprocess.run(
-            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
-        ).stdout.strip()
+        _git('add', '-A', cwd=self.repo, env=self._env())
+        _git('commit', '-q', '-m', 'a file', cwd=self.repo, env=self._env())
+        self.sha = _git('rev-parse', 'HEAD', cwd=self.repo, env=self._env()).stdout.strip()
 
     def _gradle(self, mode: str) -> str:
         path = self.tmp / f'gradle-{mode}'
@@ -152,14 +171,32 @@ class ModuleSelectionTest(unittest.TestCase):
       - a range with no known base is judged in full — the safe direction.
     """
 
+    def _env(self) -> dict[str, str]:
+        """An environment in which git can only mean the fixture's own repository.
+
+        Git exports `GIT_DIR` for the hooks it runs, and a fixture that runs
+        inside a hook inherits it: `git init` then reinitialises the repository
+        the hook is about, `git add -A` stages the fixture's directory against
+        that repository's index — every tracked file looks deleted — and
+        `git commit` writes the fixture's tree onto the developer's branch.
+
+        On 2026-10-23 this file did exactly that: it committed a 12124-file
+        deletion into the working repository, and the same tree reached the
+        remote main. The scrubbing and the ceiling make the command fail
+        instead, and the failure is in the test output rather than in the
+        developer's history.
+        """
+        return sandbox_env(self.tmp)
+
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-modules-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True)
+        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
+        _git('config', 'user.email', 'verdict@example.com', cwd=self.repo, env=self._env())
+        _git('config', 'user.name', 'Verdict', cwd=self.repo, env=self._env())
+        assert_own_repository(self, self.repo, self._env())
         self.base = self._commit('base', {'README.md': 'base\n'})
 
     def _commit(self, message: str, files: dict[str, str]) -> str:
@@ -167,11 +204,9 @@ class ModuleSelectionTest(unittest.TestCase):
             path = self.repo / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding='utf-8')
-        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', message], cwd=self.repo, check=True)
-        return subprocess.run(
-            ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
-        ).stdout.strip()
+        _git('add', '-A', cwd=self.repo, env=self._env())
+        _git('commit', '-q', '-m', message, cwd=self.repo, env=self._env())
+        return _git('rev-parse', 'HEAD', cwd=self.repo, env=self._env()).stdout.strip()
 
     def _tasks(self, files: dict[str, str]) -> tuple[list[str], str]:
         sha = self._commit('change', files)
@@ -206,16 +241,16 @@ class ModuleSelectionTest(unittest.TestCase):
         tree = self.tmp / 'tree'
         tree.mkdir()
         (tree / 'A.kt').write_text('class A\n', encoding='utf-8')
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=tree, check=True)
-        subprocess.run(['git', 'add', '-A'], cwd=tree, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'a'], cwd=tree, check=True)
+        _git('init', '-q', '-b', 'main', cwd=tree, env=self._env())
+        _git('add', '-A', cwd=tree, env=self._env())
+        _git('commit', '-q', '-m', 'a', cwd=tree, env=self._env())
 
         other = self.tmp / 'other'
         other.mkdir()
         (other / 'B.kt').write_text('class B\n', encoding='utf-8')
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=other, check=True)
-        subprocess.run(['git', 'add', '-A'], cwd=other, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'b'], cwd=other, check=True)
+        _git('init', '-q', '-b', 'main', cwd=other, env=self._env())
+        _git('add', '-A', cwd=other, env=self._env())
+        _git('commit', '-q', '-m', 'b', cwd=other, env=self._env())
 
         saved = dict(os.environ)
         os.environ['GIT_DIR'] = str(other / '.git')
@@ -238,9 +273,7 @@ class ModuleSelectionTest(unittest.TestCase):
     # ── the base a push does not name ─────────────────────────────────────
 
     def test_the_default_base_is_the_trunk(self):
-        subprocess.run(
-            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
-        )
+        _git('update-ref', 'refs/remotes/origin/main', self.base, cwd=self.repo, env=self._env())
         self.assertEqual('origin/main', mod.default_base(self.repo))
 
     def test_a_checkout_that_does_not_know_the_trunk_has_no_default_base(self):
@@ -248,18 +281,14 @@ class ModuleSelectionTest(unittest.TestCase):
 
     def test_a_branch_measured_against_the_trunk_judges_only_what_it_touches(self):
         """A branch that does not exist on the remote yet is a change against the trunk."""
-        subprocess.run(
-            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
-        )
+        _git('update-ref', 'refs/remotes/origin/main', self.base, cwd=self.repo, env=self._env())
         sha = self._commit('change', {'desktopApp/src/main/kotlin/Main.kt': 'class Main\n'})
         tasks, _ = mod.detekt_tasks_for_change(self.repo, mod.default_base(self.repo), sha)
         self.assertEqual([':desktopApp:detekt'], tasks)
 
     def test_the_command_measures_the_change_against_the_trunk_when_the_push_does_not_say(self):
         """The whole path, through the command the hook calls."""
-        subprocess.run(
-            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
-        )
+        _git('update-ref', 'refs/remotes/origin/main', self.base, cwd=self.repo, env=self._env())
         sha = self._commit('change', {'docs/note.md': 'a note\n'})
         result = subprocess.run(
             [

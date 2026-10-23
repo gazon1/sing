@@ -20,13 +20,18 @@ Two properties are held here:
     the push in a way nobody would read as this.
 """
 
+import os
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'setup-worktree.sh'
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
 
 # The script asks for a Gradle home before it does anything else; a stub keeps
 # the test from touching the developer's real one.
@@ -40,7 +45,7 @@ class SetupWorktreeTest(unittest.TestCase):
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='setup-worktree-'))
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
+        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
         scripts = self.repo / 'scripts'
         scripts.mkdir()
         stub = scripts / 'setup-gradle-home.sh'
@@ -50,6 +55,20 @@ class SetupWorktreeTest(unittest.TestCase):
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
         self.script = target
+        assert_own_repository(self, self.repo, self._env())
+
+    def _env(self) -> dict[str, str]:
+        """An environment in which git cannot reach past the fixture's own tree.
+
+        The script under test writes `core.sshCommand` into the repository it is
+        run in. Git exports `GIT_DIR` for the hooks it runs, and a fixture that
+        runs inside a hook inherits it — so the write lands in the developer's
+        repository instead of the fixture's. That is how this repository ended
+        up with an ssh command that pointed at a port and an identity file that
+        do not exist here, and why every fetch and push failed. The scrubbing
+        and the ceiling make the write fail instead, and the test says so.
+        """
+        return sandbox_env(self.tmp)
 
     def _run(self) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -57,6 +76,7 @@ class SetupWorktreeTest(unittest.TestCase):
             cwd=self.repo,
             capture_output=True,
             text=True,
+            env=self._env(),
         )
 
     def _ssh_command(self) -> str:
@@ -66,6 +86,7 @@ class SetupWorktreeTest(unittest.TestCase):
             cwd=self.repo,
             capture_output=True,
             text=True,
+            env=self._env(),
         )
         return result.stdout.strip()
 
@@ -77,10 +98,9 @@ class SetupWorktreeTest(unittest.TestCase):
         self.assertNotIn('ServerAliveInterval', result.stdout)
 
     def test_a_configured_ssh_command_is_left_alone(self):
-        subprocess.run(
-            ['git', 'config', 'core.sshCommand', 'ssh -p 2222 -i /home/me/key'],
-            cwd=self.repo,
-            check=True,
+        _git(
+            'config', 'core.sshCommand', 'ssh -p 2222 -i /home/me/key',
+            cwd=self.repo, env=self._env(),
         )
 
         result = self._run()

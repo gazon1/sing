@@ -26,6 +26,7 @@ and the hook copy are all temporary, and the Gradle wrapper is a stand-in, so
 the tests take well under a second and need no build.
 """
 
+import os
 import pathlib
 import shutil
 import subprocess
@@ -35,7 +36,9 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
@@ -73,13 +76,14 @@ SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
 
 
-def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
+def _git(*args: str, cwd: pathlib.Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         ['git', *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         check=True,
+        env=env,
     )
 
 
@@ -92,12 +96,31 @@ class PrePushHookTest(unittest.TestCase):
         self.repo = self.tmp / 'repo'
         self.remote = self.tmp / 'remote.git'
         self.repo.mkdir()
-        _git('init', '-q', '-b', 'main', cwd=self.repo)
-        _git('config', 'user.email', 'hook@example.com', cwd=self.repo)
-        _git('config', 'user.name', 'Hook Test', cwd=self.repo)
-        _git('config', 'commit.gpgsign', 'false', cwd=self.repo)
+        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
+        _git('config', 'user.email', 'hook@example.com', cwd=self.repo, env=self._env())
+        _git('config', 'user.name', 'Hook Test', cwd=self.repo, env=self._env())
+        _git('config', 'commit.gpgsign', 'false', cwd=self.repo, env=self._env())
         # The hook under test travels with the repository.
-        _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp)
+        _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp, env=self._env())
+        assert_own_repository(self, self.repo, self._env())
+
+    def _env(self) -> dict[str, str]:
+        """An environment in which git cannot reach past the fixture's own tree.
+
+        The fixture creates a repository in a temporary directory and runs git
+        commands in it. Git exports `GIT_DIR` for the hooks it runs, and a
+        fixture that runs inside a hook inherits it: `git init` then
+        reinitialises the repository the hook is about, `git add -A` stages
+        the fixture's directory against that repository's index — every
+        tracked file looks deleted — and `git commit` writes the fixture's
+        tree onto the developer's branch.
+
+        On 2026-10-23 these fixtures committed a 12124-file deletion into the
+        working repository, and the same tree went to the remote main. The
+        scrubbing and the ceiling make the command fail instead, and the
+        failure is in the test output rather than in the developer's history.
+        """
+        return sandbox_env(self.tmp)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative
@@ -109,7 +132,7 @@ class PrePushHookTest(unittest.TestCase):
 
     def _install_hook(self) -> None:
         self._write('.githooks/pre-push', HOOK.read_text(encoding='utf-8'), executable=True)
-        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo)
+        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo, env=self._env())
 
     def _install_stubs(self) -> None:
         """The scripts the hook calls, and a Gradle wrapper that reports findings.
@@ -135,16 +158,17 @@ class PrePushHookTest(unittest.TestCase):
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
-        _git('add', '-A', cwd=self.repo)
-        _git('commit', '-q', '-m', message, cwd=self.repo)
+        _git('add', '-A', cwd=self.repo, env=self._env())
+        _git('commit', '-q', '-m', message, cwd=self.repo, env=self._env())
 
     def _push(self) -> subprocess.CompletedProcess:
-        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo, env=self._env())
         return subprocess.run(
             ['git', 'push', 'origin', 'main'],
             cwd=self.repo,
             capture_output=True,
             text=True,
+            env=self._env(),
         )
 
     # ── the cases ────────────────────────────────────────────────────────
