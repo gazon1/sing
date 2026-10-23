@@ -1080,6 +1080,26 @@ class FakeChecklistRepository : ChecklistRepository {
      */
     var addItemOverride: ((String) -> Result<ChecklistItemId>?)? = null
 
+    /**
+     * The ids [delete] was called for, in order — the calls that were cut short included.
+     *
+     * A take-back that runs twice shows here, and a row that is taken back twice is a
+     * row the repository refuses the second time.
+     */
+    val deleteCalls = mutableListOf<ChecklistItemId>()
+
+    /** The ids [delete] took back — the calls that got that far. */
+    val deletedIds = mutableListOf<ChecklistItemId>()
+
+    /**
+     * Interrupts [delete], for a test that needs a take-back to be cut short.
+     *
+     * The hook is asked for every delete and may throw; the throw stands for the
+     * driver noticing that the scope is gone. Null by default, so an existing test
+     * changes nothing.
+     */
+    var deleteOverride: (suspend (ChecklistItemId) -> Unit)? = null
+
     /** Seeds items by merging into existing state (adds or overwrites by id). */
     fun seed(vararg items: ChecklistItem) {
         this.items.value += items.associateBy { it.id.value }
@@ -1128,6 +1148,9 @@ class FakeChecklistRepository : ChecklistRepository {
     }
 
     override suspend fun delete(id: ChecklistItemId): Result<Unit> = runCatchingCancellable {
+        deleteCalls += id
+        deleteOverride?.invoke(id)
+        deletedIds += id
         items.value = items.value.filterKeys { it != id.value }
     }
 

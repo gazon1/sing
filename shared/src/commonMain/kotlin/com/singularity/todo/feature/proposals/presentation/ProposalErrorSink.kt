@@ -3,10 +3,13 @@ package com.singularity.todo.feature.proposals.presentation
 /**
  * Where a failure goes.
  *
- * The MVI surfaces report a failure to the crash reporter and then show it as a
- * one-shot event; the task detail shows it as an event and reports nothing
- * further. The shared decisions do not know which is which — they hand the
- * failure over and let the surface decide.
+ * Every surface that shows a change shows the failure of that change too — a
+ * failure the user cannot see is a change nobody decided about. What differs
+ * between the surfaces is *where* the failure is shown: the MVI surfaces show it
+ * as a one-shot event, the task detail as its own error event.
+ *
+ * The sink is where the failure is reported as well: a surface that catches a
+ * failure has to report it, because the scope's handler no longer sees it.
  */
 fun interface ProposalErrorSink {
 

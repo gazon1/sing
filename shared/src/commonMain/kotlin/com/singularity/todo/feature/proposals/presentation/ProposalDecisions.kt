@@ -230,19 +230,20 @@ class ProposalDecisions(
      * Runs one piece of work and says how it ended.
      *
      * A failure that arrives as a thrown exception and one that arrives as a
-     * failed [Result] are not the same thing to every surface: some show both,
-     * some show only the second. The distinction is kept here rather than
-     * flattened into one "failed" case.
+     * failed [Result] both end here, and both are handed to the surface: a
+     * surface that shows a change shows the failure of that change too, and the
+     * only question left is where it is shown — which is the surface's own
+     * [ProposalErrorSink].
+     *
+     * A cancellation is not caught here: `runCatchingCancellable` re-throws it,
+     * and a cancelled operation has to end the coroutine rather than become a
+     * message.
      */
     private suspend fun <T> outcome(work: suspend () -> T): Outcome<T> =
-        if (style.showsThrownFailures) {
-            runCatchingCancellable { work() }.fold(
-                onSuccess = { Outcome.Value(it) },
-                onFailure = { Outcome.Thrown(it) },
-            )
-        } else {
-            Outcome.Value(work())
-        }
+        runCatchingCancellable { work() }.fold(
+            onSuccess = { Outcome.Value(it) },
+            onFailure = { Outcome.Thrown(it) },
+        )
 
     /**
      * What one piece of work ended with.

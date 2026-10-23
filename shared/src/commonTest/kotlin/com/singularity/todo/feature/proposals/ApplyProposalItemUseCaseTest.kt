@@ -397,6 +397,36 @@ class ApplyProposalItemUseCaseTest {
     }
 
     @Test
+    fun `a row that was taken back is not taken back again`() = runTest {
+        tasks.seed(task())
+        // The write of the third row fails, and the take-back of the second row is
+        // cut short — the driver notices that the scope is gone. The first row was
+        // taken back already, and taking it back a second time would fail on a row
+        // that is not there any more; and that failure would be reported as a row
+        // that stayed, which is a row the user would be told about that is not there.
+        checklist.addItemOverride = { title ->
+            if (title == "third") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        checklist.deleteOverride = {
+            if (checklist.deleteCalls.size == 2) throw CancellationException("the screen went away")
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second", "third")))
+
+        assertFailsWith<CancellationException> { useCase.confirm(id, user) }
+
+        assertEquals(
+            checklist.deletedIds.distinct().size,
+            checklist.deletedIds.size,
+            "a row that was taken back is not taken back again: ${checklist.deletedIds}",
+        )
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "no row is left behind — the row that stayed is taken back when the take-back is tried again",
+        )
+    }
+
+    @Test
     fun `a value this build cannot read is refused with its reason`() = runTest {
         tasks.seed(task())
         // A row written by a build that knew the priority, read by one that does

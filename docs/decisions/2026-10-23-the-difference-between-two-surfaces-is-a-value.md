@@ -47,9 +47,17 @@ value, apply all of a proposal, turn a whole proposal down. It knows nothing
 about which surface it serves.
 
 **The differences are values.** `ProposalDecisionStyle` says how a surface
-words a decision, whether it stores the reason the user typed, whether a thrown
-failure is shown to the user, and what a partly failed batch says. The style is
-a `data class`; the surface builds its own.
+words a decision, whether it stores the reason the user typed, and what a
+partly failed batch says. The style is a `data class`; the surface builds its
+own.
+
+**What is not a difference: whether a failure is shown.** Every surface that
+shows a change shows the failure of that change too — a failure the user cannot
+see is a change nobody decided about. So there is no flag for it: the shared
+operations hand every failure to the surface, and the surface shows it. A
+flag would have been the wrong shape, because the first thing written with one
+was a surface that set it to "no", and the requirement the change had written
+down was then false on one of the three surfaces.
 
 **Where the reason lives is a port.** `ProposalFailureStore` says where the
 reason a change failed lives — in the review screen's own state, in the note
@@ -59,8 +67,18 @@ it.
 
 **Where the failure goes is a port.** `ProposalErrorSink` says what a surface
 does with a failure: the MVI surfaces report it to the crash reporter and show
-it as a one-shot event; the task detail shows it as an event and reports
-nothing further.
+it as a one-shot event; the task detail reports it and shows it as its own
+error event. The sink is where the report happens too — a surface that catches
+a failure has to report it, because the scope's handler no longer sees it.
+
+**The task detail reports what the review screen reports.** That includes the
+ordinary failures — a change that could not be applied because the task is gone
+meanwhile lands in the crash reporter on the task detail now, the way it has
+always landed on the review screen. It is new volume on that surface, and it is
+a decision rather than a side effect: two surfaces that answer the same
+question answer it the same way, and a failure nobody can see on one of them is
+a change nobody decided about. The issue key is the operation's name — a fixed
+literal at the call site, the way the MVI surfaces group theirs.
 
 **A surface without a write path has nothing to decide.** The task detail's
 collaboration dependencies are optional, so the use cases are nullable and the

@@ -245,6 +245,11 @@ class ProposalDispatch(
         takeBack: suspend (Id) -> Result<*>,
     ) {
         val written = mutableListOf<Id>()
+        // The rows that are gone. A row that was taken back successfully is not
+        // taken back a second time: the second attempt would fail on a row that
+        // is already gone, and that failure would be reported as a row that
+        // stayed — a row the user would be told about that is not there.
+        val takenBack = mutableSetOf<Id>()
         var settled = false
         try {
             val result = runCatchingCancellable {
@@ -253,9 +258,13 @@ class ProposalDispatch(
                 }
             }
             if (result.isFailure) {
-                val takenBack = written.map { takeBack(it) }
+                // The take-back runs where a cancellation cannot stop it, on this
+                // path too: the scope may be cancelled while the rows are being
+                // taken back, and a take-back that is cut short leaves the change
+                // in a state where the next attempt writes the row twice.
+                val stuck = withContext(NonCancellable) { takeBackAll(written, takenBack, takeBack) }
                 settled = true
-                throw failureWith(result, takenBack)
+                throw failureWith(result, stuck)
             }
             settled = true
         } finally {
@@ -265,10 +274,34 @@ class ProposalDispatch(
                 // any more, and the ones that could not be taken back are
                 // reported — the user is not looking at this screen, and a row
                 // that stayed would be there twice after the next attempt.
-                val takenBack = withContext(NonCancellable) { written.map { takeBack(it) } }
-                reportStuckRows(takenBack)
+                val stuck = withContext(NonCancellable) { takeBackAll(written, takenBack, takeBack) }
+                reportStuckRows(stuck)
             }
         }
+    }
+
+    /**
+     * Takes back the rows that were written, and says which of them stayed.
+     *
+     * A row that was taken back successfully is gone, and it is not taken back
+     * again: the second attempt would fail on a row that is not there any more,
+     * and that failure would be reported as a row that stayed. A row whose
+     * take-back failed is not there to be seen either, so it is tried again by
+     * the caller — and it is named if it stayed.
+     */
+    private suspend fun <Id> takeBackAll(
+        written: List<Id>,
+        takenBack: MutableSet<Id>,
+        takeBack: suspend (Id) -> Result<*>,
+    ): List<Result<*>> {
+        val results = mutableListOf<Result<*>>()
+        for (id in written) {
+            if (id in takenBack) continue
+            val result = takeBack(id)
+            if (result.isSuccess) takenBack += id
+            results += result
+        }
+        return results
     }
 
     /**

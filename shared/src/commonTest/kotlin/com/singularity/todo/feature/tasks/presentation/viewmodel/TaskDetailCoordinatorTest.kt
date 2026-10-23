@@ -3,6 +3,8 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -24,13 +26,16 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SlotFakes
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TEST_USER
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProposalRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -55,9 +60,11 @@ class TaskDetailCoordinatorTest {
         fakes: SlotFakes,
         scope: CoroutineScope,
         collaboration: TaskCollaborationDeps = fakes.collaboration(),
+        crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     ) = TaskDetailCoordinator(
         deps = fakes.deps().copy(collaboration = collaboration),
         taskId = TaskId("t1"),
+        crashReporter = crashReporter,
         scope = testScope(scope),
     )
 
@@ -256,6 +263,33 @@ class TaskDetailCoordinatorTest {
             extras.proposalFailures[itemId],
             "the reason sits next to the change: ${extras.proposalFailures}",
         )
+    }
+
+    @Test
+    fun `a failure that arrives as a thrown exception is shown and reported`() = runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1"))
+        val proposals = FakeProposalRepository(FakeClock())
+        val itemId = seedProposal(proposals, targetId = "t-missing")
+        // The claim throws: the failure arrives as an exception, not as a failed
+        // result. The surface has to show it and report it — a failure the user
+        // cannot see is a change nobody decided about.
+        proposals.beforeClaim = { throw IllegalStateException("boom") }
+        val reporter = RecordingCrashReportingPort()
+        val vm = coordinator(fakes, backgroundScope, fakes.withProposals(proposals), reporter)
+        val events = mutableListOf<TaskDetailUiEvent>()
+        backgroundScope.launch { vm.events.collect { events += it } }
+        runCurrent()
+
+        vm.onIntent(TaskDetailIntent.Domain.ConfirmProposalItem(itemId))
+        runCurrent()
+
+        assertTrue(
+            events.any { it is TaskDetailUiEvent.Error },
+            "the user is told: $events",
+        )
+        assertEquals(1, reporter.reports.size, "the failure is reported: ${reporter.reports}")
+        assertEquals("Confirm", reporter.reports.first().second, "under the operation's name")
     }
 
     @Test

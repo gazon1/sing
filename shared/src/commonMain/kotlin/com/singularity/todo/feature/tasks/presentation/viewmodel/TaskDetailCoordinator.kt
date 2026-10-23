@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -264,7 +265,15 @@ class TaskDetailCoordinator(
         editProposalItem = deps.collaboration.editProposal,
         style = taskDetailStyle,
         failures = proposalFailureStore,
-        errors = ProposalErrorSink { _, message, _ -> tryEmit(TaskDetailUiEvent.Error(message)) },
+        errors = ProposalErrorSink { label, message, error ->
+            // The failure is shown and it is reported: a failure the user can see
+            // is not the one the crash reporter gets to hear about, and one it
+            // cannot see is a change the user did not decide about. The scope's
+            // handler used to report it, because the exception flew past the
+            // decisions; now that it is caught here, the report is here too.
+            crashReporter.report(error = error, issueKey = (error as? AppError)?.code ?: label)
+            tryEmit(TaskDetailUiEvent.Error(message))
+        },
         userId = { deps.collaboration.currentUser.scopedUserId.value },
         withdrawProposal = deps.collaboration.proposals?.let { repository ->
             { proposalId: ProposalId, userId: UserId -> repository.retract(proposalId, userId) }
@@ -575,7 +584,6 @@ class TaskDetailCoordinator(
             dismissOne = null,
             change = "Change",
             failureText = ProposalFailureText { label, error -> "$label failed: ${error.message}" },
-            showsThrownFailures = false,
             batchFailureText = { count -> "$count items could not be applied" },
         )
     }

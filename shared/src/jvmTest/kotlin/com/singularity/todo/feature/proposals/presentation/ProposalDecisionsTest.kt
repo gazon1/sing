@@ -36,7 +36,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -233,18 +232,7 @@ class ProposalDecisionsTest {
         decisions(withdraw = { _, _ -> throw IllegalStateException("boom") }).withdraw(proposalId)
 
         assertEquals(1, errors.reports.size, "the user is told")
-    }
-
-    @Test
-    fun `a surface that does not show thrown failures lets them through`() = runTest {
-        val failure = assertFailsWith<IllegalStateException> {
-            decisions(style = reviewStyle.copy(showsThrownFailures = false), withdraw = { _, _ ->
-                throw IllegalStateException("boom")
-            }).withdraw(proposalId)
-        }
-
-        assertEquals("boom", failure.message, "the scope's failure handler sees it")
-        assertTrue(errors.reports.isEmpty(), "the user is shown nothing")
+        assertEquals("Dismiss the proposal", errors.reports.first().label, "under the operation's name")
     }
 
     @Test

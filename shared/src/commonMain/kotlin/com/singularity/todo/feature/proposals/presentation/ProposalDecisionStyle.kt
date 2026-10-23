@@ -29,9 +29,6 @@ import com.singularity.todo.core.error.toMessage
  * @property failureText How the reason a change failed reads in this surface.
  * @property storesRejectionReason Whether the reason the user typed is stored
  *   with the refusal.
- * @property showsThrownFailures Whether a failure that arrives as a thrown
- *   exception is shown to the user. A surface that says no leaves it to its
- *   scope's failure handler, which reports it and shows nothing.
  * @property batchFailureText The message a partly failed batch shows. Null
  *   shows nothing: a batch where some changes failed is a normal outcome, not
  *   an error.
@@ -46,7 +43,6 @@ data class ProposalDecisionStyle(
     val change: String,
     val failureText: ProposalFailureText = ProposalFailureText { label, error -> error.toMessage(label) },
     val storesRejectionReason: Boolean = true,
-    val showsThrownFailures: Boolean = true,
     val batchFailureText: ((Int) -> String)? = null,
 )
 

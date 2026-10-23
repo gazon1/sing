@@ -41,11 +41,13 @@ class ProposalPlanner(private val clock: Clock) {
      */
     fun planNoteItem(item: ProposalItem, note: Note?): ProposalPlan = when (val kind = item.kind) {
         is ProposalItemKind.SetNoteField -> {
-            val n = note ?: error("Note ${item.targetId} not found")
             // The same refusal the other dictionaries make, and for the same
             // reason: a value that does not read is not a change that can be
-            // applied, and the plan is built before the claim.
+            // applied, and the plan is built before the claim. It comes before
+            // the note lookup, because the reason the value does not read is
+            // the one the user has to hear — not that the note is missing.
             kind.value.readFailure?.let { reason -> error(reason) }
+            val n = note ?: error("Note ${item.targetId} not found")
             ProposalPlan.WriteNote(n, kind.value)
         }
 
