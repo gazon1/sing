@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/sync-phase-contracts/proposal.md
-  design: openspec/changes/sync-phase-contracts/design.md
-  adr: openspec/changes/sync-phase-contracts/adr.md
   tasks: openspec/changes/sync-phase-contracts/tasks.md
 specs_dir: openspec/changes/sync-phase-contracts/specs
 is_stub: false

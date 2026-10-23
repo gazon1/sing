@@ -130,6 +130,13 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
 не может быть тестовым).
 
+**`@Tag("slow")` — тест, который локальный цикл не гоняет.** Дефолтный прогон
+исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
+лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.tags=fast,slow`) обязан
+выполнить каждый `slow`-класс — это проверяет `scripts/check-slow-tests-ran.py` (шаг CI сразу
+после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
+`adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
+
 ### BAN list
 
 | Запрещено | Почему | Альтернатива |
@@ -205,6 +212,8 @@ just tests::impact    # тесты, которые эта правка може�
 
 just lint        # detekt (все модули с baseline), enforcing
 just detekt-fix  # auto-fix detekt + ktlint in-place
+
+python3 scripts/detekt-summary.py   # находки detekt по правилам, а не XML дампом
 ```
 
 **Карта затронутых тестов — `just tests::impact`.** Ответ на вопрос «что эта правка
@@ -218,12 +227,30 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 находок). Пропуск хука отправляет ту же находку в CI — минуты вместо получаса. `--no-verify` —
 только для WIP-коммитов.
 
+**Pre-push несёт и правила дерева** (на пушимое дерево, не на рабочее): указатели `AGENTS.md`
+(`scripts/check-agents-pointers.py`), запись реестра ченджа (`scripts/check-issue-registry.py`),
+вердикт ревью ченджа (`scripts/check-review-verdicts.py`). Всё вместе — меньше двух секунд;
+полный сьют гейтов в хук не входит намеренно (1 м 17 с, и две трети его — гейты, которые
+обязаны прогонять всё).
+
 **Находки detekt — одним файлом:** `shared/build/reports/detekt/detekt.xml` (путь, строка, правило);
 консоль Gradle даёт только счётчик. **Правило и его подоплёка — в комментариях
 `config/detekt/detekt.yml`**: там, почему порог такой; кастомные правила — в `detekt-rules/`
 (напр. `NoDroppedUiStateProperty`: свойство состояния — обязательный параметр **каждого**
 варианта, дефолт запрещён). `ClassSignature` — сигнатура data class, влезающая в строку, пишется
 в одну строку (ADR `2026-10-09-detekt-class-signature-gotcha`).
+
+> **Хост бывает занят.** Параллельно на машине могут крутиться Gradle других
+> сессий — они делят CPU, RAM и Gradle home, но не `shared/build`. Полный
+> `:shared:jvmTest -Ptest.tags=fast,slow` в таком случае идёт час вместо
+> получаса, и таймаут-тесты (`CoroutineDiagnosticsTest`) флейкают от нагрузки, а
+> не от кода. Проверяй `uptime` перед полным прогоном; по умолчанию гоняй
+> целевой набор (`--tests`), а полный — когда целевой зелёный.
+>
+> **Отчёт detekt** — это XML на находку. `scripts/detekt-summary.py` печатает
+> то же самое по правилам и местам в два-три экрана; выгружать `detekt.xml`
+> целиком в контекст — это сотни строк ради ответа, который помещается в первые
+> двадцать.
 
 > `just <recipe> name=value` **не** работает (just 1.57.0: `tags=agenda` парсится как env var, не как параметр). Используй позиционную форму: `just gma` (алиас для `gm agenda`).
 
@@ -293,17 +320,53 @@ export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 `CI gate`. Состав workflow'ев, частей A–G мета-гейта и рецепты — скилл
 `singularity-todo-quality-tools`.
 
+**Ждёшь CI — одной командой, а не циклом опроса:**
+
+```bash
+gh pr checks <pr> --watch --interval 60   # ждёт до конца, печатает вердикт
+```
+
+Десять `sleep 30 && gh pr checks` — это десять раундов контекста впустую, и
+ровно то, что запрещает абзац про долгие запуски выше. `--watch` ждёт сам и
+отдаёт финальный вердикт одной строкой.
+
+**Инструменты гейтов ставятся, а не подкладываются в `PYTHONPATH`.** На машине
+нескольких клонов `sgate` на PATH — editable-установка *чужого* клона, и гейт
+проверит чужой код, назвав его своим. Ставится один раз на клон:
+
+```bash
+bash scripts/ci/setup-local-tools.sh          # uv-venv + editable-установка scripts/src
+export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"
+sgate whereami                                 # путь должен совпасть с этим клоном
+```
+
+`bash scripts/ci/preflight-gate-tools.sh` проверяет это и говорит, что чинить.
+Ручной `PYTHONPATH` в скриптах — не путь: юнит-тесты гейтов запускают их с
+минимальным окружением (`env={'PATH': ...}`), и пакет, видимый только через
+`PYTHONPATH`, для них невидим. Наш `sgate run-all` сам запускает гейты этого
+клона (`run_all.py` → `_repo_env()`), поэтому чужая установка на PATH результат
+гейтов не портит — но и руками `sgate` звать тогда нельзя.
+
 **Гейты «меры», а не «булевы»** — все блокирующие; спека:
 `openspec/specs/test-execution-integrity/spec.md`, ADR `2026-10-04-measurement-integrity`.
 `check-test-runs.py --require <set>` (прогнал меньше классов/тестов, чем floor, **или** пропустил
 хоть один) · `:koverVerify` (INSTRUCTION/BRANCH/LINE покрытие `com.singularity.todo.*` ниже floor 27/20/27)
 · `check-flaky-tests.py --current DIR --previous DIR` · `unittest discover -s scripts/tests`
-(регрессия в самих гейтах, ≈20 мс). Floor = **минимальный** легитимный прогон: падение —
-расследовать, не регенерировать.
+(регрессия в самих гейтах, ~3 мин на 1750 тестов). Floor = **минимальный** легитимный прогон:
+падение — расследовать, не регенерировать.
 
 **Перед PR — ревью отдельным агентом** (`code-review-pr-workflow`): он получает диф, а не код,
 и у него нет давления контекста реализации — поэтому он ловит то, чего не ловит гейт (контракт
 состояния, алиас, запись в реестр issues). Гейт ловит механику; ревью ловит смысл.
+
+**Вердикт ревью — файл, а не воспоминание.** У каждого ченджа, который не в базлайне, есть
+`.specify/reviews/<slug>.md`: чендж, вердикт (`pass`/`fail`), дата, PR и что нашёл ревью.
+Имя файла — **slug без date-префикса**: у каталога `2026-10-22-the-read-surface` вердикт
+лежит в файле с именем `the-read-surface`.
+Гейт `review verdicts cover every change` требует его; ченджи, появившиеся до правила, — в
+`config/docs/review-verdicts-baseline.txt` (список только сокращается: `--update-baseline`
+подчищает, но не добавляет; добавить запись — ручная правка, видимая в диффе). Каркас,
+который только что создал spec-kit, от правила свободен, пока его не написали.
 
 ## 🤖 Dogfooding: MCP Server
 
@@ -322,7 +385,7 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 
 - **Behavior change** → workflow `openspec-change`; **ADR-only** (нет spec-level изменения) → `adr-create`; **не нужен:** bug fix, test-only, dep update, doc-only, rename без контрактного изменения
 - Hooks: после implement — `singularity-adr validate` (`.specify/extensions.yml`); после правок ADR — `./scripts/refresh-decisions-digest.sh`
-- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта).
+- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта). Запись называет **только те документы, которые у ченджа есть**: гейт падает и на записи, у которой в `documents` лежит несуществующий файл. Архивирование ченджа переписывать запись не требует: гейт ищет документы по slug, как и сам чендж.
 - Constitution: `.specify/constitutions/singularity-todo.md`
 
 ## 🔧 Run-loop (UI-верификация)
@@ -368,7 +431,11 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
 3. **MockK / Mockito** — fakes для state-тестов; MockK только для исходящих вызовов
 4. **Pass-through CRUD use cases** — VMs инжектят репозиторий напрямую (AI — допустимо);
    enforced by `PassThroughUseCase` detekt rule
-5. **`java.io.File` напрямую** — только через `FileSystem` порт
+5. **`java.io.File` в `commonMain`** — только через `FileSystem` порт (`core/files/`).
+   В `jvmMain`/`androidMain` это и есть реализация порта, там `java.io.File` — правильный
+   инструмент; то же в тестах, которые читают дерево исходников. Правило держит
+   feature-код, а не платформенный слой: в репозитории `java.io.File` встречается
+   в 110 файлах, и запрет без границы учит только игнорировать запрет.
 6. **`require { throw ... }` внутри лямбды** — `require` сам бросает
 7. **Импортировать Koog-типы вне `feature/ai` и `core/di`**; **грубые изменения Room
    schema** без `SCHEMA_VERSION` + `AutoMigration`
@@ -378,6 +445,22 @@ ui_resolve,ui_tap,ui_type_text,logs}` — screenshot до и после дейс
    `=== Pre-push OK ===`. Это тот же 141, но другая причина. Лечится keepalive в общем
    git-конфиге: `just setup-hooks` ставит `core.sshCommand` (`ssh -o ServerAliveInterval=30
    -o ServerAliveCountMax=10`) один раз для репозитория — он безопасен для всех worktree'ов.
+
+## 🗂 Коммиты
+
+Один коммит — одна мысль; в этом репозитории так принято, и diff на 100 файлов
+читается плохо. Когда работа распадается на части (фичи, пункты списка,
+«это и это вместе»), разложи её **до** коммита, а не после:
+
+1. `git add -p` по логическим кускам — или `git add <путь>` по файлам целиком,
+   если куски совпадают с файлами;
+2. один `git commit` на кусок, с сообщением в стиле репозитория:
+   `feat(area): что изменилось` + абзац «почему» + ссылки на ADR и OpenSpec;
+3. каждый коммит должен собираться и проходить гейты сам по себе — иначе
+   bisect указывает на место, которого не существует.
+
+Регенерируемые файлы (`scripts/ci/static-gates.sh`, `docs/scripts/gate-registry.md`,
+`docs/SKILLS-CATALOG.md`) в коммит попадают вместе с тем, что их породило.
 
 ## 🧠 Decision log
 

@@ -16,8 +16,6 @@ tags:
 - internal-links
 documents:
   proposal: openspec/changes/archive/2026-10-22-one-grammar-for-internal-links/proposal.md
-  design: openspec/changes/archive/2026-10-22-one-grammar-for-internal-links/design.md
-  adr: openspec/changes/archive/2026-10-22-one-grammar-for-internal-links/adr.md
   tasks: openspec/changes/archive/2026-10-22-one-grammar-for-internal-links/tasks.md
 specs_dir: openspec/changes/archive/2026-10-22-one-grammar-for-internal-links/specs
 is_stub: false

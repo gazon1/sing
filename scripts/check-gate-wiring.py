@@ -63,16 +63,21 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import click
-from sgate.commands.base import run
-import yaml
 
-# `scripts/src` on sys.path so `workflow_gradle` resolves. When this file is
-# loaded by a test harness via importlib, sys.path[0] is `scripts/tests` and the
-# module is invisible; this file's own location is authoritative.
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
 _scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
 _added = _scripts_src not in sys.path
 if _added:
     sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
+import yaml  # noqa: E402
 import workflow_gradle as wg  # noqa: E402
 
 if _added:
@@ -89,6 +94,43 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 ROOT = Path(__file__).resolve().parent.parent
+
+#: Where the original content of a sabotaged file is kept while the tree is
+#: modified. It lives in the git directory, because it must not be seen by the
+#: tree's own tools — a file called `docs/navigation.md.sgate-backup` would be
+#: a document the documentation gate would have opinions about.
+#:
+#: The git directory is resolved rather than assumed: in a worktree `.git` is a
+#: *file* naming the real directory, and this repository is a worktree of
+#: another one. When there is no git directory at all, the backup goes to
+#: `build/`, which the tree ignores.
+def _sabotage_backup_dir() -> Path:
+    git_path = ROOT / ".git"
+    if git_path.is_dir():
+        return git_path / "sgate-sabotage"
+    if git_path.is_file():
+        try:
+            text = git_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            text = ""
+        if text.startswith("gitdir:"):
+            target = Path(text.split(":", 1)[1].strip())
+            if not target.is_absolute():
+                target = (ROOT / target).resolve()
+            return target / "sgate-sabotage"
+    return ROOT / "build" / "diagnostics" / "sgate-sabotage"
+
+
+SABOTAGE_BACKUP_DIR = _sabotage_backup_dir()
+
+#: The files this run has sabotaged and not yet restored: target → backup.
+#:
+#: The sabotage phase edits the *working tree*. A run that is interrupted —
+#: Ctrl-C, a timeout, a killed shell — would otherwise leave the tree broken,
+#: and the next command in the same shell would inherit the breakage without
+#: knowing where it came from. The signal handler restores what is listed
+#: here, and a run that starts with a backup left over restores it too.
+_ACTIVE_SABOTAGES: dict[Path, Path] = {}
 
 #: The single registry of script gates. `ci.yml`'s `static` job and `check.sh`
 #: both call this one file, so a gate named there runs in both environments.
@@ -645,6 +687,28 @@ def _gradle_controls_enabled() -> bool:
     return os.environ.get(GRADLE_ENV) == "1"
 
 
+def _gate_env() -> dict[str, str]:
+    """The environment a gate runs in: this checkout's code first.
+
+    A gate command may be `python3 -m sgate …` — and then the `sgate` the
+    interpreter finds is whatever is installed, which on a machine with
+    several clones is an editable install of *another* checkout. Such a gate
+    reads that checkout's registry and reports its verdict as this one's: the
+    control for "the registry of the gates is current" passed a sabotaged
+    registry for exactly that reason.
+
+    `PYTHONPATH` points at this checkout's `scripts/src`, so the import finds
+    the code on disk here. The path comes from where the script lives, not
+    from the installed package — a path taken from the package is a path into
+    whichever tree was installed.
+    """
+    env = dict(os.environ)
+    src = str(ROOT / "scripts" / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return env
+
+
 def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
     """Run one gate to completion, or kill it at the deadline.
 
@@ -657,11 +721,104 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
         timeout_s = GRADLE_GATE_TIMEOUT_S if _is_gradle_gate(cmd) else GATE_TIMEOUT_S
     try:
         proc = subprocess.run(
-            cmd, cwd=ROOT, capture_output=True, text=True, check=False, timeout=timeout_s
+            cmd,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_s,
+            env=_gate_env(),
         )
     except subprocess.TimeoutExpired:
         return TIMEOUT_RC
     return proc.returncode
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write `content` to `path` without ever leaving it truncated.
+
+    `Path.write_text` truncates first and writes after, so a process killed
+    between the two leaves a half-written file — the tree would then be broken
+    in a way that does not look like a sabotage. The temporary file is
+    written whole and then renamed over the target, which is atomic on the
+    same filesystem: the target is either the old content or the new one.
+    """
+    tmp = path.with_name(path.name + ".sgate-tmp")
+    tmp.write_text(content, encoding="utf-8")
+    # The mode travels with the content. A temporary file has the default
+    # permissions, and a rename brings them with it — so a restored file
+    # would lose its executable bit, and the tree would come back from a
+    # sabotage changed in a way nobody asked for.
+    try:
+        mode = path.stat().st_mode & 0o7777
+    except OSError:
+        mode = None
+    if mode is not None:
+        os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
+def _backup_path(target: Path) -> Path:
+    """Where the original content of `target` is kept while it is sabotaged."""
+    relative = target.relative_to(ROOT).as_posix().replace("/", "__")
+    return SABOTAGE_BACKUP_DIR / relative
+
+
+def _restore_active_sabotages() -> list[str]:
+    """Put every sabotaged file back. Returns the paths that could not be."""
+    broken: list[str] = []
+    for target, backup in list(_ACTIVE_SABOTAGES.items()):
+        try:
+            if backup.is_file():
+                _atomic_write(target, backup.read_text(encoding="utf-8"))
+            backup.unlink(missing_ok=True)
+        except OSError as exc:
+            broken.append(f"{target}: {exc}")
+    _ACTIVE_SABOTAGES.clear()
+    return broken
+
+
+def recover_interrupted_sabotage() -> list[str]:
+    """Restore a tree that an interrupted run left sabotaged.
+
+    A run that was killed between the sabotage and the restore leaves the
+    backup behind. The next run finds it and puts the file back, because a
+    broken tree that nobody notices is worse than a broken tree that stops the
+    build.
+    """
+    if not SABOTAGE_BACKUP_DIR.is_dir():
+        return []
+    recovered: list[str] = []
+    for backup in sorted(SABOTAGE_BACKUP_DIR.iterdir()):
+        if not backup.is_file():
+            continue
+        target = ROOT / backup.name.replace("__", "/")
+        try:
+            _atomic_write(target, backup.read_text(encoding="utf-8"))
+            backup.unlink()
+            recovered.append(str(target.relative_to(ROOT)))
+        except OSError as exc:
+            recovered.append(f"{backup.name}: could not be restored ({exc})")
+    return recovered
+
+
+def _install_signal_handlers() -> None:
+    """Restore the tree when the run is interrupted."""
+    import signal
+
+    def _handler(signum: int, _frame: object) -> None:
+        broken = _restore_active_sabotages()
+        for path in broken:
+            print(f"  !!  could not restore {path}", flush=True)
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, _handler)
+        except (ValueError, OSError):
+            # Not the main thread, or the platform does not have the signal.
+            pass
 
 
 def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
@@ -674,6 +831,10 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
     behind it. That is not hypothetical — as source text one entry carried a
     SyntaxError and killed Part B from its middle, and only on a day when its
     baseline happened to be green.
+
+    The restore is atomic and the original is kept in `.git/` until the
+    restore succeeded, so an interrupted run leaves a tree that the next run
+    can repair instead of a tree that silently stays broken.
     """
     target = ROOT / gate.sabotage_path
 
@@ -693,7 +854,11 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
             os.utime(target, (mtime, mtime))
 
     original = target.read_text(encoding="utf-8")
+    backup = _backup_path(target)
     try:
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        backup.write_text(original, encoding="utf-8")
+        _ACTIVE_SABOTAGES[target] = backup
         gate.sabotage(target)
         rc = run_gate(gate.cmd)
     except Exception as exc:  # noqa: BLE001 — a broken control must not abort the part
@@ -703,7 +868,15 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
         )
         return None
     finally:
-        target.write_text(original, encoding="utf-8")
+        try:
+            _atomic_write(target, original)
+        except OSError as exc:
+            errors.append(
+                f"gate '{gate.name}': could not restore {gate.sabotage_path} ({exc}) — "
+                f"the file may be left modified; restore it by hand."
+            )
+        _ACTIVE_SABOTAGES.pop(target, None)
+        backup.unlink(missing_ok=True)
         if gate.sabotage_restore is not None:
             try:
                 gate.sabotage_restore(target)
@@ -718,7 +891,7 @@ def _sabotaged_run(gate: ScriptGate, errors: list[str]) -> int | None:
             f"gate '{gate.name}': sabotage did not restore {gate.sabotage_path}. "
             f"Restoring from the recorded copy and failing."
         )
-        target.write_text(original, encoding="utf-8")
+        _atomic_write(target, original)
         return None
     return rc
 
@@ -777,8 +950,21 @@ def check_escape_hatches() -> list[str]:
     return errors
 
 
-def check_can_fail() -> list[str]:
+def check_can_fail(include_fast: bool = True) -> list[str]:
+    """Part B — every registered script gate can fail.
+
+    `include_fast` says whether the controls of the gates that need no daemon
+    are part of this run. The static job proves them (`sgate run-all
+    --with-controls`), and the job that has a warm daemon proves the rest: a
+    job that proved both would prove the fast ones twice.
+    """
     errors: list[str] = []
+    print(
+        "  note: this phase edits files in the working tree and restores them.\n"
+        "        Do not edit the tree while it runs — the restore is atomic and an\n"
+        "        interrupted run is repaired by the next one, but a tree that changes\n"
+        "        under the sabotage is a tree the sabotage proves nothing about."
+    )
     errors += check_escape_hatches()
     # `SCRIPT_GATES + SABOTAGE_ONLY_GATES` is the sabotage registry;
     # `FIXTURE_GATES` is the same property proved a different way. Both are
@@ -794,6 +980,10 @@ def check_can_fail() -> list[str]:
         if _is_gradle_gate(gate.cmd) and not _gradle_controls_enabled():
             print(f"  skip  {gate.name}: gradle-backed control — set {GRADLE_ENV}=1 "
                   f"to include it (check.sh does; see step 8 there)")
+            continue
+        if not _is_gradle_gate(gate.cmd) and not include_fast:
+            print(f"  skip  {gate.name}: fast control — the static job proves it "
+                  f"(sgate run-all --with-controls)")
             continue
 
         # Verify the gate passes on the real tree first. A gate that is already red
@@ -1740,9 +1930,12 @@ def check_registry_wiring() -> list[str]:
     # is the echo line inside the error handler:  `see sgate run-all output above`.
     # Without the lookahead that line would incorrectly satisfy the pattern,
     # masking a sabotage of the actual call (e.g. `sgate run-x ||`).
+    # Flags between the subcommand and the shell operator are part of the same
+    # invocation: `sgate run-all --with-controls || exit 1` runs the registry,
+    # with the control phase after it.
     invocation = re.compile(
         r"(?:^|\s)(?:bash|sh)\s+[\w./-]*scripts/ci/static-gates\.sh"
-        r"|(?:^|\s)sgate\s+run-all\b(?=\s*[||;&])"
+        r"|(?:^|\s)sgate\s+run-all\b(?:\s+--[\w-]+)*(?=\s*[||;&])"
     )
 
     for name, path in sorted(callers.items()):
@@ -2280,6 +2473,8 @@ def check_gate_reachability() -> list[str]:
 @click.command(epilog=__doc__)
 @click.option("--wiring", is_flag=True, help="Part A only")
 @click.option("--can-fail", is_flag=True, help="Part B only")
+@click.option("--except-can-fail", "except_can_fail", is_flag=True,
+              help="Skip the fast controls of Part B — the static job proves those")
 @click.option("--gradle-can-fail", "gradle_can_fail", is_flag=True, help="Part C only")
 @click.option("--ci-steps-blocking", "ci_steps_blocking", is_flag=True, help="Part D only")
 @click.option("--parity", is_flag=True, help="Part E only")
@@ -2288,10 +2483,12 @@ def check_gate_reachability() -> list[str]:
 @click.option("--reachability", is_flag=True, help="Part H only")
 @click.option("--gradle-parity", "gradle_parity", is_flag=True, help="Part I only")
 @click.option("--registry-cross", "registry_cross", is_flag=True, help="Part J only")
+@click.option("--dry-run", is_flag=True, help="List what the sabotage phase would touch, and touch nothing")
 @click.pass_context
 def main(ctx: click.Context,
     wiring: bool,
     can_fail: bool,
+    except_can_fail: bool,
     gradle_can_fail: bool,
     ci_steps_blocking: bool,
     parity: bool,
@@ -2300,6 +2497,7 @@ def main(ctx: click.Context,
     reachability: bool,
     gradle_parity: bool,
     registry_cross: bool,
+    dry_run: bool,
 ) -> None:
     """check-gate-wiring — prove the gates exist AND that they can fail.
 
@@ -2307,6 +2505,11 @@ def main(ctx: click.Context,
     to select specific parts. Every gate runs under a deadline
     (GATE_TIMEOUT_S / GRADLE_GATE_TIMEOUT_S); a hang reports "no verdict",
     never "failed".
+
+    Part B edits files in the working tree and puts them back. The restore is
+    atomic and the original is kept until it succeeded, so an interrupted run
+    leaves a tree the next run repairs. `--dry-run` lists the files the
+    sabotage would touch and touches none of them.
     """
     only = (
         wiring
@@ -2321,6 +2524,11 @@ def main(ctx: click.Context,
         or registry_cross
     )
     run_a = wiring or not only
+    # `--except-can-fail` runs everything but the fast controls. The fast
+    # controls are a gate of their own now — the static registry proves them
+    # (`sgate run-all --with-controls`), because they need no JVM and belong
+    # with the fast suite. A job that ran both would prove the same thing
+    # twice, and the second proof costs minutes.
     run_b = can_fail or not only
     run_c = gradle_can_fail or not only
     run_d = ci_steps_blocking or not only
@@ -2332,6 +2540,21 @@ def main(ctx: click.Context,
     run_j = registry_cross or not only
 
     errors: list[str] = []
+
+    # A run that was interrupted between the sabotage and the restore leaves
+    # the tree broken. The next run puts it back before it does anything else,
+    # and says so — a tree that is quietly broken is worse than one that stops.
+    for path in recover_interrupted_sabotage():
+        print(f"  restored {path} — an interrupted run had left it sabotaged")
+
+    if dry_run:
+        print("Part B (dry run) — the files the sabotage phase would edit")
+        for gate in [*SCRIPT_GATES, *SABOTAGE_ONLY_GATES]:
+            print(f"  {gate.sabotage_path}   ({gate.name})")
+        print("\nNothing was edited.")
+        ctx.exit(0)
+
+    _install_signal_handlers()
 
     if run_a:
         print("Part A — Gradle check tasks are wired into a gate")
@@ -2345,7 +2568,7 @@ def main(ctx: click.Context,
 
     if run_b:
         print("\nPart B — every registered script gate can fail")
-        errors += check_can_fail()
+        errors += check_can_fail(include_fast=not except_can_fail)
 
     if run_c:
         print("\nPart C — every configured Gradle check task can fail")

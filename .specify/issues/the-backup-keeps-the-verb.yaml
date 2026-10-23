@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/the-backup-keeps-the-verb/proposal.md
-  design: openspec/changes/the-backup-keeps-the-verb/design.md
-  adr: openspec/changes/the-backup-keeps-the-verb/adr.md
   tasks: openspec/changes/the-backup-keeps-the-verb/tasks.md
 specs_dir: openspec/changes/the-backup-keeps-the-verb/specs
 is_stub: false

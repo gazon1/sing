@@ -165,6 +165,23 @@ def create_issue_record(
         except ValueError:
             return str(p)
 
+    # Only the documents that exist. A record that names a design.md the
+    # change never had is a link to nothing: it sends the next session
+    # looking for a file that was never written, and it makes the record
+    # indistinguishable from one that does point at the change.
+    documents: dict[str, str] = {}
+    for key, filename in (
+        ("proposal", "proposal.md"),
+        ("design", "design.md"),
+        ("adr", "adr.md"),
+        ("tasks", "tasks.md"),
+    ):
+        candidate = change_dir / filename
+        if candidate.exists():
+            documents[key] = _rel(candidate)
+
+    specs_dir = change_dir / "specs"
+
     record = {
         "version": "1.0",
         "type": "openspec-change",
@@ -176,13 +193,8 @@ def create_issue_record(
         "speckit_imported": True,
         "adr_refs": adr_refs,
         "tags": tags,
-        "documents": {
-            "proposal": _rel(change_dir / "proposal.md"),
-            "design": _rel(change_dir / "design.md"),
-            "adr": _rel(change_dir / "adr.md"),
-            "tasks": _rel(change_dir / "tasks.md"),
-        },
-        "specs_dir": _rel(change_dir / "specs"),
+        "documents": documents,
+        "specs_dir": _rel(specs_dir) if specs_dir.exists() else None,
         "is_stub": is_stub(change_dir / "proposal.md"),
         "openspec_path": _rel(change_dir),
     }

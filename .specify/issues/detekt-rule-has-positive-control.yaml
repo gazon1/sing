@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/detekt-rule-has-positive-control/proposal.md
-  design: openspec/changes/detekt-rule-has-positive-control/design.md
-  adr: openspec/changes/detekt-rule-has-positive-control/adr.md
   tasks: openspec/changes/detekt-rule-has-positive-control/tasks.md
 specs_dir: openspec/changes/detekt-rule-has-positive-control/specs
 is_stub: false

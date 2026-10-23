@@ -29,6 +29,8 @@ sche... | — | — |
 | a write tool proposes before it writes | blocking | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
 | selectable text coverage | blocking | Find text surfaces that are neither selectable nor classified. | — | — |
 | issue registry covers every change | blocking | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
+| AGENTS.md pointers resolve | blocking | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
+| review verdicts cover every change | blocking | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
 | the tag catalogue matches the tags | blocking | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |
 | detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
 | detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
@@ -52,6 +54,8 @@ sche... | — | — |
 | the platform reference ports are true | blocking | check-platform-reference-ports.py — the platform reference against the code. | — | — |
 | doc dead refs | blocking | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
 | doc links | blocking | doc links | — | — |
+| navigation doc matches the code | blocking | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
+| DI fixture matches the definitions | blocking | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |
 | GitHub workflows are valid | blocking | GitHub workflows are valid | — | — |
 | YAML is structurally valid | blocking | YAML is structurally valid | — | — |
 | gate registries agree | blocking | check_gate_registries.py — the two gate registries agree on what exists. | — | — |
@@ -69,3 +73,5 @@ sche... | — | — |
 | test runs | blocking | check-test-runs.py — fail when a test run executed fewer tests than the basel... | — | — |
 | instrumented test floor | blocking | check-instrumented-test-floor.py — the instrumented suite's floor, and the ra... | — | — |
 | script conventions | blocking | check-script-conventions.py — enforce naming, docstring, and import conventio... | — | — |
+| the link grammar has one home | blocking | check-link-grammar.py — the link grammar has one home. | 0=the: grammar has one home, 1=a: file outside the home names the scheme | — |
+| the tool catalogue is current | blocking | check-tools-catalog.py — the catalogue of the gate scripts. | 0=the: catalogue is current (or was written), 1=the: catalogue is not what the scripts say today, 2=the: catalogue could not be read or written | — |

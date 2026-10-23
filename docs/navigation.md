@@ -57,7 +57,7 @@ Tab reselect emits `Nav3State.reselectEvents`; reselect never mutates a stack
 
 | Key | Inner start | Opened from (sources) | Notes |
 |---|---|---|---|
-| `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute())` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | the deep link names the tab too — see *Deep links* below |
+| `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute(initialDueDate))` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | the deep link names the tab too — see *Deep links* below |
 | `TasksByProject(projectId)` | *(no `entry<>` declared)* | **no production opener — unwired surface** (see `ProjectDetailUi` "see all") | candidate for follow-up issue |
 | `ProjectDetail(projectId)` | `ProjectsNavGraph(Detail)` | `TasksNavigator.openProject`, `SearchNavigator.openProject` | allow-list previously permitted from Tasks/Agenda contexts only |
 | `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | plans FAB, project detail edit | |
@@ -68,8 +68,9 @@ Tab reselect emits `Nav3State.reselectEvents`; reselect never mutates a stack
 
 **Deprecated app-level members with no `entry<>`** (removed in B4 after live-ref grep):
 `AppDestination.Inbox / Today / Upcoming`, `AppDestination.TaskDetail`,
-`AppDestination.TaskDetailCreate`, `TasksStartRoute.Inbox / Upcoming`
-(production mapping still exists: `toTasksRoute` maps the latter two to `Create(null)`).
+`AppDestination.TaskDetailCreate`, `TasksStartRoute.Inbox / Upcoming`.
+No mapping is left for them: `toTasksRoute` maps `Create` and `Detail`, and
+nothing maps a member that is gone.
 
 **Structurally invalid app-level targets** (REQ-NAV-003 — policy rejects with a
 descriptive error): bare nested start routes — `TasksStartRoute.*`,
@@ -90,7 +91,7 @@ registry answers "what does this URI open?" from an explicit ordered list.
 | Link | Owner | Tab | Screen |
 |---|---|---|---|
 | `singularity://task/{taskId}` | tasks — `TaskLinkSpec` | `AgendaGraph(Today)` | `TasksGraph(Detail(taskId))` |
-| `singularity://view/{viewId}` | agenda — `AgendaLinkSpec` | `AgendaGraph(Today)` | `AgendaGraph(SavedAgendaEdit(viewId))` |
+| `singularity://view/{viewId}` | agenda — `AgendaLinkSpec` | `AgendaGraph(Today)` | `AgendaGraph(SavedAgendaResults(viewId))` |
 | `singularity://verify?email=&token=` | auth — `AuthLinkSpec` | `AgendaGraph(Today)` | `MagicLinkConfirm(email, token)` |
 
 - The registry: `feature/nav/deeplink/` — `DeepLinkTarget`, `AppDeepLink`,
@@ -129,7 +130,7 @@ delegates to `Navigator.open`, which resolves via `NavigationPolicy`.
 | System back gesture | `SystemBackHandler` → the platform's `BackHandler` | `SystemBackHandler` → a no-op |
 | ViewModel store per entry | `rememberAppEntryDecorators` | the same — both platforms scope the store per entry |
 | Top-level graph stacks | each graph owns its own | hoisted into the shell's composition (ADR `2026-10-01-desktop-nav-followup`, Bug 3) |
-| `TasksGraph` inner stack | graph dispatch by stack top (ADR `2026-10-03-nav3-backstack-top-vs-start-dispatch`) | seeded `rememberInMemoryNavBackStack`, `Detail` start pushed eagerly |
+| `TasksGraph` inner stack | graph dispatch by stack top (ADR `2026-10-03-nav3-backstack-top-vs-start-dispatch`) | seeded `rememberInMemoryNavBackStack` with the requested route — the seed *is* the screen |
 | Agenda context menu | a bottom sheet, opened by a long press | a popup, opened by a right click |
 | Shell chrome | bottom bar + menu bottom sheet | drawer + window menu bar |
 | Deep link | `singularity://task/{id}`, `singularity://view/{id}`, `singularity://verify?…` → the deep-link registry | `singularity://…` via `--deeplink=<uri>`, resolved by the same registry |
@@ -154,8 +155,9 @@ A new screen inside a nested graph goes into that graph's `entryProvider` in
 `feature/<name>/presentation/nav/<Name>NavGraph.kt` — **one** file, not two.
 
 The tasks graph entry is the one exception: it stays in the platform assemblers,
-because Desktop seeds the pushed graph's stack itself and pushes the detail route
-onto it, so that the right frame renders immediately.
+because the desktop seeds the graph's stack itself — with the route the outer
+graph asked for, so that the right frame renders immediately instead of a
+placeholder under the screen the person asked for.
 
 ## Baseline (B0, 2026-10-04, before policy change)
 

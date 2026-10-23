@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/detekt-rule-coverage-floor/proposal.md
-  design: openspec/changes/detekt-rule-coverage-floor/design.md
-  adr: openspec/changes/detekt-rule-coverage-floor/adr.md
   tasks: openspec/changes/detekt-rule-coverage-floor/tasks.md
 specs_dir: openspec/changes/detekt-rule-coverage-floor/specs
 is_stub: false

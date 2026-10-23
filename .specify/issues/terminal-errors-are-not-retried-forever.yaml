@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-terminal-errors-are-not-retried-forever/proposal.md
-  design: openspec/changes/archive/2026-10-07-terminal-errors-are-not-retried-forever/design.md
-  adr: openspec/changes/archive/2026-10-07-terminal-errors-are-not-retried-forever/adr.md
   tasks: openspec/changes/archive/2026-10-07-terminal-errors-are-not-retried-forever/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-terminal-errors-are-not-retried-forever/specs
 is_stub: false

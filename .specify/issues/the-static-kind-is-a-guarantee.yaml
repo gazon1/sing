@@ -20,8 +20,6 @@ tags:
 - owner
 documents:
   proposal: openspec/changes/the-static-kind-is-a-guarantee/proposal.md
-  design: openspec/changes/the-static-kind-is-a-guarantee/design.md
-  adr: openspec/changes/the-static-kind-is-a-guarantee/adr.md
   tasks: openspec/changes/the-static-kind-is-a-guarantee/tasks.md
 specs_dir: openspec/changes/the-static-kind-is-a-guarantee/specs
 is_stub: false

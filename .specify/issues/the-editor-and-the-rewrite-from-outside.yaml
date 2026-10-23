@@ -17,8 +17,6 @@ tags:
 - contract
 documents:
   proposal: openspec/changes/the-editor-and-the-rewrite-from-outside/proposal.md
-  design: openspec/changes/the-editor-and-the-rewrite-from-outside/design.md
-  adr: openspec/changes/the-editor-and-the-rewrite-from-outside/adr.md
   tasks: openspec/changes/the-editor-and-the-rewrite-from-outside/tasks.md
 specs_dir: openspec/changes/the-editor-and-the-rewrite-from-outside/specs
 is_stub: false

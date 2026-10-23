@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-a-cycle-drains-the-feed-or-says-it-could-not/proposal.md
-  design: openspec/changes/archive/2026-10-07-a-cycle-drains-the-feed-or-says-it-could-not/design.md
-  adr: openspec/changes/archive/2026-10-07-a-cycle-drains-the-feed-or-says-it-could-not/adr.md
   tasks: openspec/changes/archive/2026-10-07-a-cycle-drains-the-feed-or-says-it-could-not/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-a-cycle-drains-the-feed-or-says-it-could-not/specs
 is_stub: false

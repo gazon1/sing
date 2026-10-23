@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/bulk-task-operations/proposal.md
-  design: openspec/changes/bulk-task-operations/design.md
-  adr: openspec/changes/bulk-task-operations/adr.md
   tasks: openspec/changes/bulk-task-operations/tasks.md
 specs_dir: openspec/changes/bulk-task-operations/specs
 is_stub: false

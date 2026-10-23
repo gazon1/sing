@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/attachment-viewing-and-annotation/proposal.md
   design: openspec/changes/attachment-viewing-and-annotation/design.md
-  adr: openspec/changes/attachment-viewing-and-annotation/adr.md
   tasks: openspec/changes/attachment-viewing-and-annotation/tasks.md
 specs_dir: openspec/changes/attachment-viewing-and-annotation/specs
 is_stub: false

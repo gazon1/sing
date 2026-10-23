@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/selector-and-tag-identity/proposal.md
-  design: openspec/changes/selector-and-tag-identity/design.md
-  adr: openspec/changes/selector-and-tag-identity/adr.md
   tasks: openspec/changes/selector-and-tag-identity/tasks.md
 specs_dir: openspec/changes/selector-and-tag-identity/specs
 is_stub: false

@@ -16,8 +16,6 @@ tags:
 - orphan-binding
 documents:
   proposal: openspec/changes/the-orphan-bindings-are-bound-but-never-injected/proposal.md
-  design: openspec/changes/the-orphan-bindings-are-bound-but-never-injected/design.md
-  adr: openspec/changes/the-orphan-bindings-are-bound-but-never-injected/adr.md
   tasks: openspec/changes/the-orphan-bindings-are-bound-but-never-injected/tasks.md
 specs_dir: openspec/changes/the-orphan-bindings-are-bound-but-never-injected/specs
 is_stub: false

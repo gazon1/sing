@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/genui-answer-contract/proposal.md
-  design: openspec/changes/genui-answer-contract/design.md
-  adr: openspec/changes/genui-answer-contract/adr.md
   tasks: openspec/changes/genui-answer-contract/tasks.md
 specs_dir: openspec/changes/genui-answer-contract/specs
 is_stub: false

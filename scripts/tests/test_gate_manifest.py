@@ -21,6 +21,7 @@ from sgate.commands._registry import GATES
 from sgate.commands.render_static_gates import BEGIN_MARKER, END_MARKER
 from sgate.gate_manifest import (
     CLUSTERS,
+    comment_lines,
     NOT_RUN_IN_STATIC,
     PLACEMENTS,
     PlacementKind,
@@ -137,6 +138,41 @@ class TestTheRenderedRegistry(unittest.TestCase):
         first = render_static_registry(_MODES)
         second = render_static_registry(_MODES)
         self.assertEqual(first, second)
+
+    def test_every_prose_line_of_the_registry_is_a_comment(self):
+        """The prose above a gate line is a comment, and the renderer says so.
+
+        The renderer used to write the note as it was, which left the `#` to
+        the author of the note. A note that forgot it was not a comment but a
+        command: the shell registry is a shell file, and the shell read the
+        prose above a gate line as much as a person did. The registry printed
+        `The: command not found` and still reported every gate as passed.
+        """
+        rendered = render_static_registry(_MODES)
+        for line in rendered.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("gate "):
+                continue
+            self.assertTrue(
+                stripped.startswith("#"),
+                f"the registry holds a line that the shell would run: {line!r}",
+            )
+
+    def test_a_note_carries_no_marker_of_its_own(self):
+        """The marker is the renderer's business — the note holds prose."""
+        for name, placement in static_placements():
+            for line in placement.note.split("\n"):
+                self.assertFalse(
+                    line.startswith("#"),
+                    f"the note of '{name}' carries a comment marker: {line!r}",
+                )
+
+    def test_the_marker_is_added_to_every_line_of_a_note(self):
+        """One place adds the marker, and it adds it to every line."""
+        self.assertEqual(
+            comment_lines("first line\n\nsecond line"),
+            ["# first line", "#", "# second line"],
+        )
 
 
 class TestTheClusterMembership(unittest.TestCase):

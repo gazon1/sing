@@ -120,6 +120,8 @@ class PrePushHookTest(unittest.TestCase):
         # judge from the graph.
         self._write('scripts/pre-push-verdict.py', VERDICT_SCRIPT.read_text(encoding='utf-8'))
         self._write('scripts/changed-modules.py', CHANGED_MODULES.read_text(encoding='utf-8'))
+        self._write('scripts/check-di-fixture-sync.py', PASSING_PYTHON_GATE)
+        self._write('scripts/check-navigation-doc-sync.py', PASSING_PYTHON_GATE)
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)

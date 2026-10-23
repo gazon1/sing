@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/avd-transport-carries-the-emulator/proposal.md
-  design: openspec/changes/avd-transport-carries-the-emulator/design.md
-  adr: openspec/changes/avd-transport-carries-the-emulator/adr.md
   tasks: openspec/changes/avd-transport-carries-the-emulator/tasks.md
 specs_dir: openspec/changes/avd-transport-carries-the-emulator/specs
 is_stub: false

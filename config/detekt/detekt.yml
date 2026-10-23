@@ -313,7 +313,7 @@ potential-bugs:
 style:
   active: true
   MaxLineLength:
-    active: false          # ktlint owns line length via .editorconfig (max_line_length = 140)
+    active: false          # ktlint owns line length via .editorconfig (max_line_length = 120)
   WildcardImport:
     active: true
     excludeImports: []
@@ -390,9 +390,21 @@ ktlint:
     # SavedAgendaListScreen.kt whose baseline entry made this rule the first one
     # in this section that was reporting without ever appearing in this file.
     # The rule is a real formatting choice — ktlint's `blank-line-between-when-
-    # conditions` under ktlint_official wants a blank line between branches that
-    # are not both single-line — so it is declared `active: true` rather than
-    # switched off, and the existing baseline entry keeps the code as written.
+    # conditions` under ktlint_official — so it is declared `active: true` rather
+    # than switched off, and the existing baseline entry keeps the code as written.
+    #
+    # What the rule asks for, stated exactly, because getting it wrong costs two
+    # detekt runs and the guess is not recoverable from the finding text:
+    #
+    #   * if ANY branch of a `when` is multiline — a body on its own line, or a
+    #     comment attached to a branch — then EVERY pair of branches is separated
+    #     by a blank line;
+    #   * if NO branch is multiline, then a blank line between two branches is
+    #     the finding.
+    #
+    # It is not "a blank line between branches that are not both single-line":
+    # that reads as if only the mixed pair is separated, and a `when` written that
+    # way is reported on every branch but the first.
     #
     # Same caveat as NoConsecutiveBlankLines above: a misspelling in this section
     # is silently ignored, so the spelling was confirmed by watching the
@@ -410,7 +422,7 @@ ktlint:
     active: true
     auto_correct: true
   max-line-length:
-    active: false          # ktlint owns this; .editorconfig sets max_line_length = 140
+    active: false          # ktlint owns this; .editorconfig sets max_line_length = 120
   # ── Declared 2026-10-10. Running on defaults without being named here — a rule
   # nobody chose. All findings are in baseline. ─────────────────────────────────
   parameter-list-spacing:
@@ -512,15 +524,19 @@ ktlint:
   Wrapping:
     active: true
     auto_correct: true
-  # This is the mechanism behind the 120-vs-140 conflict, and it is worth writing
-  # down. `.editorconfig` declares 140, `style:MaxLineLength` and
-  # `ktlint:max-line-length` are both `active: false` — and the 17 findings at
-  # 121-131 characters come from the ktlint rule running on its *unconfigured*
-  # default of 120. Declared here at 120, which is the value that has been
-  # effective all along: this changes no behaviour, it just stops the number
-  # being an accident. The 120-vs-140 decision is still open; see
-  # deferred-backlog.md
-  # #two-line-length-authorities-detekt-default-120-beats-editorconfig-140.
+  # The line-length limit, and the two places it is written down.
+  #
+  # It used to be a conflict: `.editorconfig` declared 140 while this rule ran
+  # on detekt's default of 120, and the 17 findings at 121-131 characters came
+  # from that accident. The two numbers have since been made to agree —
+  # `.editorconfig` says 120 and this rule says 120 — so the effective limit is
+  # 120 whichever rule asks.
+  #
+  # The paragraph that used to stand here described a decision that was still
+  # open ("the 120-vs-140 decision is still open"). It is not open any more:
+  # the editorconfig was changed to 120, and the number below is the one every
+  # rule now uses. A note that says a decision is open when it has been made is
+  # worse than no note: it sends a reader looking for a decision to make.
   MaximumLineLength:
     active: true
     maxLineLength: 120

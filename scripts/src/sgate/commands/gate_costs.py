@@ -104,6 +104,40 @@ def environment() -> dict[str, object]:
     }
 
 
+def host_load() -> dict[str, object]:
+    """How busy the machine was when the measurement was taken.
+
+    The cost of a gate is not a property of the gate alone: on a host that
+    already runs eight Gradle daemons, the same gate costs several times
+    more. A duration without the load it was measured under is a number
+    nobody can compare with anything.
+
+    This is deliberately *not* part of the environment: the environment says
+    whether two measurements are comparable at all, and the load changes
+    every minute — a comparison that included it would never hold.
+    """
+    try:
+        one, five, fifteen = os.getloadavg()
+    except (OSError, AttributeError):  # not every platform has it
+        return {}
+    return {
+        "load1m": round(one, 1),
+        "load5m": round(five, 1),
+        "load15m": round(fifteen, 1),
+        "cpus": os.cpu_count() or 0,
+    }
+
+
+def _describe_load(load: dict[str, object]) -> str:
+    """The load, in a sentence a reader can compare with another one."""
+    one = load.get("load1m")
+    cpus = load.get("cpus")
+    if not isinstance(one, (int, float)):
+        return ""
+    per_cpu = f" on {cpus} CPUs" if isinstance(cpus, int) and cpus else ""
+    return f"the host was at load {one}{per_cpu}"
+
+
 def _same_environment(left: dict[str, object], right: dict[str, object]) -> bool:
     """Whether two measurements were taken on the same machine."""
     return left == right
@@ -126,6 +160,7 @@ def read_measurement() -> dict[str, object]:
         "schemaVersion": SCHEMA_VERSION,
         "recordedAt": int(time.time() * 1000),
         "environment": environment(),
+        "host": host_load(),
         "gates": gates,
         "steps": steps,
     }
@@ -324,6 +359,13 @@ def _render_block(baseline: dict[str, object]) -> str:
         described = ", ".join(f"{key}={value}" for key, value in sorted(env.items()) if value != "")
         lines.append(f"Recorded on {recorded or 'an unrecorded date'} — {described}.")
         lines.append("")
+    load = baseline.get("host")
+    if isinstance(load, dict) and load:
+        described_load = _describe_load(load)
+        if described_load:
+            lines.append(f"Measured while {described_load} — the cost of a gate is a")
+            lines.append("property of the gate and the host together, and this is the host.")
+            lines.append("")
     lines.append("| What | Median |")
     lines.append("|------|--------|")
     for kind, title in (("steps", "Step"), ("gates", "Gate")):

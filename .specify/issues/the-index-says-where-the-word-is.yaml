@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-22-the-index-says-where-the-word-is/proposal.md
-  design: openspec/changes/archive/2026-10-22-the-index-says-where-the-word-is/design.md
-  adr: openspec/changes/archive/2026-10-22-the-index-says-where-the-word-is/adr.md
   tasks: openspec/changes/archive/2026-10-22-the-index-says-where-the-word-is/tasks.md
 specs_dir: openspec/changes/archive/2026-10-22-the-index-says-where-the-word-is/specs
 is_stub: false

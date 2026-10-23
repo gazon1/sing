@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/delete-safety-feedback/proposal.md
   design: openspec/changes/delete-safety-feedback/design.md
-  adr: openspec/changes/delete-safety-feedback/adr.md
   tasks: openspec/changes/delete-safety-feedback/tasks.md
 specs_dir: openspec/changes/delete-safety-feedback/specs
 is_stub: false

@@ -18,8 +18,6 @@ tags:
 - imports
 documents:
   proposal: openspec/changes/the-field-shape-is-derived-not-read/proposal.md
-  design: openspec/changes/the-field-shape-is-derived-not-read/design.md
-  adr: openspec/changes/the-field-shape-is-derived-not-read/adr.md
   tasks: openspec/changes/the-field-shape-is-derived-not-read/tasks.md
 specs_dir: openspec/changes/the-field-shape-is-derived-not-read/specs
 is_stub: false

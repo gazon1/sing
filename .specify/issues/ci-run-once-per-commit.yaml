@@ -13,9 +13,7 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/ci-run-once-per-commit/proposal.md
-  design: openspec/changes/ci-run-once-per-commit/design.md
-  adr: openspec/changes/ci-run-once-per-commit/adr.md
   tasks: openspec/changes/ci-run-once-per-commit/tasks.md
-specs_dir: openspec/changes/ci-run-once-per-commit/specs
+specs_dir: null
 is_stub: false
 openspec_path: openspec/changes/ci-run-once-per-commit

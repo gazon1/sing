@@ -83,6 +83,10 @@ dependencies {
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(kotlin("reflect"))
+    // The e2e test reads the database the spawned server wrote, to see what a tool
+    // call actually stored. The app opens SQLite through androidx.sqlite; a plain JDBC
+    // reader needs the driver itself, and the project already ships it for desktopApp.
+    testImplementation(libs.sqlite.jdbc)
     // Allure test reporting — generates JSON results for CI integration
     testImplementation(libs.allure.kotlin.junit5)
 
