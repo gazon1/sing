@@ -1,14 +1,9 @@
 package com.singularity.todo.core.database
 
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.sync.SyncShadowEntity
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
@@ -64,45 +59,23 @@ class Migration36To37Test {
     }
 
     /**
-     * Applies every entity DDL + `setupQueries` from the exported v36 schema, then
-     * seeds one `sync_shadow` row.
+     * Opens the v36 database, with one `sync_shadow` row in it, and upgrades it.
      *
      * Seeding matters: an `ALTER TABLE … ADD COLUMN … DEFAULT 0` on an empty table
      * is indistinguishable from one on a table with rows, and the second is the case
      * that decides whether a user's data is real or invented.
      */
-    private fun applyV36Fixture(connection: SQLiteConnection) {
-        val sharedDir = File(System.getProperty("commonMain.root")!!)
-            .parentFile.parentFile.parentFile
-        val schemaJson = File(sharedDir, "schemas/com.singularity.todo.core.database.AppDatabase/36.json")
-        assertTrue(schemaJson.exists(), "v36 schema not found at $schemaJson")
-
-        val database = Json.parseToJsonElement(schemaJson.readText()).jsonObject["database"]!!.jsonObject
-        for (entity in database["entities"]!!.jsonArray) {
-            val obj = entity.jsonObject
-            val tableName = obj["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(obj["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName))
-            for (index in obj["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-
-        // A row that existed before the upgrade, in the shape v36 knew.
-        connection.execSQL(
-            "INSERT INTO sync_shadow " +
-                "(owner_id, profile_id, entity_type, entity_id, confirmed_json, in_flight_json, in_flight_patch_id) " +
-                "VALUES ('owner-1', 'work', 'task', 'task-1', '{\"title\":\"before\"}', NULL, NULL)",
-        )
-        connection.execSQL("PRAGMA user_version = 36")
-    }
-
     private fun openMigrated(): AppDatabase {
-        createSqlDriver().open(dbPath).use { applyV36Fixture(it) }
+        createSqlDriver().open(dbPath).use { connection ->
+            applyExportedSchema(36, connection)
+            // A row that existed before the upgrade, in the shape v36 knew.
+            connection.execSQL(
+                "INSERT INTO sync_shadow " +
+                    "(owner_id, profile_id, entity_type, entity_id, confirmed_json, in_flight_json, " +
+                    "in_flight_patch_id) " +
+                    "VALUES ('owner-1', 'work', 'task', 'task-1', '{\"title\":\"before\"}', NULL, NULL)",
+            )
+        }
         return AppDatabaseFactory.build(createSqlDriver(), dbPath)
     }
 

@@ -4,10 +4,6 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
@@ -16,7 +12,6 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * The v38→v39 upgrade ([Migration38To39]) and what it does to a profile's owner.
@@ -54,37 +49,6 @@ class Migration38To39Test {
     @AfterTest
     fun tearDown() {
         tempDir.deleteRecursively()
-    }
-
-    /** Applies every entity DDL + `setupQueries` from the exported v38 schema. */
-    private fun applyV38Fixture(connection: SQLiteConnection) {
-        // commonMain.root = <shared>/src/commonMain/kotlin → schemas live at <shared>/schemas/…
-        val sharedDir = File(System.getProperty("commonMain.root")!!)
-            .parentFile.parentFile.parentFile
-        val schemaJson = File(
-            sharedDir,
-            "schemas/com.singularity.todo.core.database.AppDatabase/38.json",
-        )
-        assertTrue(schemaJson.exists(), "v38 schema not found at $schemaJson")
-
-        val database = Json.parseToJsonElement(schemaJson.readText()).jsonObject["database"]!!.jsonObject
-        for (entity in database["entities"]!!.jsonArray) {
-            val obj = entity.jsonObject
-            val tableName = obj["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(
-                obj["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName),
-            )
-            for (index in obj["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content
-                        .replace("\${TABLE_NAME}", tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-        connection.execSQL("PRAGMA user_version = 38")
     }
 
     /** A profile as it existed at v38: no owner, because the column did not exist. */
@@ -130,7 +94,7 @@ class Migration38To39Test {
     @Test
     fun `an existing profile survives the upgrade`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV38Fixture(connection)
+            applyExportedSchema(38, connection)
             seedProfile(connection, "p-default", "Personal")
             seedProfile(connection, "p-work", "Work")
 
@@ -144,7 +108,7 @@ class Migration38To39Test {
     @Test
     fun `an existing profile is unowned after the upgrade, not guessed at`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV38Fixture(connection)
+            applyExportedSchema(38, connection)
             seedProfile(connection, "p-default", "Personal")
 
             Migration38To39().migrate(connection)
@@ -159,7 +123,7 @@ class Migration38To39Test {
     @Test
     fun `a profile written after the upgrade keeps the owner it was given`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV38Fixture(connection)
+            applyExportedSchema(38, connection)
             Migration38To39().migrate(connection)
 
             connection.execSQL(
@@ -178,7 +142,7 @@ class Migration38To39Test {
     @Test
     fun `a profile may be created unowned after the upgrade too`() = runTest {
         createSqlDriver().open(dbPath).use { connection ->
-            applyV38Fixture(connection)
+            applyExportedSchema(38, connection)
             Migration38To39().migrate(connection)
 
             connection.execSQL(

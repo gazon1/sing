@@ -98,8 +98,15 @@ internal fun roundTripFrom(version: Int) = runTest {
     }
 }
 
-/** The exported schema of [version]. */
-private fun schemaFile(version: Int): File {
+/**
+ * The exported schema of [version] — the one place that knows where they live.
+ *
+ * The path was written out in every migration test that needed it, and each copy
+ * counted the same three `parentFile`s to get there: a copy that counted one too
+ * many looked for the schema outside the module and reported it as missing, which
+ * reads like a missing export rather than like a wrong path.
+ */
+internal fun schemaFile(version: Int): File {
     val root = System.getProperty("commonMain.root")
         ?: error("the commonMain.root system property is not set — see shared/build.gradle.kts")
     val module = File(root).parentFile.parentFile.parentFile
@@ -111,31 +118,51 @@ private fun schemaFile(version: Int): File {
  *
  * The DDL is Room's own export, not something written here: a fixture that
  * approximated the schema would test the approximation.
+ *
+ * This is the one place that does it. Every migration test used to carry its own
+ * copy of this function — twelve copies of the same thirty lines, each of which
+ * could drift from the export and from the other copies, and each of which had to
+ * be found again by whoever read the next migration.
  */
-private fun seedFixture(version: Int, dbPath: String) {
+internal fun applyExportedSchema(version: Int, connection: SQLiteConnection) {
+    val database = exportedSchema(version)
+    for (entity in database["entities"]!!.jsonArray) {
+        val table = entity.jsonObject
+        val tableName = table["tableName"]!!.jsonPrimitive.content
+        connection.execSQL(
+            table["createSql"]!!.jsonPrimitive.content.replace(TABLE_NAME, tableName),
+        )
+        for (index in table["indices"]?.jsonArray.orEmpty()) {
+            connection.execSQL(
+                index.jsonObject["createSql"]!!.jsonPrimitive.content.replace(TABLE_NAME, tableName),
+            )
+        }
+    }
+    for (query in database["setupQueries"]!!.jsonArray) {
+        connection.execSQL(query.jsonPrimitive.content)
+    }
+    connection.execSQL("PRAGMA user_version = $version")
+}
+
+/** The `database` section of the exported schema of [version]. */
+private fun exportedSchema(version: Int): JsonObject {
     val schema = schemaFile(version)
     assertTrue(schema.isFile, "the exported schema of v$version is missing at $schema")
-    val database = Json.parseToJsonElement(schema.readText())
+    return Json.parseToJsonElement(schema.readText())
         .jsonObject["database"]!!
         .jsonObject
+}
 
+/**
+ * Build the database a user of [version] would have had, with one row in it.
+ *
+ * The schema comes from [applyExportedSchema]; the row is the point: a schema
+ * that survives the chain while the data in it does not is not an upgrade.
+ */
+private fun seedFixture(version: Int, dbPath: String) {
+    val database = exportedSchema(version)
     createSqlDriver().open(dbPath).use { connection ->
-        for (entity in database["entities"]!!.jsonArray) {
-            val table = entity.jsonObject
-            val tableName = table["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(
-                table["createSql"]!!.jsonPrimitive.content.replace(TABLE_NAME, tableName),
-            )
-            for (index in table["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content.replace(TABLE_NAME, tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-        connection.execSQL("PRAGMA user_version = $version")
+        applyExportedSchema(version, connection)
         insertAnchor(connection, database)
     }
 }
