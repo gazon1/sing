@@ -180,6 +180,15 @@ class ScriptGate:
 
 SCRIPT_GATES = [
     ScriptGate(
+        name="ai-write-tools",
+        cmd=[sys.executable, "scripts/check-ai-write-tools.py"],
+        why=(
+            "a tool that writes a user's data without saying so is a change the user "
+            "never saw: the registry of direct writes is where that promise is kept, "
+            "and a registry that stopped saying why is a registry nobody reads"
+        ),
+    ),
+    ScriptGate(
         name="text-field-transformations-table",
         cmd=[sys.executable, "scripts/check-text-field-transformations-table.py"],
         why=(
@@ -658,6 +667,31 @@ def _setup_slow_tests_ran(root: Path) -> None:
     results.mkdir(parents=True, exist_ok=True)
 
 
+def _setup_gate_tooling_origin(root: Path) -> None:
+    """The gate script in a tree whose `sgate` package is a foreign one.
+
+    The gate asks where the importable `sgate` comes from and compares it with
+    the package next to itself. This fixture reproduces the state the gate was
+    written for: the script sits in `<tmp>/scripts`, and the `sgate` that
+    Python imports from there is a stub — the directory of the script is
+    `sys.path[0]`, so the stub wins over anything installed. The gate must
+    report FOREIGN and exit non-zero.
+
+    The stub is not there to be imported by anything: the gate does not import
+    `sgate` on purpose (it says so in its own docstring), it only asks
+    `find_spec` where the package would come from.
+    """
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    source = Path(__file__).resolve().parents[2] / "check-gate-tooling-origin.py"
+    (scripts / "check-gate-tooling-origin.py").write_text(
+        source.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    foreign = scripts / "sgate"
+    foreign.mkdir(parents=True, exist_ok=True)
+    (foreign / "__init__.py").write_text("", encoding="utf-8")
+
+
 def _setup_maestro_results(root: Path) -> None:
     """A Maestro run that failed a flow, and a flow that never reported at all.
 
@@ -757,6 +791,20 @@ FIXTURE_GATES = [
             "surface changed the shape of its answer, and was found by CI rather than by "
             "anyone holding the tree"
         ),
+        needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="gate-tooling-origin",
+        cmd=[sys.executable, "{tmp}/scripts/check-gate-tooling-origin.py", "--quiet"],
+        setup=_setup_gate_tooling_origin,
+        why=(
+            "a gate run in a worktree can report \"41 passed, 0 failed\" about a tree "
+            "that is not the one in front of you: the `sgate` package is an editable "
+            "install, so the venv on PATH decides which checkout the gate CLI is. A "
+            "green run about someone else's tree is the failure this gate exists for"
+        ),
+        # No clean run exists: the command names the fixture's own tree, so
+        # there is nothing to run it against before the fixture is seeded.
         needs_clean_run=False,
     ),
     FixtureGate(

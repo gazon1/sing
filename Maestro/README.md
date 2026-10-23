@@ -199,7 +199,21 @@ on the item's outer node.
      `TestTagsCatalogJvmTest` and the `validate-selectors` CI gate.
 4. Tag it: always `feature`, plus `smoke` for P0 and `regression` for P1.
 5. Run it: `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
-6. On failure, read `~/.maestro/tests/<timestamp>/` — it holds the view
+6. **Say whether it ran on a device.** A flow that has only been checked
+   syntactically is not a flow that has been checked: the selector validator
+   proves the ids exist, not that the screen is where the flow thinks it is.
+   Write the line in the PR description, in this form:
+
+   ```
+   прогнан на устройстве: да (2026-10-23)   |   нет (эмулятор был занят)
+   ```
+
+   "нет" is an honest answer and a useful one — it tells the next reader that
+   the flow has not met a screen yet. "да" without a date is not an answer.
+   A flow added to `smoke` has to have run on a device: a smoke flow that was
+   never run is a smoke flow that fails in CI on the first evening it is
+   allowed to fail.
+7. On failure, read `~/.maestro/tests/<timestamp>/` — it holds the view
    hierarchy and screenshots for the failing step.
 
 ## Cold-start

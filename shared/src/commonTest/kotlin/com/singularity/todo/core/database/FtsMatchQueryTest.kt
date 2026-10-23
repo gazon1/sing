@@ -1,5 +1,6 @@
 package com.singularity.todo.core.database
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.TextMatchQuery
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -15,7 +16,7 @@ import kotlin.test.assertNull
  *
  * The expression is a *phrase*, because that is what the rule asks for: the
  * words of a term stand next to each other, and only the last one may be
- * unfinished. See `FreeTextRule` and
+ * unfinished. See [FreeTextRule] and
  * `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
  */
 @Tag("fast")

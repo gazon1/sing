@@ -322,6 +322,102 @@ for i in "${!PUSH_REFS[@]}"; do
             fi
         done
     fi
+
+    # ── The promise files ─────────────────────────────────────────────────
+    #
+    # Some files in this repository promise something about the code next to
+    # them, and each promise has been broken at least once — always in CI,
+    # always hours later, always on somebody else's tree:
+    #
+    #   Maestro/TAGS.md                — the catalogue of the ids a flow may
+    #                                     address, generated from TestTags.kt
+    #   config/docs/maestro-flows.txt  — the catalogue of the flows themselves
+    #   .specify/issues/*.yaml         — the registry of every openspec change
+    #
+    # A checker for each of them exists and costs seconds. What was missing was
+    # the moment: the promise is kept when the file next to it changes, not
+    # when CI eventually notices.
+    #
+    # So the check runs here, against the tree that is being pushed, and only
+    # when that tree actually touches the file that carries the promise — a
+    # push that touches nothing relevant pays nothing.
+    #
+    # The checkers are run FROM the pushed tree (`$tree/scripts/...`), because
+    # each derives its repository root from its own file location: the copy in
+    # the tree is the copy that knows about the tree.
+    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+        PROMISE_RANGE=("$remote_sha..$local_sha")
+    else
+        PROMISE_RANGE=("$local_sha" --not --remotes)
+    fi
+    # The files the pushed commits touch. `git log --name-only` rather than
+    # `git diff`: the range is the pushed commits, and a file that a commit
+    # touched is a file this push carries.
+    PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+
+    # promise_touched <path> — did this push touch that path?
+    #
+    # `grep -c` and not `grep -q`: `-q` closes the pipe on the first hit, the
+    # writer takes SIGPIPE, and with `pipefail` the pipeline reports 141 —
+    # which is a broken pipe, not an answer.
+    promise_touched() {
+        printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+    }
+
+    # The output of a promise check, kept for the failure message.
+    #
+    # The checkers import the gate CLI, whose logger writes a DEBUG line per
+    # loaded module — noise that would bury the finding in a hook that people
+    # read when they are trying to push. The output is captured instead of
+    # streamed, and shown (without the DEBUG lines) only when the check fails.
+    PROMISE_OUT="$(mktemp "${TMPDIR:-/tmp}/pre-push-promise-XXXXXX")"
+
+    if promise_touched "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt$"; then
+        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/check-test-tags-catalog.py" --check --quiet) \
+            >"$PROMISE_OUT" 2>&1; then
+            echo "   tag catalogue gate: OK"
+        else
+            echo "   tag catalogue gate: FAILED"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — Maestro/TAGS.md does not match TestTags.kt in the tree of $local_ref."
+            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+            echo "Regenerate it: ./gradlew :shared:jvmTest -PupdateGoldens=true, or push with --no-verify."
+        fi
+    fi
+
+    if promise_touched "Maestro/flows/" || promise_touched "config/docs/maestro-flows.txt$"; then
+        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/check-maestro-flow-catalogue.py") \
+            >"$PROMISE_OUT" 2>&1; then
+            echo "   maestro flow catalogue gate: OK"
+        else
+            echo "   maestro flow catalogue gate: FAILED"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — the Maestro flow catalogue does not match the flows in the tree of $local_ref."
+            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+            echo "Add the new flow to config/docs/maestro-flows.txt, or push with --no-verify."
+        fi
+    fi
+
+    if promise_touched "openspec/changes/"; then
+        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+            python3 "$tree/scripts/check-issue-registry.py" --quiet) \
+            >"$PROMISE_OUT" 2>&1; then
+            echo "   issue registry gate: OK"
+        else
+            echo "   issue registry gate: FAILED"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — an openspec change in the tree of $local_ref has no record in .specify/issues/."
+            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+            echo "Record it with: python3 scripts/openspec-import-all.py --replace, or push with --no-verify."
+        fi
+    fi
+
+    rm -f "$PROMISE_OUT"
 done
 
 if [ "$GATES_FAILED" = "1" ]; then

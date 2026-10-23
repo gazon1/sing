@@ -197,6 +197,29 @@ export -f yaml_is_structurally_valid
 # The `|| [[ $? == 0 ]]` guard at the end of this file ensures main() is NOT called
 # when sourced — only when the script runs as a command.
 main() {
+# ─── The tooling must serve this checkout ─────────────────────────────────────
+# A gate run that measures ANOTHER tree is not a gate run that found nothing to
+# report: it is green, quiet, and says nothing about the code in front of you.
+#
+# The `sgate` package is an editable install, so the venv on PATH decides which
+# checkout's `scripts/src/sgate` the gate CLI is — and `sgate/repo.py` derives
+# the repository root from its own file location, so a foreign CLI reads a
+# foreign registry and measures a foreign tree.
+#
+# Measured on 2026-10-22: a run here reported "41 passed, 0 failed" while
+# measuring another worktree, whose registry was three gates shorter than this
+# checkout's — and the three that were missing were exactly the ones that
+# failed in CI afterwards (the tag catalogue, the issue registry, the
+# selectable-text coverage).
+#
+# So the check comes first, and it is a refusal rather than a warning: a run
+# that cannot say which tree it measured has no verdict to give.
+if ! python3 scripts/check-gate-tooling-origin.py; then
+    echo "" >&2
+    echo "the gate CLI does not serve this checkout — the run below would measure" >&2
+    echo "another tree. Fix the venv (the message above names the command)." >&2
+    return 1
+fi
 # >>> BEGIN GENERATED: sgate render-static-gates — do not edit by hand >>>
 # The two gate registries against each other, first: everything below is
 # dispatched through one of them, and a gate that exists in one and not the

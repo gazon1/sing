@@ -31,6 +31,18 @@ import kotlinx.datetime.DayOfWeek
  * test being skipped. Budget a couple of minutes; the cost is easy to forget and
  * the failure message points at the generated section rather than at the step
  * that fixes it.
+ *
+ * ### The fast check, before the JVM
+ *
+ * ```
+ * python3 scripts/check-test-tags-catalog.py --check
+ * ```
+ *
+ * The same comparison without the JVM: it parses this object and the generated
+ * section of `Maestro/TAGS.md` and says in a second whether they still agree.
+ * Run it right after adding a constant — it costs a second, and it is what
+ * tells you *that* the catalogue is stale before you spend minutes finding out.
+ * The pre-push hook runs it for you whenever the push touches this file.
  */
 // The one flat namespace for every automation tag is the point of this object: a
 // tag must be findable from a Compose call site, a unit test, and a Maestro flow

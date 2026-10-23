@@ -5,8 +5,8 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchTextIndex
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -22,12 +22,18 @@ class InternalLinkRepositoryImpl(
 
     override suspend fun searchNotes(query: String): List<Note> {
         if (query.isBlank()) return emptyList()
-        return textIndex.recentNoteTitles(TextMatchQuery(listOf(query)), limit = SUGGESTION_LIMIT)
+        return textIndex.recentNoteTitles(
+            FreeTextRule.singleTerm(query).indexQuery(),
+            limit = SUGGESTION_LIMIT,
+        )
     }
 
     override suspend fun searchTasks(query: String): List<Task> {
         if (query.isBlank()) return emptyList()
-        return textIndex.recentTaskTitles(TextMatchQuery(listOf(query)), limit = SUGGESTION_LIMIT)
+        return textIndex.recentTaskTitles(
+            FreeTextRule.singleTerm(query).indexQuery(),
+            limit = SUGGESTION_LIMIT,
+        )
     }
 
     override suspend fun getBacklinkNotes(noteId: String): List<Note> {

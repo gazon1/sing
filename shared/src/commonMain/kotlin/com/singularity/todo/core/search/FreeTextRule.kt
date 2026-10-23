@@ -1,7 +1,4 @@
-package com.singularity.todo.feature.search.query
-
-import com.singularity.todo.core.search.TextMatchPlan
-import com.singularity.todo.core.search.TextMatchQuery
+package com.singularity.todo.core.search
 
 /**
  * The free-text part of a query — the terms that match no condition rule (§3 G5) —
@@ -195,5 +192,55 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
         return TextMatchPlan.Narrowed(
             TextMatchQuery(terms = positive, combinesWithOr = combinesWithOr),
         )
+    }
+
+    /**
+     * The question the index is asked about this rule.
+     *
+     * ## Why the rule answers it
+     *
+     * Three callers used to build that question by hand — the note search, the
+     * link autocompletion, the task repository's own text filter. A
+     * hand-built question is a decision about what the index can answer, taken
+     * away from the rule that knows: a caller that built it wrongly — an
+     * empty question, a negated term in it, terms joined the other way — would
+     * ask the index a question nobody wrote down, and the answer would look
+     * like an answer all the same.
+     *
+     * The question is therefore asked here, once, and the callers ask the
+     * rule for it.
+     *
+     * ## The question
+     *
+     * - The **positive** terms are what the index answers (F2b), so they are
+     *   the question.
+     * - The **negated** terms are not in it: FTS has no `NOT` operator.
+     * - A rule the index cannot answer at all asks it nothing — the empty
+     *   question. An empty question finds nothing, so a caller that has to
+     *   read the rows reads them itself; it does not get every row from the
+     *   index by accident.
+     *
+     * @return The question the index is asked — empty when the index cannot
+     *   narrow the rule.
+     */
+    fun indexQuery(): TextMatchQuery = when (val plan = plan()) {
+        is TextMatchPlan.Narrowed -> plan.query
+        TextMatchPlan.BroadScan -> TextMatchQuery.EMPTY
+    }
+
+    companion object {
+        /**
+         * The rule of a plain search text — one term, and no connective.
+         *
+         * Some surfaces search a text and nothing else: the search field of
+         * the notes list, the autocompletion of a link, the text filter of
+         * the task list. They are not the query language — there is no `OR`
+         * and no `NOT` in them — and they are still the same rule: a term
+         * matches a word by its beginning (F2a).
+         *
+         * @param text The text the person typed.
+         */
+        fun singleTerm(text: String): FreeTextRule =
+            FreeTextRule(terms = listOf(Term(text = text)))
     }
 }

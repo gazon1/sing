@@ -11,8 +11,8 @@ import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchTextIndex
-import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
@@ -89,7 +89,7 @@ class TaskRepositoryImpl(
             // The index answers with the record and the place the word was
             // found; a filter asks for the record, and the position is the
             // search screen's business.
-            return textIndex.observeTasks(TextMatchQuery(listOf(filter.query)))
+            return textIndex.observeTasks(FreeTextRule.singleTerm(filter.query).indexQuery())
                 .map { rows -> rows.map { it.record } }
         }
         return currentUser.observeForCurrentUser { uid ->

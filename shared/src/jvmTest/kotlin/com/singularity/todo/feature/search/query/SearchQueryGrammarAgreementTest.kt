@@ -162,11 +162,17 @@ class SearchQueryGrammarAgreementTest {
     private fun commentsInCode(): List<String> = searchSources().map { commentsOnly(it.readText()) }
 
     /**
-     * The production sources of the search feature.
+     * The production sources of the search feature and of the core layer that
+     * holds its rule.
      *
-     * The scope is the feature, not the whole of `commonMain`: other modules have
-     * their own `D1` and `R1` in their comments, and a rule of theirs is not a rule
-     * of this grammar.
+     * The scope is the feature and the rule, not the whole of `commonMain`:
+     * other modules have their own `D1` and `R1` in their comments, and a rule
+     * of theirs is not a rule of this grammar.
+     *
+     * The rule itself moved to `core/search` — beside the plan it decides and
+     * the port of the index it is asked through — so the core layer is in the
+     * scope too. A citation of a rule belongs next to the rule, and the rule
+     * is here now (#885).
      */
     private fun searchSources(): List<File> {
         val commonMain = System.getProperty("commonMain.root")
@@ -174,9 +180,16 @@ class SearchQueryGrammarAgreementTest {
                 "the system property `commonMain.root` is not set: the build file has to say " +
                     "where the sources are",
             )
-        val root = File(commonMain, "com/singularity/todo/feature/search")
-        assertTrue(root.isDirectory, "the search feature's sources are not where the build file says: $root")
-        return root.walkTopDown().filter { it.isFile && it.extension == "kt" }.sortedBy { it.path }.toList()
+        val roots = listOf(
+            File(commonMain, "com/singularity/todo/feature/search"),
+            File(commonMain, "com/singularity/todo/core/search"),
+        )
+        roots.forEach { root ->
+            assertTrue(root.isDirectory, "the search sources are not where the build file says: $root")
+        }
+        return roots.flatMap { root ->
+            root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+        }.sortedBy { it.path }
     }
 
     /**
