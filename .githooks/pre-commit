@@ -21,14 +21,27 @@ set -e
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# Skip when inside a git worktree. This is no longer a correctness workaround
-# (ROOT is resolved from Git, so the hook now sees the worktree's own source);
-# it stays because a full compile on every commit is several minutes, and CI
-# compiles anyway.
-if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
-    echo "=== Pre-commit: skipped (worktree) ==="
-    exit 0
-fi
+# The hook compiles here, in a worktree, exactly as it does in the main
+# checkout.
+#
+# It used to skip: a linked worktree exited 0 without compiling anything, and a
+# linked worktree is this repository's MAIN working mode. The cost of the
+# compile is the reason that skip was there — a full compile is minutes — but
+# the compile is incremental, and a worktree's own Gradle home keeps the
+# configuration cache warm: once the worktree is warm, a commit that changes no
+# Kotlin source costs seconds, not minutes. The cold price is paid once, by the
+# first commit in the worktree.
+#
+# What the skip bought was a commit that does not compile. The breakage was
+# found in CI — or, when the merge went through without CI, not at all: a
+# Kotlin test was changed in a worktree, the commit passed because nothing was
+# compiled, and the merge reached main unverified. ADR
+# 2026-09-25-git-hooks-worktree-isolation says worktrees get a "compile-only"
+# check; the implementation gave them nothing, and this is where the two are
+# made to agree.
+#
+# The price of the check is the commit's wait. It is written down here so it
+# reads as a decision: the wait is the price of knowing the commit compiles.
 
 echo "=== Pre-commit: linting the changed files ==="
 python3 scripts/lint-changed.py || {

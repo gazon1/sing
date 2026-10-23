@@ -85,7 +85,7 @@ that the code review kept missing. The ones that bite most often:
 
 | When | What runs | Scope |
 |---|---|---|
-| On commit | `just lint-changed` (via `.githooks/pre-commit`) | detekt on the changed files only — seconds, not minutes. |
+| On commit | `.githooks/pre-commit` | `just lint-changed` over the changed files (seconds) + the compile of `:shared` and `:desktopApp` — in a worktree too, since 2026-10-23 (ADR `2026-10-23-the-commit-hook-compiles-in-a-worktree`). |
 | On push | `.githooks/pre-push` | The structural gates + `detekt --auto-correct` on the pushable tree. |
 | Locally, on demand | `./gw :shared:detekt` | The whole module. |
 | Everywhere | `sgate run-all --summary` | Every gate in the registry — one line per failed gate. |

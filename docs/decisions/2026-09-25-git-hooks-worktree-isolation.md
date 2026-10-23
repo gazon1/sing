@@ -70,11 +70,21 @@ fi
 
 Used by hooks to adjust behavior (e.g., `pre-push` runs in all contexts; `pre-commit` compile-only in worktrees since full test runs belong in CI).
 
+Since 2026-10-23 the `pre-commit` hook does not use this detection at all: it compiles in
+every context, and the detection it used was the thing that switched the check off in
+the mode most commits are made in. ADR
+`2026-10-23-the-commit-hook-compiles-in-a-worktree` records the change and its price.
+
+The `pre-commit` row of D4 is what the hook does since 2026-10-23. It did not before: a linked worktree exited 0 without compiling, so the
+"compile-only" this table promises was never reached in the mode most commits are made in. ADR
+`2026-10-23-the-commit-hook-compiles-in-a-worktree` records the change and its price.
+
 ## Consequences
 
 - Hooks work identically in main checkout and worktrees
 - No duplicate hook scripts — one canonical copy in `.githooks/`
 - Developers in worktrees get fast pre-commit feedback (compile only); full test suite runs in CI or via `just tcheck`
+  — the compile half of this became true on 2026-10-23; before it, a worktree commit was not compiled at all
 - `just setup-hooks` configures all worktrees in one command
 
 ## Links

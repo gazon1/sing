@@ -139,14 +139,22 @@ added a useful check (e.g., license header), it would be silently skipped.
 Agents cannot be expected to manually audit hook bypasses.
 
 **Try next:**
-1. Make the pre-commit hook worktree-aware by checking whether it is running
+1. ~~Make the pre-commit hook worktree-aware by checking whether it is running
    inside a worktree and skipping compile if so — or only running compile
-   against the worktree's own sources.
-2. The simplest fix: add a `.git/hooks/commit-msg` or `pre-commit` that
+   against the worktree's own sources.~~ **Done, in the opposite direction:**
+   the hook now compiles the worktree's own sources in a worktree too (ADR
+   `2026-10-23-the-commit-hook-compiles-in-a-worktree`). The compile is
+   incremental, and a worktree that skips it is a worktree that can commit
+   code that does not compile.
+2. ~~The simplest fix: add a `.git/hooks/commit-msg` or `pre-commit` that
    detects worktree by `git rev-parse --is-inside-work-tree` and exits 0 early
-   for worktree roots. This is a one-line change in the hook template.
+   for worktree roots. This is a one-line change in the hook template.~~ **Not
+   taken:** an early exit is what the hook did, and it is the defect the ADR
+   above records.
 3. Document the workaround (`git commit --no-verify`) in `AGENTS.md` only as
-   a temporary measure while the hook is not worktree-aware.
+   a temporary measure while the hook is not worktree-aware. **No longer
+   needed:** the hook is worktree-aware, and `--no-verify` is the deliberate
+   way out of a check that now runs everywhere.
 
 ---
 
