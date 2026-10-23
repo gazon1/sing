@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.tags.TagId

@@ -1,6 +1,5 @@
-package com.singularity.todo.feature.search.query
+package com.singularity.todo.core.search
 
-import com.singularity.todo.core.search.TextMatchPlan
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -153,6 +152,65 @@ class FreeTextRuleTest {
         assertIs<TextMatchPlan.BroadScan>(plan)
         assertFalse(rule.accepts(plan) { it == "alpha" })
         assertTrue(rule.accepts(plan) { it == "beta" })
+    }
+
+    // ─── The question the index is asked ───────────────────────────────────────
+
+    @Test
+    fun `the question holds the positive terms`() {
+        val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta")))
+
+        assertEquals(
+            TextMatchQuery(terms = listOf("alpha", "beta")),
+            rule.indexQuery(),
+            "the index is asked about the terms it can answer",
+        )
+    }
+
+    @Test
+    fun `the question keeps the alternatives of an OR apart`() {
+        val rule = FreeTextRule(
+            terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta")),
+            combinesWithOr = true,
+        )
+
+        assertEquals(
+            TextMatchQuery(terms = listOf("alpha", "beta"), combinesWithOr = true),
+            rule.indexQuery(),
+            "terms that are alternatives are joined the other way",
+        )
+    }
+
+    @Test
+    fun `the question holds no negated term`() {
+        val rule = FreeTextRule(
+            terms = listOf(FreeTextRule.Term("alpha"), FreeTextRule.Term("beta", negated = true)),
+        )
+
+        assertEquals(
+            TextMatchQuery(terms = listOf("alpha")),
+            rule.indexQuery(),
+            "FTS has no NOT operator, so a negated term is not a question the index can answer",
+        )
+    }
+
+    @Test
+    fun `a rule the index cannot answer asks it nothing`() {
+        val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha", negated = true)))
+
+        assertEquals(
+            TextMatchQuery.EMPTY,
+            rule.indexQuery(),
+            "an empty question finds nothing — the caller reads the rows itself",
+        )
+    }
+
+    @Test
+    fun `a plain search text is one term`() {
+        val rule = FreeTextRule.singleTerm("port")
+
+        assertEquals(listOf(FreeTextRule.Term("port")), rule.terms)
+        assertEquals(TextMatchQuery(terms = listOf("port")), rule.indexQuery())
     }
 
     @Test

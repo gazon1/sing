@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -40,7 +41,7 @@ import kotlin.time.Instant
  * the answer depended on which kind of thing the user was looking for.
  *
  * The rule is now one rule: **every free-text term has to match**. The resolver
- * owns it (`FreeTextRule`), and the use case applies it to tasks, notes, projects
+ * owns it ([FreeTextRule]), and the use case applies it to tasks, notes, projects
  * and tags alike.
  *
  * These assertions are about the *result derivation* — what the use case returns
