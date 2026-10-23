@@ -373,6 +373,12 @@ jobs:
       # hole: the name has to be one the populations file declares, or the job
       # stops here. The file is the definition — the shell does not keep a
       # second list of the names.
+      #
+      # The file carries more than the names: each population's PROPERTIES live
+      # there too ("does this population include the slow half?"), and the
+      # steps that ask such a question read the answer from the file rather
+      # than comparing the name to a literal. That is what keeps a population
+      # nobody has written yet from needing a line in this workflow.
       - name: Test population is one of the known ones
         run: |
           if ! grep -q "^${TEST_POPULATION}=" config/test-populations.properties; then
@@ -621,11 +627,26 @@ jobs:
       # that is the subset the run was asked for, not a defect. The full population
       # keeps the rule, which is where "the scenario was claimed and did not run"
       # is still a finding.
+      #
+      # "Does this population include the slow half?" is a question the
+      # populations file answers, and the file is read here — not the NAME
+      # compared against a literal. A third population would otherwise have to
+      # be taught to this step by name, and a population nobody has written yet
+      # would take the fast branch by accident. The file says `includes-slow`
+      # for every population it declares, and the gate
+      # (scripts/check-gradle-test-population.py) holds the shell and the file
+      # to the same answer.
       - name: Normalise desktop results into the scenario matrix
         run: |
           set -euo pipefail
           ARGS=(--targets desktop --out-dir build/traceability)
-          if [ "$TEST_POPULATION" != "full" ]; then
+          INCLUDES_SLOW=$(grep -F -m1 "${TEST_POPULATION}.includes-slow:" \
+            config/test-populations.properties | cut -d ':' -f 2- | tr -d '[:space:]' || echo "")
+          if [ -z "$INCLUDES_SLOW" ]; then
+            echo "::error::the population '$TEST_POPULATION' does not say whether it includes the slow half (config/test-populations.properties)"
+            exit 1
+          fi
+          if [ "$INCLUDES_SLOW" != "true" ]; then
             ARGS+=(--partial)
           fi
           python3 -m traceability results "${ARGS[@]}"
@@ -749,17 +770,31 @@ jobs:
       # maintainable: a reader of this file can see why the step sits where it
       # sits and what would break if it moved.
       #
-      # The check belongs to the FULL population. A slow class owes the reader
-      # a report only when the run that selected the slow classes happened; in
-      # the fast population the slow classes did not run, there is no report,
-      # and "there is no report" is not a pass — it is the absence of the run
-      # this step checks. So the step says so and stops, and the full
-      # population (nightly, or a pull request labelled `run-full-tests`) is
-      # where the slow classes are held to their reports.
+      # The check belongs to the population that includes the slow half. A slow
+      # class owes the reader a report only when the run that selected the slow
+      # classes happened; in a fast-only population the slow classes did not run,
+      # there is no report, and "there is no report" is not a pass — it is the
+      # absence of the run this step checks. So the step says so and stops, and
+      # the population that includes the slow half (nightly, or a pull request
+      # labelled `run-full-tests`) is where the slow classes are held to their
+      # reports.
+      #
+      # "Does this population include the slow half?" is asked of the
+      # populations file, not of the NAME: the file declares `includes-slow` for
+      # every population it declares, so a population nobody has written yet
+      # takes the branch the file says and not the branch a literal happens to
+      # name. A population the file does not answer stops the job here rather
+      # than passing quietly.
       - name: Slow tests ran
         run: |
-          if [ "$TEST_POPULATION" != "full" ]; then
-            echo "the fast population does not owe the reader a slow class — nothing to check"
+          INCLUDES_SLOW=$(grep -F -m1 "${TEST_POPULATION}.includes-slow:" \
+            config/test-populations.properties | cut -d ':' -f 2- | tr -d '[:space:]' || echo "")
+          if [ -z "$INCLUDES_SLOW" ]; then
+            echo "::error::the population '$TEST_POPULATION' does not say whether it includes the slow half (config/test-populations.properties)"
+            exit 1
+          fi
+          if [ "$INCLUDES_SLOW" != "true" ]; then
+            echo "the population '$TEST_POPULATION' does not include the slow half — it owes the reader no slow class"
             exit 0
           fi
           python3 scripts/check-slow-tests-ran.py

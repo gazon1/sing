@@ -51,7 +51,12 @@ starts.
 The tags each name selects live in `config/test-populations.properties` — one file,
 read by the build (the root build script hands every module the tag list), by the
 settings script (which picks the coverage floors by population) and by the Python gates
-(which compare the populations a job's invocations declared). `-Ptest.tags` still works
+(which compare the populations a job's invocations declared). The same file carries each
+population's PROPERTIES — the questions about it that are not "which tags does it
+select" — so the workflow asks the file instead of comparing a name against a literal
+(`fast.includes-slow: false`, `full.includes-slow: true`; the colon separator keeps the
+properties out of the Python reader's list of populations). A third population needs no
+line in the workflow, and the gate holds the shell and the file to the same answer. `-Ptest.tags` still works
 and still wins: it is the raw knob, for a selection no population names. Passing both
 is an error, not a preference — two spellings of one selection is how they drift apart.
 

@@ -19,6 +19,9 @@ SCRIPT = pathlib.Path(__file__).resolve().parent.parent / 'check-gradle-test-pop
 #: The gate now imports its parser from here; a fixture that forgot it would fail
 #: loudly rather than silently testing a different code path.
 PARSER = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'workflow_gradle.py'
+#: The populations file — the definition the gate reads the populations and their
+#: properties from. A fake repo without it is a fake repo the gate cannot judge.
+POPULATIONS = SCRIPT.parent.parent / 'config' / 'test-populations.properties'
 
 # The shape that produced the finding: one test run, then a Kover invocation without
 # the selector. Gradle's default is excludeTags("slow"), so the re-run measures a
@@ -145,6 +148,115 @@ jobs:
       - run: ./gradlew :desktopApp:assembleRelease :androidApp:compileReleaseKotlin
 '''
 
+# ── The populations and their properties ─────────────────────────────────────
+#
+# The shape the CI workflow has: the population is chosen by NAME, and the step
+# that needs to know whether it includes the slow half asks the FILE. The
+# question is asked of the file, so the fixture has to ask it of the file too —
+# otherwise the gate has nothing to check and passes by silence.
+POPULATION_WORKFLOW = '''
+name: ci
+on: [push]
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: select
+        run: |
+          case "$EVENT_NAME" in
+            schedule|workflow_dispatch) echo "TEST_POPULATION=full" ;;
+            *)                       echo "TEST_POPULATION=fast" ;;
+          esac >> "$GITHUB_ENV"
+      - name: slow tests ran
+        run: |
+          INCLUDES_SLOW=$(grep -F -m1 "${TEST_POPULATION}.includes-slow:" \\
+            config/test-populations.properties | cut -d ':' -f 2- | tr -d '[:space:]' || echo "")
+          if [ -z "$INCLUDES_SLOW" ]; then
+            echo "::error::the population '$TEST_POPULATION' does not say whether it includes the slow half"
+            exit 1
+          fi
+          if [ "$INCLUDES_SLOW" != "true" ]; then
+            echo "no slow half in this population"
+            exit 0
+          fi
+'''
+
+# The populations file with every property the workflow asks about.
+PROPERTIES_COMPLETE = '''
+fast=fast
+full=fast,slow
+
+fast.includes-slow: false
+full.includes-slow: true
+'''
+
+# `full` does not say whether it includes the slow half — the question the
+# workflow asks of every population it can select.
+PROPERTIES_MISSING = '''
+fast=fast
+full=fast,slow
+
+fast.includes-slow: false
+'''
+
+# The property written with `=` — the separator the Python reader of the
+# populations splits on, so the reader would see a population named after the
+# property.
+PROPERTIES_WRONG_SEPARATOR = '''
+fast=fast
+full=fast,slow
+
+fast.includes-slow=false
+full.includes-slow=true
+'''
+
+# `full` selects the slow classes and says it does not: the build asks the same
+# question of the tags, so the two answers have to agree.
+PROPERTIES_DISAGREE = '''
+fast=fast
+full=fast,slow
+
+fast.includes-slow: false
+full.includes-slow: false
+'''
+
+# The workflow asks the question by NAME — the defect the file removes.
+NAME_COMPARISON_WORKFLOW = '''
+name: ci
+on: [push]
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: select
+        run: |
+          echo "TEST_POPULATION=full" >> "$GITHUB_ENV"
+      - name: slow tests ran
+        run: |
+          if [ "$TEST_POPULATION" != "full" ]; then
+            echo "no slow half in this population"
+            exit 0
+          fi
+'''
+
+# A population the workflow can select and the file does not declare.
+UNDECLARED_POPULATION_WORKFLOW = '''
+name: ci
+on: [push]
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: select
+        run: |
+          echo "TEST_POPULATION=nightly" >> "$GITHUB_ENV"
+      - name: slow tests ran
+        run: |
+          INCLUDES_SLOW=$(grep -F -m1 "${TEST_POPULATION}.includes-slow:" \\
+            config/test-populations.properties | cut -d ':' -f 2- | tr -d '[:space:]' || echo "")
+          echo "$INCLUDES_SLOW"
+'''
+
 
 def run_gate(files: dict[str, str]) -> tuple[int, str]:
     """Materialise a fake repo — script included — and run the gate against it."""
@@ -157,6 +269,12 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
         parser_dest = root / 'scripts' / 'src' / 'workflow_gradle.py'
         parser_dest.parent.mkdir(parents=True, exist_ok=True)
         parser_dest.write_text(PARSER.read_text())
+        # The populations file is the definition the gate reads: a fake repo
+        # without it cannot be judged at all. A fixture may replace it by
+        # putting its own content under this path.
+        populations_dest = root / 'config' / 'test-populations.properties'
+        populations_dest.parent.mkdir(parents=True, exist_ok=True)
+        populations_dest.write_text(POPULATIONS.read_text())
         for rel, content in files.items():
             path = root / rel
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -229,6 +347,87 @@ class TheGateStillSees(unittest.TestCase):
         _, out = run_gate({'check.sh': './gw :shared:jvmTest\n./gw :desktopApp:test\n'})
         self.assertIn('check.sh', out)
         self.assertIn('note:', out)
+
+
+class ThePopulationsFileAnswersTheWorkflow(unittest.TestCase):
+    """The file describes the populations, so the shell does not have to.
+
+    Every case here is a positive control in one direction or the other: the
+    fixture that lacks what the workflow asks for must FAIL, and the fixture
+    that has it must PASS. A gate that passes both is a gate that reads
+    nothing, which is the failure mode this repository measures itself
+    against.
+    """
+
+    def test_a_population_that_declares_the_property_is_clean(self):
+        code, out = run_gate({
+            '.github/workflows/ci.yml': POPULATION_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_COMPLETE,
+        })
+        self.assertEqual(code, 0, out)
+
+    def test_a_population_that_lacks_the_property_is_a_finding(self):
+        code, out = run_gate({
+            '.github/workflows/ci.yml': POPULATION_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_MISSING,
+        })
+        self.assertEqual(code, 1, out)
+        self.assertIn('does not answer', out)
+        self.assertIn('includes-slow', out)
+        self.assertIn('full', out)
+
+    def test_the_gate_says_which_property_it_asked_about(self):
+        # The listing is what "the gate saw it" means: the property the workflow
+        # asks of the populations it can select.
+        _, out = run_gate({
+            '.github/workflows/ci.yml': POPULATION_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_COMPLETE,
+        })
+        self.assertIn('includes-slow', out)
+        self.assertIn('fast', out)
+        self.assertIn('full', out)
+
+    def test_a_property_that_contradicts_the_tags_is_a_finding(self):
+        code, out = run_gate({
+            '.github/workflows/ci.yml': POPULATION_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_DISAGREE,
+        })
+        self.assertEqual(code, 1, out)
+        self.assertIn('say otherwise', out)
+
+    def test_a_property_written_with_the_wrong_separator_is_a_finding(self):
+        code, out = run_gate({
+            '.github/workflows/ci.yml': POPULATION_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_WRONG_SEPARATOR,
+        })
+        self.assertEqual(code, 1, out)
+        self.assertIn("written with '='", out)
+
+    def test_a_workflow_that_asks_by_name_is_a_finding(self):
+        code, out = run_gate({
+            '.github/workflows/ci.yml': NAME_COMPARISON_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_COMPLETE,
+        })
+        self.assertEqual(code, 1, out)
+        self.assertIn('by NAME', out)
+
+    def test_a_population_the_file_does_not_declare_is_a_finding(self):
+        code, out = run_gate({
+            '.github/workflows/ci.yml': UNDECLARED_POPULATION_WORKFLOW,
+            'config/test-populations.properties': PROPERTIES_COMPLETE,
+        })
+        self.assertEqual(code, 1, out)
+        self.assertIn('nightly', out)
+        self.assertIn('does not declare it', out)
+
+    def test_a_workflow_that_selects_nothing_asks_nothing(self):
+        # No population, no question, no finding: the check is about what the
+        # workflow asks, not about every workflow.
+        code, out = run_gate({
+            '.github/workflows/ci.yml': AGREEING,
+            'config/test-populations.properties': PROPERTIES_MISSING,
+        })
+        self.assertEqual(code, 0, out)
 
 
 if __name__ == '__main__':
