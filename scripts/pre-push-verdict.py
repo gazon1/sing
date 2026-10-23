@@ -103,6 +103,12 @@ VERDICT_WIDE_PATHS = (
     '.editorconfig',
 )
 
+#: Where the change is measured against when the push does not name a base.
+#: The trunk's remote-tracking ref: a branch that does not exist on the remote
+#: yet is still a change *against the trunk*, and measuring it against nothing
+#: would judge the whole repository — every module, for a one-line change.
+DEFAULT_BASE = "origin/main"
+
 #: The Gradle command the hook uses. ./gw, not ./gradlew: a worktree-private
 #: GRADLE_USER_HOME, so a push in one worktree cannot kill the daemons of
 #: another (ADR 2026-10-04-gradle-daemon-isolation.md).
@@ -143,6 +149,25 @@ def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
             f"could not compare {base}...{sha[:8]} in {tree}: {result.stderr.strip()}",
         )
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def default_base(tree: pathlib.Path) -> str | None:
+    """The ref the change is measured against when the push does not name one.
+
+    The trunk's remote-tracking ref, when this checkout knows it. It is the
+    right base for a branch that does not exist on the remote yet: the change
+    is the branch's diff against the trunk, and the modules to judge follow
+    from it. Without it the only safe reading of "what changed" is "everything",
+    and a one-line change would pay for eight detekt runs.
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", DEFAULT_BASE],
+        cwd=tree,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return DEFAULT_BASE if result.returncode == 0 else None
 
 
 def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> tuple[list[str], str]:
@@ -343,6 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     fallback = pathlib.Path(args.fallback_tree).resolve() if args.fallback_tree else None
     log_dir = pathlib.Path(args.log_dir) if args.log_dir else pathlib.Path("/tmp/pre-push-verdict")
     tasks = tuple(t for t in args.tasks.split()) if args.tasks else None
+    base = args.base or default_base(repo)
 
     try:
         report = judge(repo, args.sha, fallback, args.gradle_cmd, tasks, log_dir, args.base)

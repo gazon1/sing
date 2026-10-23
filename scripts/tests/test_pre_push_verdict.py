@@ -200,6 +200,26 @@ class ModuleSelectionTest(unittest.TestCase):
         self.assertEqual(8, len(tasks))
         self.assertIn('no known base', reason)
 
+    # ── the base a push does not name ─────────────────────────────────────
+
+    def test_the_default_base_is_the_trunk(self):
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+        )
+        self.assertEqual('origin/main', mod.default_base(self.repo))
+
+    def test_a_checkout_that_does_not_know_the_trunk_has_no_default_base(self):
+        self.assertIsNone(mod.default_base(self.repo))
+
+    def test_a_branch_measured_against_the_trunk_judges_only_what_it_touches(self):
+        """A branch that does not exist on the remote yet is a change against the trunk."""
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+        )
+        sha = self._commit('change', {'desktopApp/src/main/kotlin/Main.kt': 'class Main\n'})
+        tasks, _ = mod.detekt_tasks_for_change(self.repo, mod.default_base(self.repo), sha)
+        self.assertEqual([':desktopApp:detekt'], tasks)
+
 
 if __name__ == '__main__':
     unittest.main()

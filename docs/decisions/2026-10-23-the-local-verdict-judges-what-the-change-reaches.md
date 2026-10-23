@@ -74,8 +74,11 @@ and had been answered with a hardcoded pair.
   the verdict says exactly that instead of claiming a clean tree. This is the
   old "does this push carry Kotlin?" check, moved into the script that
   decides what to judge — one rule instead of two that can disagree.
-- A range with no known base (a brand new branch) is judged in full: the
-  safe direction.
+- The change is measured against a base: the remote's current head of the
+  branch when the remote has one, and otherwise the trunk (`origin/main`) —
+  a branch that does not exist on the remote yet is still a change *against
+  the trunk*. Only a checkout that knows neither is judged in full: the safe
+  direction.
 
 **The local verdict is partial, and it is named.** The hook prints the modules
 it judged and says that a violation in a module the change does not reach is
