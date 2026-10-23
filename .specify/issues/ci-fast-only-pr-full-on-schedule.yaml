@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/ci-fast-only-pr-full-on-schedule/proposal.md
-  design: openspec/changes/ci-fast-only-pr-full-on-schedule/design.md
-  adr: openspec/changes/ci-fast-only-pr-full-on-schedule/adr.md
   tasks: openspec/changes/ci-fast-only-pr-full-on-schedule/tasks.md
 specs_dir: openspec/changes/ci-fast-only-pr-full-on-schedule/specs
 is_stub: false
