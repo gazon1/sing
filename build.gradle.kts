@@ -186,6 +186,17 @@ subprojects {
 // `koverReport` is the entry point that is correct by construction: it runs every JVM
 // test task and then merges their execution data.
 //
+// `:adr-core:jvmTest` was missing here, and that was a measurement gap rather than a
+// style question: `:adr-core` holds the app's ADR rules (`com.singularity.todo.feature.ai.tools`),
+// so its classes ARE in the coverage denominator — but nothing ran its tests in the
+// coverage job, and the report scored them by whatever `:shared`'s suite happened to
+// touch. Its tests are green (`:adr-core:jvmTest`, 8 s) and now they run. The
+// denominator does not change — the classes were already in it — so the measured
+// coverage can only rise.
+//
+// `:adr-cli` is absent for the opposite reason: it is build tooling, excluded from
+// the coverage scope in settings.gradle.kts.
+//
 // `:detekt-rules:test` is deliberately absent — that project is `skipProjects`-ed in
 // settings.gradle.kts (build tooling, not app code) and its suite is currently red on
 // this branch without any gate noticing, so pulling it in here would turn an unrelated
@@ -206,6 +217,7 @@ tasks.register("koverReport") {
         ":desktopApp:test",
         ":mcp-server:test",
         ":androidApp:test",
+        ":adr-core:jvmTest",    // app code in the denominator (feature.ai.tools): its own tests measure it
         ":detekt-rules:test",   // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )

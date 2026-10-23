@@ -210,7 +210,18 @@ kover {
     // a different question from the one the floor asks — and would make the
     // aggregated report depend on a suite that is not currently maintained.
     // The failing tests are recorded as an open finding, not hidden by this line.
-    skipProjects(":detekt-rules")
+    // `:adr-cli` is the ADR toolchain's command line — build tooling, like
+    // `:detekt-rules` above. Its classes are not in the app's coverage
+    // denominator today (it is not built during the coverage job, so there is
+    // nothing to instrument), and this line says so instead of leaving it to
+    // that accident: the day `:adr-cli` becomes a dependency of the app, its
+    // classes would otherwise enter the denominator with no test task behind
+    // them, and the report would score them 0%.
+    //
+    // `scripts/check-coverage-task-list.py` is what keeps the two lists
+    // honest against each other: every project with tests is either measured
+    // by the report or excluded from its scope.
+    skipProjects(":detekt-rules", ":adr-cli")
     instrumentation {
         includedClasses.add("com.singularity.todo.*")
     }
