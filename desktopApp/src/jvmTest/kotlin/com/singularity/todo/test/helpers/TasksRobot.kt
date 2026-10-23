@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -124,7 +125,7 @@ class TasksRobot(
         } else {
             baseTask
         }
-        koin.get<TaskRepository>().upsert(task)
+        koin.get<TaskRepository>().upsert(TaskDocument.of(task))
     }
 
     private companion object {

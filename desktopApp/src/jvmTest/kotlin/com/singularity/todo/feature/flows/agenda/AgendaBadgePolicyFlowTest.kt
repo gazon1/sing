@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDate
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.awaitTag
@@ -106,7 +107,8 @@ class AgendaBadgePolicyFlowTest {
             dueDate = today,
             userId = userId,
         ).let { it.copy(blockedBy = setOf(depId)) }
-        koin.get<com.singularity.todo.feature.tasks.domain.port.TaskRepository>().upsert(blockedTask)
+        koin.get<com.singularity.todo.feature.tasks.domain.port.TaskRepository>()
+            .upsert(TaskDocument.of(blockedTask))
 
         tapTab("Today")
         assertTagDisplayed(TestTags.taskItem("Blocked task"))

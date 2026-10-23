@@ -11,6 +11,7 @@ import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.core.ids.TimeEntryId
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
@@ -367,7 +368,7 @@ class SyncBootstrapperDispatchTest {
      * handler above it is the only place that can classify it.
      */
     private class ThrowingTaskRepository : FakeTaskRepository() {
-        override suspend fun upsert(task: Task): Task =
+        override suspend fun upsert(document: TaskDocument): Task =
             throw IllegalStateException("disk is full")
     }
 
