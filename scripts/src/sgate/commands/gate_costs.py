@@ -80,6 +80,9 @@ from sgate.log import logger
 
 #: The repository whose CI runs are measured. The command runs where the code does.
 CI_REPOSITORY = "gazon1/sing"
+# The branch whose run prices the loop. Every change goes through it, so its
+# run is the same work every time — which is what a price describes.
+CI_BRANCH = "main"
 
 #: The version of the baseline and of the measurement file this command reads.
 SCHEMA_VERSION = 1
@@ -351,6 +354,7 @@ To refresh the numbers:
 
     ./check.sh                       # measure the loop
     sgate gate-costs --record        # write the baseline and re-render this page
+    sgate gate-costs --record-ci     # record the branch's last finished CI run
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
@@ -361,6 +365,34 @@ record in `docs/testing/verdict-cost.json`; the last section of the generated bl
 rendered from that record and from nothing else. When the record is missing or stale,
 the section says so — a price published as current when it is not is worse than a
 price that is not published at all.
+
+The hook's detekt step is not in the block below: it runs on the tree that is
+being pushed, in the developer's checkout, and its cost is what the push
+waits for. Measured on 2026-10-23 with the hook's own invocation
+(`./gw :shared:detekt :desktopApp:detekt --auto-correct --rerun`):
+
+| Path | Seconds | What ran |
+|---|---|---|
+| warm — the current worktree | 561 s | `:shared:detekt` 7 min 26 s, `:desktopApp:detekt` 1 min 51 s |
+| cold — a fresh worktree at the same sha | 565 s | `:shared:detekt` 8 min 20 s |
+
+Two readings, and one caveat:
+
+- **`:shared` is the whale.** 227 000 lines, 239 packages, 90 % of the verdict.
+  The other modules are seconds to two minutes.
+- **Warm is not warm.** The two paths cost the same, because `./gw` gives every
+  worktree a private `GRADLE_USER_HOME` and the configuration cache is cold in
+  a fresh worktree regardless. Judging in the current worktree saves the build
+  directory, not the analysis — the number of modules is the lever.
+- **Caveat:** the load average on this host was 34–50 (ten agent sessions
+  share the machine), so the absolute numbers are an upper bound. The ratio
+  between the paths is the fact.
+
+The verdict was narrowed to the modules the change can reach (ADR
+`2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`), so the
+price now follows the change: one module for a narrow change, none for a
+change that moves neither Kotlin nor rules, and four for a change in
+`shared`. The local verdict is partial, and the hook says so.
 
 {BEGIN_MARKER}
 """
@@ -718,7 +750,7 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
     jobs = ci.get("jobs")
     if not isinstance(jobs, dict) or not jobs:
         return []
-    lines = ["### The last CI run", ""]
+    lines = [f"### The last finished run of `{CI_BRANCH}`", ""]
     created = ci.get("createdAt")
     url = ci.get("url")
     if created or url:
@@ -732,6 +764,13 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
     for name in sorted(jobs):
         lines.append(f"| {name} | {_format_ms(jobs[name])} |")
     lines.append("")
+    conclusion = ci.get("conclusion")
+    if isinstance(conclusion, str) and conclusion:
+        # The verdict belongs with the durations: a run that failed is a price
+        # like any other, and a reader who does not see it will read a failed
+        # run as the price of a green one.
+        lines.append(f"The run finished as **{conclusion}**.")
+        lines.append("")
     return lines
 
 
@@ -857,12 +896,28 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
     not this machine, and the local baseline refuses to compare across machines for
     the same reason. So they are published as "the last run", with no median and no
     baseline: a record, not a threshold.
+
+    The run has to be a FINISHED one. A run that is still going has no duration
+    for the jobs that have not finished yet, and no conclusion to print — and a
+    record of half a run is published as the price of the whole loop, which is
+    the one thing a price must not be. So the runner is asked for completed runs,
+    and a run that has not finished is not recorded at all.
+
+    And it has to be the run of the BRANCH, not of whatever pull request was
+    pushed last. A price is about the loop, and the loop that blocks a merge is
+    the one the branch runs: the same workflow, every time, on every change. A
+    pull request's run belongs to that pull request — its conclusion says
+    something about that change, not about the loop, and a reader who finds the
+    price of the loop written next to a foreign branch's failed run reads a
+    price for something that was never measured.
     """
     listed = _gh(
         "run", "list",
         "--repo", repository,
         "--workflow", "ci.yml",
+        "--branch", CI_BRANCH,
         "--limit", "1",
+        "--status", "completed",
         "--json", "databaseId,url,createdAt,conclusion",
     )
     if listed is None:
@@ -893,6 +948,13 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
             duration = _duration_ms(job.get("startedAt"), job.get("completedAt"))
             if isinstance(name, str) and duration is not None:
                 jobs[name] = duration
+    if not jobs:
+        # The runner's record of the run's jobs could not be read. A record with
+        # no jobs is not a price, and writing it would REPLACE the recorded
+        # price of the loop with nothing — and the published section, which
+        # renders from the jobs, would silently disappear. A read that failed
+        # is a failed read: there is no record, and the old one stays.
+        return None
     return {
         "runId": run.get("databaseId"),
         "url": run.get("url"),
@@ -903,7 +965,14 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
 
 
 def _duration_ms(started: object, completed: object) -> int | None:
-    """How long a job took, in milliseconds, from two timestamps."""
+    """How long a job took, in milliseconds, from two timestamps.
+
+    A job that was SKIPPED has no duration. The runner still reports two
+    timestamps for it, and they are not in order — a job that never ran is
+    recorded as finishing a second before it started. A negative price is not a
+    price, and a job that did not run has nothing to price, so a span that is
+    not positive is no measurement at all.
+    """
     if not isinstance(started, str) or not isinstance(completed, str):
         return None
     try:
@@ -911,7 +980,8 @@ def _duration_ms(started: object, completed: object) -> int | None:
         second = datetime.fromisoformat(completed.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return int((second - first).total_seconds() * 1000)
+    milliseconds = int((second - first).total_seconds() * 1000)
+    return milliseconds if milliseconds > 0 else None
 
 
 def measure_coverage_costs(populations: tuple[str, ...] = ("fast", "full")) -> dict[str, int]:
@@ -983,8 +1053,12 @@ def _coverage_cost_header(
         "starts, so that nobody sets a 15-minute timeout on a 37-minute task.",
         f"Measured on {measured_at} with a warm Gradle cache, on the development host "
         f"({os.cpu_count()} vCPU). A CI runner has 4 vCPU: the same run there is "
-        "slower, which is why the CI job's timeout is set from the upper end and not "
-        "from this number.",
+        "slower, so the CI job's timeout must cover at least this measurement "
+        "times a chosen margin of 2x — the constant "
+        "`scripts/check-coverage-timeout.py` uses. The margin is chosen, not "
+        "derived: a fully CPU-bound run on 4 vCPU would cost four times this "
+        "measurement. The gate is what says so — a timeout that no longer "
+        "covers the measurement fails that gate instead of the run.",
         "To re-measure: `sgate gate-costs --record --coverage` (about an hour: it "
         "runs the instrumented coverage once per population).",
     ]
@@ -1029,7 +1103,11 @@ def write_coverage_costs(
 
 @click.command("gate-costs")
 @click.option("--record", is_flag=True, help="Record the measured cycle into the committed baseline.")
-@click.option("--record-ci", is_flag=True, help="Record the last CI run's job durations into the baseline.")
+@click.option(
+    "--record-ci",
+    is_flag=True,
+    help="Record the branch's last finished CI run — its job durations and its verdict.",
+)
 @click.option(
     "--coverage",
     is_flag=True,
@@ -1052,9 +1130,11 @@ def gate_costs(
     anything that got much slower is named.
 
     --record writes the measurement into the committed baseline and re-renders the
-    published page. --record-ci writes the last CI run's job durations into the same
-    baseline: the loop that blocks merges was unpriced while the local one was
-    measured. --render re-renders the page from the baseline alone. --check is the
+    published page. --record-ci writes the branch's last FINISHED run — its job
+    durations and its verdict — into the same baseline: the loop that blocks merges
+    was unpriced while the local one was measured. A run that has not finished is
+    not recorded, and a run whose jobs cannot be read is not recorded either: a
+    failed read must not replace a recorded price with nothing. --render re-renders the page from the baseline alone. --check is the
     gate: it fails when the published page is not what the baseline says, which is
     a question a CI runner can answer without a local measurement.
 

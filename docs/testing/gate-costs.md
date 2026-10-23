@@ -18,6 +18,7 @@ To refresh the numbers:
 
     ./check.sh                       # measure the loop
     sgate gate-costs --record        # write the baseline and re-render this page
+    sgate gate-costs --record-ci     # record the branch's last finished CI run
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
@@ -28,6 +29,34 @@ record in `docs/testing/verdict-cost.json`; the last section of the generated bl
 rendered from that record and from nothing else. When the record is missing or stale,
 the section says so — a price published as current when it is not is worse than a
 price that is not published at all.
+
+The hook's detekt step is not in the block below: it runs on the tree that is
+being pushed, in the developer's checkout, and its cost is what the push
+waits for. Measured on 2026-10-23 with the hook's own invocation
+(`./gw :shared:detekt :desktopApp:detekt --auto-correct --rerun`):
+
+| Path | Seconds | What ran |
+|---|---|---|
+| warm — the current worktree | 561 s | `:shared:detekt` 7 min 26 s, `:desktopApp:detekt` 1 min 51 s |
+| cold — a fresh worktree at the same sha | 565 s | `:shared:detekt` 8 min 20 s |
+
+Two readings, and one caveat:
+
+- **`:shared` is the whale.** 227 000 lines, 239 packages, 90 % of the verdict.
+  The other modules are seconds to two minutes.
+- **Warm is not warm.** The two paths cost the same, because `./gw` gives every
+  worktree a private `GRADLE_USER_HOME` and the configuration cache is cold in
+  a fresh worktree regardless. Judging in the current worktree saves the build
+  directory, not the analysis — the number of modules is the lever.
+- **Caveat:** the load average on this host was 34–50 (ten agent sessions
+  share the machine), so the absolute numbers are an upper bound. The ratio
+  between the paths is the fact.
+
+The verdict was narrowed to the modules the change can reach (ADR
+`2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`), so the
+price now follows the change: one module for a narrow change, none for a
+change that moves neither Kotlin nor rules, and four for a change in
+`shared`. The local verdict is partial, and the hook says so.
 
 <!-- BEGIN GENERATED: sgate gate-costs -->
 
@@ -98,22 +127,22 @@ Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
 
 The uninstrumented `:shared:jvmTest` in the table above is a different run: the Kover agent multiplies the cost of every test, and this is the number a timeout has to be set from.
 
-### The last CI run
+### The last finished run of `main`
 
-The CI loop is the one that blocks merges, so it is priced too — 2026-10-21T13:39:52Z — https://github.com/gazon1/sing/actions/runs/39609950342.
+The CI loop is the one that blocks merges, so it is priced too — 2026-10-23T14:54:00Z — https://github.com/gazon1/sing/actions/runs/39973576863.
 
 | Job | Duration |
 |------|----------|
-| Android (free) | 3 min 24 s |
-| Android (pro) | 4 min 15 s |
-| CI gate | 4.0 s |
-| Gate tooling | 4 min 03 s |
-| JVM tests, detekt, coverage | 31 min 29 s |
-| Static gates | 4 min 17 s |
-| adr-gate | 1 min 58 s |
-| changes | 6.0 s |
-| nightly-alert | — |
-| spec-create | — |
+| Android (free) | 2 min 01 s |
+| Android (pro) | 1 min 55 s |
+| CI gate | 2.0 s |
+| Gate tooling | 4 min 59 s |
+| JVM tests, detekt, coverage | 17 min 32 s |
+| Static gates | 10 min 27 s |
+| adr-gate | 1 min 38 s |
+| changes | 8.0 s |
+
+The run finished as **success**.
 
 ### The price of the pre-push verdict
 

@@ -43,9 +43,9 @@ git branch -d refactor/techdebt-epic2
 
 All worktrees **share the same `.git`** directory with the main checkout. This means:
 
-1. **Pre-commit hooks from main run on worktree files.** If the main checkout has failing pre-commit hooks (e.g., broken code in uncommitted changes), use `git commit --no-verify` for worktree commits.
+1. **Pre-commit hooks run on the worktree's own files.** The hook resolves its root from Git (`git rev-parse --show-toplevel`), so it compiles the worktree, not the main checkout — a broken main checkout does not block worktree commits, and a broken worktree does not block the main checkout.
 
-2. **Never make uncompilable changes in main checkout** — it blocks worktree commits via the pre-commit hook.
+2. **A commit compiles before it is made.** Since 2026-10-23 the hook compiles in a worktree too (ADR `2026-10-23-the-commit-hook-compiles-in-a-worktree`): the compile is incremental, and a warm worktree pays seconds. A commit that does not compile does not happen — `git commit --no-verify` is the only way out, and it is a deliberate choice, not the default.
 
 3. **Main checkout must be on `main`** — don't `git checkout` in the main directory while worktrees exist.
 

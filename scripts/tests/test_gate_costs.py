@@ -244,6 +244,125 @@ class CiCostTest(unittest.TestCase):
     def test_a_timestamp_it_cannot_read_is_not_a_duration(self):
         self.assertIsNone(costs._duration_ms('not a timestamp', 'also not'))
 
+    def test_a_skipped_job_has_no_duration(self):
+        """A job that never ran is reported as finishing before it started.
+
+        The runner still carries two timestamps for a skipped job, and they are
+        not in order. A negative price is not a price, and a job that did not
+        run has nothing to price.
+        """
+        self.assertIsNone(costs._duration_ms('2026-10-23T14:54:11Z', '2026-10-23T14:54:10Z'))
+
+    def test_a_job_that_took_no_time_has_no_duration(self):
+        self.assertIsNone(costs._duration_ms('2026-10-23T14:54:10Z', '2026-10-23T14:54:10Z'))
+
+    def test_the_recorded_run_is_the_branch_run_that_has_finished(self):
+        """The price is of the loop, so it is read from the branch's finished run.
+
+        A run that is still going has no duration for the jobs that have not
+        finished, and a pull request's run is the price of that pull request —
+        not of the loop that blocks every merge.
+        """
+        asked: list[tuple[str, ...]] = []
+        original = costs._gh
+
+        def fake_gh(*args: str) -> str:
+            asked.append(args)
+            if "list" in args:
+                return json.dumps([
+                    {
+                        "databaseId": 42,
+                        "url": "https://example.invalid/run/42",
+                        "createdAt": "2026-10-23T14:54:00Z",
+                        "conclusion": "success",
+                    }
+                ])
+            return json.dumps({"jobs": [
+                {
+                    "name": "Static gates",
+                    "startedAt": "2026-10-23T14:54:12Z",
+                    "completedAt": "2026-10-23T14:56:00Z",
+                }
+            ]})
+
+        costs._gh = fake_gh
+        try:
+            run = costs.read_ci_run()
+        finally:
+            costs._gh = original
+
+        self.assertIsNotNone(run)
+        listing = [args for args in asked if "list" in args][0]
+        self.assertIn("--status", listing)
+        self.assertIn("completed", listing)
+        self.assertIn("--branch", listing)
+        self.assertIn(costs.CI_BRANCH, listing)
+
+    def test_a_run_whose_jobs_cannot_be_read_is_not_recorded(self):
+        """A failed read must not replace a recorded price with nothing.
+
+        The recorded run carries the jobs, and the published section is rendered
+        from them. A record with no jobs renders no section — so writing one
+        would delete the price of the loop and say nothing about it.
+        """
+        original = costs._gh
+
+        def fake_gh(*args: str) -> str:
+            if "list" in args:
+                return json.dumps([
+                    {
+                        "databaseId": 42,
+                        "url": "https://example.invalid/run/42",
+                        "createdAt": "2026-10-23T14:54:00Z",
+                        "conclusion": "success",
+                    }
+                ])
+            return json.dumps({"jobs": []})
+
+        costs._gh = fake_gh
+        try:
+            self.assertIsNone(costs.read_ci_run())
+        finally:
+            costs._gh = original
+
+    def test_a_skipped_job_does_not_reach_the_record(self):
+        """A job that never ran has no price, and the record says so."""
+        original = costs._gh
+
+        def fake_gh(*args: str) -> str:
+            if "list" in args:
+                return json.dumps([
+                    {
+                        "databaseId": 42,
+                        "url": "https://example.invalid/run/42",
+                        "createdAt": "2026-10-23T14:54:00Z",
+                        "conclusion": "success",
+                    }
+                ])
+            return json.dumps({"jobs": [
+                {
+                    "name": "spec-create",
+                    "startedAt": "2026-10-23T14:54:11Z",
+                    "completedAt": "2026-10-23T14:54:10Z",
+                },
+                {
+                    "name": "Static gates",
+                    "startedAt": "2026-10-23T14:54:12Z",
+                    "completedAt": "2026-10-23T14:56:00Z",
+                },
+            ]})
+
+        costs._gh = fake_gh
+        try:
+            run = costs.read_ci_run()
+        finally:
+            costs._gh = original
+
+        self.assertIsNotNone(run)
+        jobs = run["jobs"] if isinstance(run, dict) else {}
+        self.assertNotIn("spec-create", jobs)
+        self.assertIn("Static gates", jobs)
+
     def test_without_gh_there_is_no_ci_measurement(self):
         """No `gh` is not a crash: the command says so and stops."""
         original = costs.shutil.which
@@ -274,7 +393,7 @@ class PublishedPageTest(unittest.TestCase):
 
         text = costs.render_document(baseline)
 
-        self.assertIn("### The last CI run", text)
+        self.assertIn("### The last finished run of `main`", text)
         self.assertIn("JVM tests, detekt, coverage", text)
         self.assertIn("31 min 30 s", text)
 
@@ -289,7 +408,33 @@ class PublishedPageTest(unittest.TestCase):
 
         text = costs.render_document(baseline)
 
-        self.assertNotIn("### The last CI run", text)
+        self.assertNotIn("### The last finished run", text)
+
+    def test_the_verdict_of_the_recorded_run_is_published(self):
+        """A reader must see whether the priced run was green.
+
+        A price next to a failed run, without the verdict, reads as the price
+        of a green one — and the price of a green run is the number a reader
+        plans against.
+        """
+        baseline = {
+            "schemaVersion": 1,
+            "recordedAt": "2026-10-21T10:00:00Z",
+            "environment": {},
+            "gates": {},
+            "steps": {},
+            "ci": {
+                "runId": 1,
+                "url": "https://example.invalid/run/1",
+                "createdAt": "2026-10-21T09:00:00Z",
+                "conclusion": "failure",
+                "jobs": {"JVM tests, detekt, coverage": 1_890_000},
+            },
+        }
+
+        text = costs.render_document(baseline)
+
+        self.assertIn("**failure**", text)
 
     def test_recording_the_local_loop_keeps_the_ci_record(self):
         """The CI side is a record, not a baseline: a re-record must not lose it."""

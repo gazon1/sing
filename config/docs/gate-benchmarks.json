@@ -1,21 +1,19 @@
 {
   "ci": {
     "conclusion": "success",
-    "createdAt": "2026-10-21T13:39:52Z",
+    "createdAt": "2026-10-23T14:54:00Z",
     "jobs": {
-      "Android (free)": 204000,
-      "Android (pro)": 255000,
-      "CI gate": 4000,
-      "Gate tooling": 243000,
-      "JVM tests, detekt, coverage": 1889000,
-      "Static gates": 257000,
-      "adr-gate": 118000,
-      "changes": 6000,
-      "nightly-alert": 0,
-      "spec-create": 0
+      "Android (free)": 121000,
+      "Android (pro)": 115000,
+      "CI gate": 2000,
+      "Gate tooling": 299000,
+      "JVM tests, detekt, coverage": 1052000,
+      "Static gates": 627000,
+      "adr-gate": 98000,
+      "changes": 8000
     },
-    "runId": 39609950342,
-    "url": "https://github.com/gazon1/sing/actions/runs/39609950342"
+    "runId": 39973576863,
+    "url": "https://github.com/gazon1/sing/actions/runs/39973576863"
   },
   "environment": {
     "cpus": 16,
