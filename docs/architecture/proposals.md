@@ -25,7 +25,7 @@ model ──proposes──► item (Pending) ──user applies──► item (C
 | File | What it holds |
 |---|---|
 | `domain/model/ProposalItemKind.kt` | **The vocabulary.** Every kind of change, and each kind's behaviour: the summary the user reads, the fingerprint identity, and whether the user may change the value before applying it. |
-| `domain/model/ProposalValues.kt` | **The typed values** — `TaskValue`, `NoteValue`, `ProjectValue`, `TagValue` — and the one reader that turns text into a value (`TaskValue.read(field, text)` and its siblings). |
+| `domain/model/ProposalValues.kt` | **The typed values** — `TaskValue`, `NoteValue`, `ProjectValue`, `TagValue` — and the one reader that turns text into a value (`TaskValue.read(field, text)` and its siblings). All four share one interface, `ProposalValue`, and one generic `editableOf`. |
 | `domain/model/ProposalItem.kt` | The item: its status, its reason, its fingerprint. |
 | `domain/model/AiProposal.kt` | The proposal and its items; the pending/decided split. |
 | `domain/logic/ProposalFingerprint.kt` | The rejection fingerprint — the identity that stops the model re-proposing something already turned down. |
@@ -39,6 +39,7 @@ model ──proposes──► item (Pending) ──user applies──► item (C
 | `data/ProposalKindCodec.kt` | **The codec** — the kind as it is stored in `kind_json`. |
 | `data/ProposalMapper.kt` | The rows as the domain: a proposal row, an item row. |
 | `presentation/ProposalsViewModel.kt` | The screen's state: the proposals waiting, and the reason a change failed. |
+| `presentation/ProposalDecisions.kt` | **The five operations** every proposal surface performs: apply one change, turn one down, change its value, apply them all, turn the proposal down. The wording, the place the reasons live and the way a failure is reported are handed to it as values. |
 | `presentation/components/ProposalCard.kt` | The card, shared by the proposals screen, the task detail and the note editor. |
 
 ## The value is the field
@@ -67,6 +68,13 @@ loudly: it decodes to nothing, the item is dropped, and the proposal silently lo
 change. The exhaustive `when`s in the domain do not help — the codec is not a `when`
 over the type.
 
+A **value** is the other half of the same story, and it is handled the other way
+round: a value the reader cannot read is not dropped — it becomes an `Unreadable`
+value that carries the reason, the change stays on the card, and the planner refuses
+it before the claim. A change the user cannot see is a change nobody decided about.
+A **kind** the codec does not know is still a dropped row: the codec has no way to
+name what it does not know.
+
 The protection is mechanical rather than structural:
 `shared/src/jvmTest/.../feature/proposals/data/ProposalMapperTest.kt` round-trips
 every kind and every value, and — this is the part that matters — checks the samples
@@ -79,6 +87,27 @@ the third is what the round-trip test exists for.
 
 The codec is in its own file because it outgrew the row mappers — and because it is
 the one file in the feature that the compiler cannot help with.
+
+### The structural fix, and why it is not done yet
+
+The fix is to stop decoding by string: store `kind_json` in the shape kotlinx
+serialization produces for the sealed hierarchy, and let the serializer do the
+dispatch. Then `decodeKind` is not a `when` over type names at all, and a kind that
+arrives without a codec branch cannot be dropped — there is no branch to forget.
+
+It is not done, and the reason is the data: the rows in the wild carry the flat
+shape, and a new shape is a new shape. It needs
+
+1. the new shape written by the encoder,
+2. the old shape still readable — a fallback path in the decoder, which is the
+   flat `when` this change would eventually delete,
+3. a decision about when the fallback is dropped.
+
+Step 2 is why it is a separate piece of work and not a detail: until the fallback
+is gone, the codec still holds the `when` the change was meant to remove, so the
+work would not have made anything safer — it would have made it safer *and* left
+the old path in place. The mechanical protection (the round-trip test) is what
+holds the line in the meantime, and it holds it today.
 
 ## The lifecycle of an item
 

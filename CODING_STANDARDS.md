@@ -98,6 +98,38 @@ message is the part a user reads.
 
 ---
 
+## A change the user cannot see is a change nobody decided about
+
+Three rules about the same mistake: the change is lost, and the loss is silent.
+A reviewer applies them to any change that writes, decides, or reads something
+the user is looking at.
+
+- **A change that cannot be applied keeps its reason next to it, on every surface
+  that shows the change.** A screen that reports a failure into a channel nobody
+  reads is a silent failure, and the surfaces of one feature are not one screen:
+  when a change gains a way to fail, every surface that shows the change has to
+  show the failure too. (The note editor emitted its errors and nobody read them:
+  the change failed on one surface and succeeded on another, and the user could
+  not tell which had happened.)
+- **A change that writes several rows writes all of them or none of them, and the
+  compensation covers the cancellation.** A cancelled coroutine is not a failed
+  one: the rows written before the cancellation stay written, and if the change
+  goes back to waiting, the next attempt writes them again. The compensation
+  belongs where it runs on both paths — a `finally` under `NonCancellable` — and
+  not only in the branch that handles a failure.
+- **A value that cannot be read does not make the change disappear.** When a
+  typed value is read back from storage and it no longer reads — an enum lost a
+  variant, the spelling changed — the change is shown with the reason it cannot
+  be read. Dropping the item is the one outcome the user cannot act on: they
+  cannot turn down a change they cannot see.
+
+Underneath all three: **the user must be able to decide about every change that
+is proposed to them.** A change that vanishes, a change that fails without
+saying so, and a change that is written twice are one defect wearing three
+shapes.
+
+---
+
 ## Text a person may want to copy is selectable
 
 The convention table in

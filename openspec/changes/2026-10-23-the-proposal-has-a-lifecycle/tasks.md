@@ -99,3 +99,46 @@ The second review returned `fail` as well, and it was right twice:
       crash reporter.
 - [x] The tool's comment said `null` clears the date; only an empty string does.
 - [x] A branch that nothing could reach was left in the proposals screen.
+
+## Phase 8 — What the second round of review found
+
+The list the user brought was not a review verdict but a reading of the code.
+These are its items and what answered them.
+
+- [x] A cancelled write kept the rows it had written. The compensation covered
+      the failure and not the cancellation, so a write cut short by the user
+      leaving the screen left the rows behind and the next attempt wrote them
+      twice. The compensation now lives where it runs on both paths.
+- [x] There was no test that cancels the scope in the middle of a write.
+- [x] A value that no longer read was dropped: the codec returned `null`, the
+      mapper filtered it, and the proposal lost the change without a reason.
+      The value now carries the reason, the change stays on the card, and the
+      plan refuses it before the claim.
+- [x] The four copies of "all or none" are one generic `writeAllOrNone`.
+- [x] The two ViewModels with the same logic, and the third surface that held
+      it in another shape, share one coordinator. The differences between the
+      surfaces are values, not branches.
+- [x] The four dictionaries shared one interface and one generic `editableOf`.
+- [x] The codec's sealed-serialization fix is written down as separate work,
+      with the reason it cannot be a detail: until the flat fallback is gone,
+      the `when` the change would remove is still there.
+- [x] The gaps the verdict named: the plan is rebuilt when the row changed
+      between the read and the claim; a rolled-back subtask is archived rather
+      than deleted, which is what the sync carries; the release after a profile
+      change is checked.
+
+## Phase 9 — What the retro found
+
+- [x] The gate suite wrote into the repository it ran in: four modules called
+      git directly, and git exports `GIT_DIR` into every hook. One helper
+      removes the git environment, and a test holds the property.
+- [x] `CODING_STANDARDS.md` was not scanned for dead references, so a reviewer
+      read it and went looking for files that were gone.
+- [x] The log of a failed job was reachable only through `gh run view`, which
+      does not answer while the run is going.
+- [x] A broken build script was found by compiling it: `./gw help` finds it in
+      seconds.
+- [x] The rule about a long run lived in two places and drifted apart.
+- [x] Three rounds of review found twelve defects and missed two — the
+      cancellation and the unreadable value. Both are the same mistake: the
+      user lost a change silently. The rule is in `CODING_STANDARDS.md`.

@@ -211,6 +211,9 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
   находку в CI.
 - **`just lint-changed`** — detekt только по изменённым файлам (секунды); он же в
   pre-commit. Полный модульный detekt — `just lint`.
+- **Сломанный build-скрипт — `./gw help`, а не компиляция**: Gradle читает build-скрипт
+  при конфигурации, и синтаксическая ошибка в нём видна за секунды. Рецепт конфликта
+  в `build.gradle.kts` — `docs/architecture/build-scripts.md`.
 
 > **Дешёвая проверка — отдельно, когда нужен её ответ.** `./gw :shared:detekt` —
 > пара минут; `./gw :shared:jvmTest -Ptest.tags=slow:konsist` — десятки минут.
@@ -236,6 +239,16 @@ gh pr checks <pr> --watch --interval 60   # ждёт до конца, печат
 Десять `sleep 30 && gh pr checks` — это десять раундов контекста впустую, и
 ровно то, что запрещает абзац про долгие запуски выше. `--watch` ждёт сам и
 отдаёт финальный вердикт одной строкой.
+
+**Лог упавшей джобы — через API, а не через `gh run view`.** На живом ране
+`gh run view --log-failed` отвечает «run is still in progress» — за причиной
+падения приходится ждать конца всего рана. Лог джобы доступен сразу:
+
+```bash
+gh api repos/gazon1/sing/actions/jobs/<job-id>/logs      # лог конкретной джобы
+```
+
+Номер джобы — в выводе `gh pr checks <pr>`; в URL джобы он последний.
 
 **Один `--watch` на PR — и никаких снимков рядом с ним.** Пока идёт `--watch`,
 состояние не снимают: `gh pr checks` для «как там» — это тот же цикл опроса,

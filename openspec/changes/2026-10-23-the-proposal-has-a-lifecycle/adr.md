@@ -11,6 +11,9 @@ corpus in `docs/decisions/` is not numbered.
 | 2 | the-proposal-can-be-changed-before-it-is-applied | A proposal can be changed before it is applied, and a refusal shows its reason | accepted | The edit is a compare-and-set on `Pending`; a failed apply keeps its reason and stays pending |
 | 3 | the-review-scenarios-live-in-the-chat | The review scenarios live in the chat, and the prompt stops promising otherwise | accepted | The prompt stops claiming the app is built around the four situations; moving them into the app is separate work |
 | 4 | the-invariant-is-a-test-not-a-file | The invariant is a test, not a file | accepted | The file registry and its gate are gone; the invariant is a test that reads the behaviour and the source |
+| 5 | a-cancelled-write-takes-back-what-it-wrote | A cancelled write takes back what it wrote | accepted | The compensation lives in a `finally` under `NonCancellable`, so it runs on the cancellation and on the failure; the rows that could not be taken back are reported to the crash reporter |
+| 6 | a-value-that-does-not-read-keeps-the-change | A value that does not read keeps the change | accepted | The unreadable value is a variant of the dictionary that carries the reason; the plan refuses it before the claim, so the change is neither decided nor lost |
+| 7 | the-difference-between-two-surfaces-is-a-value | The difference between two surfaces is a value, not a branch | accepted | One coordinator for the five operations; the wording, the failure store and the error sink are handed to it as values |
 
 ## ADRs Reviewed (No Action)
 

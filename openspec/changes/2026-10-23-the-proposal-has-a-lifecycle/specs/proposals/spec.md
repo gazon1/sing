@@ -129,6 +129,14 @@ its rows behind would be applied twice the next time the user tries.
 - **Then** none of the three rows is on the task
 - **And** applying the proposal again adds each row once
 
+#### Scenario: The write is cut short
+
+- **Given** a proposal that adds three rows
+- **When** the write is cancelled after the first row — the user left the screen
+- **Then** the row that was written is taken back
+- **And** the change is waiting for a decision again
+- **And** applying the proposal again adds each row once
+
 ### Requirement: REQ-PROP-014 A date can be cleared
 
 The vocabulary SHALL hold the absence of a date, and the reader SHALL read an
@@ -153,3 +161,73 @@ the model cannot recover from.
 - **Given** a proposal that clears a due date
 - **When** it is written to the database and read back
 - **Then** it reads back as the same change
+
+### Requirement: REQ-PROP-015 A value that does not read keeps the change
+
+A value read from the database that this build cannot read SHALL NOT make the
+change disappear. The change SHALL stay on the card, SHALL carry the reason it
+cannot be applied, and SHALL be waiting for a decision. Applying it SHALL fail
+with that reason, and the change SHALL stay waiting.
+
+The reason SHALL be the one the reader gives, and the reader SHALL be the same
+one that reads the value the user types.
+
+**Rationale:** a row written by a build that knew the field — an enum that lost a
+variant, a spelling that changed — read as "nothing here", and the proposal
+quietly lost a change. The user saw a card with a change missing and no reason:
+the change was not refused, it was deleted. A change the user cannot see is a
+change nobody decided about.
+
+#### Scenario: The stored value no longer reads
+
+- **Given** a proposal whose stored value this build cannot read
+- **When** the proposal is read from the database
+- **Then** the change is still on the card
+- **And** the reason it cannot be read is shown next to it
+- **And** the change is waiting for a decision
+
+#### Scenario: The user applies a value that cannot be read
+
+- **Given** a proposal whose stored value this build cannot read
+- **When** the user applies it
+- **Then** nothing is changed
+- **And** the reason is shown next to the change
+- **And** the change is still waiting for a decision
+
+#### Scenario: The user types a value that does read
+
+- **Given** a proposal whose stored value this build cannot read
+- **When** the user types a value the domain can hold
+- **Then** the proposal carries the value the user typed
+- **And** the change can be applied
+
+### Requirement: REQ-PROP-016 Every surface answers a proposal the same way
+
+Every surface that shows a proposal SHALL show the reason a change failed next
+to that change, and SHALL report a failure that arrived as an exception. A
+batch in which some changes failed SHALL NOT be reported as one failure: each
+failed change SHALL keep its own reason next to it, and each change that worked
+SHALL have its reason cleared.
+
+The wording MAY differ between surfaces. What may not differ is which failures
+are shown and where.
+
+**Rationale:** the same change failed on one surface and succeeded on another,
+and the user could not tell which had happened: one surface read its error
+events and the others did not. A feature whose surfaces disagree about failure
+is a feature the user cannot trust.
+
+#### Scenario: The same change on two surfaces
+
+- **Given** a change that cannot be applied
+- **When** it is applied on the review screen and on the task detail
+- **Then** the reason is shown next to the change on both
+- **And** a failure that arrives as an exception is shown on both
+
+#### Scenario: A batch where some changes failed
+
+- **Given** a proposal with three changes, one of which cannot be applied
+- **When** the user applies them all
+- **Then** the failed change keeps its own reason next to it
+- **And** the two changes that worked have no reason
+- **And** the batch is not reported as a single failure
