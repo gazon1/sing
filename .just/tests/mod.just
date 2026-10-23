@@ -71,7 +71,14 @@ impact:
     # mention it. The map is a candidate set, not a verdict — it never says that
     # a test outside it is safe, only which ones are worth running first.
     # See scripts/test-impact-map.py and the ADR that explains the rules.
-    python3 scripts/test-impact-map.py --run
+    #
+    # `--population fast` names the population the repository declares in
+    # `config/test-populations.properties`, instead of the map spelling a tag
+    # list of its own — the same tool must not answer two different questions
+    # in two places. `--gradle ./gw` reaches this repository's private Gradle
+    # home; `./gradlew` would reach the shared `~/.gradle` that the wrapper
+    # exists to avoid.
+    python3 scripts/test-impact-map.py --run --population fast --gradle ./gw
 
 [group('tests')]
 [doc('Run jvmTest (Room + SQLite on JVM)')]

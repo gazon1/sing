@@ -14,22 +14,29 @@ So the properties asserted here are about the narrow direction:
   code it checks;
 * a change in the gates maps no app test at all — the gate suite is what has to
   run, and the app's tests do not read the gates;
-* the command the map prints names the tag selection that actually runs the
-  slow half, because the default run of a task excludes it;
-* the commands are one per module: `--tests` filters the whole invocation, and
-  a task left with no matching test fails the build.
+* the command the map prints names a POPULATION, not a tag list, because a
+  population is declared in one place and a tag list is a second spelling of
+  it that drifts;
+* a class the chosen population does not select is dropped from the command and
+  named in the report — a filter that names it runs nothing and reports green;
+* a base reference that does not resolve is an error, not an empty selection:
+  a comparison that could not be made is not a comparison that found nothing;
+* an empty selection is reported on stdout, where the caller reads it.
 
 The map is exercised against synthetic trees, so the assertions say what the
 rule is and not what this repository happens to contain.
 """
 
+import contextlib
 import importlib.util
+import io
 import pathlib
 import sys
 import unittest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS / "src"))
+sys.path.insert(0, str(SCRIPTS))
 
 _spec = importlib.util.spec_from_file_location(
     "test_impact_map", SCRIPTS / "test-impact-map.py"
@@ -44,14 +51,21 @@ def test_class(
     scope: str,
     body: str = '',
     module: str = 'shared',
+    source: str = '',
 ) -> impact.TestClass:
-    """A test class that lives in the tree — the map reads its scope and its body."""
+    """A test class that lives in the tree — the map reads its scope and its body.
+
+    `source` is the file's whole text. The class-level `@Tag` sits ABOVE the
+    declaration, so a body that starts at the declaration cannot see it — and
+    the population intersection asks exactly that question.
+    """
     return impact.TestClass(
         qualified_name=qualified_name,
         path=impact.ROOT / 'shared/src/commonTest/kotlin' / f'{qualified_name.replace(".", "/")}.kt',
         module=module,
         scope=scope,
         body=body,
+        source=source,
     )
 
 
@@ -171,24 +185,107 @@ class MapTest(unittest.TestCase):
 class CommandTest(unittest.TestCase):
     """The commands the map prints."""
 
-    def test_the_command_names_the_tag_selection_that_runs_the_slow_half(self):
+    def test_the_command_names_a_population_not_a_tag_list(self):
+        """The command asks for a population the repository declares.
+
+        A tag list is a second spelling of a thing declared in one place, and
+        the two spellings drift: the map used to select the fast and the slow
+        half together, so a job meant to answer in minutes measured the
+        population the schedule measures.
+        """
         tests = [test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks')]
-        commands = impact.gradle_commands(tests)
+        commands = impact.gradle_commands(tests, 'fast')
         self.assertEqual(1, len(commands))
-        self.assertIn('-Ptest.tags=fast,slow', commands[0])
+        self.assertIn('-Ptest.population=fast', commands[0])
+        self.assertNotIn('-Ptest.tags=fast,slow', commands[0])
+        self.assertFalse(any(token.startswith('-Ptest.tags=') for token in commands[0]))
         self.assertIn(':shared:jvmTest', commands[0])
         self.assertIn('--tests', commands[0])
         self.assertIn('com.singularity.todo.feature.tasks.TaskTest', commands[0])
 
+    def test_the_population_the_command_names_is_a_declared_one(self):
+        declared = impact.populations()
+        self.assertIn('fast', declared)
+        self.assertEqual(['fast'], declared['fast'])
+        self.assertEqual('fast', impact.default_population())
+
+    def test_an_undeclared_population_is_refused(self):
+        with self.assertRaises(impact.UnknownPopulation):
+            impact.population_tags('no-such-population')
+
+    def test_the_gradle_entry_point_is_overridable(self):
+        """The local recipe reaches the private wrapper, not the shared cache."""
+        tests = [test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks')]
+        commands = impact.gradle_commands(tests, 'fast', gradle='./gw')
+        self.assertEqual('./gw', commands[0][0])
+
+    def test_a_missing_base_ref_is_refused(self):
+        """A comparison that could not be made is not one that found nothing.
+
+        The tool used to swallow the failed comparison and report an empty
+        selection with exit code 0 — the same answer it gives for a change
+        that genuinely touches no test.
+        """
+        with self.assertRaises(impact.UnresolvableBaseRef):
+            impact.changed_paths('origin/no-such-base-ref')
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            code = impact.main(['--command', '--base', 'origin/no-such-base-ref'])
+        self.assertNotEqual(0, code)
+        self.assertIn('origin/no-such-base-ref', stderr.getvalue())
+
+    def test_a_class_outside_the_population_is_dropped(self):
+        """A filter that names a class the population excludes runs nothing.
+
+        The dropped class is NAMED, so the report says what did not run instead
+        of reporting a green run that ran nothing.
+        """
+        slow = test_class(
+            'com.singularity.todo.feature.tasks.SlowTask',
+            'feature.tasks',
+            source=(
+                'package com.singularity.todo.feature.tasks\n'
+                '\n'
+                '@Tag("slow")\n'
+                'class SlowTask {\n'
+                '    @Test\n'
+                '    fun aTest() = Unit\n'
+                '}\n'
+            ),
+        )
+        kept, dropped = impact.select_for_population([slow], ['fast'])
+        self.assertEqual([], kept)
+        self.assertEqual(1, len(dropped))
+        self.assertIn('com.singularity.todo.feature.tasks.SlowTask', dropped[0])
+        self.assertIn(impact.DROPPED, dropped[0])
+
+        kept_in_full, dropped_in_full = impact.select_for_population([slow], ['fast', 'slow'])
+        self.assertEqual([slow], kept_in_full)
+        self.assertEqual([], dropped_in_full)
+
+    def test_an_empty_selection_says_so(self):
+        """The empty selection is reported where the caller reads it.
+
+        The caller has to tell "this change claims no test class" apart from
+        "the comparison failed": the first is an answer, the second is an
+        error with a non-zero exit code.
+        """
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+            code = impact.main(['--command'], paths=[])
+        self.assertEqual(0, code)
+        self.assertIn(impact.EMPTY_SELECTION, stdout.getvalue())
+
     def test_no_tests_means_no_command(self):
-        self.assertEqual([], impact.gradle_commands([]))
+        self.assertEqual([], impact.gradle_commands([], 'fast'))
 
     def test_each_module_gets_its_own_command(self):
         tests = [
             test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks'),
             test_class('com.singularity.todo.flows.DesktopTest', 'flows', module='desktopApp'),
         ]
-        commands = impact.gradle_commands(tests)
+        commands = impact.gradle_commands(tests, 'fast')
         self.assertEqual(2, len(commands))
         # A `--tests` filter that names a class of another module leaves that
         # module's task with nothing to run, and Gradle fails such a task.

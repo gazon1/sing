@@ -27,12 +27,29 @@ Everything the map says is a **candidate**, not a verdict. The map is narrow
 where it can be and wide where it must be: it never claims that a test outside
 the map is safe, it only says which ones are worth running first.
 
+The map names a POPULATION, not a tag list. The populations are declared in
+`config/test-populations.properties`, and the command the map prints asks for
+one of them by name — so the command cannot select a population the repository
+has not declared, and the same tool cannot answer two different questions in
+two places. A class whose tag is outside the chosen population is dropped from
+the command and named in the report: a `--tests` filter that names a class the
+population excludes runs nothing and reports green.
+
+Three failures are loud, because a silent one is indistinguishable from a
+change that breaks nothing:
+
+* a base reference that does not resolve is an error, not an empty selection;
+* a selection that is empty is reported on stdout, where the caller reads it;
+* a population that is not declared is an error.
+
 Usage:
     python3 scripts/test-impact-map.py                  # the test classes, one per line
     python3 scripts/test-impact-map.py --explain        # the same, with the reasons
     python3 scripts/test-impact-map.py --command        # the gradle commands to run them
     python3 scripts/test-impact-map.py --run            # run those commands
     python3 scripts/test-impact-map.py --base origin/main
+    python3 scripts/test-impact-map.py --population fast
+    python3 scripts/test-impact-map.py --gradle ./gw    # the private wrapper, not ./gradlew
 """
 
 from __future__ import annotations
@@ -44,6 +61,16 @@ import subprocess
 import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
+
+#: The gate scripts live next to this one, and the scanner package under
+#: `scripts/src` is what knows how a test class is tagged. The bootstrap is the
+#: one `scripts/scanning.py` documents: a checkout that has not installed the
+#: repository tools still has to be able to ask the question.
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+import scanning  # noqa: E402 — the path entry above is the reason for the late import
 
 #: The source sets that hold tests, and the module each belongs to.
 TEST_SOURCE_DIRS: dict[str, str] = {
@@ -81,10 +108,29 @@ TEST_TASKS: dict[str, str] = {
     'mcp-server': ':mcp-server:test',
 }
 
-#: The tag selection that runs the whole vocabulary. The default run of a task
-#: excludes `slow`, so a map that names a slow class without this would promise
-#: a run that never happens.
-TAGS = 'fast,slow'
+#: The file that names the populations and the tags each one selects. The same
+#: file the build reads, so the map and the build cannot disagree about what
+#: `fast` means.
+POPULATIONS_FILE = 'config/test-populations.properties'
+
+#: The Gradle entry point the emitted commands name.
+#:
+#: Overridable, because the local recipe must reach this repository's private
+#: wrapper (`./gw`) and not the shared `~/.gradle` that the wrapper exists to
+#: avoid — "Parallel git worktrees share `~/.gradle` by default, and sharing it
+#: has two costs that are easy to mistake for something else".
+GRADLE = './gradlew'
+
+#: What the map prints on stdout when the change selects no test class.
+#:
+#: The caller reads stdout, so this line is what tells it that the selection
+#: was EMPTY — as opposed to a comparison that failed, which is an error and a
+#: non-zero exit code. A selection that failed and a selection that found
+#: nothing used to look the same, and the difference is the whole answer.
+EMPTY_SELECTION = 'test-impact-map: the change selects no test class'
+
+#: The prefix of the line that names a class the population excludes.
+DROPPED = 'dropped:'
 
 #: A top-level class declaration in Kotlin. The indentation is part of the
 #: pattern on purpose: a nested class is not a test class a `--tests` filter
@@ -103,7 +149,12 @@ PACKAGE_DECLARATION = re.compile(r'^\s*package\s+([\w.]+)', re.MULTILINE)
 
 
 class TestClass:
-    """One test class: its name, its file, its module, its scope, its body."""
+    """One test class: its name, its file, its module, its scope, its body.
+
+    The file's whole source is carried too, because the class-level `@Tag`
+    sits ABOVE the declaration — a body that starts at the declaration cannot
+    see it, and the population intersection asks exactly that question.
+    """
 
     def __init__(
         self,
@@ -112,15 +163,84 @@ class TestClass:
         module: str,
         scope: str,
         body: str,
+        source: str = '',
     ) -> None:
         self.qualified_name = qualified_name
         self.path = path
         self.module = module
         self.scope = scope
         self.body = body
+        self.source = source
 
     def __repr__(self) -> str:  # pragma: no cover — debugging aid
         return f'TestClass({self.qualified_name})'
+
+
+class UnresolvableBaseRef(Exception):
+    """The base reference does not resolve.
+
+    A comparison that could not be made is not a comparison that found
+    nothing. The tool used to swallow the failure and report an empty
+    selection with exit code 0 — the same answer it gives for a change that
+    genuinely touches no test.
+    """
+
+
+class UnknownPopulation(Exception):
+    """The population is not declared in `config/test-populations.properties`."""
+
+
+def populations() -> dict[str, list[str]]:
+    """The declared populations: a name -> the tags it selects.
+
+    The file is read the way `config/test-populations.properties` documents
+    itself: `=` separates a population from its tags, `:` separates a
+    population from one of its properties. A line with no `=` is a property
+    and is not a population of its own.
+    """
+    declared: dict[str, list[str]] = {}
+    path = ROOT / POPULATIONS_FILE
+    if not path.is_file():
+        return declared
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.split('#', 1)[0].strip()
+        if not line or '=' not in line:
+            continue
+        name, _, tags = line.partition('=')
+        name = name.strip()
+        if not name:
+            continue
+        declared[name] = [tag.strip() for tag in tags.split(',') if tag.strip()]
+    return declared
+
+
+def default_population() -> str:
+    """The population the tool uses when none is named: the first declared one.
+
+    `config/test-populations.properties` declares `fast` first, and `fast` is
+    what a pull request runs.
+    """
+    declared = populations()
+    if not declared:
+        raise UnknownPopulation(
+            f'{POPULATIONS_FILE} declares no population, so the map has none to '
+            'select. A tool that names a population the repository has not '
+            'declared cannot be checked against it.'
+        )
+    return next(iter(declared))
+
+
+def population_tags(population: str) -> list[str]:
+    """The tags of a named population; an undeclared one is an error."""
+    declared = populations()
+    if population not in declared:
+        known = ', '.join(sorted(declared)) or 'none'
+        raise UnknownPopulation(
+            f"the population '{population}' is not declared in {POPULATIONS_FILE} "
+            f'(declared: {known}). A command that names a population nobody '
+            'declared selects nothing and reports green.'
+        )
+    return declared[population]
 
 
 def _scope_from_tail(tail: str) -> str:
@@ -148,14 +268,37 @@ def changed_paths(base: str) -> list[str]:
     A change that is not committed yet is still a change, and a map that only
     looked at the commits would name nothing for the work in front of the
     developer.
+
+    A base reference that does not resolve is an ERROR. The comparison could
+    not be made, and a comparison that could not be made is not a comparison
+    that found nothing: the tool used to swallow the failed `git diff` and
+    report an empty selection with exit code 0 — the same answer it gives for
+    a change that genuinely touches no test.
     """
+    resolved = subprocess.run(
+        ['git', 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    if resolved.returncode != 0:
+        raise UnresolvableBaseRef(
+            f"the base reference '{base}' does not resolve in this checkout. A "
+            'comparison that could not be made is not a comparison that found '
+            'nothing, so the map refuses to report an empty selection for it.'
+        )
+
     paths: list[str] = []
     committed = subprocess.run(
         ['git', 'diff', '--name-only', f'{base}...HEAD'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
-    if committed.returncode == 0:
-        paths.extend(line.strip() for line in committed.stdout.splitlines() if line.strip())
+    if committed.returncode != 0:
+        detail = committed.stderr.strip() or f'git diff exited with {committed.returncode}'
+        raise UnresolvableBaseRef(
+            f"the comparison against the base reference '{base}' failed: {detail}. "
+            'A comparison that could not be made is not a comparison that found '
+            'nothing.'
+        )
+    paths.extend(line.strip() for line in committed.stdout.splitlines() if line.strip())
     working = subprocess.run(
         ['git', 'status', '--porcelain'],
         cwd=ROOT, capture_output=True, text=True, check=False,
@@ -207,7 +350,7 @@ def test_classes() -> list[TestClass]:
                 if 'Test' not in name and not TEST_MEMBER.search(body):
                     continue
                 qualified = f'{package}.{name}' if package else name
-                found.append(TestClass(qualified, path, module, scope, body))
+                found.append(TestClass(qualified, path, module, scope, body, text))
     return found
 
 
@@ -282,13 +425,51 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
     return sorted(selected), reasons
 
 
-def gradle_commands(tests: list[TestClass]) -> list[list[str]]:
+def select_for_population(
+    tests: list[TestClass],
+    tags: list[str],
+) -> tuple[list[TestClass], list[str]]:
+    """The classes the population selects, and the ones it excludes.
+
+    The build selects a class by its MAIN tag — `includeTags("fast")` is an
+    exact match, and a class that carries only a sub-tag is selected by no run
+    at all. The map asks the same question the same way, so a class the
+    population excludes is dropped from the command and NAMED in the report:
+    a `--tests` filter that names a class the population excludes runs
+    nothing, and a run that ran nothing reports green.
+    """
+    selected = set(tags)
+    kept: list[TestClass] = []
+    dropped: list[str] = []
+    for test in tests:
+        simple = test.qualified_name.rsplit('.', 1)[-1]
+        tag = scanning.read_tag(test.source, simple)
+        if tag in selected:
+            kept.append(test)
+            continue
+        dropped.append(
+            f'{DROPPED} {test.qualified_name} — its tag is \'{tag}\', which the '
+            f'population does not select'
+        )
+    return kept, dropped
+
+
+def gradle_commands(
+    tests: list[TestClass],
+    population: str,
+    gradle: str = GRADLE,
+) -> list[list[str]]:
     """The gradle commands that run the mapped classes — one per module.
 
     One command per module, because `--tests` is a filter of the whole
     invocation: a filter that names a class of another module leaves that
     module's task with nothing to run, and Gradle fails a test task that ran
     no test.
+
+    The command names the POPULATION, not a tag list. A tag list is a second
+    spelling of a thing the repository already declares in one place, and the
+    two spellings drift: the map used to answer a different question than the
+    one asked, selecting the fast and slow half together.
     """
     by_module: dict[str, list[str]] = {}
     for test in tests:
@@ -296,14 +477,32 @@ def gradle_commands(tests: list[TestClass]) -> list[list[str]]:
 
     commands: list[list[str]] = []
     for module in sorted(by_module):
-        command = ['./gradlew', TEST_TASKS[module], f'-Ptest.tags={TAGS}']
+        command = [gradle, TEST_TASKS[module], f'-Ptest.population={population}']
         for name in sorted(by_module[module]):
             command += ['--tests', name]
         commands.append(command)
     return commands
 
 
-def main(argv: list[str]) -> int:
+def report_empty_selection() -> None:
+    """Report an empty selection on stdout, where the caller reads it.
+
+    An empty selection is an ANSWER — "this change claims no test class" — and
+    the caller has to be able to tell it apart from a comparison that failed.
+    The failure is an error and a non-zero exit code; the empty selection is
+    this line and exit code 0.
+    """
+    print(EMPTY_SELECTION)
+    print('nothing to run: the change claims no test class.', file=sys.stderr)
+
+
+def main(argv: list[str], paths: list[str] | None = None) -> int:
+    """The tool's entry point.
+
+    `paths` overrides the changed-paths lookup. It exists so that the empty
+    selection can be exercised without a change in the tree: the answer the
+    caller reads has to be the same answer whatever the tree holds.
+    """
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--base', default='origin/main',
                         help='What the change is measured against.')
@@ -313,22 +512,50 @@ def main(argv: list[str]) -> int:
                         help='Print the gradle commands that run the map.')
     parser.add_argument('--run', action='store_true',
                         help='Run those commands.')
+    parser.add_argument('--population', default=None,
+                        help=('The population the commands select, by name. '
+                              f'Defaults to the first population declared in '
+                              f'{POPULATIONS_FILE}.'))
+    parser.add_argument('--gradle', default=GRADLE,
+                        help=('The Gradle entry point the commands name. The '
+                              'local recipe passes the private wrapper (./gw), '
+                              'not the shared ~/.gradle.'))
     args = parser.parse_args(argv)
 
-    paths = changed_paths(args.base)
-    tests = test_classes()
-    selected, reasons = map_tests(paths, tests)
-    chosen = [test for test in tests if test.qualified_name in selected]
+    try:
+        population = args.population or default_population()
+        tags = population_tags(population)
+    except UnknownPopulation as error:
+        print(f'test-impact-map: {error}', file=sys.stderr)
+        return 2
+
+    try:
+        changed = changed_paths(args.base) if paths is None else paths
+    except UnresolvableBaseRef as error:
+        print(f'test-impact-map: {error}', file=sys.stderr)
+        return 2
+
+    selected: list[str] = []
+    reasons: list[str] = []
+    chosen: list[TestClass] = []
+    if changed:
+        tests = test_classes()
+        selected, reasons = map_tests(changed, tests)
+        chosen = [test for test in tests if test.qualified_name in selected]
+    kept, dropped = select_for_population(chosen, tags)
+
+    for line in dropped:
+        print(line, file=sys.stderr)
 
     if args.explain:
         for reason in reasons:
             print(f'  {reason}', file=sys.stderr)
         print('', file=sys.stderr)
 
-    commands = gradle_commands(chosen)
+    commands = gradle_commands(kept, population, args.gradle)
     if args.run:
         if not commands:
-            print('nothing to run: the change claims no test class.', file=sys.stderr)
+            report_empty_selection()
             return 0
         for command in commands:
             print(' '.join(command), file=sys.stderr)
@@ -339,7 +566,7 @@ def main(argv: list[str]) -> int:
 
     if args.command:
         if not commands:
-            print('nothing to run: the change claims no test class.', file=sys.stderr)
+            report_empty_selection()
             return 0
         for command in commands:
             print(' '.join(command))
