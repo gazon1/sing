@@ -298,6 +298,59 @@ class ColumnsAgreeTest(unittest.TestCase):
         self.assertEqual([v.rule for v in found], ['columns-agree'])
 
 
+class ScenarioTestCurrentTest(unittest.TestCase):
+    """The generated scenario test is what the scenario files say.
+
+    The scenarios are data and the test is generated from them, so the two can
+    disagree — and a test file that disagrees with the data is a test of
+    something else.
+    """
+
+    SCENARIO_YAML = (
+        "from: 31\n"
+        "to: 32\n"
+        "scenarios:\n"
+        "  - name: a claim\n"
+        "    seed: []\n"
+        "    expect:\n"
+        "      - sql: \"SELECT 1\"\n"
+        "        equals: 1\n"
+    )
+
+    def _tree(self, with_test: bool = True, generated: str = "") -> pathlib.Path:
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        scenario_dir = root / mod.SCENARIO_DIR_RELATIVE
+        scenario_dir.mkdir(parents=True)
+        (scenario_dir / '31-to-32.yaml').write_text(self.SCENARIO_YAML, encoding='utf-8')
+        if with_test:
+            path = root / mod.SCENARIO_TEST_RELATIVE
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(generated or mod.render_scenario_test(mod.load_scenarios(scenario_dir)),
+                            encoding='utf-8')
+        return root
+
+    def test_a_current_file_is_clean(self):
+        root = self._tree()
+        self.assertEqual(mod.check_scenarios_current(root), [])
+
+    def test_a_stale_file_is_found(self):
+        root = self._tree(generated='// stale\n')
+        found = mod.check_scenarios_current(root)
+        self.assertEqual([v.rule for v in found], ['migration-scenarios-current'])
+        self.assertIn('regenerate', str(found[0]))
+
+    def test_a_missing_file_is_found(self):
+        root = self._tree(with_test=False)
+        found = mod.check_scenarios_current(root)
+        self.assertEqual([v.rule for v in found], ['migration-scenarios-current'])
+        self.assertIn('missing', str(found[0]))
+
+    def test_a_tree_without_scenarios_is_not_a_finding(self):
+        """No scenario directory means no claim to check, not a broken claim."""
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.assertEqual(mod.check_scenarios_current(root), [])
+
+
 class RegistrySanityTest(unittest.TestCase):
     """The constants that encode the project's history must be self-consistent."""
 

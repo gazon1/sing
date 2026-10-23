@@ -130,6 +130,13 @@ if _SCRIPTS_SRC not in sys.path:
 from sgate.commands.base import run  # noqa: E402
 from sgate.gatekit.paths import generated_path  # noqa: E402
 from sgate.gatekit.room import entities as room_entities  # noqa: E402
+from sgate.gatekit.scenarios import (  # noqa: E402
+    MAX_FUNCTIONS_PER_CLASS,
+    MAX_LINE_LENGTH,
+    kotlin_convention_findings,
+    load_scenarios,
+    render_scenario_test,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -341,6 +348,11 @@ def source_table_names(root: Path) -> set[str]:
     for path in src.rglob("*.kt"):
         names.update(_TABLE_NAME_RE.findall(path.read_text()))
     return names
+
+
+def mod_scenarios_dir(root: Path) -> str:
+    """Where the scenario files live, relative to the root."""
+    return SCENARIO_DIR_RELATIVE
 
 
 # ── rules ──────────────────────────────────────────────────────────────────
@@ -585,6 +597,16 @@ ROUND_TRIP_SUPPORT_RELATIVE = (
     "shared/src/jvmTest/kotlin/com/singularity/todo/core/database/MigrationRoundTripSupport.kt"
 )
 
+
+#: The scenario files: what the migrations do to the *data*, written as data.
+SCENARIO_DIR_RELATIVE = "shared/src/jvmTest/resources/migrations"
+
+#: The test the scenarios are generated into.
+SCENARIO_TEST_RELATIVE = (
+    "shared/src/jvmTest/kotlin/com/singularity/todo/core/database/"
+    "GeneratedMigrationScenarioTest.kt"
+)
+
 ROUND_TRIP_HEADER = '''package com.singularity.todo.core.database
 
 import org.junit.jupiter.api.Tag
@@ -666,43 +688,6 @@ def render_roundtrip_test(steps: list[tuple[int, int]]) -> str:
     )
     return ROUND_TRIP_HEADER + body + "}\n"
 
-
-#: The line length detekt enforces (`MaximumLineLength`).
-MAX_LINE_LENGTH = 120
-
-#: The number of functions detekt allows in one class (`TooManyFunctions`).
-MAX_FUNCTIONS_PER_CLASS = 16
-
-
-def kotlin_convention_findings(source: str) -> list[str]:
-    """What detekt would say about a generated Kotlin file — without Gradle.
-
-    The generator wrote forty methods into one class, and detekt said
-    `TooManyFunctions`; then it wrote a `@ValueSource` on one line, and ktlint
-    said `MaximumLineLength`. Both facts were discovered by running Gradle
-    twice, eight minutes each, on a machine that was busy with somebody else's
-    build. The two rules are mechanical: they can be checked in milliseconds,
-    and a generator that checks its own output before writing it cannot produce
-    code the linter will reject.
-
-    The thresholds are detekt's own, read from `config/detekt/detekt.yml`, and
-    the check is deliberately narrow: lines that are too long, and classes with
-    too many functions. Those are the two that a generator can break by
-    accident.
-    """
-    findings: list[str] = []
-    for number, line in enumerate(source.split("\n"), start=1):
-        if len(line) > MAX_LINE_LENGTH:
-            findings.append(
-                f"line {number} is {len(line)} characters long — the limit is {MAX_LINE_LENGTH}"
-            )
-    functions = sum(1 for line in source.split("\n") if line.lstrip().startswith("fun "))
-    if functions > MAX_FUNCTIONS_PER_CLASS:
-        findings.append(
-            f"the file declares {functions} functions — the limit is "
-            f"{MAX_FUNCTIONS_PER_CLASS} per class"
-        )
-    return findings
 
 def create_sql_columns(create_sql: str) -> list[str] | None:
     """The columns a `CREATE TABLE` declares, in order.
@@ -840,6 +825,53 @@ def check_roundtrip_test_current(root: Path) -> list[Violation]:
     return out
 
 
+def check_scenarios_current(root: Path) -> list[Violation]:
+    """Rule 5: the generated scenario test is what the scenario files say.
+
+    The round-trip test proves the schema; the scenario test proves the meaning
+    of a step — that a backfilled column holds the backfilled value, that a row
+    that cannot satisfy a NOT NULL constraint is gone. The scenarios are written
+    as data, and the test is generated from them, so the file and the data can
+    disagree — and a test file that disagrees with the data is a test of
+    something else.
+    """
+    scenario_dir = root / SCENARIO_DIR_RELATIVE
+    if not scenario_dir.is_dir():
+        return []
+    files = load_scenarios(scenario_dir)
+    if not files:
+        return []
+    rendered = render_scenario_test(files)
+    findings = kotlin_convention_findings(rendered)
+    if findings:
+        return [
+            Violation(
+                "migration-scenarios-current",
+                "the generated scenario test does not follow the conventions detekt "
+                f"enforces: {'; '.join(findings)}",
+            )
+        ]
+    path = root / SCENARIO_TEST_RELATIVE
+    if not path.is_file():
+        return [
+            Violation(
+                "migration-scenarios-current",
+                f"{SCENARIO_TEST_RELATIVE} is missing — generate it with "
+                "`python3 scripts/check-room-schema-integrity.py --write`",
+            )
+        ]
+    on_disk = path.read_text(encoding="utf-8")
+    if on_disk != rendered:
+        return [
+            Violation(
+                "migration-scenarios-current",
+                f"{SCENARIO_TEST_RELATIVE} is not what the scenario files say today — "
+                "regenerate it with `python3 scripts/check-room-schema-integrity.py --write`",
+            )
+        ]
+    return []
+
+
 def check_not_vacuous(schema_dir: Path, root: Path) -> list[Violation]:
     out: list[Violation] = []
     exports = exported_versions(schema_dir)
@@ -914,6 +946,7 @@ def run_all(root: Path) -> list[Violation]:
     violations += check_manual_list_matches_factory(manual, root)
     violations += check_exports_are_internally_consistent(schema_dir, root)
     violations += check_roundtrip_test_current(root)
+    violations += check_scenarios_current(root)
     return violations
 
 
@@ -1162,6 +1195,36 @@ def self_test() -> int:
         p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/GhostEntity.kt"
         p.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
 
+    def _stale_scenario_test(root: Path) -> None:
+        """The generated scenario test no longer says what the scenarios say.
+
+        The scenarios are data and the test is generated from them, so the two
+        can disagree — and a test file that disagrees with the data is a test
+        of something else. The rule that catches it is the one that matters
+        here: without it, editing a scenario changes nothing until somebody
+        remembers to regenerate.
+        """
+        scenario_dir = root / mod_scenarios_dir(root)
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+        (scenario_dir / "31-to-32.yaml").write_text(
+            "from: 31\nto: 32\nscenarios:\n  - name: a claim\n    seed: []\n"
+            "    expect:\n      - sql: \"SELECT 1\"\n        equals: 1\n",
+            encoding="utf-8",
+        )
+        test_path = root / SCENARIO_TEST_RELATIVE
+        test_path.parent.mkdir(parents=True, exist_ok=True)
+        test_path.write_text("// stale\n", encoding="utf-8")
+
+    def _missing_scenario_test(root: Path) -> None:
+        """The scenarios exist and the test they generate does not."""
+        scenario_dir = root / mod_scenarios_dir(root)
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+        (scenario_dir / "31-to-32.yaml").write_text(
+            "from: 31\nto: 32\nscenarios:\n  - name: a claim\n    seed: []\n"
+            "    expect:\n      - sql: \"SELECT 1\"\n        equals: 1\n",
+            encoding="utf-8",
+        )
+
     def _export_ddl_disagrees(root: Path) -> None:
         """The export's DDL declares a column its own column list does not.
 
@@ -1196,6 +1259,8 @@ def self_test() -> int:
     )
     expect_caught("missing round-trip test", _missing_roundtrip_test, "roundtrip-test-current")
     expect_caught("export DDL disagrees with its columns", _export_ddl_disagrees, "export-ddl-matches-fields")
+    expect_caught("a stale generated scenario test", _stale_scenario_test, "migration-scenarios-current")
+    expect_caught("a missing generated scenario test", _missing_scenario_test, "migration-scenarios-current")
     expect_caught("a column the export does not have", _column_in_entity_not_in_export, "columns-agree")
     expect_caught("a table the export does not have", _table_in_entity_not_in_export, "columns-agree")
 
@@ -1262,6 +1327,31 @@ def cli(ctx: click.Context, run_self_test: bool, emit_json: bool, do_write: bool
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(rendered, encoding="utf-8")
         click.echo(f"wrote {path.relative_to(ROOT)} — {len(steps)} migration step(s)")
+
+        # The scenario test: the semantics of the migrations, generated from the
+        # scenario files. Same rule as above — the generator checks its own
+        # output before writing it.
+        scenario_dir = ROOT / SCENARIO_DIR_RELATIVE
+        scenario_files = load_scenarios(scenario_dir)
+        if scenario_files:
+            scenario_path = generated_path(ROOT, SCENARIO_TEST_RELATIVE)
+            scenario_rendered = render_scenario_test(scenario_files)
+            scenario_findings = kotlin_convention_findings(scenario_rendered)
+            if scenario_findings:
+                click.echo(
+                    "the generated scenario test does not follow the conventions detekt enforces:",
+                    err=True,
+                )
+                for finding in scenario_findings:
+                    click.echo(f"  {finding}", err=True)
+                raise ctx.exit(VALIDATION_FAILURE)
+            scenario_path.parent.mkdir(parents=True, exist_ok=True)
+            scenario_path.write_text(scenario_rendered, encoding="utf-8")
+            count = sum(len(f.scenarios) for f in scenario_files)
+            click.echo(
+                f"wrote {scenario_path.relative_to(ROOT)} — {count} scenario(s) "
+                f"from {len(scenario_files)} file(s)"
+            )
         raise ctx.exit(CLEAN)
 
     violations = run_all(ROOT)
