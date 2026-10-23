@@ -63,11 +63,12 @@ from pathlib import Path
 
 import click
 
-_SRC = Path(__file__).resolve().parent.parent / "src"
+_SRC = Path(__file__).resolve().parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
+from sgate.gatekit.tables import TableRule, compare_names, rows_at_header  # noqa: E402
 
 #: The document: the table a reader believes.
 SKILL = Path(".agents/skills/singularity-todo-text-field-states/SKILL.md")
@@ -79,7 +80,12 @@ CODE = Path(
 )
 
 #: The header of the table inside the document.
-TABLE_HEADER = "| Transformation | Rule | Checked |"
+#: The shape of the table — which document, which header, which column is
+#: what. The rule is data: `config/gates/text-field-transformations.yaml`.
+RULE = TableRule.from_file(
+    Path(__file__).resolve().parent.parent / "config" / "gates" / "text-field-transformations.yaml"
+)
+TABLE_HEADER = RULE.header
 
 #: A top-level function declaration. The body of a function is everything from
 #: its parameter list to the next declaration, which is enough for the facts
@@ -301,21 +307,8 @@ def parse_table(document: str) -> list[Row]:
     The table is found by its header, so a document that loses the table is a
     document the gate reports rather than one it silently finds empty.
     """
-    lines = document.splitlines()
-    start = -1
-    for index, line in enumerate(lines):
-        if line.strip() == TABLE_HEADER:
-            start = index + 2  # the header, then the separator
-            break
-    if start == -1:
-        return []
-
     rows: list[Row] = []
-    for line in lines[start:]:
-        stripped = line.strip()
-        if not stripped.startswith("|"):
-            break
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+    for cells in rows_at_header(document, RULE.header):
         if len(cells) != 3:
             break
         name_match = _ROW_NAME_RE.match(cells[0])
@@ -360,30 +353,29 @@ def check(rows: list[Row], functions: dict[str, Func], constants: dict[str, int]
     declared = transformations(functions)
     table_names = [row.name for row in rows]
 
-    for name in declared:
-        if name not in table_names:
-            findings.append(
-                Finding(
-                    kind="not-in-the-table",
-                    name=name,
-                    detail=(
-                        "the code declares this transformation but the table does not "
-                        "name it — add a row, or the table no longer describes the file"
-                    ),
-                )
+    not_in_table, not_in_code = compare_names(declared, table_names)
+    for name in not_in_table:
+        findings.append(
+            Finding(
+                kind="not-in-the-table",
+                name=name,
+                detail=(
+                    "the code declares this transformation but the table does not "
+                    "name it — add a row, or the table no longer describes the file"
+                ),
             )
-    for row in rows:
-        if row.name not in declared:
-            findings.append(
-                Finding(
-                    kind="not-in-the-code",
-                    name=row.name,
-                    detail=(
-                        "the table names this transformation but the code does not "
-                        "declare it — it was renamed or removed; fix the table"
-                    ),
-                )
+        )
+    for name in not_in_code:
+        findings.append(
+            Finding(
+                kind="not-in-the-code",
+                name=name,
+                detail=(
+                    "the table names this transformation but the code does not "
+                    "declare it — it was renamed or removed; fix the table"
+                ),
             )
+        )
 
     for row in rows:
         func = functions.get(row.name)

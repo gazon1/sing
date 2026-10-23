@@ -418,6 +418,37 @@ for i in "${!PUSH_REFS[@]}"; do
     fi
 
     rm -f "$PROMISE_OUT"
+    # Two places where a commit can make a claim false and nothing says so.
+    #
+    # The DI fixture table says what to hand a Koin definition that takes its
+    # arguments at runtime, and the navigation doc says what opens what. Both
+    # are read by something else — a graph that is built, an agent that follows
+    # a pointer — and both drifted on 2026-10-22 while the suite that would
+    # have caught them was an hour away.
+    #
+    # They are text gates, so they cost seconds. The check is against the tree
+    # being pushed, like every other gate here.
+    if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        python3 "$tree/scripts/check-di-fixture-sync.py" --root "$tree" --check); then
+        echo "   DI fixture gate: OK"
+    else
+        echo "   DI fixture gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — a Koin definition and the DI fixture table disagree in the tree of $local_ref."
+        echo "Run python3 scripts/check-di-fixture-sync.py to see where, or push with --no-verify."
+    fi
+
+    if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        python3 "$tree/scripts/check-navigation-doc-sync.py" --root "$tree" --check); then
+        echo "   navigation doc gate: OK"
+    else
+        echo "   navigation doc gate: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — the navigation doc claims something the code does not do in the tree of $local_ref."
+        echo "Run python3 scripts/check-navigation-doc-sync.py to see where, or push with --no-verify."
+    fi
 done
 
 if [ "$GATES_FAILED" = "1" ]; then

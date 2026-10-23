@@ -404,7 +404,7 @@ gate blocking "review verdicts cover every change" python3 scripts/check-review-
 # (`-PupdateGoldens=true`), and the gate names that command when it finds a
 # difference.
 gate blocking "the tag catalogue matches the tags" sgate the_tag_catalogue_matches_the_tags
-
+#
 # Workflow + YAML lint, two real tools over the corpus the gates above only
 # parse. actionlint checks GitHub Actions *semantics* — expressions, action
 # inputs, and script-injection: on 2026-10-15 it flagged adr-gate.yml for
@@ -428,7 +428,7 @@ gate blocking "the tag catalogue matches the tags" sgate the_tag_catalogue_match
 # read as a command ending in an unterminated quote.
 gate blocking "GitHub workflows are valid" github_workflows_valid
 gate blocking "YAML is structurally valid" yaml_is_structurally_valid
-
+#
 # Markdown links resolve. The gate is scripts/check-doc-links.sh, which wraps
 # lychee; the reasoning for the flags it passes lives in that script's header.
 #
@@ -452,7 +452,42 @@ gate blocking "YAML is structurally valid" yaml_is_structurally_valid
 # CI installs it pinned (config/toolchain-versions.env holds the version; the
 # PyPI wheel of the upstream Rust binary) through .github/actions/setup-python-tools.
 gate blocking "doc links" sgate doc_links
-
+#
+# The navigation doc says what opens what, and it is pointed at from the nav3
+# skill — so an agent that follows the pointer reads it. `doc links` above
+# checks that the links in it resolve; it cannot see that a *claim* about
+# behaviour has stopped being true, because the link is fine and the sentence
+# is wrong.
+#
+# Two rows went false on 2026-10-22 and nothing noticed: the deep-link row for
+# `singularity://view/{viewId}` still named `SavedAgendaEdit` after the code
+# moved to `SavedAgendaResults`, and the platform row still said the desktop
+# tasks stack pushes the `Detail` start onto the stack after the code changed
+# to seed the stack with the requested route itself.
+#
+# The gate compares the doc against the code: the types a deep-link row names
+# must be the types the matcher names, every link the code declares must have a
+# row, and a claim that the tasks stack is pushed onto must agree with what the
+# platform assemblers do.
+gate blocking "navigation doc matches the code" sgate navigation_doc_matches_the_code
+#
+# The DI fixture table says what to hand a Koin definition that takes its
+# arguments at runtime. The definition lives in `shared/.../core/di/`, the
+# fixture in `desktopApp/.../jvmTest/`, and nothing kept them in step.
+#
+# On 2026-10-22 `TaskDetailCoordinator` was given a route instead of a
+# `TaskId`, the definition was updated, and the fixture was not — so the graph
+# could not be created. The test that catches it lives in the full desktop
+# suite: an hour of wall clock away on a loaded host, at the very end of the
+# work.
+#
+# This gate reads the same two facts from the sources and compares them without
+# a JVM, so it runs in seconds, in the static gates and in the pre-push hook.
+# It is a text comparison, so it is a floor and not a proof: it catches a
+# definition and a fixture that disagree about which type they are talking
+# about, and leaves a value built by a factory function to the runtime test.
+gate blocking "DI fixture matches the definitions" sgate di_fixture_matches_the_definitions
+#
 # The other reference shape: a path inside backticks, and a dated ADR slug
 # cited without its `.md`. It was registered in the Python registry with a
 # positive control and a green run, and no gate line anywhere invoked it —
@@ -466,7 +501,7 @@ gate blocking "doc links" sgate doc_links
 # `--strict` is the flag CI uses: drift is a reference pointing at the wrong
 # place, and a warning does not stop anything.
 gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
-
+#
 # The generated gate catalogue: which gates exist, and whether each one blocks.
 #
 # `docs/scripts/gate-registry.md` is generated from `_registry.GATES`. It had
@@ -480,7 +515,7 @@ gate blocking "doc dead refs" python3 scripts/check-doc-dead-refs.py --strict
 # generator is the registry, so a gate that is added, removed or reclassified
 # changes this table, and this gate is what says so.
 gate blocking "gate registry is current" sgate render-registry --check
-
+#
 # The shell registry itself is generated. The gate lines below used to be
 # written by hand in this file, next to the prose that explains them, and the
 # Python registry carried the same names and modes — two declarations of one
@@ -491,7 +526,7 @@ gate blocking "gate registry is current" sgate render-registry --check
 # --check` is the gate that says the file is current; after changing the
 # manifest, run `sgate render-static-gates --write`.
 gate blocking "the shell registry is current" sgate render-static-gates --check
-
+#
 # What the verification loop costs.
 #
 # The loop grew by minutes at a time — a wave added an Android host test, another
@@ -506,7 +541,7 @@ gate blocking "the shell registry is current" sgate render-static-gates --check
 # local report names what got slower, and a CI runner has no local measurement to
 # name.
 gate blocking "the published gate costs are current" sgate gate-costs --check
-
+#
 # Every gate dispatched through `sgate` is called with `--json` by
 # `sgate run-all`, and the document that lands on stdout is what a consumer
 # reads. The contract is one shape: one JSON object, and nothing else.
@@ -518,7 +553,7 @@ gate blocking "the published gate costs are current" sgate gate-costs --check
 # instead of reading the verdict their producer already emitted. Both were
 # found by reading the code, and both were found late.
 gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-contract.py
-
+#
 # NOT HERE: scripts/check-gate-wiring.py
 # See the ADR for this gate and the note in scripts/check-rebase-compiles.py.
 #
@@ -532,7 +567,7 @@ gate blocking "gates speak the JSON contract" python3 scripts/check-gate-json-co
 # A gate that proves another gate works inherits that gate's preconditions and runs
 # them at its own time. So the meta-gate stays where the results are: after the tests,
 # in check.sh and in ci.yml's `tests` job.
-
+#
 # Lint-rule governance: one gate for six checks over one subject.
 #
 #   - the generated detekt.yml is current;
@@ -553,7 +588,7 @@ gate blocking "detekt governance is consistent" python3 scripts/check-detekt-gov
 # "Kover verify (detekt-rules)" step and by check.sh step 9b. The floor itself
 # lives in detekt-rules/build.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) as a Kover
 # verify rule; Part C of check-gate-wiring.py holds it to a usable value.
-
+#
 # Scenario traceability
 # traceability validate/coverage resolve the installed `traceability` package from
 # scripts/src/ (installed by `pip install -e scripts/src/`), so there is no
@@ -561,11 +596,11 @@ gate blocking "detekt governance is consistent" python3 scripts/check-detekt-gov
 gate blocking "scenario specs valid" sgate scenario_specs_valid
 gate blocking "coverage matrix current" sgate coverage_matrix_current
 gate blocking "coverage holes did not grow" sgate coverage_holes_did_not_grow
-
+#
 # Server schema
 gate blocking "supabase schema is self-consistent" sgate supabase_schema_is_self_consistent
 gate blocking "sync allowlist seed matches contract" sgate sync_allowlist_seed_matches_contract
-
+#
 # Maestro
 gate blocking "maestro selectors valid" sgate maestro_selectors_valid
 # The flow catalogue: the flows this repository promises to have, written down.
@@ -578,7 +613,7 @@ gate blocking "maestro flow catalogue is current" sgate maestro_flow_catalogue_i
 # different timeouts, and the instrumented suite's 8 s is the reason
 # `android-device-tests` was red on every run of `main`.
 gate blocking "ui wait budgets are consistent" sgate ui_wait_budgets_are_consistent
-
+#
 # Source and documentation contracts. Both have a GateSpec in
 # scripts/src/sgate/commands/_registry.py and a positive control in GATE_CONTROLS,
 # but neither had a line here — so `sgate run-all`, which reads *this* file, never
@@ -587,36 +622,36 @@ gate blocking "ui wait budgets are consistent" sgate ui_wait_budgets_are_consist
 # check-gate-wiring.py is what finally said so, once it stopped resolving
 # `run-all` against the Python mirror instead of this registry.
 gate blocking "the toolbox surface is declared once" python3 scripts/check-skill-drift.py
-
+#
 # Workflow semantics. actionlint reads a workflow as YAML plus GitHub's expression
 # language; neither knows that in POSIX a pipeline's status is the *last* command's.
 # Four CI steps piped, so their failures could not fail them.
 gate blocking "workflow steps keep their exit status" sgate workflow_steps_keep_their_exit_status
-
+#
 # The `env` context holds the variables a workflow defines — not the runner's
 # environment. `${{ env.ANDROID_HOME }}` expands to the empty string, silently,
 # and a path built from it names nothing. That is not a theory: the Maestro
 # shards failed a release cycle with "emulator binary not found in PATH"
 # because the cache paths were written `${{ env.ANDROID_HOME }}/…`.
 gate blocking "workflow env context resolves" sgate workflow_env_context_resolves
-
+#
 # Releases. `meta` proves a tag was on main with a green CI run; it says nothing
 # about whether a release came out of it, nor whether the release that exists
 # describes the assets it actually carries. `publish` had never run, so neither
 # half had ever been checked by anything.
 gate blocking "releases describe themselves" sgate releases_describe_themselves
-
+#
 # Provenance and licensing. Both were registered in `_registry.py` with a positive
 # control and a sabotage that can fail, and neither had a line here — so `run-all`,
 # which reads this file, never ran them. A control for a gate that never executes
 # proves nothing about the gate.
 gate blocking "pro licence boundary" python3 scripts/check-pro-licence-boundary.py
 gate blocking "provenance" python3 scripts/check-provenance.py
-
+#
 # ADR references: a prose mention of a dated-ADR slug carries no path, so a moved or
 # deleted decision leaves a dangling claim nothing else sees.
 gate blocking "adr references are valid" python3 scripts/check-adr-references.py
-
+#
 # ─── Deliberately NOT here ─────────────────────────────────────────────────────
 #
 # Four more gates are registered in `_registry.py`, each with a positive control,
@@ -640,9 +675,9 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # a detekt violation in a throwaway worktree to prove the lint gate could fail —
 # was removed on 2026-10-20, with its script, its prune helper and its `just`
 # recipe. See the ADR of 2026-10-20.
-
+#
 # AppTracer
-
+#
 # REMOVED: "local branch is not behind origin/main" (bash scripts/ci/check-unmerged.sh)
 #
 # The premise was sound — rebasing onto a stale main creates divergent history that
@@ -657,7 +692,7 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # other two were unrelated. Divergence prevention is not lost: `.githooks/pre-rebase`
 # implements the same rule locally, where an upstream ref genuinely exists, and does so
 # on the ref about to be rebased onto rather than on a tracking branch CI never has.
-
+#
 # Gate-script conventions. Blocking now that the corpus is green: the last three
 # argparse holdouts are migrated, and the check finds the argparse import by
 # parsing the module rather than by looking for a substring — which is how it
@@ -667,7 +702,7 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # cannot tell "caught the mutation" from "still failing the known violations".
 # That is the whole reason it had no positive control; it has one now.
 gate blocking "script conventions" sgate conventions
-
+#
 # A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
 #
 # Measured on a phone (2026-10-28): a flow's second `hideKeyboard` dismissed the
@@ -678,18 +713,22 @@ gate blocking "script conventions" sgate conventions
 # So a `hideKeyboard` follows a text input, one per text input, and never
 # follows anything else.
 gate blocking "maestro keyboard commands have something to hide" python3 scripts/check-maestro-keyboard-commands.py
-
+#
 # A flow that names a pixel is a claim about one display.
-
+#
 # Measured on a phone (2026-10-28): the flows that scrolled the settings rail
 # by pixel never reached the trailing tabs, and the flows that tapped the menu
 # sheet's last item tapped the system navigation bar instead. On the CI
 # emulator they are green - a statement about the emulator that reads like a
 # statement about the app.
-
+#
 # A swipe may be a share of the screen, or the element that scrolls. Both mean
 # the same gesture on every display.
 gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-screen-geometry.py
+# The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
+gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
+# The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+gate blocking "the tool catalogue is current" sgate the_tool_catalogue_is_current
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

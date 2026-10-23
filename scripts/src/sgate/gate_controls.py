@@ -596,6 +596,44 @@ SCRIPT_GATES = [
     # failure state it detected, so no control could tell "clean run" from
     # "sabotaged run": both exited 1. See the 2026-10-19 ADR on the three
     # removed gates.
+    #
+    # The two gates below were added on 2026-10-22, and both were written
+    # because a commit of that day made something false and nothing said so.
+    #
+    # di-fixture-sync: a ViewModel that takes a route and a fixture table that
+    # hands it a task id is a Koin graph that cannot be built. The probe puts
+    # the wrong type back into the table — the drift that was committed — and
+    # the gate has to name the mismatch.
+    ScriptGate(
+        name="di-fixture-sync",
+        cmd=[sys.executable, "scripts/check-di-fixture-sync.py", "--check"],
+        why="a definition and a fixture that disagree about their type crash the graph on the first screen that uses it, and the only test that says so is an hour away",
+    ),
+    # navigation-doc-sync: the navigation doc is a pointer — it is what an agent
+    # reads to learn what opens what. The probe restores the row that went
+    # false on 2026-10-22, so the gate has to catch a claim the code does not
+    # support.
+    ScriptGate(
+        name="navigation-doc-sync",
+        cmd=[sys.executable, "scripts/check-navigation-doc-sync.py", "--check"],
+        why="a row that names a type the code does not name sends every agent that follows the pointer the wrong way",
+    ),
+        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
+        ScriptGate(
+            name="link-grammar",
+            cmd=[sys.executable, "scripts/check-link-grammar.py", "--check"],
+            why=(
+                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
+            ),
+        ),
+        # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
+        ScriptGate(
+            name="tools-catalog",
+            cmd=[sys.executable, "scripts/check-tools-catalog.py", "--check"],
+            why=(
+                'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)

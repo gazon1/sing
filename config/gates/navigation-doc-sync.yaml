@@ -1,0 +1,29 @@
+# The deep-link table of docs/navigation.md, and the naming convention that
+# ties a row of it to the code.
+#
+# The rule is data because it is the part that changes: a document moves, a
+# convention changes, a column is added. The comparison is code and lives in
+# `sgate.gates.rules`, so that a second table that follows the same convention
+# needs this file and nothing else.
+doc: docs/navigation.md
+
+# The source set the link declarations live in.
+sources: shared/src/commonMain
+
+# The columns of a row, by name.
+columns:
+  link: 0
+  owner: 1
+  tab: 2
+  screen: 3
+
+# The naming convention: a link is declared by `object <Name>LinkSpec` and
+# matched by `class <Name>DeepLink`.
+spec_suffix: LinkSpec
+matcher_suffix: DeepLink
+
+# The columns whose type names must appear in the matcher that implements the
+# link. A row that names a type the matcher does not have is false.
+type_columns:
+  - tab
+  - screen

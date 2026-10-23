@@ -164,6 +164,19 @@ sealed interface AppDestination : AppNavKey {
     // ─── Sub-routes (push on top of a top-level destination) ────────────────
 
     /**
+     * The destinations that stand for a record — a task, a project, an attachment —
+     * or for a nested graph.
+     *
+     * The group is a *type*, not a list: a `when` over it is exhaustive by the
+     * compiler, so a destination that joins the group does not compile until it
+     * has a content key. As a list, the membership was written twice — once
+     * here and once in the `when` that computes the keys — and the two could
+     * drift: a destination that joined the group in one place and not the other
+     * reached the runtime and failed with "no content key for ...".
+     */
+    sealed interface RecordDestination : AppDestination
+
+    /**
      * Start route for the tasks nested graph. Used as `start` param in [TasksGraph].
      */
     @Serializable
@@ -194,22 +207,22 @@ sealed interface AppDestination : AppNavKey {
      * Used for: FAB "Add task" from any screen, deep-links, and direct navigation.
      */
     @Serializable
-    data class TasksGraph(val start: TasksStartRoute, val initialDueDate: LocalDate? = null) : AppDestination {
+    data class TasksGraph(val start: TasksStartRoute, val initialDueDate: LocalDate? = null) : RecordDestination {
         override val title = "Tasks"
     }
 
     @Serializable
-    data class TasksByProject(val projectId: ProjectId) : AppDestination {
+    data class TasksByProject(val projectId: ProjectId) : RecordDestination {
         override val title = "Project Tasks"
     }
 
     @Serializable
-    data class ProjectEditor(val projectId: ProjectId? = null) : AppDestination {
+    data class ProjectEditor(val projectId: ProjectId? = null) : RecordDestination {
         override val title = "New Project"
     }
 
     @Serializable
-    data class ProjectDetail(val projectId: ProjectId) : AppDestination {
+    data class ProjectDetail(val projectId: ProjectId) : RecordDestination {
         override val title = "Project"
     }
 
@@ -232,7 +245,7 @@ sealed interface AppDestination : AppNavKey {
      * ADR `2026-09-29-single-sealed-navkey-root`.
      */
     @Serializable
-    data class AttachmentViewer(val attachmentId: AttachmentId) : AppDestination {
+    data class AttachmentViewer(val attachmentId: AttachmentId) : RecordDestination {
         override val title = "Attachment"
     }
 
@@ -241,7 +254,7 @@ sealed interface AppDestination : AppNavKey {
      * Used for deep-links and future navigation flexibility.
      */
     @Serializable
-    data class ProjectsGraph(val start: ProjectsStartRoute = ProjectsStartRoute.List) : AppDestination {
+    data class ProjectsGraph(val start: ProjectsStartRoute = ProjectsStartRoute.List) : RecordDestination {
         override val title = "Projects"
     }
 
@@ -282,7 +295,7 @@ sealed interface AppDestination : AppNavKey {
      * Used for deep-links and direct navigation.
      */
     @Serializable
-    data class NotesGraph(val start: NotesStartRoute = NotesStartRoute.List) : AppDestination {
+    data class NotesGraph(val start: NotesStartRoute = NotesStartRoute.List) : RecordDestination {
         override val title = "Notes"
     }
 
@@ -311,7 +324,7 @@ sealed interface AppDestination : AppNavKey {
         val start: CalendarStartRoute = CalendarStartRoute.Month(
             systemToday().toString(),
         ),
-    ) : AppDestination {
+    ) : RecordDestination {
         override val title = "Calendar"
     }
 
@@ -320,7 +333,7 @@ sealed interface AppDestination : AppNavKey {
      * Used for: Inbox, Today, Upcoming tabs, and "See all" from project detail.
      */
     @Serializable
-    data class AgendaGraph(val start: AgendaStartRoute = AgendaStartRoute.Inbox) : AppDestination {
+    data class AgendaGraph(val start: AgendaStartRoute = AgendaStartRoute.Inbox) : RecordDestination {
         // Three of these are bottom-bar tabs and the shell renders `title`
         // directly as the tab label, so it has to vary by start route.
         override val title: String = when (start) {

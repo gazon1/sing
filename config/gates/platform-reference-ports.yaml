@@ -1,0 +1,16 @@
+# The ports table of the platform reference.
+#
+# The table names a port, the implementation each platform binds it to, and
+# whether the row was checked or is only prose. The gate reads the code to
+# find the ports the platform modules bind; this file says how the table is
+# shaped.
+doc: docs/PLATFORM-REFERENCE.md
+table:
+  header: "| Port | jvmMain | androidMain | Checked |"
+  name_column: 0
+  verdict_column: 3
+  verdicts: [checked, prose]
+columns:
+  port: 0
+  jvm: 1
+  android: 2

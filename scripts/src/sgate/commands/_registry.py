@@ -93,6 +93,7 @@ COMMAND_MODULES: dict[str, str] = {
     "info": "utility",
     "render_registry": "utility",
     "render_static_gates": "utility",
+    "whereami": "utility",
     "wiring": "utility",
     "run_all": "driver",
     "suite_docs": "suite",
@@ -636,6 +637,41 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.SHELL,
         script=Path("scripts/check-doc-links.sh"),
     ),
+    # The navigation doc says what opens what. `doc links` above checks that the
+    # links in it resolve; it cannot see that a *claim* about behaviour has
+    # stopped being true, because the link is fine and the sentence is wrong.
+    #
+    # Two rows of `docs/navigation.md` went false on 2026-10-22 and nothing
+    # noticed: the deep-link row for `singularity://view/{viewId}` still named
+    # `SavedAgendaEdit` after the code moved to `SavedAgendaResults`, and the
+    # platform row still said the desktop tasks stack pushes the `Detail` start
+    # onto the stack after the code changed to seed the stack with the
+    # requested route. The doc is pointed at from the nav3 skill, so an agent
+    # that follows the pointer reads both.
+    GateSpec(
+        name="navigation doc matches the code",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-navigation-doc-sync.py"),
+        script_args=("--check",),
+    ),
+    # The DI fixture table says what to hand a Koin definition that takes its
+    # arguments at runtime. The definition lives in `shared/.../core/di/`, the
+    # fixture in `desktopApp/.../jvmTest/`, and nothing kept them in step: on
+    # 2026-10-22 `TaskDetailCoordinator` was given a route instead of a
+    # `TaskId`, the definition was updated, the fixture was not, and the graph
+    # could not be created. The test that catches it lives in the full desktop
+    # suite — an hour away on a loaded host, at the very end of the work.
+    #
+    # This gate reads the same two facts from the sources and compares them
+    # without a JVM, so it runs in the static gates and in the pre-push hook.
+    GateSpec(
+        name="DI fixture matches the definitions",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-di-fixture-sync.py"),
+        script_args=("--check",),
+    ),
     # The two linters that are not Python scripts. They are named functions in
     # static-gates.sh, because a gate the CLI cannot dispatch is a gate only one
     # surface can run — and the two registries then disagree about what exists.
@@ -812,6 +848,22 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-script-conventions.py"),
     ),
+        # The grammar of a link has a home: TaskLinkSpec for a deep link, core/links/InternalLinks.kt for an internal one. A second copy of it is a link that opens nothing.
+        GateSpec(
+            name="the link grammar has one home",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-link-grammar.py"),
+            script_args=("--check",),
+        ),
+        # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
+        GateSpec(
+            name="the tool catalogue is current",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-tools-catalog.py"),
+            script_args=("--check",),
+        ),
 )
 
 
@@ -1096,6 +1148,81 @@ GATE_CONTROLS: dict[str, Control] = {
             "DI module, so the report has to name it"
         ),
     ),
+    # The fixture table handing a definition the wrong type is the drift this
+    # gate exists for, and the probe is the drift itself: the row that says
+    # `TaskId` where the definition says `TasksRoute.Detail` is exactly what
+    # was committed on 2026-10-22, and the graph could not be created.
+    'di-fixture-sync': Control(
+        kind='sabotage',
+        proves='scripts/check-di-fixture-sync.py',
+        argv=('{python}', 'scripts/check-di-fixture-sync.py', '--check'),
+        path='desktopApp/src/jvmTest/kotlin/com/singularity/todo/DomainGraphResolutionTest.kt',
+        edit=Edit(
+            kind='replace',
+            old='TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1")))',
+            new='TaskDetailCoordinator::class to listOf(TaskId("task-1"))',
+            count=1,
+        ),
+        why=(
+            "a ViewModel that takes a route and a fixture that hands it a task id is a "
+            "graph that cannot be built, and the only test that says so lives in the "
+            "full desktop suite — an hour away on a loaded host. The probe puts the "
+            "wrong type back into the table, so the gate has to name the mismatch"
+        ),
+    ),
+    # A navigation row that names a type the matcher does not name sends every
+    # agent that follows the pointer the wrong way. The probe puts back the row
+    # that was true before 2026-10-22, so the gate has to see the difference.
+    'navigation-doc-sync': Control(
+        kind='sabotage',
+        proves='scripts/check-navigation-doc-sync.py',
+        argv=('{python}', 'scripts/check-navigation-doc-sync.py', '--check'),
+        path='docs/navigation.md',
+        edit=Edit(
+            kind='replace',
+            old='`AgendaGraph(SavedAgendaResults(viewId))`',
+            new='`AgendaGraph(SavedAgendaEdit(viewId))`',
+            count=1,
+        ),
+        why=(
+            "the doc is a pointer: it is what an agent reads to learn what opens what, "
+            "and it is pointed at from the nav3 skill. The probe restores the row that "
+            "went false on 2026-10-22 — the deep link naming an editor the matcher "
+            "never opens — so the gate has to catch a claim the code does not support"
+        ),
+    ),
+        # a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one
+        'link-grammar': Control(
+            kind='sabotage',
+            proves='scripts/check-link-grammar.py',
+            argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
+            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/domain/model/CalendarSyncEvent.kt',
+            edit=Edit(
+                kind='replace',
+                old='package com.singularity.todo.feature.calendar_sync.domain.model',
+                new='package com.singularity.todo.feature.calendar_sync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
+                count=1,
+            ),
+            why=(
+                'a link format that lives in two places is a link format that drifts: the producer writes the old format and the matcher reads the new one'
+            ),
+        ),
+        # a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there
+        'tools-catalog': Control(
+            kind='sabotage',
+            proves='scripts/check-tools-catalog.py',
+            argv=('{python}', 'scripts/check-tools-catalog.py', '--check',),
+            path='scripts/check-dead-settings.py',
+            edit=Edit(
+                kind='replace',
+                old='Find persisted settings that are collected, displayed, and read by no feature.',
+                new='Find persisted settings that no feature reads.',
+                count=1,
+            ),
+            why=(
+                'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
 }
 
 

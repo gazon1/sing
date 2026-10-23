@@ -61,10 +61,6 @@ import pathlib
 import re
 import sys
 
-import click
-
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-
 #: The registry this gate reads must be *this* checkout's. `sgate` is installed
 #: as an editable package, and a sibling worktree can be what is installed — so
 #: the local `scripts/src` goes first, and the resolved package is checked
@@ -72,19 +68,26 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: this checkout's shell registry with another checkout's Python registry would
 #: report drift that does not exist, and hide drift that does.
 #:
-#: This block comes *before* the `sgate` imports on purpose. Python resolves an
-#: import once, at the first line that asks for it, so a path fix that comes
+#: The bootstrap comes *before* the `sgate` imports on purpose. Python resolves
+#: an import once, at the first line that asks for it, so a path fix that comes
 #: after `from sgate... import` fixes nothing: the package is already bound to
 #: the sibling worktree's copy, and the gate reads the wrong registry while
 #: believing it read the right one. (Measured 2026-10-22: the gate compared
 #: this checkout's shell registry with `gulper`'s Python registry, and reported
 #: drift that did not exist.)
-_SRC = ROOT / "scripts" / "src"
+_SRC = pathlib.Path(__file__).resolve().parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+import click  # noqa: E402
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
-from sgate.repo import STATIC_GATES_SH  # noqa: E402
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+#: The shell registry of *this* checkout, located by this script and not by the
+#: installed package: a path taken from `sgate.repo` is a path into whichever
+#: tree was installed, and this gate compares two registries of one tree.
+STATIC_GATES_SH = ROOT / "scripts" / "ci" / "static-gates.sh"
 
 #: The registry, resolved once per run so `sgate <name>` can be traced to a script.
 _REGISTRY_BY_NAME: dict[str, object] = {}

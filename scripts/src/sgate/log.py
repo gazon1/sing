@@ -35,6 +35,19 @@ def _is_ci() -> bool:
     return bool(os.environ.get("CI"))
 
 
+def _level(default: str) -> str:
+    """The log level for this run.
+
+    The local level used to be DEBUG, and every command that touches the CLI
+    printed thirty lines of "loaded sgate.commands.x" before it printed
+    anything else — the noise is the size of the answer it precedes. INFO is
+    the default; `SGATE_LOG_LEVEL=DEBUG` asks for the rest.
+    """
+    import os
+
+    return os.environ.get("SGATE_LOG_LEVEL", default).upper()
+
+
 # ── stderr handler (all logs go here, not stdout) ────────────────────────────
 
 if _is_ci():
@@ -55,7 +68,7 @@ else:
             "<level>{level: <8}</level> "
             "<fg magenta>{name}</fg magenta>:{function}:{line} — {message}"
         ),
-        level="DEBUG",
+        level=_level("INFO"),
         colorize=True,
     )
 
