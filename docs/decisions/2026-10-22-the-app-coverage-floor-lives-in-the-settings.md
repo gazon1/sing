@@ -90,6 +90,12 @@ measured on 2026-10-22 on a `-Ptest.tags=fast` run over the same set of tasks CI
 that ships this decision: **28.78 / 23.92 / 32.06** over 4735 classes and 579,002
 instructions. The floors stay where they were — a floor is a floor and not a target.
 
+Both measurements are recorded in `config/docs/coverage-measurements.properties`, and
+that file is where this decision's numbers are read from. The gate
+`scripts/check-published-measurements.py` compares every number published here with
+the measurement it was read from, so a published number that differs from the report
+it came from is a finding rather than a sentence nobody checks.
+
 The fast measurement was checked for completeness before it was written down, and the
 check is what makes it a floor rather than a number: the report holds **4735 classes over
 579,002 instructions** — more classes than the full run of 2026-10-22 held (**4642 over
@@ -102,15 +108,21 @@ been just as plausible.
 The number this decision published at first was "2.82M instructions" for both runs. It
 was the sum of every `INSTRUCTION` counter in the Kover XML — the method, class,
 source-file, package and root levels together — and so five times the report's own
-denominator (565,144 for the full run of 2026-10-22, whose root counter is the number
-the report actually measures). The percentages were unaffected, because a ratio is the
-same at every level: that is how a wrong denominator survived a real measurement and
-looked plausible. The reader now sums the root counters, and the class count is printed
-next to the percentages for the same reason it always was: the percentages alone cannot
-tell a full report from a partial one.
+denominator (565,144 instructions for the full run of 2026-10-22, whose root counter
+is the number the report actually measures). The percentages were unaffected, because
+a ratio is the same at every level: that is how a wrong denominator survived a real
+measurement and looked plausible. The reader now sums the root counters, and the class
+count is printed next to the percentages for the same reason it always was: the
+percentages alone cannot tell a full report from a partial one.
+
+The measurements themselves live in `config/docs/coverage-measurements.properties` —
+the class count, the instruction total, the branch and line totals, the three
+percentages and the day each was measured. A number that is published here and is not
+in that file is a measurement nobody recorded, and the gate that compares the two says
+so.
 
 **D3a. The full floor is left conservative, on purpose.** A later full run
-(2026-10-22, `-Ptest.tags=fast,slow`) measured **55.89 instruction / 40.45 branch / 57.23
+(2026-10-22, `-Ptest.tags=fast,slow`) measured **55.88 instruction / 40.44 branch / 57.23
 line** — roughly twice the 2026-10-15 figures, which are themselves almost exactly what
 the *fast* population measures today. The most likely reading is that the 2026-10-15
 "full" measurement was not a full-population measurement at all.
@@ -222,7 +234,7 @@ exactly what an empty rule set does.
 # Open decision
 
 **Should the full-population floor be raised to the measurement it actually has?**
-Today the full run measures 55.89 / 40.45 / 57.23 while the full floor is 27 / 20 / 27
+Today the full run measures 55.88 / 40.44 / 57.23 while the full floor is 27 / 20 / 27
 (D3a). The floor is enforced, so it is no longer a fiction — but it is loose enough that
 a nightly whose coverage halved would still pass.
 

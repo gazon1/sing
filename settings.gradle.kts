@@ -136,7 +136,7 @@ val measuredFullPopulation = selectedTags.any { it == "slow" }
 //
 // The floor stays at those numbers, deliberately, and the next paragraph says why
 // that is a weaker claim than the label above used to make: a later full run
-// (2026-10-22, `-Ptest.tags=fast,slow`) measured 55.89 / 40.45 / 57.23 — roughly
+// (2026-10-22, `-Ptest.tags=fast,slow`) measured 55.88 / 40.44 / 57.23 — roughly
 // twice as much — and the 2026-10-15 figures are almost exactly what the FAST
 // population measures today (27.73 / 23.23 / 31.26), which says the 2026-10-15
 // "full" measurement was not a full-population measurement.

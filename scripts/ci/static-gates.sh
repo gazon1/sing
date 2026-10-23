@@ -252,6 +252,17 @@ gate blocking "ci workflow shape is declared" python3 scripts/check-ci-workflow-
 # false while the waiver keeps waiving. This checks the promise, not the pass.
 gate blocking "waiver references resolve" sgate waiver_references_resolve
 gate blocking "declared dependencies are used" sgate declared_dependencies_are_used
+# A published number is a claim about a measurement, and the claim outlives
+# the measurement it was read from. "2.82M instructions" survived a real
+# measurement of the very report it came from, because the percentages beside it
+# are a ratio, and a ratio is the same at every level of the report — so the
+# wrong denominator looked right.
+#
+# The record is a file: the class count, the instruction total, the percentages
+# and the day each was measured. This compares every class count and instruction
+# total the repository publishes with it, and names the document, the line and
+# both numbers when they differ.
+gate blocking "published measurements match the record" python3 scripts/check-published-measurements.py
 gate blocking "room schema integrity" sgate room_schema_integrity
 # The skill that tells an agent which transformation to use for which text
 # field carries a table of the transformations and the rule each one applies.

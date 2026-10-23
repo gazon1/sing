@@ -357,6 +357,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-gradle-test-population.py"),
     ),
     GateSpec(
+        name="published measurements match the record",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-published-measurements.py"),
+    ),
+    GateSpec(
         name="waiver references resolve",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1215,6 +1221,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # The probe shrinks the timeout to 30 minutes: the measured fast run takes
     # 37 min 25 s, and the runner is slower than the measurement host. The gate
     # must fail and name both numbers.
+    'published-measurements': Control(kind='sabotage', proves='scripts/check-published-measurements.py', argv=('{python}', 'scripts/check-published-measurements.py'), path='docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md', edit=Edit(kind='replace', old='over 4735 classes and 579,002', new='over 4736 classes and 579,002', count=1), why='a published number is a claim about a measurement, and the claim outlives the measurement it was read from: "2.82M instructions" survived a real measurement because the percentages are a ratio and a ratio is the same at every level of the report. The probe moves the class count of the fast measurement by one, and the gate must name the document, the line and both numbers instead of reading the document as a source of truth'),
     'coverage-timeout': Control(kind='sabotage', proves='scripts/check-coverage-timeout.py', argv=('{python}', 'scripts/check-coverage-timeout.py', '--quiet'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    timeout-minutes: 75', new='    timeout-minutes: 30', count=1), why='a timeout that fires on a healthy instrumented run reports a failure that says nothing about the code: the coverage job is killed at the moment it was about to report, and the report is the thing the job exists for'),
     # The coverage report measures every module that is in it.
     #

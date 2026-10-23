@@ -117,6 +117,17 @@ root levels together — so it read five times the report's own denominator. The
 percentages were unaffected, because a ratio is the same at every level, and that is how
 a wrong denominator survived a real measurement.
 
+**D6a. The measurements are recorded, and the published numbers are compared with the
+record.** Both measurements — the class count, the instruction total, the branch and line
+totals, the three percentages and the day each was measured — live in
+`config/docs/coverage-measurements.properties`. The gate
+`scripts/check-published-measurements.py` reads that file and the documents that publish
+the numbers, and fails when a published class count or instruction total differs from
+the measurement it was read from. Before this, a published number and the artifact it
+came from were never compared: the wrong denominator of 2.82M instructions survived a
+real measurement because the percentages were unaffected, and a reviewer found it by
+hand.
+
 **D7. One waiter per task.** The rule in `AGENTS.md` says "one background task, not a
 polling loop", and it did not say what to do afterwards: "check when necessary" is an
 invitation to poll, and it has no completion criterion. The sharpened rule names the
@@ -181,6 +192,12 @@ before it starts.
   the owner, and it would move the measured floors.
 - The full floor (27/20/27) is still half of its measurement (55.88/40.44/57.23). It
   was left conservative on purpose, and the gap is recorded rather than closed.
+- **A published coverage number is checked against the measurement it was read from.**
+  `config/docs/coverage-measurements.properties` holds the measurements per population,
+  and `scripts/check-published-measurements.py` compares every class count and
+  instruction total the repository publishes with it — with the file and the line the
+  number stands on. A number nobody measured, or one measured differently, is a finding
+  instead of a sentence nobody checks.
 
 # Links
 

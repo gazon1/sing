@@ -274,6 +274,24 @@ SCRIPT_GATES = [
     # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
     # entry is its twin: the harness fills the edit from there, and Part J
     # fails when the two disagree about the file or the command.
+    # A published coverage number is compared with the measurement it was
+    # read from.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="published-measurements",
+        cmd=[sys.executable, "scripts/check-published-measurements.py"],
+        sabotage_path="docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a published number is a claim about a measurement, and the claim "
+            "outlives the measurement it was read from: \"2.82M instructions\" "
+            "survived a real measurement because the percentages are a ratio, and "
+            "a ratio is the same at every level of the report"
+        ),
+    ),
     ScriptGate(
         name="coverage-timeout",
         cmd=[sys.executable, "scripts/check-coverage-timeout.py", "--quiet"],
