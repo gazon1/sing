@@ -73,6 +73,27 @@ broken file.
   declaration's hooks path is changed, and the gate has to fail.
 - `AGENTS.md` cannot grow back without a deliberate change to the gate.
 
+## A control that proves nothing
+
+The first versions of the two controls declared here passed against their own
+sabotage, and the harness said so:
+
+- `agents-size` appended 40 lines to `AGENTS.md`. The file sits at 218 lines
+  and the limit is 300, so the sabotaged file was 258 lines and the gate
+  correctly passed. A control that lands under the ceiling it is meant to
+  cross certifies nothing.
+- `git-environment` appended its probe to the gate's own source. That file
+  *mentions* the shared helper in its prose, and the gate reads a mention of
+  the helper as a script that controls its environment — so the appended
+  violation was excused by the very text it sat next to.
+
+Both fixes are the same rule: a probe has to be measured, not assumed. It has
+to change the thing the gate reads by enough to cross the gate's own
+threshold, and it has to land in a file the gate does not already excuse. The
+probe for `git-environment` therefore lands in `scripts/changed-modules.py`,
+which reads a tree it was pointed at and does not claim to control the
+environment.
+
 ## Links
 
 - `scripts/doctor.sh` — one call that says whether the checkout is sound

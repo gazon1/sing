@@ -1044,7 +1044,7 @@ GATE_CONTROLS: dict[str, Control] = {
         kind='sabotage',
         proves='scripts/check-git-environment.py',
         argv=('{python}', 'scripts/check-git-environment.py'),
-        path='scripts/check-git-environment.py',
+        path='scripts/changed-modules.py',
         edit=Edit(
             kind='append',
             new=(
@@ -1071,7 +1071,10 @@ GATE_CONTROLS: dict[str, Control] = {
         path='AGENTS.md',
         edit=Edit(
             kind='append',
-            new='\n' + '\n'.join(f'filler line {i}' for i in range(40)) + '\n',
+            # 120 lines: the file sits at 218 and the limit is 300, so a shorter
+            # append lands under the ceiling and the gate correctly passes —
+            # a control that proves nothing.
+            new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n',
         ),
         why=(
             'the cheat sheet is read in one go by every session, so a file that grows '

@@ -709,6 +709,49 @@ SCRIPT_GATES = [
                 'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
             ),
         ),
+        # The three controls below are declared in the registry (`_registry.GATE_CONTROLS`)
+        # and the twins that ran them were never written: the gate was registered, the
+        # probe was declared, and nothing ever broke the file the gate reads. The
+        # registry holds the edit, so a twin is the name and the command, and the
+        # harness fills in the rest.
+        #
+        # git-environment: a git command that reads a tree inherits the GIT_DIR a hook
+        # exported and then reads the wrong tree — on 2026-10-23 one run of the test
+        # suite wrote four values into the shared repository config. The probe appends
+        # such a command to the gate's own source: the smallest change that makes the
+        # rule find a violation.
+        ScriptGate(
+            name="git-environment",
+            cmd=[sys.executable, "scripts/check-git-environment.py"],
+            why=(
+                'a git command that reads a tree inherits the GIT_DIR a hook exported, and '
+                'then reads the tree the hook runs in instead of the tree it was pointed at'
+            ),
+        ),
+        # agents-size: AGENTS.md is read by every session, in one go, and every line of
+        # it is paid for whether the session needs it or not. The probe appends the
+        # kind of prose that grew the file to 517 lines.
+        ScriptGate(
+            name="agents-size",
+            cmd=[sys.executable, "scripts/check-agents-size.py"],
+            why=(
+                'the cheat sheet is read in one go by every session, so a file that grows '
+                'past that point stops being read at all'
+            ),
+        ),
+        # checkout-invariants: a bare checkout refuses every command, a lost hooks path
+        # runs no hooks at all, and a lost keepalive kills the push after the hook said
+        # the tree was clean. The probe changes the declared hooks path, so the live
+        # checkout no longer matches the promise it is held to.
+        ScriptGate(
+            name="checkout-invariants",
+            cmd=[sys.executable, "scripts/check-checkout-invariants.py"],
+            why=(
+                'a bare checkout refuses every command, a lost hooks path runs no hooks at '
+                'all, and a lost keepalive kills the push after the hook said the tree was '
+                'clean'
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)
