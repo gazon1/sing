@@ -234,6 +234,27 @@ your own response from inputs already on the DB.
    iteration of this skill used `id` and got `[InternalError] Field 'taskId'
    is required`. Always use `taskId`.
 
+## Running the server
+
+```bash
+./gradlew :mcp-server:build && java -jar mcp-server/build/libs/mcp-server-jvm-*.jar --profile=ai-agent
+```
+
+The full list of tools (22 write/read + 13 AI generation) is in
+`docs/architecture/mcp-server.md`.
+
+The contract the tools answer to:
+
+- an MCP tool changes state only through the repositories — never by writing
+  a file, and never by touching the database directly;
+- `write_adr` writes into `docs/decisions/`;
+- timestamps are `kotlin.time.Instant`;
+- a business error comes back as `isError: true`, an internal one as `-32603`;
+- every AI call is recorded in `llm_usage` (tokens, `cost_usd_micros`,
+  `duration_ms`, `profile_id`);
+- the profiles are isolated: `ai-agent` (🤖) for dogfooding, `personal` (🏠)
+  for one's own tasks.
+
 ## Files in this dogfooding surface
 
 - `mcp-server/.../Main.kt` — bootstrap, blocking lifecycle
