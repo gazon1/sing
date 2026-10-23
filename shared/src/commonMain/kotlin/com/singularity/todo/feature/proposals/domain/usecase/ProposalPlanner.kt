@@ -1,22 +1,20 @@
 package com.singularity.todo.feature.proposals.domain.usecase
 
-import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProjectField
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.ProjectValue
+import com.singularity.todo.feature.proposals.domain.model.TagValue
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlinx.datetime.LocalDate
 import kotlin.time.Clock
 
 /**
@@ -43,8 +41,14 @@ class ProposalPlanner(private val clock: Clock) {
      */
     fun planNoteItem(item: ProposalItem, note: Note?): ProposalPlan = when (val kind = item.kind) {
         is ProposalItemKind.SetNoteField -> {
+            // The same refusal the other dictionaries make, and for the same
+            // reason: a value that does not read is not a change that can be
+            // applied, and the plan is built before the claim. It comes before
+            // the note lookup, because the reason the value does not read is
+            // the one the user has to hear — not that the note is missing.
+            kind.value.readFailure?.let { reason -> error(reason) }
             val n = note ?: error("Note ${item.targetId} not found")
-            ProposalPlan.WriteNote(n, kind.field, kind.value)
+            ProposalPlan.WriteNote(n, kind.value)
         }
 
         is ProposalItemKind.DeleteNote -> {
@@ -91,10 +95,25 @@ class ProposalPlanner(private val clock: Clock) {
     fun planProjectItem(item: ProposalItem, project: Project?): ProposalPlan = when (val kind = item.kind) {
         is ProposalItemKind.SetProjectField -> {
             val p = project ?: error("Project ${item.targetId} not found")
-            ProposalPlan.WriteProject(withProjectField(p, kind.field, kind.value))
+            ProposalPlan.WriteProject(withProjectValue(p, kind.value))
         }
 
         else -> error("Expected project-bound kind but got $kind")
+    }
+
+    /**
+     * Plans a tag-bound item.
+     *
+     * @param tag The tag fetched by the caller. Pass `null` if the tag does not exist,
+     *   in which case this function throws.
+     */
+    fun planTagItem(item: ProposalItem, tag: Tag?): ProposalPlan = when (val kind = item.kind) {
+        is ProposalItemKind.SetTagField -> {
+            val t = tag ?: error("Tag ${item.targetId} not found")
+            ProposalPlan.WriteTag(withTagValue(t, kind.value))
+        }
+
+        else -> error("Expected tag-bound kind but got $kind")
     }
 
     /**
@@ -110,6 +129,7 @@ class ProposalPlanner(private val clock: Clock) {
         is ProposalItemKind.CreateTask -> ProposalPlan.CreateTask(buildTask(kind, item.targetId, userId))
         is ProposalItemKind.CreateProject -> ProposalPlan.CreateProject(buildProject(kind, item.targetId, userId))
         is ProposalItemKind.CreateNote -> ProposalPlan.CreateNote(buildNote(kind, item.targetId, userId))
+        is ProposalItemKind.CreateTag -> ProposalPlan.CreateTag(buildTag(kind, item.targetId, userId))
         else -> error("Expected a creation but got $kind")
     }
 
@@ -129,7 +149,7 @@ class ProposalPlanner(private val clock: Clock) {
             is ProposalItemKind.SetTaskField -> {
                 // Validation here, not in dispatch: a value the task cannot hold must fail
                 // *before* the claim, or the item burns its one decision on a write that throws.
-                ProposalPlan.WriteTask(withField(t, kind.field, kind.value))
+                ProposalPlan.WriteTask(withTaskValue(t, kind.value))
             }
 
             is ProposalItemKind.SetTaskTags -> {
@@ -174,85 +194,102 @@ class ProposalPlanner(private val clock: Clock) {
     }
 
     /**
-     * Returns [task] with [field] set to [rawValue], or throws if the value is not
-     * something the task can hold.
+     * Returns [task] with [value] applied, or throws if the value is not something
+     * the task can hold.
+     *
+     * The value arrives typed: a priority is a [TaskPriority], a date is a
+     * [LocalDate]. So there is nothing to parse here, and the two places that used
+     * to disagree about the spelling of a value — the tool that proposed it and the
+     * planner that applied it — cannot disagree any more.
      *
      * Pure: reads nothing and writes nothing, so every rejection reason is
      * reachable from a unit test without a repository.
      */
-    fun withField(task: Task, field: TaskField, rawValue: String): Task = when (field) {
-        TaskField.Title -> {
-            val value = rawValue.trim()
-            require(value.isNotEmpty()) { "Proposed title is blank" }
-            task.copy(title = value)
+    fun withTaskValue(task: Task, value: TaskValue): Task = when (value) {
+        is TaskValue.Title -> {
+            val title = value.value.trim()
+            require(title.isNotEmpty()) { "Proposed title is blank" }
+            task.copy(title = title)
         }
 
-        TaskField.Description -> task.copy(description = rawValue.trim().takeIf(String::isNotEmpty))
+        is TaskValue.Description -> task.copy(description = value.value.trim().takeIf(String::isNotEmpty))
 
-        // The names are matched the way the model writes them ("high"), not the way
-        // the enum spells them ("High"). A value the user approved and then
-        // cannot apply is a proposal that burned the user's attention for nothing.
-        TaskField.Priority -> task.copy(
-            priority = TaskPriority.entries.firstOrNull { it.name.equals(rawValue.trim(), ignoreCase = true) }
-                ?: error("Unknown priority '$rawValue'"),
-        )
+        is TaskValue.Priority -> task.copy(priority = value.value)
 
-        TaskField.DueDate -> {
-            val value = rawValue.trim()
-            task.copy(dueDate = if (value.isEmpty()) null else parseDate(value))
+        is TaskValue.DueDate -> task.copy(dueDate = value.value)
+
+        is TaskValue.Status -> {
+            task.copy(completedAt = if (value.value == TaskStatus.Completed) clock.now() else null)
         }
 
-        TaskField.Status -> {
-            val status = TaskStatus.entries.firstOrNull { it.name.equals(rawValue.trim(), ignoreCase = true) }
-                ?: error("Unknown status '$rawValue'")
-            task.copy(completedAt = if (status == TaskStatus.Completed) clock.now() else null)
+        is TaskValue.EstimateMinutes -> {
+            require(value.value >= 0) { "Estimate cannot be negative" }
+            task.copy(estimateMinutes = value.value)
         }
 
-        TaskField.EstimateMinutes -> {
-            val value = rawValue.trim().toIntOrNull()
-                ?: error("Estimate '$rawValue' is not a whole number of minutes")
-            require(value >= 0) { "Estimate cannot be negative" }
-            task.copy(estimateMinutes = value)
+        is TaskValue.Kind -> task.copy(kind = value.value)
+
+        is TaskValue.DueTime -> task.copy(dueTime = value.value)
+
+        is TaskValue.Project -> {
+            val projectId = value.value.trim().takeIf { it.isNotEmpty() }
+            task.copy(projectId = projectId?.let { ProjectId.fromString(it) })
         }
 
-        TaskField.Kind -> task.copy(
-            kind = TaskKind.entries.firstOrNull { it.name.equals(rawValue.trim(), ignoreCase = true) }
-                ?: error("Unknown kind '$rawValue'"),
-        )
+        is TaskValue.Someday -> task.copy(someday = value.value)
 
-        TaskField.DueTime -> {
-            val value = rawValue.trim()
-            task.copy(dueTime = if (value.isEmpty()) null else parseTime(value))
-        }
-
-        TaskField.Project -> {
-            val value = rawValue.trim()
-            task.copy(projectId = if (value.isEmpty()) null else ProjectId.fromString(value))
-        }
-
-        TaskField.Someday -> task.copy(someday = rawValue.trim().equals("true", ignoreCase = true))
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read. It cannot be applied as it stands — and saying so is the point:
+        // the plan is built before the claim, so the change is neither decided
+        // nor lost.
+        is TaskValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     /**
-     * Returns [project] with [field] set to [rawValue], or throws if the value is not
-     * something the project can hold.
+     * Returns [project] with [value] applied, or throws if the value is not something
+     * the project can hold.
      */
-    fun withProjectField(project: Project, field: ProjectField, rawValue: String): Project = when (field) {
-        ProjectField.Name -> {
-            val value = rawValue.trim()
-            require(value.isNotEmpty()) { "Proposed project name is blank" }
-            project.copy(name = value)
+    fun withProjectValue(project: Project, value: ProjectValue): Project = when (value) {
+        is ProjectValue.Name -> {
+            val name = value.value.trim()
+            require(name.isNotEmpty()) { "Proposed project name is blank" }
+            project.copy(name = name)
         }
 
-        ProjectField.Description -> project.copy(description = rawValue.trim().takeIf(String::isNotEmpty))
+        is ProjectValue.Description -> project.copy(description = value.value.trim().takeIf(String::isNotEmpty))
 
-        ProjectField.Color -> {
-            val value = rawValue.trim().toIntOrNull()
-                ?: error("Colour '$rawValue' is not an ARGB integer")
-            project.copy(color = value)
+        is ProjectValue.Color -> project.copy(color = value.value)
+
+        is ProjectValue.Icon -> project.copy(icon = value.value.trim().takeIf(String::isNotEmpty))
+
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read. It cannot be applied as it stands — and saying so is the point:
+        // the plan is built before the claim, so the change is neither decided
+        // nor lost.
+        is ProjectValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
+    }
+
+    /**
+     * Returns [tag] with [value] applied, or throws if the value is not something
+     * the tag can hold.
+     */
+    fun withTagValue(tag: Tag, value: TagValue): Tag = when (value) {
+        is TagValue.Name -> {
+            val name = value.value.trim()
+            require(name.isNotEmpty()) { "Proposed tag name is blank" }
+            tag.copy(name = name)
         }
 
-        ProjectField.Icon -> project.copy(icon = rawValue.trim().takeIf(String::isNotEmpty))
+        is TagValue.Color -> tag.copy(color = value.value)
+
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read. It cannot be applied as it stands — and saying so is the point:
+        // the plan is built before the claim, so the change is neither decided
+        // nor lost.
+        is TagValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     // ── The creations ────────────────────────────────────────────────────────────
@@ -271,15 +308,13 @@ class ProposalPlanner(private val clock: Clock) {
             id = TaskId(targetId),
             title = title,
             description = proposed.description?.trim()?.takeIf(String::isNotEmpty),
-            priority = TaskPriority.entries.firstOrNull { it.name.equals(proposed.priority.trim(), ignoreCase = true) }
-                ?: error("Unknown priority '${proposed.priority}'"),
-            kind = TaskKind.entries.firstOrNull { it.name.equals(proposed.kind.trim(), ignoreCase = true) }
-                ?: error("Unknown kind '${proposed.kind}'"),
+            priority = proposed.priority,
+            kind = proposed.kind,
             projectId = proposed.projectId?.takeIf { it.isNotBlank() }?.let { ProjectId.fromString(it) },
             parentTaskId = proposed.parentTaskId?.takeIf { it.isNotBlank() }?.let { TaskId.fromString(it) },
             tags = proposed.tagIds.map { TagId.fromString(it) },
-            dueDate = proposed.dueDate?.takeIf { it.isNotBlank() }?.let { parseDate(it) },
-            dueTime = proposed.dueTime?.takeIf { it.isNotBlank() }?.let { parseTime(it) },
+            dueDate = proposed.dueDate,
+            dueTime = proposed.dueTime,
             someday = proposed.someday,
             createdAt = now,
             updatedAt = now,
@@ -330,13 +365,27 @@ class ProposalPlanner(private val clock: Clock) {
         )
     }
 
+    /** The tag a [ProposalItemKind.CreateTag] item brings into being. */
+    private fun buildTag(
+        kind: ProposalItemKind.CreateTag,
+        targetId: String,
+        userId: UserId,
+    ): Tag {
+        val proposed = kind.tag
+        val name = proposed.name.trim()
+        require(name.isNotEmpty()) { "Proposed tag name is blank" }
+        val now = clock.now()
+        return Tag(
+            id = TagId.fromString(targetId),
+            name = name,
+            color = proposed.color,
+            createdAt = now,
+            updatedAt = now,
+            userId = userId,
+        )
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private fun parseDate(raw: String): LocalDate = runCatching { LocalDate.parse(raw) }
-        .getOrElse { error("'$raw' is not an ISO date (yyyy-mm-dd)") }
-
-    private fun parseTime(raw: String): kotlinx.datetime.LocalTime = runCatching { LocalTimeFormats.parse(raw) }
-        .getOrElse { error("'$raw' is not a time (hh:mm)") }
 
     private fun List<String>.cleaned(): List<String> = map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 }

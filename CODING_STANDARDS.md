@@ -39,17 +39,20 @@ dead.
 A tool the assistant can call writes to a user's data. The write path in this
 repository is a **proposal**: the change is held, the user reads it, the user
 decides. That is the whole point of the proposal model, and it is checked by
-`scripts/check-ai-write-tools.py`.
+`shared/src/jvmTest/.../feature/ai/tools/WriteToolsOnlyProposeTest.kt` — a
+test, not a registry of exceptions: a file listing the exceptions is a second
+thing to keep in step with the code, and the code can change without it.
 
-A reviewing agent holds this line even where the gate cannot:
+A reviewing agent holds this line even where the test cannot:
 
-- **A tool that writes directly needs a written reason.** The registry is
-  `config/docs/ai-direct-writes.txt`; an entry there says *why* this tool may
-  not propose yet. A new direct writer without an entry is a finding, and the
-  fix is either to convert the tool or to write the reason down.
-- **The registry must shrink.** A tool that was converted has its entry
-  deleted. A registry that only grows is a work queue nobody is working
-  through.
+- **A tool that writes directly needs a written reason.** There is no registry
+  any more, so the reason is written in the change that introduces the writer:
+  what it writes, and why it cannot propose yet. A new direct writer without
+  that reason is a finding, and the fix is either to convert the tool or to
+  write the reason down.
+- **The set of direct writers must shrink.** A tool that was converted has its
+  test moved to the proposing side. A set that only grows is a work queue
+  nobody is working through.
 - **The assistant's words must match what happened.** A tool that proposed a
   change says the change was *proposed*. It does not say the task was changed,
   and it does not say it was saved. The user has not agreed to anything yet.
@@ -138,7 +141,7 @@ over the logs.
 
 ## The message says what happened
 
-The repository's naming convention (`2026-10-20-green-means-one-thing.md`) is
+The repository's naming convention (`2026-10-21-green-means-one-thing.md`) is
 one sentence: **green means one thing**. In practice:
 
 - A message that names the cause beats a message that names the category.
@@ -151,6 +154,38 @@ one sentence: **green means one thing**. In practice:
 
 A reviewer checks the messages of the diff, not only the code paths — the
 message is the part a user reads.
+
+---
+
+## A change the user cannot see is a change nobody decided about
+
+Three rules about the same mistake: the change is lost, and the loss is silent.
+A reviewer applies them to any change that writes, decides, or reads something
+the user is looking at.
+
+- **A change that cannot be applied keeps its reason next to it, on every surface
+  that shows the change.** A screen that reports a failure into a channel nobody
+  reads is a silent failure, and the surfaces of one feature are not one screen:
+  when a change gains a way to fail, every surface that shows the change has to
+  show the failure too. (The note editor emitted its errors and nobody read them:
+  the change failed on one surface and succeeded on another, and the user could
+  not tell which had happened.)
+- **A change that writes several rows writes all of them or none of them, and the
+  compensation covers the cancellation.** A cancelled coroutine is not a failed
+  one: the rows written before the cancellation stay written, and if the change
+  goes back to waiting, the next attempt writes them again. The compensation
+  belongs where it runs on both paths — a `finally` under `NonCancellable` — and
+  not only in the branch that handles a failure.
+- **A value that cannot be read does not make the change disappear.** When a
+  typed value is read back from storage and it no longer reads — an enum lost a
+  variant, the spelling changed — the change is shown with the reason it cannot
+  be read. Dropping the item is the one outcome the user cannot act on: they
+  cannot turn down a change they cannot see.
+
+Underneath all three: **the user must be able to decide about every change that
+is proposed to them.** A change that vanishes, a change that fails without
+saying so, and a change that is written twice are one defect wearing three
+shapes.
 
 ---
 

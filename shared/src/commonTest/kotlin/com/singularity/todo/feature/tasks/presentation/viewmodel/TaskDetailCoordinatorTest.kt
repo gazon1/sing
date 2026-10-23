@@ -3,15 +3,39 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.testScope
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
+import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
+import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
+import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
+import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.SlotFakes
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TEST_USER
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.task
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeProposalRepository
+import com.singularity.todo.test.fakes.RecordingCrashReportingPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -32,9 +56,15 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class TaskDetailCoordinatorTest {
 
-    private fun coordinator(fakes: SlotFakes, scope: CoroutineScope) = TaskDetailCoordinator(
-        deps = fakes.deps(),
+    private fun coordinator(
+        fakes: SlotFakes,
+        scope: CoroutineScope,
+        collaboration: TaskCollaborationDeps = fakes.collaboration(),
+        crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
+    ) = TaskDetailCoordinator(
+        deps = fakes.deps().copy(collaboration = collaboration),
         taskId = TaskId("t1"),
+        crashReporter = crashReporter,
         scope = testScope(scope),
     )
 
@@ -191,6 +221,158 @@ class TaskDetailCoordinatorTest {
 
         // A task that survives every routed intent proves none of them crashed the loop.
         assertNotNull(fakes.taskRepo.tasks.value["t1"])
+    }
+
+    @Test
+    fun `a proposal intent applies the change through the proposal repository`() = runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1"))
+        val proposals = FakeProposalRepository(FakeClock())
+        val itemId = seedProposal(proposals, targetId = "t1")
+        val vm = coordinator(fakes, backgroundScope, fakes.withProposals(proposals))
+        runCurrent()
+
+        vm.onIntent(TaskDetailIntent.Domain.ConfirmProposalItem(itemId))
+        runCurrent()
+
+        assertEquals(
+            ProposalItemStatus.Confirmed,
+            proposals.getItem(itemId)?.status,
+            "the change is applied",
+        )
+    }
+
+    @Test
+    fun `a proposal that cannot be applied keeps the reason next to the change`() = runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1"))
+        val proposals = FakeProposalRepository(FakeClock())
+        // The change is about a task that is not there, so it cannot be applied.
+        val itemId = seedProposal(proposals, targetId = "t-missing")
+        val vm = coordinator(fakes, backgroundScope, fakes.withProposals(proposals))
+        runCurrent()
+
+        vm.onIntent(TaskDetailIntent.Domain.ConfirmProposalItem(itemId))
+        runCurrent()
+
+        val loaded = vm.stateFlow.value as? TaskDetailUiState.Loaded
+        assertNotNull(loaded, "the task is on screen: ${vm.stateFlow.value}")
+        val extras = loaded.extras as? TaskDetailExtras.Ready
+        assertNotNull(extras, "the partitions are resolved: ${loaded.extras}")
+        assertNotNull(
+            extras.proposalFailures[itemId],
+            "the reason sits next to the change: ${extras.proposalFailures}",
+        )
+    }
+
+    @Test
+    fun `a failure that arrives as a thrown exception is shown and reported`() = runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1"))
+        val proposals = FakeProposalRepository(FakeClock())
+        val itemId = seedProposal(proposals, targetId = "t-missing")
+        // The claim throws: the failure arrives as an exception, not as a failed
+        // result. The surface has to show it and report it — a failure the user
+        // cannot see is a change nobody decided about.
+        proposals.beforeClaim = { throw IllegalStateException("boom") }
+        val reporter = RecordingCrashReportingPort()
+        val vm = coordinator(fakes, backgroundScope, fakes.withProposals(proposals), reporter)
+        val events = mutableListOf<TaskDetailUiEvent>()
+        backgroundScope.launch { vm.events.collect { events += it } }
+        runCurrent()
+
+        vm.onIntent(TaskDetailIntent.Domain.ConfirmProposalItem(itemId))
+        runCurrent()
+
+        assertTrue(
+            events.any { it is TaskDetailUiEvent.Error },
+            "the user is told: $events",
+        )
+        assertEquals(1, reporter.reports.size, "the failure is reported: ${reporter.reports}")
+        assertEquals("Confirm", reporter.reports.first().second, "under the operation's name")
+    }
+
+    @Test
+    fun `dismissing a proposal withdraws it`() = runTest {
+        val fakes = SlotFakes()
+        fakes.taskRepo.seed(task("t1"))
+        val proposals = FakeProposalRepository(FakeClock())
+        val itemId = seedProposal(proposals, targetId = "t1")
+        val vm = coordinator(fakes, backgroundScope, fakes.withProposals(proposals))
+        runCurrent()
+
+        vm.onIntent(TaskDetailIntent.Domain.DismissProposal(ProposalId.fromString("prop-1")))
+        runCurrent()
+
+        assertEquals(
+            ProposalItemStatus.Retracted,
+            proposals.getItem(itemId)?.status,
+            "the change is withdrawn with the proposal",
+        )
+    }
+
+    /**
+     * The collaboration dependencies with a proposal write path.
+     *
+     * They are optional in production — a build without the AI module has none —
+     * so the screen has to work with and without them.
+     */
+    private fun SlotFakes.withProposals(proposals: FakeProposalRepository): TaskCollaborationDeps {
+        val clock = FakeClock()
+        return collaboration().copy(
+            proposals = proposals,
+            applyProposal = ApplyProposalItemUseCase(
+                proposals = proposals,
+                tasks = taskRepo,
+                notes = notesRepo,
+                projects = projectsRepo,
+                tags = tagsRepo,
+                planner = ProposalPlanner(clock),
+                dispatch = ProposalDispatch(
+                    taskRepo,
+                    tagsRepo,
+                    checklistRepo,
+                    timeTrackingRepo,
+                    notesRepo,
+                    projectsRepo,
+                    DeleteProjectUseCase(projectsRepo, taskRepo),
+                    clock,
+                ),
+            ),
+            editProposal = EditProposalItemUseCase(proposals),
+        )
+    }
+
+    /** Seeds a one-change proposal about [targetId]. */
+    private suspend fun seedProposal(
+        proposals: FakeProposalRepository,
+        targetId: String,
+    ): ProposalItemId {
+        val clock = FakeClock()
+        val proposalId = ProposalId.fromString("prop-1")
+        val item = ProposalItem(
+            id = ProposalItemId.fromString("item-1"),
+            proposalId = proposalId,
+            kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+            targetId = targetId,
+            humanSummary = "Set the priority to High",
+            status = ProposalItemStatus.Pending,
+            fingerprint = "set-priority-high",
+        )
+        proposals.save(
+            AiProposal(
+                id = proposalId,
+                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetId = "t1",
+                userId = TEST_USER,
+                source = ProposalSource.Detail,
+                status = ProposalStatus.Pending,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                items = listOf(item),
+            ),
+        )
+        return item.id
     }
 
     private fun placeholderChecklistItem() = com.singularity.todo.feature.checklist.ChecklistItem(

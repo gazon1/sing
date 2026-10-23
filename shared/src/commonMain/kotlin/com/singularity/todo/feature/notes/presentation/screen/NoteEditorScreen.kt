@@ -34,6 +34,7 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
+import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -55,6 +56,7 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteEditor
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsIntent
+import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsUiEvent
 import com.singularity.todo.feature.notes.presentation.viewmodel.NoteProposalsViewModel
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesEditorIntent
 import com.singularity.todo.feature.notes.rememberEditorSession
@@ -62,6 +64,8 @@ import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
 import com.singularity.todo.feature.notes.urlFor
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -134,11 +138,28 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
         onDismissProposal = { proposalId ->
             proposalsViewModel.onIntent(NoteProposalsIntent.Dismiss(proposalId))
         },
+        onEditProposal = { itemId, text ->
+            proposalsViewModel.onIntent(NoteProposalsIntent.Edit(itemId, text))
+        },
+        proposalFailures = proposalsState.failures,
     )
 
+    // The proposals carry their own failures, on their own bus. They are merged into
+    // the editor's notification stream rather than hosted separately: two hosts over
+    // one editor would show two snackbars in the same place.
+    val notifications = remember(viewModel.events, proposalsViewModel.events) {
+        merge(
+            viewModel.events.map { it.toNotification() },
+            proposalsViewModel.events.map { event ->
+                when (event) {
+                    is NoteProposalsUiEvent.ShowError -> Notification.Error(event.message)
+                }
+            },
+        )
+    }
+
     NotificationHost(
-        events = viewModel.events,
-        mapper = { it.toNotification() },
+        events = notifications,
         onNavigateBack = { navigator.back() },
         modifier = Modifier.testTag(TestTags.NOTE_EDITOR_NOTIFICATION_HOST),
     )
@@ -166,6 +187,8 @@ fun NoteEditorScreenContent(
     onRejectProposal: (ProposalItemId, String?) -> Unit = { _, _ -> },
     onConfirmAllProposals: (ProposalId) -> Unit = {},
     onDismissProposal: (ProposalId) -> Unit = {},
+    onEditProposal: ((ProposalItemId, String) -> Unit)? = null,
+    proposalFailures: Map<ProposalItemId, String> = emptyMap(),
 ) {
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
 
@@ -235,6 +258,8 @@ fun NoteEditorScreenContent(
                 onReject = onRejectProposal,
                 onConfirmAll = { proposalId -> onConfirmAllProposals(proposalId) },
                 onDismiss = { proposalId -> onDismissProposal(proposalId) },
+                onEdit = onEditProposal,
+                failures = proposalFailures,
             )
             EditorTitleAndBody(
                 session = session,

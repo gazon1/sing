@@ -7,6 +7,7 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -77,6 +78,25 @@ interface ProposalRepository {
     suspend fun getItem(id: ProposalItemId): ProposalItem?
 
     /**
+     * Rewrites what a pending item asks for.
+     *
+     * The user may change the value of a proposal before it is applied, and the
+     * changed value is stored with the summary the user reads and the fingerprint the
+     * rejection guard compares — all three belong to the value, so all three change
+     * together.
+     *
+     * Only a pending item can be rewritten: a decided item is a decision, and
+     * rewriting it would rewrite what the user already decided.
+     *
+     * @return the rewritten item, or null when the item was not pending (any more).
+     */
+    suspend fun updatePendingItem(
+        id: ProposalItemId,
+        kind: ProposalItemKind,
+        userId: UserId,
+    ): Result<ProposalItem?>
+
+    /**
      * Transition an item out of [ProposalItemStatus.Pending] via compare-and-set.
      *
      * @return the decided item if this call won the race, or null if the item was
@@ -90,6 +110,18 @@ interface ProposalRepository {
         reason: String?,
         userId: UserId,
     ): ProposalItem?
+
+    /**
+     * Puts a claimed item back into [ProposalItemStatus.Pending].
+     *
+     * The claim is the decision; the dispatch is the work. When the work fails, the
+     * decision must not stand on its own — nothing was changed, so the item goes back
+     * to `Pending` and the user can try again.
+     *
+     * Only an item this user's claim confirmed can be released, and only if nothing
+     * else has decided it since.
+     */
+    suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit>
 
     /**
      * Recompute the owning proposal's aggregate [ProposalStatus] from its items and

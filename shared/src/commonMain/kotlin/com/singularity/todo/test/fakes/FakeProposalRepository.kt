@@ -3,11 +3,13 @@ package com.singularity.todo.test.fakes
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -39,6 +41,15 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
      * way to test that is a save that fails.
      */
     var saveOverride: Result<Unit>? = null
+
+    /**
+     * Runs just before a claim decides, so a test can change the row in between.
+     *
+     * The read and the claim are two moments, and the user can act in between: the
+     * value they typed while the confirm was in flight is a new row. Null by default,
+     * so an existing test changes nothing.
+     */
+    var beforeClaim: (suspend () -> Unit)? = null
 
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> = proposals.map { map ->
         map.values.filter { it.targetKind == AiProposal.TARGET_KIND_TASK && it.targetId == taskId.value }
@@ -86,6 +97,31 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
 
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.value[id.value]
 
+    /**
+     * Rewrites a pending item's change, the way the DAO does.
+     *
+     * The summary and the fingerprint follow the kind: they belong to the value, so a
+     * fake that left them behind would make a test pass with a card that reads one
+     * thing and a fingerprint that means another.
+     */
+    override suspend fun updatePendingItem(
+        id: ProposalItemId,
+        kind: ProposalItemKind,
+        userId: UserId,
+    ): Result<ProposalItem?> = runCatchingCancellable {
+        val stored = items.value[id.value] ?: return@runCatchingCancellable null
+        if (stored.status != ProposalItemStatus.Pending) return@runCatchingCancellable null
+        val owner = proposals.value[stored.proposalId.value]?.userId
+        if (owner != userId) return@runCatchingCancellable null
+        val rewritten = stored.copy(
+            kind = kind,
+            humanSummary = kind.humanSummary,
+            fingerprint = ProposalFingerprint.of(kind, stored.targetId),
+        )
+        items.update { it + (id.value to rewritten) }
+        rewritten
+    }
+
     override suspend fun claim(
         id: ProposalItemId,
         status: ProposalItemStatus,
@@ -93,6 +129,10 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         reason: String?,
         userId: UserId,
     ): ProposalItem? {
+        // A test can change the row in the moment between the read and the claim —
+        // which is what the user typing a new value while the confirm is in flight
+        // looks like from here.
+        beforeClaim?.invoke()
         val before = items.value[id.value] ?: return null
         if (before.status != ProposalItemStatus.Pending) return null
         // Ownership is checked through the owning proposal, exactly as the DAO's
@@ -106,6 +146,37 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         )
         items.update { it + (id.value to decided) }
         return decided
+    }
+
+    /**
+     * Puts a confirmed item back into `Pending`.
+     *
+     * The mirror of the claim: only an item this user's claim confirmed goes back, and
+     * only if nothing else has decided it since. A release that matched no row is a
+     * failure, the way it is in the real repository — a fake that always succeeded here
+     * would let a test pass where the production code throws.
+     */
+    override suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit> = runCatchingCancellable {
+        val before = items.value[id.value] ?: error("Proposal item ${id.value} not found")
+        check(before.status == ProposalItemStatus.Confirmed) {
+            "Proposal item ${id.value} is not confirmed"
+        }
+        check(before.decidedActor == DecidedActor.User) {
+            "Proposal item ${id.value} was not confirmed by the user"
+        }
+        check(proposals.value[before.proposalId.value]?.userId == userId) {
+            "Proposal item ${id.value} belongs to another user"
+        }
+        items.update { map ->
+            map + (
+                id.value to before.copy(
+                    status = ProposalItemStatus.Pending,
+                    decidedAt = null,
+                    decidedActor = null,
+                    rejectionReason = null,
+                )
+            )
+        }
     }
 
     override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {

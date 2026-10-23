@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# Pre-commit hook: compile before commit.
+# Pre-commit hook: lint the changed files, then compile.
 #
-# Formatting (detekt + ktlint) is handled by CI — running it in the hook is
-# redundant and the auto-correct pass can't fix certain ktlint issues (e.g. minor
-# whitespace / trailing-comma style nits), which would block commits for no reason.
+# Two steps, and they answer two different questions:
+#
+#   1. `lint-changed` — detekt over the changed files only. The same config,
+#      the same baseline and the same rules as the module's own detekt task, so
+#      a finding here is the finding CI reports. The whole-module detekt stays
+#      in CI (the auto-correct pass there can't fix certain ktlint issues —
+#      e.g. minor whitespace / trailing-comma style nits — which would block
+#      commits for no reason); what is added here is the seconds-long check on
+#      the file that was just written, because a mechanical finding — a
+#      too-complex method, a long method, a missing blank line — is a finding
+#      about that file and nothing else.
+#   2. the compile of the modules that are about to be committed.
 #
 # Use `git commit --no-verify` to skip when needed.
 
@@ -20,6 +29,12 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ]; then
     echo "=== Pre-commit: skipped (worktree) ==="
     exit 0
 fi
+
+echo "=== Pre-commit: linting the changed files ==="
+python3 scripts/lint-changed.py || {
+    echo "detekt (changed files) FAILED"
+    exit 1
+}
 
 echo "=== Pre-commit: compiling shared (main + test) ==="
 # Through ./gw, so the build uses this worktree's private GRADLE_USER_HOME

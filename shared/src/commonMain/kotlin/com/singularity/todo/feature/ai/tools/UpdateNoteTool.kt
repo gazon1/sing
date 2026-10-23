@@ -9,7 +9,7 @@ import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import kotlinx.serialization.Serializable
@@ -87,7 +87,7 @@ class UpdateNoteTool(
 
         args.title?.let { value ->
             if (value.trim() != existing.title.trim()) {
-                kinds += ProposalItemKind.SetNoteField(NoteField.Title, value)
+                kinds += ProposalItemKind.SetNoteField(NoteValue.Title(value))
             }
         }
 
@@ -97,7 +97,7 @@ class UpdateNoteTool(
         val body = args.bodyMarkdown?.let { NoteContentMapper.toHtml(it) } ?: args.bodyHtml
         body?.let { value ->
             if (value != existing.bodyHtml) {
-                kinds += ProposalItemKind.SetNoteField(NoteField.Body, value)
+                kinds += ProposalItemKind.SetNoteField(NoteValue.Body(value))
             }
         }
 

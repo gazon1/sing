@@ -6,9 +6,15 @@ import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ReadResult
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 
@@ -72,17 +78,12 @@ class CreateTaskTool(
             return failure(title, "A task needs a title.")
         }
 
-        // The values the task will hold, spelled the way the task holds them.
-        // A name the model invented is reported here, where the model can fix
-        // the call — not later, when the user approves a proposal that cannot
-        // be applied.
-        val priority = canonicalPriority(args.priority)
-        if (priority == null) {
-            return failure(title, "\"${args.priority.trim()}\" is not a priority. $PRIORITY_NAMES")
-        }
-        val taskKind = canonicalKind(args.kind)
-        if (taskKind == null) {
-            return failure(title, "\"${args.kind.trim()}\" is not a kind of work. $KIND_NAMES")
+        // The values the task will hold, read through the vocabulary. A name the
+        // model invented is reported here, where the model can fix the call — not
+        // later, when the user approves a proposal that cannot be applied.
+        val values = when (val read = readTaskValues(args)) {
+            is ReadResult.Ok -> read.value
+            is ReadResult.Rejected -> return failure(title, read.reason)
         }
 
         // The id the task will have if the user says yes. Naming it now means the
@@ -92,13 +93,13 @@ class CreateTaskTool(
             ProposedTask(
                 title = title,
                 description = args.description,
-                priority = priority.name,
-                kind = taskKind.name,
+                priority = values.priority,
+                kind = values.kind,
                 projectId = args.projectId,
                 parentTaskId = args.parentTaskId,
                 tagIds = args.tagIds,
-                dueDate = args.dueDate,
-                dueTime = args.dueTime,
+                dueDate = values.dueDate,
+                dueTime = values.dueTime,
                 someday = args.someday,
             ),
         )
@@ -143,4 +144,54 @@ class CreateTaskTool(
                 "All fields optional except title. Priority is none, low, medium, high or urgent. " +
                 "dueDate is YYYY-MM-DD, dueTime is HH:mm."
     }
+
+    /**
+     * The values a task proposal needs, read through the vocabulary.
+     *
+     * One refusal for the whole set: the first value that does not read is the one
+     * to report, and the model fixes the call and tries again.
+     */
+    private fun readTaskValues(args: CreateTaskInput): ReadResult<TaskValues> {
+        val priority = when (val read = TaskValue.readPriority(args.priority)) {
+            is ReadResult.Ok -> read.value
+            is ReadResult.Rejected -> return read
+        }
+        val kind = when (val read = TaskValue.readKind(args.kind)) {
+            is ReadResult.Ok -> read.value
+            is ReadResult.Rejected -> return read
+        }
+        val times = when (val read = readTaskTimes(args)) {
+            is ReadResult.Ok -> read.value
+            is ReadResult.Rejected -> return read
+        }
+        return ReadResult.Ok(TaskValues(priority, kind, times.dueDate, times.dueTime))
+    }
+
+    /** The dates a task proposal carries, read through the vocabulary. */
+    private fun readTaskTimes(args: CreateTaskInput): ReadResult<TaskTimes> {
+        val dueDate = args.dueDate?.let { raw ->
+            when (val read = TaskValue.readDate(raw)) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return read
+            }
+        }
+        val dueTime = args.dueTime?.let { raw ->
+            when (val read = TaskValue.readTime(raw)) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return read
+            }
+        }
+        return ReadResult.Ok(TaskTimes(dueDate, dueTime))
+    }
+
+    /** The values a task proposal carries, once they have been read. */
+    private data class TaskValues(
+        val priority: TaskPriority,
+        val kind: TaskKind,
+        val dueDate: LocalDate?,
+        val dueTime: LocalTime?,
+    )
+
+    /** The dates a task proposal carries, once they have been read. */
+    private data class TaskTimes(val dueDate: LocalDate?, val dueTime: LocalTime?)
 }

@@ -3,11 +3,12 @@ package com.singularity.todo.feature.proposals
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /**
  * The fingerprint is the mechanism that stops a rejected change coming back, so its
@@ -72,8 +73,8 @@ class ProposalFingerprintTest {
 
     @Test
     fun `different task fields produce different fingerprints`() {
-        val title = fp(ProposalItemKind.SetTaskField(TaskField.Title, "x"))
-        val priority = fp(ProposalItemKind.SetTaskField(TaskField.Priority, "x"))
+        val title = fp(ProposalItemKind.SetTaskField(TaskValue.Title("x")))
+        val priority = fp(ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)))
         assertNotEquals(title, priority)
     }
 
@@ -107,7 +108,7 @@ class ProposalFingerprintTest {
 
     @Test
     fun `fingerprint is stable across calls within a process`() {
-        val kind = ProposalItemKind.SetTaskField(TaskField.Title, "Ship it")
+        val kind = ProposalItemKind.SetTaskField(TaskValue.Title("Ship it"))
         assertEquals(ProposalFingerprint.of(kind, "t"), ProposalFingerprint.of(kind, "t"))
     }
 

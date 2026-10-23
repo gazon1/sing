@@ -6,10 +6,10 @@ package com.singularity.todo.feature.ai.tools
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -30,6 +30,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Unit tests for the write tools: the tools that change the user's data.
@@ -125,11 +127,11 @@ class WriteToolsTest {
 
         val kind = pendingProposals().single().items.single().kind as ProposalItemKind.CreateTask
         assertEquals("A description", kind.task.description)
-        assertEquals("High", kind.task.priority)
+        assertEquals(TaskPriority.High, kind.task.priority)
         assertEquals("proj-1", kind.task.projectId)
         assertEquals(listOf("tag-1", "tag-2"), kind.task.tagIds)
-        assertEquals("2026-09-15", kind.task.dueDate)
-        assertEquals("14:00", kind.task.dueTime)
+        assertEquals(LocalDate.parse("2026-09-15"), kind.task.dueDate)
+        assertEquals(LocalTime.parse("14:00"), kind.task.dueTime)
         assertTrue(kind.task.someday)
     }
 
@@ -153,7 +155,7 @@ class WriteToolsTest {
         // apply, and a proposal the user approved and could not apply is a
         // proposal that burned the user's attention for nothing.
         val kind = pendingProposals().single().items.single().kind as ProposalItemKind.CreateTask
-        assertEquals("High", kind.task.priority)
+        assertEquals(TaskPriority.High, kind.task.priority)
     }
 
     @Test
@@ -193,8 +195,8 @@ class WriteToolsTest {
         val kinds = pendingProposals().single().items.map { it.kind }
         assertEquals(
             listOf(
-                ProposalItemKind.SetTaskField(TaskField.Title, "Renamed Task"),
-                ProposalItemKind.SetTaskField(TaskField.Priority, "High"),
+                ProposalItemKind.SetTaskField(TaskValue.Title("Renamed Task")),
+                ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
             ),
             kinds,
         )
@@ -253,7 +255,7 @@ class WriteToolsTest {
         tool.execute(UpdateTaskInput(taskId = existingTaskId.value, priority = "urgent"))
 
         val kind = pendingProposals().single().items.single().kind
-        assertEquals(ProposalItemKind.SetTaskField(TaskField.Priority, "Urgent"), kind)
+        assertEquals(ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.Urgent)), kind)
     }
 
     @Test
@@ -380,6 +382,6 @@ class WriteToolsTest {
         assertEquals("Old title", fakeNotesRepo.notes[noteId.value]?.title)
 
         val kind = pendingProposals().single().items.single().kind
-        assertEquals(ProposalItemKind.SetNoteField(NoteField.Title, "New title"), kind)
+        assertEquals(ProposalItemKind.SetNoteField(NoteValue.Title("New title")), kind)
     }
 }

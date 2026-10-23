@@ -8,8 +8,6 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
-import com.singularity.todo.feature.tasks.domain.model.TaskKind
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlin.time.Clock
 
 /**
@@ -58,23 +56,3 @@ internal suspend fun proposeChange(
  */
 internal fun proposalItems(kinds: List<ProposalItemKind>, targetId: String): List<ProposalItem> =
     kinds.map { ProposalBuilder.item(it, targetId) }
-
-/**
- * The priority in the spelling a task can hold, or `null` if the name is not one.
- *
- * The model writes "high"; the task holds `High`. Spelling it once here is what
- * keeps a proposal applicable: a proposal that passes the tool and then fails to
- * apply is a proposal that burned the user's attention for nothing.
- */
-internal fun canonicalPriority(raw: String): TaskPriority? =
-    TaskPriority.entries.firstOrNull { it.name.equals(raw.trim(), ignoreCase = true) }
-
-/** The kind in the spelling a task can hold, or `null` if the name is not one. */
-internal fun canonicalKind(raw: String): TaskKind? =
-    TaskKind.entries.firstOrNull { it.name.equals(raw.trim(), ignoreCase = true) }
-
-/** The names a priority can have, as the model sees them. */
-internal const val PRIORITY_NAMES = "Use none, low, medium, high or urgent."
-
-/** The names a kind of work can have, as the model sees them. */
-internal const val KIND_NAMES = "Use task or note."

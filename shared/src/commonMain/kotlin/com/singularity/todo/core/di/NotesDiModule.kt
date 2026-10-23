@@ -23,6 +23,7 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewMo
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.search.data.InternalLinkRepositoryImpl
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import org.koin.core.module.dsl.viewModel
@@ -106,6 +107,7 @@ fun notesModule(): org.koin.core.module.Module = module {
             noteId = noteId,
             proposals = get<ProposalRepository>(),
             applyProposalItem = get<ApplyProposalItemUseCase>(),
+            editProposalItem = get<EditProposalItemUseCase>(),
             currentUser = get<ProfileAwareCurrentUser>(),
             crashReporter = get<CrashReportingPort>(),
         )

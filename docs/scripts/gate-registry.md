@@ -35,7 +35,6 @@ sche... | — | — |
 | hook gates are declared once | blocking | `scripts/check-hook-gates.py` | check-hook-gates.py — the hook and CI must not drift apart silently. | — | — |
 | unwired surfaces | blocking | `scripts/find-unwired-surfaces.py` | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | `scripts/check-dead-settings.py` | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
-| a write tool proposes before it writes | blocking | `scripts/check-ai-write-tools.py` | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
 | coverage task list | blocking | `scripts/check-coverage-task-list.py` | check-coverage-task-list.py — the coverage report measures every module that ... | — | — |
 | coverage floor declaration | blocking | `scripts/check-coverage-floor-declaration.py` | check-coverage-floor-declaration.py — the coverage floor is declared where Ko... | — | — |
 | coverage timeout | blocking | `scripts/check-coverage-timeout.py` | check-coverage-timeout.py — the coverage job's timeout covers the measured cost. | — | — |

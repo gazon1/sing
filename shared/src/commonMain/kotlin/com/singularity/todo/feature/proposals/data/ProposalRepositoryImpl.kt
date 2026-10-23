@@ -9,10 +9,12 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -96,6 +98,30 @@ class ProposalRepositoryImpl(
 
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.getItem(id.value)?.toDomainOrNull()
 
+    /**
+     * Rewrites a pending item's change.
+     *
+     * The summary and the fingerprint are derived from the kind here rather than
+     * passed in: both belong to the value, so a caller that changed the value
+     * without them would store a card that reads one thing and a fingerprint that
+     * means another.
+     */
+    override suspend fun updatePendingItem(
+        id: ProposalItemId,
+        kind: ProposalItemKind,
+        userId: UserId,
+    ): Result<ProposalItem?> = runCatchingCancellable {
+        val stored = items.getItem(id.value)?.toDomainOrNull() ?: return@runCatchingCancellable null
+        val rewritten = items.updatePendingItem(
+            userId = userId.value,
+            id = id.value,
+            kindJson = kind.toJsonString(),
+            humanSummary = kind.humanSummary,
+            fingerprint = ProposalFingerprint.of(kind, stored.targetId),
+        )
+        if (rewritten == 0) null else items.getItem(id.value)?.toDomainOrNull()
+    }
+
     override suspend fun claim(
         id: ProposalItemId,
         status: ProposalItemStatus,
@@ -110,6 +136,32 @@ class ProposalRepositoryImpl(
         actor = actor.name,
         reason = reason,
     )?.toDomainOrNull()
+
+    /**
+     * Puts a confirmed item back into `Pending`.
+     *
+     * The item goes back rather than being deleted: the change was not applied, and
+     * the user may want it again. The reason it failed is reported by the caller, not
+     * stored here — the row keeps the decision fields empty, because there is no
+     * decision.
+     */
+    override suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit> = runCatchingCancellable {
+        val released = items.releaseClaim(
+            userId = userId.value,
+            id = id.value,
+            actor = DecidedActor.User.name,
+        )
+        require(released > 0) {
+            "Proposal item ${id.value} was not released — it is no longer a confirmed change of this user"
+        }
+    }.also { result ->
+        val error = result.exceptionOrNull() ?: return@also
+        log.e(error) {
+            "proposal item ${id.value}: the claim could not be released, so the change stays " +
+                "decided although it was not applied"
+        }
+        crashReporter.report(error, "proposals.release_failed")
+    }
 
     /**
      * Recomputes a proposal's aggregate status from its items.

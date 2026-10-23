@@ -76,4 +76,13 @@ data class ProposalItem(
 ) {
     /** True when the user gave a reason worth feeding back to the model. */
     val hasRejectionFeedback: Boolean get() = !rejectionReason.isNullOrBlank()
+
+    /**
+     * Why this change cannot be read, when its stored value no longer reads.
+     *
+     * The value was written by a build that knew the field, and this one does
+     * not. The change is still on the card — with this reason next to it —
+     * because a change the user cannot see is a change nobody decided about.
+     */
+    val readFailure: String? get() = kind.readFailure
 }

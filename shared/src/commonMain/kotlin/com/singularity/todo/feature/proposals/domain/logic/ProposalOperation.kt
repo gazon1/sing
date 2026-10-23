@@ -1,7 +1,8 @@
 package com.singularity.todo.feature.proposals.domain.logic
 
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.ReadResult
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 
 /**
  * The changes an agent may propose for a task.
@@ -11,7 +12,7 @@ import com.singularity.todo.feature.proposals.domain.model.TaskField
  * The kinds the proposal machinery understands — [ProposalItemKind] — are a domain
  * vocabulary, and a domain vocabulary is not a wire format. An agent reading a tool
  * description needs to know what to *type*, and "set_title" is something it can type;
- * "SetTaskField(field=Title, value=...)" is a Kotlin type it has to know the shape of.
+ * "SetTaskField(TaskValue.Title(...))" is a Kotlin type it has to know the shape of.
  *
  * So the tool speaks in operation names, and the mapping from a name to a kind lives
  * here — one place, so that the list of operations and the list of things the proposal
@@ -34,18 +35,23 @@ import com.singularity.todo.feature.proposals.domain.model.TaskField
  */
 object ProposalOperation {
 
-    /** The operations that set a field, and the field each one sets. */
-    private val FIELD_OPERATIONS: Map<String, TaskField> = linkedMapOf(
-        "set_title" to TaskField.Title,
-        "set_description" to TaskField.Description,
-        "set_priority" to TaskField.Priority,
-        "set_due_date" to TaskField.DueDate,
-        "set_estimate" to TaskField.EstimateMinutes,
-        "set_status" to TaskField.Status,
-        "set_kind" to TaskField.Kind,
-        "set_due_time" to TaskField.DueTime,
-        "set_project" to TaskField.Project,
-        "set_someday" to TaskField.Someday,
+    /**
+     * The operations that set a field, and the value each one reads.
+     *
+     * The reader is the *same* reader the proposal machinery uses — [TaskValue.read] —
+     * so an operation cannot accept a value the proposal would later refuse to apply.
+     */
+    private val FIELD_OPERATIONS: Map<String, (String) -> ReadResult<TaskValue>> = linkedMapOf(
+        "set_title" to { text -> ReadResult.Ok(TaskValue.Title(text)) },
+        "set_description" to { text -> ReadResult.Ok(TaskValue.Description(text)) },
+        "set_priority" to { text -> TaskValue.read("Priority", text) },
+        "set_due_date" to { text -> TaskValue.read("DueDate", text) },
+        "set_estimate" to { text -> TaskValue.read("EstimateMinutes", text) },
+        "set_status" to { text -> TaskValue.read("Status", text) },
+        "set_kind" to { text -> TaskValue.read("Kind", text) },
+        "set_due_time" to { text -> TaskValue.read("DueTime", text) },
+        "set_project" to { text -> ReadResult.Ok(TaskValue.Project(text.trim())) },
+        "set_someday" to { text -> TaskValue.read("Someday", text) },
     )
 
     /**
@@ -73,27 +79,46 @@ object ProposalOperation {
     val NAMES: List<String> = FIELD_OPERATIONS.keys.toList() + LIST_OPERATIONS.keys.toList()
 
     /**
-     * The kind [operation] asks for, or null when the operation is not one of ours.
+     * What [operation] asks for.
      *
-     * The null is not an error the caller has to guess about: the caller says which
-     * operations exist, and the answer here is "not one of them".
-     *
-     * @param value the new value, for the operations that set a field.
-     * @param items the entries to add or remove, for the operations that take a list.
+     * Three answers, because the caller has three different things to say: the
+     * change, "that is not an operation", and "that value is not one the task can
+     * hold". The last one is worth its own answer — it is the model's mistake to
+     * correct, and it has to be reported as such.
      */
-    fun toItemKind(
-        operation: String,
-        value: String?,
-        items: List<String>,
-    ): ProposalItemKind? {
+    fun toItem(operation: String, value: String?, items: List<String>): Outcome {
         val name = operation.trim().lowercase()
-        FIELD_OPERATIONS[name]?.let { field ->
-            return value?.let { ProposalItemKind.SetTaskField(field, it) }
+        FIELD_OPERATIONS[name]?.let { read ->
+            val text = value ?: return Outcome.MissingValue
+            return when (val read = read(text)) {
+                is ReadResult.Ok -> Outcome.Proposed(ProposalItemKind.SetTaskField(read.value))
+                is ReadResult.Rejected -> Outcome.UnreadableValue(read.reason)
+            }
         }
         LIST_OPERATIONS[name]?.let { build ->
-            return items.takeIf { it.isNotEmpty() }?.let(build)
+            return items.takeIf { it.isNotEmpty() }
+                ?.let { Outcome.Proposed(build(it)) }
+                ?: Outcome.EmptyChange
         }
-        return null
+        return Outcome.UnknownOperation
+    }
+
+    /** What an operation asks for. */
+    sealed interface Outcome {
+        /** The change the operation proposes. */
+        data class Proposed(val kind: ProposalItemKind) : Outcome
+
+        /** The operation is not one of ours. */
+        data object UnknownOperation : Outcome
+
+        /** The operation needs a value, and none was given. */
+        data object MissingValue : Outcome
+
+        /** The operation was given a value that does not read. */
+        data class UnreadableValue(val reason: String) : Outcome
+
+        /** The operation was given nothing to say. */
+        data object EmptyChange : Outcome
     }
 
     /**

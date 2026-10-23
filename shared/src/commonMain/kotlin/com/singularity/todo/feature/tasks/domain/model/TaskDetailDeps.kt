@@ -14,6 +14,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
@@ -134,6 +135,7 @@ data class TaskCollaborationDeps(
     val linkRepo: InternalLinkRepository? = null,
     val proposals: ProposalRepository? = null,
     val applyProposal: ApplyProposalItemUseCase? = null,
+    val editProposal: EditProposalItemUseCase? = null,
 )
 
 /**

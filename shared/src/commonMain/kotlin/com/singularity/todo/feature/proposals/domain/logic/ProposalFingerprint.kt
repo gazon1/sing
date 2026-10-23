@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.proposals.domain.logic
 
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.fingerprintTarget
 
 /**
  * Builds the stable identity of a proposed change.

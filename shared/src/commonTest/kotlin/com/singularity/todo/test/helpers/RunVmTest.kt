@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 
 /**
  * Creates a [TestVmContext] by instantiating [factory] with the test's [TestScope]
@@ -54,6 +55,13 @@ fun <VM, S> TestScope.testVm(
 ): TestVmContext<VM, S> {
     val vm = factory(this, backgroundScope)
     advanceUntilIdle()
+    // advanceUntilIdle() stops as soon as there is no *foreground* work left, so a
+    // collector that runs in the background scope — which is where a collector that
+    // never ends belongs — has not started yet. runCurrent() dispatches what is
+    // scheduled at this moment of virtual time, foreground or not, so the ViewModel
+    // has read what it reads before the first assertion. `act` does the same for the
+    // same reason.
+    runCurrent()
     afterInit(vm, backgroundScope)
     return testVmContext(vm, stateAccessor, this, backgroundScope)
 }
@@ -62,11 +70,16 @@ fun <VM, S> TestScope.testVm(
  * Backward-compatible overload for tests that need the factory called BEFORE
  * [advanceUntilIdle]. This is required for VMs with never-ending collectors
  * (e.g. `repository.observe().collect {}` in `AttachmentAnnotationViewModel`):
- * calling `advanceUntilIdle()` on a VM that is already running such a collector
- * hangs indefinitely.
+ * calling [advanceUntilIdle] on a VM that is already running such a collector
+ * waits for work that never arrives.
  *
  * The VM is created first (inside [factory]), then [advanceUntilIdle] drives the
- * VM's init collectors to completion, and finally [afterInit] is called.
+ * VM's init collectors as far as they go, and finally [afterInit] is called.
+ *
+ * Note what [advanceUntilIdle] does in kotlinx-coroutines-test 1.11: it stops as
+ * soon as there is no *foreground* work left, so a collector that runs in the
+ * background scope has not started yet. That is why [testVm] also calls
+ * [runCurrent] — see the note there.
  *
  * Use this overload only when the VM's init collector never terminates.
  * For VMs with completing collectors, prefer the `(TestScope, CoroutineScope) -> VM`
@@ -86,6 +99,7 @@ fun <VM, S> TestScope.testVm(
 ): TestVmContext<VM, S> {
     val vm = factory()
     advanceUntilIdle()
+    runCurrent()
     afterInit(vm)
     return testVmContext(vm, stateAccessor, this, backgroundScope)
 }

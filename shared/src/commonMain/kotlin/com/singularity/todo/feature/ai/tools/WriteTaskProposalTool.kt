@@ -10,9 +10,10 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.logic.ProposalOperation
-import com.singularity.todo.feature.proposals.domain.logic.humanSummary
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -86,8 +87,10 @@ class WriteTaskProposalTool(
 
         validate(args, operation)?.let { problem -> return failure(args, problem) }
 
-        val kind = ProposalOperation.toItemKind(operation, args.value, args.items)
-            ?: return failure(args, "The operation \"$operation\" could not be turned into a change.")
+        val kind = when (val read = kindFor(operation, ProposalOperation.toItem(operation, args.value, args.items))) {
+            is ReadResult.Ok -> read.value
+            is ReadResult.Rejected -> return failure(args, read.reason)
+        }
 
         val taskId = TaskId.fromString(args.taskId)
         if (taskRepository.get(taskId) == null) {
@@ -193,5 +196,30 @@ class WriteTaskProposalTool(
                 "\"true\" or \"false\"; set_project takes a project id. " +
                 "The reason is shown to the user with the change, so say why the change is being " +
                 "proposed."
+    }
+
+    /**
+     * The change an outcome asks for, or the reason it asks for nothing.
+     *
+     * The outcome says what went wrong; this says it in the words the model is told,
+     * so the tool reports one thing — a refusal with a reason — instead of a shape
+     * the caller has to know.
+     */
+    private fun kindFor(
+        operation: String,
+        outcome: ProposalOperation.Outcome,
+    ): ReadResult<ProposalItemKind> = when (outcome) {
+        is ProposalOperation.Outcome.Proposed -> ReadResult.Ok(outcome.kind)
+
+        is ProposalOperation.Outcome.UnknownOperation ->
+            ReadResult.Rejected("The operation \"$operation\" could not be turned into a change.")
+
+        is ProposalOperation.Outcome.MissingValue ->
+            ReadResult.Rejected("The operation \"$operation\" needs a value.")
+
+        is ProposalOperation.Outcome.UnreadableValue -> ReadResult.Rejected(outcome.reason)
+
+        is ProposalOperation.Outcome.EmptyChange ->
+            ReadResult.Rejected("The operation \"$operation\" needs at least one item.")
     }
 }

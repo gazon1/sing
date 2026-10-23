@@ -6,7 +6,7 @@ import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProjectField
+import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -87,25 +87,25 @@ class UpdateProjectTool(
 
         args.name?.let { value ->
             if (value.trim() != existing.name) {
-                kinds += ProposalItemKind.SetProjectField(ProjectField.Name, value)
+                kinds += ProposalItemKind.SetProjectField(ProjectValue.Name(value))
             }
         }
 
         args.description?.let { value ->
             if (value != existing.description) {
-                kinds += ProposalItemKind.SetProjectField(ProjectField.Description, value)
+                kinds += ProposalItemKind.SetProjectField(ProjectValue.Description(value))
             }
         }
 
         args.color?.let { value ->
             if (value != existing.color) {
-                kinds += ProposalItemKind.SetProjectField(ProjectField.Color, value.toString())
+                kinds += ProposalItemKind.SetProjectField(ProjectValue.Color(value))
             }
         }
 
         args.icon?.let { value ->
             if (value != existing.icon) {
-                kinds += ProposalItemKind.SetProjectField(ProjectField.Icon, value)
+                kinds += ProposalItemKind.SetProjectField(ProjectValue.Icon(value))
             }
         }
 
