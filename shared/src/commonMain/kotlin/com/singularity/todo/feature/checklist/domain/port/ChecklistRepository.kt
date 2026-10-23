@@ -15,7 +15,21 @@ import kotlinx.coroutines.flow.Flow
  */
 interface ChecklistRepository {
     fun watchByTask(taskId: String): Flow<List<ChecklistItem>>
-    suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId>
+
+    /**
+     * Adds a checklist item.
+     *
+     * @param id The id the item will have. A caller that has to know the id
+     *   *before* the write names it here: a write that is cut short after the
+     *   database has committed leaves a row behind, and only the caller that
+     *   named the id can take it back. Every other caller lets the repository
+     *   name it.
+     */
+    suspend fun addItem(
+        taskId: String,
+        title: String,
+        id: ChecklistItemId = ChecklistItemId.generate(),
+    ): Result<ChecklistItemId>
     suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String = "user"): Result<Unit>
     suspend fun upsert(item: ChecklistItem): Result<Unit>
     suspend fun delete(id: ChecklistItemId): Result<Unit>

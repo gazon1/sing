@@ -12,7 +12,6 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
@@ -94,6 +93,25 @@ class ProposalsViewModel(
     ) {
 
     /**
+     * The reasons the last attempt failed, by change.
+     *
+     * The store owns them; this screen's state shows them. The state is rebuilt
+     * from the proposals the screen was given, and a reason kept inside that
+     * state alone was lost on every rebuild — so the reasons live in the store,
+     * and the state mirrors them.
+     */
+    private val failureStore = ProposalFailureStore()
+
+    /**
+     * The reasons, mirrored into the state the screen draws from.
+     */
+    private val failureWatch = vmScope.launch {
+        failureStore.state.collect { reasons ->
+            updateState { state -> state.copy(failures = reasons) }
+        }
+    }
+
+    /**
      * The five operations, in one place.
      *
      * The review screen, the note editor and the task detail all answer a
@@ -104,15 +122,8 @@ class ProposalsViewModel(
     private val decisions = ProposalDecisions(
         applyProposalItem = applyProposalItem,
         editProposalItem = editProposalItem,
-        style = reviewScreenStyle,
-        failures = proposalFailureStore(
-            onRecord = { itemId, message ->
-                updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
-            },
-            onClear = { itemId ->
-                updateState { state -> state.copy(failures = state.failures - itemId) }
-            },
-        ),
+        style = ProposalDecisionStyles.reviewScreen,
+        failures = failureStore,
         errors = ProposalErrorSink { label, _, error ->
             // The ViewModel's own error path: it reports the failure to the crash
             // reporter and shows it as a one-shot event. The failure is rethrown
@@ -132,7 +143,10 @@ class ProposalsViewModel(
      */
     private val pendingWatch = vmScope.launch {
         proposals.watchProposalsByStatus(ProposalStatus.Pending)
-            .map { list -> list.filter { proposal -> proposal.items.any { it.status == ProposalItemStatus.Pending } } }
+            // The domain answers "is anything still waiting": a surface that asks
+            // the status itself has opinions about the lifecycle, and the
+            // lifecycle is not the surface's.
+            .map { list -> list.filter { proposal -> proposal.pendingItems.isNotEmpty() } }
             .collect { list ->
                 updateState { state ->
                     state.copy(isLoading = false, proposals = list)
@@ -143,6 +157,7 @@ class ProposalsViewModel(
     /** The collector stops with the ViewModel. */
     override fun onCleared() {
         pendingWatch.cancel()
+        failureWatch.cancel()
         super.onCleared()
     }
 
@@ -170,24 +185,5 @@ class ProposalsViewModel(
      * may have changed since.
      */
     private suspend fun waiting(proposalId: ProposalId): List<ProposalItem> =
-        proposals.watchProposal(proposalId).first()?.items.orEmpty()
-            .filter { it.status == ProposalItemStatus.Pending }
-
-    private companion object {
-        /**
-         * How this screen words a proposal decision.
-         *
-         * A dismissed proposal keeps no reason per change: the proposal's own
-         * status says what became of it.
-         */
-        val reviewScreenStyle = ProposalDecisionStyle(
-            apply = "Apply the change",
-            reject = "Reject the change",
-            applyAll = "Apply the changes",
-            applyOne = "Apply the change",
-            dismiss = "Dismiss the proposal",
-            dismissOne = null,
-            change = "Change the proposal",
-        )
-    }
+        proposals.watchProposal(proposalId).first()?.pendingItems.orEmpty()
 }

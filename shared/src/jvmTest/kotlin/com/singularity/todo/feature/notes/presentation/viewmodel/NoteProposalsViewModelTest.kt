@@ -2,7 +2,6 @@
 
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
-import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.notes.Note
@@ -33,6 +32,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.TestVmContext
+import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -88,14 +88,14 @@ class NoteProposalsViewModelTest {
      * finishing. The work the intents start still runs on the test scheduler.
      */
     private fun TestScope.viewModel(): TestVmContext<NoteProposalsViewModel, NoteProposalsUiState> =
-        testVm(stateAccessor = { vm: NoteProposalsViewModel -> vm.state }) { _, bgScope ->
+        testVm(stateAccessor = { vm: NoteProposalsViewModel -> vm.state }, vmScope = VmScope.Background) { scope ->
             NoteProposalsViewModel(
                 noteId = noteId,
                 proposals = proposals,
                 applyProposalItem = useCase,
                 editProposalItem = EditProposalItemUseCase(proposals),
                 currentUser = FakeProfileAwareCurrentUser(user),
-                scope = testScope(bgScope),
+                scope = scope,
             )
         }
 

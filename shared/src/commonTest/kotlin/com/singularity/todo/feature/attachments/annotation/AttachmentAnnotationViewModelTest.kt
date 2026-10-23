@@ -9,7 +9,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAttachmentAnnotationRepository
-import com.singularity.todo.core.coroutines.testScope
 import kotlinx.coroutines.launch
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.test.runTest
@@ -38,21 +37,14 @@ class AttachmentAnnotationViewModelTest {
     private val document = "alpha beta gamma"
 
     /**
-     * The view model on a scope the test owns.
+     * The view model on the scope the harness built.
      *
-     * [testScope] gives a **child Job** on the test's own context. Both halves are
-     * needed and neither alone works:
-     *
-     * - On the test's context directly, the collectors run — they are dispatched by the
-     *   test scheduler — but they are children of the test body, so `runTest` ends with
-     *   every one of them still active and fails with `UncompletedCoroutinesError`.
-     * - On `backgroundScope`, they are exempt from that wait, but in this project they
-     *   are not driven by `advanceUntilIdle`, so nothing runs and the state stays
-     *   `Loading`.
-     *
-     * A child Job runs on the test scheduler *and* can be cancelled on its own, which is
-     * what [AutoCloseableCoroutineScope.job] exists for. Every test therefore ends with
-     * `vmScope.job?.cancel()`.
+     * The harness owns that choice ([VmScope.Foreground]), and the reason is the
+     * view model's: its collectors run on the test scheduler, so `advanceUntilIdle`
+     * drives them, and the state the test asserts on is the state the view model
+     * produced. On `backgroundScope` they would be exempt from the test's wait but
+     * not driven by `advanceUntilIdle`, so nothing would run and the state would stay
+     * `Loading`.
      */
     private fun newVm(
         repo: FakeAttachmentAnnotationRepository,
@@ -82,9 +74,8 @@ class AttachmentAnnotationViewModelTest {
         val id = AttachmentAnnotationId.generate()
         repo.seed(annotation(id))
 
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
 
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
@@ -92,7 +83,6 @@ class AttachmentAnnotationViewModelTest {
 
         assertEquals(listOf(id), content.annotations.map { it.annotation.id })
         assertFalse(content.annotations.single().isStale, "the quote is in the document")
-        vmScope.job?.cancel()
     }
 
     @Test
@@ -101,9 +91,8 @@ class AttachmentAnnotationViewModelTest {
         val id = AttachmentAnnotationId.generate()
         repo.seed(annotation(id))
 
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded("a rewritten document")) }
 
@@ -114,7 +103,6 @@ class AttachmentAnnotationViewModelTest {
         assertTrue(stale.isStale, "it must be reported as stale")
         assertEquals(AnchorResolution.Stale, stale.resolution)
         assertEquals(null, stale.anchorStart, "there is nothing to point at")
-        vmScope.job?.cancel()
     }
 
     @Test
@@ -122,9 +110,8 @@ class AttachmentAnnotationViewModelTest {
         val repo = FakeAttachmentAnnotationRepository()
         repo.seed(annotation(AttachmentAnnotationId.generate()))
 
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded("XXalpha beta gamma")) }
 
@@ -132,14 +119,12 @@ class AttachmentAnnotationViewModelTest {
 
         assertFalse(resolved.isStale, "the words are still there, just further along")
         assertEquals(8, resolved.anchorStart)
-        vmScope.job?.cancel()
     }
 
     @Test
     fun `the form opens prefilled with the range it was given`() = runTest {
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(FakeAttachmentAnnotationRepository(), vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(FakeAttachmentAnnotationRepository(), scope)
         }
         ctx.act {
             onIntent(AttachmentAnnotationIntent.OpenEditor(start = 6, end = 10, quote = "beta"))
@@ -151,15 +136,13 @@ class AttachmentAnnotationViewModelTest {
         assertEquals("10", draft.end.text)
         assertEquals("beta", draft.quote.text)
         assertEquals(null, draft.editing, "a new annotation is not an edit")
-        vmScope.job?.cancel()
     }
 
     @Test
     fun `submitting the form writes a note against the range`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act {
             onIntent(AttachmentAnnotationIntent.OpenEditor(start = 6, end = 10, quote = "beta"))
@@ -172,7 +155,6 @@ class AttachmentAnnotationViewModelTest {
         assertEquals(listOf("create"), repo.calls, "exactly one write, and it was a create")
         assertEquals("worth remembering", content.annotations.single().annotation.note)
         assertEquals(null, content.draft, "the form closes once the write is handed off")
-        vmScope.job?.cancel()
     }
 
     @Test
@@ -180,9 +162,8 @@ class AttachmentAnnotationViewModelTest {
         val repo = FakeAttachmentAnnotationRepository()
         val id = AttachmentAnnotationId.generate()
         repo.seed(annotation(id))
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
         ctx.act { onIntent(AttachmentAnnotationIntent.EditAnnotation(id)) }
@@ -194,15 +175,13 @@ class AttachmentAnnotationViewModelTest {
         assertEquals(listOf("update"), repo.calls, "an edit must not create a second row")
         assertEquals("reworded", updated.note)
         assertEquals("beta", updated.range.quote, "editing a note must not re-anchor it")
-        vmScope.job?.cancel()
     }
 
     @Test
     fun `an offset past the end of the file is refused and the form keeps its contents`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
         ctx.act {
@@ -215,15 +194,13 @@ class AttachmentAnnotationViewModelTest {
         assertEquals(emptyList(), repo.calls, "an invalid range must not reach the repository")
         assertNotNull(content.draft, "the form keeps what the user typed")
         assertEquals("half written", content.draft!!.note.text)
-        vmScope.job?.cancel()
     }
 
     @Test
     fun `non-numeric offsets are refused`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
         ctx.act {
@@ -233,16 +210,14 @@ class AttachmentAnnotationViewModelTest {
         ctx.act { onIntent(AttachmentAnnotationIntent.SubmitEditor) }
 
         assertEquals(emptyList(), repo.calls, "a half-typed offset must not be coerced to 0")
-        vmScope.job?.cancel()
     }
 
     @Test
     fun `a failed write reports a message and leaves the note unsaved`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
         repo.failNextWrite = IllegalStateException("disk on fire")
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
         ctx.act {
@@ -253,7 +228,7 @@ class AttachmentAnnotationViewModelTest {
         // On the test's own scope, not `backgroundScope`: the same reason the view
         // model's scope is a child job rather than background work. An event emitted into
         // a collector that never starts is indistinguishable from an event never sent.
-        val collector = vmScope.launch {
+        val collector = launch {
             ctx.vm.events.collect { event ->
                 errors += (event as AttachmentAnnotationUiEvent.ShowError).message
             }
@@ -270,7 +245,6 @@ class AttachmentAnnotationViewModelTest {
             ctx.assertIs<AttachmentAnnotationUiState.Content>().annotations.isEmpty(),
             "a failed write must not appear as a saved note",
         )
-        vmScope.job?.cancel()
     }
 
     @Test
@@ -278,9 +252,8 @@ class AttachmentAnnotationViewModelTest {
         val repo = FakeAttachmentAnnotationRepository()
         val id = AttachmentAnnotationId.generate()
         repo.seed(annotation(id))
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
         ctx.act { onIntent(AttachmentAnnotationIntent.Delete(id)) }
@@ -290,7 +263,6 @@ class AttachmentAnnotationViewModelTest {
             "a soft-deleted note must leave the list",
         )
         assertEquals(listOf("delete"), repo.calls)
-        vmScope.job?.cancel()
     }
 
     @Test
@@ -308,9 +280,8 @@ class AttachmentAnnotationViewModelTest {
         repo.seed(mine)
         repo.seed(theirs)
 
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
 
@@ -318,15 +289,13 @@ class AttachmentAnnotationViewModelTest {
             listOf(mine.id),
             ctx.assertIs<AttachmentAnnotationUiState.Content>().annotations.map { it.annotation.id },
         )
-        vmScope.job?.cancel()
     }
 
     @Test
     fun `a note seeded after the panel opened still appears`() = runTest {
         val repo = FakeAttachmentAnnotationRepository()
-        val vmScope = testScope(this)
-        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) {
-            newVm(repo, vmScope)
+        val ctx = testVm(stateAccessor = { vm: AttachmentAnnotationViewModel -> vm.stateFlow }) { scope ->
+            newVm(repo, scope)
         }
         ctx.act { onIntent(AttachmentAnnotationIntent.DocumentLoaded(document)) }
         // Seeded while the collector is already running — the only way it can appear is
@@ -338,6 +307,5 @@ class AttachmentAnnotationViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, ctx.assertIs<AttachmentAnnotationUiState.Content>().annotations.size)
-        vmScope.job?.cancel()
     }
 }

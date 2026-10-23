@@ -2,7 +2,6 @@ package com.singularity.todo.feature.proposals.domain.usecase
 
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
-import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -35,8 +34,15 @@ sealed interface ProposalPlan {
     data class AddSubtasks(override val taskId: TaskId, val titles: List<String>) : ProposalPlan
     data class AddTimeEntries(override val taskId: TaskId, val entries: List<ProposedTimeEntry>) : ProposalPlan
 
-    /** A fully-resolved note write. */
-    data class WriteNote(val note: Note, val value: NoteValue) : ProposalPlan {
+    /**
+     * A fully-resolved note write.
+     *
+     * The note is the note to write, already built: the planner knows the field the
+     * change sets and the note that field belongs to, and the dispatcher writes it.
+     * The dispatcher never inspects the value to decide what to write — a value it
+     * does not understand would be a write it cannot make.
+     */
+    data class WriteNote(val note: Note) : ProposalPlan {
         override val taskId: TaskId? get() = null
     }
 

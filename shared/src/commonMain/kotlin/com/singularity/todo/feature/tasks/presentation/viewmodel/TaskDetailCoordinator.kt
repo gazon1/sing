@@ -11,11 +11,10 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.presentation.MutableProposalFailureStore
-import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyle
+import com.singularity.todo.feature.proposals.presentation.ProposalFailureStore
+import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyles
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
 import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
-import com.singularity.todo.feature.proposals.presentation.ProposalFailureText
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -247,7 +246,7 @@ class TaskDetailCoordinator(
      * error notification: a notification says that something went wrong, and the user
      * still cannot tell which of the changes it was.
      */
-    private val proposalFailureStore = MutableProposalFailureStore()
+    private val proposalFailureStore = ProposalFailureStore()
 
     /**
      * The five operations every proposal surface performs.
@@ -263,7 +262,7 @@ class TaskDetailCoordinator(
     private val proposalDecisions = ProposalDecisions(
         applyProposalItem = deps.collaboration.applyProposal,
         editProposalItem = deps.collaboration.editProposal,
-        style = taskDetailStyle,
+        style = ProposalDecisionStyles.taskDetail,
         failures = proposalFailureStore,
         errors = ProposalErrorSink { label, message, error ->
             // The failure is shown and it is reported: a failure the user can see
@@ -560,31 +559,5 @@ class TaskDetailCoordinator(
 
         /** The repository answered: no such task for the current user. */
         data object Missing : TaskLoad
-    }
-
-    private companion object {
-        /**
-         * How this screen words a proposal decision.
-         *
-         * The task detail names the operation instead of describing it, and it
-         * says how many changes of a batch could not be applied — a batch where
-         * some changes failed is a normal outcome, but the user is told which
-         * changes it was.
-         *
-         * A failure that arrives as a thrown exception is not shown here: this
-         * screen's scope reports it, as it reports every other failure that
-         * escapes a slot.
-         */
-        val taskDetailStyle = ProposalDecisionStyle(
-            apply = "Confirm",
-            reject = "Reject",
-            applyAll = "Apply",
-            applyOne = "Apply",
-            dismiss = "Dismiss",
-            dismissOne = null,
-            change = "Change",
-            failureText = ProposalFailureText { label, error -> "$label failed: ${error.message}" },
-            batchFailureText = { count -> "$count items could not be applied" },
-        )
     }
 }

@@ -83,11 +83,11 @@ class TimeTrackingRepositoryImpl(
         kind: TimeEntryKind,
         note: String?,
         source: TimeEntrySource,
+        id: TimeEntryId,
     ): Result<TimeEntryId> = runCatchingCancellable {
         require(endedAt > startedAt) { "endedAt ($endedAt) must be after startedAt ($startedAt)" }
 
         val now = clock.now().toEpochMilliseconds()
-        val id = TimeEntryId.generate()
         val entity = TimeEntryEntity(
             id = id.value,
             taskId = taskId.value,

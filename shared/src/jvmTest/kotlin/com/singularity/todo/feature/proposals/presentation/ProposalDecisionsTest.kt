@@ -76,7 +76,7 @@ class ProposalDecisionsTest {
         dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
     )
 
-    private val failures = RecordingFailureStore()
+    private val failures = ProposalFailureStore()
     private val errors = RecordingErrorSink()
 
     /** The wording of a surface that says what it does. */
@@ -97,7 +97,7 @@ class ProposalDecisionsTest {
 
         decisions().applyChange(item.id)
 
-        assertNull(failures.reasons[item.id], "the change worked: there is nothing left to explain")
+        assertNull(failures.state.value[item.id], "the change worked: there is nothing left to explain")
         assertEquals(
             ProposalItemStatus.Confirmed,
             storedItem(item.id).status,
@@ -111,7 +111,7 @@ class ProposalDecisionsTest {
 
         decisions().applyChange(item.id)
 
-        val reason = failures.reasons[item.id]
+        val reason = failures.state.value[item.id]
         assertNotNull(reason, "the reason is shown next to the change that failed")
         assertTrue(reason.contains("not found"), "the reason says what was wrong: $reason")
     }
@@ -157,8 +157,8 @@ class ProposalDecisionsTest {
         decisions().applyAll(proposalId)
 
         assertTrue(errors.reports.isEmpty(), "a partly failed batch is a normal outcome")
-        assertNull(failures.reasons[applied.id], "the change that worked has nothing to explain")
-        assertNotNull(failures.reasons[failed.id], "the change that failed keeps its own reason")
+        assertNull(failures.state.value[applied.id], "the change that worked has nothing to explain")
+        assertNotNull(failures.state.value[failed.id], "the change that failed keeps its own reason")
     }
 
     @Test
@@ -194,7 +194,7 @@ class ProposalDecisionsTest {
         decisions(style = reviewStyle.copy(dismissOne = "Turn the change down"))
             .dismiss { listOf(missing) }
 
-        assertNotNull(failures.reasons[missing.id], "the reason is shown next to the change")
+        assertNotNull(failures.state.value[missing.id], "the reason is shown next to the change")
     }
 
     @Test
@@ -204,7 +204,7 @@ class ProposalDecisionsTest {
 
         decisions().dismiss { listOf(missing) }
 
-        assertTrue(failures.reasons.isEmpty(), "the proposal's own status says what became of it")
+        assertTrue(failures.state.value.isEmpty(), "the proposal's own status says what became of it")
     }
 
     @Test
@@ -241,7 +241,7 @@ class ProposalDecisionsTest {
 
         decisions().changeValue(item.id, "whenever")
 
-        val reason = failures.reasons[item.id]
+        val reason = failures.state.value[item.id]
         assertNotNull(reason, "the reason is shown next to the change")
         assertTrue(reason.contains("whenever"), "the reason says what was wrong: $reason")
     }
@@ -252,7 +252,7 @@ class ProposalDecisionsTest {
 
         decisions(apply = null).applyChange(item.id)
 
-        assertTrue(failures.reasons.isEmpty(), "nothing failed")
+        assertTrue(failures.state.value.isEmpty(), "nothing failed")
         assertTrue(errors.reports.isEmpty(), "nothing was reported")
         assertEquals(ProposalItemStatus.Pending, storedItem(item.id).status, "nothing was decided")
     }
@@ -322,19 +322,6 @@ class ProposalDecisionsTest {
     /** The change as the repository holds it now. */
     private suspend fun storedItem(itemId: ProposalItemId): ProposalItem =
         requireNotNull(proposals.getItem(itemId)) { "the change $itemId is not stored" }
-
-    /** A store that keeps the reasons where the test can read them. */
-    private class RecordingFailureStore : ProposalFailureStore {
-        val reasons = mutableMapOf<ProposalItemId, String>()
-
-        override fun record(itemId: ProposalItemId, message: String) {
-            reasons[itemId] = message
-        }
-
-        override fun clear(itemId: ProposalItemId) {
-            reasons.remove(itemId)
-        }
-    }
 
     /** A sink that keeps what it was told, where the test can read it. */
     private class RecordingErrorSink : ProposalErrorSink {
