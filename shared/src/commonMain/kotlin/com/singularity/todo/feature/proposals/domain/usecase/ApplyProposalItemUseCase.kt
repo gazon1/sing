@@ -6,8 +6,8 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTarget
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -218,90 +218,60 @@ class ApplyProposalItemUseCase(
      * All I/O (fetching the target task/note, resolving tag ids) happens here,
      * before the claim. This lets the planner fail fast without burning the
      * one irreversible decision.
+     *
+     * ## The routing is the change's own
+     *
+     * The change says what it is about ([ProposalItemKind.target]), and this
+     * function reads the row that target names. It used to ask the change a list
+     * of questions instead — "is this a creation?", "is this about a note?" —
+     * and a change that answered none of them fell through to the branch that
+     * assumed a task. Now a change that does not say what it is about does not
+     * compile, and one that says the wrong thing does not compile either.
      */
     private suspend fun buildPlan(item: ProposalItem, userId: UserId): ProposalPlan {
-        // A change this build cannot read is refused here — before the claim — and
-        // the reason it carries is the reason the user reads. The change stays on
-        // the card: it is not applied, it is not lost.
         val kind = item.kind
-        if (kind is ProposalItemKind.Unknown) {
-            error(kind.readFailure ?: "This change cannot be read.")
-        }
-        return when {
-            kind.isCreateVariant -> planner.planCreateItem(item, userId)
+        return when (val target = kind.target) {
+            // A change this build cannot read is refused here — before the claim —
+            // and the reason it carries is the reason the user reads. The change
+            // stays on the card: it is not applied, it is not lost.
+            ProposalTarget.Unreadable -> error(kind.readFailure ?: "This change cannot be read.")
 
-            kind.isNoteBound -> {
-                // SetNoteField needs the note; DeleteNote and ExtractActions don't but
-                // passing the note for SetNoteField is what the planner needs.
-                val note = notes.get(NoteId(item.targetId))
-                planner.planNoteItem(item, note)
-            }
+            // A creation has no row to read: the change named the id the thing
+            // *will* have.
+            is ProposalTarget.Creation -> planner.planCreateItem(item, target.kind, userId)
 
-            kind.isTagBound -> {
-                val tag = tags.get(TagId.fromString(item.targetId))
-                planner.planTagItem(item, tag)
-            }
-
-            kind.isProjectBound -> {
-                val project = projects.get(ProjectId.fromString(item.targetId))
-                planner.planProjectItem(item, project)
-            }
-
-            kind.isDeleteVariant -> planner.planDeleteItem(item)
-
-            else -> {
-                // Fetch task and resolve tag ids before calling the planner.
+            is ProposalTarget.OnTask -> {
                 val task = tasks.get(TaskId(item.targetId))
-                val resolvedTagIds = kind.resolveTagIds()
-                planner.planTaskItem(item, task, resolvedTagIds)
+                val resolvedTagIds = resolveTagIds(kind.tagNames)
+                planner.planTaskItem(item, target.kind, task, resolvedTagIds)
+            }
+
+            is ProposalTarget.OnNote -> {
+                val note = notes.get(NoteId(item.targetId))
+                planner.planNoteItem(item, target.kind, note)
+            }
+
+            is ProposalTarget.OnProject -> {
+                val project = projects.get(ProjectId.fromString(item.targetId))
+                planner.planProjectItem(item, target.kind, project)
+            }
+
+            is ProposalTarget.OnTag -> {
+                val tag = tags.get(TagId.fromString(item.targetId))
+                planner.planTagItem(item, target.kind, tag)
             }
         }
     }
 
     /**
-     * True when this kind creates something that does not exist yet.
+     * The ids of the tags [names] names.
      *
-     * A creation has no target to fetch: the proposal named the id the thing *will*
-     * have, so there is nothing to read before it is built.
+     * The model proposes *text* ("milk"), and the task carries ids — so the
+     * resolution of one into the other is a precondition check, made here, before
+     * the claim. A name that names no tag is not resolved, and a change whose names
+     * resolve to nothing is refused by the planner rather than applied to no tags.
      */
-    private val ProposalItemKind.isCreateVariant: Boolean
-        get() = this is ProposalItemKind.CreateTask ||
-            this is ProposalItemKind.CreateProject ||
-            this is ProposalItemKind.CreateNote ||
-            this is ProposalItemKind.CreateTag
-
-    /** True when this kind targets a tag. */
-    private val ProposalItemKind.isTagBound: Boolean
-        get() = this is ProposalItemKind.SetTagField
-
-    /** True when this kind targets a project rather than a task. */
-    private val ProposalItemKind.isProjectBound: Boolean
-        get() = this is ProposalItemKind.SetProjectField
-
-    /** True when this kind targets a note rather than a task. */
-    private val ProposalItemKind.isNoteBound: Boolean
-        get() = this is ProposalItemKind.SetNoteField ||
-            this is ProposalItemKind.DeleteNote ||
-            this is ProposalItemKind.ExtractActions
-
-    /** True when this kind is a delete operation for a non-note entity. */
-    private val ProposalItemKind.isDeleteVariant: Boolean
-        get() = this is ProposalItemKind.DeleteTask ||
-            this is ProposalItemKind.DeleteProject ||
-            this is ProposalItemKind.DeleteTag
-
-    /**
-     * Resolves tag ids for AddTags/RemoveTags kinds.
-     *
-     * Called only during planning, before the claim — same as the original
-     * `resolveTagIds` method. The tag names are looked up here so the planner
-     * remains pure.
-     */
-    private suspend fun ProposalItemKind.resolveTagIds(): Set<TagId> {
-        val names = when (this) {
-            is ProposalItemKind.AddTags -> names
-            else -> return emptySet()
-        }
+    private suspend fun resolveTagIds(names: Set<String>): Set<TagId> {
         if (names.isEmpty()) return emptySet()
         val byName = tags.observeAll().first().associateBy { it.name.trim().lowercase() }
         return names.mapNotNull { byName[it.trim().lowercase()]?.id }.toSet()

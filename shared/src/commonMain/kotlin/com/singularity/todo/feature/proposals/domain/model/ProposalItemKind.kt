@@ -12,14 +12,87 @@ import kotlinx.serialization.Serializable
 class EditableProposal(val text: String, val change: (String) -> ReadResult<ProposalItemKind>)
 
 /**
+ * A change about a task.
+ *
+ * The group a kind belongs to is what routes it: the planner has one function per
+ * group, and each of them switches over the group exhaustively — so a kind that
+ * joins a group and is not handled there does not compile.
+ *
+ * The group is not a note in the documentation: [ProposalTarget.OnTask] carries a
+ * change of this group, and the compiler refuses the change that claims a group it
+ * does not belong to.
+ */
+sealed interface TaskBoundKind
+
+/** A change about a note. See [TaskBoundKind] for what a group is. */
+sealed interface NoteBoundKind
+
+/** A change about a project. See [TaskBoundKind] for what a group is. */
+sealed interface ProjectBoundKind
+
+/** A change about a tag. See [TaskBoundKind] for what a group is. */
+sealed interface TagBoundKind
+
+/**
+ * A change that brings something into being.
+ *
+ * There is no row to read before it is applied — the change names the id the thing
+ * *will* have — so the group is its own.
+ */
+sealed interface CreationBoundKind
+
+/**
+ * What a change is about.
+ *
+ * ## Why the target carries the change itself
+ *
+ * The routing used to be a list of questions asked about the kind: "is this a
+ * creation?", "is this about a note?" — questions asked in a use case, about a
+ * vocabulary declared in the model. A kind that arrived and answered none of them
+ * fell through to the branch that assumed a task, and the mistake showed up as a
+ * runtime error about an "unexpected kind" long after the change was written.
+ *
+ * So the change says what it is about, and the target carries the change with it:
+ * a target that names a group can only be built from a change of that group, and
+ * the compiler says so. A kind that arrives without a target does not compile at
+ * all, and a kind that arrives with the wrong one does not compile either.
+ */
+sealed interface ProposalTarget {
+
+    /** The change brings something into being. There is no row to read. */
+    data class Creation(val kind: CreationBoundKind) : ProposalTarget
+
+    /** The change touches a task. */
+    data class OnTask(val kind: TaskBoundKind) : ProposalTarget
+
+    /** The change touches a note. */
+    data class OnNote(val kind: NoteBoundKind) : ProposalTarget
+
+    /** The change touches a project. */
+    data class OnProject(val kind: ProjectBoundKind) : ProposalTarget
+
+    /** The change touches a tag. */
+    data class OnTag(val kind: TagBoundKind) : ProposalTarget
+
+    /**
+     * The change cannot be applied by this build.
+     *
+     * The reason belongs to the change, not to the target: the kind that says it
+     * cannot be read says why, and the card shows that reason.
+     */
+    data object Unreadable : ProposalTarget
+}
+
+/**
  * The change a single [ProposalItem] asks for.
  *
  * This is the **only** place the proposal vocabulary is enumerated, and each variant
  * carries its own behaviour: what the user reads on the card ([humanSummary]), the
- * identity the rejection fingerprint compares ([fingerprintTarget]) and whether the
- * user may change the value before it is applied ([editableProposal]). A new kind is
- * therefore a new kind — not a new kind plus a summary somewhere else plus a
- * fingerprint somewhere else, three edits that have to be found by whoever adds it.
+ * identity the rejection fingerprint compares ([fingerprintTarget]), what the change
+ * is about ([target]) and whether the user may change the value before it is applied
+ * ([editableProposal]). A new kind is therefore a new kind — not a new kind plus a
+ * summary somewhere else plus a fingerprint somewhere else plus a place that has to
+ * know what to do with it, four edits that have to be found by whoever adds it.
  *
  * The payload of the collection-shaped variants is kept as plain strings rather than
  * domain ids: the model proposes *text* ("milk", "chore"), and resolution to real
@@ -28,6 +101,29 @@ class EditableProposal(val text: String, val change: (String) -> ReadResult<Prop
  */
 @Serializable
 sealed interface ProposalItemKind {
+
+    /**
+     * What this change is about.
+     *
+     * The answer is what routes the change: the planner has one function per group,
+     * and the use case reads the row the group names. So a change that does not say
+     * what it is about does not compile — and neither does a change that says
+     * something it is not.
+     */
+    val target: ProposalTarget
+
+    /**
+     * The tag names this change carries, when it carries any.
+     *
+     * The names are what the model proposed; the ids are what the task carries, and
+     * the resolution of one into the other is a precondition check at apply time.
+     * So the change says what it carries, and the caller resolves it.
+     */
+    val tagNames: Set<String>
+        get() = when (this) {
+            is AddTags -> names.toSet()
+            else -> emptySet()
+        }
 
     /**
      * What the user reads on the card.
@@ -77,7 +173,11 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("SetTaskField")
-    data class SetTaskField(val value: TaskValue) : ProposalItemKind {
+    data class SetTaskField(val value: TaskValue) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
@@ -98,7 +198,11 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("SetTaskTags")
-    data class SetTaskTags(val tagIds: List<String>) : ProposalItemKind {
+    data class SetTaskTags(val tagIds: List<String>) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Set the tags"
         override val fingerprintTarget: String = tagIds.normalized()
         override fun editableProposal(): EditableProposal? = null
@@ -107,7 +211,11 @@ sealed interface ProposalItemKind {
     /** Add each of these tag names to the task. Unresolvable names are skipped. */
     @Serializable
     @SerialName("AddTags")
-    data class AddTags(val names: List<String>) : ProposalItemKind {
+    data class AddTags(val names: List<String>) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Add tags"
         override val fingerprintTarget: String = names.normalized()
         override fun editableProposal(): EditableProposal? = null
@@ -116,7 +224,11 @@ sealed interface ProposalItemKind {
     /** Remove each of these tag ids from the task. Also records tag suppression. */
     @Serializable
     @SerialName("RemoveTags")
-    data class RemoveTags(val tagIds: List<String>) : ProposalItemKind {
+    data class RemoveTags(val tagIds: List<String>) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Remove tags"
         override val fingerprintTarget: String = tagIds.normalized()
         override fun editableProposal(): EditableProposal? = null
@@ -125,7 +237,11 @@ sealed interface ProposalItemKind {
     /** Append these texts as new checklist items. */
     @Serializable
     @SerialName("AddChecklistItems")
-    data class AddChecklistItems(val texts: List<String>) : ProposalItemKind {
+    data class AddChecklistItems(val texts: List<String>) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "${texts.size} checklist item(s)"
         override val fingerprintTarget: String = texts.normalized()
         override fun editableProposal(): EditableProposal? = null
@@ -134,7 +250,11 @@ sealed interface ProposalItemKind {
     /** Create these titles as subtasks of the owning task. */
     @Serializable
     @SerialName("AddSubtasks")
-    data class AddSubtasks(val titles: List<String>) : ProposalItemKind {
+    data class AddSubtasks(val titles: List<String>) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "${titles.size} subtask(s)"
         override val fingerprintTarget: String = titles.normalized()
         override fun editableProposal(): EditableProposal? = null
@@ -143,7 +263,11 @@ sealed interface ProposalItemKind {
     /** Log these as time entries against the owning task. */
     @Serializable
     @SerialName("AddTimeEntries")
-    data class AddTimeEntries(val entries: List<ProposedTimeEntry>) : ProposalItemKind {
+    data class AddTimeEntries(val entries: List<ProposedTimeEntry>) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Add time entry"
         override val fingerprintTarget: String = entries
             .map { "${it.startedAt}-${it.endedAt}" }
@@ -155,7 +279,11 @@ sealed interface ProposalItemKind {
     /** Set a field on the owning note. */
     @Serializable
     @SerialName("SetNoteField")
-    data class SetNoteField(val value: NoteValue) : ProposalItemKind {
+    data class SetNoteField(val value: NoteValue) :
+        ProposalItemKind,
+        NoteBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnNote(this)
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
@@ -170,7 +298,11 @@ sealed interface ProposalItemKind {
     /** Set a field on the owning project. */
     @Serializable
     @SerialName("SetProjectField")
-    data class SetProjectField(val value: ProjectValue) : ProposalItemKind {
+    data class SetProjectField(val value: ProjectValue) :
+        ProposalItemKind,
+        ProjectBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnProject(this)
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
@@ -185,7 +317,11 @@ sealed interface ProposalItemKind {
     /** Set a field on the owning tag. */
     @Serializable
     @SerialName("SetTagField")
-    data class SetTagField(val value: TagValue) : ProposalItemKind {
+    data class SetTagField(val value: TagValue) :
+        ProposalItemKind,
+        TagBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTag(this)
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
         override val readFailure: String?
@@ -206,7 +342,11 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("CreateTag")
-    data class CreateTag(val tag: ProposedTag) : ProposalItemKind {
+    data class CreateTag(val tag: ProposedTag) :
+        ProposalItemKind,
+        CreationBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.Creation(this)
         override val humanSummary: String = "Create a tag «${tag.name.asCardValue()}»"
         override val fingerprintTarget: String = tag.name.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(tag.name) { newText ->
@@ -228,7 +368,11 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("CreateTask")
-    data class CreateTask(val task: ProposedTask) : ProposalItemKind {
+    data class CreateTask(val task: ProposedTask) :
+        ProposalItemKind,
+        CreationBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.Creation(this)
         override val humanSummary: String = "Create a task «${task.title.asCardValue()}»"
         override val fingerprintTarget: String = task.title.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(task.title) { newText ->
@@ -244,7 +388,11 @@ sealed interface ProposalItemKind {
     /** Create a project with these fields. */
     @Serializable
     @SerialName("CreateProject")
-    data class CreateProject(val project: ProposedProject) : ProposalItemKind {
+    data class CreateProject(val project: ProposedProject) :
+        ProposalItemKind,
+        CreationBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.Creation(this)
         override val humanSummary: String = "Create a project «${project.name.asCardValue()}»"
         override val fingerprintTarget: String = project.name.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(project.name) { newText ->
@@ -260,7 +408,11 @@ sealed interface ProposalItemKind {
     /** Create a note or folder with these fields. */
     @Serializable
     @SerialName("CreateNote")
-    data class CreateNote(val note: ProposedNote) : ProposalItemKind {
+    data class CreateNote(val note: ProposedNote) :
+        ProposalItemKind,
+        CreationBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.Creation(this)
         override val humanSummary: String = "Create a note «${note.title.asCardValue()}»"
         override val fingerprintTarget: String = note.title.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(note.title) { newText ->
@@ -276,7 +428,11 @@ sealed interface ProposalItemKind {
     /** Delete the owning note. */
     @Serializable
     @SerialName("DeleteNote")
-    data class DeleteNote(val reason: String? = null) : ProposalItemKind {
+    data class DeleteNote(val reason: String? = null) :
+        ProposalItemKind,
+        NoteBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnNote(this)
         override val humanSummary: String = "Delete note"
         override val fingerprintTarget: String = ""
         override fun editableProposal(): EditableProposal? = null
@@ -289,7 +445,11 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("ExtractActions")
-    data class ExtractActions(val actions: List<String>) : ProposalItemKind {
+    data class ExtractActions(val actions: List<String>) :
+        ProposalItemKind,
+        NoteBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnNote(this)
         override val humanSummary: String = "${actions.size} action(s) from note"
         override val fingerprintTarget: String = actions.normalized()
         override fun editableProposal(): EditableProposal? = null
@@ -298,7 +458,11 @@ sealed interface ProposalItemKind {
     /** Soft-delete (archive) the owning task. */
     @Serializable
     @SerialName("DeleteTask")
-    data class DeleteTask(val reason: String? = null) : ProposalItemKind {
+    data class DeleteTask(val reason: String? = null) :
+        ProposalItemKind,
+        TaskBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTask(this)
         override val humanSummary: String = "Delete task"
         override val fingerprintTarget: String = ""
         override fun editableProposal(): EditableProposal? = null
@@ -307,7 +471,11 @@ sealed interface ProposalItemKind {
     /** Soft-delete (archive) the owning project. */
     @Serializable
     @SerialName("DeleteProject")
-    data class DeleteProject(val reason: String? = null) : ProposalItemKind {
+    data class DeleteProject(val reason: String? = null) :
+        ProposalItemKind,
+        ProjectBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnProject(this)
         override val humanSummary: String = "Delete project"
         override val fingerprintTarget: String = ""
         override fun editableProposal(): EditableProposal? = null
@@ -316,7 +484,11 @@ sealed interface ProposalItemKind {
     /** Delete the owning tag. */
     @Serializable
     @SerialName("DeleteTag")
-    data class DeleteTag(val reason: String? = null) : ProposalItemKind {
+    data class DeleteTag(val reason: String? = null) :
+        ProposalItemKind,
+        TagBoundKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.OnTag(this)
         override val humanSummary: String = "Delete tag"
         override val fingerprintTarget: String = ""
         override fun editableProposal(): EditableProposal? = null
@@ -346,6 +518,8 @@ sealed interface ProposalItemKind {
     @Serializable
     @SerialName("Unknown")
     data class Unknown(val raw: String, val reason: String = UNREADABLE_REASON) : ProposalItemKind {
+        /** What this change is about — see [ProposalTarget]. */
+        override val target: ProposalTarget = ProposalTarget.Unreadable
         override val humanSummary: String = "A change this version cannot read"
         override val fingerprintTarget: String = raw
         override val readFailure: String? = reason

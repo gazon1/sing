@@ -3,11 +3,16 @@ package com.singularity.todo.feature.proposals.domain.usecase
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.proposals.domain.model.CreationBoundKind
+import com.singularity.todo.feature.proposals.domain.model.NoteBoundKind
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
+import com.singularity.todo.feature.proposals.domain.model.ProjectBoundKind
+import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.NoteValue
-import com.singularity.todo.feature.proposals.domain.model.ProjectValue
+import com.singularity.todo.feature.proposals.domain.model.TagBoundKind
 import com.singularity.todo.feature.proposals.domain.model.TagValue
+import com.singularity.todo.feature.proposals.domain.model.TaskBoundKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -34,13 +39,14 @@ import kotlin.time.Clock
 class ProposalPlanner(private val clock: Clock) {
 
     /**
-     * Plans a note-bound item (no task required).
+     * Plans a change about a note.
      *
      * @param item The stored proposal item.
+     * @param kind The change itself — the group says which note it is about.
      * @param note The note fetched by the caller. Pass `null` if the note does not exist,
-     *             in which case this function throws.
+     *             in which case this function throws — for the changes that need it.
      */
-    fun planNoteItem(item: ProposalItem, note: Note?): ProposalPlan = when (val kind = item.kind) {
+    fun planNoteItem(item: ProposalItem, kind: NoteBoundKind, note: Note?): ProposalPlan = when (kind) {
         is ProposalItemKind.SetNoteField -> {
             // The same refusal the other dictionaries make, and for the same
             // reason: a value that does not read is not a change that can be
@@ -61,60 +67,42 @@ class ProposalPlanner(private val clock: Clock) {
             require(kind.actions.isNotEmpty()) { "ExtractActions is empty" }
             ProposalPlan.ExtractNoteActions(NoteId(item.targetId), kind.actions)
         }
-
-        else -> error("Expected note-bound kind but got $kind")
     }
 
     /**
-     * Plans a delete-variant item (no task or note needed — just the target id).
+     * Plans a change about a project.
+     *
+     * @param project The project fetched by the caller. Pass `null` if the project does
+     *   not exist, in which case this function throws — for the changes that need it.
      */
-    fun planDeleteItem(item: ProposalItem): ProposalPlan = when (val kind = item.kind) {
-        is ProposalItemKind.DeleteTask -> {
-            val taskId = TaskId(item.targetId)
-            ProposalPlan.DeleteTask(delTaskId = taskId, reason = kind.reason)
+    fun planProjectItem(item: ProposalItem, kind: ProjectBoundKind, project: Project?): ProposalPlan = when (kind) {
+        is ProposalItemKind.SetProjectField -> {
+            val p = project ?: error("Project ${item.targetId} not found")
+            ProposalPlan.WriteProject(withProjectValue(p, kind.value))
         }
 
         is ProposalItemKind.DeleteProject -> {
             val projectId = ProjectId.fromString(item.targetId)
             ProposalPlan.DeleteProject(projectId, kind.reason)
         }
-
-        is ProposalItemKind.DeleteTag -> {
-            val tagId = TagId.fromString(item.targetId)
-            ProposalPlan.DeleteTag(tagId, kind.reason)
-        }
-
-        else -> error("Expected delete variant but got $kind")
     }
 
     /**
-     * Plans a project-bound item.
-     *
-     * @param project The project fetched by the caller. Pass `null` if the project does
-     *   not exist, in which case this function throws.
-     */
-    fun planProjectItem(item: ProposalItem, project: Project?): ProposalPlan = when (val kind = item.kind) {
-        is ProposalItemKind.SetProjectField -> {
-            val p = project ?: error("Project ${item.targetId} not found")
-            ProposalPlan.WriteProject(withProjectValue(p, kind.value))
-        }
-
-        else -> error("Expected project-bound kind but got $kind")
-    }
-
-    /**
-     * Plans a tag-bound item.
+     * Plans a change about a tag.
      *
      * @param tag The tag fetched by the caller. Pass `null` if the tag does not exist,
-     *   in which case this function throws.
+     *   in which case this function throws — for the changes that need it.
      */
-    fun planTagItem(item: ProposalItem, tag: Tag?): ProposalPlan = when (val kind = item.kind) {
+    fun planTagItem(item: ProposalItem, kind: TagBoundKind, tag: Tag?): ProposalPlan = when (kind) {
         is ProposalItemKind.SetTagField -> {
             val t = tag ?: error("Tag ${item.targetId} not found")
             ProposalPlan.WriteTag(withTagValue(t, kind.value))
         }
 
-        else -> error("Expected tag-bound kind but got $kind")
+        is ProposalItemKind.DeleteTag -> {
+            val tagId = TagId.fromString(item.targetId)
+            ProposalPlan.DeleteTag(tagId, kind.reason)
+        }
     }
 
     /**
@@ -126,30 +114,40 @@ class ProposalPlanner(private val clock: Clock) {
      *
      * @param userId The owner of the entity that will come into being.
      */
-    fun planCreateItem(item: ProposalItem, userId: UserId): ProposalPlan = when (val kind = item.kind) {
+    fun planCreateItem(item: ProposalItem, kind: CreationBoundKind, userId: UserId): ProposalPlan = when (kind) {
         is ProposalItemKind.CreateTask -> ProposalPlan.CreateTask(buildTask(kind, item.targetId, userId))
         is ProposalItemKind.CreateProject -> ProposalPlan.CreateProject(buildProject(kind, item.targetId, userId))
         is ProposalItemKind.CreateNote -> ProposalPlan.CreateNote(buildNote(kind, item.targetId, userId))
         is ProposalItemKind.CreateTag -> ProposalPlan.CreateTag(buildTag(kind, item.targetId, userId))
-        else -> error("Expected a creation but got $kind")
     }
 
     /**
-     * Plans a task-bound item.
+     * Plans a change about a task.
+     *
+     * The change is what says it is about a task — the caller does not decide that,
+     * and cannot get it wrong. So this function switches over the task group
+     * exhaustively: a change that joins the group and is not handled here does not
+     * compile.
      *
      * @param item The stored proposal item.
+     * @param kind The change itself.
      * @param task The task fetched by the caller. Pass `null` if the task does not exist,
-     *             in which case this function throws.
-     * @param resolvedTagIds For [ProposalItemKind.AddTags] and [ProposalItemKind.RemoveTags]:
-     *                       pre-resolved tag IDs from the caller's tag lookup.
+     *   in which case this function throws — for the changes that need it.
+     * @param resolvedTagIds For [ProposalItemKind.AddTags]: the ids of the tags the
+     *   change names, resolved by the caller.
      */
-    fun planTaskItem(item: ProposalItem, task: Task?, resolvedTagIds: Set<TagId> = emptySet()): ProposalPlan {
+    fun planTaskItem(
+        item: ProposalItem,
+        kind: TaskBoundKind,
+        task: Task?,
+        resolvedTagIds: Set<TagId> = emptySet(),
+    ): ProposalPlan {
         val taskId = TaskId(item.targetId.ifBlank { task?.id?.value ?: error("No task id") })
-        val t = task ?: error("Task ${item.targetId} not found")
-        return when (val kind = item.kind) {
+        return when (kind) {
             is ProposalItemKind.SetTaskField -> {
                 // Validation here, not in dispatch: a value the task cannot hold must fail
                 // *before* the claim, or the item burns its one decision on a write that throws.
+                val t = task ?: error("Task ${item.targetId} not found")
                 ProposalPlan.WriteTask(withTaskValue(t, kind.value))
             }
 
@@ -158,7 +156,7 @@ class ProposalPlanner(private val clock: Clock) {
             }
 
             is ProposalItemKind.AddTags -> {
-                require(resolvedTagIds.isNotEmpty()) { "AddTags has no resolved tag ids" }
+                require(resolvedTagIds.isNotEmpty()) { "The tags this change names could not be resolved" }
                 ProposalPlan.AddTags(taskId, resolvedTagIds)
             }
 
@@ -190,7 +188,9 @@ class ProposalPlanner(private val clock: Clock) {
                 ProposalPlan.AddTimeEntries(taskId, kind.entries)
             }
 
-            else -> error("Unexpected task-bound kind: $kind")
+            is ProposalItemKind.DeleteTask -> {
+                ProposalPlan.DeleteTask(delTaskId = taskId, reason = kind.reason)
+            }
         }
     }
 
