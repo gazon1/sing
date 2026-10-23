@@ -21,7 +21,10 @@ not know is a module nothing runs, and nothing says so.
 
 import importlib.util
 import pathlib
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
@@ -344,6 +347,141 @@ class FallbackTest(unittest.TestCase):
         prefixes = changed.path_modules(modules)
 
         self.assertEqual('shared', prefixes['shared/'])
+class TheGraphIsCompleteTest(unittest.TestCase):
+    """The graph cannot be allowed to fall behind the build.
+
+    Two tables have to agree: the table that says which module owns a path, and
+    the table that says what has to compile for that module. When they disagree
+    a module has no owner of its compile, and the commit gate skips it in
+    silence.
+    """
+
+    def test_every_module_the_graph_names_has_a_compile_entry(self):
+        """A module with no entry is a graph that has fallen behind the build."""
+        missing = sorted(set(changed.PATH_MODULES.values()) - set(changed.COMPILE_TASKS))
+
+        self.assertEqual(
+            [], missing,
+            f'these modules own paths but have no compile entry: {missing}',
+        )
+
+    def test_a_module_that_is_not_compiled_locally_says_why(self):
+        """An empty compile list needs a reason, or the skip is silent."""
+        silent = sorted(
+            module for module, tasks in changed.COMPILE_TASKS.items()
+            if not tasks and module not in changed.NOT_COMPILED_LOCALLY
+        )
+
+        self.assertEqual(
+            [], silent,
+            f'these modules are not compiled locally and do not say why: {silent}',
+        )
+
+    def test_every_compile_task_belongs_to_a_module_of_the_graph(self):
+        """A compile task for a module nobody owns is a typo waiting to happen."""
+        owners = set(changed.PATH_MODULES.values())
+        orphans = sorted(
+            module for module in changed.COMPILE_TASKS
+            if module not in owners
+        )
+
+        self.assertEqual([], orphans, f'these modules are compiled but own no path: {orphans}')
+
+
+class ThePathsComeOutOfGitTest(unittest.TestCase):
+    """The paths are read out of git, and git has two ways to hide them.
+
+    A rename is reported as one path, and a path with a non-ASCII character is
+    quoted. Both hide a change from the module that owns it, and both do it
+    quietly.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='changed-modules-'))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self._git('init', '-q')
+        self._git('config', 'user.email', 'test@example.com')
+        self._git('config', 'user.name', 'Test')
+        self._git('commit', '--allow-empty', '-m', 'base', '-q')
+        self._original_root = changed.ROOT
+        changed.ROOT = self.tmp
+        self.addCleanup(self._restore_root)
+
+    def _restore_root(self):
+        changed.ROOT = self._original_root
+
+    def _git(self, *args: str) -> None:
+        subprocess.run(
+            ['git', *args], cwd=self.tmp, check=True, capture_output=True, text=True,
+        )
+
+    def test_a_rename_names_the_old_path_and_the_new_one(self):
+        """A file that moved is a change of the module it moved OUT of.
+
+        The old path is the module that lost a file, and the new path is the
+        module that gained one. Both are changes.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'A.kt').write_text('val a = 1\n', encoding='utf-8')
+        self._git('add', '.')
+        self._git('commit', '-m', 'add', '-q')
+        self._git('mv', 'shared/A.kt', 'shared/B.kt')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/A.kt', paths, 'the module that LOST the file is named')
+        self.assertIn('shared/B.kt', paths, 'the module that GAINED the file is named')
+
+    def test_a_rename_in_a_commit_names_the_old_path_and_the_new_one(self):
+        """A committed rename is a change of the module it moved OUT of.
+
+        The diff is asked for renames as renames turned off, so git reports the
+        move as what it is to the module graph — a deletion in one place and an
+        addition in another. Without that, the diff would name only the new
+        path, and the module that lost the file would never learn of it.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'A.kt').write_text('val a = 1\n', encoding='utf-8')
+        self._git('add', '.')
+        self._git('commit', '-m', 'add', '-q')
+        base = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.tmp, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        self._git('mv', 'shared/A.kt', 'shared/B.kt')
+        self._git('commit', '-m', 'rename', '-q')
+
+        paths = changed.changed_paths(base)
+
+        self.assertIn('shared/A.kt', paths, 'the module that LOST the file is named')
+        self.assertIn('shared/B.kt', paths, 'the module that GAINED the file is named')
+
+    def test_a_path_with_a_non_ascii_character_is_not_quoted(self):
+        """Git quotes a non-ASCII path unless it is asked not to.
+
+        A quoted path starts with a quote character, so no module claims it and
+        the change is silently unowned.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'Ünïcode.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/Ünïcode.kt', paths)
+
+    def test_a_non_ascii_path_is_owned_by_its_module(self):
+        """The path that is read is the path the module graph can match."""
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'Ünïcode.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+        owner = next(
+            (module for prefix, module in changed.PATH_MODULES.items()
+             if any(path.startswith(prefix) for path in paths)),
+            None,
+        )
+
+        self.assertEqual('shared', owner)
 
 
 if __name__ == '__main__':

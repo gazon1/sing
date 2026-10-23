@@ -12,12 +12,12 @@
 #      the file that was just written, because a mechanical finding — a
 #      too-complex method, a long method, a missing blank line — is a finding
 #      about that file and nothing else.
-#   2. `compile-changed` — the compile of the modules the change reaches. The
+#   2. `compile-changed` — the compile of the modules the change TOUCHES. The
 #      set is computed from the module graph (`scripts/changed-modules.py`),
 #      the same graph the local verification plan and the pre-push detekt
-#      verdict read: a change in a module compiles that module and the modules
-#      that compile against it, a change to the build compiles everything, and
-#      a change that touches no module compiles nothing.
+#      verdict read: a change in a module compiles that module, a change to
+#      the build compiles everything, and a change that touches no module
+#      compiles nothing.
 #
 # What is checked: the tree that is about to be committed.
 # What is not: the modules the change does not reach. CI compiles every
@@ -66,7 +66,7 @@ python3 scripts/lint-changed.py || {
     exit 1
 }
 
-echo "=== Pre-commit: compiling the modules the change reaches ==="
+echo "=== Pre-commit: compiling the modules the change touches ==="
 # The plan and the compile live in scripts/compile-changed.py: the module set
 # is computed from the module graph, and the script says what it compiled and
 # what it did not.

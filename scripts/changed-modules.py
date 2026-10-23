@@ -12,10 +12,19 @@ Answering it with "everything" is safe and useless. Answering it with a guess is
 worse. So the answer is computed from the module graph the build files declare:
 
 * a change in a module can break the modules that compile against it, and those
-  are read out of the build files, not guessed;
+  are read out of the build files, not guessed — that is the change's REACH, and
+  the reach is what the local verdict judges;
 * a change in the build itself can break everything, and that is a separate case;
 * a change under `scripts/`, `docs/` or `config/` is a change to the *gates*, so
   the gate suite is what has to run.
+
+Two questions live in this graph, and they are not the same question. The REACH of
+a change — what it can break — is `DOWNSTREAM`, and the local verdict and the
+pre-push detekt read it. The modules a change TOUCHES — what the change is
+made of — is `COMPILE_TASKS`, and the commit gate reads it. The commit gate
+compiles the modules the change touches, not the ones it can break: the reach is
+judged by CI, which is the compiler's verdict, and by the pre-push verdict, which
+runs detekt without type resolution and is therefore not the compiler at all.
 
 The module list is read, not written
 ------------------------------------
@@ -446,8 +455,16 @@ BUILD_AREAS = (
 #: The tasks above answer "what has to run to know the change is good" — the
 #: tests and the detekt run. These answer a different question: "what has to
 #: compile for the commit to be a commit that compiles". A commit gate wants
-#: the second, and it wants it for the same modules the first list names: the
-#: module that changed and the modules that compile against it.
+#: the second, and it wants it for the module the change TOUCHES — not for the
+#: modules that compile against it: the reach of a change is judged by the
+#: pre-push verdict and by CI, which compiles every module.
+#:
+#: Every module in `PATH_MODULES` has an entry here, and every entry names
+#: either the tasks that compile it or nothing at all — an empty list means
+#: "this module is not compiled locally", and the reason is in
+#: `NOT_COMPILED_LOCALLY`. A module with NO entry is a graph that has fallen
+#: behind the build, and the commit gate says so instead of compiling nothing
+#: and calling it a pass.
 #:
 #: Only the JVM targets are here. The Android target of `:shared` is compiled
 #: by `:androidApp`, and `:androidApp` itself needs the Android SDK — the
@@ -462,6 +479,20 @@ COMPILE_TASKS: dict[str, list[str]] = {
     'desktopApp': [':desktopApp:compileKotlin'],
     'mcp-server': [':mcp-server:compileKotlin'],
     'androidApp': [':androidApp:compileDebugKotlin'],
+    'tools:unwritten-properties': [':tools:unwritten-properties:compileKotlin'],
+    'pro': [],
+}
+
+#: The modules the local loop does not compile, and why.
+#:
+#: An empty list in `COMPILE_TASKS` means "not compiled here", and this is
+#: where the reason lives. A change in such a module is not a silent skip: the
+#: commit gate prints the reason.
+NOT_COMPILED_LOCALLY: dict[str, str] = {
+    'pro': (
+        'the pro catalogue exists only in the -PwithPro build — CI compiles it, '
+        'and a free clone has no pro sources to compile'
+    ),
 }
 
 #: The areas where a change is a change to the *gates* rather than to the app.
@@ -524,23 +555,48 @@ def changed_paths(base: str) -> list[str]:
     A change that is not committed yet is still a change, and a lane that only
     looked at the commits would run nothing for the work in front of the
     developer.
+
+    Three things about the paths are not obvious and all of them cost a missed
+    module:
+
+    * **A rename names two paths.** A file that moved out of a module is a
+      change of that module: the module lost a file, and it may no longer
+      compile. So the old path counts as well as the new one, and the diff is
+      asked for renames as renames turned off (`--no-renames`), which makes git
+      report a move as what it is to the module graph — a deletion in one
+      place and an addition in another.
+    * **A path with a non-ASCII character is quoted by git** unless it is
+      asked not to (`core.quotePath=false`). The quoted path starts with a
+      quote character, so no module claims it, and the change is silently
+      unowned.
+    * **An untracked directory is one path.** Git collapses a directory that is
+      untracked as a whole into the directory name, so a new file inside it
+      never appears by name. The status is asked for the untracked files one by
+      one (`--untracked-files=all`), so each file is a path of its own.
     """
     paths: list[str] = []
     committed = subprocess.run(
-        ['git', 'diff', '--name-only', f'{base}...HEAD'],
+        ['git', '-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames',
+         f'{base}...HEAD'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
     if committed.returncode == 0:
         paths.extend(line.strip() for line in committed.stdout.splitlines() if line.strip())
     working = subprocess.run(
-        ['git', 'status', '--porcelain'],
+        ['git', '-c', 'core.quotePath=false', 'status', '--porcelain',
+         '--untracked-files=all'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
     if working.returncode == 0:
         for line in working.stdout.splitlines():
             name = line[3:].strip()
             if ' -> ' in name:
-                name = name.split(' -> ', 1)[1].strip()
+                # A rename: the old path and the new one are both changes, and
+                # the module that LOST the file is a module that changed.
+                old, new = (part.strip() for part in name.split(' -> ', 1))
+                if old:
+                    paths.append(old)
+                name = new
             if name:
                 paths.append(name)
     seen: set[str] = set()

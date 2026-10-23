@@ -107,7 +107,13 @@ class PreCommitHookTest(unittest.TestCase):
         )
         (self.repo / 'README.md').write_text('seed\n', encoding='utf-8')
         _git('add', '-A', cwd=self.repo)
-        _git('commit', '-q', '-m', 'seed', cwd=self.repo)
+        # The seed is the fixture, not the thing under test, and the hook needs
+        # `origin/main` to exist before it can measure anything.
+        _git('commit', '-q', '-m', 'seed', '--no-verify', cwd=self.repo)
+        # The hook measures the change against `origin/main`, so the fixture
+        # needs that ref. A clone has it; without it the hook stops for the
+        # right reason and the test would measure the wrong thing.
+        _git('update-ref', 'refs/remotes/origin/main', 'HEAD', cwd=self.repo)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative

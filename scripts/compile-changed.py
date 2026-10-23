@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""compile-changed.py — compile the modules a change reaches, and only those.
+"""compile-changed.py — compile the modules a change touches, and only those.
 
 Why
 ---
@@ -47,13 +47,13 @@ does the code I just wrote compile?
 
 Usage
 -----
-    python3 scripts/compile-changed.py                # compile what the change reaches
+    python3 scripts/compile-changed.py                # compile what the change touches
     python3 scripts/compile-changed.py --list         # print the plan, compile nothing
     python3 scripts/compile-changed.py --json         # the plan as JSON
     python3 scripts/compile-changed.py --base main    # measure against another base
 
 Exit codes:
-    0 — everything the change reaches compiles (or nothing needed compiling)
+    0 — everything the change touches compiles (or nothing needed compiling)
     1 — the compile failed
     2 — the plan could not be built (usage error, or the module graph is gone)
 """
@@ -82,8 +82,9 @@ def load_module_graph():
     """The module graph, loaded from scripts/changed-modules.py.
 
     One source of truth: the local verification plan, the pre-push verdict and
-    this compile all read the same graph, so a module that is compiled by one
-    and not by the others cannot be forgotten.
+    this compile all read the same graph, so a module the build has and the
+    graph does not name cannot be forgotten — the plan says so instead of
+    compiling nothing and calling it a pass.
     """
     path = ROOT / 'scripts' / 'changed-modules.py'
     spec = importlib.util.spec_from_file_location('changed_modules', path)
@@ -113,14 +114,21 @@ def android_sdk_present() -> bool:
     return False
 
 
-def plan(graph, paths: list[str]) -> tuple[list[str], list[str], list[str]]:
-    """The modules to compile, the tasks, and the reasons.
+def plan(graph, paths: list[str]) -> tuple[list[str], list[str], list[str], list[str]]:
+    """The modules to compile, the tasks, the reasons, and the errors.
 
-    Returns (modules, tasks, reasons). The reasons are what the script prints:
-    a compile that runs without saying what it covers is a compile nobody can
-    trust later.
+    Returns (modules, tasks, reasons, errors). The reasons are what the script
+    prints: a compile that runs without saying what it covers is a compile
+    nobody can trust later.
+
+    The errors are what makes a silent skip impossible. A module the graph
+    does not name a compile task for would otherwise vanish from the plan
+    without a word — and the commit would pass, saying nothing about a module
+    nobody checked. A graph that has fallen behind the build is an error, not
+    an empty plan.
     """
     reasons: list[str] = []
+    errors: list[str] = []
     owners: set[str] = set()
     wide = False
 
@@ -145,13 +153,36 @@ def plan(graph, paths: list[str]) -> tuple[list[str], list[str], list[str]]:
     if wide:
         modules = set(graph.COMPILE_TASKS)
         reasons.append('the build changed, so every module is compiled')
+        for owner in sorted(modules):
+            if not graph.COMPILE_TASKS[owner]:
+                reason = graph.NOT_COMPILED_LOCALLY.get(
+                    owner,
+                    'the graph says it is not compiled locally',
+                )
+                reasons.append(f'{owner} is not compiled locally — {reason}')
     else:
         # The modules the change TOUCHES — and only those. The modules that
         # compile against them are the change's REACH, and the reach is judged
         # by the pre-push verdict and by CI, which compiles every module on
         # every push. The commit hook answers one question: does the code I
         # just wrote compile?
-        modules = owners & set(graph.COMPILE_TASKS)
+        modules = set()
+        for owner in sorted(owners):
+            if owner not in graph.COMPILE_TASKS:
+                errors.append(
+                    f'the module graph does not say what to compile for {owner!r} — the '
+                    f'compile of that module would be skipped without a word. The graph '
+                    f'has fallen behind the build: add the module to COMPILE_TASKS.'
+                )
+                continue
+            if not graph.COMPILE_TASKS[owner]:
+                reason = graph.NOT_COMPILED_LOCALLY.get(
+                    owner,
+                    'the graph says it is not compiled locally',
+                )
+                reasons.append(f'{owner} is not compiled locally — {reason}')
+                continue
+            modules.add(owner)
 
     tasks: list[str] = []
     for module in sorted(modules):
@@ -160,7 +191,38 @@ def plan(graph, paths: list[str]) -> tuple[list[str], list[str], list[str]]:
     for task in tasks:
         if task not in ordered:
             ordered.append(task)
-    return sorted(modules), ordered, reasons
+    return sorted(modules), ordered, reasons, errors
+
+
+def without_sdk(
+    graph,
+    modules: list[str],
+    tasks: list[str],
+    sdk_present: bool,
+) -> tuple[list[str], list[str], list[str]]:
+    """Drop the modules this machine cannot compile, and say which ones.
+
+    The Android target needs the Android SDK, and the SDK is CI's. The module
+    leaves the plan and the reason is written down: a check that did not run
+    must not be dressed up as a check that passed.
+
+    Returns (modules, tasks, skipped) — the skipped are the reasons, so the
+    caller can print them and the verdict can say what it did not cover.
+    """
+    skipped: list[str] = []
+    if 'androidApp' not in modules or sdk_present:
+        return modules, tasks, skipped
+
+    skipped.append(
+        ':androidApp was not compiled — no Android SDK here (ANDROID_HOME, '
+        'ANDROID_SDK_ROOT, local.properties); CI compiles it'
+    )
+    android_tasks = set(graph.COMPILE_TASKS.get('androidApp', []))
+    return (
+        [module for module in modules if module != 'androidApp'],
+        [task for task in tasks if task not in android_tasks],
+        skipped,
+    )
 
 
 def gradle_launcher() -> str:
@@ -196,6 +258,20 @@ def run_compile(tasks: list[str]) -> subprocess.CompletedProcess:
     )
 
 
+def base_exists(base: str) -> bool:
+    """Whether the ref the change is measured against resolves.
+
+    A base that does not resolve is a silent loss: the committed part of the
+    change is then not counted at all, and the plan looks like a plan for the
+    whole change while covering only what is in the working tree.
+    """
+    result = subprocess.run(
+        ['git', 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    return result.returncode == 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument(
@@ -221,26 +297,35 @@ def main(argv: list[str]) -> int:
         print(f'compile-changed: {exc}', file=sys.stderr)
         return PLAN_FAILED
 
-    paths = graph.changed_paths(args.base)
-    modules, tasks, reasons = plan(graph, paths)
-
-    if 'androidApp' in modules and not android_sdk_present():
-        modules = [module for module in modules if module != 'androidApp']
-        tasks = [
-            task for task in tasks if not task.startswith(':androidApp:')
-        ]
-        reasons.append(
-            ':androidApp was not compiled — no Android SDK here (ANDROID_HOME, '
-            'ANDROID_SDK_ROOT, local.properties); CI compiles it'
+    if not base_exists(args.base):
+        print(
+            f'compile-changed: the base {args.base!r} does not resolve — the committed '
+            f'part of the change cannot be counted. Fetch it, or pass another base.',
+            file=sys.stderr,
         )
+        return PLAN_FAILED
+
+    paths = graph.changed_paths(args.base)
+    modules, tasks, reasons, errors = plan(graph, paths)
+    modules, tasks, skipped = without_sdk(graph, modules, tasks, android_sdk_present())
+    reasons.extend(skipped)
 
     if args.json:
         print(json.dumps({
             'modules': modules,
             'tasks': tasks,
             'reasons': reasons,
+            'skipped': skipped,
+            'errors': errors,
         }, ensure_ascii=False))
-        return CLEAN
+        return PLAN_FAILED if errors else CLEAN
+
+    if errors:
+        for error in errors:
+            print(f'compile-changed: {error}', file=sys.stderr)
+        print('compile-changed: FAILED — the module graph is behind the build.',
+              file=sys.stderr)
+        return PLAN_FAILED
 
     if not tasks:
         print('compile-changed: nothing to compile — the change touches no module.')
@@ -248,7 +333,7 @@ def main(argv: list[str]) -> int:
             print(f'  {reason}')
         return CLEAN
 
-    print(f'compile-changed: {len(modules)} module(s) the change reaches:')
+    print(f'compile-changed: {len(modules)} module(s) the change touches:')
     for module in modules:
         print(f'  {module}')
     for reason in reasons:
@@ -268,6 +353,11 @@ def main(argv: list[str]) -> int:
         print('compile-changed: FAILED', file=sys.stderr)
         return COMPILE_FAILED
 
+    if skipped:
+        print('compile-changed: OK — but something was NOT compiled:')
+        for item in skipped:
+            print(f'  {item}')
+        return CLEAN
     print('compile-changed: OK')
     return CLEAN
 

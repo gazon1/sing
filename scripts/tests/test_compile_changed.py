@@ -12,10 +12,12 @@ So the compile set is computed from the module graph — the same graph the
 local verification plan and the pre-push verdict read. These tests hold that
 computation to what it claims:
 
-  - a change in a module compiles that module and the modules that compile
-    against it, and nothing else;
+  - a change in a module compiles that module, and nothing else;
   - a change to the build itself compiles everything;
   - a change that touches no module compiles nothing, and says so;
+  - a module the graph does not name a compile task for is an ERROR, not an
+    empty plan — a silent skip must not look like a check that passed;
+  - a rename names two paths, so the module that LOST the file is compiled;
   - the Android target is CI's, and the script says when it did not compile it.
 
 No build runs here: the plan is a pure function of the paths, and the paths
@@ -25,6 +27,7 @@ are given to it directly.
 import importlib.util
 import pathlib
 import sys
+import types
 import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -46,12 +49,12 @@ mod = _load('compile_changed', REPO_ROOT / 'scripts' / 'compile-changed.py')
 class CompilePlanTest(unittest.TestCase):
     """Which modules a change reaches."""
 
-    def plan(self, *paths: str) -> tuple[list[str], list[str], list[str]]:
+    def plan(self, *paths: str) -> tuple[list[str], list[str], list[str], list[str]]:
         return mod.plan(graph, list(paths))
 
     def test_a_change_in_a_module_compiles_that_module(self):
         """The module the change touches is the module that is compiled."""
-        modules, tasks, _reasons = self.plan('shared/src/commonMain/kotlin/A.kt')
+        modules, tasks, _reasons, _errors = self.plan('shared/src/commonMain/kotlin/A.kt')
 
         self.assertEqual(['shared'], modules)
         self.assertIn(':shared:compileKotlinJvm', tasks)
@@ -64,7 +67,7 @@ class CompilePlanTest(unittest.TestCase):
         hardcoded pair compiled `:shared` for every commit, which is the whole
         defect: the compile of a module the change cannot break.
         """
-        modules, tasks, _reasons = self.plan('desktopApp/src/main/kotlin/A.kt')
+        modules, tasks, _reasons, _errors = self.plan('desktopApp/src/main/kotlin/A.kt')
 
         self.assertEqual(['desktopApp'], modules)
         self.assertNotIn(':shared:compileKotlinJvm', tasks)
@@ -77,7 +80,7 @@ class CompilePlanTest(unittest.TestCase):
         module compiles alone, and the chain below it is not the commit's
         price to pay.
         """
-        modules, tasks, _reasons = self.plan('core-base/src/commonMain/kotlin/A.kt')
+        modules, tasks, _reasons, _errors = self.plan('core-base/src/commonMain/kotlin/A.kt')
 
         self.assertEqual(['core-base'], modules)
         self.assertIn(':core-base:compileKotlinJvm', tasks)
@@ -85,7 +88,7 @@ class CompilePlanTest(unittest.TestCase):
 
     def test_a_change_to_the_build_compiles_everything(self):
         """The build decides how every module is built."""
-        modules, tasks, _reasons = self.plan('settings.gradle.kts')
+        modules, tasks, _reasons, _errors = self.plan('settings.gradle.kts')
 
         self.assertIn('androidApp', modules)
         self.assertIn(':shared:compileKotlinJvm', tasks)
@@ -98,21 +101,21 @@ class CompilePlanTest(unittest.TestCase):
         compiled nothing at all — and the pre-push verdict, which knows the
         same fact, judged every module.
         """
-        modules, _tasks, _reasons = self.plan('build-logic/src/main/kotlin/Convention.kt')
+        modules, _tasks, _reasons, _errors = self.plan('build-logic/src/main/kotlin/Convention.kt')
 
         self.assertIn('shared', modules)
         self.assertIn('desktopApp', modules)
 
     def test_a_change_to_the_gates_compiles_nothing(self):
         """A change under `scripts/` is a change to the gates, not to the app."""
-        modules, tasks, _reasons = self.plan('scripts/check-something.py')
+        modules, tasks, _reasons, _errors = self.plan('scripts/check-something.py')
 
         self.assertEqual([], modules)
         self.assertEqual([], tasks)
 
     def test_a_change_to_a_document_compiles_nothing(self):
         """A document is not code, and a compile cannot say anything about it."""
-        modules, tasks, _reasons = self.plan('docs/architecture/quality.md')
+        modules, tasks, _reasons, _errors = self.plan('docs/architecture/quality.md')
 
         self.assertEqual([], modules)
         self.assertEqual([], tasks)
@@ -123,7 +126,7 @@ class CompilePlanTest(unittest.TestCase):
         `:androidApp` is not touched by a change in `:shared`, so it is not
         compiled — and the Android target of the change is CI's.
         """
-        modules, tasks, reasons = self.plan('shared/src/commonMain/kotlin/A.kt')
+        modules, tasks, reasons, _errors = self.plan('shared/src/commonMain/kotlin/A.kt')
 
         self.assertNotIn('androidApp', modules)
         self.assertNotIn(':androidApp:compileDebugKotlin', tasks)
@@ -131,10 +134,105 @@ class CompilePlanTest(unittest.TestCase):
 
     def test_the_android_target_is_compiled_when_the_change_touches_it(self):
         """A change in the Android application is the Android application's."""
-        modules, tasks, _reasons = self.plan('androidApp/src/main/kotlin/A.kt')
+        modules, tasks, _reasons, _errors = self.plan('androidApp/src/main/kotlin/A.kt')
 
         self.assertIn('androidApp', modules)
         self.assertIn(':androidApp:compileDebugKotlin', tasks)
+
+
+class TheGraphCannotFallBehindTest(unittest.TestCase):
+    """A graph that has fallen behind the build must say so, not skip in silence."""
+
+    def plan(self, *paths: str) -> tuple[list[str], list[str], list[str], list[str]]:
+        return mod.plan(graph, list(paths))
+
+    def test_a_module_the_graph_cannot_compile_is_an_error(self):
+        """A module with no compile entry is an error, not an empty plan.
+
+        The commit gate is the last thing that runs before a commit exists. If
+        the graph stopped knowing a module, the gate would skip it without a
+        word and the commit would pass having said nothing about it.
+        """
+        broken = types.SimpleNamespace(
+            BUILD_AREAS=graph.BUILD_AREAS,
+            GATE_AREAS=graph.GATE_AREAS,
+            PATH_MODULES=graph.PATH_MODULES,
+            COMPILE_TASKS={
+                module: tasks for module, tasks in graph.COMPILE_TASKS.items()
+                if module != 'shared'
+            },
+            NOT_COMPILED_LOCALLY=graph.NOT_COMPILED_LOCALLY,
+        )
+
+        modules, tasks, _reasons, errors = mod.plan(
+            broken, ['shared/src/commonMain/kotlin/A.kt'])
+
+        self.assertEqual([], modules)
+        self.assertEqual([], tasks)
+        self.assertEqual(1, len(errors), 'the module the graph forgot is an error')
+        self.assertIn('shared', errors[0])
+
+    def test_a_module_that_is_not_compiled_locally_says_why(self):
+        """An empty compile list needs a reason, or the skip is silent."""
+        modules, tasks, reasons, errors = self.plan('pro/src/main/kotlin/Thing.kt')
+
+        self.assertEqual([], modules)
+        self.assertEqual([], tasks)
+        self.assertEqual([], errors)
+        self.assertTrue(
+            any('not compiled locally' in reason for reason in reasons),
+            f'the plan says why it did not compile the module: {reasons}',
+        )
+
+    def test_the_android_skip_is_written_down(self):
+        """A module that leaves the plan takes its reason with it.
+
+        A check that did not run must not look like a check that passed, so the
+        skip is not a silent removal from the list.
+        """
+        modules, tasks, skipped = mod.without_sdk(
+            graph, ['androidApp', 'shared'],
+            [':androidApp:compileDebugKotlin', ':shared:compileKotlinJvm'],
+            sdk_present=False,
+        )
+
+        self.assertEqual(['shared'], modules)
+        self.assertEqual([':shared:compileKotlinJvm'], tasks)
+        self.assertEqual(1, len(skipped))
+        self.assertIn('Android SDK', skipped[0])
+
+    def test_the_android_module_stays_when_the_sdk_is_there(self):
+        """With the SDK reachable there is nothing to skip."""
+        modules, tasks, skipped = mod.without_sdk(
+            graph, ['androidApp'],
+            [':androidApp:compileDebugKotlin'],
+            sdk_present=True,
+        )
+
+        self.assertEqual(['androidApp'], modules)
+        self.assertEqual([':androidApp:compileDebugKotlin'], tasks)
+        self.assertEqual([], skipped)
+
+
+class TheBaseIsHonestTest(unittest.TestCase):
+    """A base that does not resolve is a silent loss, and it says so."""
+
+    def test_a_base_that_does_not_resolve_is_reported(self):
+        """The ref the change is measured against has to exist.
+
+        A base that does not resolve means the committed part of the change is
+        not counted at all — the plan would look like a plan for the whole
+        change while covering only the working tree.
+        """
+        self.assertFalse(mod.base_exists('origin/there-is-no-such-remote'))
+        self.assertTrue(mod.base_exists('HEAD'))
+
+    def test_a_missing_base_stops_the_gate(self):
+        """The gate stops instead of compiling less than it says."""
+        self.assertEqual(
+            mod.PLAN_FAILED,
+            mod.main(['--base', 'origin/there-is-no-such-remote', '--list']),
+        )
 
 
 class TheChangeIsMeasuredTest(unittest.TestCase):

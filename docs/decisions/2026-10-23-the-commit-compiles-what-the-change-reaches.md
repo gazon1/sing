@@ -2,6 +2,7 @@
 title: The commit compiles what the change touches — the set is computed, not written down
 date: 2026-10-23
 status: accepted
+supersedes: 2026-10-23-the-commit-hook-compiles-in-a-worktree
 tags: [hooks, worktrees, build, tooling]
 ---
 
@@ -32,14 +33,43 @@ The compile itself was right: the hook of 2026-10-23 made the commit compile,
 and that is the check the whole line of work was for. What was wrong was the
 *set* — a fixed pair, where the module graph could have named the set.
 
-The price of the pair, measured on 2026-10-23 on a loaded host (load 35–74 on
-16 cores, with the hook's own flags — `--no-daemon`): `:shared:compileKotlinJvm`
-490 s, `:desktopApp:compileKotlin` 393 s, `:mcp-server:compileKotlin` 443 s,
-`:androidApp:compileDebugKotlin` 497 s, `:detekt-rules:compileKotlin` 46 s.
-Every commit paid the first two: **883 s**, for a change that might have been
-a line in a document. A second run with a daemon and nothing to compile gave
-447 s, 197 s and 251 s for the first three — the host, not the daemon, is
-where the time goes.
+### What the old hook actually cost
+
+The old hook made **two** Gradle invocations, and the price of a commit was
+both of them:
+
+1. `:shared:compileKotlinJvm :shared:compileTestKotlinJvm` — one invocation;
+2. `:desktopApp:compileKotlin` — a second invocation.
+
+Measured on 2026-10-23 on a loaded host (load 35–74 on 16 cores) with the
+hook's own flags (`--no-daemon`, one invocation per list):
+
+| What | Seconds | Condition |
+|---|---|---|
+| `:shared:compileKotlinJvm` | 490 s | cold — nothing of `:shared` compiled |
+| `:shared:compileKotlinJvm` | 447 s | warm — up-to-date check |
+| `:shared:compileKotlinJvm` + `:shared:compileTestKotlinJvm`, one invocation | 645 s | after `:shared` main was compiled |
+| `:desktopApp:compileKotlin` | 393 s | cold |
+| `:desktopApp:compileKotlin` | 197 s | warm |
+| `:mcp-server:compileKotlin` | 443 s | cold |
+| `:mcp-server:compileKotlin` | 251 s | warm |
+| `:androidApp:compileDebugKotlin` | 497 s | cold |
+| `:detekt-rules:compileKotlin` | 46 s | cold |
+
+So the old hook paid **645 s + 393 s = 1038 s** for every commit, whatever the
+change — for a change that might have been a line in a document. A second run
+with a daemon and nothing to compile gave 447 s, 197 s and 251 s for the first
+three: the host, not the daemon, is where the time goes.
+
+**These numbers and the published table answer different questions.**
+`docs/testing/gate-costs.md` publishes the median of each gate *step* —
+`androidApp:compileDebugKotlin` 27.0 s, `mcp-server:compileKotlin` 3.4 s —
+and those are the cost of an **up-to-date** step: the check that says "nothing
+needs recompiling". The numbers above are **cold full compiles** of the same
+tasks: what a developer pays the first time the Kotlin of that module changed.
+Both are real; neither is the other, and the ratio inside each set is the fact.
+The published table is not a baseline for this ADR, and this ADR does not
+contradict it.
 
 ## Decision
 
@@ -75,13 +105,15 @@ change is judged instead: the pre-push verdict judges the affected modules, and
 CI compiles every module on every push. The commit hook answers one question:
 does the code I just wrote compile?
 
-The narrowing is not only a price argument, though it is that too. The modules
-that compile against a changed module are compiled BY it: `:desktopApp` compiles
-`:shared` as a dependency, so a change in `:shared` is already in the compile
-of `:desktopApp` — and the hook does not pay for that compile twice. The
-closure of the graph was measured: for a change in `:shared` it is `:shared`,
-`:desktopApp` and `:mcp-server` — 1326 s against the 883 s the fixed pair
-cost, for a set that is larger and no more honest. The set that answers the
+The narrowing is not only a price argument, though it is that too. The old
+pair was redundant in one direction: `:desktopApp` depends on `:shared`, so
+compiling `:desktopApp` compiles `:shared` as well — the pair paid twice for
+the same Kotlin. The closure of the graph, for a change in `:shared`, names
+four modules: `:shared`, `:androidApp`, `:desktopApp` and `:mcp-server`.
+Measured on the same host and the same day, that is 645 s + 393 s + 443 s =
+**1481 s** without the Android SDK, and 1978 s with it
+(`:androidApp:compileDebugKotlin` 497 s) — against the 1038 s of the fixed
+pair, for a set that is larger and no more honest. The set that answers the
 commit gate's question is the set of modules the change touched.
 
 The plan is printed before the compile: which modules, which tasks, and why
@@ -90,6 +122,11 @@ compile nobody can trust a week later.
 
 ## Consequences
 
+- **The hook compiles in a worktree, exactly as it does in the main checkout.**
+  That decision is not changed here — it is the one of
+  `2026-10-23-the-commit-hook-compiles-in-a-worktree`, and it stands. What
+  changed is the set: the hook no longer compiles a fixed pair, it compiles
+  what the change touches.
 - A commit that touches no module costs the lint step alone. The compile of
   two whole modules is no longer the price of every commit.
 - A commit is blocked by a breakage in a module it does not touch. The module
@@ -103,11 +140,26 @@ compile nobody can trust a week later.
 - The module graph grew a table: `COMPILE_TASKS` says what has to compile for
   a module, next to the table that says what has to run for it. One home for
   "what belongs to which module".
+- A graph that has fallen behind the build is an **error**, not an empty plan:
+  a module the graph does not name a compile task for is reported and the
+  commit stops. A module that is not compiled locally says why, in
+  `NOT_COMPILED_LOCALLY`.
+- The paths are read out of git, and git hides three things: a rename names
+  only one of its two paths, a non-ASCII path is quoted, and an untracked
+  directory is collapsed into one path. All three are asked for explicitly, so
+  a change cannot be silently unowned.
 
 The price, from the measurements above: a commit that touches no module pays
-**0 s** of compile instead of 883 s; a commit in `:detekt-rules` pays 46 s;
-a commit in `:desktopApp` pays 393 s; a commit in `:shared` pays 490 s
-instead of 883 s.
+**0 s** of compile instead of 1038 s; a commit in `:detekt-rules` pays 46 s;
+a commit in `:desktopApp` pays 393 s instead of 1038 s; a commit in `:shared`
+pays 645 s instead of 1038 s.
+
+A change to the build itself compiles every module, and that set is measured
+too: one invocation of all of them — `:shared` (main + test), `:core-base`,
+`:adr-core`, `:adr-cli`, `:detekt-rules`, `:desktopApp`, `:mcp-server` and
+`:tools:unwritten-properties` — is **842 s** without the Android SDK. Even the
+widest case is cheaper than the fixed pair, because one invocation pays for the
+configuration once and the old pair paid for it twice.
 
 ## Links
 

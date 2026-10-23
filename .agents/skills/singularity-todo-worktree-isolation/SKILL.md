@@ -99,7 +99,7 @@ It resolves the hooks source from the main checkout (three levels up from a work
 
 | Hook | What | Where runs |
 |---|---|---|
-| `pre-commit` | detekt over the changed files + the compile of the modules the change reaches | All contexts |
+| `pre-commit` | detekt over the changed files + the compile of the modules the change touches | All contexts |
 | `pre-push` | Full fast test suite + detekt | All contexts |
 | `post-checkout` | Clean stale build/classes dirs | All contexts |
 
@@ -107,8 +107,9 @@ Pre-commit in worktrees is intentionally lightweight (compile-only). Full test r
 
 The compile follows the change: the module set comes from the module graph
 (`scripts/changed-modules.py`), so a change to a gate script or a document
-compiles nothing, and a change in a module compiles that module and the ones
-that compile against it (ADR
+compiles nothing, and a change in a module compiles that module — the modules
+that compile against it are the change's REACH, and the reach is judged by the
+pre-push verdict and by CI (ADR
 `2026-10-23-the-commit-compiles-what-the-change-reaches`).
 
 ## Gradle wrapper in worktree

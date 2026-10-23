@@ -1,11 +1,20 @@
 ---
 title: The commit hook compiles in a worktree too — the wait is the price of knowing
 date: 2026-10-23
-status: accepted
+status: superseded
+superseded-by: 2026-10-23-the-commit-compiles-what-the-change-reaches
 tags: [hooks, worktrees, git, tooling]
 ---
 
 # The commit hook compiles in a worktree too
+
+> **Superseded on 2026-10-23.** The decision that the hook compiles in a
+> worktree, exactly as it does in the main checkout, **stands** — it is carried
+> forward in the Consequences of
+> `2026-10-23-the-commit-compiles-what-the-change-reaches`. What is superseded
+> is the *set*: this ADR fixed it to `:shared` and `:desktopApp`, and the set is
+> now computed from the module graph. The consequences below are therefore
+> history — read the newer ADR for what the hook does today.
 
 ## Context
 
