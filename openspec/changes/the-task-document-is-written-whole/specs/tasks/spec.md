@@ -11,15 +11,27 @@
 A task document consists of the row of the task, its tags, the links its
 description implies, and the blocking dependencies it carries.
 
-When a document is applied, the system SHALL write every part of it, in one
-unit of work: the row, the tags, the links and the dependencies either all
-land or none of them do.
+When a document is applied, the system SHALL write every part it carries, in
+one unit of work: the row, the tags, the links and the dependencies either all
+land or none of them do. A part the document does not carry SHALL NOT be
+written at all — the document says nothing about it, and the part that is
+there belongs to the device that has it.
+
+The links are not a claim of their own: they are derived from the description
+of the row that arrived, and the row is written whole. A document therefore
+carries the links it carries through its description, and there is no second
+claim about them to make.
 
 **Rationale:** a document that arrived half-applied is worse than one that did
 not arrive. The row would say the work has no links and no dependencies while
 the rest of the database still says it has them, and nothing in the system
 knows which of the two is true. One writer for the whole document makes "the
 document was applied" a single fact rather than four.
+
+The parts the document carries are the ones it speaks about. The wire carries
+the fields the sending device knew about, so the absence of a part is not a
+claim that the part is empty. What the absence means is stated by
+`the-document-says-only-what-it-carries`.
 
 #### Scenario: A row that arrives brings its tags with it
 
@@ -88,7 +100,7 @@ document from being lost with it.
 #### Scenario: A dependency the document dropped is dropped
 
 - **GIVEN** a task that depends on another task
-- **WHEN** a document arrives that carries no dependency for it
+- **WHEN** a document arrives that carries an empty set of dependencies
 - **THEN** the task does not depend on the other task any more
 
 #### Scenario: An edge of another kind survives the document

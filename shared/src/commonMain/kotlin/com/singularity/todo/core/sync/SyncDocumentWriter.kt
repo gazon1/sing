@@ -14,7 +14,10 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
+import com.singularity.todo.feature.tasks.domain.model.BLOCKED_BY_WIRE_NAME
+import com.singularity.todo.feature.tasks.domain.model.TAGS_WIRE_NAME
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
@@ -82,7 +85,7 @@ internal class SyncDocumentWriter(
     suspend fun upsert(type: DocType, document: JsonObject) {
         when (type) {
             DocType.Task ->
-                taskRepo.upsert(StableJson.decodeFromString(serializer<Task>(), document.toString()))
+                taskRepo.upsert(taskDocument(document))
 
             DocType.Note ->
                 noteRepo.upsert(StableJson.decodeFromString(serializer<Note>(), document.toString()))
@@ -101,6 +104,34 @@ internal class SyncDocumentWriter(
                     StableJson.decodeFromString(serializer<TimeEntry>(), document.toString()),
                 )
         }
+    }
+
+    /**
+     * The document as a task document: the task, and the parts the sender spoke about.
+     *
+     * A document carries the fields the sending device knew about. A device that
+     * predates the tags sends no `tags` key; a device that predates the
+     * dependencies sends no `dependsOn` key. A key that is **absent** is not a
+     * claim that the part is empty — it is the absence of a claim — and reading
+     * it as an empty list would take the tags off every task this device pulls.
+     *
+     * The parts the document does not carry stay `null`, and the pull leaves them
+     * alone. The key names come from the model itself, so a rename of the wire
+     * field cannot leave this check behind.
+     */
+    private fun taskDocument(document: JsonObject): TaskDocument {
+        // The keys are read before the decode, because after it the two cases
+        // are the same task: the fields the model cannot do without have
+        // defaults, and the difference between "no tags" and "no claim about
+        // the tags" is gone.
+        val carriesTags = document.containsKey(TAGS_WIRE_NAME)
+        val carriesDependencies = document.containsKey(BLOCKED_BY_WIRE_NAME)
+        val task = StableJson.decodeFromString(serializer<Task>(), document.toString())
+        return TaskDocument(
+            task = task,
+            tags = if (carriesTags) task.tags else null,
+            blockedBy = if (carriesDependencies) task.blockedBy else null,
+        )
     }
 
     /**

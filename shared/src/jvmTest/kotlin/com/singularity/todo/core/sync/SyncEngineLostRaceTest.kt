@@ -11,6 +11,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
@@ -346,7 +347,7 @@ class SyncEngineLostRaceTest {
 
     /** A repository that cannot store the revert, which is the case worth surviving. */
     private class FailingTaskRepository : TaskRepository by FakeTaskRepository() {
-        override suspend fun upsert(task: Task): Task = error("disk full")
+        override suspend fun upsert(document: TaskDocument): Task = error("disk full")
     }
 
     /** A real task as a sync entity, so `enqueue` diffs the same document the writer stores. */

@@ -6,6 +6,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
@@ -39,11 +40,16 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     suspend fun delete(id: TaskId): Result<Unit>
 
     /**
-     * Upserts a task from a remote sync event.
+     * Applies a task document that arrived from a remote sync event.
+     *
+     * The document says what it carries: the parts it does not speak about are
+     * left alone. A device that sends no `tags` key sends no claim about the
+     * tags, and the tags of the task stay what they are here.
+     *
      * Does NOT emit [_changes] — caller is responsible for observability.
      * Used exclusively by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
      */
-    suspend fun upsert(task: Task): Task
+    suspend fun upsert(document: TaskDocument): Task
 
     // ── Domain-specific ─────────────────────────────────────────────────────────
 
@@ -183,6 +189,13 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     /**
      * Writes every row of a series in one transaction, with the same
      * read-before-write guard the single-row [update] has.
+     *
+     * The batch is given the tags of the whole batch, and it writes them: the
+     * tags are a shared field of a series, and a merge is exactly the write
+     * that changes them. A caller that read its rows through [get] — which does
+     * not load the tags — holds no tags at all, and writing that emptiness
+     * would take the tags off the rows. A caller that changes a series reads
+     * it through [getSeries], which does load them.
      */
     suspend fun updateAll(tasks: List<Task>): Result<List<Task>>
 

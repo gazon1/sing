@@ -228,7 +228,7 @@ A reviewing agent watches for the version that is not a gate:
 
 ---
 
-## A path that applies a document writes all of it
+## A path that applies a document writes all of it — and only what it carries
 
 A document is more than the row it arrives in. A task is the row, the tag
 cross-refs, the blocking edges, and the links its description implies; a note
@@ -236,6 +236,14 @@ is the row, its folder, its attachments, its outgoing links.
 
 A path that applies a document writes every part of it. A path that applies
 *part* of a document says which part, and leaves the rest alone.
+
+And a part the document does not carry is not written at all. The wire carries
+the fields the sending device knew about, so the absence of a part is the
+absence of a claim — not a claim that the part is empty. A device that sends
+no `tags` key says nothing about the tags, and a writer that reads the empty
+list the decode produces takes the tags off the task. The difference is
+carried in the type: a part of a document is nullable, and `null` means the
+document says nothing about it.
 
 A reviewing agent watches for the path that writes the row and stops:
 
@@ -248,10 +256,18 @@ A reviewing agent watches for the path that writes the row and stops:
   tags.
 - A writer that drops a column of the row, because the domain model has no
   field for it. The column is still reset on every write.
+- A repair that copies the fields of a row onto the rows around it, when the
+  writer had no claim about one of them. The arrival of a row that is new on
+  this device holds no tags, and a repair that copies them takes the tags off
+  every other member of the series.
+- A double that stores the whole task, and therefore turns an absent claim
+  into a deletion. A fake that lies about the contract makes every test
+  written against it a test of the fake.
 
 The mechanical part is a gate: `TaskRowWriterTest` checks that every column of
 the task row has a writer in the mapper the repository uses, and that a column
-without one is declared out loud; the behaviour is `TaskDocumentWriteTest`.
+without one is declared out loud; the behaviour is `TaskDocumentWriteTest`,
+and the wire level is `TaskDocumentPartsTest`.
 The judgement the gate cannot make — is this path applying a document or a
 part of one — is what the reviewer reads for.
 
@@ -307,6 +323,7 @@ re-deriving them.
 | Rule | Checked by |
 |---|---|
 | Fakes, not mocks; mocks only for outgoing calls | `AGENTS.md`, review |
+| A document writes only the parts it carries; a part it does not carry is not written | `TaskDocumentPartsTest`, `TaskDocumentWriteTest`, review |
 | Every test class carries `@Tag` (`fast`, or `slow` when it crosses a process boundary) | `TestTagCoverageTest` |
 | No `delay()` in tests — virtual time and `awaitState` | `AGENTS.md`, review |
 | ViewModels take an injected `AutoCloseableCoroutineScope`; never `viewModelScope` | detekt + review |

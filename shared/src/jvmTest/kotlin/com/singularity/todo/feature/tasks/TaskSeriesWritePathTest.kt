@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -197,12 +198,43 @@ class TaskSeriesWritePathTest {
 
         // The row that arrives from another device is the newest word about the work.
         repo.upsert(
-            task("t1", title = "Pay the rent in full", updatedAt = Instant.fromEpochMilliseconds(3_000)),
+            TaskDocument.of(
+                task("t1", title = "Pay the rent in full", updatedAt = Instant.fromEpochMilliseconds(3_000)),
+            ),
         )
         advanceUntilIdle()
 
         val stored = repo.observeSeries(seriesId).first().associateBy { it.id.value }
         assertEquals("Pay the rent in full", stored.getValue("t2").title)
+    }
+
+    @Test
+    fun `a batch write repairs the members it did not write`() = runTest {
+        val repo = repo(alice)
+        seedSeries(
+            repo,
+            task("t1", updatedAt = Instant.fromEpochMilliseconds(1_000)),
+            task("t2", updatedAt = Instant.fromEpochMilliseconds(1_000)),
+        )
+
+        // A batch write is a series write: the members that were not in the
+        // batch follow the ones that were, the way they do after an ordinary
+        // write. The asymmetry read as harmless while every caller wrote the
+        // whole series — and a partial batch would have left the series saying
+        // two things about the work.
+        //
+        // The batch is read through the series, the way the callers that write a
+        // series read it: a batch built from a task read through `get()` carries
+        // no tags at all, and writing that emptiness would take the tags off the
+        // rows it writes.
+        val members = repo.getSeries(seriesId)
+        repo.updateAll(
+            listOf(members.first { it.id == TaskId("t1") }.copy(title = "Pay the rent in full")),
+        )
+        advanceUntilIdle()
+
+        val stored = repo.observeSeries(seriesId).first().associateBy { it.id.value }
+        assertEquals("Pay the rent in full", stored.getValue("t2").title, "the series says one thing")
     }
 
     @Test
@@ -271,11 +303,13 @@ class TaskSeriesWritePathTest {
         // has to carry them too: a pull that wrote the row and lost the tags
         // would leave the series saying two things about the work.
         repo.upsert(
-            task(
-                "t1",
-                title = "Pay the rent in full",
-                tags = listOf(tag),
-                updatedAt = Instant.fromEpochMilliseconds(3_000),
+            TaskDocument.of(
+                task(
+                    "t1",
+                    title = "Pay the rent in full",
+                    tags = listOf(tag),
+                    updatedAt = Instant.fromEpochMilliseconds(3_000),
+                ),
             ),
         )
         advanceUntilIdle()
@@ -315,7 +349,9 @@ class TaskSeriesWritePathTest {
         // A row of another account: this device stores it and does not rewrite the
         // rows of a profile it is not on.
         repo.upsert(
-            task("t9", uid = bob, title = "Pay the rent in full", updatedAt = Instant.fromEpochMilliseconds(3_000)),
+            TaskDocument.of(
+                task("t9", uid = bob, title = "Pay the rent in full", updatedAt = Instant.fromEpochMilliseconds(3_000)),
+            ),
         )
         advanceUntilIdle()
 
