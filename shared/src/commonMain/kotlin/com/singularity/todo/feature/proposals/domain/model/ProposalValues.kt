@@ -34,6 +34,37 @@ sealed interface ReadResult<out T> {
 class EditableValue<T>(val text: String, val change: (String) -> ReadResult<T>)
 
 /**
+ * What every value in the proposal dictionary has in common.
+ *
+ * The four dictionaries — task, note, project, tag — grew side by side, and each
+ * of them repeated the same three members and the same helper. A new field was
+ * therefore written four times over, and a new dictionary would have had to
+ * remember all of it: the repetition is where the next value gets added to one
+ * dictionary and forgotten in another.
+ */
+sealed interface ProposalValue {
+
+    /** The name of the field this value sets — the name the stored payload uses. */
+    val fieldName: String
+
+    /** What the user reads on the card. */
+    val summary: String
+
+    /** The value as it is stored. */
+    val text: String
+
+    /**
+     * Why this value cannot be read, when it cannot.
+     *
+     * A value that does not read is not dropped: the change stays on the card
+     * with the reason, so the user learns what happened instead of finding that
+     * a change has quietly gone missing.
+     */
+    val readFailure: String?
+        get() = null
+}
+
+/**
  * A value for a task field.
  *
  * The variant *is* the field: a title is a [Title], a priority is a [Priority].
@@ -45,16 +76,7 @@ class EditableValue<T>(val text: String, val change: (String) -> ReadResult<T>)
  * carries its own type, and a proposal cannot hold a priority that is not a priority.
  */
 @Serializable
-sealed interface TaskValue {
-
-    /** The name of the field this value sets — the name the stored payload uses. */
-    val fieldName: String
-
-    /** What the user reads on the card. */
-    val summary: String
-
-    /** The value as it is stored. */
-    val text: String
+sealed interface TaskValue : ProposalValue {
 
     /**
      * The value the user may change before the change is applied.
@@ -70,7 +92,7 @@ sealed interface TaskValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the title to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("Title")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("Title", TaskValue::read)
     }
 
     @Serializable
@@ -79,7 +101,7 @@ sealed interface TaskValue {
         override val fieldName: String = "Description"
         override val summary: String = "Set the description to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("Description")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("Description", TaskValue::read)
     }
 
     @Serializable
@@ -88,7 +110,7 @@ sealed interface TaskValue {
         override val fieldName: String = "Priority"
         override val summary: String = "Set the priority to ${value.name}"
         override val text: String = value.name
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("Priority")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("Priority", TaskValue::read)
     }
 
     /**
@@ -105,7 +127,7 @@ sealed interface TaskValue {
         override val summary: String
             get() = if (value == null) "Clear the due date" else "Set the due date to $value"
         override val text: String = value?.toString().orEmpty()
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("DueDate")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("DueDate", TaskValue::read)
     }
 
     /** The due time — or nothing, which clears it. The twin of [DueDate]. */
@@ -120,7 +142,7 @@ sealed interface TaskValue {
                 "Set the due time to ${LocalTimeFormats.format(value)}"
             }
         override val text: String = value?.let { LocalTimeFormats.format(it) }.orEmpty()
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("DueTime")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("DueTime", TaskValue::read)
     }
 
     @Serializable
@@ -129,7 +151,7 @@ sealed interface TaskValue {
         override val fieldName: String = "Status"
         override val summary: String = "Set the status to ${value.name}"
         override val text: String = value.name
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("Status")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("Status", TaskValue::read)
     }
 
     @Serializable
@@ -138,7 +160,7 @@ sealed interface TaskValue {
         override val fieldName: String = "EstimateMinutes"
         override val summary: String = "Set the estimate to $value min"
         override val text: String = value.toString()
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("EstimateMinutes")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("EstimateMinutes", TaskValue::read)
     }
 
     @Serializable
@@ -147,7 +169,7 @@ sealed interface TaskValue {
         override val fieldName: String = "Kind"
         override val summary: String = "Set the kind of work to ${value.name}"
         override val text: String = value.name
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("Kind")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("Kind", TaskValue::read)
     }
 
     /** The project the task belongs to, as a project id. An empty value moves it out of every project. */
@@ -177,7 +199,32 @@ sealed interface TaskValue {
         override val summary: String
             get() = if (value) "Defer the task" else "Bring the task back"
         override val text: String = value.toString()
-        override fun editableValue(): EditableValue<TaskValue> = editableOf("Someday")
+        override fun editableValue(): EditableValue<TaskValue> = editableOf("Someday", TaskValue::read)
+    }
+
+    /**
+     * A value this build cannot read.
+     *
+     * The row was written by a build that knew the field, and this one does not:
+     * an enum lost a variant, or the spelling changed. The change is still a
+     * change — it stays on the card with the reason it cannot be read, and the
+     * user can type a value that does read — so it does not disappear the way a
+     * row the codec could not make sense of at all would.
+     *
+     * The reason is not stored: it belongs to the reader, and the reader is the
+     * one place that knows why a value does not read. So it is asked for again
+     * here, and the value itself stays the field and the text — which is what
+     * the row holds.
+     */
+    @Serializable
+    @SerialName("Unreadable")
+    data class Unreadable(val field: String, val raw: String) : TaskValue {
+        override val fieldName: String = field
+        override val summary: String = "Set the $field to «${raw.asCardValue()}»"
+        override val text: String = raw
+        override val readFailure: String?
+            get() = (TaskValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+        override fun editableValue(): EditableValue<TaskValue> = editableOf(field, TaskValue::read)
     }
 
     companion object {
@@ -254,16 +301,7 @@ sealed interface TaskValue {
  * variant is the field, so "the body" cannot be confused with "the title".
  */
 @Serializable
-sealed interface NoteValue {
-
-    /** The name of the field this value sets — the name the stored payload uses. */
-    val fieldName: String
-
-    /** What the user reads on the card. */
-    val summary: String
-
-    /** The value as it is stored. */
-    val text: String
+sealed interface NoteValue : ProposalValue {
 
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<NoteValue>?
@@ -274,7 +312,7 @@ sealed interface NoteValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the note title to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Title")
+        override fun editableValue(): EditableValue<NoteValue> = editableOf("Title", NoteValue::read)
     }
 
     /** The note's body, as canonical HTML — the form the notes are stored in. */
@@ -284,7 +322,7 @@ sealed interface NoteValue {
         override val fieldName: String = "Body"
         override val summary: String = "Set the note body to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Body")
+        override fun editableValue(): EditableValue<NoteValue> = editableOf("Body", NoteValue::read)
     }
 
     /** A summary of the note's content, written to the body as HTML. */
@@ -294,7 +332,32 @@ sealed interface NoteValue {
         override val fieldName: String = "Summary"
         override val summary: String = "Summarize the note to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<NoteValue> = editableOf("Summary")
+        override fun editableValue(): EditableValue<NoteValue> = editableOf("Summary", NoteValue::read)
+    }
+
+    /**
+     * A value this build cannot read.
+     *
+     * The row was written by a build that knew the field, and this one does not:
+     * an enum lost a variant, or the spelling changed. The change is still a
+     * change — it stays on the card with the reason it cannot be read, and the
+     * user can type a value that does read — so it does not disappear the way a
+     * row the codec could not make sense of at all would.
+     *
+     * The reason is not stored: it belongs to the reader, and the reader is the
+     * one place that knows why a value does not read. So it is asked for again
+     * here, and the value itself stays the field and the text — which is what
+     * the row holds.
+     */
+    @Serializable
+    @SerialName("Unreadable")
+    data class Unreadable(val field: String, val raw: String) : NoteValue {
+        override val fieldName: String = field
+        override val summary: String = "Set the $field to «${raw.asCardValue()}»"
+        override val text: String = raw
+        override val readFailure: String?
+            get() = (NoteValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+        override fun editableValue(): EditableValue<NoteValue> = editableOf(field, NoteValue::read)
     }
 
     companion object {
@@ -318,16 +381,7 @@ sealed interface NoteValue {
  * anybody forgot, but because there was no kind for it.
  */
 @Serializable
-sealed interface ProjectValue {
-
-    /** The name of the field this value sets — the name the stored payload uses. */
-    val fieldName: String
-
-    /** What the user reads on the card. */
-    val summary: String
-
-    /** The value as it is stored. */
-    val text: String
+sealed interface ProjectValue : ProposalValue {
 
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<ProjectValue>?
@@ -338,7 +392,7 @@ sealed interface ProjectValue {
         override val fieldName: String = "Name"
         override val summary: String = "Rename the project to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<ProjectValue> = editableOf("Name")
+        override fun editableValue(): EditableValue<ProjectValue> = editableOf("Name", ProjectValue::read)
     }
 
     @Serializable
@@ -347,7 +401,7 @@ sealed interface ProjectValue {
         override val fieldName: String = "Description"
         override val summary: String = "Set the project description to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<ProjectValue> = editableOf("Description")
+        override fun editableValue(): EditableValue<ProjectValue> = editableOf("Description", ProjectValue::read)
     }
 
     /** The project's colour, as an ARGB integer. */
@@ -372,6 +426,31 @@ sealed interface ProjectValue {
 
         /** Not editable: an icon is picked, not typed. */
         override fun editableValue(): EditableValue<ProjectValue>? = null
+    }
+
+    /**
+     * A value this build cannot read.
+     *
+     * The row was written by a build that knew the field, and this one does not:
+     * an enum lost a variant, or the spelling changed. The change is still a
+     * change — it stays on the card with the reason it cannot be read, and the
+     * user can type a value that does read — so it does not disappear the way a
+     * row the codec could not make sense of at all would.
+     *
+     * The reason is not stored: it belongs to the reader, and the reader is the
+     * one place that knows why a value does not read. So it is asked for again
+     * here, and the value itself stays the field and the text — which is what
+     * the row holds.
+     */
+    @Serializable
+    @SerialName("Unreadable")
+    data class Unreadable(val field: String, val raw: String) : ProjectValue {
+        override val fieldName: String = field
+        override val summary: String = "Set the $field to «${raw.asCardValue()}»"
+        override val text: String = raw
+        override val readFailure: String?
+            get() = (ProjectValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+        override fun editableValue(): EditableValue<ProjectValue> = editableOf(field, ProjectValue::read)
     }
 
     companion object {
@@ -401,16 +480,7 @@ sealed interface ProjectValue {
  * "and here is the tag I would like to exist".
  */
 @Serializable
-sealed interface TagValue {
-
-    /** The name of the field this value sets — the name the stored payload uses. */
-    val fieldName: String
-
-    /** What the user reads on the card. */
-    val summary: String
-
-    /** The value as it is stored. */
-    val text: String
+sealed interface TagValue : ProposalValue {
 
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<TagValue>?
@@ -421,7 +491,7 @@ sealed interface TagValue {
         override val fieldName: String = "Name"
         override val summary: String = "Rename the tag to «${value.asCardValue()}»"
         override val text: String = value
-        override fun editableValue(): EditableValue<TagValue> = editableOf("Name")
+        override fun editableValue(): EditableValue<TagValue> = editableOf("Name", TagValue::read)
     }
 
     /** The tag's colour, as an ARGB integer. */
@@ -434,6 +504,31 @@ sealed interface TagValue {
 
         /** Not editable: a colour is picked, not typed. */
         override fun editableValue(): EditableValue<TagValue>? = null
+    }
+
+    /**
+     * A value this build cannot read.
+     *
+     * The row was written by a build that knew the field, and this one does not:
+     * an enum lost a variant, or the spelling changed. The change is still a
+     * change — it stays on the card with the reason it cannot be read, and the
+     * user can type a value that does read — so it does not disappear the way a
+     * row the codec could not make sense of at all would.
+     *
+     * The reason is not stored: it belongs to the reader, and the reader is the
+     * one place that knows why a value does not read. So it is asked for again
+     * here, and the value itself stays the field and the text — which is what
+     * the row holds.
+     */
+    @Serializable
+    @SerialName("Unreadable")
+    data class Unreadable(val field: String, val raw: String) : TagValue {
+        override val fieldName: String = field
+        override val summary: String = "Set the $field to «${raw.asCardValue()}»"
+        override val text: String = raw
+        override val readFailure: String?
+            get() = (TagValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+        override fun editableValue(): EditableValue<TagValue> = editableOf(field, TagValue::read)
     }
 
     companion object {
@@ -529,21 +624,18 @@ internal const val STATUS_NAMES = "Use active or completed."
 internal fun String.asCardValue(limit: Int = 48): String =
     if (length <= limit) this else take(limit).trimEnd() + "…"
 
-/** The task field's own reader, for the task's own editable values. */
-private fun TaskValue.editableOf(field: String): EditableValue<TaskValue> =
-    EditableValue(text) { newText -> TaskValue.read(field, newText) }
-
-/** The note field's own reader, for the note's own editable values. */
-private fun NoteValue.editableOf(field: String): EditableValue<NoteValue> =
-    EditableValue(text) { newText -> NoteValue.read(field, newText) }
-
-/** The project field's own reader, for the project's own editable values. */
-private fun ProjectValue.editableOf(field: String): EditableValue<ProjectValue> =
-    EditableValue(text) { newText -> ProjectValue.read(field, newText) }
-
-/** The tag field's own reader, for the tag's own editable values. */
-private fun TagValue.editableOf(field: String): EditableValue<TagValue> =
-    EditableValue(text) { newText -> TagValue.read(field, newText) }
+/**
+ * The value the user may change, read through the dictionary it belongs to.
+ *
+ * One helper for the four dictionaries: a value is edited by reading the new
+ * text through the reader of the entity the value belongs to, and the four
+ * helpers said the same thing four times — so a new dictionary would have had
+ * to remember to write a fifth.
+ */
+private fun <V : ProposalValue> V.editableOf(
+    field: String,
+    read: (String, String) -> ReadResult<V>,
+): EditableValue<V> = EditableValue(text) { newText -> read(field, newText) }
 
 private fun readStatus(text: String): ReadResult<TaskStatus> {
     val trimmed = text.trim()

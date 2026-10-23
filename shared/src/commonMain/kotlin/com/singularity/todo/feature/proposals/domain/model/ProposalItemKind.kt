@@ -50,6 +50,17 @@ sealed interface ProposalItemKind {
     val fingerprintTarget: String
 
     /**
+     * Why this change cannot be read, when its stored value no longer reads.
+     *
+     * A value written by a build that knew the field is a change the user can
+     * still see and turn down — with the reason it cannot be applied, next to
+     * it. The change is not dropped: the user has to be able to decide about
+     * it, and a change that vanishes is a change nobody decided about.
+     */
+    val readFailure: String?
+        get() = null
+
+    /**
      * The value the user may change before the change is applied — or null when the
      * change carries nothing a person would type.
      *
@@ -69,6 +80,8 @@ sealed interface ProposalItemKind {
     data class SetTaskField(val value: TaskValue) : ProposalItemKind {
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
+        override val readFailure: String?
+            get() = value.readFailure
         override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
             EditableProposal(editable.text) { newText ->
                 editable.change(newText).map { newValue -> SetTaskField(newValue) }
@@ -145,6 +158,8 @@ sealed interface ProposalItemKind {
     data class SetNoteField(val value: NoteValue) : ProposalItemKind {
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
+        override val readFailure: String?
+            get() = value.readFailure
         override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
             EditableProposal(editable.text) { newText ->
                 editable.change(newText).map { newValue -> SetNoteField(newValue) }
@@ -158,6 +173,8 @@ sealed interface ProposalItemKind {
     data class SetProjectField(val value: ProjectValue) : ProposalItemKind {
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
+        override val readFailure: String?
+            get() = value.readFailure
         override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
             EditableProposal(editable.text) { newText ->
                 editable.change(newText).map { newValue -> SetProjectField(newValue) }
@@ -171,6 +188,8 @@ sealed interface ProposalItemKind {
     data class SetTagField(val value: TagValue) : ProposalItemKind {
         override val humanSummary: String = value.summary
         override val fingerprintTarget: String = value.fieldName
+        override val readFailure: String?
+            get() = value.readFailure
         override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
             EditableProposal(editable.text) { newText ->
                 editable.change(newText).map { newValue -> SetTagField(newValue) }

@@ -1,8 +1,6 @@
 package com.singularity.todo.feature.proposals.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -13,6 +11,7 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -95,6 +94,35 @@ class ProposalsViewModel(
     ) {
 
     /**
+     * The five operations, in one place.
+     *
+     * The review screen, the note editor and the task detail all answer a
+     * proposal, and they answer it the same way — so the operations live in
+     * [ProposalDecisions] and this screen brings its own wording, its own
+     * failure store and its own error sink.
+     */
+    private val decisions = ProposalDecisions(
+        applyProposalItem = applyProposalItem,
+        editProposalItem = editProposalItem,
+        style = reviewScreenStyle,
+        failures = proposalFailureStore(
+            onRecord = { itemId, message ->
+                updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
+            },
+            onClear = { itemId ->
+                updateState { state -> state.copy(failures = state.failures - itemId) }
+            },
+        ),
+        errors = ProposalErrorSink { label, _, error ->
+            // The ViewModel's own error path: it reports the failure to the crash
+            // reporter and shows it as a one-shot event. The failure is rethrown
+            // into that path because the path is what reports it.
+            emitError(label, ProposalsUiEvent::ShowError) { throw error }
+        },
+        userId = { currentUser.scopedUserId.value },
+    )
+
+    /**
      * The collector of what is waiting.
      *
      * A property initializer rather than a `launch` in an `init` block: the
@@ -120,100 +148,46 @@ class ProposalsViewModel(
 
     override fun onIntent(intent: ProposalsIntent) {
         when (intent) {
-            is ProposalsIntent.Confirm -> decide(intent.itemId)
-            is ProposalsIntent.Reject -> reject(intent.itemId, intent.reason)
-            is ProposalsIntent.ConfirmAll -> confirmAll(intent.proposalId)
-            is ProposalsIntent.Dismiss -> dismiss(intent.proposalId)
-            is ProposalsIntent.Edit -> edit(intent.itemId, intent.text)
-        }
-    }
+            is ProposalsIntent.Confirm -> vmScope.launch { decisions.applyChange(intent.itemId) }
 
-    /** Apply one change. The user turning it down goes through [reject], which carries the reason. */
-    private fun decide(itemId: ProposalItemId) {
-        val userId = currentUser.scopedUserId.value
-        val label = "Apply the change"
-        emitError(label, ProposalsUiEvent::ShowError) {
-            val result = applyProposalItem.confirm(itemId, userId)
-            result.onFailure { error -> recordFailure(itemId, error.toMessage(label)) }
-            result.onSuccess { clearFailure(itemId) }
-            result
-        }
-    }
+            is ProposalsIntent.Reject -> vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
 
-    /** A rejection the user gave a reason for — the reason is what the model learns from. */
-    private fun reject(itemId: ProposalItemId, reason: String?) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Reject the change", ProposalsUiEvent::ShowError) {
-            applyProposalItem.reject(itemId, userId, reason).also { result ->
-                result.onFailure { error -> recordFailure(itemId, error.toMessage("Reject the change")) }
-                result.onSuccess { clearFailure(itemId) }
+            is ProposalsIntent.ConfirmAll -> vmScope.launch { decisions.applyAll(intent.proposalId) }
+
+            is ProposalsIntent.Dismiss -> vmScope.launch {
+                decisions.dismiss { waiting(intent.proposalId) }
             }
+
+            is ProposalsIntent.Edit -> vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
         }
     }
 
     /**
-     * Applies every change of one proposal.
+     * The changes of a proposal that are still waiting.
      *
-     * A batch where some of the changes failed is not a crash: the reason of each failed
-     * change sits next to that change. Throwing here would report a normal outcome to
-     * the crash reporter.
+     * Read from the repository and not from the state: the state holds the
+     * proposals the screen was last given, and a proposal the user is looking at
+     * may have changed since.
      */
-    private fun confirmAll(proposalId: ProposalId) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Apply the changes", ProposalsUiEvent::ShowError) {
-            runCatchingCancellable {
-                val batch = applyProposalItem.confirmAll(proposalId, userId)
-                batch.failed.forEach { failed ->
-                    recordFailure(failed.itemId, failed.error.toMessage("Apply the change"))
-                }
-                batch.applied.forEach { applied -> clearFailure(applied.id) }
-                batch
-            }
-        }
-    }
+    private suspend fun waiting(proposalId: ProposalId): List<ProposalItem> =
+        proposals.watchProposal(proposalId).first()?.items.orEmpty()
+            .filter { it.status == ProposalItemStatus.Pending }
 
-    /**
-     * Turns every change of one proposal down.
-     *
-     * "Dismiss" is the whole proposal: the user does not want this change, and
-     * answering item by item would ask them the same question about each part of
-     * one decision.
-     */
-    private fun dismiss(proposalId: ProposalId) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Dismiss the proposal", ProposalsUiEvent::ShowError) {
-            runCatchingCancellable {
-                val waiting = proposals.watchProposal(proposalId).first()?.items.orEmpty()
-                    .filter { it.status == ProposalItemStatus.Pending }
-                waiting.forEach { item -> applyProposalItem.reject(item.id, userId) }
-            }
-        }
-    }
-
-    /**
-     * Changes the value of one change, before it is applied.
-     *
-     * The value the user typed is read by the same reader that read the model's
-     * value, so a value that does not read is refused — and the refusal carries the
-     * reason, which is what the user is shown under the item.
-     */
-    private fun edit(itemId: ProposalItemId, text: String) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Change the proposal", ProposalsUiEvent::ShowError) {
-            editProposalItem.edit(itemId, text, userId).also { result ->
-                result.onFailure { error -> recordFailure(itemId, error.toMessage("Change the proposal")) }
-                result.onSuccess { clearFailure(itemId) }
-            }
-        }
-    }
-
-    /** Keeps the reason a change failed next to the change it failed for. */
-    private fun recordFailure(itemId: ProposalItemId, message: String) {
-        updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
-    }
-
-    /** Forgets the reason a change failed, once the change worked. */
-    private fun clearFailure(itemId: ProposalItemId) {
-        updateState { state -> state.copy(failures = state.failures - itemId) }
+    private companion object {
+        /**
+         * How this screen words a proposal decision.
+         *
+         * A dismissed proposal keeps no reason per change: the proposal's own
+         * status says what became of it.
+         */
+        val reviewScreenStyle = ProposalDecisionStyle(
+            apply = "Apply the change",
+            reject = "Reject the change",
+            applyAll = "Apply the changes",
+            applyOne = "Apply the change",
+            dismiss = "Dismiss the proposal",
+            dismissOne = null,
+            change = "Change the proposal",
+        )
     }
 }

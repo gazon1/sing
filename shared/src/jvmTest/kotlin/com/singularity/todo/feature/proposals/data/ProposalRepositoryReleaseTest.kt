@@ -126,6 +126,26 @@ class ProposalRepositoryReleaseTest {
         assertEquals(ProposalItemStatus.Rejected, repo.getItem(itemId)?.status)
     }
 
+    @Test
+    fun `a change is put back after the profile switched`() = runTest {
+        val owner = repository(user)
+        val itemId = seed(owner, user)
+        owner.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, user)
+
+        // The profile switched between the claim and the release: the screen moved on,
+        // or the user opened another profile. The guard is the user's — the row still
+        // belongs to the user who confirmed it — so the change goes back to waiting
+        // even though the current profile is somebody else's.
+        val released = repository(other).release(itemId, user)
+
+        assertTrue(released.isSuccess, "the release belongs to the user who confirmed it: $released")
+        assertEquals(
+            ProposalItemStatus.Pending,
+            owner.getItem(itemId)?.status,
+            "the change waits again, because it was never applied",
+        )
+    }
+
     /** Stores a proposal with one waiting change, and returns the change's id. */
     private suspend fun seed(repo: ProposalRepositoryImpl, owner: UserId): ProposalItemId {
         val proposalId = ProposalId.generate()

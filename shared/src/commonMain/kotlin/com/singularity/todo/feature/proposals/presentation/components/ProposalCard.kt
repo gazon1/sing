@@ -251,6 +251,17 @@ private fun ProposalItemRow(
                 color = MaterialTheme.colorScheme.error,
             )
         }
+        // The reason the stored value does not read. It is not a failed attempt:
+        // the change itself cannot be applied, and the user has to know that
+        // before they press "apply" — and be able to turn it down.
+        val readFailure = item.readFailure
+        if (readFailure != null) {
+            LinkifiedText(
+                text = "This change cannot be applied: $readFailure",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 

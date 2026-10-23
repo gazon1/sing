@@ -684,6 +684,13 @@ open class FakeTaskRepository(
 
     // ─── Configurable results (for failure-path tests) ────────────────────
     var createOverride: Result<Task>? = null
+
+    /**
+     * Breaks one create and not the others — a test can fail the second subtask and
+     * not the first, which is what a write that breaks halfway needs. Null by
+     * default, so an existing test changes nothing.
+     */
+    var createCallOverride: ((String) -> Result<Task>?)? = null
     var updateOverride: Result<Task>? = null
     var deleteOverride: Result<Unit>? = null
     var softDeleteOverride: Result<Unit>? = null
@@ -754,6 +761,7 @@ open class FakeTaskRepository(
 
     override suspend fun create(item: Task): Result<Task> {
         createOverride?.let { return it }
+        createCallOverride?.invoke(item.title)?.let { return it }
         return runCatchingCancellable {
             store.upsert(item)
             item

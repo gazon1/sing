@@ -44,7 +44,8 @@ private val payloadJson = Json { ignoreUnknownKeys = true }
  * Decodes the `kind_json` blob back into a [ProposalItemKind].
  *
  * @return null if the blob is unparseable or names a type we do not know — which
- *   happens when an older build wrote a kind a newer build dropped.
+ *   happens when an older build wrote a kind a newer build dropped. A value this
+ *   build cannot read is not a null: it is a value that carries the reason.
  */
 internal fun decodeKind(raw: String): ProposalItemKind? = runCatching {
     val obj = payloadJson.parseToJsonElement(raw) as JsonObject
@@ -59,21 +60,21 @@ internal fun decodeKind(raw: String): ProposalItemKind? = runCatching {
  * read is one that gets a new kind added to it wrongly.
  */
 private fun decodeTaskKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
-    "SetTaskField" -> readValue(obj, TaskValue::read)?.let { ProposalItemKind.SetTaskField(it) }
+    "SetTaskField" -> ProposalItemKind.SetTaskField(readValue(obj, TaskValue::read, TaskValue::Unreadable))
     "SetTaskTags" -> ProposalItemKind.SetTaskTags(obj.list("tagIds"))
     "AddTags" -> ProposalItemKind.AddTags(obj.list("names"))
     "RemoveTags" -> ProposalItemKind.RemoveTags(obj.list("tagIds"))
     "AddChecklistItems" -> ProposalItemKind.AddChecklistItems(obj.list("texts"))
     "AddSubtasks" -> ProposalItemKind.AddSubtasks(obj.list("titles"))
     "AddTimeEntries" -> ProposalItemKind.AddTimeEntries(decodeTimeEntries(obj))
-    "SetTagField" -> readValue(obj, TagValue::read)?.let { ProposalItemKind.SetTagField(it) }
+    "SetTagField" -> ProposalItemKind.SetTagField(readValue(obj, TagValue::read, TagValue::Unreadable))
     else -> null
 }
 
 /** The kinds a note or a project carries. */
 private fun decodeEntityKind(obj: JsonObject): ProposalItemKind? = when (obj.stringOrNull("type")) {
-    "SetNoteField" -> readValue(obj, NoteValue::read)?.let { ProposalItemKind.SetNoteField(it) }
-    "SetProjectField" -> readValue(obj, ProjectValue::read)?.let { ProposalItemKind.SetProjectField(it) }
+    "SetNoteField" -> ProposalItemKind.SetNoteField(readValue(obj, NoteValue::read, NoteValue::Unreadable))
+    "SetProjectField" -> ProposalItemKind.SetProjectField(readValue(obj, ProjectValue::read, ProjectValue::Unreadable))
     else -> null
 }
 
@@ -100,19 +101,30 @@ private fun decodeDeletionKind(obj: JsonObject): ProposalItemKind? = when (obj.s
  * The value a row carries, read through the domain's own reader.
  *
  * One reader for every entity: the row says which field it sets and what the value
- * is, and the domain says whether that is a value the entity can hold. A row whose
- * value cannot be read is a row this build cannot show — the value is the change, so
- * there is nothing to propose — and `ProposalMapperTest` proves that every kind this
- * build knows survives the round trip.
+ * is, and the domain says whether that is a value the entity can hold.
+ *
+ * A value that does not read is not a row to drop. The row was written by a build
+ * that knew the field and this one does not, so the change becomes a value that
+ * carries the reason it cannot be read — and the card shows the change with that
+ * reason, instead of the change quietly disappearing from the proposal. The reason
+ * belongs to the reader, so it is asked of the reader again on the way in, and the
+ * row keeps the flat shape it has always had.
  */
-private fun <T> readValue(obj: JsonObject, read: (String, String) -> ReadResult<T>): T? {
-    val field = obj.stringOrNull("field") ?: return null
+private fun <T> readValue(
+    obj: JsonObject,
+    read: (String, String) -> ReadResult<T>,
+    unreadable: (String, String) -> T,
+): T {
+    val field = obj.stringOrNull("field") ?: UNKNOWN_FIELD
     val text = obj.stringOrNull("value").orEmpty()
     return when (val result = read(field, text)) {
         is ReadResult.Ok -> result.value
-        is ReadResult.Rejected -> null
+        is ReadResult.Rejected -> unreadable(field, text)
     }
 }
+
+/** The field a row that does not say which field it sets is read as. */
+private const val UNKNOWN_FIELD = "unknown"
 
 /** The packed time entries of an `AddTimeEntries` item. */
 private fun decodeTimeEntries(obj: JsonObject): List<ProposedTimeEntry> = obj.stringOrNull("entries")

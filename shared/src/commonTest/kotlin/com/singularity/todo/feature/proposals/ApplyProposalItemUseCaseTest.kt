@@ -34,11 +34,13 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.TestUsers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -367,8 +369,103 @@ class ApplyProposalItemUseCaseTest {
         )
     }
 
-    // ── Status ────────────────────────────────────────────────────────────────
+    @Test
+    fun `a write that is cut short leaves nothing behind`() = runTest {
+        tasks.seed(task())
+        // The screen went away in the middle of the write. A cancelled coroutine is
+        // not a failed one: the rows that were written before the cancellation stay
+        // written, and the change goes back to waiting — so the row that stayed
+        // would be there twice on the next attempt.
+        checklist.addItemOverride = { title ->
+            if (title == "second") throw CancellationException("the screen went away") else null
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second")))
 
+        assertFailsWith<CancellationException> { useCase.confirm(id, user) }
+
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "the row that was written before the cancellation is taken back — the change " +
+                "waits again, and the row would be there twice after the next attempt",
+        )
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits again — it was never decided",
+        )
+    }
+
+    @Test
+    fun `a value this build cannot read is refused with its reason`() = runTest {
+        tasks.seed(task())
+        // A row written by a build that knew the priority, read by one that does
+        // not. The change stays on the card with the reason, and applying it says
+        // why instead of doing nothing.
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Unreadable("Priority", "very high")))
+
+        val result = useCase.confirm(id, user)
+
+        assertTrue(result.isFailure, "a value that does not read cannot be applied")
+        assertTrue(
+            result.exceptionOrNull()?.message?.contains("is not a priority") == true,
+            "the reason is the answer: ${result.exceptionOrNull()?.message}",
+        )
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits — it was never decided",
+        )
+    }
+
+    @Test
+    fun `the value the user typed while the change was in flight is the one applied`() = runTest {
+        tasks.seed(task())
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Title("Old title")))
+        // The row changed between the read and the claim: the plan built from the old
+        // row would write the old value over the new one, so the plan is rebuilt. The
+        // cost is one more read of the task — and only when the row changed.
+        proposals.beforeClaim = {
+            proposals.updatePendingItem(
+                id,
+                ProposalItemKind.SetTaskField(TaskValue.Title("New title")),
+                user,
+            )
+        }
+
+        assertTrue(useCase.confirm(id, user).isSuccess)
+
+        assertEquals(
+            "New title",
+            tasks.get(taskId)?.title,
+            "the value the user typed is the one that was applied",
+        )
+    }
+
+    @Test
+    fun `a subtask that is taken back is archived, not deleted`() = runTest {
+        tasks.seed(task())
+        // The second subtask fails; the first was written. The take-back archives it:
+        // production `delete` is a soft delete, so the row is still there and the
+        // archive is what the sync carries. A hard delete would take the row out of
+        // the sync — and a rolled-back subtask is not history the user made, it is a
+        // row the app made and undid.
+        tasks.createCallOverride = { title ->
+            if (title == "second") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        val id = seedProposal(ProposalItemKind.AddSubtasks(listOf("first", "second")))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+
+        val created = tasks.tasks.value.values.filter { it.title == "first" }
+        assertEquals(1, created.size, "the subtask that was written is still there")
+        assertNotNull(
+            created.single().archivedAt,
+            "it is archived rather than deleted — the archive is what the sync carries",
+        )
+    }
+
+    // ── Status ────────────────────────────────────────────────────────────────
     @Test
     fun `confirming every item resolves the proposal`() = runTest {
         tasks.seed(task())

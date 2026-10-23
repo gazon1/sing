@@ -53,6 +53,8 @@ fun proposalModule(): Module = module {
             projects = get<ProjectsRepository>(),
             deleteProject = get<DeleteProjectUseCase>(),
             clock = get<Clock>(),
+            log = get(),
+            crashReporter = get(),
         )
     }
 

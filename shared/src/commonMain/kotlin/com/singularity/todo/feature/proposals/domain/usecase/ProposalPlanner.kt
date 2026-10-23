@@ -42,6 +42,10 @@ class ProposalPlanner(private val clock: Clock) {
     fun planNoteItem(item: ProposalItem, note: Note?): ProposalPlan = when (val kind = item.kind) {
         is ProposalItemKind.SetNoteField -> {
             val n = note ?: error("Note ${item.targetId} not found")
+            // The same refusal the other dictionaries make, and for the same
+            // reason: a value that does not read is not a change that can be
+            // applied, and the plan is built before the claim.
+            kind.value.readFailure?.let { reason -> error(reason) }
             ProposalPlan.WriteNote(n, kind.value)
         }
 
@@ -231,6 +235,13 @@ class ProposalPlanner(private val clock: Clock) {
         }
 
         is TaskValue.Someday -> task.copy(someday = value.value)
+
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read. It cannot be applied as it stands — and saying so is the point:
+        // the plan is built before the claim, so the change is neither decided
+        // nor lost.
+        is TaskValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     /**
@@ -249,6 +260,13 @@ class ProposalPlanner(private val clock: Clock) {
         is ProjectValue.Color -> project.copy(color = value.value)
 
         is ProjectValue.Icon -> project.copy(icon = value.value.trim().takeIf(String::isNotEmpty))
+
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read. It cannot be applied as it stands — and saying so is the point:
+        // the plan is built before the claim, so the change is neither decided
+        // nor lost.
+        is ProjectValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     /**
@@ -263,6 +281,13 @@ class ProposalPlanner(private val clock: Clock) {
         }
 
         is TagValue.Color -> tag.copy(color = value.value)
+
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read. It cannot be applied as it stands — and saying so is the point:
+        // the plan is built before the claim, so the change is neither decided
+        // nor lost.
+        is TagValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     // ── The creations ────────────────────────────────────────────────────────────

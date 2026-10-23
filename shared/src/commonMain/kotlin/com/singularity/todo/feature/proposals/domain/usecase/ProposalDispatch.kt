@@ -1,9 +1,10 @@
 package com.singularity.todo.feature.proposals.domain.usecase
 
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
@@ -17,7 +18,9 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
 /**
@@ -34,6 +37,8 @@ import kotlin.time.Clock
  * @param notes For note writes.
  * @param deleteProject For project deletion.
  * @param clock For timestamps in subtask creation.
+ * @param log For the rows that stayed behind a cancelled write.
+ * @param crashReporter For the same rows: there is no user to tell.
  */
 class ProposalDispatch(
     private val tasks: TaskRepository,
@@ -44,6 +49,8 @@ class ProposalDispatch(
     private val projects: ProjectsRepository,
     private val deleteProject: DeleteProjectUseCase,
     private val clock: Clock,
+    private val log: Logger = Logger.withTag("ProposalDispatch"),
+    private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
 ) {
     /**
      * Applies [plan].
@@ -77,14 +84,7 @@ class ProposalDispatch(
 
             is ProposalPlan.AddTimeEntries -> addTimeEntries(plan, userId)
 
-            is ProposalPlan.WriteNote -> {
-                val updated = when (plan.value) {
-                    is NoteValue.Title -> plan.note.copy(title = plan.value.value.trim())
-                    is NoteValue.Body -> plan.note.copy(bodyHtml = plan.value.value)
-                    is NoteValue.Summary -> plan.note.copy(bodyHtml = plan.value.value)
-                }
-                notes.upsert(updated)
-            }
+            is ProposalPlan.WriteNote -> writeNote(plan)
 
             is ProposalPlan.WriteProject -> {
                 projects.update(plan.project).getOrThrow()
@@ -139,25 +139,20 @@ class ProposalDispatch(
      * when a later row fails.
      */
     private suspend fun addChecklistItems(plan: ProposalPlan.AddChecklistItems) {
-        val written = mutableListOf<ChecklistItemId>()
-        val result = runCatchingCancellable {
-            plan.texts.forEach { text ->
-                written += checklist.addItem(plan.taskId.value, text).getOrThrow()
-            }
-        }
-        if (result.isFailure) {
-            val takenBack = written.map { checklist.delete(it) }
-            throw failureWith(result, takenBack)
-        }
+        writeAllOrNone(
+            items = plan.texts,
+            write = { text -> checklist.addItem(plan.taskId.value, text).getOrThrow() },
+            takeBack = { id -> checklist.delete(id) },
+        )
     }
 
     /** Creates the subtasks a proposal asked for. All of them, or none — see [addChecklistItems]. */
     private suspend fun addSubtasks(plan: ProposalPlan.AddSubtasks, userId: UserId) {
-        val written = mutableListOf<TaskId>()
-        val result = runCatchingCancellable {
-            plan.titles.forEach { title ->
+        writeAllOrNone(
+            items = plan.titles,
+            write = { title ->
                 val now = clock.now()
-                val created = tasks.create(
+                tasks.create(
                     Task(
                         id = TaskId.generate(),
                         title = title,
@@ -166,22 +161,18 @@ class ProposalDispatch(
                         createdAt = now,
                         updatedAt = now,
                     ),
-                ).getOrThrow()
-                written += created.id
-            }
-        }
-        if (result.isFailure) {
-            val takenBack = written.map { tasks.delete(it) }
-            throw failureWith(result, takenBack)
-        }
+                ).getOrThrow().id
+            },
+            takeBack = { id -> tasks.delete(id) },
+        )
     }
 
     /** Logs the time entries a proposal asked for. All of them, or none — see [addChecklistItems]. */
     private suspend fun addTimeEntries(plan: ProposalPlan.AddTimeEntries, userId: UserId) {
-        val written = mutableListOf<TimeEntryId>()
-        val result = runCatchingCancellable {
-            plan.entries.forEach { entry ->
-                written += timeTracking.createManualEntry(
+        writeAllOrNone(
+            items = plan.entries,
+            write = { entry ->
+                timeTracking.createManualEntry(
                     taskId = plan.taskId,
                     userId = userId,
                     startedAt = entry.startedAt,
@@ -190,11 +181,93 @@ class ProposalDispatch(
                     note = entry.note,
                     source = TimeEntrySource.AiProposal,
                 ).getOrThrow()
-            }
+            },
+            takeBack = { id -> timeTracking.delete(id) },
+        )
+    }
+
+    /**
+     * Creates the tasks a note's actions describe.
+     *
+     * `ExtractActions` creates tasks directly from the note content, so an empty
+     * action is skipped rather than becoming a task with no title.
+     */
+    private suspend fun extractNoteActions(plan: ProposalPlan.ExtractNoteActions, userId: UserId) {
+        val now = clock.now()
+        writeAllOrNone(
+            items = plan.actions.map { it.trim() }.filter { it.isNotEmpty() },
+            write = { title ->
+                tasks.create(
+                    Task(
+                        id = TaskId.generate(),
+                        title = title,
+                        userId = userId,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                ).getOrThrow().id
+            },
+            takeBack = { id -> tasks.delete(id) },
+        )
+    }
+
+    /** Writes the field of a note a proposal asked for. */
+    private suspend fun writeNote(plan: ProposalPlan.WriteNote) {
+        val updated = when (plan.value) {
+            is NoteValue.Title -> plan.note.copy(title = plan.value.value.trim())
+
+            is NoteValue.Body -> plan.note.copy(bodyHtml = plan.value.value)
+
+            is NoteValue.Summary -> plan.note.copy(bodyHtml = plan.value.value)
+
+            // The planner refuses this value before the claim; the branch is here
+            // because the `when` is exhaustive, and it says the same thing.
+            is NoteValue.Unreadable -> error(plan.value.readFailure ?: "This value cannot be read.")
         }
-        if (result.isFailure) {
-            val takenBack = written.map { timeTracking.delete(it) }
-            throw failureWith(result, takenBack)
+        notes.upsert(updated)
+    }
+
+    /**
+     * Writes every item, or none of them.
+     *
+     * A change that writes three rows and fails on the second leaves the first
+     * behind, and the change goes back to waiting — so the row that stayed is
+     * there twice on the next attempt. The same is true of a write that is cut
+     * short: the scope is gone, the rows that were written are not, and the
+     * change waits again.
+     *
+     * So the rows that were written are taken back on both paths, and the
+     * take-back runs where a cancellation cannot stop it.
+     */
+    private suspend fun <T, Id> writeAllOrNone(
+        items: List<T>,
+        write: suspend (T) -> Id,
+        takeBack: suspend (Id) -> Result<*>,
+    ) {
+        val written = mutableListOf<Id>()
+        var settled = false
+        try {
+            val result = runCatchingCancellable {
+                for (item in items) {
+                    written += write(item)
+                }
+            }
+            if (result.isFailure) {
+                val takenBack = written.map { takeBack(it) }
+                settled = true
+                throw failureWith(result, takenBack)
+            }
+            settled = true
+        } finally {
+            if (!settled) {
+                // The write was cut short: the scope was cancelled. The rows that
+                // were written are taken back under a scope that is not cancelled
+                // any more, and the ones that could not be taken back are
+                // reported — the user is not looking at this screen, and a row
+                // that stayed would be there twice after the next attempt.
+                val takenBack = withContext(NonCancellable) { written.map { takeBack(it) } }
+                reportStuckRows(takenBack)
+            }
         }
     }
 
@@ -224,35 +297,19 @@ class ProposalDispatch(
     }
 
     /**
-     * Creates the tasks a note's actions describe.
+     * Reports the rows that stayed behind a cancelled write.
      *
-     * `ExtractActions` creates tasks directly from the note content, so an empty
-     * action is skipped rather than becoming a task with no title.
+     * There is no user to tell: the scope they were in is gone. So the fact goes to
+     * the log and to the crash reporter, where it is a fact about the data rather
+     * than a message nobody reads.
      */
-    private suspend fun extractNoteActions(plan: ProposalPlan.ExtractNoteActions, userId: UserId) {
-        val now = clock.now()
-        val written = mutableListOf<TaskId>()
-        val result = runCatchingCancellable {
-            plan.actions.forEach { actionText ->
-                val title = actionText.trim()
-                if (title.isNotEmpty()) {
-                    val created = tasks.create(
-                        Task(
-                            id = TaskId.generate(),
-                            title = title,
-                            userId = userId,
-                            createdAt = now,
-                            updatedAt = now,
-                        ),
-                    ).getOrThrow()
-                    written += created.id
-                }
-            }
-        }
-        if (result.isFailure) {
-            // All of them, or none — see [addChecklistItems].
-            val takenBack = written.map { tasks.delete(it) }
-            throw failureWith(result, takenBack)
-        }
+    private fun reportStuckRows(takenBack: List<Result<*>>) {
+        val stuck = takenBack.count { it.isFailure }
+        if (stuck == 0) return
+        log.e { "ProposalDispatch: $stuck written rows could not be taken back after a cancellation" }
+        crashReporter.report(
+            IllegalStateException("$stuck written rows could not be taken back after a cancellation"),
+            "proposals.rows_stuck_after_cancellation",
+        )
     }
 }

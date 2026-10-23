@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 
 /**
  * Creates a [TestVmContext] by instantiating [factory] with the test's [TestScope]
@@ -54,6 +55,13 @@ fun <VM, S> TestScope.testVm(
 ): TestVmContext<VM, S> {
     val vm = factory(this, backgroundScope)
     advanceUntilIdle()
+    // advanceUntilIdle() stops as soon as there is no *foreground* work left, so a
+    // collector that runs in the background scope — which is where a collector that
+    // never ends belongs — has not started yet. runCurrent() dispatches what is
+    // scheduled at this moment of virtual time, foreground or not, so the ViewModel
+    // has read what it reads before the first assertion. `act` does the same for the
+    // same reason.
+    runCurrent()
     afterInit(vm, backgroundScope)
     return testVmContext(vm, stateAccessor, this, backgroundScope)
 }
@@ -86,6 +94,7 @@ fun <VM, S> TestScope.testVm(
 ): TestVmContext<VM, S> {
     val vm = factory()
     advanceUntilIdle()
+    runCurrent()
     afterInit(vm)
     return testVmContext(vm, stateAccessor, this, backgroundScope)
 }

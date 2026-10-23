@@ -129,6 +129,26 @@ class ProposalMapperTest {
             assertEquals(kind, decoded, "a cleared date does not survive the round trip: $encoded")
         }
     }
+
+    @Test
+    fun `a value this build cannot read keeps the change`() {
+        // A row written by a build that knew the priority, read by one that does not.
+        // The change must not vanish: it is still a change, and the user has to be
+        // able to decide about it.
+        val encoded = """{"type":"SetTaskField","field":"Priority","value":"very high"}"""
+
+        val decoded = assertNotNull(decodeKind(encoded), "the change is not dropped")
+
+        assertEquals(
+            ProposalItemKind.SetTaskField(TaskValue.Unreadable("Priority", "very high")),
+            decoded,
+            "the change is kept, with the value it could not read",
+        )
+        assertNotNull(
+            (decoded as ProposalItemKind.SetTaskField).readFailure,
+            "the reason the value does not read is with the change",
+        )
+    }
 }
 
 /**
@@ -149,6 +169,14 @@ private fun samples(): List<ProposalItemKind> = listOf(
     ProposalItemKind.SetTaskField(TaskValue.Kind(TaskKind.Note)),
     ProposalItemKind.SetTaskField(TaskValue.Project("project-1")),
     ProposalItemKind.SetTaskField(TaskValue.Someday(true)),
+
+    // A value this build cannot read, for each of the four dictionaries. The field
+    // is one this build does not know — which is what a row written by an older
+    // build looks like. The change stays; the value carries the reason.
+    ProposalItemKind.SetTaskField(TaskValue.Unreadable("Priority", "very high")),
+    ProposalItemKind.SetNoteField(NoteValue.Unreadable("Colour", "blue")),
+    ProposalItemKind.SetProjectField(ProjectValue.Unreadable("Colour", "blue")),
+    ProposalItemKind.SetTagField(TagValue.Unreadable("Colour", "blue")),
 
     // Every note field.
     ProposalItemKind.SetNoteField(NoteValue.Title("Agenda")),

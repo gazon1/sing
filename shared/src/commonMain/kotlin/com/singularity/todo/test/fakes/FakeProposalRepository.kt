@@ -42,6 +42,15 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
      */
     var saveOverride: Result<Unit>? = null
 
+    /**
+     * Runs just before a claim decides, so a test can change the row in between.
+     *
+     * The read and the claim are two moments, and the user can act in between: the
+     * value they typed while the confirm was in flight is a new row. Null by default,
+     * so an existing test changes nothing.
+     */
+    var beforeClaim: (suspend () -> Unit)? = null
+
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> = proposals.map { map ->
         map.values.filter { it.targetKind == AiProposal.TARGET_KIND_TASK && it.targetId == taskId.value }
             .sortedByDescending { it.createdAt }
@@ -120,6 +129,10 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         reason: String?,
         userId: UserId,
     ): ProposalItem? {
+        // A test can change the row in the moment between the read and the claim —
+        // which is what the user typing a new value while the confirm is in flight
+        // looks like from here.
+        beforeClaim?.invoke()
         val before = items.value[id.value] ?: return null
         if (before.status != ProposalItemStatus.Pending) return null
         // Ownership is checked through the owning proposal, exactly as the DAO's
