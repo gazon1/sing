@@ -36,10 +36,10 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 - [x] shared/ Record the decisions this change makes. `docs/decisions/`
 - [x] shared/ Refresh the decisions digest. `./scripts/refresh-decisions-digest.sh`
-- [ ] shared/ Write the verdict for this change's review. `.specify/reviews/agent-surface-follow-ups.md`
+- [x] shared/ Write the verdict for this change's review. `.specify/reviews/agent-surface-follow-ups.md`
 
 ## 7. Verification
 
-- [ ] Run the tests for the changed modules. `./gw :shared:jvmTest :desktopApp:test -Ptest.tags=fast,slow`
-- [ ] Run the linter over the changed modules. `./gw :shared:detekt :desktopApp:detekt :mcp-server:detekt :androidApp:detekt`
-- [ ] Run the structural gates. `PYTHONPATH=scripts/src python3 scripts/check-gate-wiring.py`
+- [x] Run the tests for the changed modules. `./gw :shared:jvmTest :desktopApp:test -Ptest.tags=fast,slow`
+- [x] Run the linter over the changed modules. `./gw :shared:detekt :desktopApp:detekt :mcp-server:detekt :androidApp:detekt`
+- [x] Run the structural gates. `PYTHONPATH=scripts/src python3 scripts/check-gate-wiring.py`
