@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.IndexedRecord
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
@@ -7,7 +8,6 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
-import com.singularity.todo.feature.search.query.FreeTextRule
 import com.singularity.todo.feature.search.query.Options
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery

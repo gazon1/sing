@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.search.query
 
+import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.TextMatch
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.feature.tasks.domain.TaskDomain
