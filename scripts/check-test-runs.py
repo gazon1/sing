@@ -441,7 +441,7 @@ def missing_classes(expected: set[str], executed: set[str]) -> list[str]:
 
 
 def read_run_manifest(detail_dir: pathlib.Path):
-    """The manifest `shared/build.gradle.kts` writes beside the XML, or None.
+    """The manifest the root build script writes beside the XML, or None.
 
     Absent is normal and means "before this existed", not "filtered": a tree whose test
     task predates the manifest must not be reported as a filtered run. So this returns None
@@ -666,9 +666,9 @@ def cli(
             "# Record the SMALLEST count any legitimate run produces. The default local",
             "# run (no -Ptest.tags) excludes @Tag(\"slow\") and therefore runs every",
             "# @Tag(\"fast\") class PLUS any untagged one — which is why it, and not the",
-            "# nightly, is the run to record. CI has two selections: `-Ptest.tags=fast`",
-            "# on a pull request, which selects tagged classes only, and",
-            "# `-Ptest.tags=fast,slow` on the nightly, which selects the slow ones too.",
+            "# nightly, is the run to record. CI names a population rather than a tag",
+            "# list: `fast` on a pull request, which selects tagged classes only, and",
+            "# `full` on the nightly, which selects the slow ones too.",
             "# Neither is a superset of the local run: both are a different selection,",
             "# narrower whenever a class is untagged. TestTagCoverageTest is what keeps",
             "# that population at zero. Recording the nightly numbers here instead",
