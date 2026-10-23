@@ -18,6 +18,7 @@ To refresh the numbers:
 
     ./check.sh                       # measure the loop
     sgate gate-costs --record        # write the baseline and re-render this page
+    sgate gate-costs --record-ci     # record the branch's last finished CI run
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
@@ -120,7 +121,7 @@ Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
 
 The uninstrumented `:shared:jvmTest` in the table above is a different run: the Kover agent multiplies the cost of every test, and this is the number a timeout has to be set from.
 
-### The last CI run
+### The last finished run of `main`
 
 The CI loop is the one that blocks merges, so it is priced too — 2026-10-23T14:54:00Z — https://github.com/gazon1/sing/actions/runs/39973576863.
 

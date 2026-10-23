@@ -48,6 +48,10 @@ measurement is used for a decision.**
   branch's failed run reads a price for something that was never measured. The
   verdict travels with the durations: a price next to a failed run, without the
   verdict, reads as the price of a green one.
+- A run whose jobs cannot be read is **not recorded**. The published section is
+  rendered from the recorded jobs, so a record with no jobs renders no section —
+  writing one would delete the price of the loop and say nothing about it. A failed
+  read leaves the recorded price alone.
 - The two duplicate declarations are gone, and a test says a control may not be
   written twice. The old guard could not see it: it compared the control lists with
   the *fixture* list, and a list that duplicates itself is invisible to a comparison

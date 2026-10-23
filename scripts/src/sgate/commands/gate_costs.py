@@ -313,6 +313,7 @@ To refresh the numbers:
 
     ./check.sh                       # measure the loop
     sgate gate-costs --record        # write the baseline and re-render this page
+    sgate gate-costs --record-ci     # record the branch's last finished CI run
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
@@ -452,7 +453,7 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
     jobs = ci.get("jobs")
     if not isinstance(jobs, dict) or not jobs:
         return []
-    lines = ["### The last CI run", ""]
+    lines = [f"### The last finished run of `{CI_BRANCH}`", ""]
     created = ci.get("createdAt")
     url = ci.get("url")
     if created or url:
@@ -650,6 +651,13 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
             duration = _duration_ms(job.get("startedAt"), job.get("completedAt"))
             if isinstance(name, str) and duration is not None:
                 jobs[name] = duration
+    if not jobs:
+        # The runner's record of the run's jobs could not be read. A record with
+        # no jobs is not a price, and writing it would REPLACE the recorded
+        # price of the loop with nothing — and the published section, which
+        # renders from the jobs, would silently disappear. A read that failed
+        # is a failed read: there is no record, and the old one stays.
+        return None
     return {
         "runId": run.get("databaseId"),
         "url": run.get("url"),
@@ -748,10 +756,12 @@ def _coverage_cost_header(
         "starts, so that nobody sets a 15-minute timeout on a 37-minute task.",
         f"Measured on {measured_at} with a warm Gradle cache, on the development host "
         f"({os.cpu_count()} vCPU). A CI runner has 4 vCPU: the same run there is "
-        "slower, so the CI job's timeout is this measurement times the runner "
-        "margin — twice it, the margin the gate uses. `scripts/check-coverage-timeout.py` "
-        "is what says so: a timeout that no longer covers the measurement fails "
-        "that gate instead of the run.",
+        "slower, so the CI job's timeout must cover at least this measurement "
+        "times a chosen margin of 2x — the constant "
+        "`scripts/check-coverage-timeout.py` uses. The margin is chosen, not "
+        "derived: a fully CPU-bound run on 4 vCPU would cost four times this "
+        "measurement. The gate is what says so — a timeout that no longer "
+        "covers the measurement fails that gate instead of the run.",
         "To re-measure: `sgate gate-costs --record --coverage` (about an hour: it "
         "runs the instrumented coverage once per population).",
     ]
@@ -796,7 +806,11 @@ def write_coverage_costs(
 
 @click.command("gate-costs")
 @click.option("--record", is_flag=True, help="Record the measured cycle into the committed baseline.")
-@click.option("--record-ci", is_flag=True, help="Record the last CI run's job durations into the baseline.")
+@click.option(
+    "--record-ci",
+    is_flag=True,
+    help="Record the branch's last finished CI run — its job durations and its verdict.",
+)
 @click.option(
     "--coverage",
     is_flag=True,
@@ -819,9 +833,11 @@ def gate_costs(
     anything that got much slower is named.
 
     --record writes the measurement into the committed baseline and re-renders the
-    published page. --record-ci writes the last CI run's job durations into the same
-    baseline: the loop that blocks merges was unpriced while the local one was
-    measured. --render re-renders the page from the baseline alone. --check is the
+    published page. --record-ci writes the branch's last FINISHED run — its job
+    durations and its verdict — into the same baseline: the loop that blocks merges
+    was unpriced while the local one was measured. A run that has not finished is
+    not recorded, and a run whose jobs cannot be read is not recorded either: a
+    failed read must not replace a recorded price with nothing. --render re-renders the page from the baseline alone. --check is the
     gate: it fails when the published page is not what the baseline says, which is
     a question a CI runner can answer without a local measurement.
 
