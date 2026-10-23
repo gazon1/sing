@@ -168,13 +168,17 @@ object TaskSeriesInvariants {
 
     /**
      * The value of a shared field of a task.
+     *
+     * The tags are compared as a set: the same tags in a different order are the
+     * same tags, and a comparison that called them different would rewrite every
+     * member of a series for nothing.
      */
     private fun valueOf(task: Task, field: TaskSharedField): Any? = when (field) {
         TaskSharedField.Title -> task.title
         TaskSharedField.Description -> task.description
         TaskSharedField.Priority -> task.priority
         TaskSharedField.Project -> task.projectId
-        TaskSharedField.Tags -> task.tags
+        TaskSharedField.Tags -> task.tags.toSet()
         TaskSharedField.AccentColor -> task.accentColor
         TaskSharedField.Emoji -> task.emoji
         TaskSharedField.Estimate -> task.estimateMinutes
@@ -189,7 +193,7 @@ object TaskSeriesInvariants {
         TaskSharedField.Description -> copy(description = value as String?)
         TaskSharedField.Priority -> copy(priority = value as TaskPriority)
         TaskSharedField.Project -> copy(projectId = value as ProjectId?)
-        TaskSharedField.Tags -> copy(tags = value as List<TagId>)
+        TaskSharedField.Tags -> copy(tags = (value as Set<TagId>).toList())
         TaskSharedField.AccentColor -> copy(accentColor = value as Long?)
         TaskSharedField.Emoji -> copy(emoji = value as String?)
         TaskSharedField.Estimate -> copy(estimateMinutes = value as Int?)

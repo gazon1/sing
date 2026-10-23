@@ -50,12 +50,20 @@ back. The message SHALL say how many dates went away.
 The undo SHALL restore exactly the occurrences that were archived — the ids it
 archived, not the members the series has at the time of the undo.
 
-After the deletion the screen SHALL navigate back.
+The offer comes before the screen leaves. The screen SHALL navigate back once
+the offer has been declined; the offer and the navigation cannot both happen at
+once, because the toast that carries the offer belongs to the screen that is
+leaving.
 
 **Rationale:** a series is several dates of one work, and the work is not what a
 person throws away by accident. The undo restores the ids rather than the
 series, because the series changes: a date added between the deletion and the
 undo must not come back with the work, and a date removed must not stay away.
+
+The offer comes first because the toast is the screen's own: it lives in the
+composition that the navigation tears down. A screen that left first would take
+the way back with it, and the user would see the series archived with nothing to
+say about it.
 
 #### Scenario: Deleting a series archives every occurrence
 
@@ -74,6 +82,12 @@ undo must not come back with the work, and a date removed must not stay away.
 - **GIVEN** a series of three occurrences that was deleted
 - **WHEN** the undo is used
 - **THEN** the three occurrences are no longer archived
+
+#### Scenario: The screen leaves once the offer is declined
+
+- **GIVEN** a series of three occurrences that was deleted
+- **WHEN** the offer goes away without being taken
+- **THEN** the screen is no longer open
 
 #### Scenario: An occurrence added after the deletion stays away
 

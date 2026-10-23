@@ -138,6 +138,12 @@ fun TaskDetailContent(
                         onAction = {
                             coordinator.onIntent(TaskDetailIntent.Domain.RestoreSeries(event.taskIds))
                         },
+                        // The screen leaves when the offer is declined — not before it
+                        // is made. The toast lives in this screen's composition, so a
+                        // navigation that came first would destroy the very offer it
+                        // was supposed to accompany: the user would see the series
+                        // archived and no way back.
+                        onDeclined = { navigator.back() },
                     ),
                 )
 

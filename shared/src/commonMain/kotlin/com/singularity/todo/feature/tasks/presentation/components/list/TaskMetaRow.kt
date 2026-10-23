@@ -73,7 +73,7 @@ fun TaskMetaRow(
         }
 
         if (seriesDates != null) {
-            SeriesMarker(dates = seriesDates)
+            SeriesMarker(isSeries = true, dates = seriesDates)
             Spacer(Modifier.width(TaskListSpacing.Xs))
         }
 

@@ -25,22 +25,26 @@ import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
  * own date reads like a task that has nothing to do with the rows around it.
  * The mark says what the row is, and how many dates the work has.
  *
- * @param dates How many dates the series has. `null` renders nothing — a task
- *   that stands alone has nothing to mark.
+ * @param isSeries Whether the row is one date of a series. A task that stands
+ *   alone carries no mark.
+ * @param dates How many dates the series has. `null` means the surface does not
+ *   show the count — the calendar's chip has no room for it — and not that the
+ *   row is not part of a series.
  * @param compact The icon alone, for the places where there is no room for a
  *   word — the calendar's chip.
  */
 @Composable
 fun SeriesMarker(
-    dates: Int?,
+    isSeries: Boolean,
+    dates: Int? = null,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
-    if (dates == null) return
-    val label = if (compact) {
-        "Серия"
-    } else {
-        "серия · ${formatDateCount(dates)}"
+    if (!isSeries) return
+    val label = when {
+        compact -> "Серия"
+        dates == null -> "серия"
+        else -> "серия · ${formatDateCount(dates)}"
     }
     Row(
         modifier = modifier.testTag(TestTags.TaskSeries.MARKER),

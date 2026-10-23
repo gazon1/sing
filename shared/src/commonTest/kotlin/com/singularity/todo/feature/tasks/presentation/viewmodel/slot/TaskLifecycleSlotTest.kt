@@ -113,6 +113,30 @@ class TaskLifecycleSlotTest {
     }
 
     @Test
+    fun `deleting a series keeps the screen until the offer is declined`() = runTest {
+        val fakes = SlotFakes()
+        val series = TaskSeriesId("s1")
+        fakes.taskRepo.seed(task("t1", seriesId = series), task("t2", seriesId = series))
+        var navigated = false
+        val slot = slot(
+            fakes,
+            TaskSource(task("t1", seriesId = series)),
+            backgroundScope,
+            onBack = { navigated = true },
+        )
+        runCurrent()
+
+        slot.onIntent(TaskDetailIntent.Domain.DeleteSeries)
+        runCurrent()
+
+        assertTrue(
+            !navigated,
+            "the toast that carries the way back lives in this screen — leaving first would " +
+                "destroy the offer it was supposed to accompany",
+        )
+    }
+
+    @Test
     fun `restoring a series puts every occurrence back`() = runTest {
         val fakes = SlotFakes()
         val series = TaskSeriesId("s1")

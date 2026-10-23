@@ -90,6 +90,17 @@ work. The series that is realigned is the one this device is on: a row of
 another profile — the lost-race path writes the row's own shadow — is stored as
 it is, because this device does not rewrite rows it does not own.
 
+**The tags of the source are the ones the row carries, not the ones the caller
+holds.**
+
+The tags live in the cross-ref table, so a task that was read through `get()`
+carries none of them. A repair that took the tags of the task it was handed
+would read that absence as the truth about the work — and strip the tags off
+every other member of the series. The repository therefore reads the source's
+tags from the database, and the pull path writes the tags of the row that
+arrives before it repairs the series, because a pull that wrote the row and
+lost the tags would leave the series saying two things about the work.
+
 **The rules live in the domain, not in the callers.**
 
 `TaskSeriesInvariants` is a pure object: `sharedFieldsOf`, `divergedFields`,
@@ -120,10 +131,12 @@ app already follows; here it is applied to the whole series rather than to the
 row, because the series is the thing the user thinks in.
 
 **Why the profile is not part of the rule.** The rule is about the *work*, and
-the work belongs to a user. A row that arrives with its own `userId` realigns
-the series of that user — which is the only series it can be a member of. A
-profile switch therefore changes which series is looked at, never which story
-the series tells.
+the work belongs to a user. The realignment looks at the series of the user the
+incoming row belongs to — which is the only series it can be a member of — and
+it writes the rows of the profile this device is on. A row of another profile
+is stored as it is: healing it would mean rewriting the rows of a profile this
+device is not on, and a device that rewrites another account's work is worse
+than a device that leaves it alone.
 
 ## Consequences
 
@@ -132,8 +145,13 @@ the series tells.
   members that actually differ.
 - The rules are testable without a database: `TaskSeriesInvariants` is pure, and
   its test covers the alignment, the divergence and the batch checks.
-- The repository contract test covers the write path — that a single-row update
-  realigns the series, and that the pull path realigns to the incoming row.
+- The write path is covered where it actually runs: `TaskSeriesWritePathTest`
+  drives `TaskRepositoryImpl` against a real database and checks that a
+  renamed occurrence realigns the series, that the rows which already agree are
+  not written again, that a member keeps its own newer timestamp, that an
+  incoming row realigns the local series, that a foreign row touches nothing,
+  and that a batch write carries the tags into the cross-ref table. The fake
+  cannot cover these: it stores whole `Task` objects and has no rows to realign.
 - A batch write that is refused fails loudly (`Result.failure`), instead of
   writing a series that nobody can describe.
 - The realignment writes the rows that changed and enqueues them, so the change

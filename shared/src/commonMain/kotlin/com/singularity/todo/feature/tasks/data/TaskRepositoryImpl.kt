@@ -8,7 +8,6 @@ import com.singularity.todo.core.database.toEpochMillisOrNull
 import com.singularity.todo.core.database.toIsoOrNull
 import com.singularity.todo.core.database.toLocalTimeIsoOrNull
 import com.singularity.todo.core.database.toTask
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
@@ -194,7 +193,7 @@ class TaskRepositoryImpl(
             val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
             taskDao.upsert(toUpdate.toEntity())
             saveOutgoingLinks(toUpdate.id, toUpdate.description)
-            realignSeries(toUpdate, toUpdate.tags)
+            realignSeries(toUpdate)
             syncRepository.enqueue(toUpdate)
             toUpdate
         }
@@ -248,6 +247,12 @@ class TaskRepositoryImpl(
                 val toUpdate = item.copy(userId = currentUid)
                 taskDao.upsert(toUpdate.toEntity())
                 saveOutgoingLinks(toUpdate.id, toUpdate.description)
+                // The tags are a shared field of a series, and they live in the
+                // cross-ref table rather than in the row. A batch write that carried
+                // the tags in the task but not in the database would leave the
+                // series saying two different things about the work — and the merge
+                // of two series is exactly the write that changes them.
+                writeTags(toUpdate, currentUid.value)
                 syncRepository.enqueue(toUpdate)
                 toUpdate
             }
@@ -267,7 +272,7 @@ class TaskRepositoryImpl(
      * Only the rows that actually differ are written, so changing an occurrence — a
      * date, a completion — does not rewrite the whole series for nothing.
      */
-    private suspend fun realignSeries(source: Task, tags: List<TagId>) {
+    private suspend fun realignSeries(source: Task) {
         val seriesId = source.seriesId ?: return
         // The rows that are realigned are the current profile's rows: a series is
         // one account's work, and this device does not rewrite another account's
@@ -278,46 +283,75 @@ class TaskRepositoryImpl(
             .filter { it.id != source.id.value }
         if (members.isEmpty()) return
 
-        val sourceEntity = source.toEntity()
         val tagRefs = taskDao.listAllTagsForUser(uid)
             .groupBy { it.taskId }
             .mapValues { (_, rows) -> rows.map { TagId.fromString(it.tagId) }.toSet() }
-        val sourceTags = tags.toSet()
+
+        // The tags of the source are the ones the row carries in the database —
+        // not the ones the caller happened to hold in memory. A caller that read
+        // the task through `get()` holds no tags at all (they live in the
+        // cross-ref table), and treating that absence as the truth would strip
+        // the tags off every other member of the series.
+        val sourceTags = taskDao.getTagIdsForUser(source.id.value, uid).first()
+            .map { TagId.fromString(it) }
+            .toSet()
+        val sourceTask = source.copy(tags = sourceTags.toList())
+
+        // The rule lives in the domain: the members that already agree are not
+        // written at all, and the ones that disagree take the source's shared
+        // fields. The repository decides *when* the series is realigned; the
+        // invariants object decides *what the series says* — including which
+        // fields are shared, so a field added to the enumeration is covered here
+        // by construction.
+        val memberTasks = members.map { member ->
+            member.toTask(tags = tagRefs[member.id].orEmpty().toList())
+        }
+        val realigned = TaskSeriesInvariants.membersToRealign(memberTasks, sourceTask)
+        if (realigned.isEmpty()) return
 
         // The rows and the patches that describe them commit together. A row that
         // says one thing and a patch that says another is the divergence this
         // function exists to prevent, and the two halves of the write have to be
         // one unit of work for that to hold.
         unitOfWork.write {
-            val changed = mutableListOf<TaskEntity>()
-            for (member in members) {
-                val aligned = member.withSharedFieldsOf(sourceEntity)
-                val memberTags = tagRefs[member.id].orEmpty()
-                val fieldsDiffer = aligned != member
-                val tagsDiffer = memberTags != sourceTags
-                if (!fieldsDiffer && !tagsDiffer) continue
-
-                if (fieldsDiffer) {
-                    // The guard before the write: the whole-row upsert carries no
-                    // owner in its query, so the guard is what says the row may be
-                    // rewritten by this profile.
-                    currentUser.assertCanWrite(
-                        entityId = member.id,
-                        entityUserId = UserId.fromString(member.userId),
-                    )
-                    taskDao.upsert(aligned)
-                    saveOutgoingLinks(TaskId.fromString(member.id), source.description)
+            for (member in realigned) {
+                val memberId = member.id.value
+                // The guard before the write: the whole-row upsert carries no
+                // owner in its query, so the guard is what says the row may be
+                // rewritten by this profile.
+                currentUser.assertCanWrite(entityId = memberId, entityUserId = member.userId)
+                // The repaired row is stamped with the time of the repair, and
+                // never earlier than the stamp the member already had: a member
+                // that was edited later than the source keeps its newer time, so
+                // the push cannot carry a stale one and lose that edit.
+                val repairedAt = maxOf(member.updatedAt, clock.now())
+                val stamped = member.copy(updatedAt = repairedAt)
+                taskDao.upsert(stamped.toEntity())
+                saveOutgoingLinks(member.id, source.description, repairedAt.toEpochMilliseconds())
+                val memberTags = tagRefs[memberId].orEmpty()
+                if (memberTags != sourceTags) {
+                    memberTags.forEach { tagId -> taskDao.removeTagRefForUser(memberId, tagId.value, uid) }
+                    sourceTags.forEach { tagId -> taskDao.upsertTagCrossRefForUser(memberId, tagId.value, uid) }
                 }
-                if (tagsDiffer) {
-                    memberTags.forEach { tagId -> taskDao.removeTagRefForUser(member.id, tagId.value, uid) }
-                    sourceTags.forEach { tagId -> taskDao.upsertTagCrossRefForUser(member.id, tagId.value, uid) }
-                }
-                changed += member
-            }
-            for (member in changed) {
-                enqueueFresh(TaskId.fromString(member.id))
+                enqueueFresh(member.id)
             }
         }
+    }
+
+    /**
+     * Writes the tags of [task] over the tags the row carries.
+     *
+     * The tags live in the cross-ref table rather than in the row, so a write that
+     * carried them only in the task would leave the database saying something else
+     * about the work than the task does — and for a series that is the divergence
+     * this whole feature exists to prevent.
+     */
+    private suspend fun writeTags(task: Task, uid: String) {
+        val existing = taskDao.getTagIdsForUser(task.id.value, uid).first().toSet()
+        val wanted = task.tags.map { it.value }.toSet()
+        if (existing == wanted) return
+        existing.forEach { tagId -> taskDao.removeTagRefForUser(task.id.value, tagId, uid) }
+        wanted.forEach { tagId -> taskDao.upsertTagCrossRefForUser(task.id.value, tagId, uid) }
     }
 
     override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> =
@@ -325,12 +359,23 @@ class TaskRepositoryImpl(
             taskDao.withExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
         }
 
-    private suspend fun saveOutgoingLinks(id: TaskId, description: String?) {
+    /**
+     * Writes the outgoing links of [id] and stamps the row.
+     *
+     * The stamp is a parameter because the caller knows which time the row
+     * carries: a row that was just repaired by the series rule carries the time
+     * of the repair, not the time this helper happens to read from the clock.
+     */
+    private suspend fun saveOutgoingLinks(
+        id: TaskId,
+        description: String?,
+        updatedAt: Long = clock.now().toEpochMilliseconds(),
+    ) {
         val links = description?.let { extractOutgoingLinks(it) }.orEmpty()
         val rows = taskDao.setOutgoingLinksForUser(
             id = id.value,
             linksJson = links.toLinksJson(),
-            updatedAt = clock.now().toEpochMilliseconds(),
+            updatedAt = updatedAt,
             userId = currentUser.scopedUserId.value.value,
         )
         require(rows > 0) { "Outgoing links not written for $id — not found or not owned by current user" }
@@ -415,19 +460,31 @@ class TaskRepositoryImpl(
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
     override suspend fun upsert(task: Task): Task {
-        taskDao.upsert(task.toEntity())
-        // A row that arrives from another device is the newest word about the work:
-        // the device that wrote it had already made the whole series say the same
-        // thing. So the local series follows it, and the rows that changed are pushed
-        // back — otherwise the two devices keep saying different things about one
-        // piece of work, and the series is a name for nothing.
-        //
-        // Only the current profile's series follows. A row that arrived for another
-        // account — the lost-race path writes the row's own shadow — is that
-        // account's business: this device stores it and does not rewrite rows it
-        // does not own.
-        if (task.userId == currentUser.scopedUserId.value) {
-            realignSeries(task, task.tags)
+        // One unit of work: the row that arrives, the tags it carries and the
+        // repair of the local series either all land or none of them do. A pull
+        // that wrote the row and then lost the tags would leave the series saying
+        // two things about the work — the very divergence this path exists to
+        // repair.
+        unitOfWork.write {
+            taskDao.upsert(task.toEntity())
+            // A row that arrives from another device is the newest word about the work:
+            // the device that wrote it had already made the whole series say the same
+            // thing. So the local series follows it, and the rows that changed are pushed
+            // back — otherwise the two devices keep saying different things about one
+            // piece of work, and the series is a name for nothing.
+            //
+            // Only the current profile's series follows. A row that arrived for another
+            // account — the lost-race path writes the row's own shadow — is that
+            // account's business: this device stores it and does not rewrite rows it
+            // does not own.
+            if (task.userId == currentUser.scopedUserId.value) {
+                // The tags live in the cross-ref table, not in the row. The row that
+                // arrives carries the tags of the work, and the local row has to carry
+                // them too — otherwise the series would disagree about the work right
+                // after the pull, and the repair would spread the disagreement.
+                writeTags(task, currentUser.scopedUserId.value.value)
+                realignSeries(task)
+            }
         }
         return task
     }
@@ -617,7 +674,7 @@ class TaskRepositoryImpl(
             // tagged with; the others follow it.
             val seriesId = entity.seriesId
             if (seriesId != null) {
-                realignSeries(updatedEntity.toTask(tags = newTagIds.toList()), newTagIds.toList())
+                realignSeries(updatedEntity.toTask(tags = newTagIds.toList()))
             }
         }
     }
@@ -669,25 +726,6 @@ class TaskRepositoryImpl(
         }
     }
 }
-
-/**
- * A row of a series with the shared fields of [source] written onto it.
- *
- * The shared fields are the ones that describe the *work*; everything that
- * describes an *occurrence* — the date, the time, the completion state, the
- * pin, the dependencies — stays what the row says about itself.
- */
-private fun TaskEntity.withSharedFieldsOf(source: TaskEntity): TaskEntity = copy(
-    title = source.title,
-    description = source.description,
-    priority = source.priority,
-    projectId = source.projectId,
-    accentColor = source.accentColor,
-    emoji = source.emoji,
-    estimateMinutes = source.estimateMinutes,
-    recurrenceRule = source.recurrenceRule,
-    updatedAt = source.updatedAt,
-)
 
 private fun Task.toEntity(): TaskEntity = TaskEntity(
     id = id.value,

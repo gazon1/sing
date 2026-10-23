@@ -101,6 +101,12 @@ class TaskLifecycleSlot(
      * user throws away by accident — so the undo is not a confirmation dialog
      * with a list of dates to read: it is a way back, offered right after the
      * deletion, with the number of dates the user is about to lose.
+     *
+     * The screen does not navigate away here: the toast that carries the offer
+     * lives in this screen, so leaving before the toast has been seen would
+     * take the way back with it. The screen leaves when the offer is declined —
+     * the screen decides that, because it is the one that knows how the toast is
+     * hosted.
      */
     private fun deleteSeries() = scope.launch {
         val task = taskFlow.value ?: return@launch
@@ -108,7 +114,6 @@ class TaskLifecycleSlot(
         core.updateSeries.archiveSeries(seriesId)
             .onSuccess { ids ->
                 onUndoDeleteSeries(ids)
-                onNavigateBack()
             }
             .onFailure { onError("Failed to delete the series") }
     }

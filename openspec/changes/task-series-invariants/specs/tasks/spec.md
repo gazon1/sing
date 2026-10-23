@@ -43,6 +43,12 @@ without asking the user to open the right occurrence first.
 - **WHEN** one occurrence is renamed
 - **THEN** the dates of the three occurrences are unchanged
 
+#### Scenario: A write that carries no tags does not take the tags off the series
+
+- **GIVEN** a series of three occurrences that carry a tag
+- **WHEN** one occurrence is edited through a read that carries no tags
+- **THEN** the other occurrences still carry the tag
+
 ### Requirement: A series write that is not one series is refused
 
 The system SHALL refuse a batch write of a series whose members carry more than
@@ -78,11 +84,13 @@ repair it must not write it.
 ### Requirement: A row that arrives from another device realigns the local series to it
 
 When a row that belongs to a series arrives from another device, the system
-SHALL write it and SHALL realign the local rows of that series to its shared
-fields, and SHALL push the rows that changed back.
+SHALL write it and SHALL realign the rows of that series that this device owns
+to its shared fields, and SHALL push the rows that changed back.
 
-The realignment SHALL be scoped by the user the incoming row belongs to, not by
-the profile that happens to be active.
+The realignment SHALL be scoped by the user the incoming row belongs to: the
+series it can be a member of is that user's series, and this device writes the
+rows of the profile it is on. A row of another profile is stored as it is,
+because this device does not rewrite the rows of a profile it is not on.
 
 **Rationale:** a remote row that disagrees with the local series is not a
 mistake — it is the other device being right about a change this device has not
@@ -132,7 +140,7 @@ slightly wrong.
 
 - **GIVEN** a series of two occurrences
 - **WHEN** one occurrence leaves the series
-- **THEN** the other occurrence still carries the series id
+- **THEN** the other occurrence stands alone and carries no series id
 
 #### Scenario: The last occurrence leaves and the series is over
 
