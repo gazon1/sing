@@ -252,3 +252,58 @@ commit, and the full population is a thing that happened once.
 - **Given** a run of the JVM tier
 - **When** any step that can execute tests selects its population
 - **Then** it selects the population the tier decided
+
+### Requirement: REQ-25 A population is a name, and the report measures everything it counts
+
+A test population SHALL be selected by NAME, and the mapping from a name to the
+JUnit tags it selects SHALL live in one file that the build, the workflows and the
+gates all read. A selection SHALL NOT be spelled as a tag list in more than one
+place: two spellings of one selection drift apart, and the drift is invisible
+until a run measures something else.
+
+The aggregated coverage report SHALL be produced from the test tasks of every
+project whose classes are in its denominator. A project that is not measured SHALL
+either run its tests in the coverage job or be excluded from the coverage scope
+explicitly. A project whose classes are counted and whose tests never ran is
+reported as 0% covered — a number that reads like a coverage problem and is a
+measurement one.
+
+The run manifest SHALL be written for every module that ran tests, and SHALL
+record the population the run selected. The manifest is a fact about the run; a
+gate that has to infer the population from which classes happened to produce a
+report cannot tell "selected no slow class" from "deliberately fast-only".
+
+The floor of the application SHALL be declared where the coverage plugin reads
+it, and a gate SHALL say so when it does not. A floor declared in a place the
+plugin never reads is a floor nobody enforces, and the step that reports it
+stays green.
+
+#### Scenario: The population is named
+
+- **Given** the named populations in `config/test-populations.properties`
+- **When** a job selects a population by name
+- **Then** the build, the workflow and the gates resolve that name to the same
+  tag list, and no surface spells the tag list itself
+
+#### Scenario: A module's classes are counted but its tests never ran
+
+- **Given** a project whose classes are in the coverage denominator and whose
+  test task is not in the report's task list
+- **When** the coverage gate runs
+- **Then** the gate names the project and says which of the two things is wrong:
+  its tests do not run, or it is not part of the app's coverage scope
+
+#### Scenario: A module's run says which population it measured
+
+- **Given** a module that ran tests
+- **When** the run finishes
+- **Then** the run manifest of that module records the population the run
+  selected, and the slow-class gate answers from that record rather than from
+  which classes happened to produce a report
+
+#### Scenario: The floor is declared where nothing reads it
+
+- **Given** a verify block outside the settings-level coverage plugin
+- **When** the declaration gate runs
+- **Then** the gate names the file and says that nothing evaluates the floors
+  declared there

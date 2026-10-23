@@ -32,6 +32,7 @@ GATE_BENCHMARKS_JSON: pathlib.Path = ROOT / "config" / "docs" / "gate-benchmarks
 
 # The published cost of the verification loop
 GATE_COSTS_MD: pathlib.Path = ROOT / "docs" / "testing" / "gate-costs.md"
+COVERAGE_COST_PROPERTIES: pathlib.Path = ROOT / "config" / "docs" / "coverage-cost.properties"
 
 # The measurement of the cycle that just ran. Untracked: it is a reading of this
 # machine at this moment, and the committed baseline is what survives it.

@@ -438,6 +438,27 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-ai-write-tools.py"),
     ),
     GateSpec(
+        name="coverage task list",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-task-list.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
+        name="coverage floor declaration",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-floor-declaration.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
+        name="coverage timeout",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-timeout.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1132,9 +1153,51 @@ GATE_CONTROLS: dict[str, Control] = {
         ),
         tracked_by='.github/workflows/ci.yml#Gradle (tests + coverage + detekt)',
     ),
-    'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.tags="$TEST_TAGS"\n', new='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.tags="$TEST_TAGS"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
-    'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.tags="$TEST_TAGS"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
+    'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
+    'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
     'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n        .withPropertyName("maestroFlows")\n        .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
+    # The app coverage floor, declared where Kover reads it.
+    #
+    # The floors were declared in the root build script for months, in a
+    # `plugins.withId("org.jetbrains.kotlinx.kover")` block that never executed
+    # — probed with a `println`, the line never appeared. The root project has
+    # no Kover extension of its own to configure, so the floors it declared
+    # were evaluated by no task: the CI step that reads them was green no
+    # matter what the coverage was, and the ADR that recorded them said, in so
+    # many words, that "nothing Python-side could have proved it" — which was
+    # true only because of WHERE the declaration was.
+    #
+    # The probe puts the declaration back where it was: a Kover verify block
+    # with an app rule in the root build script. The gate must say so.
+    'coverage-floor-declaration': Control(kind='sabotage', proves='scripts/check-coverage-floor-declaration.py', argv=('{python}', 'scripts/check-coverage-floor-declaration.py', '--quiet'), path='build.gradle.kts', edit=Edit(kind='append', new='\nkover {\n    reports {\n        verify {\n            rule("app instruction coverage") {\n                bound { minValue = 99 }\n            }\n        }\n    }\n}\n'), why='the app coverage floor is the aggregate one, and only the settings-level block can measure it: a verify block in the root build script is read by no task at all, and one in a module measures that module under a name the reader will take for the aggregate. That is how a declared floor went unenforced for months while the step that reads it stayed green'),
+    # The CI timeout covers the instrumented run, and the instrumented run is
+    # measured.
+    #
+    # The coverage job's timeout was a literal — 75 minutes — and the cost of
+    # the instrumented run was priced nowhere, so the number nobody could check
+    # was the number that decided whether a healthy run was killed. The gate
+    # reads the measured cost and the timeout and says so when the timeout
+    # cannot cover the measurement.
+    #
+    # The probe shrinks the timeout to 30 minutes: the measured fast run takes
+    # 37 min 25 s, and the runner is slower than the measurement host. The gate
+    # must fail and name both numbers.
+    'coverage-timeout': Control(kind='sabotage', proves='scripts/check-coverage-timeout.py', argv=('{python}', 'scripts/check-coverage-timeout.py', '--quiet'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    timeout-minutes: 75', new='    timeout-minutes: 30', count=1), why='a timeout that fires on a healthy instrumented run reports a failure that says nothing about the code: the coverage job is killed at the moment it was about to report, and the report is the thing the job exists for'),
+    # The coverage report measures every module that is in it.
+    #
+    # The list of test tasks that feed the aggregated report is written by
+    # hand, in the root build script. A module added to the build is not added
+    # to that list, so its tests never run in the coverage job — and the
+    # report says nothing about it while the reader assumes it does. The
+    # worst case is not "a number is missing": it is a module whose classes
+    # ARE in the denominator and whose tests never ran, which the report
+    # scores as 0% covered — a number that reads like a coverage problem and
+    # is a measurement one.
+    #
+    # The probe removes one entry from the list. `:adr-core` holds the app's
+    # ADR rules, so its classes are in the denominator: with its test task
+    # gone from the list, the gate must say so.
+    'coverage-task-list': Control(kind='sabotage', proves='scripts/check-coverage-task-list.py', argv=('{python}', 'scripts/check-coverage-task-list.py', '--quiet'), path='build.gradle.kts', edit=Edit(kind='replace', old='        ":adr-core:jvmTest",', new='', count=1), why='a module whose classes are in the coverage denominator but whose tests never run is scored as 0% covered: the number reads like a coverage problem and is a measurement one, and nothing else in the build notices it'),
     'detekt-rule-coverage-floor': Control(kind='sabotage', proves='gw', argv=('./gw', '-q', ':detekt-rules:koverVerify'), path='detekt-rules/build.gradle.kts', edit=Edit(kind='regex', pattern='^(val DETEKT_RULE_BRANCH_FLOOR = )\\d+$', repl='\\g<1>100', flags='MULTILINE'), why='branch coverage below the declared floor — the one thing the floor exists to catch, and the thing an unbound or zero bound lets through', needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Kover verify (detekt-rules)'),
     # The waiver-premise control. It renames the CI step the one waived
     # control's `tracked_by` points at, so the anchor names a step that no
@@ -1145,7 +1208,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # The edit is on the workflow rather than on the registry because that is
     # the thing that rots: the registry's promise is a pointer, and a pointer
     # whose target has been renamed is exactly what nothing used to notice.
-    'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags="$TEST_TAGS"\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags="$TEST_TAGS"\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
+    'waiver-references': Control(kind='sabotage', proves='scripts/check-waiver-references.py', argv=('{python}', 'scripts/check-waiver-references.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Kover verify (detekt-rules)\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Kover verify (detekt-rules) [renamed]\n        run: ./gradlew :detekt-rules:koverVerify -Ptest.population="$TEST_POPULATION"\n', count=1), why='a waiver whose reference no longer resolves waives nothing: the compensating pass it was granted for can be gone and the waiver keeps waiving, which is how a permanently-red gate becomes noise nobody reads'),
     # script-conventions: the rule that gate scripts use Click. The probe adds
     # the import the rule looks for, to a script no other control touches.
     #

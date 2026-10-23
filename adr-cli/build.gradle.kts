@@ -158,7 +158,7 @@ tasks.withType<Test>().configureEach {
 
     useJUnitPlatform {
         // Same split as :shared and :desktopApp — a default run excludes `slow`,
-        // and `-Ptest.tags=fast,slow` measures both. See `failOnNoDiscoveredTests`
+        // and `-Ptest.population=full` measures both. See `failOnNoDiscoveredTests`
         // above: discovering zero tests is a configuration error, not a pass.
         val tags = (project.findProperty("test.tags") as String?)
             ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()

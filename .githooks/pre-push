@@ -339,9 +339,18 @@ for i in "${!PUSH_REFS[@]}"; do
     #
     # They run against the tree being pushed, like every other gate here: the
     # CI job that runs them runs the pushed tree's copies.
+    #
+    # The git environment is dropped for that run. Git exports GIT_DIR (and
+    # its friends) for a hook, and they point at THIS worktree — so a test
+    # that shells out to git inside the pushed tree would read the original
+    # worktree's index and refuse to work in the tree it was asked about
+    # ("git add" exits 128, and the suite fails for a reason that has
+    # nothing to do with the code). The pushed tree has its own `.git` file,
+    # and git finds it when the environment does not say otherwise.
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
-    elif (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+        -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
         python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
         echo "   gate suite tests: OK"
     else
@@ -570,6 +579,12 @@ kotlin_digest() {
     local tree="$1"
     (
         cd "$tree" || exit 1
+        # The git environment is dropped here too: GIT_DIR points at THIS
+        # worktree, so `git ls-files` inside the pushed tree would list the
+        # original worktree's files, and the digest would be of a tree nobody
+        # pushed. The pushed tree has its own `.git` file, and git finds it
+        # when the environment does not say otherwise.
+        unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
         {
             git ls-files -- '*.kt' '*.kts'
             git ls-files --others --exclude-standard -- '*.kt' '*.kts'

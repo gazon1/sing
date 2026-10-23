@@ -79,6 +79,17 @@ Recorded on 2026-10-21T15:00:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Gate: workflow env context resolves | 920 ms |
 | Gate: workflow steps keep their exit status | 1.1 s |
 
+### The instrumented coverage run
+
+Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
+
+| Population | Cost |
+|---|---|
+| fast | 37 min 25 s |
+| full | 33 min 23 s |
+
+The uninstrumented `:shared:jvmTest` in the table above is a different run: the Kover agent multiplies the cost of every test, and this is the number a timeout has to be set from.
+
 ### The last CI run
 
 The CI loop is the one that blocks merges, so it is priced too — 2026-10-21T13:39:52Z — https://github.com/gazon1/sing/actions/runs/39609950342.

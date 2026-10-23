@@ -47,6 +47,110 @@ allprojects {
 }
 
 // ---------------------------------------------------------------------------
+// The test population, and the manifest of every run
+// ---------------------------------------------------------------------------
+//
+// A POPULATION is a name: `-Ptest.population=fast` or `-Ptest.population=full`.
+// The tags each name selects live in `config/test-populations.properties` —
+// one file, read here, in settings.gradle.kts (which picks the coverage floors
+// by population) and by the Python gates (which compare what a job's
+// invocations asked for). Before this file existed the selection was the
+// literal string "fast,slow", written in the workflow, in settings.gradle.kts
+// and in a gate, and nothing said which of them was the definition.
+//
+// The name is turned into the tag list ONCE, here, and handed to every module
+// as the `test.tags` property the modules already read. A module's build script
+// does not know about populations: it reads a tag list, and this block is what
+// puts the list there.
+//
+// `-Ptest.tags` still works and still wins: it is the raw knob, for a local
+// run that wants a selection no population names. What does NOT work is
+// passing both — two spellings of one selection is how they drift apart.
+subprojects {
+    val populations = java.util.Properties().apply {
+        rootProject.file("config/test-populations.properties").inputStream().use { load(it) }
+    }
+    val population = providers.gradleProperty("test.population").orNull
+    val explicitTags = providers.gradleProperty("test.tags").orNull
+
+    if (population != null && explicitTags != null) {
+        throw GradleException(
+            "-Ptest.population=$population and -Ptest.tags=$explicitTags were both given. " +
+                "One selection, one spelling: name a population, or spell the tags."
+        )
+    }
+    if (population != null) {
+        val tags = populations.getProperty(population)
+        if (tags == null) {
+            throw GradleException(
+                "unknown test population '$population' — the known ones are: " +
+                    populations.stringPropertyNames().sorted().joinToString(", ") +
+                    " (config/test-populations.properties)"
+            )
+        }
+        // The modules read `project.findProperty("test.tags")`. Handing them the
+        // resolved list here is what lets six build scripts stay free of the
+        // population vocabulary.
+        extra["test.tags"] = tags
+    }
+    extra["test.population"] = population ?: ""
+
+    // ── The run manifest ────────────────────────────────────────────────────
+    //
+    // Gradle leaves no record of whether a run was filtered, so a run that
+    // selected one class rewrites the XML directory with that class's results,
+    // and every gate that reads it — `check-test-runs.py`,
+    // `check-flaky-tests.py` — reports a verdict it cannot source. The gates
+    // were right and useless: they said "a suite stopped running" about a tree
+    // where nothing had.
+    //
+    // The manifest is written here, for EVERY module, because a convention that
+    // lives in one module is a convention the other modules do not have. It used
+    // to be written by `shared/build.gradle.kts` alone, and the gate that asks
+    // "were the slow classes supposed to run here?" could only answer for
+    // `shared` — for `desktopApp` (where 49 of 62 classes are slow) the answer
+    // was a fallback that cannot tell "selected no slow class" from
+    // "deliberately fast-only". That distinction is the whole question.
+    //
+    // One property decides "partial", and it is the one Gradle already tracks:
+    // a `--tests` filter populates `filter.includePatterns`, and nothing else
+    // does. A `-Ptest.population` filter deliberately does NOT mark the run
+    // partial — population selection is what CI does on purpose, and the floors
+    // are recorded against it. The population IS recorded, though: it is what
+    // this run measured, and the gate needs it to answer the slow-class
+    // question.
+    tasks.withType<Test>().configureEach {
+        val runDir = layout.buildDirectory.dir("test-results/$name")
+        val selectedPopulation = (project.findProperty("test.population") as String?) ?: ""
+        val selectedTags = (project.findProperty("test.tags") as String?) ?: ""
+        doLast {
+            val filters = filter.includePatterns
+            val partial = filters.isNotEmpty()
+            val executed = runDir.get().asFile.listFiles()
+                ?.count { it.name.startsWith("TEST-") && it.name.endsWith(".xml") } ?: 0
+            runDir.get().asFile.resolve("run-manifest.properties").writeText(
+                """
+                # Written by the root build script. Read by scripts/check-test-runs.py.
+                task=$name
+                partial=$partial
+                filters=${filters.joinToString(",")}
+                population=$selectedPopulation
+                tags=$selectedTags
+                executedClasses=$executed
+                finishedAt=${System.currentTimeMillis()}
+                """.trimIndent() + "\n",
+            )
+            logger.lifecycle(
+                "$name run manifest: ${if (partial) "PARTIAL" else "full"} " +
+                    "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""}" +
+                    "${if (selectedPopulation.isNotEmpty()) ", population=$selectedPopulation" else ""}" +
+                    "${if (selectedTags.isNotEmpty()) ", tags=$selectedTags" else ""})",
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Aggregated code coverage
 // ---------------------------------------------------------------------------
 // koverVerify is registered by the settings-level `kover.aggregation` plugin on every
@@ -82,6 +186,17 @@ allprojects {
 // `koverReport` is the entry point that is correct by construction: it runs every JVM
 // test task and then merges their execution data.
 //
+// `:adr-core:jvmTest` was missing here, and that was a measurement gap rather than a
+// style question: `:adr-core` holds the app's ADR rules (`com.singularity.todo.feature.ai.tools`),
+// so its classes ARE in the coverage denominator — but nothing ran its tests in the
+// coverage job, and the report scored them by whatever `:shared`'s suite happened to
+// touch. Its tests are green (`:adr-core:jvmTest`, 8 s) and now they run. The
+// denominator does not change — the classes were already in it — so the measured
+// coverage can only rise.
+//
+// `:adr-cli` is absent for the opposite reason: it is build tooling, excluded from
+// the coverage scope in settings.gradle.kts.
+//
 // `:detekt-rules:test` is deliberately absent — that project is `skipProjects`-ed in
 // settings.gradle.kts (build tooling, not app code) and its suite is currently red on
 // this branch without any gate noticing, so pulling it in here would turn an unrelated
@@ -102,6 +217,7 @@ tasks.register("koverReport") {
         ":desktopApp:test",
         ":mcp-server:test",
         ":androidApp:test",
+        ":adr-core:jvmTest",    // app code in the denominator (feature.ai.tools): its own tests measure it
         ":detekt-rules:test",   // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )
@@ -129,6 +245,50 @@ tasks.register("koverReport") {
 // before or after this script was evaluated.
 tasks.matching { it.name == "koverVerify" }.configureEach {
     dependsOn("koverReport")
+
+    // The estimate, printed before the run.
+    //
+    // The instrumented coverage run costs ~37 minutes (the Kover agent
+    // multiplies the cost of every test; the uninstrumented `:shared:jvmTest`
+    // takes 6 min 44 s). That number decides whether a timeout is adequate,
+    // and it was nowhere: a 15-minute timeout on a 37-minute task kills the
+    // run after a quarter of an hour and reports a failure that says nothing
+    // about the code.
+    //
+    // The estimate is read from `config/docs/coverage-cost.properties` — the
+    // same file `docs/testing/gate-costs.md` publishes, so the number the
+    // build prints and the number the reader reads cannot drift apart.
+    val coverageCostFile = rootProject.file("config/docs/coverage-cost.properties")
+    // Configuration time, not action time: the configuration cache forbids
+    // reaching for `project` at execution time, and the population is a
+    // property of the invocation, not of the run.
+    val coveragePopulation = (project.findProperty("test.population") as String?)?.takeIf { it.isNotEmpty() }
+        ?: "fast"
+    doFirst {
+        val costs = java.util.Properties().apply {
+            if (coverageCostFile.isFile) {
+                coverageCostFile.inputStream().use { load(it) }
+            }
+        }
+        val population = coveragePopulation
+        val millis = costs.getProperty("$population.ms")
+        val measuredAt = costs.getProperty("measuredAt") ?: "an unrecorded date"
+        if (millis == null) {
+            logger.lifecycle(
+                "koverVerify: no recorded cost for the '$population' population " +
+                    "(${coverageCostFile.name}) — this run is instrumented and takes " +
+                    "tens of minutes."
+            )
+        } else {
+            val minutes = millis.toLong() / 60_000
+            logger.lifecycle(
+                "koverVerify: the instrumented coverage run of the '$population' population " +
+                    "takes about $minutes min (measured $measuredAt; " +
+                    "${costs.getProperty("machine") ?: "an unnamed machine"}) — " +
+                    "see docs/testing/gate-costs.md"
+            )
+        }
+    }
 }
 
 // Same reasoning applies to the HTML report, so it gets a wrapper rather than a
@@ -211,21 +371,37 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
 
     private fun updateModuleFromCounter(mod: ModuleCoverage, el: org.w3c.dom.Element) {
         val type = el.getAttribute("type")
-        if (type !in listOf("LINE", "BRANCH", "INSTRUCTION")) return
+        if (type !in listOf("LINE", "BRANCH", "INSTRUCTION", "CLASS")) return
         val missed  = el.getAttribute("missed").toIntOrNull()  ?: 0
         val covered = el.getAttribute("covered").toIntOrNull() ?: 0
         when (type) {
             "LINE"        -> { mod.lineMissed   = missed;  mod.lineCovered   = covered }
             "BRANCH"      -> { mod.branchMissed = missed;  mod.branchCovered = covered }
             "INSTRUCTION" -> { mod.instrMissed  = missed;  mod.instrCovered  = covered }
+            "CLASS"       -> { mod.classMissed  = missed;  mod.classCovered  = covered }
         }
     }
 
     private fun printTable(rows: List<ModuleCoverage>) {
-        println("| Module | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
-        println("|---|---|---|---|")
+        // The CLASS column is the one that says WHICH report this is. The
+        // percentages alone cannot tell a full report from a partial one: the
+        // fast population's report held 4735 classes over 579,002 instructions
+        // on 2026-10-23, while the full population's report of 2026-10-22 held
+        // 4642 classes over 565,144 — the fast report is not the smaller of
+        // the two universes, it is the same one on a tree that grew. A reader
+        // who compares "28.7%" with a recorded floor and reads it as a fifth
+        // of the codebase has misread the report — and then measures something
+        // that was never broken.
+        //
+        // (The number published before this column existed — 2.82M
+        // instructions — was the sum of every INSTRUCTION counter in the XML,
+        // so five times the report's own denominator. The percentages were
+        // unaffected: the ratio is the same at every level.)
+        println("| Module | CLASS (covered/total) | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
+        println("|---|---|---|---|---|")
         for (r in rows) {
-            println("| ${r.name} | ${cell(r.lineCovered,   r.lineMissed)} " +
+            println("| ${r.name} | ${cell(r.classCovered,  r.classMissed)} " +
+                    "| ${cell(r.lineCovered,   r.lineMissed)} " +
                     "| ${cell(r.branchCovered, r.branchMissed)} " +
                     "| ${cell(r.instrCovered,  r.instrMissed)} |")
         }
@@ -242,6 +418,7 @@ private data class ModuleCoverage(val name: String) {
     var instrCovered = 0; var instrMissed = 0
     var lineCovered  = 0; var lineMissed  = 0
     var branchCovered = 0; var branchMissed = 0
+    var classCovered = 0; var classMissed = 0
 }
 
 tasks.register<KoverMarkdownTableTask>("koverMarkdownTable") {

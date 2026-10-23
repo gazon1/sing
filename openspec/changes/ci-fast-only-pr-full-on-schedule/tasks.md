@@ -71,18 +71,35 @@
 Every number below is a run on this branch on 2026-10-22, not an expectation.
 
 - **The population decision** (1.2, 1.4): the validation step's own shell was
-  extracted from `ci.yml` and run with each value —
-  `fast` → exit 0, `fast,slow` → exit 0, `""` → exit 1
-  (`unknown TEST_TAGS=''`), `slow` → exit 1, `FAST` → exit 1.
+  extracted from `ci.yml` and run with each value (measured 2026-10-23 on the
+  branch that names the population) —
+  `fast` → exit 0, `full` → exit 0, `""` → exit 1
+  (`unknown TEST_POPULATION=''`), `slow` → exit 1, `FAST` → exit 1.
+  The step asks `config/test-populations.properties` whether the name is one of
+  the known ones; the file is the list of names, not the step.
 - **The fast population** (2.1, 3.2, 3.3, 7.3): `./gw :koverVerify -Ptest.tags=fast`
-  → BUILD SUCCESSFUL in 37m 25s. The report holds 4634 classes over 2.82M
-  instructions — the same class universe as the full run (4642 classes, the same
-  2.82M instructions), with less coverage. Measured 27.73 instruction / 23.23
-  branch / 31.26 line; the floors are 27 / 23 / 31.
+  → BUILD SUCCESSFUL in 37m 25s. Measured 27.73 instruction / 23.23 branch / 31.26
+  line; the floors are 27 / 23 / 31. The run was taken with the raw tag lever; the
+  population `fast` maps to the same tags
+  (`config/test-populations.properties`: `fast=fast`), so the two spellings
+  select the same classes.
+  Re-measured on 2026-10-23 on the branch that ships this change:
+  `./gw :koverReport -Ptest.population=fast` → BUILD SUCCESSFUL in 35m 46s, and
+  the report holds **4735 classes over 579,002 instructions** — measured 28.78
+  instruction / 23.92 branch / 32.06 line. More classes than the full run below
+  held on 2026-10-22, because the tree grew in between: the fast report is not
+  a fraction of the universe, it is the same universe on a later tree.
 - **The full population** (7.4): `./gw :koverVerify -Ptest.tags=fast,slow`
   → BUILD SUCCESSFUL in 33m 23s, with `:koverVerify` executed rather than
   up-to-date. Measured 55.88 / 40.44 / 57.23 against the floors 27 / 20 / 27.
-  The run manifest recorded `tags=fast,slow` and 440 executed classes.
+  The run manifest recorded `tags=fast,slow` and 440 executed classes. The
+  population that names this run is `full` (`full=fast,slow`). Its report holds
+  4642 classes over 565,144 instructions.
+- **The denominator is the report's ROOT counters.** The number this change
+  published at first — "2.82M instructions" for both runs — was the sum of every
+  `INSTRUCTION` counter in the Kover XML, so it read five times the report's own
+  denominator; the percentages were unaffected, because a ratio is the same at
+  every level. The figures above are the root counters of the two reports.
 - **The count floors** (7.3): `check-test-runs.py --require shared:jvmTest,
   desktopApp:test,mcp-server:test,shared:testAndroidHostTest` → "Test run floors
   met" — shared:jvmTest 440 classes / 3689 tests, desktopApp:test 62 classes /
@@ -99,3 +116,38 @@ Every number below is a run on this branch on 2026-10-22, not an expectation.
 - **The population parity gate** (7.2) and the repository's own gates:
   `scripts/ci/static-gates.sh` → 40 passed, 0 failed;
   `python3 -m unittest discover -s scripts/tests` → 1748 tests, OK.
+
+## 9. A population is a name, and the report counts what it measures
+
+- [x] 9.1 `config/test-populations.properties` — the one file that maps a
+      population name to the tags it selects. Read by the build (the root build
+      script hands every module the tag list), by the settings script (which
+      picks the floors by population) and by the gates (which compare what a
+      job's invocations declared).
+- [x] 9.2 `-Ptest.population=fast|full` in the CI workflow, in every Gradle
+      invocation, and in the settings script. `-Ptest.tags` still works and
+      still wins; passing both is an error, not a preference.
+- [x] 9.3 The run manifest is written by the root build script for EVERY
+      module's test task, and records the population as well as the tags.
+      Measured: `:mcp-server:test -Ptest.population=fast` wrote
+      `population=fast`, `tags=fast`, `executedClasses=5`.
+- [x] 9.4 `:adr-core:jvmTest` joins the `koverReport` list — the module holds
+      the app's ADR rules, so its classes were in the denominator while its
+      tests never ran. `:adr-cli` is excluded from the coverage scope with
+      `skipProjects`: it is build tooling, and it is not built during the
+      coverage job.
+- [x] 9.5 `scripts/check-coverage-task-list.py` — every project with JVM tests
+      is either in the `koverReport` list or excluded from the coverage scope.
+      The probe removes `:adr-core:jvmTest` from the list, and the gate says so.
+- [x] 9.6 `scripts/check-coverage-floor-declaration.py` — the app floors are
+      declared in `settings.gradle.kts`, and no other build script declares a
+      verify block under the name of the app floor. The probe puts a verify
+      block back into the root build script, and the gate says so.
+- [x] 9.7 The instrumented coverage run is priced: `config/docs/
+      coverage-cost.properties` holds the measured cost per population, the
+      published page carries it, and `:koverVerify` prints the estimate before
+      it starts.
+- [x] 9.8 Both Kover readers print the class count, which is the number that
+      says WHICH report this is: the fast population's report of 2026-10-23
+      holds 4735 classes over 579,002 instructions, and the full population's
+      report of 2026-10-22 holds 4642 classes over 565,144.

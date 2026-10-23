@@ -332,6 +332,33 @@ gate blocking "settings read by a feature" sgate settings_read_by_a_feature
 # someone says why it may not. A listed tool that no longer writes fails it too:
 # a stale entry hides the fact that the work was done.
 gate blocking "a write tool proposes before it writes" python3 scripts/check-ai-write-tools.py
+# The coverage report measures every module that is in it.
+#
+# The list of test tasks that feed the aggregated report is written by hand,
+# in the root build script. A module added to the build is not added to that
+# list, so its tests never run in the coverage job — and a module whose
+# classes ARE in the denominator is then scored as 0% covered, which reads
+# like a coverage problem and is a measurement one.
+#
+gate blocking "coverage task list" sgate coverage_task_list
+# The coverage floor is declared where Kover reads it.
+#
+# The app coverage floors lived in the root build script for months, in a
+# `plugins.withId("…kover")` block that never executed — the root project has
+# no Kover extension to configure, so the floors were evaluated by no task.
+# The declaration now lives in settings.gradle.kts, and this gate is what
+# stops it from moving back.
+#
+gate blocking "coverage floor declaration" sgate coverage_floor_declaration
+# The timeout covers the run it was set for.
+#
+# The instrumented coverage run takes 37 minutes on the development host and
+# longer on a CI runner, and the job's timeout was a literal that nobody
+# compared with that number. This gate reads the measured cost and the
+# timeout and says so when the timeout cannot cover the measurement — before
+# the job is killed at the moment it was about to report.
+#
+gate blocking "coverage timeout" sgate coverage_timeout
 # The prose a person cannot copy.
 #
 # The inventory table in the selectable-text skill says which surfaces render

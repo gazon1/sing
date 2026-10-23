@@ -16,7 +16,7 @@ suite is.
 
 The rule
 --------
-A class tagged `@Tag("slow")` is a class the full run (`-Ptest.tags=fast,slow`)
+A class tagged `@Tag("slow")` is a class the full run (`-Ptest.population=full`)
 owes the reader. It must appear in the JUnit report of the run, and none
 of its tests may be skipped.
 
@@ -98,10 +98,10 @@ def _scanner():
 
 
 #: The tag that makes a class slow. A slow class carries the primary tag
-#: `slow` — that is the one `-Ptest.tags=fast,slow` selects it by — and, since
-#: 2026-10-22, a second tag from a dictionary: `slow:konsist`, `slow:migration`,
-#: `slow:data`, `slow:compose`, `slow:platform`. The sub-tag says what is slow;
-#: the primary tag says that the class is.
+#: `slow` — that is the one the full population (`-Ptest.population=full`) selects
+#: it by — and, since 2026-10-22, a second tag from a dictionary: `slow:konsist`,
+#: `slow:migration`, `slow:data`, `slow:compose`, `slow:platform`. The sub-tag
+#: says what is slow; the primary tag says that the class is.
 SLOW_TAG = "slow"
 
 
@@ -110,7 +110,7 @@ def is_slow(tags: list[str]) -> bool:
 
     The check is on the *presence* of the primary tag, not on the nearest
     annotation: a class whose last annotation is `@Tag("slow:konsist")` is
-    still a class that `-Ptest.tags=fast,slow` runs, and reading only the
+    still a class that the full population runs, and reading only the
     nearest tag made it invisible to this rule. That is not a theoretical gap
     — it is what the gate reported on the day the sub-tags landed: 4 slow
     classes out of 100, and a CI step that failed on every run.
@@ -292,7 +292,7 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
             'nobody local ever sees — the suite is green locally and red in CI, and the two '
             'disagree about what the suite is.'
         )
-        click.echo('  fix with — run the full suite (-Ptest.tags=fast,slow) and make it pass')
+        click.echo('  fix with — run the full suite (-Ptest.population=full) and make it pass')
         raise ctx.exit(VALIDATION_FAILURE)
 
     if not quiet:
