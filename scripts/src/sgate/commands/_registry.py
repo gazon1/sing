@@ -1240,11 +1240,15 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='sabotage',
             proves='scripts/check-tools-catalog.py',
             argv=('{python}', 'scripts/check-tools-catalog.py', '--check',),
-            path='scripts/check-dead-settings.py',
+            # The catalogue lists the scripts the registry does not name, so the
+            # sabotage changes one of those: a script that is a gate is
+            # described in the registry document, and changing its summary would
+            # not make the catalogue stale.
+            path='scripts/check-openspec-stale.py',
             edit=Edit(
                 kind='replace',
-                old='Find persisted settings that are collected, displayed, and read by no feature.',
-                new='Find persisted settings that no feature reads.',
+                old='Warn when an active OpenSpec change is older than 14 days.',
+                new='Warn when an active OpenSpec change is older than a fortnight.',
                 count=1,
             ),
             why=(
