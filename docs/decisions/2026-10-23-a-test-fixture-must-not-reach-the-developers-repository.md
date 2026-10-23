@@ -66,6 +66,19 @@ them.
    output, where it is read, and not in the developer's history, where it is
    discovered later.
 
+4. **The sandbox carries the identity a commit needs.** Git refuses a commit
+   it cannot attribute, and it looks for the identity in the environment
+   first and in the configuration files after. Where that identity comes from
+   is the machine: a workstation has a global `~/.gitconfig`, and a runner may
+   have none — and may have `user.useConfigOnly` set, which is precisely the
+   setting that forbids git's own guess. A fixture that commits under the
+   sandbox therefore worked on the machine that wrote it and failed in CI,
+   with the failure saying only "exit status 128". The sandbox carries
+   `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` and
+   `GIT_COMMITTER_EMAIL`; git reads those before any configuration file, so
+   the commit is attributed to the fixture and to nobody else, and no
+   configuration file is read or written.
+
 The hook scrubs the names too, for the suite it runs: that is the belt to the
 fixtures' braces, and it protects a fixture nobody has looked at yet.
 
@@ -100,6 +113,10 @@ share, and the incident written down as a test.
 - A test that cannot create its repository fails a test instead of damaging a
   branch. That is the point: the damage was silent, and the silence was the
   defect.
+- A fixture that commits under the sandbox commits as the fixture, on a
+  workstation and on a runner alike. The suite stopped depending on the
+  developer's global git configuration — a dependency that made the suite pass
+  where it was written and fail where it runs.
 
 ## What it does not solve
 
