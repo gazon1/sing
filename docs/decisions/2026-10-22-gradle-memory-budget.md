@@ -103,7 +103,7 @@ the build reads that file. `scripts/check-memory-budget.py` checks the tree
 against it: every test task runs with the heap the record declares, and the
 daemon's heap in `gradle.properties` is the recorded one.
 
-Before this, the heap of a test fork was a literal string in four build
+Before this, the heap of a test fork was a literal string in five build
 scripts and the daemon's heap was a literal string in `gradle.properties`,
 while the measurement behind them lived in this ADR — which no build read and
 no gate checked. That is the shape the coverage floor had before its
@@ -123,6 +123,14 @@ reads that file before it reads anything else, and there is no way to
 interpolate a value from another file into it. The heap is therefore written
 there as well, with a comment that names the record, and the gate is what
 keeps the two copies in step.
+
+The record is checked against the build in BOTH directions. A module that
+names a heap of its own has to be in the record — otherwise its heap is a
+number the record does not hold, and the measurement behind the record does
+not describe that build. And every line of the record has to name a module
+the build HAS: a line left behind by a module that was removed, or added for
+a module that was never there, is a budget nobody runs and nobody checks —
+the same kind of leftover the coverage floor was, one level down.
 
 **D8. A module's coverage floor stays in that module's own build script.**
 The `detekt-rules` floor is a **module** floor: it measures the branch

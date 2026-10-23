@@ -102,7 +102,7 @@ subprojects {
     // ── The memory budget ───────────────────────────────────────────────────
     //
     // One record: `config/docs/gradle-memory-budget.properties`. The heap of a
-    // test fork and the heap of the Gradle daemon were literal strings in four
+    // test fork and the heap of the Gradle daemon were literal strings in five
     // build scripts and in gradle.properties, and the measurement that
     // produced them lived in an ADR that no build read and no gate checked.
     //

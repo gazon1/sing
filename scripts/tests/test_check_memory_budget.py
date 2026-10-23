@@ -1,7 +1,7 @@
 """Tests for check-memory-budget.py.
 
 The gate exists because the heap of a test fork and the heap of the Gradle
-daemon were literal strings in four build scripts and in `gradle.properties`,
+daemon were literal strings in five build scripts and in `gradle.properties`,
 and the measurement behind them lived in an ADR that no build read and no gate
 checked. The record is now a file — `config/docs/gradle-memory-budget.properties`
 — and the gate checks the tree against it.
@@ -252,6 +252,62 @@ class MemoryBudgetTest(unittest.TestCase):
         findings = self.findings()
         self.assertEqual(len(findings), 1, findings)
         self.assertIn('not from the record', findings[0])
+
+    def test_a_module_that_names_a_heap_without_declaring_a_test_task_is_a_finding(self) -> None:
+        """A module's heap is checked whatever wording its script uses.
+
+        The rule used to be "the module declares a test task", read off the
+        script's wording — `withType<Test>`, `named<Test>`, `register<Test>`,
+        `useJUnitPlatform`. A module whose test tasks come from a plugin, and
+        which writes its heap inside a `tasks.named("testDebugUnitTest", …)`
+        block, says none of those words: the gate skipped the module whole,
+        and its heap was never read. A heap nobody reads is a heap nobody can
+        check, and the wording of the script is not the fact.
+        """
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS + 'include(":androidApp")\n',
+        )
+        self.write(
+            'androidApp/build.gradle.kts',
+            """\
+tasks.named("testDebugUnitTest", Test::class) {
+    maxHeapSize = "8g"
+}
+""",
+        )
+        findings = self.findings()
+        self.assertEqual(len(findings), 1, findings)
+        self.assertIn('androidApp/build.gradle.kts', findings[0])
+        self.assertIn('names a heap of its own', findings[0])
+        self.assertIn('test.heap.module.androidApp', findings[0])
+
+    def test_a_record_line_for_a_module_the_build_does_not_have_is_a_finding(self) -> None:
+        """The record is checked against the build in both directions.
+
+        A line left behind by a module that was removed is a budget nobody
+        runs and nobody checks — the same leftover the coverage floor was,
+        one level down.
+        """
+        self.write(
+            'config/docs/gradle-memory-budget.properties',
+            RECORD + 'test.heap.module.ghost-module=1g\n',
+        )
+        findings = self.findings()
+        self.assertEqual(len(findings), 1, findings)
+        self.assertIn('test.heap.module.ghost-module', findings[0])
+        self.assertIn('no such module', findings[0])
+
+    def test_a_record_line_for_a_removed_module_is_a_finding(self) -> None:
+        """The same defect from the other side: the module is gone, the line is not."""
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace('include(":adr-core")\n', ''),
+        )
+        findings = self.findings()
+        self.assertEqual(len(findings), 1, findings)
+        self.assertIn('test.heap.module.adr-core', findings[0])
+        self.assertIn('no such module', findings[0])
 
     def test_a_root_that_does_not_apply_the_default_is_a_finding(self) -> None:
         """POSITIVE CONTROL: a module with no heap of its own has no budget.

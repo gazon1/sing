@@ -3,18 +3,20 @@
 
 What went wrong
 ---------------
-The heap of a test fork was a literal string in four build scripts, and the
+The heap of a test fork was a literal string in five build scripts, and the
 heap of the Gradle daemon was a literal string in `gradle.properties`:
 
-    shared/build.gradle.kts        maxHeapSize = "1536m"
+    shared/build.gradle.kts        maxHeapSize = "1536m"   (twice)
     desktopApp/build.gradle.kts    maxHeapSize = "1536m"
     mcp-server/build.gradle.kts    maxHeapSize = "1536m"
+    detekt-rules/build.gradle.kts  maxHeapSize = "3g"
+    adr-cli/build.gradle.kts       maxHeapSize = "1g"
     gradle.properties              org.gradle.jvmargs=-Xmx6144M …
 
-The ADR that records the measurement behind those numbers
-(`docs/decisions/2026-10-22-gradle-memory-budget.md`) was read by nobody: no
-build read it and no gate checked it. The number was a claim in prose, and the
-claim was made four times over.
+Six literals in five files, and the ADR that records the measurement behind
+them (`docs/decisions/2026-10-22-gradle-memory-budget.md`) was read by nobody:
+no build read it and no gate checked it. The number was a claim in prose, and
+the claim was made six times over.
 
 This is the shape the coverage floor had before its declaration was moved to
 the place Kover reads it: **a number that nobody can check is a number nobody
@@ -27,9 +29,12 @@ The rule
 There is ONE record of the budget — `config/docs/gradle-memory-budget.properties`
 — and the tree is checked against it:
 
-1. Every module that declares a test task is listed in the record, under
-   `test.heap.module.<project>`. A module that is not listed has no budget,
-   and that is a finding rather than a silence.
+1. Every module that declares a test task, and every module that names a heap
+   of its own, is listed in the record, under `test.heap.module.<project>`. A
+   module that is not listed has no budget, and that is a finding rather than
+   a silence. The test is the module's own build script: a module that writes
+   `maxHeapSize` at all is a module whose heap the record has to hold, whether
+   or not the script's wording happens to look like a test-task declaration.
 2. A module's `maxHeapSize` is the recorded value — either the literal, or a
    read of the record's own line for that module. A module that hardcodes a
    different number is a finding, and the finding names the file, the line and
@@ -41,6 +46,10 @@ There is ONE record of the budget — `config/docs/gradle-memory-budget.properti
    `gradle.properties` cannot interpolate a value from another file — Gradle
    reads it before it reads anything else — so the number is written there as
    well, and this gate is what keeps the two copies in step.
+5. Every line of the record names a module the build HAS. A line left over
+   from a module that was removed is a budget nobody checks and nobody reads,
+   and it is as dead as any other leftover — so the record is checked against
+   the build in both directions, not only one.
 
 The second half of the rule
 ---------------------------
@@ -377,21 +386,33 @@ def _budget_findings(
     )
 
     for project, script in _modules(tree):
-        if not _declares_test_task(script):
+        declarations = _heap_declarations(script)
+        declares_test_task = _declares_test_task(script)
+        if not declarations and not declares_test_task:
+            # Neither a heap of its own nor a test task it declares: the module
+            # says nothing about a heap, so there is nothing to check.
             continue
         relative = script.relative_to(tree).as_posix()
         key = _module_key(project)
         if key not in record:
-            findings.append(
-                f"{relative}: the module {project} declares a test task, and the record "
-                f"({RECORD}) holds no budget for it — no `{key}` line. A module that runs "
-                f"tests with no recorded heap is a module whose heap nobody can check, and "
-                f"the record is the one place the budget is written down."
-            )
+            if declarations:
+                findings.append(
+                    f"{relative}: the module {project} names a heap of its own, and the "
+                    f"record ({RECORD}) holds no budget for it — no `{key}` line. A heap "
+                    f"that is written down in a build script and not in the record is a "
+                    f"heap nobody can check, and the record is the one place the budget "
+                    f"is written down."
+                )
+            else:
+                findings.append(
+                    f"{relative}: the module {project} declares a test task, and the record "
+                    f"({RECORD}) holds no budget for it — no `{key}` line. A module that runs "
+                    f"tests with no recorded heap is a module whose heap nobody can check, and "
+                    f"the record is the one place the budget is written down."
+                )
             continue
         recorded = record[key][0]
 
-        declarations = _heap_declarations(script)
         if not declarations:
             # No heap of its own: the module takes the default, and the root
             # has to apply it — otherwise it runs with Gradle's default, which
@@ -606,6 +627,34 @@ def _floor_findings(tree: pathlib.Path) -> list[str]:
     return findings
 
 
+def _dead_record_findings(
+    tree: pathlib.Path, record: dict[str, tuple[str, int]]
+) -> list[str]:
+    """The findings about record lines that name a module the build does not have.
+
+    The record is checked against the build in both directions. A module that
+    was removed from the build leaves its line behind, and a line that names
+    nothing is a budget nobody reads and nobody checks — the same kind of
+    leftover the coverage floor was, one level down. A line added for a module
+    that was never in the build is the same defect from the other side: a
+    budget for a module that does not exist.
+    """
+    findings: list[str] = []
+    known = {_module_key(project) for project, _ in _modules(tree)}
+    for key, (value, line) in record.items():
+        if not key.startswith(MODULE_KEY_PREFIX):
+            continue
+        if key in known:
+            continue
+        findings.append(
+            f"{RECORD}:{line}: the record declares a budget for {key} ({value}), and the "
+            f"build has no such module — {SETTINGS_SCRIPT} includes no project for it. A "
+            f"budget for a module that does not exist is a number nobody runs and nobody "
+            f"checks; remove the line, or add the module to the build."
+        )
+    return findings
+
+
 def check(tree: pathlib.Path) -> list[str]:
     """The findings; empty when the tree is correct."""
     record_path = tree / RECORD
@@ -626,6 +675,7 @@ def check(tree: pathlib.Path) -> list[str]:
             )
 
     findings.extend(_budget_findings(tree, record))
+    findings.extend(_dead_record_findings(tree, record))
     findings.extend(_floor_findings(tree))
     return findings
 
