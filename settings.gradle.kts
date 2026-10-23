@@ -91,15 +91,37 @@ plugins {
 // measures less coverage. Two populations therefore need two sets of floors —
 // one set that describes a fast run and one that describes a full run.
 //
-// The population is read from the SAME property the tests use (`-Ptest.tags`),
-// so there is exactly one source of truth. A separate `-Pcoverage.profile`
-// could disagree with `-Ptest.tags`, and then the floor would be checked
-// against a run that never happened.
+// The population is read from the SAME property the tests use
+// (`-Ptest.population`), so there is exactly one source of truth. A separate
+// `-Pcoverage.profile` could disagree with the population the tests ran, and
+// then the floor would be checked against a run that never happened.
 //
-// `slow` in the list means the full population. An absent list means the default
-// run, which excludes `slow` and therefore measures the fast population.
+// The name is turned into the tag list by `config/test-populations.properties`
+// — the same file the root build script reads to hand the modules their tag
+// list. The floor therefore cannot disagree with the selection: both read one
+// definition.
+//
+// A population that selects `slow` is the full one. An absent population means
+// the default run, which excludes `slow` and therefore measures the fast
+// population.
+val testPopulations = java.util.Properties().apply {
+    rootDir.resolve("config/test-populations.properties").inputStream().use { load(it) }
+}
+val testPopulation = providers.gradleProperty("test.population").getOrElse("")
 val testTags = providers.gradleProperty("test.tags").getOrElse("")
-val measuredFullPopulation = testTags.split(",").any { it.trim() == "slow" }
+val selectedTags = when {
+    testPopulation.isNotEmpty() -> {
+        val declared = testPopulations.getProperty(testPopulation)
+        require(declared != null) {
+            "unknown test population '$testPopulation' — the known ones are: " +
+                testPopulations.stringPropertyNames().sorted().joinToString(", ") +
+                " (config/test-populations.properties)"
+        }
+        declared
+    }
+    else -> testTags
+}.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+val measuredFullPopulation = selectedTags.any { it == "slow" }
 
 // Floors rounded down from measured values, one set per population.
 //
@@ -135,15 +157,25 @@ val FULL_INSTRUCTION_COVERAGE_FLOOR = 27
 val FULL_BRANCH_COVERAGE_FLOOR = 20
 val FULL_LINE_COVERAGE_FLOOR = 27
 
-// FAST population — measured 2026-10-22 on a `-Ptest.tags=fast` run over the same set of
-// tasks CI runs: 27.73 instruction / 23.23 branch / 31.26 line.
+// FAST population — the floors were recorded from the 2026-10-22 measurement
+// (27.73 instruction / 23.23 branch / 31.26 line) and re-measured on 2026-10-23
+// on this branch: 28.78 / 23.92 / 32.06, over 4735 classes and 579,002
+// instructions. The floors stay where they were — a floor is a floor and not a
+// target, and the re-measurement clears it with margin.
 //
-// The measurement is a real aggregate and not a partial one: the report holds 4634
-// classes over 2.82M instructions, against the full run's 4642 classes over the same
-// 2.82M instructions. The same class universe, less coverage — which is what a
-// narrower population is supposed to look like. (A report that had measured a fifth
-// of the codebase would have shown a fifth of the denominator too; that check is
-// what makes this number usable as a floor.)
+// The measurement is a real aggregate and not a partial one: the report holds
+// 4735 classes over 579,002 instructions — MORE classes than the full run of
+// 2026-10-22 held (4642 over 565,144), because the tree grew in between. A
+// report that had measured a fraction of the codebase would have shown a
+// fraction of the classes; that check is what makes this number usable as a
+// floor.
+//
+// The denominator is the report's own ROOT counters. The number published
+// before (2.82M instructions) was the sum of every INSTRUCTION counter in the
+// XML — the method, class, source-file, package and root levels together — so
+// it was five times the report's denominator. The percentages were unaffected
+// (the ratio is the same at every level), which is why the wrong denominator
+// survived the measurement it was read from.
 val FAST_INSTRUCTION_COVERAGE_FLOOR = 27
 val FAST_BRANCH_COVERAGE_FLOOR = 23
 val FAST_LINE_COVERAGE_FLOOR = 31
@@ -188,7 +220,18 @@ kover {
     // a different question from the one the floor asks — and would make the
     // aggregated report depend on a suite that is not currently maintained.
     // The failing tests are recorded as an open finding, not hidden by this line.
-    skipProjects(":detekt-rules")
+    // `:adr-cli` is the ADR toolchain's command line — build tooling, like
+    // `:detekt-rules` above. Its classes are not in the app's coverage
+    // denominator today (it is not built during the coverage job, so there is
+    // nothing to instrument), and this line says so instead of leaving it to
+    // that accident: the day `:adr-cli` becomes a dependency of the app, its
+    // classes would otherwise enter the denominator with no test task behind
+    // them, and the report would score them 0%.
+    //
+    // `scripts/check-coverage-task-list.py` is what keeps the two lists
+    // honest against each other: every project with tests is either measured
+    // by the report or excluded from its scope.
+    skipProjects(":detekt-rules", ":adr-cli")
     instrumentation {
         includedClasses.add("com.singularity.todo.*")
     }

@@ -223,6 +223,67 @@ SCRIPT_GATES = [
         cmd=[sys.executable, "scripts/check-baseline-ratchet.py"],
         why="a baseline that can grow silently stops being a ratchet and becomes a sink",
     ),
+    # The app coverage floor, declared where Kover reads it.
+    #
+    # The floors were declared in the root build script for months, in a
+    # `plugins.withId("org.jetbrains.kotlinx.kover")` block that never executed
+    # — probed with a `println`, the line never appeared. The root project has
+    # no Kover extension of its own to configure, so the floors it declared
+    # were evaluated by no task. The CI step that reads them was green no
+    # matter what the coverage was.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    # The coverage report measures every module that is in it.
+    #
+    # The list of test tasks that feed the aggregated report is written by
+    # hand, in the root build script. A module added to the build is not added
+    # to that list, so its tests never run in the coverage job.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="coverage-task-list",
+        cmd=[sys.executable, "scripts/check-coverage-task-list.py", "--quiet"],
+        sabotage_path="build.gradle.kts",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a module whose classes are in the coverage denominator but whose "
+            "tests never run is scored as 0% covered, and the number reads "
+            "like a coverage problem rather than a measurement one"
+        ),
+    ),
+    ScriptGate(
+        name="coverage-floor-declaration",
+        cmd=[sys.executable, "scripts/check-coverage-floor-declaration.py", "--quiet"],
+        sabotage_path="build.gradle.kts",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a floor that is declared where nothing reads it is a floor nobody "
+            "enforces, and the step that reports it stays green"
+        ),
+    ),
+    # The CI timeout covers the instrumented run.
+    #
+    # The cost of the instrumented run is measured, and the timeout that has to
+    # cover it was a literal. The two are compared here, so that a timeout too
+    # small for the measurement is a finding rather than a killed job.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="coverage-timeout",
+        cmd=[sys.executable, "scripts/check-coverage-timeout.py", "--quiet"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a timeout that fires on a healthy instrumented run reports a failure "
+            "that says nothing about the code"
+        ),
+    ),
     ScriptGate(
         name="issue-registry",
         cmd=[sys.executable, "scripts/check-issue-registry.py", "--quiet"],

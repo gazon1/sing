@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.CallMerge
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -127,6 +128,17 @@ fun AgendaContent(
     val isSelectionMode = state is AgendaUiState.Loaded && state.isSelectionMode
     val selectedTaskIds = (state as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
     val selectedCount = selectedTaskIds.size
+    // Merging is offered when the selection spans exactly two series: one series
+    // is already one piece of work, and three is a question this action does not
+    // answer.
+    val selectedSeriesIds = (state as? AgendaUiState.Loaded)
+        ?.sections
+        ?.flatMap { it.tasks }
+        ?.filter { it.task.id in selectedTaskIds }
+        ?.mapNotNull { it.task.seriesId }
+        ?.distinct()
+        .orEmpty()
+    val canMergeSeries = selectedSeriesIds.size == 2
 
     Scaffold(
         topBar = {
@@ -144,6 +156,17 @@ fun AgendaContent(
                             }
                         },
                         actions = {
+                            if (canMergeSeries) {
+                                IconButton(
+                                    onClick = { onIntent(AgendaIntent.MergeSelectedSeries) },
+                                    modifier = Modifier.testTag(TestTags.AGENDA_MERGE_SERIES_BUTTON),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.CallMerge,
+                                        contentDescription = "Объединить серии",
+                                    )
+                                }
+                            }
                             IconButton(onClick = { onIntent(AgendaIntent.DeleteSelected) }) {
                                 Icon(
                                     Icons.Default.Delete,
@@ -384,6 +407,7 @@ private fun AgendaTaskRow(
         isSelected = isSelected,
         blockedBy = task.blockedBy,
         isBlocked = rowItem.isBlocked,
+        seriesDates = rowItem.seriesDates,
     )
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).

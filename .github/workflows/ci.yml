@@ -335,9 +335,14 @@ jobs:
       # (REQ-20), applied to the JVM tier.
       #
       #   pull_request without the label → fast
-      #   pull_request with    the label → fast,slow
+      #   pull_request with    the label → full
       #   push                          → fast
-      #   schedule / manual             → fast,slow
+      #   schedule / manual             → full
+      #
+      # The population is a NAME. The tags it selects live in
+      # `config/test-populations.properties`, which the build and the gates
+      # read: the workflow never spells a tag list, so the workflow and the
+      # build cannot disagree about what "full" means.
       #
       # The label arrives two ways and BOTH are needed: the `labeled` event
       # carries it in `github.event.label.name`, and every later push carries
@@ -350,29 +355,31 @@ jobs:
           PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
           case "$EVENT_NAME" in
-            schedule|workflow_dispatch) echo "TEST_TAGS=fast,slow" ;;
+            schedule|workflow_dispatch) echo "TEST_POPULATION=full" ;;
             *)
               # A glob match, not `printf | grep`: the JSON label list is a
               # single string, and a pipe here would make the step's status
               # the grep's rather than the case's.
               case "$LABEL_NAME:$PR_LABELS" in
-                *run-full-tests*) echo "TEST_TAGS=fast,slow" ;;
-                *)               echo "TEST_TAGS=fast" ;;
+                *run-full-tests*) echo "TEST_POPULATION=full" ;;
+                *)               echo "TEST_POPULATION=fast" ;;
               esac
               ;;
           esac >> "$GITHUB_ENV"
 
-      # The population parity gate compares the SELECTOR STRINGS and cannot see
-      # what is behind the variable: an empty TEST_TAGS would silently mean
-      # "fast" — or, if the variable were unset entirely, Gradle's default,
-      # which excludes slow. This step closes that hole: the value has to be
-      # one of the two known populations or the job stops here.
+      # The population parity gate compares the SELECTED POPULATIONS and cannot
+      # see what is behind the variable: an empty TEST_POPULATION would silently
+      # mean "the Gradle default", which excludes slow. This step closes that
+      # hole: the name has to be one the populations file declares, or the job
+      # stops here. The file is the definition — the shell does not keep a
+      # second list of the names.
       - name: Test population is one of the known ones
         run: |
-          case "$TEST_TAGS" in
-            fast|fast,slow) ;;
-            *) echo "unknown TEST_TAGS='$TEST_TAGS'"; exit 1 ;;
-          esac
+          if ! grep -q "^${TEST_POPULATION}=" config/test-populations.properties; then
+            echo "unknown TEST_POPULATION='$TEST_POPULATION' — the known ones are:"
+            grep -o '^[a-z]*=' config/test-populations.properties | tr -d '='
+            exit 1
+          fi
 
       # Correct first, measure second — and do not let the correction hide the debt.
       #
@@ -497,7 +504,7 @@ jobs:
             :detekt-rules:test \
             :shared:verifyToolSurface \
             :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
-            -Ptest.tags="$TEST_TAGS" \
+            -Ptest.population="$TEST_POPULATION" \
             -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail \
             ${{ github.event_name == 'pull_request' && '-Dretry.maxAttempts=2' || '' }} \
             ${{ github.event_name == 'pull_request' && '-Dretry.failOnPassedAfterRetry=false' || '' }} \
@@ -586,7 +593,7 @@ jobs:
       # can re-run `:desktopApp:test` and overwrite that directory. Run 38933517902
       # measured what that costs: `:koverMarkdownTable` (advisory, `|| true`) was the
       # first invocation that found its test task out of date, re-ran it *without*
-      # `-Ptest.tags`, and desktopApp's default is `excludeTags("slow")` — so the
+      # a population, and desktopApp's default is `excludeTags("slow")` — so the
       # `@Tag("slow")` scenario classes were skipped rather than executed. The suite
       # stayed green, `check-test-runs` had already counted the full 135 tests, and
       # this step then failed with "declared target produced zero testcases" against a
@@ -604,7 +611,7 @@ jobs:
         run: |
           set -euo pipefail
           ARGS=(--targets desktop --out-dir build/traceability)
-          if [ "$TEST_TAGS" != "fast,slow" ]; then
+          if [ "$TEST_POPULATION" != "full" ]; then
             ARGS+=(--partial)
           fi
           python3 -m traceability results "${ARGS[@]}"
@@ -689,7 +696,7 @@ jobs:
           set -o pipefail
           ./gradlew --no-build-cache --no-parallel \
             :adr-cli:test :adr-core:jvmTest \
-            -Ptest.tags="$TEST_TAGS" \
+            -Ptest.population="$TEST_POPULATION" \
             2>&1 | tee adr-tests.log
 
       # The `slow` classes the full run owes the reader.
@@ -733,7 +740,7 @@ jobs:
       # where the slow classes are held to their reports.
       - name: Slow tests ran
         run: |
-          if [ "$TEST_TAGS" != "fast,slow" ]; then
+          if [ "$TEST_POPULATION" != "full" ]; then
             echo "the fast population does not owe the reader a slow class — nothing to check"
             exit 0
           fi
@@ -749,17 +756,17 @@ jobs:
       # Runs here because it needs Gradle; static-gates.sh has no Gradle.
       #
       # The floors themselves depend on the population: a fast-only run measures
-      # less coverage than a full one, so build.gradle.kts declares two sets and
-      # picks the one that matches `-Ptest.tags`. See
+      # less coverage than a full one, so settings.gradle.kts declares two sets and
+      # picks the one that matches the population. See
       # docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md.
       #
-      # `-Ptest.tags="$TEST_TAGS"` is repeated on every Gradle invocation in this
-      # job, not only the test run above, and it is not redundancy. An absent
-      # `-Ptest.tags` maps to `excludeTags("slow")` in every module's
-      # `useJUnitPlatform` block, so an invocation that re-runs a test task without
-      # it re-measures a *narrower* population while reporting green — measured in
-      # run 38933517902, where the advisory kover table step re-ran `:desktopApp:test`
-      # and dropped every `@Tag("slow")` scenario class. Same selector, same
+      # `-Ptest.population="$TEST_POPULATION"` is repeated on every Gradle
+      # invocation in this job, not only the test run above, and it is not
+      # redundancy. An absent population maps to `excludeTags("slow")` in every
+      # module's `useJUnitPlatform` block, so an invocation that re-runs a test
+      # task without it re-measures a *narrower* population while reporting green
+      # — measured in run 38933517902, where the advisory kover table step re-ran
+      # `:desktopApp:test` and dropped every `@Tag("slow")` scenario class. Same
       # population, whichever invocation ends up executing the task.
       #
       # One variable, six invocations: the population is decided once (the
@@ -767,14 +774,14 @@ jobs:
       # two literal selectors would have needed ~150 lines of duplicated YAML and
       # bought nothing over REQ-17's "one population per job".
       - name: Coverage floors
-        run: ./gradlew :koverVerify -Ptest.tags="$TEST_TAGS"
+        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"
 
       # Markdown table from the kover XML report. Parses build/reports/kover/report.xml
       # (generated by koverReport above) and renders per-module LINE / BRANCH /
       # INSTRUCTION coverage. Advisory: the blocking coverage check is :koverVerify above.
       - name: Coverage table (advisory, CI summary)
         if: ${{ !cancelled() }}
-        run: ./gw :koverMarkdownTable -Ptest.tags="$TEST_TAGS" >> "$GITHUB_STEP_SUMMARY" || true
+        run: ./gw :koverMarkdownTable -Ptest.population="$TEST_POPULATION" >> "$GITHUB_STEP_SUMMARY" || true
 
       # Advisory by construction, and declared so: this step only *renders* the two
       # numbers into the job summary. Both are enforced as blocking steps elsewhere —
@@ -794,7 +801,7 @@ jobs:
             echo ""
             echo "### Code coverage"
           } >> "$GITHUB_STEP_SUMMARY"
-          ./gradlew -q :koverLog -Ptest.tags="$TEST_TAGS" 2>&1 | \
+          ./gradlew -q :koverLog -Ptest.population="$TEST_POPULATION" 2>&1 | \
             grep "^app instruction coverage" >> "$GITHUB_STEP_SUMMARY" || true
           # Render detekt-rules branch coverage into the job summary. Same pattern
           # as above: koverLog reads the block that declares the floor.
@@ -802,7 +809,7 @@ jobs:
             echo ""
             echo "**detekt-rules branch coverage**"
           } >> "$GITHUB_STEP_SUMMARY"
-          ./gradlew -q :detekt-rules:koverLog -Ptest.tags="$TEST_TAGS" 2>&1 | \
+          ./gradlew -q :detekt-rules:koverLog -Ptest.population="$TEST_POPULATION" 2>&1 | \
             grep "^detekt-rules branch coverage" >> "$GITHUB_STEP_SUMMARY" || true
 
       # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%),
@@ -813,7 +820,7 @@ jobs:
       # `./check.sh` names the same task, so the local loop rehearses this gate:
       # scripts/check-gate-wiring.py Part I would fail otherwise.
       - name: Kover verify (detekt-rules)
-        run: ./gradlew :detekt-rules:koverVerify -Ptest.tags="$TEST_TAGS"
+        run: ./gradlew :detekt-rules:koverVerify -Ptest.population="$TEST_POPULATION"
 
       # The meta-gate runs HERE, not in the `static` job and not in the shared
       # registry. Part B proves `check-test-runs.py` can fail by sabotaging its

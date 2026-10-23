@@ -312,6 +312,28 @@ def _load_sync():
     return scanning
 
 
+def population_tags(population: str) -> tuple[str, ...]:
+    """The tags the named population selects.
+
+    Read from `config/test-populations.properties` through the one reader that
+    already exists — `workflow_gradle` — so this gate, the build and the
+    workflow all resolve a population name the same way. A second reader of
+    the same file is a second answer waiting to drift.
+    """
+    scripts_dir = str(pathlib.Path(__file__).resolve().parent / "src")
+    added = scripts_dir not in sys.path
+    if added:
+        sys.path.insert(0, scripts_dir)
+    try:
+        import workflow_gradle
+    except ImportError as exc:  # pragma: no cover — the package is in the repo
+        raise RuntimeError(f"workflow_gradle could not be imported: {exc!r}") from exc
+    finally:
+        if added:
+            sys.path.remove(scripts_dir)
+    return workflow_gradle.population_tags(population)
+
+
 def expected_classes_with_tag(label: str, tag: str):
     """Class names the source declares that carry `@Tag(tag)`, or None if out of scope.
 
@@ -365,8 +387,13 @@ def population_includes_slow(label: str, executed: set[str], slow_expected: set[
 
     Two signals, in order of authority:
 
-    1. The run manifest's `tags=` — the build wrote down what it selected, so
-       this is a fact rather than an inference.
+    1. The run manifest's `population=` — the build wrote down which named
+       population it selected, so this is a fact rather than an inference. The
+       name is resolved through `config/test-populations.properties`, the same
+       file the build reads, so the gate and the build cannot disagree about
+       what "full" selects. A manifest written before the population existed
+       carries `tags=` instead, and that is the second spelling of the same
+       signal.
     2. The executed set itself — a declared slow class that produced a report
        can only have run if the population included slow.
 
@@ -375,9 +402,13 @@ def population_includes_slow(label: str, executed: set[str], slow_expected: set[
     why signal 1 exists, and why the manifest writes the selector down.
     """
     manifest = read_run_manifest(ROOT / SOURCE_SETS[label])
-    tags = (manifest or {}).get("tags", "")
-    if tags:
-        return "slow" in {part.strip() for part in tags.split(",")}
+    if manifest:
+        population = manifest.get("population", "")
+        if population:
+            return "slow" in population_tags(population)
+        tags = manifest.get("tags", "")
+        if tags:
+            return "slow" in {part.strip() for part in tags.split(",")}
     return bool(executed & slow_expected)
 
 
@@ -410,7 +441,7 @@ def missing_classes(expected: set[str], executed: set[str]) -> list[str]:
 
 
 def read_run_manifest(detail_dir: pathlib.Path):
-    """The manifest `shared/build.gradle.kts` writes beside the XML, or None.
+    """The manifest the root build script writes beside the XML, or None.
 
     Absent is normal and means "before this existed", not "filtered": a tree whose test
     task predates the manifest must not be reported as a filtered run. So this returns None
@@ -635,9 +666,9 @@ def cli(
             "# Record the SMALLEST count any legitimate run produces. The default local",
             "# run (no -Ptest.tags) excludes @Tag(\"slow\") and therefore runs every",
             "# @Tag(\"fast\") class PLUS any untagged one — which is why it, and not the",
-            "# nightly, is the run to record. CI has two selections: `-Ptest.tags=fast`",
-            "# on a pull request, which selects tagged classes only, and",
-            "# `-Ptest.tags=fast,slow` on the nightly, which selects the slow ones too.",
+            "# nightly, is the run to record. CI names a population rather than a tag",
+            "# list: `fast` on a pull request, which selects tagged classes only, and",
+            "# `full` on the nightly, which selects the slow ones too.",
             "# Neither is a superset of the local run: both are a different selection,",
             "# narrower whenever a class is untagged. TestTagCoverageTest is what keeps",
             "# that population at zero. Recording the nightly numbers here instead",

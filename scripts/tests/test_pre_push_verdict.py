@@ -19,6 +19,7 @@ The properties:
 """
 
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -199,6 +200,35 @@ class ModuleSelectionTest(unittest.TestCase):
         tasks, reason = self._tasks({'docs/notes.md': 'a note\n'})
         self.assertEqual([], tasks)
         self.assertIn('no detekt run', reason)
+
+    def test_the_digest_is_of_the_tree_and_not_of_the_git_environment(self):
+        """Git exports GIT_DIR for the hook; a digest of the wrong tree is a false green."""
+        tree = self.tmp / 'tree'
+        tree.mkdir()
+        (tree / 'A.kt').write_text('class A\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=tree, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=tree, check=True)
+        subprocess.run(['git', 'commit', '-q', '-m', 'a'], cwd=tree, check=True)
+
+        other = self.tmp / 'other'
+        other.mkdir()
+        (other / 'B.kt').write_text('class B\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=other, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=other, check=True)
+        subprocess.run(['git', 'commit', '-q', '-m', 'b'], cwd=other, check=True)
+
+        saved = dict(os.environ)
+        os.environ['GIT_DIR'] = str(other / '.git')
+        os.environ['GIT_WORK_TREE'] = str(other)
+        try:
+            digest = mod.kotlin_digest(tree)
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+
+        self.assertNotEqual(digest, mod.kotlin_digest(other), 'the digest came from the wrong tree')
+        (tree / 'A.kt').write_text('class A2\n', encoding='utf-8')
+        self.assertNotEqual(digest, mod.kotlin_digest(tree), 'the digest did not follow the tree')
 
     def test_a_range_with_no_known_base_is_judged_in_full(self):
         tasks, reason = mod.detekt_tasks_for_change(self.repo, None, self.base)

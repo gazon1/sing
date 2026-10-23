@@ -458,7 +458,7 @@ class HarnessConventionTest {
         // All test classes must be tagged so that the `-Ptest.tags` selection in CI can
         // include or exclude them deterministically — regardless of whether they are
         // flow tests, composable tests, or any other kind. CI has two selections
-        // (`fast` on a pull request, `fast,slow` on the nightly) and a class with no
+        // (`fast` on a pull request, `full` on the nightly) and a class with no
         // tag is outside both of them.
         val classPattern = Regex(
             """^class\s+(\w+)\s*:\s*\w+\s*\{""",

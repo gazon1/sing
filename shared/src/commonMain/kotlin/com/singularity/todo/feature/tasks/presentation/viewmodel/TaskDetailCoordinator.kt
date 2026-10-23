@@ -184,6 +184,9 @@ class TaskDetailCoordinator(
         taskFlow = taskFlow,
         onError = ::reportError,
         onUndoDelete = { tryEmit(TaskDetailUiEvent.UndoDelete(it.id)) },
+        onUndoDeleteSeries = { ids ->
+            tryEmit(TaskDetailUiEvent.UndoDeleteSeries(ids, dates = ids.size))
+        },
         onNavigateBack = { tryEmit(TaskDetailUiEvent.NavigateBack) },
         onSaved = ::reportSaved,
     )
@@ -427,7 +430,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.SetDependencies,
             is TaskDetailIntent.Domain.SetEstimate,
             is TaskDetailIntent.Domain.ApplyToAllOccurrences,
-            is TaskDetailIntent.Domain.DeleteSeries,
+            is TaskDetailIntent.Domain.DetachFromSeries,
             -> entity.onIntent(intent)
 
             is TaskDetailIntent.Domain.ToggleChecklistItem,
@@ -449,6 +452,8 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.Archive,
             is TaskDetailIntent.Domain.Restore,
             is TaskDetailIntent.Domain.Unarchive,
+            is TaskDetailIntent.Domain.DeleteSeries,
+            is TaskDetailIntent.Domain.RestoreSeries,
             -> lifecycle.onIntent(intent)
 
             is TaskDetailIntent.Domain.RunAiAction -> ai.onIntent(intent)

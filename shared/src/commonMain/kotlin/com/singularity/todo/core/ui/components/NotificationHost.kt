@@ -101,6 +101,11 @@ fun NotificationHost(
     // keyed on `notification`, so nulling it up front would change the key and
     // cancel `showSnackbar` on the very next frame — the toast never reaches
     // the screen (regression covered by Maestro tasks/06-delete-undo).
+    //
+    // The two endings are told apart: the action was taken, or the offer was
+    // declined. A screen that has to leave waits for the second one — the toast
+    // lives in this composition, so a navigation before the offer ends would
+    // take the way back with it.
     LaunchedEffect(notification) {
         val undo = notification as? Notification.Undo ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
@@ -108,7 +113,7 @@ fun NotificationHost(
             actionLabel = undo.actionLabel,
             duration = SnackbarDuration.Short,
         )
-        if (result == SnackbarResult.ActionPerformed) undo.onAction()
+        if (result == SnackbarResult.ActionPerformed) undo.onAction() else undo.onDeclined()
         notification = null
     }
 

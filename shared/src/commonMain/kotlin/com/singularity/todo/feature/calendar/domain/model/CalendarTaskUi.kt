@@ -34,4 +34,6 @@ data class CalendarTaskUi(
      * Null means use the default calendar palette color.
      */
     val accentColor: Long? = null,
+    /** True when the task is one date of a series — the chip says so. */
+    val isSeries: Boolean = false,
 )

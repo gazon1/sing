@@ -7,6 +7,7 @@ import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 
@@ -41,6 +42,14 @@ data class AgendaDeps(
      * open, and a task that comes back to work brings its project with it.
      */
     val completion: TaskReopenUseCase,
+
+    /**
+     * Makes two series one series.
+     *
+     * The user notices it in the agenda: two rows that look like one piece of
+     * work, on two different dates, in two different series.
+     */
+    val mergeSeries: MergeTaskSeriesUseCase,
     val workScheduleSettings: WorkScheduleSettingsRepository,
     val greetingSettings: GreetingSettingsRepository,
 )

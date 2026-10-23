@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.components.SeriesMarker
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -39,9 +40,13 @@ fun TaskMetaRow(
     isRecurring: Boolean,
     isOverdue: Boolean,
     isBlocked: Boolean = false, // MR-1: blocked by incomplete dependencies
+    /** How many dates the series of this row has; null when it stands alone. */
+    seriesDates: Int? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (dueLabel == null && project == null && !isBlocked) return
+    // One fact, four sources: the row shows nothing when there is nothing to show.
+    val hasSomethingToShow = dueLabel != null || project != null || isBlocked || seriesDates != null
+    if (!hasSomethingToShow) return
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -64,6 +69,11 @@ fun TaskMetaRow(
                 tint = mutedTextColor(),
                 modifier = Modifier.size(TaskListSizes.MetaIcon),
             )
+            Spacer(Modifier.width(TaskListSpacing.Xs))
+        }
+
+        if (seriesDates != null) {
+            SeriesMarker(isSeries = true, dates = seriesDates)
             Spacer(Modifier.width(TaskListSpacing.Xs))
         }
 

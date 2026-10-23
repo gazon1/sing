@@ -71,6 +71,7 @@ from __future__ import annotations
 import pathlib
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Iterator
 
 import yaml
@@ -80,6 +81,87 @@ _GRADLE = re.compile(r"(?:^|[\s;&|(])(?:\./gradlew|\./gw)\b")
 
 #: `-Ptest.tags=fast,slow` and the space-separated `-Ptest.tags all` both bind.
 SELECTOR = re.compile(r"-Ptest\.tags[= ]([^\s;&|)]+)")
+
+#: `-Ptest.population=full` — the NAMED selection. It binds the same way.
+POPULATION = re.compile(r"-Ptest\.population[= ]([^\s;&|)]+)")
+
+#: Where the named populations live: `config/test-populations.properties`.
+#:
+#: ONE file for the mapping, because the mapping was the thing that drifted:
+#: the selection was written as the literal "fast,slow" in the workflow, in
+#: settings.gradle.kts and in a Python gate, and nothing said which of them was
+#: the definition. The file is found relative to this module, which lives in
+#: the checkout — the same reason the whole `sgate` package is installed
+#: per checkout rather than once per machine.
+POPULATIONS_FILE = pathlib.Path(__file__).resolve().parents[2] / "config" / "test-populations.properties"
+
+
+@lru_cache(maxsize=1)
+def load_populations(path: pathlib.Path | None = None) -> dict[str, tuple[str, ...]]:
+    """The named test populations and the tags each one selects.
+
+    Read from `config/test-populations.properties`. A missing file is an error
+    and not an empty mapping: a gate that cannot read the definitions would
+    compare populations it does not understand, and "I did not look" and "they
+    agree" look exactly the same in the output.
+    """
+    source = path or POPULATIONS_FILE
+    try:
+        text = source.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"the named test populations are unreadable: {source} ({exc})") from exc
+    populations: dict[str, tuple[str, ...]] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        tags = tuple(part.strip() for part in value.split(",") if part.strip())
+        if not name.strip() or not tags:
+            raise RuntimeError(f"{source}: a population without tags: {line!r}")
+        populations[name.strip()] = tags
+    if not populations:
+        raise RuntimeError(f"{source}: no populations are declared")
+    return populations
+
+
+def population_tags(population: str) -> tuple[str, ...]:
+    """The tags the named population selects.
+
+    An unknown name is an error, not a silent empty selection: an empty
+    selection would look like "this invocation selects nothing", which is a
+    different claim than "this invocation names a population nobody declared".
+    """
+    populations = load_populations()
+    if population not in populations:
+        known = ", ".join(sorted(populations))
+        raise RuntimeError(
+            f"unknown test population {population!r} — the known ones are: {known} "
+            f"({POPULATIONS_FILE})"
+        )
+    return populations[population]
+
+
+def _resolve_population(value: str) -> str:
+    """The effective selection of a `-Ptest.population` value.
+
+    A literal name resolves to the tag list it selects. A shell variable
+    (`"$TEST_POPULATION"`) does not: the gate reads the workflow as TEXT and
+    cannot know what the variable holds at run time. So it stays an opaque
+    token — every invocation that names the same variable compares equal, and
+    an invocation that spells a literal compares DIFFERENT, which is the
+    finding worth making: a job that mixes "the population this job chose"
+    with a hard-coded one has two selections, and only one of them is the one
+    the job decided on.
+
+    The value that reaches Gradle is checked in the workflow itself: the "Test
+    population is one of the known ones" step reads the populations file and
+    stops the job when the name is not one of them.
+    """
+    name = value.strip().strip('"').strip("'")
+    if name.startswith("$"):
+        return name
+    return ",".join(population_tags(name))
 
 #: Shell separators. Fragments are split on these so a pipeline cannot hide an
 #: invocation on its right-hand side.
@@ -137,9 +219,20 @@ class Invocation:
 
     #: `origin` plus the line the command starts on, for a report a reader can act on.
     location: str
-    #: The `-Ptest.tags` value, or `None` for Gradle's default. Absent is a
-    #: population of its own, not an absence of one.
+    #: The EFFECTIVE selection, as a tag list — or `None` for Gradle's default.
+    #: Absent is a population of its own, not an absence of one.
+    #:
+    #: An invocation that names a population (`-Ptest.population=full`) and one
+    #: that spells the tags (`-Ptest.tags=fast,slow`) produce the SAME value
+    #: here, because they select the same tests. The gates compare populations,
+    #: and a comparison that treated the two spellings as different would
+    #: report a disagreement where there is none — and would miss the real one,
+    #: where the two spellings of the same name have drifted apart.
     selector: str | None
+    #: The named population the invocation asked for, or `None` when it spelled
+    #: the tags directly. Kept for the reports: a reader wants to see the name
+    #: the author wrote, not only the tags it resolved to.
+    population: str | None
     #: True when this invocation names a task that can execute tests.
     test_capable: bool
     #: The task tokens it names, in order.
@@ -189,11 +282,26 @@ def iter_invocations(text: str, origin: str = "") -> Iterator[Invocation]:
             if not _GRADLE.search(fragment):
                 continue
             selector_match = SELECTOR.search(fragment)
+            population_match = POPULATION.search(fragment)
+            if selector_match and population_match:
+                raise RuntimeError(
+                    f"{origin}:{line_no}: the invocation names a population "
+                    f"({population_match.group(1)!r}) AND spells the tags "
+                    f"({selector_match.group(1)!r}) — one selection, one spelling"
+                )
+            population = population_match.group(1) if population_match else None
+            if population is not None:
+                selector = _resolve_population(population)
+            elif selector_match:
+                selector = selector_match.group(1)
+            else:
+                selector = None
             tasks = tuple(word for word in fragment.split() if _is_named_task(word))
             where = f"{origin}:{line_no}" if origin else str(line_no)
             yield Invocation(
                 location=where,
-                selector=selector_match.group(1) if selector_match else None,
+                selector=selector,
+                population=population,
                 test_capable=any(is_test_task(task) for task in tasks),
                 tasks=tasks,
             )

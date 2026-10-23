@@ -88,14 +88,19 @@ class StatisticsViewModel(
             deps.taskRepository.observeByFilter(TaskFilter.All)
                 .map { tasks ->
                     val nowMs = deps.clock.now().toEpochMilliseconds()
-                    val completed = tasks.mapNotNull { task ->
-                        task.completedAt?.let { task.id.value to it.toEpochMilliseconds() }
+                    // The statistics measure works, and a series is one work
+                    // scheduled on several dates: the copies count once. The
+                    // grouping happens here, before the buckets are counted, so
+                    // no bucket can see two copies of the same work.
+                    val rows = tasks.map { task ->
+                        StatisticsWorkRow(
+                            id = task.id.value,
+                            seriesId = task.seriesId?.value,
+                            completedAt = task.completedAt?.toEpochMilliseconds(),
+                            dueAt = task.dueDate?.let { it.toEpochDays() * TimeConstants.MILLIS_PER_DAY },
+                        )
                     }
-                    val overdue = tasks.mapNotNull { task ->
-                        task.dueDate?.takeIf { task.completedAt == null }?.let {
-                            task.id.value to (it.toEpochDays() * TimeConstants.MILLIS_PER_DAY)
-                        }
-                    }
+                    val (completed, overdue) = groupIntoWorks(rows)
                     // Snapshot is always computed at 7-day range here; range is tracked
                     // in state and used by the insights side.
                     computeStatistics(completed, overdue, nowMs, 7)

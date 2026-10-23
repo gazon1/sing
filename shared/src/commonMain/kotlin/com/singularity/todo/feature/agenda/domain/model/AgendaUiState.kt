@@ -65,6 +65,8 @@ data class AgendaRowItem(
     val badge: AgendaBadge? = null,
     /** MR-1: true when the task has incomplete dependencies. */
     val isBlocked: Boolean = false,
+    /** How many dates the series of this row has; null when it stands alone. */
+    val seriesDates: Int? = null,
 )
 
 /**

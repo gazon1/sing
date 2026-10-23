@@ -70,7 +70,7 @@ sourceSets {
             implementation(libs.kotlinx.serialization.json)
             // No vintage engine: every desktop test is Jupiter (`kotlin.test.Test`).
             // Under vintage, `org.junit.jupiter.api.Tag` was invisible to
-            // `includeTags(...)`, so `-Ptest.tags=fast,slow` silently selected 4 of 28
+            // `includeTags(...)`, so `-Ptest.population=full` silently selected 4 of 28
             // classes — see the note on `failOnNoDiscoveredTests` above.
             implementation(libs.kotlin.test.junit5)
             implementation(libs.junit.jupiter)

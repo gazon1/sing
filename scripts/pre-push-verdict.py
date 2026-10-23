@@ -60,6 +60,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -115,6 +116,20 @@ DEFAULT_BASE = "origin/main"
 DEFAULT_GRADLE = "./gw"
 
 
+def tree_env() -> dict[str, str]:
+    """The environment for a git command that runs inside a tree.
+
+    Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE) for the hook, and
+    they point at THIS worktree: a `git ls-files` inside the pushed tree would
+    list the original worktree's files, and the digest would be of a tree
+    nobody pushed. The pushed tree has its own `.git` file, and git finds it
+    when the environment does not say otherwise.
+    """
+    env = dict(os.environ)
+    for name in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'):
+        env.pop(name, None)
+    return env
+
 class VerdictUnavailable(Exception):
     """The verdict could not be taken — there is no tree to judge."""
 
@@ -140,6 +155,7 @@ def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
     result = subprocess.run(
         ["git", "diff", "--name-only", f"{base}...{sha}"],
         cwd=tree,
+        env=tree_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -163,6 +179,7 @@ def default_base(tree: pathlib.Path) -> str | None:
     result = subprocess.run(
         ["git", "rev-parse", "--verify", "--quiet", DEFAULT_BASE],
         cwd=tree,
+        env=tree_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -209,6 +226,7 @@ def git(repo: pathlib.Path, *args: str, check: bool = True) -> str:
     result = subprocess.run(
         ["git", *args],
         cwd=repo,
+        env=tree_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -229,6 +247,7 @@ def worktree_holds_sha(repo: pathlib.Path, sha: str) -> bool:
     diff = subprocess.run(
         ["git", "diff", "--quiet", sha, "--", *DETEKT_PATHSPECS],
         cwd=repo,
+        env=tree_env(),
         capture_output=True,
         check=False,
     )
@@ -250,6 +269,7 @@ def kotlin_digest(tree: pathlib.Path) -> str:
     listing = subprocess.run(
         ["git", "ls-files", "--", "*.kt", "*.kts"],
         cwd=tree,
+        env=tree_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -257,6 +277,7 @@ def kotlin_digest(tree: pathlib.Path) -> str:
     untracked = subprocess.run(
         ["git", "ls-files", "--others", "--exclude-standard", "--", "*.kt", "*.kts"],
         cwd=tree,
+        env=tree_env(),
         capture_output=True,
         text=True,
         check=False,
