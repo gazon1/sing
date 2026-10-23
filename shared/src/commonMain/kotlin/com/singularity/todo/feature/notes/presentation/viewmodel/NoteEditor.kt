@@ -35,7 +35,7 @@ import com.singularity.todo.feature.notes.formatSummarizeResult
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
@@ -359,7 +359,7 @@ internal class NoteEditor(
         val (kind, summary) = when (action) {
             NoteAiAction.Summarize -> {
                 val summary = (result as? SummarizeResult.Ok)?.summary ?: return@launch
-                val kind = ProposalItemKind.SetNoteField(NoteField.Summary, summary)
+                val kind = ProposalItemKind.SetNoteField(NoteValue.Summary(summary))
                 kind to "Summarize: $summary"
             }
 
@@ -372,7 +372,7 @@ internal class NoteEditor(
 
             NoteAiAction.Improve -> {
                 val improved = result as? Improved ?: return@launch
-                val kind = ProposalItemKind.SetNoteField(NoteField.Body, improved.body)
+                val kind = ProposalItemKind.SetNoteField(NoteValue.Body(improved.body))
                 kind to formatNoteAiResult(improved)
             }
 
@@ -386,7 +386,7 @@ internal class NoteEditor(
                     NoteAiAction.RewriteTldr -> "Tldr"
                     NoteAiAction.RewriteStructured -> "Structured"
                 }
-                val kind = ProposalItemKind.SetNoteField(NoteField.Body, improved.body)
+                val kind = ProposalItemKind.SetNoteField(NoteValue.Body(improved.body))
                 kind to "Rewrite as $tone: ${improved.title}"
             }
 

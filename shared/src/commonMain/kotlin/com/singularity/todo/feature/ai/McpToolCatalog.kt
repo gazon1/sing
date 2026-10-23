@@ -110,8 +110,12 @@ object McpToolCatalog {
      * allowed, a **renamed** or **removed** field is not. The version is bumped when
      * the shape changes in a way a client can observe — a renamed field, a removed
      * field, a changed meaning.
+     *
+     * Version 3: `create_tag` proposes like the rest of the write tools, so its
+     * answer lost the `tagId` field — an id that named a tag nobody had agreed to
+     * exist — and answers with `proposalCreated` and `proposalId` instead.
      */
-    const val SURFACE_CONTRACT_VERSION = 2
+    const val SURFACE_CONTRACT_VERSION = 3
 
     /**
      * A single tool entry in the catalog.

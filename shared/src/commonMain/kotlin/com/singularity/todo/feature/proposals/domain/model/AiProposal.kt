@@ -75,6 +75,15 @@ data class AiProposal(
     /** Items still awaiting a decision. */
     val pendingItems: List<ProposalItem> get() = items.filter { it.status.isPending }
 
+    /**
+     * Items that have already been decided.
+     *
+     * The card draws them, muted and with the reason. A refusal the user cannot see
+     * is a refusal they cannot learn from — and a proposal that is half decided still
+     * has to tell the whole story.
+     */
+    val decidedItems: List<ProposalItem> get() = items.filter { !it.status.isPending }
+
     companion object {
         const val TARGET_KIND_TASK = "TASK"
         const val TARGET_KIND_NOTE = "NOTE"

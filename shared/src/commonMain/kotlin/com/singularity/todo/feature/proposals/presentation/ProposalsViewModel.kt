@@ -2,6 +2,7 @@ package com.singularity.todo.feature.proposals.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -16,12 +17,24 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-/** What the screen shows: the proposals waiting for a decision. */
-data class ProposalsUiState(val isLoading: Boolean = true, val proposals: List<AiProposal> = emptyList())
+/**
+ * What the screen shows: the proposals waiting for a decision.
+ *
+ * @property failures Why the last attempt to apply or to change an item failed, by
+ *   item. The card shows the reason under the item it belongs to, so the reason is
+ *   where the user's attention already is. A reason that only ever appears in a
+ *   message that is gone by the time they look again is not a visible reason.
+ */
+data class ProposalsUiState(
+    val isLoading: Boolean = true,
+    val proposals: List<AiProposal> = emptyList(),
+    val failures: Map<ProposalItemId, String> = emptyMap(),
+)
 
 /** What the user did on the proposals screen. */
 sealed interface ProposalsIntent : MviIntent {
@@ -36,6 +49,9 @@ sealed interface ProposalsIntent : MviIntent {
 
     /** Turn every change of one proposal down. */
     data class Dismiss(val proposalId: ProposalId) : ProposalsIntent
+
+    /** Change the value of one change, before it is applied. */
+    data class Edit(val itemId: ProposalItemId, val text: String) : ProposalsIntent
 }
 
 /** What the proposals screen tells the user, once. */
@@ -68,6 +84,7 @@ sealed interface ProposalsUiEvent : MviEvent {
 class ProposalsViewModel(
     private val proposals: ProposalRepository,
     private val applyProposalItem: ApplyProposalItemUseCase,
+    private val editProposalItem: EditProposalItemUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
@@ -89,7 +106,9 @@ class ProposalsViewModel(
         proposals.watchProposalsByStatus(ProposalStatus.Pending)
             .map { list -> list.filter { proposal -> proposal.items.any { it.status == ProposalItemStatus.Pending } } }
             .collect { list ->
-                updateState { ProposalsUiState(isLoading = false, proposals = list) }
+                updateState { state ->
+                    state.copy(isLoading = false, proposals = list)
+                }
             }
     }
 
@@ -105,6 +124,7 @@ class ProposalsViewModel(
             is ProposalsIntent.Reject -> reject(intent.itemId, intent.reason)
             is ProposalsIntent.ConfirmAll -> confirmAll(intent.proposalId)
             is ProposalsIntent.Dismiss -> dismiss(intent.proposalId)
+            is ProposalsIntent.Edit -> edit(intent.itemId, intent.text)
         }
     }
 
@@ -112,11 +132,14 @@ class ProposalsViewModel(
         val userId = currentUser.scopedUserId.value
         val label = if (confirm) "Apply the change" else "Reject the change"
         emitError(label, ProposalsUiEvent::ShowError) {
-            if (confirm) {
+            val result = if (confirm) {
                 applyProposalItem.confirm(itemId, userId)
             } else {
                 applyProposalItem.reject(itemId, userId)
             }
+            result.onFailure { error -> recordFailure(itemId, error.toMessage(label)) }
+            result.onSuccess { clearFailure(itemId) }
+            result
         }
     }
 
@@ -124,14 +147,28 @@ class ProposalsViewModel(
     private fun reject(itemId: ProposalItemId, reason: String?) {
         val userId = currentUser.scopedUserId.value
         emitError("Reject the change", ProposalsUiEvent::ShowError) {
-            applyProposalItem.reject(itemId, userId, reason)
+            applyProposalItem.reject(itemId, userId, reason).also { result ->
+                result.onFailure { error -> recordFailure(itemId, error.toMessage("Reject the change")) }
+                result.onSuccess { clearFailure(itemId) }
+            }
         }
     }
 
     private fun confirmAll(proposalId: ProposalId) {
         val userId = currentUser.scopedUserId.value
         emitError("Apply the changes", ProposalsUiEvent::ShowError) {
-            runCatchingCancellable { applyProposalItem.confirmAll(proposalId, userId) }
+            runCatchingCancellable {
+                val batch = applyProposalItem.confirmAll(proposalId, userId)
+                batch.failed.forEach { failed ->
+                    recordFailure(failed.itemId, failed.error.toMessage("Apply the change"))
+                }
+                batch.applied.forEach { applied -> clearFailure(applied.id) }
+                if (batch.failed.isNotEmpty()) {
+                    throw IllegalStateException(
+                        "${batch.failed.size} of the changes could not be applied.",
+                    )
+                }
+            }
         }
     }
 
@@ -151,5 +188,32 @@ class ProposalsViewModel(
                 waiting.forEach { item -> applyProposalItem.reject(item.id, userId) }
             }
         }
+    }
+
+    /**
+     * Changes the value of one change, before it is applied.
+     *
+     * The value the user typed is read by the same reader that read the model's
+     * value, so a value that does not read is refused — and the refusal carries the
+     * reason, which is what the user is shown under the item.
+     */
+    private fun edit(itemId: ProposalItemId, text: String) {
+        val userId = currentUser.scopedUserId.value
+        emitError("Change the proposal", ProposalsUiEvent::ShowError) {
+            editProposalItem.edit(itemId, text, userId).also { result ->
+                result.onFailure { error -> recordFailure(itemId, error.toMessage("Change the proposal")) }
+                result.onSuccess { clearFailure(itemId) }
+            }
+        }
+    }
+
+    /** Keeps the reason a change failed next to the change it failed for. */
+    private fun recordFailure(itemId: ProposalItemId, message: String) {
+        updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
+    }
+
+    /** Forgets the reason a change failed, once the change worked. */
+    private fun clearFailure(itemId: ProposalItemId) {
+        updateState { state -> state.copy(failures = state.failures - itemId) }
     }
 }

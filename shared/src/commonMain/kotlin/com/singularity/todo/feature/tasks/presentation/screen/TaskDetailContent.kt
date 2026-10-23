@@ -344,6 +344,11 @@ fun TaskDetailContent(
                                                     TaskDetailIntent.Domain.DismissProposal(proposalId),
                                                 )
                                             },
+                                            onEdit = { itemId, text ->
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.EditProposalItem(itemId, text),
+                                                )
+                                            },
                                         )
                                     }
                                     TaskDetailTagsSection(

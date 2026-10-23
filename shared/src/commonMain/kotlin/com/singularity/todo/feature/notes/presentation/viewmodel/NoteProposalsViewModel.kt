@@ -15,6 +15,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import kotlinx.coroutines.launch
 
 /** The changes waiting for a decision on this note. */
@@ -33,6 +34,9 @@ sealed interface NoteProposalsIntent : MviIntent {
 
     /** Turn every change of one proposal down. */
     data class Dismiss(val proposalId: ProposalId) : NoteProposalsIntent
+
+    /** Change the value of one change, before it is applied. */
+    data class Edit(val itemId: ProposalItemId, val text: String) : NoteProposalsIntent
 }
 
 /** What the note editor tells the user, once. */
@@ -61,6 +65,7 @@ class NoteProposalsViewModel(
     private val noteId: NoteId,
     private val proposals: ProposalRepository,
     private val applyProposalItem: ApplyProposalItemUseCase,
+    private val editProposalItem: EditProposalItemUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
@@ -96,6 +101,21 @@ class NoteProposalsViewModel(
             is NoteProposalsIntent.Reject -> decide(intent.itemId, confirm = false)
             is NoteProposalsIntent.ConfirmAll -> confirmAll(intent.proposalId)
             is NoteProposalsIntent.Dismiss -> dismiss(intent.proposalId)
+            is NoteProposalsIntent.Edit -> edit(intent.itemId, intent.text)
+        }
+    }
+
+    /**
+     * Changes the value of one change, before it is applied.
+     *
+     * The value the user typed is read by the same reader that read the model's
+     * value, so a value that does not read is refused — and the refusal carries the
+     * reason, which is what the user is shown.
+     */
+    private fun edit(itemId: ProposalItemId, text: String) {
+        val userId = currentUser.scopedUserId.value
+        emitError("Change the proposal", NoteProposalsUiEvent::ShowError) {
+            editProposalItem.edit(itemId, text, userId)
         }
     }
 

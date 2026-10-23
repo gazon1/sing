@@ -134,6 +134,9 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
         onDismissProposal = { proposalId ->
             proposalsViewModel.onIntent(NoteProposalsIntent.Dismiss(proposalId))
         },
+        onEditProposal = { itemId, text ->
+            proposalsViewModel.onIntent(NoteProposalsIntent.Edit(itemId, text))
+        },
     )
 
     NotificationHost(
@@ -166,6 +169,7 @@ fun NoteEditorScreenContent(
     onRejectProposal: (ProposalItemId, String?) -> Unit = { _, _ -> },
     onConfirmAllProposals: (ProposalId) -> Unit = {},
     onDismissProposal: (ProposalId) -> Unit = {},
+    onEditProposal: ((ProposalItemId, String) -> Unit)? = null,
 ) {
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
 
@@ -235,6 +239,7 @@ fun NoteEditorScreenContent(
                 onReject = onRejectProposal,
                 onConfirmAll = { proposalId -> onConfirmAllProposals(proposalId) },
                 onDismiss = { proposalId -> onDismissProposal(proposalId) },
+                onEdit = onEditProposal,
             )
             EditorTitleAndBody(
                 session = session,

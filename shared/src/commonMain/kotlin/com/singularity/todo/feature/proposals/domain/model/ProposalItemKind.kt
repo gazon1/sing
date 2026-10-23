@@ -2,164 +2,24 @@ package com.singularity.todo.feature.proposals.domain.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonObjectBuilder
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
- * The task fields a [ProposalItemKind.SetTaskField] item may propose to change.
+ * A value the user may change before the change is applied.
  *
- * Modelled as an enum rather than six separate `ProposalItemKind` variants so that
- * adding a settable field is a one-line change here instead of a new `when` arm in
- * [com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase].
+ * @property text The value as it reads now — what the field is filled with.
+ * @property change The same change with the value replaced — or why it cannot be.
  */
-@Serializable
-enum class TaskField {
-    @SerialName("title")
-    Title,
-
-    @SerialName("description")
-    Description,
-
-    @SerialName("priority")
-    Priority,
-
-    @SerialName("due_date")
-    DueDate,
-
-    @SerialName("status")
-    Status,
-
-    @SerialName("estimate_minutes")
-    EstimateMinutes,
-
-    /** The kind of work — `Task`, `Note`, and whatever else the app calls a kind. */
-    @SerialName("kind")
-    Kind,
-
-    /** The time of day the task is due, as `HH:mm`. */
-    @SerialName("due_time")
-    DueTime,
-
-    /** The project the task belongs to, as a project id. An empty value moves it out of every project. */
-    @SerialName("project")
-    Project,
-
-    /** Whether the task is deferred — `true` or `false`. */
-    @SerialName("someday")
-    Someday,
-}
-
-/**
- * The note fields a [ProposalItemKind.SetNoteField] item may propose to change.
- *
- * Mirrors [TaskField] for notes, enabling the same enum-based dispatch pattern.
- */
-@Serializable
-enum class NoteField {
-    @SerialName("title")
-    Title,
-
-    @SerialName("body")
-    Body,
-
-    /** Summary of the note content, written to the body as HTML. */
-    @SerialName("summary")
-    Summary,
-}
-
-/**
- * The project fields a [ProposalItemKind.SetProjectField] item may propose to change.
- *
- * A project had no shape of its own in the proposal vocabulary until the write
- * tools were put on the proposal path: `SetTaskField` and `SetNoteField` could
- * change a task and a note, and a project could only be deleted. So "change the
- * project's name" was impossible not because anybody forgot, but because there
- * was no kind for it.
- */
-@Serializable
-enum class ProjectField {
-    @SerialName("name")
-    Name,
-
-    @SerialName("description")
-    Description,
-
-    /** The project's colour, as an ARGB integer. */
-    @SerialName("color")
-    Color,
-
-    /** The project's icon name. */
-    @SerialName("icon")
-    Icon,
-}
-
-/**
- * A time range proposed by [ProposalItemKind.AddTimeEntries].
- *
- * @param startedAt Epoch millis when the work started.
- * @param endedAt Epoch millis when it ended. Always after [startedAt].
- * @param note Optional free-text note describing the work.
- */
-@Serializable
-data class ProposedTimeEntry(val startedAt: Long, val endedAt: Long, val note: String? = null)
-
-/**
- * The task a [ProposalItemKind.CreateTask] item proposes to bring into being.
- *
- * The values are the raw strings the model produced, and the planner parses and
- * validates them before anything is claimed — so an unparseable date leaves the
- * proposal pending instead of writing a task with a broken date.
- */
-@Serializable
-data class ProposedTask(
-    val title: String,
-    val description: String? = null,
-    val priority: String = "None",
-    val kind: String = "Task",
-    val projectId: String? = null,
-    val parentTaskId: String? = null,
-    val tagIds: List<String> = emptyList(),
-    /** `YYYY-MM-DD`. */
-    val dueDate: String? = null,
-    /** `HH:mm`. */
-    val dueTime: String? = null,
-    val someday: Boolean = false,
-)
-
-/**
- * The project a [ProposalItemKind.CreateProject] item proposes to bring into being.
- */
-@Serializable
-data class ProposedProject(
-    val name: String,
-    val description: String? = null,
-    val color: Int = 0xFF2196F3.toInt(),
-    val icon: String? = null,
-)
-
-/**
- * The note a [ProposalItemKind.CreateNote] item proposes to bring into being.
- *
- * @property bodyHtml The body as canonical HTML — the form the notes are stored in.
- */
-@Serializable
-data class ProposedNote(
-    val title: String = "",
-    val bodyHtml: String? = null,
-    val isFolder: Boolean = false,
-    val parentNoteId: String? = null,
-)
+class EditableProposal(val text: String, val change: (String) -> ReadResult<ProposalItemKind>)
 
 /**
  * The change a single [ProposalItem] asks for.
  *
- * This is the **only** place the proposal vocabulary is enumerated. Dispatch happens
- * in exactly one `when` — [com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase]
- * — so adding a variant forces the compiler to point at every site that must learn
- * about it.
+ * This is the **only** place the proposal vocabulary is enumerated, and each variant
+ * carries its own behaviour: what the user reads on the card ([humanSummary]), the
+ * identity the rejection fingerprint compares ([fingerprintTarget]) and whether the
+ * user may change the value before it is applied ([editableProposal]). A new kind is
+ * therefore a new kind — not a new kind plus a summary somewhere else plus a
+ * fingerprint somewhere else, three edits that have to be found by whoever adds it.
  *
  * The payload of the collection-shaped variants is kept as plain strings rather than
  * domain ids: the model proposes *text* ("milk", "chore"), and resolution to real
@@ -170,15 +30,51 @@ data class ProposedNote(
 sealed interface ProposalItemKind {
 
     /**
-     * Set a scalar field on the owning task to [value].
+     * What the user reads on the card.
      *
-     * [value] is the raw string the model produced; the use case parses and validates
-     * it against [field] before writing, so an unparseable value leaves the item
-     * pending rather than writing garbage.
+     * The line says what will happen rather than which variant of the domain type was
+     * chosen — and it says *which value*, because a proposal nobody can read the
+     * value of is a proposal the user approves blind.
+     */
+    val humanSummary: String
+
+    /**
+     * A stable, order-independent identity for this change.
+     *
+     * Feeds the rejection fingerprint, so a model which ignores the "recently rejected"
+     * list in its prompt still cannot re-propose something already turned down.
+     *
+     * Order-independent by construction: `AddTags(["a","b"])` and `AddTags(["b","a"])`
+     * are the same proposal and must not both survive a rejection.
+     */
+    val fingerprintTarget: String
+
+    /**
+     * The value the user may change before the change is applied — or null when the
+     * change carries nothing a person would type.
+     *
+     * The behaviour lives here, in the kind, so that adding a kind is one decision in
+     * one place: a kind that says null is a kind nobody can edit, and a kind that
+     * says otherwise is a kind with a field the user can fill in.
+     */
+    fun editableProposal(): EditableProposal?
+
+    /**
+     * Set a field on the owning task.
+     *
+     * The value carries its own type, so the field and the value cannot disagree.
      */
     @Serializable
     @SerialName("SetTaskField")
-    data class SetTaskField(val field: TaskField, val value: String) : ProposalItemKind
+    data class SetTaskField(val value: TaskValue) : ProposalItemKind {
+        override val humanSummary: String = value.summary
+        override val fingerprintTarget: String = value.fieldName
+        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
+            EditableProposal(editable.text) { newText ->
+                editable.change(newText).map { newValue -> SetTaskField(newValue) }
+            }
+        }
+    }
 
     /**
      * The owning task's tags become exactly [tagIds].
@@ -189,53 +85,120 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("SetTaskTags")
-    data class SetTaskTags(val tagIds: List<String>) : ProposalItemKind
+    data class SetTaskTags(val tagIds: List<String>) : ProposalItemKind {
+        override val humanSummary: String = "Set the tags"
+        override val fingerprintTarget: String = tagIds.normalized()
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Add each of these tag names to the task. Unresolvable names are skipped. */
     @Serializable
     @SerialName("AddTags")
-    data class AddTags(val names: List<String>) : ProposalItemKind
+    data class AddTags(val names: List<String>) : ProposalItemKind {
+        override val humanSummary: String = "Add tags"
+        override val fingerprintTarget: String = names.normalized()
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Remove each of these tag ids from the task. Also records tag suppression. */
     @Serializable
     @SerialName("RemoveTags")
-    data class RemoveTags(val tagIds: List<String>) : ProposalItemKind
+    data class RemoveTags(val tagIds: List<String>) : ProposalItemKind {
+        override val humanSummary: String = "Remove tags"
+        override val fingerprintTarget: String = tagIds.normalized()
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Append these texts as new checklist items. */
     @Serializable
     @SerialName("AddChecklistItems")
-    data class AddChecklistItems(val texts: List<String>) : ProposalItemKind
+    data class AddChecklistItems(val texts: List<String>) : ProposalItemKind {
+        override val humanSummary: String = "${texts.size} checklist item(s)"
+        override val fingerprintTarget: String = texts.normalized()
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Create these titles as subtasks of the owning task. */
     @Serializable
     @SerialName("AddSubtasks")
-    data class AddSubtasks(val titles: List<String>) : ProposalItemKind
+    data class AddSubtasks(val titles: List<String>) : ProposalItemKind {
+        override val humanSummary: String = "${titles.size} subtask(s)"
+        override val fingerprintTarget: String = titles.normalized()
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Log these as time entries against the owning task. */
     @Serializable
     @SerialName("AddTimeEntries")
-    data class AddTimeEntries(val entries: List<ProposedTimeEntry>) : ProposalItemKind
+    data class AddTimeEntries(val entries: List<ProposedTimeEntry>) : ProposalItemKind {
+        override val humanSummary: String = "Add time entry"
+        override val fingerprintTarget: String = entries
+            .map { "${it.startedAt}-${it.endedAt}" }
+            .sorted()
+            .joinToString("|")
+        override fun editableProposal(): EditableProposal? = null
+    }
 
-    /**
-     * Set a scalar field on the owning note to [value].
-     *
-     * [value] is the raw string the model produced; the use case parses and validates
-     * it against [NoteField] before writing, so an unparseable value leaves the item
-     * pending rather than writing garbage.
-     */
+    /** Set a field on the owning note. */
     @Serializable
     @SerialName("SetNoteField")
-    data class SetNoteField(val field: NoteField, val value: String) : ProposalItemKind
+    data class SetNoteField(val value: NoteValue) : ProposalItemKind {
+        override val humanSummary: String = value.summary
+        override val fingerprintTarget: String = value.fieldName
+        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
+            EditableProposal(editable.text) { newText ->
+                editable.change(newText).map { newValue -> SetNoteField(newValue) }
+            }
+        }
+    }
 
-    /**
-     * Set a scalar field on the owning project to [value].
-     *
-     * The value is the raw string the model produced; the planner parses and
-     * validates it against [ProjectField] before writing.
-     */
+    /** Set a field on the owning project. */
     @Serializable
     @SerialName("SetProjectField")
-    data class SetProjectField(val field: ProjectField, val value: String) : ProposalItemKind
+    data class SetProjectField(val value: ProjectValue) : ProposalItemKind {
+        override val humanSummary: String = value.summary
+        override val fingerprintTarget: String = value.fieldName
+        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
+            EditableProposal(editable.text) { newText ->
+                editable.change(newText).map { newValue -> SetProjectField(newValue) }
+            }
+        }
+    }
+
+    /** Set a field on the owning tag. */
+    @Serializable
+    @SerialName("SetTagField")
+    data class SetTagField(val value: TagValue) : ProposalItemKind {
+        override val humanSummary: String = value.summary
+        override val fingerprintTarget: String = value.fieldName
+        override fun editableProposal(): EditableProposal? = value.editableValue()?.let { editable ->
+            EditableProposal(editable.text) { newText ->
+                editable.change(newText).map { newValue -> SetTagField(newValue) }
+            }
+        }
+    }
+
+    /**
+     * Create a tag with these fields.
+     *
+     * A tag is the last thing the model could create without the user seeing it: the
+     * write tools proposed, and creating a tag wrote. Now it proposes like the rest,
+     * and the tag's id is named by the proposal — the id the tag *will* have.
+     */
+    @Serializable
+    @SerialName("CreateTag")
+    data class CreateTag(val tag: ProposedTag) : ProposalItemKind {
+        override val humanSummary: String = "Create a tag «${tag.name.asCardValue()}»"
+        override val fingerprintTarget: String = tag.name.trim().lowercase()
+        override fun editableProposal(): EditableProposal = EditableProposal(tag.name) { newText ->
+            val name = newText.trim()
+            if (name.isEmpty()) {
+                ReadResult.Rejected("A tag needs a name.")
+            } else {
+                ReadResult.Ok(CreateTag(tag.copy(name = name)))
+            }
+        }
+    }
 
     /**
      * Create a task with these fields.
@@ -246,22 +209,59 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("CreateTask")
-    data class CreateTask(val task: ProposedTask) : ProposalItemKind
+    data class CreateTask(val task: ProposedTask) : ProposalItemKind {
+        override val humanSummary: String = "Create a task «${task.title.asCardValue()}»"
+        override val fingerprintTarget: String = task.title.trim().lowercase()
+        override fun editableProposal(): EditableProposal = EditableProposal(task.title) { newText ->
+            val title = newText.trim()
+            if (title.isEmpty()) {
+                ReadResult.Rejected("A task needs a title.")
+            } else {
+                ReadResult.Ok(CreateTask(task.copy(title = title)))
+            }
+        }
+    }
 
     /** Create a project with these fields. */
     @Serializable
     @SerialName("CreateProject")
-    data class CreateProject(val project: ProposedProject) : ProposalItemKind
+    data class CreateProject(val project: ProposedProject) : ProposalItemKind {
+        override val humanSummary: String = "Create a project «${project.name.asCardValue()}»"
+        override val fingerprintTarget: String = project.name.trim().lowercase()
+        override fun editableProposal(): EditableProposal = EditableProposal(project.name) { newText ->
+            val name = newText.trim()
+            if (name.isEmpty()) {
+                ReadResult.Rejected("A project needs a name.")
+            } else {
+                ReadResult.Ok(CreateProject(project.copy(name = name)))
+            }
+        }
+    }
 
     /** Create a note or folder with these fields. */
     @Serializable
     @SerialName("CreateNote")
-    data class CreateNote(val note: ProposedNote) : ProposalItemKind
+    data class CreateNote(val note: ProposedNote) : ProposalItemKind {
+        override val humanSummary: String = "Create a note «${note.title.asCardValue()}»"
+        override val fingerprintTarget: String = note.title.trim().lowercase()
+        override fun editableProposal(): EditableProposal = EditableProposal(note.title) { newText ->
+            val title = newText.trim()
+            if (title.isEmpty()) {
+                ReadResult.Rejected("A note needs a title.")
+            } else {
+                ReadResult.Ok(CreateNote(note.copy(title = title)))
+            }
+        }
+    }
 
     /** Delete the owning note. */
     @Serializable
     @SerialName("DeleteNote")
-    data class DeleteNote(val reason: String? = null) : ProposalItemKind
+    data class DeleteNote(val reason: String? = null) : ProposalItemKind {
+        override val humanSummary: String = "Delete note"
+        override val fingerprintTarget: String = ""
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /**
      * Extract task-like actions from a note's content.
@@ -270,203 +270,40 @@ sealed interface ProposalItemKind {
      */
     @Serializable
     @SerialName("ExtractActions")
-    data class ExtractActions(val actions: List<String>) : ProposalItemKind
+    data class ExtractActions(val actions: List<String>) : ProposalItemKind {
+        override val humanSummary: String = "${actions.size} action(s) from note"
+        override val fingerprintTarget: String = actions.normalized()
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Soft-delete (archive) the owning task. */
     @Serializable
     @SerialName("DeleteTask")
-    data class DeleteTask(val reason: String? = null) : ProposalItemKind
+    data class DeleteTask(val reason: String? = null) : ProposalItemKind {
+        override val humanSummary: String = "Delete task"
+        override val fingerprintTarget: String = ""
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Soft-delete (archive) the owning project. */
     @Serializable
     @SerialName("DeleteProject")
-    data class DeleteProject(val reason: String? = null) : ProposalItemKind
+    data class DeleteProject(val reason: String? = null) : ProposalItemKind {
+        override val humanSummary: String = "Delete project"
+        override val fingerprintTarget: String = ""
+        override fun editableProposal(): EditableProposal? = null
+    }
 
     /** Delete the owning tag. */
     @Serializable
     @SerialName("DeleteTag")
-    data class DeleteTag(val reason: String? = null) : ProposalItemKind
-}
-
-/**
- * A stable, order-independent identity for this change.
- *
- * Feeds the rejection fingerprint, so a model which ignores the "recently rejected"
- * list in its prompt still cannot re-propose something already turned down.
- *
- * Order-independent by construction: `AddTags(["a","b"])` and `AddTags(["b","a"])`
- * are the same proposal and must not both survive a rejection.
- */
-val ProposalItemKind.fingerprintTarget: String
-    get() = when (this) {
-        is ProposalItemKind.SetTaskField -> field.name
-
-        is ProposalItemKind.SetTaskTags -> tagIds.normalized()
-
-        is ProposalItemKind.AddTags -> names.normalized()
-
-        is ProposalItemKind.RemoveTags -> tagIds.normalized()
-
-        is ProposalItemKind.AddChecklistItems -> texts.normalized()
-
-        is ProposalItemKind.AddSubtasks -> titles.normalized()
-
-        is ProposalItemKind.AddTimeEntries ->
-            entries
-                .map { "${it.startedAt}-${it.endedAt}" }
-                .sorted()
-                .joinToString("|")
-
-        is ProposalItemKind.SetNoteField -> field.name
-
-        is ProposalItemKind.SetProjectField -> field.name
-
-        is ProposalItemKind.CreateTask -> task.title.trim().lowercase()
-
-        is ProposalItemKind.CreateProject -> project.name.trim().lowercase()
-
-        is ProposalItemKind.CreateNote -> note.title.trim().lowercase()
-
-        is ProposalItemKind.DeleteNote -> ""
-
-        is ProposalItemKind.ExtractActions -> actions.normalized()
-
-        is ProposalItemKind.DeleteTask -> ""
-
-        is ProposalItemKind.DeleteProject -> ""
-
-        is ProposalItemKind.DeleteTag -> ""
+    data class DeleteTag(val reason: String? = null) : ProposalItemKind {
+        override val humanSummary: String = "Delete tag"
+        override val fingerprintTarget: String = ""
+        override fun editableProposal(): EditableProposal? = null
     }
+}
 
 /** Trimmed, blank-free, de-duplicated, sorted — the canonical form for hashing. */
 private fun List<String>.normalized(): String =
     map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted().joinToString("|")
-
-/**
- * Renders a [ProposalItemKind] to a compact JSON object for the `kind_json` column.
- *
- * Uses [buildJsonObject] rather than polymorphic serialization so the stored shape
- * stays flat and greppable in the database.
- */
-fun ProposalItemKind.toJsonObject(): JsonObject = buildJsonObject {
-    put("type", this@toJsonObject::class.simpleName ?: "Unknown")
-    writeTaskPayload(this@toJsonObject, this)
-    writeEntityPayload(this@toJsonObject, this)
-    writeCreationPayload(this@toJsonObject, this)
-    writeDeletionPayload(this@toJsonObject, this)
-}
-
-/**
- * The payload of the kinds a task carries.
- *
- * The payload is written by group rather than by one long `when`: the vocabulary
- * grew, and a single `when` over every kind is a function nobody can read — and
- * a function nobody can read is one that gets a new kind added to it wrongly.
- */
-private fun writeTaskPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.SetTaskField -> {
-            into.put("field", kind.field.name)
-            into.put("value", kind.value)
-        }
-
-        is ProposalItemKind.SetTaskTags -> into.put("tagIds", kind.tagIds.joinToString(LIST_SEPARATOR))
-
-        is ProposalItemKind.AddTags -> into.put("names", kind.names.joinToString(LIST_SEPARATOR))
-
-        is ProposalItemKind.RemoveTags -> into.put("tagIds", kind.tagIds.joinToString(LIST_SEPARATOR))
-
-        is ProposalItemKind.AddChecklistItems -> into.put("texts", kind.texts.joinToString(LIST_SEPARATOR))
-
-        is ProposalItemKind.AddSubtasks -> into.put("titles", kind.titles.joinToString(LIST_SEPARATOR))
-
-        is ProposalItemKind.AddTimeEntries -> {
-            into.put(
-                "entries",
-                kind.entries.joinToString(RECORD_SEPARATOR) {
-                    "${it.startedAt}$FIELD_SEPARATOR${it.endedAt}$FIELD_SEPARATOR${it.note.orEmpty()}"
-                },
-            )
-        }
-
-        else -> Unit
-    }
-}
-
-/** The payload of the kinds a note or a project carries. */
-private fun writeEntityPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.SetNoteField -> {
-            into.put("field", kind.field.name)
-            into.put("value", kind.value)
-        }
-
-        is ProposalItemKind.SetProjectField -> {
-            into.put("field", kind.field.name)
-            into.put("value", kind.value)
-        }
-
-        else -> Unit
-    }
-}
-
-/** The payload of the kinds that bring something into being. */
-private fun writeCreationPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.CreateTask -> {
-            into.put("title", kind.task.title)
-            kind.task.description?.let { into.put("description", it) }
-            into.put("priority", kind.task.priority)
-            into.put("kind", kind.task.kind)
-            kind.task.projectId?.let { into.put("projectId", it) }
-            kind.task.parentTaskId?.let { into.put("parentTaskId", it) }
-            into.put("tagIds", kind.task.tagIds.joinToString(LIST_SEPARATOR))
-            kind.task.dueDate?.let { into.put("dueDate", it) }
-            kind.task.dueTime?.let { into.put("dueTime", it) }
-            into.put("someday", kind.task.someday)
-        }
-
-        is ProposalItemKind.CreateProject -> {
-            into.put("name", kind.project.name)
-            kind.project.description?.let { into.put("description", it) }
-            into.put("color", kind.project.color)
-            kind.project.icon?.let { into.put("icon", it) }
-        }
-
-        is ProposalItemKind.CreateNote -> {
-            into.put("title", kind.note.title)
-            kind.note.bodyHtml?.let { into.put("bodyHtml", it) }
-            into.put("isFolder", kind.note.isFolder)
-            kind.note.parentNoteId?.let { into.put("parentNoteId", it) }
-        }
-
-        is ProposalItemKind.ExtractActions -> into.put("actions", kind.actions.joinToString(LIST_SEPARATOR))
-
-        else -> Unit
-    }
-}
-
-/** The payload of the kinds that take something away. */
-private fun writeDeletionPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.DeleteNote -> kind.reason?.let { into.put("reason", it) }
-        is ProposalItemKind.DeleteTask -> kind.reason?.let { into.put("reason", it) }
-        is ProposalItemKind.DeleteProject -> kind.reason?.let { into.put("reason", it) }
-        is ProposalItemKind.DeleteTag -> kind.reason?.let { into.put("reason", it) }
-        else -> Unit
-    }
-}
-
-/**
- * Separators used to pack list payloads into single text columns.
- *
- * Unit Separator and Record Separator rather than commas: a checklist item or a
- * subtask title is free text and may legitimately contain a comma.
- */
-private const val LIST_SEPARATOR = "\u001F"
-private const val RECORD_SEPARATOR = "\u001E"
-private const val FIELD_SEPARATOR = "\u001D"
-
-/** Reads a `JsonPrimitive` as a non-empty string, or null. */
-internal fun JsonObject.stringOrNull(key: String): String? =
-    (this[key] as? JsonPrimitive)?.content?.takeIf { it.isNotEmpty() }

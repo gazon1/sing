@@ -12,7 +12,8 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
 
 /**
@@ -37,6 +38,7 @@ fun TaskDetailProposalSection(
     onReject: (ProposalItemId, String?) -> Unit,
     onConfirmAll: (ProposalId) -> Unit,
     onDismiss: (ProposalId) -> Unit,
+    onEdit: ((ProposalItemId, String) -> Unit)? = null,
 ) {
     ProposalCardsSection(
         proposals = proposals,
@@ -44,6 +46,7 @@ fun TaskDetailProposalSection(
         onReject = onReject,
         onConfirmAll = onConfirmAll,
         onDismiss = onDismiss,
+        onEdit = onEdit,
     )
 }
 
@@ -68,7 +71,7 @@ private fun TaskDetailProposalSectionPreview() = PreviewThemed(darkTheme = false
                     ProposalItem(
                         id = ProposalItemId.fromString("pi_1"),
                         proposalId = proposalId,
-                        kind = ProposalItemKind.SetTaskField(TaskField.Priority, "High"),
+                        kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
                         targetId = "t1",
                         humanSummary = "Set the priority to High",
                         status = ProposalItemStatus.Pending,

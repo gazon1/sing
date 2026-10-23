@@ -12,11 +12,11 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
-import com.singularity.todo.feature.proposals.domain.model.ProjectField
+import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposedNote
 import com.singularity.todo.feature.proposals.domain.model.ProposedProject
 import com.singularity.todo.feature.proposals.domain.model.ProposedTask
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
@@ -44,6 +44,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * The creations and the field changes the write path gained.
@@ -96,7 +98,11 @@ class CreationProposalTest {
         val futureId = TaskId.generate()
         val itemId = seedProposal(
             kind = ProposalItemKind.CreateTask(
-                ProposedTask(title = "Buy groceries", priority = "High", dueDate = "2026-09-15"),
+                ProposedTask(
+                    title = "Buy groceries",
+                    priority = TaskPriority.High,
+                    dueDate = LocalDate.parse("2026-09-15"),
+                ),
             ),
             target = futureId.value,
         )
@@ -144,10 +150,10 @@ class CreationProposalTest {
     }
 
     @Test
-    fun `a creation whose date cannot be read does not create anything`() = runTest {
+    fun `a creation with a blank title does not create anything`() = runTest {
         val futureId = TaskId.generate()
         val itemId = seedProposal(
-            kind = ProposalItemKind.CreateTask(ProposedTask(title = "Broken", dueDate = "the fifteenth")),
+            kind = ProposalItemKind.CreateTask(ProposedTask(title = "   ")),
             target = futureId.value,
         )
 
@@ -160,10 +166,10 @@ class CreationProposalTest {
     }
 
     @Test
-    fun `a creation with a priority the model spelled in lower case applies`() = runTest {
+    fun `a confirmed creation brings the priority it named`() = runTest {
         val futureId = TaskId.generate()
         val itemId = seedProposal(
-            kind = ProposalItemKind.CreateTask(ProposedTask(title = "Urgent thing", priority = "high")),
+            kind = ProposalItemKind.CreateTask(ProposedTask(title = "Urgent thing", priority = TaskPriority.High)),
             target = futureId.value,
         )
 
@@ -188,7 +194,7 @@ class CreationProposalTest {
         projectsFake.seed(project)
 
         val itemId = seedProposal(
-            kind = ProposalItemKind.SetProjectField(ProjectField.Name, "New name"),
+            kind = ProposalItemKind.SetProjectField(ProjectValue.Name("New name")),
             target = project.id.value,
         )
 
@@ -234,7 +240,7 @@ class CreationProposalTest {
         tasks.seed(task)
 
         val itemId = seedProposal(
-            kind = ProposalItemKind.SetTaskField(TaskField.DueTime, "14:30"),
+            kind = ProposalItemKind.SetTaskField(TaskValue.DueTime(LocalTime.parse("14:30"))),
             target = task.id.value,
         )
 

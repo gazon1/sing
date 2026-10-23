@@ -177,6 +177,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                     linkRepo = get(),
                     proposals = get(),
                     applyProposal = get(),
+                    editProposal = get(),
                 ),
                 ai = TaskAiDeps(
                     refineTask = get(),

@@ -84,6 +84,38 @@ interface ProposalItemDao {
     suspend fun retractPendingItems(proposalId: String, userId: String): Int
 
     /**
+     * Rewrites what a pending item asks for.
+     *
+     * The user may change the value of a proposal before it is applied, and the
+     * change has to be stored — with the summary the user reads and the fingerprint
+     * the rejection guard compares, because both belong to the value.
+     *
+     * The `status = 'Pending'` condition is the same guard the claim uses: a decided
+     * item is a decision, and rewriting it would rewrite a decision the user already
+     * made.
+     *
+     * @return 1 if the item was rewritten, 0 if it was not pending or not the user's.
+     */
+    @Query(
+        """
+        UPDATE ai_proposal_item
+        SET kind_json = :kindJson,
+            human_summary = :humanSummary,
+            fingerprint = :fingerprint
+        WHERE id = :id
+          AND proposal_id IN (SELECT id FROM ai_proposal WHERE user_id = :userId)
+          AND status = 'Pending'
+        """,
+    )
+    suspend fun updatePendingItem(
+        userId: String,
+        id: String,
+        kindJson: String,
+        humanSummary: String,
+        fingerprint: String,
+    ): Int
+
+    /**
      * Fingerprints the user has rejected, most recent first.
      *
      * Joined through the proposal rather than stored denormalized on the item,

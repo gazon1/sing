@@ -13,7 +13,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCollaborationDeps
@@ -103,10 +103,11 @@ class TaskAiSlot(
         TaskAiAction.RefineTitle -> listOf(
             newItem(
                 kind = ProposalItemKind.SetTaskField(
-                    field = TaskField.Title,
-                    value = withUseCase(ai.refineTask, "RefineTitle") { refine ->
-                        refine(task.title, task.description).getOrThrow()
-                    },
+                    TaskValue.Title(
+                        withUseCase(ai.refineTask, "RefineTitle") { refine ->
+                            refine(task.title, task.description).getOrThrow()
+                        },
+                    ),
                 ),
                 proposalId = proposalId,
                 targetId = task.id.value,
@@ -117,10 +118,11 @@ class TaskAiSlot(
         TaskAiAction.GenerateDescription -> listOf(
             newItem(
                 kind = ProposalItemKind.SetTaskField(
-                    field = TaskField.Description,
-                    value = withUseCase(ai.generateDescription, "GenerateDescription") { generate ->
-                        generate(task.title).getOrThrow()
-                    },
+                    TaskValue.Description(
+                        withUseCase(ai.generateDescription, "GenerateDescription") { generate ->
+                            generate(task.title).getOrThrow()
+                        },
+                    ),
                 ),
                 proposalId = proposalId,
                 targetId = task.id.value,

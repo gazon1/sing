@@ -256,6 +256,9 @@ sealed interface TaskDetailIntent : MviIntent {
         /** Dismiss (retract) a proposal and all its pending items. */
         data class DismissProposal(val proposalId: ProposalId) : Domain
 
+        /** Change the value of one proposal, before it is applied. */
+        data class EditProposalItem(val itemId: ProposalItemId, val text: String) : Domain
+
         // ── Time Tracking ─────────────────────────────────────────────────
 
         /** Start the time tracker for this task. */

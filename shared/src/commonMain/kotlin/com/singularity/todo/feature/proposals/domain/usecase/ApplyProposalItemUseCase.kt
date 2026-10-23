@@ -107,11 +107,11 @@ class ApplyProposalItemUseCase(
         val pending = proposals.watchProposal(proposalId).first()?.items.orEmpty()
             .filter { it.status == ProposalItemStatus.Pending }
         val applied = mutableListOf<ProposalItem>()
-        val failed = mutableListOf<Throwable>()
+        val failed = mutableListOf<FailedItem>()
         pending.forEach { item ->
             confirm(item.id, userId).fold(
                 onSuccess = { applied += it },
-                onFailure = { failed += it },
+                onFailure = { failed += FailedItem(item.id, it) },
             )
         }
         proposals.refreshStatus(proposalId, userId)
@@ -119,7 +119,15 @@ class ApplyProposalItemUseCase(
     }
 
     /** Outcome of a batch confirm — partial success is normal, not exceptional. */
-    data class BatchResult(val applied: List<ProposalItem>, val failed: List<Throwable>)
+    data class BatchResult(val applied: List<ProposalItem>, val failed: List<FailedItem>)
+
+    /**
+     * One change of a batch that could not be applied.
+     *
+     * The item is named, so the reason can be shown next to the change it belongs to
+     * instead of as one message about a batch.
+     */
+    data class FailedItem(val itemId: ProposalItemId, val error: Throwable)
 
     // ── Planning ──────────────────────────────────────────────────────────────
 
@@ -138,6 +146,11 @@ class ApplyProposalItemUseCase(
             // passing the note for SetNoteField is what the planner needs.
             val note = notes.get(NoteId(item.targetId))
             planner.planNoteItem(item, note)
+        }
+
+        item.kind.isTagBound -> {
+            val tag = tags.get(TagId.fromString(item.targetId))
+            planner.planTagItem(item, tag)
         }
 
         item.kind.isProjectBound -> {
@@ -164,7 +177,12 @@ class ApplyProposalItemUseCase(
     private val ProposalItemKind.isCreateVariant: Boolean
         get() = this is ProposalItemKind.CreateTask ||
             this is ProposalItemKind.CreateProject ||
-            this is ProposalItemKind.CreateNote
+            this is ProposalItemKind.CreateNote ||
+            this is ProposalItemKind.CreateTag
+
+    /** True when this kind targets a tag. */
+    private val ProposalItemKind.isTagBound: Boolean
+        get() = this is ProposalItemKind.SetTagField
 
     /** True when this kind targets a project rather than a task. */
     private val ProposalItemKind.isProjectBound: Boolean

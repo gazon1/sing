@@ -14,9 +14,12 @@ import com.singularity.todo.feature.ai.prompts.Prompts
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ReadResult
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -88,49 +91,33 @@ class DecomposeAndCreateTool(
         val userId = currentUser.scopedUserId.value
 
         // 1) plan via LLM
-        var subTitles: List<String>
-        var planSource: String
-        try {
-            val p = prompt(Prompt.Empty, KoogClock.System) {
-                system(Prompts.decomposeTaskSystem)
-                user(Prompts.decomposeTaskUser(args.title, args.description))
-            }
-            val text = extractText(promptExecutor.execute(p, model, emptyList()))
-            val parsed = parsePlan(text)
-            subTitles = parsed
-            planSource = if (parsed.isEmpty()) "empty" else "llm"
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Throwable) {
-            // LLM unavailable (no API key, network down, quota). Behave like
-            // decompose_task itself: propose nothing so the caller knows
-            // to fall back. We do NOT throw — the MCP agent can keep going.
-            subTitles = emptyList()
-            planSource = "empty"
-        }
+        val (subTitles, planSource) = planSubtitles(args)
 
         // 2) propose each sub-task. The ids are the ids the tasks *will* have, so
         // the proposal and the tasks agree on what they are.
-        val priority = canonicalPriority(args.priority)
-        if (priority == null) {
-            return ToolOutputJson.encodeToString(
-                DecomposeAndCreateOutput.serializer(),
-                DecomposeAndCreateOutput(
-                    proposalCreated = false,
-                    proposalId = "",
-                    proposedTaskCount = 0,
-                    planSource = planSource,
-                    error = "\"${args.priority.trim()}\" is not a priority. $PRIORITY_NAMES",
-                ),
-            )
+        val priority = when (val read = TaskValue.readPriority(args.priority)) {
+            is ReadResult.Ok -> read.value
+
+            is ReadResult.Rejected -> {
+                return ToolOutputJson.encodeToString(
+                    DecomposeAndCreateOutput.serializer(),
+                    DecomposeAndCreateOutput(
+                        proposalCreated = false,
+                        proposalId = "",
+                        proposedTaskCount = 0,
+                        planSource = planSource,
+                        error = read.reason,
+                    ),
+                )
+            }
         }
         val kinds = subTitles.map { title ->
             ProposalItemKind.CreateTask(
                 ProposedTask(
                     title = title,
                     description = null,
-                    priority = priority.name,
-                    kind = "Task",
+                    priority = priority,
+                    kind = TaskKind.Task,
                     projectId = args.projectId,
                     parentTaskId = args.parentTaskId,
                     tagIds = args.tagIds,
@@ -192,5 +179,26 @@ class DecomposeAndCreateTool(
             "Asks the LLM to break a task into sub-tasks, then proposes each sub-task in one call. " +
                 "The sub-tasks are proposed, not created — the user sees them and decides. " +
                 "planSource='llm' or 'empty' (LLM unavailable)."
+    }
+
+    /**
+     * The subtasks the plan names, and where the plan came from.
+     *
+     * When the model cannot be reached — no API key, the network is down, the quota
+     * is spent — the plan is empty rather than an exception: the caller then knows to
+     * fall back, and the agent can keep going.
+     */
+    private suspend fun planSubtitles(args: DecomposeAndCreateInput): Pair<List<String>, String> = try {
+        val p = prompt(Prompt.Empty, KoogClock.System) {
+            system(Prompts.decomposeTaskSystem)
+            user(Prompts.decomposeTaskUser(args.title, args.description))
+        }
+        val text = extractText(promptExecutor.execute(p, model, emptyList()))
+        val parsed = parsePlan(text)
+        parsed to if (parsed.isEmpty()) "empty" else "llm"
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        emptyList<String>() to "empty"
     }
 }

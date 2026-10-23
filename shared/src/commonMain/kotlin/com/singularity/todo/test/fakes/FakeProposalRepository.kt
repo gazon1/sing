@@ -3,11 +3,13 @@ package com.singularity.todo.test.fakes
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -85,6 +87,31 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     }
 
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.value[id.value]
+
+    /**
+     * Rewrites a pending item's change, the way the DAO does.
+     *
+     * The summary and the fingerprint follow the kind: they belong to the value, so a
+     * fake that left them behind would make a test pass with a card that reads one
+     * thing and a fingerprint that means another.
+     */
+    override suspend fun updatePendingItem(
+        id: ProposalItemId,
+        kind: ProposalItemKind,
+        userId: UserId,
+    ): Result<ProposalItem?> = runCatchingCancellable {
+        val stored = items.value[id.value] ?: return@runCatchingCancellable null
+        if (stored.status != ProposalItemStatus.Pending) return@runCatchingCancellable null
+        val owner = proposals.value[stored.proposalId.value]?.userId
+        if (owner != userId) return@runCatchingCancellable null
+        val rewritten = stored.copy(
+            kind = kind,
+            humanSummary = kind.humanSummary,
+            fingerprint = ProposalFingerprint.of(kind, stored.targetId),
+        )
+        items.update { it + (id.value to rewritten) }
+        rewritten
+    }
 
     override suspend fun claim(
         id: ProposalItemId,

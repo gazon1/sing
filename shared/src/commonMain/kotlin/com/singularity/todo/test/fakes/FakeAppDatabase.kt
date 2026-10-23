@@ -2553,6 +2553,34 @@ private class FakeProposalItemDao(
         return affected.size
     }
 
+    /**
+     * Rewrites a pending item, with the same guard the claim uses.
+     *
+     * Only a pending item of the user's own proposal can be rewritten — a decided
+     * item is a decision, and rewriting it would rewrite what the user decided.
+     */
+    override suspend fun updatePendingItem(
+        userId: String,
+        id: String,
+        kindJson: String,
+        humanSummary: String,
+        fingerprint: String,
+    ): Int {
+        val before = items.value[id] ?: return 0
+        if (before.status != "Pending") return 0
+        if (proposals.value[before.proposalId]?.userId != userId) return 0
+        items.update { map ->
+            map + (
+                id to before.copy(
+                    kindJson = kindJson,
+                    humanSummary = humanSummary,
+                    fingerprint = fingerprint,
+                )
+            )
+        }
+        return 1
+    }
+
     override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> {
         val ownerIds = proposals.value.values.filter { it.userId == userId }.map { it.id }.toSet()
         return items.value.values

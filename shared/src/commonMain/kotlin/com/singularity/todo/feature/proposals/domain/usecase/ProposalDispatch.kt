@@ -3,7 +3,7 @@ package com.singularity.todo.feature.proposals.domain.usecase
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
-import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.tags.TagsRepository
@@ -77,10 +77,10 @@ class ProposalDispatch(
             is ProposalPlan.AddTimeEntries -> addTimeEntries(plan, userId)
 
             is ProposalPlan.WriteNote -> {
-                val updated = when (plan.field) {
-                    NoteField.Title -> plan.note.copy(title = plan.value.trim())
-                    NoteField.Body -> plan.note.copy(bodyHtml = plan.value)
-                    NoteField.Summary -> plan.note.copy(bodyHtml = plan.value)
+                val updated = when (plan.value) {
+                    is NoteValue.Title -> plan.note.copy(title = plan.value.value.trim())
+                    is NoteValue.Body -> plan.note.copy(bodyHtml = plan.value.value)
+                    is NoteValue.Summary -> plan.note.copy(bodyHtml = plan.value.value)
                 }
                 notes.upsert(updated)
             }
@@ -113,6 +113,14 @@ class ProposalDispatch(
 
             is ProposalPlan.DeleteProject -> {
                 deleteProject(plan.projectId).getOrThrow()
+            }
+
+            is ProposalPlan.WriteTag -> {
+                tags.update(plan.tag).getOrThrow()
+            }
+
+            is ProposalPlan.CreateTag -> {
+                tags.create(plan.tag).getOrThrow()
             }
 
             is ProposalPlan.DeleteTag -> {

@@ -493,6 +493,17 @@ class TaskDetailCoordinator(
                 }
             }
 
+            is TaskDetailIntent.Domain.EditProposalItem -> {
+                deps.collaboration.editProposal?.let { edit ->
+                    val userId = deps.collaboration.currentUser.scopedUserId.value
+                    vmScope.launch {
+                        edit.edit(intent.itemId, intent.text, userId).onFailure {
+                            reportError("Change failed: ${it.message}")
+                        }
+                    }
+                }
+            }
+
             is TaskDetailIntent.Domain.ConfirmAllProposalItems -> {
                 val apply = deps.collaboration.applyProposal ?: return
                 val userId = deps.collaboration.currentUser.scopedUserId.value

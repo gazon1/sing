@@ -437,18 +437,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-dead-settings.py"),
         script_args=("--quiet",),
     ),
-    # A tool that writes a user's data directly applies a change the user never
-    # saw, while the delete tools and `write_task_proposal` propose the same kind
-    # of change. The gate does not decide which is right — it measures the state:
-    # every direct writer is listed with the reason it writes directly, so the
-    # gap is a written decision rather than an accident of which tool the model
-    # picked.
-    GateSpec(
-        name="a write tool proposes before it writes",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-ai-write-tools.py"),
-    ),
     GateSpec(
         name="coverage task list",
         mode=GateMode.BLOCKING,
@@ -1049,7 +1037,6 @@ GATE_CONTROLS: dict[str, Control] = {
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/close-rule-consolidation.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/close-rule-consolidation', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
     'agents-pointers': Control(kind='sabotage', proves='scripts/check-agents-pointers.py', argv=('{python}', 'scripts/check-agents-pointers.py', '--quiet'), path='AGENTS.md', edit=Edit(kind='append', new='\nSee `docs/decisions/definitely-not-a-file.md` for the reasoning.\n'), why='a pointer that names a file that is not there sends the next session to look for it: the note that was written to remove the stop becomes the stop'),
     'review-verdicts': Control(kind='sabotage', proves='scripts/check-review-verdicts.py', argv=('{python}', 'scripts/check-review-verdicts.py', '--quiet'), path='config/docs/review-verdicts-baseline.txt', edit=Edit(kind='replace', old='a-closed-project-is-reachable\n', new='', count=1), why='a change that leaves the baseline stops carrying a verdict, and a review that leaves no trace is a promise with nothing behind it: the next session cannot tell whether the change was reviewed, what was found, or whether the findings were fixed'),
-    'ai-write-tools': Control(kind='sabotage', proves='scripts/check-ai-write-tools.py', argv=('{python}', 'scripts/check-ai-write-tools.py'), path='config/docs/ai-direct-writes.txt', edit=Edit(kind='regex', pattern=r'^CreateTagTool: .*\n', repl='', flags='MULTILINE'), why='a tool that writes a user\'s data without saying so is a change the user never saw. Removing one entry from the registry is the smallest version of that failure: the tool still writes, the registry stops saying why, and nothing else in the build notices — the gate has to notice, because the registry is the only place the decision was written down'),
     # gate-registries: the gate that compares the two registries. Its input is
     # the shell registry, so the sabotage adds a gate line the Python registry
     # does not know — the exact shape of drift the gate exists to report. The

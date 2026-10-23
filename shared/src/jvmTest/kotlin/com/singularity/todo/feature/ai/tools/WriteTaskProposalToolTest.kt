@@ -4,7 +4,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeClock
@@ -24,6 +24,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 
 /**
  * The write path, tested through the question it has to answer honestly.
@@ -82,7 +83,7 @@ class WriteTaskProposalToolTest {
         assertEquals(1, pending.size)
         assertEquals(ProposalSource.Agent, pending.single().source)
         assertEquals(
-            ProposalItemKind.SetTaskField(TaskField.DueDate, "2026-04-01"),
+            ProposalItemKind.SetTaskField(TaskValue.DueDate(LocalDate.parse("2026-04-01"))),
             pending.single().items.single().kind,
         )
     }

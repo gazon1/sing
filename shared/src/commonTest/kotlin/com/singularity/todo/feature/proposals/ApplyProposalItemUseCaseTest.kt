@@ -13,7 +13,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
@@ -132,7 +132,7 @@ class ApplyProposalItemUseCaseTest {
     fun `field is written onto the current task, not the value the agent saw`() = runTest {
         tasks.seed(task(title = "Edited by the user while the model was thinking"))
 
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Priority, "High"))
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)))
 
         assertTrue(useCase.confirm(id, user).isSuccess)
 
@@ -141,23 +141,14 @@ class ApplyProposalItemUseCaseTest {
         assertEquals("Edited by the user while the model was thinking", tasks.get(taskId)?.title)
     }
 
-    @Test
-    fun `an unparseable value leaves the item pending and the task untouched`() = runTest {
-        tasks.seed(task(priority = TaskPriority.Low))
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Priority, "VERY IMPORTANT"))
-
-        val result = useCase.confirm(id, user)
-
-        assertTrue(result.isFailure)
-        assertEquals(TaskPriority.Low, tasks.get(taskId)?.priority, "task must not change")
-        // The whole point of planning before claiming: a re-try is still possible.
-        assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
-    }
+    // A value that does not read is refused before it is ever proposed — that case
+    // lives with the operation vocabulary now (`ProposalOperationTest`), because the
+    // reading happens where the proposal is built, not where it is applied.
 
     @Test
     fun `a blank proposed title is rejected before the claim`() = runTest {
         tasks.seed(task())
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Title, "   "))
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Title("   ")))
 
         assertTrue(useCase.confirm(id, user).isFailure)
         assertEquals("Original", tasks.get(taskId)?.title)
@@ -167,7 +158,7 @@ class ApplyProposalItemUseCaseTest {
     @Test
     fun `a negative estimate is refused`() = runTest {
         tasks.seed(task())
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.EstimateMinutes, "-30"))
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.EstimateMinutes(-30)))
 
         assertTrue(useCase.confirm(id, user).isFailure)
         assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
@@ -175,7 +166,7 @@ class ApplyProposalItemUseCaseTest {
 
     @Test
     fun `an unknown task fails without claiming the item`() = runTest {
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Priority, "High"), target = "missing")
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)), target = "missing")
 
         assertTrue(useCase.confirm(id, user).isFailure)
         assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
@@ -360,7 +351,9 @@ class ApplyProposalItemUseCaseTest {
         val bad = ProposalItem(
             id = ProposalItemId.generate(),
             proposalId = proposalId,
-            kind = ProposalItemKind.SetTaskField(TaskField.Priority, "NOPE"),
+            // A title the task cannot hold: the plan fails, so this one item fails on
+            // its own while the other still goes through.
+            kind = ProposalItemKind.SetTaskField(TaskValue.Title("   ")),
             targetId = taskId.value,
             humanSummary = "bad",
             status = ProposalItemStatus.Pending,

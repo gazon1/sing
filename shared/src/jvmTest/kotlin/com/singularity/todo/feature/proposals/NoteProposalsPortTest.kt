@@ -10,7 +10,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
-import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProposalRepository
 import kotlinx.coroutines.flow.first
@@ -68,7 +68,7 @@ class NoteProposalsPortTest {
                 ProposalItem(
                     id = ProposalItemId.fromString("item-1"),
                     proposalId = proposalId,
-                    kind = ProposalItemKind.SetNoteField(NoteField.Body, "a shorter body"),
+                    kind = ProposalItemKind.SetNoteField(NoteValue.Body("a shorter body")),
                     targetId = noteId,
                     humanSummary = "Rewrite the body",
                     status = ProposalItemStatus.Pending,

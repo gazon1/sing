@@ -8,13 +8,14 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.domain.model.NoteField
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -82,6 +83,7 @@ class NoteProposalsViewModelTest {
         noteId = noteId,
         proposals = proposals,
         applyProposalItem = useCase,
+        editProposalItem = EditProposalItemUseCase(proposals),
         currentUser = FakeProfileAwareCurrentUser(user),
         scope = AutoCloseableCoroutineScope(scope.coroutineContext),
     )
@@ -153,7 +155,7 @@ class NoteProposalsViewModelTest {
         val item = ProposalItem(
             id = ProposalItemId.fromString("item-1"),
             proposalId = proposalId,
-            kind = ProposalItemKind.SetNoteField(NoteField.Body, "a shorter body"),
+            kind = ProposalItemKind.SetNoteField(NoteValue.Body("a shorter body")),
             targetId = noteId.value,
             humanSummary = "Rewrite the body",
             status = ProposalItemStatus.Pending,

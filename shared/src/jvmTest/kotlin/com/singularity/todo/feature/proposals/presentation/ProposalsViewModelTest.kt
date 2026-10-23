@@ -11,8 +11,9 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -36,7 +37,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /**
  * The review screen's ViewModel.
@@ -81,6 +84,7 @@ class ProposalsViewModelTest {
     private fun viewModel(scope: CoroutineScope) = ProposalsViewModel(
         proposals = proposals,
         applyProposalItem = useCase,
+        editProposalItem = EditProposalItemUseCase(proposals),
         currentUser = FakeProfileAwareCurrentUser(user),
         scope = AutoCloseableCoroutineScope(scope.coroutineContext),
     )
@@ -168,24 +172,87 @@ class ProposalsViewModelTest {
         assertEquals(ProposalItemStatus.Rejected, items.first().status, "every change is turned down")
     }
 
+    @Test
+    fun `the user changes the value of a change before applying it`() = runTest {
+        val itemId = seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ProposalsIntent.Edit(itemId, "medium"))
+        runCurrent()
+
+        val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
+        val kind = items.first().kind
+        assertEquals(
+            ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.Medium)),
+            kind,
+            "the value is the one the user typed",
+        )
+        assertEquals(
+            "Set the priority to Medium",
+            items.first().humanSummary,
+            "the summary follows the value — it is what the user reads",
+        )
+    }
+
+    @Test
+    fun `a value that does not read is refused with the reason`() = runTest {
+        val itemId = seedProposal()
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ProposalsIntent.Edit(itemId, "whenever"))
+        runCurrent()
+
+        val state = viewModel.stateFlow.value
+        val reason = state.failures[itemId]
+        assertNotNull(reason, "the reason is shown next to the change")
+        assertTrue(reason.contains("whenever"), "the reason says what was wrong: $reason")
+
+        val items = proposals.watchProposal(ProposalId.fromString(proposalId)).first()!!.items
+        assertEquals(
+            ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+            items.first().kind,
+            "the change keeps the value it had",
+        )
+    }
+
+    @Test
+    fun `a change that cannot be applied keeps the reason next to it`() = runTest {
+        val itemId = seedProposal(seedTask = false)
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(ProposalsIntent.Confirm(itemId))
+        runCurrent()
+
+        val reason = viewModel.stateFlow.value.failures[itemId]
+        assertNotNull(reason, "the reason is shown next to the change that failed")
+    }
+
     private val proposalId = "prop-1"
 
     /** Seeds the task the proposal is about, and a one-item proposal for it. */
-    private suspend fun seedProposal(): ProposalItemId {
-        tasks.seed(
-            Task(
-                id = taskId,
-                title = "Original",
-                userId = user,
-                createdAt = clock.now(),
-                updatedAt = clock.now(),
-            ),
-        )
+    private suspend fun seedProposal(seedTask: Boolean = true): ProposalItemId {
+        if (seedTask) {
+            tasks.seed(
+                Task(
+                    id = taskId,
+                    title = "Original",
+                    userId = user,
+                    createdAt = clock.now(),
+                    updatedAt = clock.now(),
+                ),
+            )
+        }
         val id = ProposalId.fromString(proposalId)
         val item = ProposalItem(
             id = ProposalItemId.fromString("item-1"),
             proposalId = id,
-            kind = ProposalItemKind.SetTaskField(TaskField.Priority, "High"),
+            kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
             targetId = taskId.value,
             humanSummary = "Set the priority to High",
             status = ProposalItemStatus.Pending,

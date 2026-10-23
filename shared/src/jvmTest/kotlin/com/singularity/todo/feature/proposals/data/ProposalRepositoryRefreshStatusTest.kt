@@ -123,6 +123,14 @@ class ProposalRepositoryRefreshStatusTest {
 
         override suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int = 0
 
+        override suspend fun updatePendingItem(
+            userId: String,
+            id: String,
+            kindJson: String,
+            humanSummary: String,
+            fingerprint: String,
+        ): Int = 0
+
         override suspend fun claimItem(
             userId: String,
             id: String,
