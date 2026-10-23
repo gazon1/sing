@@ -1,6 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.ids.ProposalId
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -8,6 +11,11 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.presentation.MutableProposalFailureStore
+import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyle
+import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
+import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
+import com.singularity.todo.feature.proposals.presentation.ProposalFailureText
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDetailDeps
@@ -125,6 +133,7 @@ class TaskDetailCoordinator(
     private val taskLoad = MutableStateFlow<TaskLoad>(TaskLoad.Pending)
 
     private fun reportError(message: String) = tryEmit(TaskDetailUiEvent.Error(message))
+
     private fun reportSaved(message: String) = tryEmit(TaskDetailUiEvent.Saved(message))
 
     /**
@@ -232,6 +241,46 @@ class TaskDetailCoordinator(
     }
 
     /**
+     * Why the last attempt to apply or to change a change failed, by the change.
+     *
+     * The reason lives here, next to the change it belongs to, and not only in the
+     * error notification: a notification says that something went wrong, and the user
+     * still cannot tell which of the changes it was.
+     */
+    private val proposalFailureStore = MutableProposalFailureStore()
+
+    /**
+     * The five operations every proposal surface performs.
+     *
+     * The review screen and the note editor answer a proposal the same way this
+     * screen does, so the operations live in [ProposalDecisions] and this
+     * coordinator brings its own wording and its own failure store.
+     *
+     * The collaboration dependencies are optional: a task detail without a
+     * proposal write path has nothing to decide, and the operations say so
+     * instead of throwing.
+     */
+    private val proposalDecisions = ProposalDecisions(
+        applyProposalItem = deps.collaboration.applyProposal,
+        editProposalItem = deps.collaboration.editProposal,
+        style = taskDetailStyle,
+        failures = proposalFailureStore,
+        errors = ProposalErrorSink { label, message, error ->
+            // The failure is shown and it is reported: a failure the user can see
+            // is not the one the crash reporter gets to hear about, and one it
+            // cannot see is a change the user did not decide about. The scope's
+            // handler used to report it, because the exception flew past the
+            // decisions; now that it is caught here, the report is here too.
+            crashReporter.report(error = error, issueKey = (error as? AppError)?.code ?: label)
+            tryEmit(TaskDetailUiEvent.Error(message))
+        },
+        userId = { deps.collaboration.currentUser.scopedUserId.value },
+        withdrawProposal = deps.collaboration.proposals?.let { repository ->
+            { proposalId: ProposalId, userId: UserId -> repository.retract(proposalId, userId) }
+        },
+    )
+
+    /**
      * Combines time tracking, first-run, and AI proposals into one partition.
      *
      * Deliberately NOT a `stateIn(WhileSubscribed)`: the running timer is one of the
@@ -248,14 +297,17 @@ class TaskDetailCoordinator(
                     children.state,
                     taskFlow,
                     proposalsCollector?.state ?: flowOf(emptyList<AiProposal>()),
-                ) { timeState, childrenState, task, proposals ->
-                    Triple(timeState, childrenState, task) to proposals
-                }.collect { (triple, proposals) ->
+                    proposalFailureStore.state,
+                ) { timeState, childrenState, task, proposals, failures ->
+                    Triple(timeState, childrenState, task) to (proposals to failures)
+                }.collect { (triple, proposalsAndFailures) ->
                     val (timeState, childrenState, task) = triple
+                    val (proposals, failures) = proposalsAndFailures
                     sink.value = TaskDetailExtras.Ready(
                         timeSlotState = timeState,
                         firstRun = resolveFirstRun(childrenState, task),
                         proposals = proposals,
+                        proposalFailures = failures,
                     )
                 }
             }
@@ -473,45 +525,24 @@ class TaskDetailCoordinator(
 
             is TaskDetailIntent.Domain.Tick -> timeSlot.onIntent(TaskTimeSlotIntent.Tick(intent.elapsedMs))
 
-            is TaskDetailIntent.Domain.ConfirmProposalItem -> {
-                val apply = deps.collaboration.applyProposal ?: return
-                val userId = deps.collaboration.currentUser.scopedUserId.value
-                vmScope.launch {
-                    apply.confirm(intent.itemId, userId).onFailure {
-                        reportError("Confirm failed: ${it.message}")
-                    }
-                }
+            is TaskDetailIntent.Domain.ConfirmProposalItem -> vmScope.launch {
+                proposalDecisions.applyChange(intent.itemId)
             }
 
-            is TaskDetailIntent.Domain.RejectProposalItem -> {
-                val apply = deps.collaboration.applyProposal ?: return
-                val userId = deps.collaboration.currentUser.scopedUserId.value
-                vmScope.launch {
-                    apply.reject(intent.itemId, userId, intent.reason).onFailure {
-                        reportError("Reject failed: ${it.message}")
-                    }
-                }
+            is TaskDetailIntent.Domain.RejectProposalItem -> vmScope.launch {
+                proposalDecisions.turnDownChange(intent.itemId, intent.reason)
             }
 
-            is TaskDetailIntent.Domain.ConfirmAllProposalItems -> {
-                val apply = deps.collaboration.applyProposal ?: return
-                val userId = deps.collaboration.currentUser.scopedUserId.value
-                vmScope.launch {
-                    val batch = apply.confirmAll(intent.proposalId, userId)
-                    if (batch.failed.isNotEmpty()) {
-                        reportError("${batch.failed.size} items could not be applied")
-                    }
-                }
+            is TaskDetailIntent.Domain.EditProposalItem -> vmScope.launch {
+                proposalDecisions.changeValue(intent.itemId, intent.text)
             }
 
-            is TaskDetailIntent.Domain.DismissProposal -> {
-                val proposals = deps.collaboration.proposals ?: return
-                val userId = deps.collaboration.currentUser.scopedUserId.value
-                vmScope.launch {
-                    proposals.retract(intent.proposalId, userId).onFailure {
-                        reportError("Dismiss failed: ${it.message}")
-                    }
-                }
+            is TaskDetailIntent.Domain.ConfirmAllProposalItems -> vmScope.launch {
+                proposalDecisions.applyAll(intent.proposalId)
+            }
+
+            is TaskDetailIntent.Domain.DismissProposal -> vmScope.launch {
+                proposalDecisions.withdraw(intent.proposalId)
             }
         }
     }
@@ -529,5 +560,31 @@ class TaskDetailCoordinator(
 
         /** The repository answered: no such task for the current user. */
         data object Missing : TaskLoad
+    }
+
+    private companion object {
+        /**
+         * How this screen words a proposal decision.
+         *
+         * The task detail names the operation instead of describing it, and it
+         * says how many changes of a batch could not be applied — a batch where
+         * some changes failed is a normal outcome, but the user is told which
+         * changes it was.
+         *
+         * A failure that arrives as a thrown exception is not shown here: this
+         * screen's scope reports it, as it reports every other failure that
+         * escapes a slot.
+         */
+        val taskDetailStyle = ProposalDecisionStyle(
+            apply = "Confirm",
+            reject = "Reject",
+            applyAll = "Apply",
+            applyOne = "Apply",
+            dismiss = "Dismiss",
+            dismissOne = null,
+            change = "Change",
+            failureText = ProposalFailureText { label, error -> "$label failed: ${error.message}" },
+            batchFailureText = { count -> "$count items could not be applied" },
+        )
     }
 }

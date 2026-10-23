@@ -4,6 +4,7 @@ import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.proposals.data.ProposalRepositoryImpl
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.proposals.presentation.ProposalsViewModel
@@ -52,6 +53,8 @@ fun proposalModule(): Module = module {
             projects = get<ProjectsRepository>(),
             deleteProject = get<DeleteProjectUseCase>(),
             clock = get<Clock>(),
+            log = get(),
+            crashReporter = get(),
         )
     }
 
@@ -67,6 +70,11 @@ fun proposalModule(): Module = module {
         )
     }
 
+    // Changing the value of a proposal before it is applied.
+    factory<EditProposalItemUseCase> {
+        EditProposalItemUseCase(proposals = get())
+    }
+
     // The proposals screen: the proposals waiting for a decision. An explicit lambda
     // rather than `viewModelOf`, because the ViewModel has defaults for the crash
     // reporter and the scope, and Koin's reflective resolution does not apply Kotlin
@@ -75,6 +83,7 @@ fun proposalModule(): Module = module {
         ProposalsViewModel(
             proposals = get(),
             applyProposalItem = get(),
+            editProposalItem = get(),
             currentUser = get(),
             crashReporter = get(),
         )

@@ -160,6 +160,34 @@ false while the waiver keeps waiving. This checks the promise, not the pass.""",
         kind=PlacementKind.STATIC,
         command='sgate declared_dependencies_are_used',
     ),
+    "published measurements match the record": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-published-measurements.py',
+        note="""A published number is a claim about a measurement, and the claim outlives
+the measurement it was read from. "2.82M instructions" survived a real
+measurement of the very report it came from, because the percentages beside it
+are a ratio, and a ratio is the same at every level of the report — so the
+wrong denominator looked right.
+
+The record is a file: the class count, the instruction total, the percentages
+and the day each was measured. This compares every class count, instruction
+total, published percentage and published day the repository publishes with it,
+and names the document, the line and both numbers when they differ. It reads a
+fixed list of documents — a number published anywhere else is a claim this gate
+does not check, and that limit is written down in the gate's own docstring.""",
+    ),
+    "the memory budget is one record": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-memory-budget.py',
+        note="""The heap of a test fork was a literal string in five build scripts, and the
+heap of the Gradle daemon was a literal string in `gradle.properties`. The
+measurement behind them lived in an ADR that no build read and no gate held.
+
+This is the shape the coverage floor had before its declaration was moved to
+the place Kover reads it: a number that nobody can check is a number nobody
+enforces. The record is a file, the build reads it, and this compares every
+test task in the tree with it.""",
+    ),
     "room schema integrity": Placement(
         kind=PlacementKind.STATIC,
         command='sgate room_schema_integrity',
@@ -259,26 +287,6 @@ full one.""",
     "settings read by a feature": Placement(
         kind=PlacementKind.STATIC,
         command='sgate settings_read_by_a_feature',
-    ),
-    "a write tool proposes before it writes": Placement(
-        kind=PlacementKind.STATIC,
-        command='python3 scripts/check-ai-write-tools.py',
-        note="""The write path is half a write path.
-
-A proposal is a change nobody has agreed to yet: the user reads it and decides.
-Four delete tools and `write_task_proposal` work that way. Eight tools —
-`create_task`, `update_task`, `create_project`, `update_project`, `create_note`,
-`update_note`, `create_tag`, `decompose_and_create` — write to the user's data
-immediately. The model can create a task without the user ever seeing a
-proposal for it: the same act, two treatments, decided by which tool the model
-happened to pick.
-
-This gate measures the state rather than deciding it. Every direct writer is
-listed in `config/docs/ai-direct-writes.txt` with the reason it writes
-directly, so each exception is a decision somebody wrote down instead of an
-accident. A new direct writer fails the gate until it either proposes or
-someone says why it may not. A listed tool that no longer writes fails it too:
-a stale entry hides the fact that the work was done.""",
     ),
     "coverage task list": Placement(
         kind=PlacementKind.STATIC,
@@ -926,6 +934,17 @@ statement about the app.
 
 A swipe may be a share of the screen, or the element that scrolls. Both mean
 the same gesture on every display.""",
+    ),
+    "a pull request carries the review of an agent": Placement(
+        kind=PlacementKind.ELSEWHERE,
+        reason=(
+            "CI runs it as the `Agent review` job of ci.yml, on the pull request and on "
+            "the comments it carries: the review is a comment, and a comment arrives "
+            "after the pull request was opened. It asks GitHub about a pull request, so "
+            "there is nothing for it to read in a checkout — a local run would have "
+            "nothing to read and would say so."
+        ),
+        tracked_by=".github/workflows/ci.yml#The review the agent left on the pull request",
     ),
     "maestro results are within the floor": Placement(
         kind=PlacementKind.ELSEWHERE,

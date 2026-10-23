@@ -7,13 +7,13 @@ import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.ReadResult
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.flow.first
-import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 
@@ -26,8 +26,8 @@ data class UpdateTaskInput(
     val kind: String? = null,
     val projectId: String? = null,
     val tagIds: List<String>? = null,
-    val dueDate: String? = null, // "YYYY-MM-DD" or null to clear
-    val dueTime: String? = null, // "HH:mm" or null to clear
+    val dueDate: String? = null, // "YYYY-MM-DD", or "" to clear the date
+    val dueTime: String? = null, // "HH:mm", or "" to clear the time
     val someday: Boolean? = null,
 )
 
@@ -127,44 +127,49 @@ class UpdateTaskTool(
         return if (kinds.isEmpty()) Changes.None else Changes.Some(kinds)
     }
 
-    private fun titleChange(value: String?, existing: Task): FieldChange {
-        if (value == null || value.trim() == existing.title) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.Title, value))
-    }
-
-    private fun descriptionChange(value: String?, existing: Task): FieldChange {
-        if (value == null || value == existing.description) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.Description, value))
-    }
-
     /**
-     * The priority, in the spelling the task can hold.
+     * One field of the request, read through the vocabulary.
      *
-     * The model writes "high", the task holds `High`. Comparing and storing the
-     * enum name is what keeps a proposal applicable: a proposal that survives
-     * the tool and then fails to apply is a proposal that burned the user's
-     * attention for nothing.
+     * The tool does not know how a priority is spelled — the vocabulary does, and it
+     * is the same reader the planner will use when the change is applied. So a value
+     * the model named wrong is refused here, where the model can fix the call, and a
+     * value that reads is stored in the spelling the task holds.
+     *
+     * The comparison is against the value's stored text, which is the same text that
+     * would be written: a request that asks for what the task already has is not a
+     * change, and there is nothing to propose.
      */
-    private fun priorityChange(value: String?, existing: Task): FieldChange {
+    private fun fieldChange(value: String?, field: String, current: String?): FieldChange {
         if (value == null) return FieldChange.Skip
-        val parsed = canonicalPriority(value)
-            ?: return FieldChange.Invalid("\"${value.trim()}\" is not a priority. $PRIORITY_NAMES")
-        if (parsed == existing.priority) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.Priority, parsed.name))
+        return when (val read = TaskValue.read(field, value)) {
+            is ReadResult.Ok ->
+                // The value's own text is compared with what the task holds. An absent
+                // value is an empty text — so "clear the due date" on a task that has no
+                // due date is not a change, and nothing is proposed for it.
+                if (read.value.text == current.orEmpty()) {
+                    FieldChange.Skip
+                } else {
+                    FieldChange.Add(ProposalItemKind.SetTaskField(read.value))
+                }
+
+            is ReadResult.Rejected -> FieldChange.Invalid(read.reason)
+        }
     }
 
-    private fun kindChange(value: String?, existing: Task): FieldChange {
-        if (value == null) return FieldChange.Skip
-        val parsed = canonicalKind(value)
-            ?: return FieldChange.Invalid("\"${value.trim()}\" is not a kind of work. $KIND_NAMES")
-        if (parsed == existing.kind) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.Kind, parsed.name))
-    }
+    private fun titleChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "Title", existing.title)
 
-    private fun projectChange(value: String?, existing: Task): FieldChange {
-        if (value == null || value == existing.projectId?.value) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.Project, value))
-    }
+    private fun descriptionChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "Description", existing.description)
+
+    private fun priorityChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "Priority", existing.priority.name)
+
+    private fun kindChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "Kind", existing.kind.name)
+
+    private fun projectChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "Project", existing.projectId?.value)
 
     private fun tagsChange(value: List<String>?, existing: Task): FieldChange {
         if (value == null) return FieldChange.Skip
@@ -172,29 +177,15 @@ class UpdateTaskTool(
         return FieldChange.Add(ProposalItemKind.SetTaskTags(value))
     }
 
-    private fun dueDateChange(value: String?, existing: Task): FieldChange {
-        if (value == null) return FieldChange.Skip
-        val parsed = if (value.isBlank()) null else runCatching { LocalDate.parse(value) }.getOrNull()
-        if (value.isNotBlank() && parsed == null) {
-            return FieldChange.Invalid("\"$value\" is not a date. Use YYYY-MM-DD.")
-        }
-        if (parsed == existing.dueDate) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.DueDate, value))
-    }
+    private fun dueDateChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "DueDate", existing.dueDate?.toString())
 
-    private fun dueTimeChange(value: String?, existing: Task): FieldChange {
-        if (value == null) return FieldChange.Skip
-        val parsed = if (value.isBlank()) null else runCatching { LocalTimeFormats.parse(value) }.getOrNull()
-        if (value.isNotBlank() && parsed == null) {
-            return FieldChange.Invalid("\"$value\" is not a time. Use HH:mm.")
-        }
-        if (parsed == existing.dueTime) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.DueTime, value))
-    }
+    private fun dueTimeChange(value: String?, existing: Task): FieldChange =
+        fieldChange(value, "DueTime", existing.dueTime?.let { LocalTimeFormats.format(it) })
 
     private fun somedayChange(value: Boolean?, existing: Task): FieldChange {
         if (value == null || value == existing.someday) return FieldChange.Skip
-        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskField.Someday, value.toString()))
+        return FieldChange.Add(ProposalItemKind.SetTaskField(TaskValue.Someday(value)))
     }
 
     /** What one field of the request asks for. */

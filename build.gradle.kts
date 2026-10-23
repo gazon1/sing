@@ -20,6 +20,10 @@ plugins {
     // on the classpath and the ID resolves; Gradle deduplicates it silently.
 }
 
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.extensions.DetektExtension
+import java.io.File
+
 allprojects {
     // Version constants from gradle.properties (not catalog) — avoids catalog accessor shadowing
     // caused by library keys like jvm-test that generate nested accessors colliding with version keys.
@@ -95,6 +99,38 @@ subprojects {
     }
     extra["test.population"] = population ?: ""
 
+    // ── The memory budget ───────────────────────────────────────────────────
+    //
+    // One record: `config/docs/gradle-memory-budget.properties`. The heap of a
+    // test fork and the heap of the Gradle daemon were literal strings in five
+    // build scripts and in gradle.properties, and the measurement that
+    // produced them lived in an ADR that no build read and no gate checked.
+    //
+    // The modules that name a budget of their own read their OWN key from the
+    // record (`test.heap.module.<project>`), so the number a module runs with is
+    // the number the record holds for that module. The default below is what a
+    // module that names no budget of its own gets — the two small toolchain
+    // modules, which declare no `maxHeapSize` at all.
+    //
+    // The measurement is in `docs/decisions/2026-10-22-gradle-memory-budget.md`;
+    // the gate is `scripts/check-memory-budget.py`, which checks that every
+    // module's heap is the recorded one and that gradle.properties carries the
+    // recorded daemon heap.
+    val memoryBudget = java.util.Properties().apply {
+        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+    }
+    val defaultTestHeap = memoryBudget.getProperty("test.heap.default")
+        ?: throw GradleException(
+            "config/docs/gradle-memory-budget.properties declares no test.heap.default — " +
+                "the heap of a test task has to be recorded somewhere."
+        )
+    // The default is applied to EVERY test task in the build. A module that
+    // names a budget of its own overrides it, because its own configuration
+    // runs after this one.
+    tasks.withType<Test>().configureEach {
+        maxHeapSize = defaultTestHeap
+    }
+
     // ── The run manifest ────────────────────────────────────────────────────
     //
     // Gradle leaves no record of whether a run was filtered, so a run that
@@ -146,6 +182,120 @@ subprojects {
                     "${if (selectedPopulation.isNotEmpty()) ", population=$selectedPopulation" else ""}" +
                     "${if (selectedTags.isNotEmpty()) ", tags=$selectedTags" else ""})",
             )
+        }
+    }
+}
+
+// detektChanged — the scoped lint: the same detekt, over the changed files
+// ---------------------------------------------------------------------------
+// WHY
+// ---
+// `:shared:detekt` analyses the whole module: three to four minutes, of which
+// the file the author just wrote is one part. A mechanical finding — a
+// too-complex method, a long method, a missing blank line between `when`
+// branches — is a finding about the file that was just written, so the
+// whole-module run spends minutes to answer a question about one file.
+//
+// `detektChanged` is that run, scoped: the same config, the same baseline, the
+// same rules, the same plugin classpath. Only the input is the set of changed
+// files, so a finding here is the finding CI reports.
+//
+// WHERE THE FILE LIST COMES FROM
+// ------------------------------
+// `scripts/lint-changed.py` computes it from git — the merge base with the base
+// branch plus the working tree, so a staged-but-uncommitted change counts — and
+// hands it over as a Gradle property:
+//
+//   -PdetektChangedFilesFile=<path>   a file with one repo-relative path per line
+//   -PdetektChangedFiles=a,b,c         the paths themselves, comma-separated
+//
+// Two properties, not one: a single property cannot be both "the path of a
+// list" and "the list" without guessing, and the guess would read a Kotlin
+// file as a list of paths.
+//
+// No property, no files, no task: `source` is empty and the task is skipped
+// (NO-SOURCE). "Nothing changed here" is not a lint failure.
+//
+// WHY THE LIST IS READ AT CONFIGURATION TIME
+// ------------------------------------------
+// A provider would be evaluated at execution time, and the configuration cache
+// refuses to serialize a lambda that captures the build script — the reason the
+// kover tasks below have no `doLast`. A Gradle property is a plain string:
+// there is nothing to serialize, and the caller decides the file list before
+// Gradle starts.
+//
+// WHY `afterEvaluate`
+// -------------------
+// A module's `detekt { }` block says which directories that module's detekt
+// scans, and it runs after the `plugins { }` block. At the moment the plugin is
+// attached the extension does not know its source directories yet, and reading
+// them then would silently scan the wrong set. `afterEvaluate` runs after the
+// whole build script, when the extension is fully configured.
+//
+// WHY THE ROOT BUILD FILE
+// -----------------------
+// The detekt plugin's classes are needed to declare the task, and they are on
+// the buildscript classpath of the root project (`alias(libs.plugins.detekt)
+// apply false` above) but not on the classpath a script plugin applied from a
+// module's build file would compile against.
+//
+// The task type is the same class the module's own detekt task uses: the
+// subprojects' buildscript classloaders delegate to the root's, so the plugin's
+// own `tasks.withType(Detekt::class.java)` conventions — config, rule set,
+// plugin classpath, `buildUponDefaultConfig` — apply to this task too.
+val changedFilesFileProperty: String = providers.gradleProperty("detektChangedFilesFile").orNull ?: ""
+val changedFilesProperty: String = providers.gradleProperty("detektChangedFiles").orNull ?: ""
+
+val changedPaths: List<String> = (
+    if (changedFilesFileProperty.isNotEmpty()) {
+        project.file(changedFilesFileProperty).readLines()
+    } else {
+        changedFilesProperty.split(',')
+    }
+    )
+    .map { it.trim() }
+    .filter { it.isNotEmpty() }
+
+// The changed Kotlin files of the repository. The file types are the ones detekt
+// includes by default (`*.kt`, `*.kts`); anything else is not a file CI would
+// analyse either.
+val changedKotlinFiles: List<File> = changedPaths
+    .map { project.file(it).canonicalFile }
+    .filter { it.isFile && (it.name.endsWith(".kt") || it.name.endsWith(".kts")) }
+
+subprojects {
+    plugins.withId("dev.detekt") {
+        afterEvaluate {
+            val extension = extensions.getByType(DetektExtension::class.java)
+
+            // The files of THIS module that THIS module's detekt actually scans:
+            // the same source directories the module's own detekt task scans. A
+            // file outside them is not analysed by the whole-module run either,
+            // so analysing it here would report a finding CI never reports.
+            val moduleSourceDirs: List<File> = extension.source
+                .filter { it.exists() }
+                .files
+                .map { it.canonicalFile }
+
+            val moduleFiles: List<File> = changedKotlinFiles.filter { file ->
+                moduleSourceDirs.any { dir -> file.toPath().startsWith(dir.toPath()) }
+            }
+
+            tasks.register<Detekt>("detektChanged") {
+                group = "verification"
+                description = "Run detekt over the changed Kotlin files of ${project.path} only"
+                // Same baseline as the module's own detekt task: a finding the
+                // baseline already carries is carried here too, or the scoped run
+                // would report debt the whole-module run accepts.
+                baseline.convention(extension.baseline)
+                // Config, rule set, plugin classpath and `buildUponDefaultConfig`
+                // are conventions the detekt plugin sets from the module's own
+                // `detekt { }` block — the scoped task inherits them rather than
+                // restating them.
+                // `setSource`, not `source.setFrom`: the Detekt task overrides
+                // `getSource()`, so Kotlin sees a read-only property there.
+                setSource(moduleFiles)
+            }
         }
     }
 }

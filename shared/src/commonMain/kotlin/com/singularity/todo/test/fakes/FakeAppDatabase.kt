@@ -2537,6 +2537,33 @@ private class FakeProposalItemDao(
         return 1
     }
 
+    /**
+     * The mirror of the claim: a confirmed item goes back to `Pending`.
+     *
+     * The guard is the same shape as the claim's — the row must be confirmed, and
+     * confirmed by the actor that is releasing it — because a fake that released any
+     * confirmed row would let a second user undo a decision that was not theirs.
+     */
+    override suspend fun releaseClaim(userId: String, id: String, actor: String): Int {
+        val before = items.value[id]
+        val releasable = before != null &&
+            before.status == "Confirmed" &&
+            before.decidedActor == actor &&
+            proposals.value[before.proposalId]?.userId == userId
+        if (before == null || !releasable) return 0
+        items.update { map ->
+            map + (
+                id to before.copy(
+                    status = "Pending",
+                    decidedAt = null,
+                    decidedActor = null,
+                    rejectionReason = null,
+                )
+            )
+        }
+        return 1
+    }
+
     override suspend fun retractPendingItems(proposalId: String, userId: String): Int {
         val owned = proposals.value[proposalId]?.userId == userId
         val affected = if (owned) {
@@ -2551,6 +2578,34 @@ private class FakeProposalItemDao(
             }
         }
         return affected.size
+    }
+
+    /**
+     * Rewrites a pending item, with the same guard the claim uses.
+     *
+     * Only a pending item of the user's own proposal can be rewritten — a decided
+     * item is a decision, and rewriting it would rewrite what the user decided.
+     */
+    override suspend fun updatePendingItem(
+        userId: String,
+        id: String,
+        kindJson: String,
+        humanSummary: String,
+        fingerprint: String,
+    ): Int {
+        val before = items.value[id] ?: return 0
+        if (before.status != "Pending") return 0
+        if (proposals.value[before.proposalId]?.userId != userId) return 0
+        items.update { map ->
+            map + (
+                id to before.copy(
+                    kindJson = kindJson,
+                    humanSummary = humanSummary,
+                    fingerprint = fingerprint,
+                )
+            )
+        }
+        return 1
     }
 
     override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> {

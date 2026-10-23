@@ -408,6 +408,11 @@ def cli(
     rel_paths, by_name = build_index()
     targets: list[pathlib.Path] = [
         ROOT / "AGENTS.md",
+        # The rules a reviewing agent applies. It is the document an agent
+        # reads before it opens a diff, so a path in it that no longer exists
+        # sends the reader to a file that is not there — and it is read by an
+        # agent that has no way to notice the difference.
+        ROOT / "CODING_STANDARDS.md",
         ROOT / "ARCHITECTURE.md",
         ROOT / "README.md",
         ROOT / "PROGRESS.md",

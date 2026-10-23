@@ -123,6 +123,14 @@ class ProposalRepositoryRefreshStatusTest {
 
         override suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int = 0
 
+        override suspend fun updatePendingItem(
+            userId: String,
+            id: String,
+            kindJson: String,
+            humanSummary: String,
+            fingerprint: String,
+        ): Int = 0
+
         override suspend fun claimItem(
             userId: String,
             id: String,
@@ -133,6 +141,8 @@ class ProposalRepositoryRefreshStatusTest {
         ): Int = 0
 
         override suspend fun retractPendingItems(proposalId: String, userId: String): Int = 0
+
+        override suspend fun releaseClaim(userId: String, id: String, actor: String): Int = 0
 
         override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> = emptyList()
 

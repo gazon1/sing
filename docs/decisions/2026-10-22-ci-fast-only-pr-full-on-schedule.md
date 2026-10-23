@@ -198,6 +198,12 @@ reads the Kotlin pattern out of the Kotlin gate and compares the two answers.
   label has to exist in the repository's label set; it is a repository setting,
   not a file, so it is created outside this change.
 
+  It exists now. The label `run-full-tests` was created in the repository's
+  label set on 2026-10-23, next to `run-maestro` and `run-device-tests`, so the
+  branch in `ci.yml` that reads it is reachable: a pull request carrying that
+  label runs the full population. Until the label was created, the branch
+  existed only in the file — reachable by nothing.
+
 # Alternatives considered
 
 **Two jobs instead of one variable** — a `tests-fast` job and a `tests-full`

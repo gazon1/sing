@@ -16,6 +16,15 @@
 # is over, and prints the tail exactly once — the tail, the matching lines, and
 # the verdict. The reader gets one output, at the moment the answer exists.
 #
+# THE DEFAULT TIMEOUT IS A MEASURED NUMBER
+#
+# 3600 seconds, because the longest run this repository measures is longer than
+# half an hour: the instrumented coverage run costs 37 min 25 s
+# (docs/testing/gate-costs.md), and the longest job of the last CI run cost
+# 31 min 29 s (config/docs/gate-benchmarks.json). A default shorter than the
+# longest run turns one run into two waits — the exact cost this tool exists to
+# remove. `--timeout 0` waits without a limit, for a run nobody has priced yet.
+#
 # EXIT CODES
 #
 #   0  the pattern appeared
@@ -29,7 +38,7 @@ usage: ./wait-for <log> <pattern> [--timeout SECONDS] [--interval SECONDS] [--li
 
   <log>       the file to watch; it may not exist yet
   <pattern>   an extended regular expression to wait for
-  --timeout   how long to wait, in seconds (default 1800)
+  --timeout   how long to wait, in seconds (default 3600; 0 waits without a limit)
   --interval  how often to look, in seconds (default 5)
   --lines     how many lines of the tail to print (default 40)
 USAGE
@@ -37,7 +46,7 @@ USAGE
 
 log=""
 pattern=""
-timeout=1800
+timeout=3600
 interval=5
 lines=40
 
@@ -112,7 +121,8 @@ while true; do
         fi
     fi
 
-    if [[ "$waited" -ge "$timeout" ]]; then
+    # A timeout of 0 waits without a limit: the caller said so.
+    if [[ "$timeout" -gt 0 && "$waited" -ge "$timeout" ]]; then
         break
     fi
 

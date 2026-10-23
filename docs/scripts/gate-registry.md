@@ -19,7 +19,9 @@ its helper tools — and the gates are described here, once.
 | version catalog has no literals | blocking | `scripts/build-version-catalog-gate.py` | Build version catalog gate. | — | — |
 | gate scripts' own unit tests | blocking | `scripts/tests` | gate scripts' own unit tests | — | — |
 | build-output readers precede the invocations that rewrite them | blocking | `scripts/check-build-output-readers.py` | check-build-output-readers.py — a step that reads build output must read it f... | — | — |
+| the memory budget is one record | blocking | `scripts/check-memory-budget.py` | check-memory-budget.py — every test task runs with the heap the record holds. | — | — |
 | gradle invocations keep one test population | blocking | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
+| published measurements match the record | blocking | `scripts/check-published-measurements.py` | check-published-measurements.py — a published coverage number matches the mea... | — | — |
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
@@ -37,7 +39,6 @@ sche... | — | — |
 | hook gates are declared once | blocking | `scripts/check-hook-gates.py` | check-hook-gates.py — the hook and CI must not drift apart silently. | — | — |
 | unwired surfaces | blocking | `scripts/find-unwired-surfaces.py` | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | `scripts/check-dead-settings.py` | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
-| a write tool proposes before it writes | blocking | `scripts/check-ai-write-tools.py` | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
 | coverage task list | blocking | `scripts/check-coverage-task-list.py` | check-coverage-task-list.py — the coverage report measures every module that ... | — | — |
 | coverage floor declaration | blocking | `scripts/check-coverage-floor-declaration.py` | check-coverage-floor-declaration.py — the coverage floor is declared where Ko... | — | — |
 | coverage timeout | blocking | `scripts/check-coverage-timeout.py` | check-coverage-timeout.py — the coverage job's timeout covers the measured cost. | — | — |
@@ -62,6 +63,7 @@ sche... | — | — |
 | maestro selectors valid | blocking | `scripts/ci/validate-maestro-selectors.py` | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
 | maestro keyboard commands have something to hide | blocking | `scripts/check-maestro-keyboard-commands.py` | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
 | maestro flows do not name a pixel | blocking | `scripts/check-maestro-screen-geometry.py` | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
+| a pull request carries the review of an agent | blocking | `scripts/ci/check-agent-review.py` | check-agent-review.py — a pull request carries the review of a separate agent. | — | — |
 | maestro results are within the floor | blocking | `scripts/ci/check-maestro-results.py` | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
 | profile reset inventory is true | blocking | `scripts/ci/check-profile-reset-inventory.py` | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
 | the text-field transformation table is true | blocking | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |

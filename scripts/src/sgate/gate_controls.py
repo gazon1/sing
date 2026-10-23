@@ -16,6 +16,7 @@ which owns the path discipline that decides which checkout's registry is read.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -274,6 +275,32 @@ SCRIPT_GATES = [
     # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
     # entry is its twin: the harness fills the edit from there, and Part J
     # fails when the two disagree about the file or the command.
+    #
+    # A published coverage number is compared with the measurement it was
+    # read from.
+    ScriptGate(
+        name="published-measurements",
+        cmd=[sys.executable, "scripts/check-published-measurements.py"],
+        sabotage_path="docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a published number is a claim about a measurement, and the claim "
+            "outlives the measurement it was read from: \"2.82M instructions\" "
+            "survived a real measurement because the percentages are a ratio, and "
+            "a ratio is the same at every level of the report"
+        ),
+    ),
+    # Every test task runs with the heap the record holds.
+    ScriptGate(
+        name="memory-budget",
+        cmd=[sys.executable, "scripts/check-memory-budget.py", "--quiet"],
+        sabotage_path="shared/build.gradle.kts",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a heap that nobody checks is a claim made six times over: the "
+            "measurement behind 1536 MB lived in an ADR that no build read"
+        ),
+    ),
     ScriptGate(
         name="coverage-timeout",
         cmd=[sys.executable, "scripts/check-coverage-timeout.py", "--quiet"],
@@ -655,17 +682,13 @@ SCRIPT_GATES = [
         cmd=["./scripts/check-doc-links.sh"],
         why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
     ),
-    # ai-write-tools: the registry declared this control on 2026-10-22, and the
-    # twin that runs it was never written — so the gate was registered, the
-    # control was declared, and nothing ever broke the file the gate reads.
-    # The registry holds the edit (it removes the one entry from
-    # `config/docs/ai-direct-writes.txt`), so the twin is the name and the
-    # command, and the harness fills in the rest.
-    ScriptGate(
-        name="ai-write-tools",
-        cmd=[sys.executable, "scripts/check-ai-write-tools.py"],
-        why="a tool that writes a user's data without saying so is a change the user never saw",
-    ),
+    # ai-write-tools: removed — the invariant it policed ("a tool that writes a
+    # user's data without saying so") is a test now, not a file: the tools are
+    # called and the user's data is found unchanged, and the tools' own source is
+    # scanned for a reach to a write repository. A registry of exceptions kept in
+    # a file is a second thing to keep in step with the code, and the code can
+    # change without it. See the 2026-10-23 ADR on the invariant being a test.
+    #
     # backlog-issue-refs: removed — the gate and its script are gone, and the
     # snapshot it policed (94 OPEN issues, none with a Backlog field) was the
     # failure state it detected, so no control could tell "clean run" from
@@ -780,6 +803,35 @@ class FixtureGate:
     # True when the gate has a meaningful clean-tree invocation, i.e. the
     # "already red would mask the sabotage" guard applies.
     needs_clean_run: bool = True
+
+def _setup_agent_review(root: Path) -> None:
+    """A pull request whose comments carry no review.
+
+    The input of this gate is a pull request, and a pull request does not
+    exist in a clean checkout — so the control synthesises it. The fixture
+    holds the two ways the check could be fooled: a comment that is not a
+    review at all, and a comment that quotes the review format (the format is
+    written down in the script, the pull request template and AGENTS.md, so a
+    comment that quotes it is the cheapest way to fake a review).
+
+    Both have to leave the check red. A check that a copy of the format can
+    satisfy is a check that reports success forever.
+    """
+    comments = [
+        {
+            "body": "Looks good to me.",
+            "html_url": "https://example.com/comment-1",
+        },
+        {
+            "body": (
+                "The review has to carry `<!-- agent-review -->` and a verdict.\n\n"
+                "**Verdict:** pass\n"
+            ),
+            "html_url": "https://example.com/comment-2",
+        },
+    ]
+    (root / "comments.json").write_text(json.dumps(comments), encoding="utf-8")
+
 
 def _setup_flaky_tests(root: Path) -> None:
     """One test failing now that passed in the previous run."""
@@ -943,6 +995,22 @@ FIXTURE_GATES = [
     # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
     # control `detekt-rule-coverage-floor`, which raises the constant and
     # requires the Gradle task to fail — see the note at the top of Part C.
+    FixtureGate(
+        name="agent-review",
+        cmd=[
+            sys.executable,
+            "scripts/ci/check-agent-review.py",
+            "--comments-file",
+            "{tmp}/comments.json",
+        ],
+        setup=_setup_agent_review,
+        why=(
+            "a pull request that carries no review is a pull request nobody looked at, and "
+            "nothing in the tree, in the pull request or in the workflow could tell it from "
+            "one that was reviewed — the rule was a sentence, and a sentence cannot fail"
+        ),
+        needs_clean_run=False,
+    ),
     FixtureGate(
         name="slow-tests-ran",
         cmd=[sys.executable, "scripts/check-slow-tests-ran.py", "--root", "{tmp}"],

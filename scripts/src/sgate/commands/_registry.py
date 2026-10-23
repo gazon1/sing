@@ -351,10 +351,22 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-build-output-readers.py"),
     ),
     GateSpec(
+        name="the memory budget is one record",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-memory-budget.py"),
+    ),
+    GateSpec(
         name="gradle invocations keep one test population",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-gradle-test-population.py"),
+    ),
+    GateSpec(
+        name="published measurements match the record",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-published-measurements.py"),
     ),
     GateSpec(
         name="waiver references resolve",
@@ -454,18 +466,6 @@ _REGISTERED: tuple[GateSpec, ...] = (
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-dead-settings.py"),
         script_args=("--quiet",),
-    ),
-    # A tool that writes a user's data directly applies a change the user never
-    # saw, while the delete tools and `write_task_proposal` propose the same kind
-    # of change. The gate does not decide which is right — it measures the state:
-    # every direct writer is listed with the reason it writes directly, so the
-    # gap is a written decision rather than an accident of which tool the model
-    # picked.
-    GateSpec(
-        name="a write tool proposes before it writes",
-        mode=GateMode.BLOCKING,
-        cmd_type=CmdType.PYTHON3,
-        script=Path("scripts/check-ai-write-tools.py"),
     ),
     GateSpec(
         name="coverage task list",
@@ -639,6 +639,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-maestro-screen-geometry.py"),
+    ),
+    GateSpec(
+        name="a pull request carries the review of an agent",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/ci/check-agent-review.py"),
+        # It asks GitHub about a pull request, not the tree it sits in, so it
+        # runs in the `Agent review` job of ci.yml and nowhere else. The
+        # registry carries it so that `sgate` knows the gate exists, and the
+        # placement says where it runs.
     ),
     GateSpec(
         name="maestro results are within the floor",
@@ -1137,7 +1147,6 @@ GATE_CONTROLS: dict[str, Control] = {
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/close-rule-consolidation.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/close-rule-consolidation', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
     'agents-pointers': Control(kind='sabotage', proves='scripts/check-agents-pointers.py', argv=('{python}', 'scripts/check-agents-pointers.py', '--quiet'), path='AGENTS.md', edit=Edit(kind='append', new='\nSee `docs/decisions/definitely-not-a-file.md` for the reasoning.\n'), why='a pointer that names a file that is not there sends the next session to look for it: the note that was written to remove the stop becomes the stop'),
     'review-verdicts': Control(kind='sabotage', proves='scripts/check-review-verdicts.py', argv=('{python}', 'scripts/check-review-verdicts.py', '--quiet'), path='config/docs/review-verdicts-baseline.txt', edit=Edit(kind='replace', old='a-closed-project-is-reachable\n', new='', count=1), why='a change that leaves the baseline stops carrying a verdict, and a review that leaves no trace is a promise with nothing behind it: the next session cannot tell whether the change was reviewed, what was found, or whether the findings were fixed'),
-    'ai-write-tools': Control(kind='sabotage', proves='scripts/check-ai-write-tools.py', argv=('{python}', 'scripts/check-ai-write-tools.py'), path='config/docs/ai-direct-writes.txt', edit=Edit(kind='regex', pattern=r'^CreateTagTool: .*\n', repl='', flags='MULTILINE'), why='a tool that writes a user\'s data without saying so is a change the user never saw. Removing one entry from the registry is the smallest version of that failure: the tool still writes, the registry stops saying why, and nothing else in the build notices — the gate has to notice, because the registry is the only place the decision was written down'),
     # gate-registries: the gate that compares the two registries. Its input is
     # the shell registry, so the sabotage adds a gate line the Python registry
     # does not know — the exact shape of drift the gate exists to report. The
@@ -1248,6 +1257,25 @@ GATE_CONTROLS: dict[str, Control] = {
     'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
+    'agent-review': Control(
+        kind='fixture',
+        proves='scripts/ci/check-agent-review.py',
+        argv=(
+            '{python}',
+            'scripts/ci/check-agent-review.py',
+            '--comments-file',
+            '{tmp}/comments.json',
+        ),
+        fixture='setup_agent_review',
+        why=(
+            "a pull request that carries no review is a pull request nobody looked at: the "
+            "rule that asks for one was a sentence, and a sentence cannot fail. The check "
+            "has to fail on a pull request whose comments carry no review — and on one "
+            "that carries a copy of the format, which is the cheapest way to fake a review"
+        ),
+        needs_clean_run=False,
+        tracked_by='.github/workflows/ci.yml#The review the agent left on the pull request',
+    ),
     'maestro-results': Control(kind='fixture', proves='scripts/ci/check-maestro-results.py', argv=('{python}', 'scripts/ci/check-maestro-results.py', '--scope', 'full', '--results-dir', '{tmp}/results', '--catalogue', '{tmp}/catalogue.txt', '--floor', '{tmp}/floor.txt', '--debt', '{tmp}/debt.yaml', '--environment', '{tmp}/results/environment.json'), fixture='setup_maestro_results', why="a Maestro run that failed a flow the floor does not allow, and a flow the run produced no report for — the two ways a run quietly stops being the run the repository promised. The input is a run on an emulator, so it cannot exist in a clean checkout: the control synthesises it", needs_clean_run=False),
     'gate-tooling-origin': Control(kind='fixture', proves='scripts/check-gate-tooling-origin.py', argv=('{python}', '{tmp}/foreign/check-gate-tooling-origin.py'), fixture='setup_gate_tooling_origin', why="the gate CLI is installed editable, so the venv on PATH decides which checkout's scripts/src/sgate the gate CLI is — and a foreign CLI reads a foreign registry and reports about a foreign tree. The run looks green and says nothing about the tree in front of it. The input is the interpreter's import path, not a committed file, so the control synthesises it: a copy of the gate standing next to a package named sgate, which the copy must answer FOREIGN about", needs_clean_run=False),
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost', needs_clean_run=False, until='2026-12-31', tracked_by='.github/workflows/ci.yml#Executed test counts'),
@@ -1303,6 +1331,8 @@ GATE_CONTROLS: dict[str, Control] = {
     # The probe shrinks the timeout to 30 minutes: the measured fast run takes
     # 37 min 25 s, and the runner is slower than the measurement host. The gate
     # must fail and name both numbers.
+    'published-measurements': Control(kind='sabotage', proves='scripts/check-published-measurements.py', argv=('{python}', 'scripts/check-published-measurements.py'), path='docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md', edit=Edit(kind='replace', old='over 4735 classes and 579,002', new='over 4736 classes and 579,002', count=1), why='a published number is a claim about a measurement, and the claim outlives the measurement it was read from: "2.82M instructions" survived a real measurement because the percentages are a ratio and a ratio is the same at every level of the report. The probe moves the class count of the fast measurement by one, and the gate must name the document, the line and both numbers instead of reading the document as a source of truth'),
+    'memory-budget': Control(kind='sabotage', proves='scripts/check-memory-budget.py', argv=('{python}', 'scripts/check-memory-budget.py', '--quiet'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='maxHeapSize = testTaskHeap', new='maxHeapSize = "3072m"', count=1), why='a heap that nobody checks is a claim made six times over: the measurement behind 1536 MB lived in an ADR that no build read and no gate held, so a module could raise its heap to 3 GB and the measurement would quietly stop describing the build. The probe replaces one module\'s heap read with a literal of twice the size and the gate must name the file, the line and both numbers'),
     'coverage-timeout': Control(kind='sabotage', proves='scripts/check-coverage-timeout.py', argv=('{python}', 'scripts/check-coverage-timeout.py', '--quiet'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    timeout-minutes: 75', new='    timeout-minutes: 30', count=1), why='a timeout that fires on a healthy instrumented run reports a failure that says nothing about the code: the coverage job is killed at the moment it was about to report, and the report is the thing the job exists for'),
     # The coverage report measures every module that is in it.
     #

@@ -24,7 +24,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -51,9 +50,9 @@ import kotlin.time.Clock
  * ## Two shapes of "it did not happen"
  *
  * A tool that only proposes answers with a payload: `proposalCreated` is false
- * and the error says why. A tool that still writes — `create_tag` — throws, so
- * the failure is the repository's own exception, the way `DeleteNoteTool:74`
- * already does.
+ * and the error says why. That is now the shape of every tool in this package —
+ * `create_tag` was the last one that wrote, and it proposes like the rest, so the
+ * "it still writes, so it throws" shape is gone from the family.
  *
  * ## Why the assertion is on the answer and not only on the exception
  *
@@ -106,15 +105,19 @@ class WriteToolsReportTheWriteTheyDidNotPerformTest {
     }
 
     @Test
-    fun `CreateTagTool does not report a tag it failed to create`() = runTest {
-        val repo = FakeTagsRepository(currentUser = profileAwareUser)
-        repo.createOverride = Result.failure(boom)
+    fun `CreateTagTool does not report a proposal it failed to store`() = runTest {
+        val repo = FakeProposalRepository(clock)
+        repo.saveOverride = Result.failure(boom)
+        val tags = FakeTagsRepository(currentUser = profileAwareUser)
 
-        // The tool still writes, so the failure is the repository's own exception.
-        val failed = assertFailsWith<IllegalStateException> {
-            CreateTagTool(repo, clock, profileAwareUser).execute(CreateTagInput(name = "Ghost"))
-        }
-        assertTrue(failed.message == boom.message, "the repository's own exception should surface")
+        val output = ToolOutputJson.decodeFromString(
+            CreateTagOutput.serializer(),
+            CreateTagTool(repo, profileAwareUser, clock).execute(CreateTagInput(name = "Ghost")),
+        )
+
+        assertFalse(output.proposalCreated, "the tool says it did not propose")
+        assertNotNull(output.error, "the tool says why")
+        assertTrue(tags.observeAll().first().isEmpty(), "nothing was created")
     }
 
     @Test

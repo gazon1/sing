@@ -13,7 +13,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
-import com.singularity.todo.feature.proposals.domain.model.TaskField
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
@@ -34,11 +34,13 @@ import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.TestUsers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -132,7 +134,7 @@ class ApplyProposalItemUseCaseTest {
     fun `field is written onto the current task, not the value the agent saw`() = runTest {
         tasks.seed(task(title = "Edited by the user while the model was thinking"))
 
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Priority, "High"))
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)))
 
         assertTrue(useCase.confirm(id, user).isSuccess)
 
@@ -141,23 +143,14 @@ class ApplyProposalItemUseCaseTest {
         assertEquals("Edited by the user while the model was thinking", tasks.get(taskId)?.title)
     }
 
-    @Test
-    fun `an unparseable value leaves the item pending and the task untouched`() = runTest {
-        tasks.seed(task(priority = TaskPriority.Low))
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Priority, "VERY IMPORTANT"))
-
-        val result = useCase.confirm(id, user)
-
-        assertTrue(result.isFailure)
-        assertEquals(TaskPriority.Low, tasks.get(taskId)?.priority, "task must not change")
-        // The whole point of planning before claiming: a re-try is still possible.
-        assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
-    }
+    // A value that does not read is refused before it is ever proposed — that case
+    // lives with the operation vocabulary now (`ProposalOperationTest`), because the
+    // reading happens where the proposal is built, not where it is applied.
 
     @Test
     fun `a blank proposed title is rejected before the claim`() = runTest {
         tasks.seed(task())
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Title, "   "))
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Title("   ")))
 
         assertTrue(useCase.confirm(id, user).isFailure)
         assertEquals("Original", tasks.get(taskId)?.title)
@@ -167,7 +160,7 @@ class ApplyProposalItemUseCaseTest {
     @Test
     fun `a negative estimate is refused`() = runTest {
         tasks.seed(task())
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.EstimateMinutes, "-30"))
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.EstimateMinutes(-30)))
 
         assertTrue(useCase.confirm(id, user).isFailure)
         assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
@@ -175,7 +168,7 @@ class ApplyProposalItemUseCaseTest {
 
     @Test
     fun `an unknown task fails without claiming the item`() = runTest {
-        val id = seedProposal(ProposalItemKind.SetTaskField(TaskField.Priority, "High"), target = "missing")
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)), target = "missing")
 
         assertTrue(useCase.confirm(id, user).isFailure)
         assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
@@ -303,8 +296,206 @@ class ApplyProposalItemUseCaseTest {
         assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
     }
 
-    // ── Status ────────────────────────────────────────────────────────────────
+    // ── A decision that did not happen ───────────────────────────────────────
 
+    @Test
+    fun `a dispatch that fails leaves the item pending`() = runTest {
+        tasks.seed(task())
+        // The write fails at the dispatch, which is *after* the claim: by then the item
+        // has been decided. The change was not applied, so the decision must not stand
+        // on its own — the item goes back to pending and the user can try again.
+        tasks.softDeleteOverride = Result.failure(IllegalStateException("the write failed"))
+        val id = seedProposal(ProposalItemKind.DeleteTask(reason = null))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change was not applied, so it must not be recorded as decided",
+        )
+    }
+
+    @Test
+    fun `a change that was released can be applied again`() = runTest {
+        tasks.seed(task())
+        tasks.softDeleteOverride = Result.failure(IllegalStateException("the write failed"))
+        val id = seedProposal(ProposalItemKind.DeleteTask(reason = null))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+        tasks.softDeleteOverride = null
+
+        assertTrue(useCase.confirm(id, user).isSuccess, "the second attempt goes through")
+        assertEquals(ProposalItemStatus.Confirmed, proposals.getItem(id)?.status)
+    }
+
+    @Test
+    fun `a write that breaks halfway leaves nothing behind`() = runTest {
+        tasks.seed(task())
+        // The second row fails, the first was written. The change goes back to waiting,
+        // so the user will try again — and the row that was written must not be there
+        // a second time.
+        checklist.addItemOverride = { title ->
+            if (title == "second") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second")))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "the row that was written before the failure is taken back — otherwise the " +
+                "next attempt would add it twice",
+        )
+    }
+
+    @Test
+    fun `a change that breaks halfway can be applied again`() = runTest {
+        tasks.seed(task())
+        checklist.addItemOverride = { title ->
+            if (title == "second") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second")))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+        checklist.addItemOverride = null
+
+        assertTrue(useCase.confirm(id, user).isSuccess, "the second attempt goes through")
+        assertEquals(
+            listOf("first", "second"),
+            checklist.watchByTask(taskId.value).first().map { it.title }.sorted(),
+            "each row is written once",
+        )
+    }
+
+    @Test
+    fun `a write that is cut short leaves nothing behind`() = runTest {
+        tasks.seed(task())
+        // The screen went away in the middle of the write. A cancelled coroutine is
+        // not a failed one: the rows that were written before the cancellation stay
+        // written, and the change goes back to waiting — so the row that stayed
+        // would be there twice on the next attempt.
+        checklist.addItemOverride = { title ->
+            if (title == "second") throw CancellationException("the screen went away") else null
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second")))
+
+        assertFailsWith<CancellationException> { useCase.confirm(id, user) }
+
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "the row that was written before the cancellation is taken back — the change " +
+                "waits again, and the row would be there twice after the next attempt",
+        )
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits again — it was never decided",
+        )
+    }
+
+    @Test
+    fun `a row that was taken back is not taken back again`() = runTest {
+        tasks.seed(task())
+        // The write of the third row fails, and the take-back of the second row is
+        // cut short — the driver notices that the scope is gone. The first row was
+        // taken back already, and taking it back a second time would fail on a row
+        // that is not there any more; and that failure would be reported as a row
+        // that stayed, which is a row the user would be told about that is not there.
+        checklist.addItemOverride = { title ->
+            if (title == "third") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        checklist.deleteOverride = {
+            if (checklist.deleteCalls.size == 2) throw CancellationException("the screen went away")
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second", "third")))
+
+        assertFailsWith<CancellationException> { useCase.confirm(id, user) }
+
+        assertEquals(
+            checklist.deletedIds.distinct().size,
+            checklist.deletedIds.size,
+            "a row that was taken back is not taken back again: ${checklist.deletedIds}",
+        )
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "no row is left behind — the row that stayed is taken back when the take-back is tried again",
+        )
+    }
+
+    @Test
+    fun `a value this build cannot read is refused with its reason`() = runTest {
+        tasks.seed(task())
+        // A row written by a build that knew the priority, read by one that does
+        // not. The change stays on the card with the reason, and applying it says
+        // why instead of doing nothing.
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Unreadable("Priority", "very high")))
+
+        val result = useCase.confirm(id, user)
+
+        assertTrue(result.isFailure, "a value that does not read cannot be applied")
+        assertTrue(
+            result.exceptionOrNull()?.message?.contains("is not a priority") == true,
+            "the reason is the answer: ${result.exceptionOrNull()?.message}",
+        )
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits — it was never decided",
+        )
+    }
+
+    @Test
+    fun `the value the user typed while the change was in flight is the one applied`() = runTest {
+        tasks.seed(task())
+        val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Title("Old title")))
+        // The row changed between the read and the claim: the plan built from the old
+        // row would write the old value over the new one, so the plan is rebuilt. The
+        // cost is one more read of the task — and only when the row changed.
+        proposals.beforeClaim = {
+            proposals.updatePendingItem(
+                id,
+                ProposalItemKind.SetTaskField(TaskValue.Title("New title")),
+                user,
+            )
+        }
+
+        assertTrue(useCase.confirm(id, user).isSuccess)
+
+        assertEquals(
+            "New title",
+            tasks.get(taskId)?.title,
+            "the value the user typed is the one that was applied",
+        )
+    }
+
+    @Test
+    fun `a subtask that is taken back is archived, not deleted`() = runTest {
+        tasks.seed(task())
+        // The second subtask fails; the first was written. The take-back archives it:
+        // production `delete` is a soft delete, so the row is still there and the
+        // archive is what the sync carries. A hard delete would take the row out of
+        // the sync — and a rolled-back subtask is not history the user made, it is a
+        // row the app made and undid.
+        tasks.createCallOverride = { title ->
+            if (title == "second") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        val id = seedProposal(ProposalItemKind.AddSubtasks(listOf("first", "second")))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+
+        val created = tasks.tasks.value.values.filter { it.title == "first" }
+        assertEquals(1, created.size, "the subtask that was written is still there")
+        assertNotNull(
+            created.single().archivedAt,
+            "it is archived rather than deleted — the archive is what the sync carries",
+        )
+    }
+
+    // ── Status ────────────────────────────────────────────────────────────────
     @Test
     fun `confirming every item resolves the proposal`() = runTest {
         tasks.seed(task())
@@ -360,7 +551,9 @@ class ApplyProposalItemUseCaseTest {
         val bad = ProposalItem(
             id = ProposalItemId.generate(),
             proposalId = proposalId,
-            kind = ProposalItemKind.SetTaskField(TaskField.Priority, "NOPE"),
+            // A title the task cannot hold: the plan fails, so this one item fails on
+            // its own while the other still goes through.
+            kind = ProposalItemKind.SetTaskField(TaskValue.Title("   ")),
             targetId = taskId.value,
             humanSummary = "bad",
             status = ProposalItemStatus.Pending,

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 
@@ -12,11 +13,19 @@ sealed interface TaskDetailExtras {
     /** No partition has resolved yet — the screen holds its loading shell. */
     data object Unresolved : TaskDetailExtras
 
-    /** Every partition resolved. */
+    /**
+     * Every partition resolved.
+     *
+     * @property proposalFailures Why the last attempt to apply or to change a change
+     *   failed, by the change it belongs to. The reason sits next to the change rather
+     *   than in one message about a batch: a user who cannot see *which* change failed
+     *   cannot act on it.
+     */
     data class Ready(
         val timeSlotState: TaskTimeSlotState,
         val firstRun: FirstRun,
         val proposals: List<AiProposal> = emptyList(),
+        val proposalFailures: Map<ProposalItemId, String> = emptyMap(),
     ) : TaskDetailExtras
 }
 

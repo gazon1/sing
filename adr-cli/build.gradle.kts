@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -153,6 +154,25 @@ detekt {
     source.setFrom("src/main/kotlin", "src/test/kotlin")
 }
 
+// ── The memory budget ───────────────────────────────────────────────────────
+//
+// The heap of a test fork is a MEASUREMENT, and the measurement lives in
+// `config/docs/gradle-memory-budget.properties` — the record, one file, read by
+// the build. The tables and the failed measurements behind it are in
+// `docs/decisions/2026-10-22-gradle-memory-budget.md`.
+//
+// This module reads its OWN line of the record, so the number its test JVMs
+// run with is the number the record holds for this module.
+// `scripts/check-memory-budget.py` is what keeps the two in step.
+val memoryBudget = Properties().apply {
+    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+}
+val testTaskHeap = memoryBudget.getProperty("test.heap.module.adr-cli")
+    ?: throw GradleException(
+        "config/docs/gradle-memory-budget.properties declares no test.heap.module.adr-cli — " +
+            "the heap of this module's test tasks has to be recorded somewhere."
+    )
+
 tasks.withType<Test>().configureEach {
     failOnNoDiscoveredTests = true
 
@@ -168,7 +188,8 @@ tasks.withType<Test>().configureEach {
             else -> includeTags(*tags.toTypedArray())
         }
     }
-    maxHeapSize = "1g"
+    // The heap is READ, not written here: the record holds it.
+    maxHeapSize = testTaskHeap
 }
 
 dependencies {

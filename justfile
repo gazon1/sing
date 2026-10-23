@@ -70,6 +70,7 @@ alias gate   := tests::gate
 
 # ----- Lint shortcuts -----
 alias lint       := tests::lint
+alias lint-changed := tests::lint-changed
 alias detekt-fix := tests::detekt-fix
 
 # ----- Docs shortcuts -----

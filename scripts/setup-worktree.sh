@@ -46,6 +46,21 @@ if [[ "$(git config --get extensions.worktreeConfig || true)" != "true" ]]; then
     echo "enabled extensions.worktreeConfig (repo-wide, affects nothing on its own)"
 fi
 
+# A shared `core.worktree` makes every worktree of this repository resolve its
+# files somewhere else — and it fails silently: `git status` reports files that
+# are present on disk as deleted, and a commit can record a tree that is not
+# the one in front of the author. It gets there when something writes the
+# config without `--worktree` while the extension was off, which is why the
+# extension is enabled above and why the value is checked here.
+#
+# The value belongs to the worktree it names, and a worktree names itself.
+shared_worktree="$(git config --get core.worktree || true)"
+if [[ -n "$shared_worktree" && "$shared_worktree" != "$root" ]]; then
+    git config --unset core.worktree
+    echo "removed a shared core.worktree that pointed at $shared_worktree"
+    echo "  (it made every other worktree of this repository read someone else's files)"
+fi
+
 git config --worktree core.hooksPath .githooks
 echo "core.hooksPath -> .githooks (this worktree only; shared config untouched)"
 

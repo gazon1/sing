@@ -4,8 +4,6 @@
 должен помещаться в один проход, а правило тестов — это десятки строк, которые нужны
 тогда, когда пишешь тест или разбираешь падение.
 
-## Тесты
-
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
@@ -86,8 +84,6 @@ recompiles and re-executes; `--rerun-tasks` — только отладочна�
 `scripts/check-test-tags-catalog.py` делает ту же сверку за секунды, без JVM, —
 он и стоит в гейтах; полный прогон нужен, чтобы *переписать* файл, а не чтобы
 *узнать*, что он устарел.
-
-## Чего здесь нет
 
 Тесты пишутся в `shared/src/{jvmTest,commonTest}`, двойники — в
 `test/fakes/FakeRepositories.kt` (fake, не моки). Скилл

@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -15,10 +14,25 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
+import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyle
+import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
+import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
+import com.singularity.todo.feature.proposals.presentation.proposalFailureStore
 import kotlinx.coroutines.launch
 
-/** The changes waiting for a decision on this note. */
-data class NoteProposalsUiState(val proposals: List<AiProposal> = emptyList())
+/**
+ * The changes waiting for a decision on this note.
+ *
+ * @property failures Why the last attempt to apply or to change a change failed, by
+ *   the change it belongs to. The reason sits next to the change rather than in one
+ *   message about a batch: a user who cannot see *which* change failed cannot act on
+ *   it.
+ */
+data class NoteProposalsUiState(
+    val proposals: List<AiProposal> = emptyList(),
+    val failures: Map<ProposalItemId, String> = emptyMap(),
+)
 
 /** What the user did about a proposed change. */
 sealed interface NoteProposalsIntent : MviIntent {
@@ -33,6 +47,9 @@ sealed interface NoteProposalsIntent : MviIntent {
 
     /** Turn every change of one proposal down. */
     data class Dismiss(val proposalId: ProposalId) : NoteProposalsIntent
+
+    /** Change the value of one change, before it is applied. */
+    data class Edit(val itemId: ProposalItemId, val text: String) : NoteProposalsIntent
 }
 
 /** What the note editor tells the user, once. */
@@ -61,6 +78,7 @@ class NoteProposalsViewModel(
     private val noteId: NoteId,
     private val proposals: ProposalRepository,
     private val applyProposalItem: ApplyProposalItemUseCase,
+    private val editProposalItem: EditProposalItemUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
@@ -69,6 +87,35 @@ class NoteProposalsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
+
+    /**
+     * The five operations, in one place.
+     *
+     * The note editor, the review screen and the task detail all answer a
+     * proposal, and they answer it the same way — so the operations live in
+     * [ProposalDecisions] and this editor brings its own wording, its own
+     * failure store and its own error sink.
+     */
+    private val decisions = ProposalDecisions(
+        applyProposalItem = applyProposalItem,
+        editProposalItem = editProposalItem,
+        style = noteEditorStyle,
+        failures = proposalFailureStore(
+            onRecord = { itemId, message ->
+                updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
+            },
+            onClear = { itemId ->
+                updateState { state -> state.copy(failures = state.failures - itemId) }
+            },
+        ),
+        errors = ProposalErrorSink { label, _, error ->
+            // The ViewModel's own error path: it reports the failure to the crash
+            // reporter and shows it as a one-shot event. The failure is rethrown
+            // into that path because the path is what reports it.
+            emitError(label, NoteProposalsUiEvent::ShowError) { throw error }
+        },
+        userId = { currentUser.scopedUserId.value },
+    )
 
     /**
      * The collector of what is waiting.
@@ -80,7 +127,11 @@ class NoteProposalsViewModel(
     private val pendingWatch = vmScope.launch {
         proposals.watchProposalsForNote(noteId)
             .collect { list ->
-                updateState { NoteProposalsUiState(proposals = list.filter { it.pendingItems.isNotEmpty() }) }
+                // The failures are kept: a reason the user has not read yet is still a
+                // reason, and a new list of proposals must not wipe it.
+                updateState { state ->
+                    state.copy(proposals = list.filter { it.pendingItems.isNotEmpty() })
+                }
             }
     }
 
@@ -92,44 +143,43 @@ class NoteProposalsViewModel(
 
     override fun onIntent(intent: NoteProposalsIntent) {
         when (intent) {
-            is NoteProposalsIntent.Confirm -> decide(intent.itemId, confirm = true)
-            is NoteProposalsIntent.Reject -> decide(intent.itemId, confirm = false)
-            is NoteProposalsIntent.ConfirmAll -> confirmAll(intent.proposalId)
-            is NoteProposalsIntent.Dismiss -> dismiss(intent.proposalId)
-        }
-    }
+            is NoteProposalsIntent.Confirm -> vmScope.launch { decisions.applyChange(intent.itemId) }
 
-    /** Apply every change of the proposal at once. */
-    private fun confirmAll(proposalId: ProposalId) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Apply the changes", NoteProposalsUiEvent::ShowError) {
-            runCatchingCancellable { applyProposalItem.confirmAll(proposalId, userId) }
-        }
-    }
+            is NoteProposalsIntent.Reject -> vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
 
-    /** Turn every change of the proposal down, one by one. */
-    private fun dismiss(proposalId: ProposalId) {
-        val userId = currentUser.scopedUserId.value
-        val waiting = stateFlow.value.proposals
-            .firstOrNull { it.id == proposalId }
-            ?.pendingItems
-            .orEmpty()
-        emitError("Turn the changes down", NoteProposalsUiEvent::ShowError) {
-            runCatchingCancellable {
-                waiting.forEach { item -> applyProposalItem.reject(item.id, userId, null) }
+            is NoteProposalsIntent.ConfirmAll -> vmScope.launch { decisions.applyAll(intent.proposalId) }
+
+            is NoteProposalsIntent.Dismiss -> {
+                // The waiting changes are read when the intent arrives, the way they
+                // always were: the note editor already holds them.
+                val waiting = stateFlow.value.proposals
+                    .firstOrNull { it.id == intent.proposalId }
+                    ?.pendingItems
+                    .orEmpty()
+                vmScope.launch { decisions.dismiss { waiting } }
             }
+
+            is NoteProposalsIntent.Edit -> vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
         }
     }
 
-    private fun decide(itemId: ProposalItemId, confirm: Boolean) {
-        val userId = currentUser.scopedUserId.value
-        val label = if (confirm) "Apply the change" else "Reject the change"
-        emitError(label, NoteProposalsUiEvent::ShowError) {
-            if (confirm) {
-                applyProposalItem.confirm(itemId, userId)
-            } else {
-                applyProposalItem.reject(itemId, userId)
-            }
-        }
+    private companion object {
+        /**
+         * How this editor words a proposal decision.
+         *
+         * The reason the user typed is not stored with the refusal here: this
+         * editor has always dropped it, and the shared operations keep that as it
+         * was rather than changing what the model is told.
+         */
+        val noteEditorStyle = ProposalDecisionStyle(
+            apply = "Apply the change",
+            reject = "Reject the change",
+            applyAll = "Apply the changes",
+            applyOne = "Apply the change",
+            dismiss = "Turn the changes down",
+            dismissOne = "Turn the change down",
+            change = "Change the proposal",
+            storesRejectionReason = false,
+        )
     }
 }

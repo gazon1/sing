@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.proposals.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -12,16 +11,29 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
+import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-/** What the screen shows: the proposals waiting for a decision. */
-data class ProposalsUiState(val isLoading: Boolean = true, val proposals: List<AiProposal> = emptyList())
+/**
+ * What the screen shows: the proposals waiting for a decision.
+ *
+ * @property failures Why the last attempt to apply or to change an item failed, by
+ *   item. The card shows the reason under the item it belongs to, so the reason is
+ *   where the user's attention already is. A reason that only ever appears in a
+ *   message that is gone by the time they look again is not a visible reason.
+ */
+data class ProposalsUiState(
+    val isLoading: Boolean = true,
+    val proposals: List<AiProposal> = emptyList(),
+    val failures: Map<ProposalItemId, String> = emptyMap(),
+)
 
 /** What the user did on the proposals screen. */
 sealed interface ProposalsIntent : MviIntent {
@@ -36,6 +48,9 @@ sealed interface ProposalsIntent : MviIntent {
 
     /** Turn every change of one proposal down. */
     data class Dismiss(val proposalId: ProposalId) : ProposalsIntent
+
+    /** Change the value of one change, before it is applied. */
+    data class Edit(val itemId: ProposalItemId, val text: String) : ProposalsIntent
 }
 
 /** What the proposals screen tells the user, once. */
@@ -68,6 +83,7 @@ sealed interface ProposalsUiEvent : MviEvent {
 class ProposalsViewModel(
     private val proposals: ProposalRepository,
     private val applyProposalItem: ApplyProposalItemUseCase,
+    private val editProposalItem: EditProposalItemUseCase,
     private val currentUser: ProfileAwareCurrentUser,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
@@ -76,6 +92,35 @@ class ProposalsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
+
+    /**
+     * The five operations, in one place.
+     *
+     * The review screen, the note editor and the task detail all answer a
+     * proposal, and they answer it the same way — so the operations live in
+     * [ProposalDecisions] and this screen brings its own wording, its own
+     * failure store and its own error sink.
+     */
+    private val decisions = ProposalDecisions(
+        applyProposalItem = applyProposalItem,
+        editProposalItem = editProposalItem,
+        style = reviewScreenStyle,
+        failures = proposalFailureStore(
+            onRecord = { itemId, message ->
+                updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
+            },
+            onClear = { itemId ->
+                updateState { state -> state.copy(failures = state.failures - itemId) }
+            },
+        ),
+        errors = ProposalErrorSink { label, _, error ->
+            // The ViewModel's own error path: it reports the failure to the crash
+            // reporter and shows it as a one-shot event. The failure is rethrown
+            // into that path because the path is what reports it.
+            emitError(label, ProposalsUiEvent::ShowError) { throw error }
+        },
+        userId = { currentUser.scopedUserId.value },
+    )
 
     /**
      * The collector of what is waiting.
@@ -89,7 +134,9 @@ class ProposalsViewModel(
         proposals.watchProposalsByStatus(ProposalStatus.Pending)
             .map { list -> list.filter { proposal -> proposal.items.any { it.status == ProposalItemStatus.Pending } } }
             .collect { list ->
-                updateState { ProposalsUiState(isLoading = false, proposals = list) }
+                updateState { state ->
+                    state.copy(isLoading = false, proposals = list)
+                }
             }
     }
 
@@ -101,55 +148,46 @@ class ProposalsViewModel(
 
     override fun onIntent(intent: ProposalsIntent) {
         when (intent) {
-            is ProposalsIntent.Confirm -> decide(intent.itemId, confirm = true)
-            is ProposalsIntent.Reject -> reject(intent.itemId, intent.reason)
-            is ProposalsIntent.ConfirmAll -> confirmAll(intent.proposalId)
-            is ProposalsIntent.Dismiss -> dismiss(intent.proposalId)
-        }
-    }
+            is ProposalsIntent.Confirm -> vmScope.launch { decisions.applyChange(intent.itemId) }
 
-    private fun decide(itemId: ProposalItemId, confirm: Boolean) {
-        val userId = currentUser.scopedUserId.value
-        val label = if (confirm) "Apply the change" else "Reject the change"
-        emitError(label, ProposalsUiEvent::ShowError) {
-            if (confirm) {
-                applyProposalItem.confirm(itemId, userId)
-            } else {
-                applyProposalItem.reject(itemId, userId)
+            is ProposalsIntent.Reject -> vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
+
+            is ProposalsIntent.ConfirmAll -> vmScope.launch { decisions.applyAll(intent.proposalId) }
+
+            is ProposalsIntent.Dismiss -> vmScope.launch {
+                decisions.dismiss { waiting(intent.proposalId) }
             }
-        }
-    }
 
-    /** A rejection the user gave a reason for — the reason is what the model learns from. */
-    private fun reject(itemId: ProposalItemId, reason: String?) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Reject the change", ProposalsUiEvent::ShowError) {
-            applyProposalItem.reject(itemId, userId, reason)
-        }
-    }
-
-    private fun confirmAll(proposalId: ProposalId) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Apply the changes", ProposalsUiEvent::ShowError) {
-            runCatchingCancellable { applyProposalItem.confirmAll(proposalId, userId) }
+            is ProposalsIntent.Edit -> vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
         }
     }
 
     /**
-     * Turns every change of one proposal down.
+     * The changes of a proposal that are still waiting.
      *
-     * "Dismiss" is the whole proposal: the user does not want this change, and
-     * answering item by item would ask them the same question about each part of
-     * one decision.
+     * Read from the repository and not from the state: the state holds the
+     * proposals the screen was last given, and a proposal the user is looking at
+     * may have changed since.
      */
-    private fun dismiss(proposalId: ProposalId) {
-        val userId = currentUser.scopedUserId.value
-        emitError("Dismiss the proposal", ProposalsUiEvent::ShowError) {
-            runCatchingCancellable {
-                val waiting = proposals.watchProposal(proposalId).first()?.items.orEmpty()
-                    .filter { it.status == ProposalItemStatus.Pending }
-                waiting.forEach { item -> applyProposalItem.reject(item.id, userId) }
-            }
-        }
+    private suspend fun waiting(proposalId: ProposalId): List<ProposalItem> =
+        proposals.watchProposal(proposalId).first()?.items.orEmpty()
+            .filter { it.status == ProposalItemStatus.Pending }
+
+    private companion object {
+        /**
+         * How this screen words a proposal decision.
+         *
+         * A dismissed proposal keeps no reason per change: the proposal's own
+         * status says what became of it.
+         */
+        val reviewScreenStyle = ProposalDecisionStyle(
+            apply = "Apply the change",
+            reject = "Reject the change",
+            applyAll = "Apply the changes",
+            applyOne = "Apply the change",
+            dismiss = "Dismiss the proposal",
+            dismissOne = null,
+            change = "Change the proposal",
+        )
     }
 }
