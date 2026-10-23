@@ -176,4 +176,58 @@ class TaskSeriesInvariantsTest {
         )
         assertEquals(null, TaskSeriesInvariants.seriesIdOf(members))
     }
+
+    // ─── One series, or a batch of tasks that stand alone ─────────────────
+
+    @Test
+    fun `a batch of ordinary tasks stands alone`() {
+        val members = listOf(member("s1", series = null), member("s2", series = null))
+
+        assertTrue(
+            TaskSeriesInvariants.isOneSeriesOrStandalone(members),
+            "the draft of a single date is a batch without a series id, and it is written",
+        )
+    }
+
+    @Test
+    fun `a batch whose members disagree about the series is refused`() {
+        val members = listOf(member("s1"), member("s2", series = null))
+
+        assertTrue(
+            !TaskSeriesInvariants.isOneSeriesOrStandalone(members),
+            "one row carrying the id and one not is a series and a task in one write",
+        )
+    }
+
+    @Test
+    fun `a batch that stands alone keeps the title of each row`() {
+        val members = listOf(
+            member("s1", title = "Pay the rent", series = null),
+            member("s2", title = "Call the plumber", series = null),
+        )
+
+        val aligned = TaskSeriesInvariants.alignedIfOneSeries(members)
+
+        assertEquals(
+            listOf("Pay the rent", "Call the plumber"),
+            aligned.map { it.title },
+            "aligning a batch of tasks that stand alone would give the second task the first one's title",
+        )
+    }
+
+    @Test
+    fun `a batch that is one series is aligned to its first member`() {
+        val members = listOf(
+            member("s1", title = "Pay the rent"),
+            member("s2", title = "Pay the rent (old)"),
+        )
+
+        val aligned = TaskSeriesInvariants.alignedIfOneSeries(members)
+
+        assertEquals(
+            listOf("Pay the rent", "Pay the rent"),
+            aligned.map { it.title },
+            "a series that drifted apart is repaired before it is written",
+        )
+    }
 }

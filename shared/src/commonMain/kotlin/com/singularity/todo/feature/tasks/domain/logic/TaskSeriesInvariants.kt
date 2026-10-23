@@ -133,6 +133,35 @@ object TaskSeriesInvariants {
     }
 
     /**
+     * Whether a batch is either one series or a batch of tasks that stand alone.
+     *
+     * The two are told apart by the id every member carries: a series is a
+     * batch whose members all carry the same id, and a batch of tasks that
+     * stand alone is a batch whose members carry none. A batch whose members
+     * disagree about that — one carries the id, the other does not — is the
+     * mistake the write path refuses: it is a series and a task in one write,
+     * and no rule can say which of the two stories was meant.
+     */
+    fun isOneSeriesOrStandalone(tasks: List<Task>): Boolean {
+        if (!isOneSeries(tasks)) return false
+        val ids = tasks.mapNotNull { it.seriesId }.distinct()
+        return ids.isEmpty() || tasks.all { it.seriesId != null }
+    }
+
+    /**
+     * The members with the shared fields of the first written onto them, when the
+     * batch is one series.
+     *
+     * A batch of tasks that stand alone keeps what each row says about itself:
+     * aligning it to the first would give every task in it the first task's
+     * title, which is a different work entirely.
+     */
+    fun alignedIfOneSeries(members: List<Task>): List<Task> {
+        if (seriesIdOf(members) == null) return members
+        return alignedTo(members, members.first())
+    }
+
+    /**
      * The one series id of a batch, if it has one.
      */
     fun seriesIdOf(tasks: List<Task>): TaskSeriesId? = tasks.mapNotNull { it.seriesId }.distinct().singleOrNull()

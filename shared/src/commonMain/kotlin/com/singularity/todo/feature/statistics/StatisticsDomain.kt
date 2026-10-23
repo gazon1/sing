@@ -27,12 +27,7 @@ data class StatisticsSnapshot(
  * @param completedAt When the task was completed, in epoch millis.
  * @param dueAt The start of the task's due day, in epoch millis.
  */
-internal data class StatisticsWorkRow(
-    val id: String,
-    val seriesId: String?,
-    val completedAt: Long?,
-    val dueAt: Long?,
-)
+internal data class StatisticsWorkRow(val id: String, val seriesId: String?, val completedAt: Long?, val dueAt: Long?)
 
 /**
  * The works the statistics counts, and the day each one belongs to.

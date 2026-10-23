@@ -44,7 +44,9 @@ fun TaskMetaRow(
     seriesDates: Int? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (dueLabel == null && project == null && !isBlocked && seriesDates == null) return
+    // One fact, four sources: the row shows nothing when there is nothing to show.
+    val hasSomethingToShow = dueLabel != null || project != null || isBlocked || seriesDates != null
+    if (!hasSomethingToShow) return
 
     Row(
         verticalAlignment = Alignment.CenterVertically,

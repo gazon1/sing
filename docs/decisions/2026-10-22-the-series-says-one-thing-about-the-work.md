@@ -72,23 +72,30 @@ the whole series.
 
 **A series write refuses a batch that is not one series.**
 
-`createSeries` refuses a batch whose members carry no series id or more than one
-series id. `updateAll` refuses a batch that carries more than one series id.
-Both align the batch to its first member before writing it, so a batch that had
-drifted apart is repaired rather than written as two stories.
+`createSeries` and `updateAll` refuse a batch that carries more than one series
+id, and a batch whose members disagree about whether they are a series at all —
+one carries the id, the other does not. A batch whose members carry no id at
+all is a batch of tasks that stand alone, and it is written as it is: the draft
+of a single date is exactly such a batch, and aligning it to its first member
+would give the second task of the batch the first task's title — a different
+work entirely. A batch that *is* one series is aligned to its first member
+before it is written, so a batch that had drifted apart is repaired rather than
+written as two stories.
 
 **A row that arrives from another device realigns the local series to it.**
 
 The pull path writes the incoming row and then realigns the local series to that
 row's shared fields, so both devices end up saying the same thing about the
-work. The profile does not decide: the owner is the user the row belongs to,
-and a row of another profile is not this profile's series to touch.
+work. The series that is realigned is the one this device is on: a row of
+another profile — the lost-race path writes the row's own shadow — is stored as
+it is, because this device does not rewrite rows it does not own.
 
 **The rules live in the domain, not in the callers.**
 
 `TaskSeriesInvariants` is a pure object: `sharedFieldsOf`, `divergedFields`,
-`alignedTo`, `membersToRealign`, `isOneSeries`, `seriesIdOf`. The repository
-decides *when* to call it; the object decides *what the series says*.
+`alignedTo`, `alignedIfOneSeries`, `membersToRealign`, `isOneSeries`,
+`isOneSeriesOrStandalone`, `seriesIdOf`. The repository decides *when* to call
+it; the object decides *what the series says*.
 
 ## Rationale
 

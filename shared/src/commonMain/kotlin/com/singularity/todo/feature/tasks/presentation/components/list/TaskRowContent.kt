@@ -77,7 +77,9 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
                 )
             }
 
-            if (task.dueLabel != null || task.project != null || task.isBlocked || task.seriesDates != null) {
+            // One fact, four sources: the meta row is drawn when there is something to say.
+            val hasMeta = task.dueLabel != null || task.project != null || task.isBlocked || task.seriesDates != null
+            if (hasMeta) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(
                     dueLabel = task.dueLabel,

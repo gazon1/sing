@@ -108,24 +108,40 @@ class AgendaViewModelTest {
     private val fakeProjectsRepo = FakeProjectsRepository()
     private val completion = TaskReopenUseCase(fakeRepo, fakeProjectsRepo, FakeClock(now))
 
+    /**
+     * The dependencies every ViewModel in this file is built with.
+     *
+     * The list of them grew with the feature — the merge of two series is one of
+     * them now — and six copies of the same fourteen lines is how a test file
+     * grows past the size a class is allowed to be. One builder, four knobs:
+     * what the clock says, which drafts are kept, which reminders are
+     * cancelled, and which greeting the hour produces.
+     */
+    private fun agendaDeps(
+        clock: kotlin.time.Clock = FakeClock(now),
+        draftStore: FakeDraftStore = FakeDraftStore(),
+        reminderScheduler: ReminderScheduler = fakeReminderScheduler,
+        greetingSettings: GreetingSettingsRepository = fakeSettings.greeting,
+    ) = AgendaDeps(
+        taskRepo = fakeRepo,
+        clock = clock,
+        timeZone = TEST_TZ,
+        logger = Logger,
+        draftStore = draftStore,
+        reminderScheduler = reminderScheduler,
+        currentUser = fakeCurrentUser,
+        taskMutations = fakeTaskMutations,
+        completion = completion,
+        mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
+        workScheduleSettings = fakeSettings.workSchedule,
+        greetingSettings = greetingSettings,
+    )
+
     private fun TestScope.createVm(
         scope: AutoCloseableCoroutineScope,
         draftStore: FakeDraftStore = FakeDraftStore(),
     ) = AgendaViewModel(
-        deps = AgendaDeps(
-            taskRepo = fakeRepo,
-            clock = FakeClock(now),
-            timeZone = TEST_TZ,
-            logger = Logger,
-            draftStore = draftStore,
-            reminderScheduler = fakeReminderScheduler,
-            currentUser = fakeCurrentUser,
-            taskMutations = fakeTaskMutations,
-            completion = completion,
-            mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-            workScheduleSettings = fakeSettings.workSchedule,
-            greetingSettings = fakeSettings.greeting,
-        ),
+        deps = agendaDeps(draftStore = draftStore),
         definition = AgendaPresets.Inbox,
         scope = scope,
     )
@@ -214,24 +230,14 @@ class AgendaViewModelTest {
         val draftStore = FakeDraftStore()
         try {
             val vm = AgendaViewModel(
-                deps = AgendaDeps(
-                    taskRepo = fakeRepo,
-                    // Noon UTC with an explicit zone. The zone used to be the
-                    // host's, which is why this had to be noon: midnight would land
-                    // on a different date in half the world. With `timeZone` pinned to
-                    // UTC the instant can be anything, and the "noon so the date cannot
-                    // move" reasoning goes with it (#91).
+                // Noon UTC with an explicit zone. The zone used to be the
+                // host's, which is why this had to be noon: midnight would land
+                // on a different date in half the world. With `timeZone` pinned to
+                // UTC the instant can be anything, and the "noon so the date cannot
+                // move" reasoning goes with it (#91).
+                deps = agendaDeps(
                     clock = FakeClock(Instant.parse("2031-07-09T00:30:00Z")),
-                    timeZone = TEST_TZ,
-                    logger = Logger,
                     draftStore = draftStore,
-                    reminderScheduler = fakeReminderScheduler,
-                    currentUser = fakeCurrentUser,
-                    taskMutations = fakeTaskMutations,
-                    completion = completion,
-                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-                    workScheduleSettings = fakeSettings.workSchedule,
-                    greetingSettings = fakeSettings.greeting,
                 ),
                 definition = AgendaPresets.Today,
                 scope = vmScope,
@@ -487,19 +493,8 @@ class AgendaViewModelTest {
         val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
         try {
             val scoped = AgendaViewModel(
-                deps = AgendaDeps(
-                    taskRepo = fakeRepo,
-                    clock = FakeClock(now),
-                    timeZone = TEST_TZ,
-                    logger = Logger,
-                    draftStore = FakeDraftStore(),
+                deps = agendaDeps(
                     reminderScheduler = recordingScheduler(cancelled),
-                    currentUser = fakeCurrentUser,
-                    taskMutations = fakeTaskMutations,
-                    completion = completion,
-                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-                    workScheduleSettings = fakeSettings.workSchedule,
-                    greetingSettings = fakeSettings.greeting,
                 ),
                 definition = AgendaPresets.Inbox,
                 scope = vmScope,
@@ -529,19 +524,8 @@ class AgendaViewModelTest {
         val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
         try {
             val scoped = AgendaViewModel(
-                deps = AgendaDeps(
-                    taskRepo = fakeRepo,
-                    clock = FakeClock(now),
-                    timeZone = TEST_TZ,
-                    logger = Logger,
-                    draftStore = FakeDraftStore(),
+                deps = agendaDeps(
                     reminderScheduler = recordingScheduler(cancelled),
-                    currentUser = fakeCurrentUser,
-                    taskMutations = fakeTaskMutations,
-                    completion = completion,
-                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-                    workScheduleSettings = fakeSettings.workSchedule,
-                    greetingSettings = fakeSettings.greeting,
                 ),
                 definition = AgendaPresets.Inbox,
                 scope = vmScope,
@@ -708,18 +692,8 @@ class AgendaViewModelTest {
         val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
         try {
             val vm = AgendaViewModel(
-                deps = AgendaDeps(
-                    taskRepo = fakeRepo,
+                deps = agendaDeps(
                     clock = FakeClock(Instant.parse("2026-09-16T11:00:00Z")),
-                    timeZone = TEST_TZ,
-                    logger = Logger,
-                    draftStore = FakeDraftStore(),
-                    reminderScheduler = fakeReminderScheduler,
-                    currentUser = fakeCurrentUser,
-                    taskMutations = fakeTaskMutations,
-                    completion = completion,
-                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-                    workScheduleSettings = fakeSettings.workSchedule,
                     greetingSettings = customGreeting,
                 ),
                 definition = AgendaPresets.Inbox,
@@ -740,19 +714,8 @@ class AgendaViewModelTest {
         val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
         try {
             val vm = AgendaViewModel(
-                deps = AgendaDeps(
-                    taskRepo = fakeRepo,
+                deps = agendaDeps(
                     clock = FakeClock(Instant.parse("2026-09-16T20:00:00Z")),
-                    timeZone = TEST_TZ,
-                    logger = Logger,
-                    draftStore = FakeDraftStore(),
-                    reminderScheduler = fakeReminderScheduler,
-                    currentUser = fakeCurrentUser,
-                    taskMutations = fakeTaskMutations,
-                    completion = completion,
-                mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
-                    workScheduleSettings = fakeSettings.workSchedule,
-                    greetingSettings = fakeSettings.greeting,
                 ),
                 definition = AgendaPresets.Inbox,
                 scope = vmScope,

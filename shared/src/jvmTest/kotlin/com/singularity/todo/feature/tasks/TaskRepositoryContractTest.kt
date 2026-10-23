@@ -120,6 +120,22 @@ abstract class TaskRepositoryContractTest {
     }
 
     @Test
+    fun `createSeries writes a task that stands alone`() = runTest {
+        val repo = newRepository(alice)
+        // The draft of a single date is written through the same call: it is a
+        // batch of one row with no series id. A write path that insists on a
+        // series id refuses the ordinary task, and the task never reaches the
+        // screen.
+        val solo = task("t1", title = "Buy milk")
+
+        val result = repo.createSeries(listOf(solo))
+
+        assertTrue(result.isSuccess, "a task that stands alone is written: ${result.exceptionOrNull()}")
+        advanceUntilIdle()
+        assertTrue(repo.observeAll().first().any { it.id.value == "t1" })
+    }
+
+    @Test
     fun `updateAll writes every member`() = runTest {
         val repo = newRepository(alice)
         val seriesId = TaskSeriesId("series-2")
