@@ -3,7 +3,7 @@ change: the-proposal-loses-nothing
 verdict: pass
 date: 2026-10-23
 pr: 988
-reviewed: 4a9ef5773f017868430f04ace6c74d84adcc553b
+reviewed: a0f79f291a086b91ad7fd0f1a738935923632aaa
 documents: sha256:4eaeca7c43aa5aee6d97b3f943704d74c518efd5ec327e450f329a26fe5d393e
 ---
 
