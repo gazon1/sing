@@ -105,8 +105,11 @@ package com.singularity.todo.mcp
 fun main(args: Array<String>): Unit = runToolServer(args)
 ```
 
-`runToolServer(args)` is the whole of the server's startup, in
-`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerMain.kt`:
+`runToolServer(args)` is the entry point, and it does three things: it takes the
+protocol channel, it starts the server, and it serves. The start-up itself lives in
+`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerStartup.kt`, and it returns
+what it decided — a server to serve, or a refusal with the code and the message the
+client should see:
 
 ```kotlin
 fun runToolServer(args: Array<String>): Unit = runBlocking {
@@ -114,48 +117,26 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
     val protocolOut = ProtocolStdout.reserve()
     val selection = parseProfileSelection(args)
 
-    // Both arguments at once is a request that says two different things, and neither of
-    // them can be obeyed. Failing here is the honest answer; picking one would silently
-    // serve a profile the caller did not ask for.
-    if (selection is ProfileSelection.Ambiguous) {
-        log.e { "Both --profile and --profile-id were given; refusing to guess which profile to use." }
-        writeJsonRpcError(
-            code = -32002,
-            message = "Conflicting profile arguments: pass either --profile or --profile-id, not both.",
-        )
-        exitProcess(EXIT_USAGE)
-    }
-
-    val fixedProfileId: String? = (selection as? ProfileSelection.FixedId)?.id
-    val legacyLabel: String? = (selection as? ProfileSelection.LegacyLabel)?.name
-
-    if (legacyLabel != null) {
-        log.w {
-            "--profile is deprecated and will be removed; use --profile-id with a profile id. " +
-                "The label still works, and still means what it always meant."
+    when (val startup = startToolServer(selection)) {
+        is ToolServerStartup.Refused -> {
+            writeJsonRpcError(protocolOut, code = startup.code, message = startup.message)
+            exitProcess(startup.exitCode)
         }
-    }
 
-    if (!bootstrapKoin(fixedProfileId)) exitProcess(EXIT_STARTUP)
-    val dependencies = ServerDependencies.fromKoin()
-    if (!verifyDatabase(dependencies)) exitProcess(EXIT_STARTUP)
-    // A profile that does not exist is not a profile the server may serve: the tools
-    // would write under an id nobody owns, and the user would find their tasks
-    // missing rather than told. Never a fallback.
-    if (fixedProfileId != null && !profileExists(dependencies, fixedProfileId)) {
-        log.e { "No profile with id $fixedProfileId" }
-        writeJsonRpcError(code = -32002, message = "No profile with that id exists.")
-        exitProcess(EXIT_USAGE)
+        is ToolServerStartup.Ready -> serve(startup.server, startup.sessionContext, protocolOut)
     }
-    bootstrapProfiles(dependencies, legacyLabel)
-
-    // … build the server, install the shutdown hook, serve over stdio …
-    val session = server.createSession(transport)
-    val done = Job()
-    session.onClose { done.complete() }
-    done.join()
 }
 ```
+
+The refusal is a **value**, not an `exitProcess` call buried in the middle of a sequence.
+That is the point of the split: "what does the server do when it cannot start?" used to
+be answerable only by reading the whole entry point, and now it is a type with two cases.
+
+The start-up it replaced ran nine steps in one function — parse, refuse an ambiguous
+request, warn about a deprecated argument, build the graph, resolve the dependencies,
+verify the database, refuse a profile that does not exist, bootstrap the profiles, read
+the configuration, build the server. The order, the log lines, the JSON-RPC codes and the
+exit codes are all exactly what they were; only the shape changed.
 
 **Critical details:**
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.

@@ -282,7 +282,10 @@ its own provider, and this application does not see that bill.
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentProfile.kt` | The agent registry: what to launch, shown before it runs |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt` | Starting a real process and building the session around it |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentSession.kt` | The interface the screen talks to, so the protocol stays behind one door |
-| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt` | The state, the intents, and the ownership of the process tree |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt` | The state, the intents, and the screen's own logic |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpAgentConversation.kt` | The conversation: the agent's process, the session on top of it, and the process tree that ends both |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpTurnRunner.kt` | A turn: its clock, and the rules about when it may write to the screen |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpPermissionBroker.kt` | The permission handshake: a question with a deadline |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentScreen.kt` | The screen and the permission sheet |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/di/AcpDiModule.jvm.kt` | The Koin bindings, composed into the desktop module list only |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/core/process/Subprocess.kt` | Spawning the agent and talking to its pipes |

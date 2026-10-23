@@ -29,8 +29,8 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 5. The two god classes (2.3)
 
-- [ ] shared/ Split the external agent's ViewModel into a connection, a turn and a permission broker, and keep the MVI surface in the ViewModel. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt`
-- [ ] shared/ Move the tool server's start-up out of the entry point, so the entry point parses, starts and serves. `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerMain.kt`
+- [x] shared/ Split the external agent's ViewModel into a connection, a turn and a permission broker, and keep the MVI surface in the ViewModel. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt`
+- [x] shared/ Move the tool server's start-up out of the entry point, so the entry point parses, starts and serves. `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerMain.kt`
 
 ## 6. The records
 
