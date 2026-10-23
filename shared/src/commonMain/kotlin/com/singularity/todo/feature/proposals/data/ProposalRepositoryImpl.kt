@@ -154,6 +154,13 @@ class ProposalRepositoryImpl(
         require(released > 0) {
             "Proposal item ${id.value} was not released — it is no longer a confirmed change of this user"
         }
+    }.also { result ->
+        val error = result.exceptionOrNull() ?: return@also
+        log.e(error) {
+            "proposal item ${id.value}: the claim could not be released, so the change stays " +
+                "decided although it was not applied"
+        }
+        crashReporter.report(error, "proposals.release_failed")
     }
 
     /**

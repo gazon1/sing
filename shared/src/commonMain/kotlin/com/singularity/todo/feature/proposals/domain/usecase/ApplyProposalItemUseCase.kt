@@ -15,7 +15,6 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -62,9 +61,11 @@ class ApplyProposalItemUseCase(
      *   dispatch error, in which case the item is still `Pending` and nothing changed.
      */
     suspend fun confirm(itemId: ProposalItemId, userId: UserId): Result<ProposalItem> {
+        // Whether the claim is standing, and whether it still has to be given back.
         var claimed = false
-        return try {
-            runCatchingCancellable {
+        var settled = false
+        try {
+            return runCatchingCancellable {
                 val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
                 check(stored.status == ProposalItemStatus.Pending) {
                     "Proposal item $itemId is already ${stored.status.name}"
@@ -101,6 +102,7 @@ class ApplyProposalItemUseCase(
                     val failure = applied.exceptionOrNull()
                         ?: IllegalStateException("Proposal item $itemId could not be applied")
                     val released = releaseClaim(itemId, userId)
+                    settled = true
                     throw released.exceptionOrNull()?.let { releaseFailure ->
                         IllegalStateException(
                             "${failure.message}; and the change could not be put back: ${releaseFailure.message}",
@@ -109,16 +111,18 @@ class ApplyProposalItemUseCase(
                     } ?: failure
                 }
                 proposals.refreshStatus(claimedItem.proposalId, userId)
+                settled = true
                 claimedItem
             }
-        } catch (cancellation: CancellationException) {
-            // The scope was cancelled — the screen went away. The claim is still there, so
-            // it is released: a change nobody applied must not stay decided. The release
-            // runs in a context that is not cancelled any more.
-            if (claimed) {
-                withContext(NonCancellable) { proposals.release(itemId, userId) }
+        } finally {
+            if (claimed && !settled) {
+                // The claim is given back even when the scope was cancelled — the screen
+                // went away in the middle of the work. A change nobody applied must not
+                // stay decided. The release runs in a context that is not cancelled any
+                // more, and its failure is reported by the repository: replacing the
+                // cancellation with it would be worse than the release not happening.
+                releaseClaim(itemId, userId).getOrNull()
             }
-            throw cancellation
         }
     }
 
