@@ -196,11 +196,12 @@ def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> t
     if wide:
         return every, f"{wide[0]} changed — the rules or the build moved, so every module is judged"
 
-    tasks, reasons = graph.plan(paths)
+    tasks, _reasons = graph.plan(paths)
     detekt = [task for task in tasks if task.endswith(":detekt")]
     if not detekt:
         return [], "this change moves no Kotlin and no rules — no detekt run is needed"
-    return detekt, "; ".join(reasons)
+    modules = sorted({task.split(":")[1] for task in detekt})
+    return detekt, f"the change reaches {', '.join(modules)}"
 
 
 def git(repo: pathlib.Path, *args: str, check: bool = True) -> str:
