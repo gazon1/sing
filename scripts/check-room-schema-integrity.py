@@ -38,7 +38,14 @@ was never checked against itself.
    `entities = [...]` list. This catches an entity added to the annotation
    without a rebuild, and a table left in the export after the entity was
    deleted — both of which Room reports as an identity-hash mismatch.
-4. **The chain has a round-trip test.** The generated
+4. **The head export's columns are the entities' columns.** The tables and the
+   columns the head `NN.json` declares are the ones the `@Entity` classes
+   declare. Room writes the export at build time, so an entity that grew a
+   column and was never re-exported is invisible until a build runs and Room's
+   own validation says the schema does not match — on the second minute of CI,
+   after the build, and only on the branch that changed it. This rule answers
+   the same question from the sources, in milliseconds, without a build.
+5. **The chain has a round-trip test.** The generated
    `MigrationRoundTripTest.kt` covers every step the chain promises to run.
    The file is generated from the exported schemas (`--write`), and this rule
    fails when the committed file is not what the generator produces — so a
@@ -57,10 +64,15 @@ would have turned a silent data-loss class into a red build. A schema-shape
 verifier that runs Room belongs in the migration tests, not here — but the test
 that does it is generated and kept current from here.
 
-It also does not read `createSql` to compare DDL, only table names. Comparing
-every column across 34 schema files would produce findings this project has
-already decided are noise; the column-level drift is caught by the identity-hash
-comparison that Room itself performs on open, and by the migration tests.
+It does not compare the columns *across* the 34 schema files. That is a
+different question, and this project has already decided those findings are
+noise: a migration is supposed to change columns, so a column that differs
+between version 37 and version 38 is the chain doing its job. What rule 4
+compares is the head export against the entity classes — one export and one
+source of truth — which is not a diff between two histories but a question with
+a right answer. (The `createSql` of an export is compared with that export's
+own column list, by a separate rule: an export that disagrees with itself is
+broken, whatever the entities say.)
 
 ## The positive control
 
@@ -117,6 +129,14 @@ if _SCRIPTS_SRC not in sys.path:
 
 from sgate.commands.base import run  # noqa: E402
 from sgate.gatekit.paths import generated_path  # noqa: E402
+from sgate.gatekit.room import entities as room_entities  # noqa: E402
+from sgate.gatekit.scenarios import (  # noqa: E402
+    MAX_FUNCTIONS_PER_CLASS,
+    MAX_LINE_LENGTH,
+    kotlin_convention_findings,
+    load_scenarios,
+    render_scenario_test,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -330,6 +350,11 @@ def source_table_names(root: Path) -> set[str]:
     return names
 
 
+def mod_scenarios_dir(root: Path) -> str:
+    """Where the scenario files live, relative to the root."""
+    return SCENARIO_DIR_RELATIVE
+
+
 # ── rules ──────────────────────────────────────────────────────────────────
 
 
@@ -454,6 +479,90 @@ def check_entities_agree(schema_dir: Path, declared_version: int | None, root: P
     return out
 
 
+def check_columns_agree(schema_dir: Path, declared_version: int | None, root: Path) -> list[Violation]:
+    """Rule 4: the head export's columns are the columns the entities declare.
+
+    Room writes the export at build time: KSP reads the `@Entity` classes and
+    writes `NN.json`. So an entity that grew a column and was never
+    re-exported is invisible until a build runs and Room's own validation says
+    the schema does not match — on the second minute of CI, after the build,
+    and only on the branch that changed it.
+
+    This rule answers the same question from the sources. It compares the
+    table names and the column names, and nothing else: the column's type,
+    its affinity and its default are Room's business, and a rule that guessed
+    at them would report differences where there are none.
+
+    A table the code declares and the export does not have is reported too.
+    That is the other half of a stale export, and the existing rule only
+    catches the opposite direction.
+    """
+    out: list[Violation] = []
+    exports = exported_versions(schema_dir)
+    if not exports:
+        return [Violation("columns-agree", f"no exported schema files in {schema_dir}")]
+
+    head = max(exports)
+    exported_entities = read_schema_entities(exports[head])
+    if exported_entities is None:
+        return [Violation("columns-agree", f"{exports[head].name} is not readable Room schema JSON")]
+
+    declared = room_entities(root / "shared/src", "commonMain")
+    if not declared:
+        return [
+            Violation(
+                "columns-agree",
+                "no @Entity classes found in shared/src/commonMain — the comparison would "
+                "check nothing, which reads as a pass",
+            )
+        ]
+
+    exported_columns = {
+        entity["tableName"]: [
+            field["columnName"]
+            for field in entity.get("fields", [])
+            if isinstance(field, dict) and "columnName" in field
+        ]
+        for entity in exported_entities
+        if "tableName" in entity
+    }
+
+    for table in sorted(declared):
+        entity = declared[table]
+        if table not in exported_columns:
+            out.append(
+                Violation(
+                    "columns-agree",
+                    f"{head}.json has no table {table!r}, which {entity.path.name} declares. "
+                    f"The export is stale — re-export the schema ({table!r} and its columns "
+                    f"are missing from it)",
+                )
+            )
+            continue
+        only_declared = [c for c in entity.columns if c not in exported_columns[table]]
+        only_exported = [c for c in exported_columns[table] if c not in entity.columns]
+        if only_declared or only_exported:
+            out.append(
+                Violation(
+                    "columns-agree",
+                    f"table {table!r}: the entity declares {list(entity.columns)}, "
+                    f"{head}.json declares {exported_columns[table]}. "
+                    + (
+                        f"Missing from the export: {only_declared}. "
+                        if only_declared
+                        else ""
+                    )
+                    + (
+                        f"Not declared by the entity: {only_exported}. "
+                        if only_exported
+                        else ""
+                    )
+                    + "The export and the code describe different tables.",
+                )
+            )
+    return out
+
+
 def check_manual_list_matches_factory(manual_names: set[str], root: Path) -> list[Violation]:
     """The MANUAL_MIGRATIONS list must not name a class that does not exist."""
     out: list[Violation] = []
@@ -486,6 +595,16 @@ ROUND_TRIP_TEST_RELATIVE = (
 #: The hand-written helper the generated test calls.
 ROUND_TRIP_SUPPORT_RELATIVE = (
     "shared/src/jvmTest/kotlin/com/singularity/todo/core/database/MigrationRoundTripSupport.kt"
+)
+
+
+#: The scenario files: what the migrations do to the *data*, written as data.
+SCENARIO_DIR_RELATIVE = "shared/src/jvmTest/resources/migrations"
+
+#: The test the scenarios are generated into.
+SCENARIO_TEST_RELATIVE = (
+    "shared/src/jvmTest/kotlin/com/singularity/todo/core/database/"
+    "GeneratedMigrationScenarioTest.kt"
 )
 
 ROUND_TRIP_HEADER = '''package com.singularity.todo.core.database
@@ -569,43 +688,6 @@ def render_roundtrip_test(steps: list[tuple[int, int]]) -> str:
     )
     return ROUND_TRIP_HEADER + body + "}\n"
 
-
-#: The line length detekt enforces (`MaximumLineLength`).
-MAX_LINE_LENGTH = 120
-
-#: The number of functions detekt allows in one class (`TooManyFunctions`).
-MAX_FUNCTIONS_PER_CLASS = 16
-
-
-def kotlin_convention_findings(source: str) -> list[str]:
-    """What detekt would say about a generated Kotlin file — without Gradle.
-
-    The generator wrote forty methods into one class, and detekt said
-    `TooManyFunctions`; then it wrote a `@ValueSource` on one line, and ktlint
-    said `MaximumLineLength`. Both facts were discovered by running Gradle
-    twice, eight minutes each, on a machine that was busy with somebody else's
-    build. The two rules are mechanical: they can be checked in milliseconds,
-    and a generator that checks its own output before writing it cannot produce
-    code the linter will reject.
-
-    The thresholds are detekt's own, read from `config/detekt/detekt.yml`, and
-    the check is deliberately narrow: lines that are too long, and classes with
-    too many functions. Those are the two that a generator can break by
-    accident.
-    """
-    findings: list[str] = []
-    for number, line in enumerate(source.split("\n"), start=1):
-        if len(line) > MAX_LINE_LENGTH:
-            findings.append(
-                f"line {number} is {len(line)} characters long — the limit is {MAX_LINE_LENGTH}"
-            )
-    functions = sum(1 for line in source.split("\n") if line.lstrip().startswith("fun "))
-    if functions > MAX_FUNCTIONS_PER_CLASS:
-        findings.append(
-            f"the file declares {functions} functions — the limit is "
-            f"{MAX_FUNCTIONS_PER_CLASS} per class"
-        )
-    return findings
 
 def create_sql_columns(create_sql: str) -> list[str] | None:
     """The columns a `CREATE TABLE` declares, in order.
@@ -743,6 +825,53 @@ def check_roundtrip_test_current(root: Path) -> list[Violation]:
     return out
 
 
+def check_scenarios_current(root: Path) -> list[Violation]:
+    """Rule 5: the generated scenario test is what the scenario files say.
+
+    The round-trip test proves the schema; the scenario test proves the meaning
+    of a step — that a backfilled column holds the backfilled value, that a row
+    that cannot satisfy a NOT NULL constraint is gone. The scenarios are written
+    as data, and the test is generated from them, so the file and the data can
+    disagree — and a test file that disagrees with the data is a test of
+    something else.
+    """
+    scenario_dir = root / SCENARIO_DIR_RELATIVE
+    if not scenario_dir.is_dir():
+        return []
+    files = load_scenarios(scenario_dir)
+    if not files:
+        return []
+    rendered = render_scenario_test(files)
+    findings = kotlin_convention_findings(rendered)
+    if findings:
+        return [
+            Violation(
+                "migration-scenarios-current",
+                "the generated scenario test does not follow the conventions detekt "
+                f"enforces: {'; '.join(findings)}",
+            )
+        ]
+    path = root / SCENARIO_TEST_RELATIVE
+    if not path.is_file():
+        return [
+            Violation(
+                "migration-scenarios-current",
+                f"{SCENARIO_TEST_RELATIVE} is missing — generate it with "
+                "`python3 scripts/check-room-schema-integrity.py --write`",
+            )
+        ]
+    on_disk = path.read_text(encoding="utf-8")
+    if on_disk != rendered:
+        return [
+            Violation(
+                "migration-scenarios-current",
+                f"{SCENARIO_TEST_RELATIVE} is not what the scenario files say today — "
+                "regenerate it with `python3 scripts/check-room-schema-integrity.py --write`",
+            )
+        ]
+    return []
+
+
 def check_not_vacuous(schema_dir: Path, root: Path) -> list[Violation]:
     out: list[Violation] = []
     exports = exported_versions(schema_dir)
@@ -813,9 +942,11 @@ def run_all(root: Path) -> list[Violation]:
     violations += check_chain_continuous(schema_dir, version, auto, manual, root)
     violations += check_floor_is_consistent(auto, version)
     violations += check_entities_agree(schema_dir, version, root)
+    violations += check_columns_agree(schema_dir, version, root)
     violations += check_manual_list_matches_factory(manual, root)
     violations += check_exports_are_internally_consistent(schema_dir, root)
     violations += check_roundtrip_test_current(root)
+    violations += check_scenarios_current(root)
     return violations
 
 
@@ -831,7 +962,9 @@ def _make_compliant(root: Path) -> None:
     ent_dir = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks"
     ent_dir.mkdir(parents=True)
 
-    (ent_dir / "TaskEntity.kt").write_text('@Entity(tableName = "tasks")\nclass TaskEntity\n')
+    (ent_dir / "TaskEntity.kt").write_text(
+        '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n'
+    )
 
     def export(n: int) -> None:
         # The export carries a DDL and a column list that agree, because the
@@ -1047,6 +1180,51 @@ def self_test() -> int:
         p = root / ROUND_TRIP_TEST_RELATIVE
         p.write_text(p.read_text() + "\n" + "// " + ("x" * MAX_LINE_LENGTH) + "\n", encoding="utf-8")
 
+    def _column_in_entity_not_in_export(root: Path) -> None:
+        """The entity grew a column and the schema was never re-exported.
+
+        The defect this rule exists for. Room would have said so — but only
+        after a build, on the second minute of CI, on the branch that made
+        the change. Before the rule, the export was compared with itself.
+        """
+        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt"
+        p.write_text(p.read_text().replace("val id: String", "val id: String, val title: String"))
+
+    def _table_in_entity_not_in_export(root: Path) -> None:
+        """A new table was declared and the export was not re-exported."""
+        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/GhostEntity.kt"
+        p.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
+
+    def _stale_scenario_test(root: Path) -> None:
+        """The generated scenario test no longer says what the scenarios say.
+
+        The scenarios are data and the test is generated from them, so the two
+        can disagree — and a test file that disagrees with the data is a test
+        of something else. The rule that catches it is the one that matters
+        here: without it, editing a scenario changes nothing until somebody
+        remembers to regenerate.
+        """
+        scenario_dir = root / mod_scenarios_dir(root)
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+        (scenario_dir / "31-to-32.yaml").write_text(
+            "from: 31\nto: 32\nscenarios:\n  - name: a claim\n    seed: []\n"
+            "    expect:\n      - sql: \"SELECT 1\"\n        equals: 1\n",
+            encoding="utf-8",
+        )
+        test_path = root / SCENARIO_TEST_RELATIVE
+        test_path.parent.mkdir(parents=True, exist_ok=True)
+        test_path.write_text("// stale\n", encoding="utf-8")
+
+    def _missing_scenario_test(root: Path) -> None:
+        """The scenarios exist and the test they generate does not."""
+        scenario_dir = root / mod_scenarios_dir(root)
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+        (scenario_dir / "31-to-32.yaml").write_text(
+            "from: 31\nto: 32\nscenarios:\n  - name: a claim\n    seed: []\n"
+            "    expect:\n      - sql: \"SELECT 1\"\n        equals: 1\n",
+            encoding="utf-8",
+        )
+
     def _export_ddl_disagrees(root: Path) -> None:
         """The export's DDL declares a column its own column list does not.
 
@@ -1081,6 +1259,10 @@ def self_test() -> int:
     )
     expect_caught("missing round-trip test", _missing_roundtrip_test, "roundtrip-test-current")
     expect_caught("export DDL disagrees with its columns", _export_ddl_disagrees, "export-ddl-matches-fields")
+    expect_caught("a stale generated scenario test", _stale_scenario_test, "migration-scenarios-current")
+    expect_caught("a missing generated scenario test", _missing_scenario_test, "migration-scenarios-current")
+    expect_caught("a column the export does not have", _column_in_entity_not_in_export, "columns-agree")
+    expect_caught("a table the export does not have", _table_in_entity_not_in_export, "columns-agree")
 
     saved_floor = get_floor()
     try:
@@ -1145,6 +1327,31 @@ def cli(ctx: click.Context, run_self_test: bool, emit_json: bool, do_write: bool
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(rendered, encoding="utf-8")
         click.echo(f"wrote {path.relative_to(ROOT)} — {len(steps)} migration step(s)")
+
+        # The scenario test: the semantics of the migrations, generated from the
+        # scenario files. Same rule as above — the generator checks its own
+        # output before writing it.
+        scenario_dir = ROOT / SCENARIO_DIR_RELATIVE
+        scenario_files = load_scenarios(scenario_dir)
+        if scenario_files:
+            scenario_path = generated_path(ROOT, SCENARIO_TEST_RELATIVE)
+            scenario_rendered = render_scenario_test(scenario_files)
+            scenario_findings = kotlin_convention_findings(scenario_rendered)
+            if scenario_findings:
+                click.echo(
+                    "the generated scenario test does not follow the conventions detekt enforces:",
+                    err=True,
+                )
+                for finding in scenario_findings:
+                    click.echo(f"  {finding}", err=True)
+                raise ctx.exit(VALIDATION_FAILURE)
+            scenario_path.parent.mkdir(parents=True, exist_ok=True)
+            scenario_path.write_text(scenario_rendered, encoding="utf-8")
+            count = sum(len(f.scenarios) for f in scenario_files)
+            click.echo(
+                f"wrote {scenario_path.relative_to(ROOT)} — {count} scenario(s) "
+                f"from {len(scenario_files)} file(s)"
+            )
         raise ctx.exit(CLEAN)
 
     violations = run_all(ROOT)

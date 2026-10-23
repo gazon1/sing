@@ -77,6 +77,7 @@ if _added:
     sys.path.insert(0, _scripts_src)
 
 from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.gradle import blocks, has_block, module_build_files  # noqa: E402
 import yaml  # noqa: E402
 import workflow_gradle as wg  # noqa: E402
 
@@ -448,10 +449,10 @@ def _populate_derived_tables() -> None:
     # CONFIGURED_DETEKT_TASKS: modules that have a `detekt { }` block (Part A)
     global CONFIGURED_DETEKT_TASKS
     CONFIGURED_DETEKT_TASKS = {}
-    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+    for build in module_build_files(ROOT):
         module = build.parent.name
         text = build.read_text(encoding="utf-8")
-        if re.search(r"^\s*detekt\s*\{", text, re.M):
+        if has_block(text, "detekt"):
             CONFIGURED_DETEKT_TASKS[f":{module}:detekt"] = str(
                 build.relative_to(ROOT)
             )
@@ -1125,8 +1126,6 @@ def check_fixture_gates() -> list[str]:
 # and check.sh step 9, whose run the baseline merely moves earlier), so it buys
 # a configuration pass and a verify pass rather than a test suite.
 
-_DETEKT_BLOCK = re.compile(r"detekt\s*\{(.*?)\n\s*\}", re.DOTALL)
-
 #: The lowest kover verify floor this repository accepts, in percent.
 #:
 #: detekt-rules measured 65.1% branch coverage on 2026-10-10 and the floor was
@@ -1141,11 +1140,11 @@ KOVER_MIN_FLOOR: int
 def non_enforcing_gradle_tasks() -> list[str]:
     """`module:detekt` tasks whose own block sets `ignoreFailures = true`."""
     out: list[str] = []
-    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+    for build in module_build_files(ROOT):
         module = build.parent.name
         text = build.read_text(encoding="utf-8")
-        for block in _DETEKT_BLOCK.finditer(text):
-            if re.search(r"ignoreFailures\s*=\s*true", block.group(1)):
+        for body in blocks(text, "detekt"):
+            if re.search(r"ignoreFailures\s*=\s*true", body):
                 out.append(f":{module}:detekt")
                 break
     return out
@@ -1154,30 +1153,14 @@ def non_enforcing_gradle_tasks() -> list[str]:
 def _kover_blocks(text: str) -> list[str]:
     """The contents of each `kover { … }` block in a Kotlin build script.
 
-    Brace matching, not a regex: a regex cannot balance braces, and the block is
-    where the rules live. Without reading only this far, a `verify { }` block
-    belonging to some other plugin — or a `minValue` anywhere else in the file —
-    would qualify a module that declares no kover floor at all, and the check
-    would be reporting on text it never established was kover's.
-
-    Full-line `//` comments are dropped first, because the comment above the real
-    block quotes the API by name (`reports { total { verify { rule { bound {`),
-    and prose that names a construct must not count as declaring it. A comment
-    with unbalanced braces would otherwise derail the matcher entirely.
+    The reader is `sgate.gatekit.gradle.blocks`: brace matching, not a regex —
+    a regex cannot balance braces, and the block is where the rules live.
+    Without reading only this far, a `verify { }` block belonging to some other
+    plugin — or a `minValue` anywhere else in the file — would qualify a module
+    that declares no kover floor at all, and the check would be reporting on
+    text it never established was kover's.
     """
-    without_comments = re.sub(r"^\s*//.*$", "", text, flags=re.M)
-    blocks: list[str] = []
-    for match in re.finditer(r"\bkover\s*\{", without_comments):
-        depth = 0
-        for i in range(match.end() - 1, len(without_comments)):
-            if without_comments[i] == "{":
-                depth += 1
-            elif without_comments[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    blocks.append(without_comments[match.end():i])
-                    break
-    return blocks
+    return blocks(text, "kover")
 
 
 def kover_verify_rules_without_usable_floor() -> list[str]:
@@ -1199,7 +1182,7 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
     (_KOVER_MIN_FLOOR) by _populate_derived_tables().
     """
     out: list[str] = []
-    for build in sorted(ROOT.glob("*/build.gradle.kts")):
+    for build in module_build_files(ROOT):
         module = build.parent.name
         text = build.read_text(encoding="utf-8")
         # `verify {` as a block *inside* `kover {`: `koverVerify` in prose, the

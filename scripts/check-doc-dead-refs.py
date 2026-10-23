@@ -26,8 +26,21 @@ import subprocess
 import sys
 from pathlib import PurePosixPath
 
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
 import click
 from sgate.commands.base import run
+from sgate.gatekit.gradle import module_build_relpaths
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / ".agents" / "skills"
@@ -80,9 +93,11 @@ TOP_LEVEL_FILES = [
 ]
 
 # Per-module build files live beside their module's source, not in an indexed dir.
-GLOB_BUILD = ["shared/build.gradle.kts", "androidApp/build.gradle.kts",
-              "desktopApp/build.gradle.kts", "mcp-server/build.gradle.kts",
-              "detekt-rules/build.gradle.kts"]
+# The list is read from `settings.gradle.kts` rather than written here: a module
+# added to the build used to be invisible to this gate until somebody typed its
+# name in this list, and the list had already drifted from the modules the build
+# actually has.
+GLOB_BUILD = module_build_relpaths(ROOT)
 
 
 CLEAN = 0

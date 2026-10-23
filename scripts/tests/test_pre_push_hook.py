@@ -49,6 +49,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
+from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
@@ -161,24 +162,6 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
         env=_clean_git_env(),
     )
 
-
-def _clean_git_env() -> dict[str, str]:
-    """The environment for a git command that runs in the fixture repository.
-
-    Git hands a hook GIT_DIR, and it points at the worktree the push was made
-    from; GIT_WORK_TREE, GIT_INDEX_FILE and GIT_COMMON_DIR can come from the
-    developer's shell as well. A test that runs git in a temporary repository
-    and inherits that environment does not run in the temporary repository at
-    all: it runs in the developer's checkout, and its commits land there.
-
-    That is not a theory. A test file that did this wrote twenty commits into
-    the branch it was run from, and moved the local `origin/main` ref with
-    them. The fixture has to be a fixture, whatever the environment says.
-    """
-    env = dict(os.environ)
-    for name in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'):
-        env.pop(name, None)
-    return env
 
 
 class PrePushHookTest(unittest.TestCase):

@@ -127,6 +127,24 @@ openspec validate --all --json --strict
 
 JSON output allows scripted consumption. Exit 0 = all specs satisfied.
 
+## The issue registry
+
+`.specify/issues/<slug>.yaml` is the source of truth for "this change is
+being worked on". The record is written **as soon as the change is created** —
+the gate `issue registry covers every change` fails on an unregistered
+change, and four changes have got into `main` past that gate.
+
+The record names **only the documents the change actually has**: a record that
+lists a file the change does not have is itself a finding. Archiving a change
+does not require rewriting the record — the gate looks the documents up by
+slug, the same way it looks the change up.
+
+Legacy import:
+
+```bash
+python3 scripts/openspec-import-all.py [--dry-run] [--replace]
+```
+
 ## Common mistakes
 
 1. **Writing a proposal before reading code.** The proposal describes the change from current behavior. If you don't know current behavior, the proposal will be wrong.

@@ -150,6 +150,22 @@ android studio analyze-file $FILE
 # - Check dependency versions programmatically
 ```
 
+## Inspecting the database
+
+On a device:
+
+```bash
+adb shell run-as com.singularity.todo cp databases/singularity.db /sdcard/
+adb pull /sdcard/singularity.db /tmp/singularity.db
+sqlite3 /tmp/singularity.db ".schema"
+```
+
+On the desktop, the file lives in the app's data directory:
+
+```bash
+sqlite3 ~/.local/share/singularity/databases/singularity.db ".schema"
+```
+
 ## Key Use Cases for Agents
 
 1. **Code Analysis**: Use `find-declaration` and `find-usages` instead of grep for semantic-aware navigation

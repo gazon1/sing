@@ -371,9 +371,23 @@ for i in "${!PUSH_REFS[@]}"; do
     #
     # They run against the tree being pushed, like every other gate here: the
     # CI job that runs them runs the pushed tree's copies.
+    #
+    # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR)
+    # for the hook it runs. A test that creates a repository of its own
+    # inherits those, and `git init` then reinitialises THIS repository
+    # instead of the test's: `git add -A` stages the test's directory against
+    # this repository's index — every tracked file looks deleted — and
+    # `git commit` writes the test's tree onto the branch being pushed. That
+    # happened on 2026-10-23: a fixture committed a 12124-file deletion into
+    # the working repository, and the same tree reached the remote main.
+    #
+    # So the suite runs without those names. The fixtures also scrub them
+    # themselves (scripts/tests/git_sandbox.py), because the suite is run
+    # outside a hook too, and this line is the belt to their braces.
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        PYTHONPATH="$tree/scripts/src" \
         python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
         echo "   gate suite tests: OK"
     else

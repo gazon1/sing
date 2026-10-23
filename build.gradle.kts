@@ -150,6 +150,32 @@ subprojects {
     }
 }
 
+// Test tasks are never served from the build cache
+// ---------------------------------------------------------------------------
+//
+// The build cache is what makes the JVM job reusable: compiling `shared`,
+// `desktopApp` and `androidApp` is the same work on every run of the same
+// commit, and re-doing it is a large share of the job's half hour. A cache
+// entry for a compilation task is exactly what the cache is for.
+//
+// A test task is a different thing. Served from the cache, it did not run — and
+// the gate that measures how many tests ran (`scripts/check-test-runs.py`) has to
+// be able to tell a real run from a restored one. A restored run is not evidence
+// about today; it is evidence about the last run of the same commit, on a
+// machine nobody is watching.
+//
+// So the exclusion lives here, in the build, rather than in the CI step. The step
+// used to pass `--no-build-cache`, which excluded *everything* — the compilation
+// included — while the comment next to it claimed the cache stayed "warm for
+// configuration and compilation tasks". A flag is a property of the invocation;
+// this is a property of the task, and it holds in every invocation: CI, the
+// pre-push hook, and a local run.
+allprojects {
+    tasks.withType<Test>().configureEach {
+        outputs.cacheIf { false }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Aggregated code coverage
 // ---------------------------------------------------------------------------
