@@ -3,8 +3,8 @@ change: the-task-document-is-written-whole
 verdict: fail
 date: 2026-10-23
 pr: 997
-reviewed: 23a6b1070a60e834b10f4f9dd8c2c6a89bef4497
-documents: sha256:2e6c98c58d3e843f9032a4fbc40f61758a7b73c833385d8ed886132a38fed7f1
+reviewed: 38917daa7ad5554cab447e07b364e097dc794b47
+documents: sha256:a60d5bd73a902c7a63b7343c53ce53b6535e6e1fba122237e0b13519592a993d
 ---
 
 ## What was reviewed
@@ -19,8 +19,27 @@ what it reviewed" arrived. `reviewed:` is the head of the pull request as it
 landed — the commit the reviews were made against. It is a pointer for a reader
 who has the history: this pull request landed by merge, so the commit is in
 the history of `main`. `documents:` is the digest of the contract as the
-verdict speaks for it — the change's proposal and its spec delta. The contract
-has not moved since the reviews, so the digest is the one the gate recomputes.
+verdict speaks for it — the change's proposal and its spec delta.
+
+**The contract moved, and this verdict is re-issued.** The change
+`the-document-says-only-what-it-carries` amended this spec: the requirement
+that said "the system SHALL write every part of it" now says "every part it
+carries", and states that a part the document does not carry is not written;
+the links are said to follow the row's description rather than being a claim
+of their own; and the scenario about a dropped dependency now says "an empty
+set of dependencies" instead of "no dependency". The rule is that a contract
+that moves is re-issued, not re-read — the change that edits the contract
+re-issues the verdict with the new digest, in the same diff, where a reviewer
+sees the move and the re-issue together.
+
+The amendment was read by the two rounds of review of that change (the write
+path, and the whole delta after the fixes), and the findings that came out of
+them are recorded in `.specify/reviews/the-document-says-only-what-it-carries.md`
+— among them the finding that made the amendment necessary in the first place:
+the old wording promised more than the code keeps, for the links. The verdict
+below stays **fail**, because the review this file speaks for found something;
+the re-issue says that the contract it speaks for is the contract that is
+there now.
 
 The reviewers were separate agents given the diff, the ADR, the OpenSpec change
 and the two new test files, and nothing else: no history of writing the code,
