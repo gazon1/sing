@@ -119,7 +119,8 @@ fi
 # are present on disk as deleted, and a commit can record a tree that is not
 # the one in front of the author. It gets there when something writes the
 # config without `--worktree` while the extension was off, which is why the
-# extension is enabled above and why the value is checked here.
+# extension is switched on at the end of this script and why the value is
+# checked here.
 #
 # The value belongs to the worktree it names, and a worktree names itself.
 shared_worktree="$(git config --get core.worktree || true)"
@@ -129,8 +130,6 @@ if [[ -n "$shared_worktree" && "$shared_worktree" != "$root" ]]; then
     echo "  (it made every other worktree of this repository read someone else's files)"
 fi
 
-git config --worktree core.hooksPath .githooks
-echo "core.hooksPath -> .githooks (this worktree only; shared config untouched)"
 common_dir="$git_dir"
 if [[ -f "$git_dir/commondir" ]]; then
     relative_common="$(tr -d '[:space:]' < "$git_dir/commondir")"
