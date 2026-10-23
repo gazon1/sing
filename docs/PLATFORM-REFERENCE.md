@@ -386,6 +386,91 @@ actual fun aiToolsModule() = module { /* empty */ }
 
 `TasksScreen` / `ProjectsScreen` / `ChatScreen` all inject types. The empty module = `NoDefinitionFoundException` on first navigation. Always register at least the VMs and a `FakeTextGen`.
 
+## Pattern 7: The external agent and the tool server are JVM-only
+
+Three surfaces live in `shared/src/jvmMain/` and reach no other platform. None of them
+is a port, so the ports table above does not carry them — they are `jvmMain`-only code
+that the Android build never sees.
+
+| Surface | Where | Why JVM-only |
+|---|---|---|
+| The ACP client | `shared/src/jvmMain/.../feature/ai/acp/` | The SDK needs JDK 21; the Android target stays at JVM_11 bytecode |
+| The external-agent screen | `shared/src/jvmMain/.../feature/ai/external/` | It is the screen that drives the ACP client |
+| The MCP tool server | `shared/src/jvmMain/.../mcp/` | It is a stdio server; a mobile process has no use for one |
+
+### The dependency stays in `jvmMain.dependencies`
+
+```kotlin
+// shared/build.gradle.kts
+jvmMain.dependencies {
+    // Agent Client Protocol — the client half, used by the external-agent
+    // screen. JVM-only on purpose: the SDK needs JDK 21, and this project
+    // keeps the Android target at JVM_11 bytecode. Nothing in commonMain or
+    // androidMain may depend on it — the mobile build must not acquire this.
+    implementation(libs.acp)
+    implementation(libs.acp.model)
+}
+```
+
+The SDK is pinned exactly (`com.agentclientprotocol:acp:0.34.0`,
+`acp-model:0.34.0`) — it is a 0.x release, so a range would let a minor bump change
+the wire format. Putting the dependency in `commonMain` or `androidMain` breaks the
+Android build on bytecode level, not on a missing symbol.
+
+### The screen is registered in the JVM nav entries only
+
+`AppDestination.ExternalAgent` is declared in **common** code
+(`shared/src/commonMain/.../feature/nav/AppDestination.kt`), but its *entry* is
+registered in `shared/src/jvmMain/.../feature/nav/JvmNavEntries.kt` and nowhere else.
+The assembler says why:
+
+> The external-agent screen is registered here and nowhere else: the agent is a
+> process, and processes are a desktop thing. A destination registered on Android
+> would put a route on the mobile back stack that nothing renders.
+
+It is therefore **not** in the common entry contributors under
+`feature/nav/entries/` — the destination is common, the route is not.
+
+Its Koin bindings are likewise desktop-only, in
+`shared/src/jvmMain/.../feature/ai/acp/di/AcpDiModule.jvm.kt`, composed into the
+desktop module list (`desktopApp/src/main/kotlin/com/singularity/todo/main.kt`). The
+mobile build never acquires a binding it cannot use.
+
+### The tool server lives in the shared runtime, and `:mcp-server` is a launcher
+
+`shared/src/jvmMain/.../mcp/` holds the server implementation; the `:mcp-server`
+module is one line:
+
+```kotlin
+// mcp-server/src/main/kotlin/com/singularity/todo/mcp/Main.kt
+fun main(args: Array<String>): Unit = runToolServer(args)
+```
+
+The reason is the delivery mechanism: the desktop application hands an external agent
+its tool access by running **the same server** in the application's own
+`--mcp-server` mode, so there is one server and one toolset. Two servers would be two
+toolsets that drift, and every guarantee the application makes about the user's data
+would be a guarantee about one place.
+
+The desktop application dispatches on the flag in
+`desktopApp/src/main/kotlin/com/singularity/todo/main.kt`:
+
+```kotlin
+if (args.any { it == McpServerCommandProvider.TOOL_SERVER_FLAG }) {
+    prepareDataDirectory()
+    runToolServer(args)
+    return
+}
+```
+
+### The process layer is JVM-only too
+
+`shared/src/jvmMain/.../core/process/` (`Subprocess`, `ProcessTree`) exists because an
+external agent is a process, and processes are a desktop thing.
+
+See `docs/architecture/acp-client.md` for the client role and the trust boundary, and
+`docs/architecture/mcp-server.md` for the server itself.
+
 ## Files
 
 | File | Role |
@@ -397,3 +482,9 @@ actual fun aiToolsModule() = module { /* empty */ }
 | `shared/src/commonMain/.../feature/tasks/TasksViewModel.kt` | Nullable AI deps example |
 | `shared/src/commonMain/.../feature/projects/ProjectsViewModel.kt` | Nullable AI deps example |
 | `shared/src/jvmMain/.../core/di/JvmPromptExecutorPort.kt` | `val executor` exposed for JVM AI tools |
+| `shared/src/jvmMain/.../feature/ai/acp/` | The ACP client — JVM-only, exact SDK pin |
+| `shared/src/jvmMain/.../feature/ai/external/` | The external-agent screen and its ViewModel |
+| `shared/src/jvmMain/.../feature/ai/acp/di/AcpDiModule.jvm.kt` | The desktop-only Koin bindings |
+| `shared/src/jvmMain/.../mcp/` | The MCP tool server implementation |
+| `shared/src/jvmMain/.../core/mcp/McpServerCommandProvider.kt` | The command that starts the server for an agent |
+| `shared/src/jvmMain/.../core/process/` | Spawning an agent process and ending its tree |

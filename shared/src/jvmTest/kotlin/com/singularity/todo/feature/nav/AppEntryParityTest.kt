@@ -72,7 +72,7 @@ class AppEntryParityTest {
     }
 
     @Test
-    fun `every destination but the tasks graph is declared in common code`() {
+    fun `every destination but the platform-specific ones is declared in common code`() {
         val inCommon = sourceOf(
             "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AppEntries.kt",
             "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
@@ -136,13 +136,18 @@ class AppEntryParityTest {
             "NotesGraph",
             "CalendarGraph",
             "AgendaGraph",
+            "ExternalAgent",
         )
 
         /**
          * The destinations whose entry stays platform-specific: the pushed tasks
          * graph seeds its own per-entry stack, and Desktop adds the detail route
          * to it so that the right frame renders immediately.
+         *
+         * The external-agent screen is the second one. Its screen hosts a child
+         * process, and a phone cannot spawn one — so the entry is declared on
+         * Desktop only, and a route pushed on Android would have nothing behind it.
          */
-        val PLATFORM_SPECIFIC_DESTINATIONS = setOf("TasksGraph")
+        val PLATFORM_SPECIFIC_DESTINATIONS = setOf("TasksGraph", "ExternalAgent")
     }
 }

@@ -7,6 +7,7 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.streaming.StreamFrame
+import com.singularity.todo.core.llm.AgentEvent
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import kotlinx.coroutines.flow.Flow
@@ -85,6 +86,14 @@ class ToolCallLoopTest {
     private fun textOf(message: Message): String =
         message.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }
 
+    /**
+     * The text of a turn, out of the activity the loop now emits.
+     *
+     * The loop used to emit strings; it emits events now, and the text is one kind of them.
+     */
+    private fun textOf(events: List<AgentEvent>): List<String> =
+        events.filterIsInstance<AgentEvent.TextDelta>().map { it.text }
+
     private fun toolCallsOf(message: Message): List<MessagePart.Tool.Call> =
         message.parts.filterIsInstance<MessagePart.Tool.Call>()
 
@@ -95,9 +104,11 @@ class ToolCallLoopTest {
     fun `a question the model answers without a tool is answered in one round`() = runTest {
         val model = ScriptedModel(listOf(listOf(StreamFrame.TextDelta("You said hello."))))
 
-        val text = ToolCallLoop(tools = emptyList())
-            .run(initialPrompt(), model::stream)
-            .toList()
+        val text = textOf(
+            ToolCallLoop(tools = emptyList())
+                .run(initialPrompt(), model::stream)
+                .toList(),
+        )
 
         assertEquals(listOf("You said hello."), text)
         assertEquals(1, model.prompts.size)
@@ -120,9 +131,11 @@ class ToolCallLoopTest {
             ),
         )
 
-        val text = ToolCallLoop(tools = listOf(tool))
-            .run(initialPrompt(), model::stream)
-            .toList()
+        val text = textOf(
+            ToolCallLoop(tools = listOf(tool))
+                .run(initialPrompt(), model::stream)
+                .toList(),
+        )
 
         assertEquals(listOf("Let me look. ", "You said hello."), text)
         assertEquals(listOf(EchoInput("hello")), tool.calls)
@@ -179,9 +192,11 @@ class ToolCallLoopTest {
             ),
         )
 
-        val text = ToolCallLoop(tools = emptyList())
-            .run(initialPrompt(), model::stream)
-            .toList()
+        val text = textOf(
+            ToolCallLoop(tools = emptyList())
+                .run(initialPrompt(), model::stream)
+                .toList(),
+        )
 
         assertEquals(listOf("I could not do that."), text)
 
@@ -209,9 +224,11 @@ class ToolCallLoopTest {
             ),
         )
 
-        val text = ToolCallLoop(tools = listOf(failing))
-            .run(initialPrompt(), model::stream)
-            .toList()
+        val text = textOf(
+            ToolCallLoop(tools = listOf(failing))
+                .run(initialPrompt(), model::stream)
+                .toList(),
+        )
 
         assertEquals(listOf("That did not work."), text)
 
@@ -236,9 +253,11 @@ class ToolCallLoopTest {
             ),
         )
 
-        val text = ToolCallLoop(tools = listOf(tool), maxRounds = 2)
-            .run(initialPrompt(), model::stream)
-            .toList()
+        val text = textOf(
+            ToolCallLoop(tools = listOf(tool), maxRounds = 2)
+                .run(initialPrompt(), model::stream)
+                .toList(),
+        )
 
         // Two rounds of tool calls, then a round with no tools, in which the model answers.
         assertEquals(3, model.prompts.size)
@@ -263,9 +282,11 @@ class ToolCallLoopTest {
             ),
         )
 
-        val text = ToolCallLoop(tools = listOf(tool))
-            .run(initialPrompt(), model::stream)
-            .toList()
+        val text = textOf(
+            ToolCallLoop(tools = listOf(tool))
+                .run(initialPrompt(), model::stream)
+                .toList(),
+        )
 
         assertEquals(listOf("I will try again."), text)
 

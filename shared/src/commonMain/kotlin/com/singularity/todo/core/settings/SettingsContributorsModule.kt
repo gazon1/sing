@@ -58,6 +58,6 @@ fun settingsContributorsModule(): Module = module {
     single<DefaultAgendaViewContributor> { DefaultAgendaViewSettingsContributor(get()) }
 
     // Tasks
-    single { TasksSettingsStore(get<SettingsRepository>()) }
+    single { TasksSettingsStore(get()) }
     single<TasksContributor> { TasksSettingsContributor(get()) }
 }

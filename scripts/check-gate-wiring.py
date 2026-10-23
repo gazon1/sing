@@ -1440,8 +1440,10 @@ _ADVISORY_NOTE = {
     ),
     ("scripts/check-test-runs.py", "--require mcp-server:test"): (
         "the mcp-server test task is not part of the local script at all, so "
-        "its floor is enforced in CI only — worth knowing before adding tests "
-        "there"
+        "its floor is enforced in CI only — and only in the nightly, because the "
+        "module's one remaining test is the end-to-end one, which is slow. Worth "
+        "knowing before adding tests there: a fast test added to that module "
+        "would not be counted under it"
     ),
 }
 

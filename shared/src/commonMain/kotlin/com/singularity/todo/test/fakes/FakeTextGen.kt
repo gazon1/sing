@@ -1,7 +1,9 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.TextGenPort
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 /** What the fake says when nothing was configured — a user-visible string, not a test value. */
 private const val DEFAULT_SUCCESS =
@@ -31,6 +33,15 @@ class FakeTextGen(
     private val success: String = DEFAULT_SUCCESS,
     private val failureMessage: String? = null,
     private val trackGenerateCalls: Boolean = false,
+    /**
+     * A scripted stream, emitted verbatim.
+     *
+     * `null` means the ordinary behaviour: the answer as one text delta, then the
+     * completion. A list means exactly that sequence — which is how a test produces a
+     * stream that ends *without* a completion, or one that carries tool calls, or one that
+     * fails halfway.
+     */
+    private val events: List<AgentEvent>? = null,
 ) : TextGenPort {
     private val _generateCalls = mutableListOf<Triple<String, String?, String?>>()
 
@@ -39,7 +50,15 @@ class FakeTextGen(
         return failureMessage?.let { Result.failure(RuntimeException(it)) } ?: Result.success(success)
     }
 
-    override fun streamChat(message: String): Flow<String> = kotlinx.coroutines.flow.flowOf(success)
+    override fun streamChat(message: String): Flow<AgentEvent> = flow {
+        val scripted = events
+        if (scripted != null) {
+            scripted.forEach { emit(it) }
+        } else {
+            emit(AgentEvent.TextDelta(success))
+            emit(AgentEvent.TurnCompleted)
+        }
+    }
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }

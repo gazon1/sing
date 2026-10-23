@@ -6,6 +6,8 @@ import androidx.navigation3.runtime.deeplink.DeepLinkRequest
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
+import com.singularity.todo.core.mcp.McpServerCommandProvider
+import com.singularity.todo.mcp.runToolServer
 import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
@@ -17,6 +19,7 @@ import com.singularity.todo.feature.profile.ProfileBootstrapper
 import okio.Path
 import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.ai.acp.di.acpModule
 import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINUTES
 import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
@@ -69,6 +72,18 @@ fun main(args: Array<String>) {
         return
     }
 
+    // The tool server is this program asked for a different job. An external agent is
+    // handed the application's own launcher plus this flag, so the server it reaches
+    // runs on the runtime shipped with the application — a packaged machine has no
+    // system Java, and this path does not need one. The same reasoning as the
+    // reminder unit below: a second helper binary is work that silently does not
+    // happen on every machine where nobody remembered to install it.
+    if (args.any { it == McpServerCommandProvider.TOOL_SERVER_FLAG }) {
+        prepareDataDirectory()
+        runToolServer(args)
+        return
+    }
+
     val fireRequest = JvmReminderFireCommand.parse(args)
     if (fireRequest != null) {
         fireReminder(fireRequest)
@@ -88,7 +103,10 @@ fun main(args: Array<String>) {
             modules(
                 listOf(platformModule(), coreLoggingModule()) +
                     domainModule() +
-                    listOf(gateModule(RELEASES_URL)),
+                    listOf(
+                        gateModule(RELEASES_URL),
+                        acpModule(),
+                    ),
             )
         }
 

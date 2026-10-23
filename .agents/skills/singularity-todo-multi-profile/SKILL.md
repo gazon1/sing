@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-multi-profile
-description: Namespace-based multi-profile pattern for Singularity Todo KMP. Use when adding profile support (separate namespaces for AI-agent dogfooding vs personal tasks). Covers Profile domain object, ProfileRepository, ProfileAwareCurrentUser, per-profile SecureStorage keys, AI config isolation, --profile CLI argument parsing, ProfileSwitcherScreen UI, and ZCode dual-server setup.
+description: Namespace-based multi-profile pattern for Singularity Todo KMP. Use when adding profile support (separate namespaces for AI-agent dogfooding vs personal tasks). Covers Profile domain object, ProfileRepository, ProfileAwareCurrentUser, per-profile SecureStorage keys, AI config isolation, --profile-id CLI argument parsing, ProfileSwitcherScreen UI, and ZCode dual-server setup.
 ---
 
 # Multi-Profile — Namespace-Based Isolation
@@ -17,7 +17,7 @@ You need to separate AI-agent work from personal tasks. Both should be in the sa
 - Implementing `ProfileAwareCurrentUser` to map `profileId` → `userId`.
 - Isolating AI config (apiKey, model) per profile.
 - Building the `ProfileSwitcherScreen` UI.
-- Parsing `--profile=NAME` CLI argument.
+- Parsing the `--profile-id=ID` CLI argument.
 - Setting up ZCode with two MCP servers for different profiles.
 
 Skip for: single-profile deployment, full multi-user auth (different humans).
@@ -184,38 +184,53 @@ fun resolve(
 
 This allows the AI-agent profile to have its own API key (maybe a different org) while personal uses the main key.
 
-## --profile CLI Argument Parsing
+## `--profile-id` CLI Argument Parsing
+
+The tool server takes the profile as an **id**, not a name. The parsing lives with the
+server, in the shared JVM runtime:
 
 ```kotlin
-// mcp-server/src/main/kotlin/com/singularity/todo/mcp/Args.kt
+// shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProfileArguments.kt
 package com.singularity.todo.mcp
 
-fun Array<String>.parseArgs(): ParsedArgs {
-    var profileId: String? = null
-    var shouldInit = false
-    var shouldCreateProfile = false
+fun parseProfileSelection(args: Array<String>): ProfileSelection {
+    val label = args.firstOrNull { it.startsWith("--profile=") }?.removePrefix("--profile=")
+    val id = args.firstOrNull { it.startsWith("--profile-id=") }?.removePrefix("--profile-id=")
 
-    for (arg in this) {
-        when {
-            arg.startsWith("--profile=") -> profileId = arg.removePrefix("--profile=")
-            arg == "--init" -> shouldInit = true
-            arg == "--create" -> shouldCreateProfile = true
-        }
+    return when {
+        label != null && id != null -> ProfileSelection.Ambiguous(label, id)
+        id != null -> ProfileSelection.FixedId(id)
+        label != null -> ProfileSelection.LegacyLabel(label)
+        else -> ProfileSelection.Stored
     }
-
-    return ParsedArgs(
-        profileId = profileId ?: "default",
-        shouldInit = shouldInit,
-        shouldCreateProfile = shouldCreateProfile,
-    )
 }
-
-data class ParsedArgs(
-    val profileId: String,
-    val shouldInit: Boolean,
-    val shouldCreateProfile: Boolean,
-)
 ```
+
+| Argument | Meaning |
+|---|---|
+| `--profile-id=ID` | Work as this profile id. Never open the stored active-profile state, never switch anything. |
+| `--profile=NAME` | **Deprecated.** Legacy label semantics, unchanged: the agent label activates that profile; any other label leaves things as they are. |
+| both | Startup error — the request is ambiguous. JSON-RPC error `-32002`. |
+| neither | The profile comes from the stored state. |
+
+**Why the id and not the name.** A name is a label, and the legacy label mode only
+recognises a couple of them — anything else is ignored, so a process asking for a
+profile it could not have was told nothing and carried on, which is how a process ends
+up reading somebody else's data. The id names a profile exactly.
+
+**Why the id mode never touches the stored state.** The active profile lives in a
+preferences store that takes a file lock, and the application is holding it; a second
+process opening the same store conflicts with the application. In `--profile-id` mode
+the profile bindings are constructed with `dataStore = null`, so the store is never
+constructed and its lock is never taken. The mechanism is the module list, not a check
+the server performs later.
+
+**The legacy argument is preserved deliberately.** Distributed client manifests in the
+wild already pass `--profile=ai-agent`; changing its meaning silently would break every
+one of them. Its use is deprecated in documentation and logged at startup — deprecated,
+not repurposed. New manifests should use `--profile-id` with a profile id.
+
+See `docs/architecture/mcp-server.md` for the full contract.
 
 ## ProfileSwitcherScreen UI
 
@@ -307,16 +322,22 @@ Two profiles, two MCP servers, both available simultaneously:
 # ~/.zcode/mcp/servers.toml
 [[servers]]
 name = "singularity-todo-agent"
-command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile=ai-agent"]
+command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTV"]
 description = "MCP server for AI-agent dogfooding"
 
 [[servers]]
 name = "singularity-todo-personal"
-command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile=personal"]
+command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTW"]
 description = "MCP server for personal tasks"
 ```
 
 When ZCode connects to both, the AI agent sees tools from **both** profiles, each namespaced to its profile's data. The agent can choose which profile to use based on context.
+
+The id is a ULID in the `profiles` table — read it from the profile switcher in the app,
+or from the database directly (`sqlite3 ~/.local/share/singularity/databases/singularity.db
+"select id, name from profiles"`). The legacy `--profile=ai-agent` label still works and
+still means what it always meant, but it is deprecated: a label nobody recognises does
+nothing at all, so a manifest carrying a typo serves the wrong profile silently.
 
 ## What Is Isolated Per Profile
 
@@ -327,7 +348,7 @@ When ZCode connects to both, the AI agent sees tools from **both** profiles, eac
 | API Key | ✅ | `SecureStorage` key with `:{profileId}` suffix |
 | LLM Usage Records | ✅ | `LlmUsageEntity.profileId` column |
 | Reminders, Attachments | ✅ | FK to `TaskEntity` which has `profileId` |
-| MCP Server process | ✅ | `--profile=NAME` argument |
+| MCP Server process | ✅ | `--profile-id=ID` argument |
 | Chat history | ❌ | Per-profile ChatViewModel scope (in-memory, OK) |
 | Settings (theme, notifications) | ❌ | Global (not profile-isolated) |
 
@@ -388,12 +409,12 @@ val dbPath = "~/.singularity-todo/singularity-todo.db"  // same for all!
 | `shared/src/commonMain/.../feature/profile/ProfileAwareCurrentUser.kt` | userId mapper |
 | `shared/src/commonMain/.../feature/profile/ProfileSwitcherViewModel.kt` | VM for UI |
 | `shared/src/commonMain/.../feature/profile/ProfileSwitcherScreen.kt` | Compose screen |
-| `mcp-server/src/main/kotlin/.../mcp/Args.kt` | `--profile` argument parsing |
+| `shared/src/jvmMain/kotlin/.../mcp/ProfileArguments.kt` | `--profile-id` / `--profile` argument parsing |
 | `shared/src/commonMain/.../core/settings/SettingsRepository.kt` | Per-profile AI settings |
 
 ## Related Skills
 
-- `docs/architecture/mcp-server.md` — `--profile` argument is parsed here.
+- `docs/architecture/mcp-server.md` — the `--profile-id` argument contract is parsed here.
 - `singularity-todo-mcp-init` — `McpInitCommand` uses `profileName` in manifest.
 - `singularity-todo-llm-usage-tracking` — `profileId` in `ToolUsageEvent` for per-profile breakdown.
 - `singularity-todo-cli-tool-surface` — authorization uses `currentUser.userId` (profile-aware).
