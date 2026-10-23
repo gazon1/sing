@@ -22,6 +22,24 @@ External Agent ──MCP/stdio──► :mcp-server JVM process
 
 Single source of truth: existing repositories in `shared/src/commonMain/.../feature/`. No new domain logic in `:mcp-server`.
 
+**Where the code lives.** The server's implementation is in the shared JVM runtime, in
+`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/` (package `com.singularity.todo.mcp`,
+FQNs unchanged). The `:mcp-server` module is what remains of the server as a *product*:
+a self-contained jar an editor can spawn and speak MCP to.
+
+```
+mcp-server/src/main/kotlin/com/singularity/todo/mcp/Main.kt   ← the launcher
+shared/src/jvmMain/kotlin/com/singularity/todo/mcp/          ← the server
+    ToolServerMain.kt        runToolServer(args) — the entry point
+    ToolRegistrar.kt         Koog→MCP adapter, the kill switch
+    ProfileArguments.kt      the --profile-id / --profile contract
+    errors/, schema/         the error model and the schema builders
+```
+
+The reason is the delivery mechanism, described below: the desktop application hands an
+external agent its tool access by running **the same server** in the application's own
+`--mcp-server` mode, and two servers would be two toolsets that drift.
+
 ## When to Use This Skill
 
 - Adding a new `:mcp-server` Gradle module that hosts an MCP server.
@@ -38,7 +56,9 @@ Skip for: in-app Koog agent loop (`ChatViewModel`), read-only tools that the LLM
 // mcp-server/build.gradle.kts
 plugins {
     alias(libs.plugins.kotlinJvm)              // JVM-only, NOT multiplatform
-    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.koin.compiler)           // validates the classic DSL at compile time
     application                                 // provides JavaExec + mainClass
 }
 
@@ -47,15 +67,14 @@ application {
 }
 
 kotlin {
-    jvmToolchain(17)                           // MCP SDK requires JVM 17+
+    jvmToolchain(21)                           // the shared runtime the server lives in
 }
 
 dependencies {
     implementation(project(":shared"))           // repos + DI graph
-    implementation("io.modelcontextprotocol:kotlin-sdk:0.15.0")
+    implementation(libs.kotlin.sdk)             // io.modelcontextprotocol:kotlin-sdk:0.15.0
     implementation(libs.kermit)                // logging parity
     implementation(libs.kotlinx.coroutines.core)
-    runtimeOnly(libs.kotlinx.cli)             // for --profile arg parsing
 }
 ```
 
@@ -63,44 +82,72 @@ dependencies {
 
 **Why `application` plugin:** gives `gradlew :mcp-server:run` and a runnable distribution. Required for ZCode MCP-config to invoke the server.
 
-## Main.kt Skeleton
+The argument parsing is hand-written (`parseProfileSelection` in the shared runtime), not
+a CLI library: two arguments, each recognised by a prefix, is not a parser's worth of
+work, and a dependency would be one more thing to keep in step with the shared runtime
+that now owns the contract.
+
+## Main.kt — the launcher
+
+The module's entry point is one line, because the server is not here:
 
 ```kotlin
 // mcp-server/src/main/kotlin/com/singularity/todo/mcp/Main.kt
 package com.singularity.todo.mcp
 
-import com.singularity.todo.core.di.domainModule
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
-import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
-import io.modelcontextprotocol.kotlin.sdk.types.Implementation
-import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.runBlocking
+/**
+ * The standalone tool server's entry point.
+ *
+ * The server itself lives in the shared JVM runtime — `runToolServer` in
+ * `com.singularity.todo.mcp.ToolServerMain` — because the desktop application runs the
+ * same server for an external agent, and two servers would be two toolsets that drift.
+ */
+fun main(args: Array<String>): Unit = runToolServer(args)
+```
 
-fun main(args: Array<String>): Unit = runBlocking {
-    val profileId = args.parseProfileArg()
-    if (!bootstrapKoin(profileId)) return@runBlocking
+`runToolServer(args)` is the whole of the server's startup, in
+`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerMain.kt`:
 
-    // Every dependency is read from the container here, once, and passed on as an
-    // argument. The server's own code does not know where they came from.
+```kotlin
+fun runToolServer(args: Array<String>): Unit = runBlocking {
+    val selection = parseProfileSelection(args)
+
+    // Both arguments at once is a request that says two different things, and neither of
+    // them can be obeyed. Failing here is the honest answer; picking one would silently
+    // serve a profile the caller did not ask for.
+    if (selection is ProfileSelection.Ambiguous) {
+        log.e { "Both --profile and --profile-id were given; refusing to guess which profile to use." }
+        writeJsonRpcError(
+            code = -32002,
+            message = "Conflicting profile arguments: pass either --profile or --profile-id, not both.",
+        )
+        exitProcess(EXIT_USAGE)
+    }
+
+    val fixedProfileId: String? = (selection as? ProfileSelection.FixedId)?.id
+    val legacyLabel: String? = (selection as? ProfileSelection.LegacyLabel)?.name
+
+    if (legacyLabel != null) {
+        log.w {
+            "--profile is deprecated and will be removed; use --profile-id with a profile id. " +
+                "The label still works, and still means what it always meant."
+        }
+    }
+
+    if (!bootstrapKoin(fixedProfileId)) exitProcess(EXIT_STARTUP)
     val dependencies = ServerDependencies.fromKoin()
-    if (!verifyDatabase(dependencies)) return@runBlocking
+    if (!verifyDatabase(dependencies)) exitProcess(EXIT_STARTUP)
+    // A profile that does not exist is not a profile the server may serve: the tools
+    // would write under an id nobody owns, and the user would find their tasks
+    // missing rather than told. Never a fallback.
+    if (fixedProfileId != null && !profileExists(dependencies, fixedProfileId)) {
+        log.e { "No profile with id $fixedProfileId" }
+        writeJsonRpcError(code = -32002, message = "No profile with that id exists.")
+        exitProcess(EXIT_USAGE)
+    }
+    bootstrapProfiles(dependencies, legacyLabel)
 
-    System.err.println("singularity-todo MCP server started")
-
-    val server = buildServer(dependencies, toolConfiguration, sessionContext)
-    installShutdownHook(server)
-
-    val transport = StdioServerTransport(
-        input = System.`in`.toByteReadChannel().asSource().buffered(),
-        output = System.out.asByteWriteChannel().asSink().buffered(),
-    )
-
-    // session.onClose + Job.join() is what holds the JVM up.
-    // SDK 0.15.0 — Server.createSession only wires the session and returns;
-    // without an external blocking primitive, main() exits and the
-    // internal reader/processor/writer coroutines die with it.
+    // … build the server, install the shutdown hook, serve over stdio …
     val session = server.createSession(transport)
     val done = Job()
     session.onClose { done.complete() }
@@ -112,7 +159,180 @@ fun main(args: Array<String>): Unit = runBlocking {
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.
 - `installShutdownHook(server)` — backstop for SIGTERM; normal EOF exits flow through `session.onClose → done.complete() → done.join() returns → JVM exits cleanly`.
 - `runBlocking` at top level is **acceptable** here — this is a CLI main, not a hot path. Same reasoning as `koinBridge` (see ADR `2026-09-05-koin-suspend-bridge`).
-- `System.in` / `System.out` — stdio transport. **Never** `println` for logs (corrupts the JSON-RPC stream). Use `System.err` or kermit Logger.
+- `System.in` / `System.out` — stdio transport. **Never** `println` for logs (corrupts the JSON-RPC stream). Use `System.err` or kermit Logger. The server logs through kermit for the same reason: stdout is reserved for JSON-RPC frames.
+- **The reservation is enforced, not merely advised.** `ProtocolStdout.reserve()` takes standard output for the protocol and points `System.out` at standard error before anything else runs, so a stray `println` — the application's own log line, or a third-party library's start-up banner — lands on standard error instead of the protocol channel. The MCP specification says a stdio server *must not* write anything to standard output that is not a valid MCP message, and a client that takes that literally stops at the first line it cannot parse. See `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`.
+
+## The profile argument
+
+Two arguments, and they are not interchangeable.
+
+| Argument | Meaning | Failure behaviour |
+|---|---|---|
+| `--profile-id=ID` | Work as this profile id. Never open the stored active-profile state, never switch anything. | An id nobody knows is an error, never a fallback: exit code 2. |
+| `--profile=NAME` | **Legacy** label semantics, unchanged: the agent label activates that profile; any other label leaves things as they are. | Unknown label → warn, do nothing (the current behaviour, preserved). |
+| both | — | Startup error: the request is ambiguous. JSON-RPC error `-32002`, exit code 2. |
+| neither | Legacy behaviour: the profile comes from the stored state. | — |
+
+The parsing is in `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProfileArguments.kt`:
+
+```kotlin
+fun parseProfileSelection(args: Array<String>): ProfileSelection {
+    val label = args.firstOrNull { it.startsWith("--profile=") }?.removePrefix("--profile=")
+    val id = args.firstOrNull { it.startsWith("--profile-id=") }?.removePrefix("--profile-id=")
+
+    return when {
+        label != null && id != null -> ProfileSelection.Ambiguous(label, id)
+        id != null -> ProfileSelection.FixedId(id)
+        label != null -> ProfileSelection.LegacyLabel(label)
+        else -> ProfileSelection.Stored
+    }
+}
+```
+
+**Why two arguments rather than one.** The label was there first, and it means a *name*
+whose value only one label had any effect for: `ai-agent` / `agent` activate the "AI
+Agent" profile, `default` / `personal` leave the stored one alone, and **anything else
+is ignored** — so a process asking for a profile it could not have was told nothing and
+carried on, which is how a process ends up reading somebody else's data.
+
+The id is the new argument: it names a profile exactly, it never changes the stored
+active profile, and an id nobody knows is an error rather than a fallback.
+
+**Why the id mode never touches the stored state.** The active profile lives in a
+preferences store that takes a file lock, and the application is holding it. A second
+process opening the same store conflicts with the application. The mechanism is the
+module list, not a check the server performs later — `domainModule(fixedProfileId)` binds
+`ProfileRepositoryImpl` with `dataStore = null` in the fixed-profile branch
+(`shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt`), so the store is
+never constructed and its lock is never taken.
+
+**The legacy argument is preserved deliberately.** Distributed client manifests in the
+wild already pass `--profile=ai-agent`; changing its meaning silently would break every
+one of them. Its use is deprecated in documentation and logged at startup
+(`log.w` above) — deprecated, not repurposed. New manifests should use `--profile-id`
+with a profile id; a label the server does not recognise does nothing at all.
+
+## Error responses
+
+Errors are **serialised by the serialiser**, never assembled by string interpolation.
+The old builder interpolated the message into a JSON string by hand: an error text with
+a quote in it produced a message a client could not parse, and the same text carried the
+internals of the failure — file paths, database messages, the text of an exception. A
+caller that cannot parse the error cannot report it, and a caller that receives internal
+paths learns things it was not meant to.
+
+So the message a caller receives is **neutral**, and the detail goes to the log:
+
+```kotlin
+// shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProfileArguments.kt
+@Serializable
+data class JsonRpcErrorBody(
+    val code: Int,
+    val message: String,
+)
+
+@Serializable
+data class JsonRpcErrorEnvelope(
+    val jsonrpc: String = "2.0",
+    val id: String? = null,
+    val error: JsonRpcErrorBody,
+)
+
+private val errorJson = Json { encodeDefaults = true }
+
+fun jsonRpcError(code: Int, message: String): String =
+    errorJson.encodeToString(
+        JsonRpcErrorEnvelope.serializer(),
+        JsonRpcErrorEnvelope(error = JsonRpcErrorBody(code = code, message = message)),
+    )
+```
+
+The startup errors the server writes to stdout before it serves anything:
+
+| Code | Exit | Message the caller sees | Cause (to the log, not to the caller) |
+|---|---|---|---|
+| `-32000` | 1 | "The server could not start: its dependencies are unavailable." | Koin initialization failed |
+| `-32001` | 1 | "The server could not open its database." | Database initialization failed |
+| `-32002` | 2 | "Conflicting profile arguments: pass either --profile or --profile-id, not both." | Both selectors were given |
+| `-32002` | 2 | "No profile with that id exists." | No profile carries the requested id |
+
+Exit codes: `EXIT_STARTUP = 1` (the server could not start — its dependencies or its
+database are unavailable) and `EXIT_USAGE = 2` (it was asked for something it cannot
+do — conflicting or unknown arguments). A profile that does not exist is not a profile
+the server may serve: the tools would write under an id nobody owns, and the user would
+find their tasks missing rather than told.
+
+## How the server is delivered to an external agent
+
+There is one server and one toolset, and it is delivered in the shape the protocol
+asks for: an executable, a list of arguments, and an environment.
+
+The desktop application runs the tool server itself. `McpServerCommandProvider`
+(`shared/src/jvmMain/kotlin/com/singularity/todo/core/mcp/McpServerCommandProvider.kt`)
+reads the facts of the machine it is running on and builds the command from them,
+because the two ways this application runs differ in exactly the facts that decide the
+command:
+
+| | Packaged application | Development run |
+|---|---|---|
+| How it is detected | `jpackage.app-version` is present in the launcher's options | absent |
+| The command | the application's own executable | the JVM running the application |
+| The arguments | `--mcp-server --profile-id=ID` | `-cp <classpath> com.singularity.todo.MainKt --mcp-server --profile-id=ID` |
+
+```kotlin
+fun commandFor(profileId: ProfileId): ToolServerCommand {
+    // One argument, not two: the tool server parses `--profile-id=ID`, and a
+    // command that says `--profile-id ID` is a command it does not recognise —
+    // and a command it does not recognise is a command that silently serves the
+    // wrong profile.
+    val profileArgs = listOf("$PROFILE_ID_FLAG=${profileId.value}")
+    return if (environment.packaged) {
+        packagedCommand(profileArgs)
+    } else {
+        developmentCommand(profileArgs)
+    }
+}
+```
+
+**One argument, not two.** The parser recognises `--profile-id=ID` — the value joined
+to the flag by an `=`. A command that says `--profile-id ID` as two separate arguments
+is a command the server does not recognise, and a command it does not recognise is a
+command that silently serves the wrong profile.
+
+**Why the packaged application hands over its own launcher.** A packaged machine has no
+system Java to fall back on, and the packaging tool strips the native commands from the
+bundled runtime — so "run the bundled JRE" is not available either. The application's own
+launcher is the same idea: it loads the runtime shipped with the application and starts
+the server instead of the window. The server is then, by construction, the one that runs
+on the runtime the application ships.
+
+The application already runs headless work through its own launcher — a reminder unit
+invokes `singularity-todo fire-reminder` — and the reason is written down where that
+decision lives: a second helper binary is work that silently does not happen on every
+machine where nobody remembered to install it. The tool server is the same kind of work:
+it is the same program, asked for a different job.
+
+The desktop entry point dispatches on the flag, in
+`desktopApp/src/main/kotlin/com/singularity/todo/main.kt`:
+
+```kotlin
+if (args.any { it == McpServerCommandProvider.TOOL_SERVER_FLAG }) {
+    prepareDataDirectory()
+    runToolServer(args)
+    return
+}
+```
+
+**Why the profile id is on the command line.** The server never opens the stored
+active-profile state when it is told which profile to serve, and that store takes a file
+lock the application is holding. Passing the id on the command line is what makes the
+two processes coexist. See *The profile argument* above.
+
+**When there is no command.** A command that cannot be produced is a *diagnosis*, and it
+has to say what was looked for and where: "tool access unavailable" is not a diagnosis;
+"the packaged launcher at /opt/singularity-todo/bin is not executable" is. The provider
+returns `ToolServerCommand.Unavailable` with that text, and the absence of a tool server
+is an empty reference list to the agent, not a failed connection.
 
 ## ToolRegistrar — Koog → MCP Adapter
 
@@ -334,8 +554,12 @@ over them.
 
 From MCP spec 2025-06-18: **protocol errors** → JSON-RPC `error` object (`-32602` invalid params, `-32603` internal). **Business errors** → `isError: true` in a successful result with actionable text.
 
+The startup errors — the ones written before the server serves anything — are described
+under *Error responses*: they are JSON-RPC errors too, serialised by the serialiser, and
+their messages are neutral.
+
 ```kotlin
-// mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/McpToolError.kt
+// shared/src/jvmMain/kotlin/com/singularity/todo/mcp/errors/McpToolError.kt
 package com.singularity.todo.mcp.errors
 
 sealed interface McpToolError {
@@ -356,7 +580,7 @@ fun McpToolError.format(): String = when (this) {
 ```
 
 ```kotlin
-// mcp-server/src/main/kotlin/com/singularity/todo/mcp/errors/ErrorMapper.kt
+// shared/src/jvmMain/kotlin/com/singularity/todo/mcp/errors/ErrorMapper.kt
 package com.singularity.todo.mcp.errors
 
 import io.modelcontextprotocol.kotlin.sdk.CallToolResult
@@ -438,30 +662,42 @@ gate says so.
 All `list` tools use opaque cursor pagination. Page size: 50.
 
 ```kotlin
-// mcp-server/src/main/kotlin/com/singularity/todo/mcp/pagination/CursorCodec.kt
-package com.singularity.todo.mcp.pagination
+// shared/src/commonMain/kotlin/com/singularity/todo/core/ai/TaskPageCursor.kt
+package com.singularity.todo.core.ai
 
+import kotlin.io.encoding.Base64
 import kotlinx.serialization.Serializable
-import java.util.Base64
+import kotlinx.serialization.json.Json
 
 @Serializable
-data class Cursor(val offset: Int, val sortKey: String)
+data class TaskPageCursor(
+    val offset: Int,
+    val fingerprint: String,
+)
 
-fun Cursor.encode(): String = Base64.getUrlEncoder()
-    .encodeToString(Cursor.serializer().stringToByte())
-    .trimEnd('=')
+private val urlSafeNoPadding = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
 
-fun String.decodeCursor(): Cursor? = runCatching {
-    val padded = this + "=".repeat((4 - length % 4) % 4)
-    val bytes = Base64.getUrlDecoder().decode(padded)
-    Cursor.serializer().fromBytes(bytes)
+fun TaskPageCursor.encode(): String = urlSafeNoPadding.encode(
+    cursorJson.encodeToString(TaskPageCursor.serializer(), this).encodeToByteArray(),
+)
+
+fun String.decodeTaskPageCursor(): TaskPageCursor? = runCatching {
+    cursorJson.decodeFromString(
+        TaskPageCursor.serializer(),
+        urlSafeNoPadding.decode(this).decodeToString(),
+    )
 }.getOrNull()
 
 // Usage in list tool:
 val nextCursor = if (items.size == PAGE_SIZE) {
-    Cursor(offset = input.cursor?.let { it.decodeCursor()?.offset ?: 0 } + PAGE_SIZE, sortKey = sortKey).encode()
+    TaskPageCursor(offset = start.offset + PAGE_SIZE, fingerprint = fingerprint).encode()
 } else null
 ```
+
+The cursor is URL-safe and unpadded, so it survives being put in a query parameter, a
+message, or a shell command without being escaped into something unreadable. The
+`fingerprint` says *which* list the reader was reading: a cursor from the overdue list
+handed back for the inbox is refused rather than paging the wrong list.
 
 ## ZCode MCP Config
 
@@ -473,22 +709,31 @@ directory:
 ```toml
 [[servers]]
 name = "singularity-todo-agent"
-command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile=ai-agent"]
+command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTV"]
 cwd = "/absolute/path/to/your/clone"
 description = "MCP server for AI-agent dogfooding"
 
 [[servers]]
 name = "singularity-todo-personal"
-command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile=personal"]
+command = ["./gradlew", ":mcp-server:run", "--quiet", "--args=--profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTW"]
 cwd = "/absolute/path/to/your/clone"
 description = "MCP server for personal tasks"
 ```
+
+**Use `--profile-id`, not `--profile`.** The id names a profile exactly and never touches
+the stored active-profile state. The profile id is a ULID in the `profiles` table —
+read it from the profile switcher in the app, or from the database directly
+(`sqlite3 ~/.local/share/singularity/databases/singularity.db "select id, name from profiles"`).
+
+The legacy `--profile=ai-agent` label still works and still means what it always meant,
+but it is deprecated: an unrecognised label does nothing at all, so a manifest that
+carries a typo serves the wrong profile silently. See *The profile argument*.
 
 **Tip:** use `installDist` to avoid Gradle startup overhead:
 ```bash
 ./gradlew :mcp-server:installDist
 # Then in servers.toml:
-command = ["./mcp-server/build/install/mcp-server/bin/mcp-server", "--profile=ai-agent"]
+command = ["/absolute/path/to/your/mcp-server/build/install/mcp-server/bin/mcp-server", "--profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTV"]
 ```
 
 ## Graceful Shutdown — WAL Flush
@@ -569,18 +814,20 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | File | Purpose |
 |---|---|
 | `mcp-server/build.gradle.kts` | Gradle module, `application` plugin, `kotlin-sdk:0.15.0` dependency |
-| `mcp-server/src/main/kotlin/.../mcp/Main.kt` | Entry point, Koin bootstrap, configuration read, server start, shutdown hook |
-| `mcp-server/src/main/kotlin/.../mcp/ToolRegistrar.kt` | Koog→MCP adapter, the kill switch, the dispatch measurement |
-| `mcp-server/src/main/kotlin/.../mcp/ToolsetSnapshot.kt` | The one snapshot: registered, disabled, identity, configuration status |
-| `mcp-server/src/main/kotlin/.../mcp/ToolboxTool.kt` | `describe_toolbox` — what is exposed, and why |
-| `mcp-server/src/main/kotlin/.../mcp/ToolboxResources.kt` | the read-only resources: toolbox, decisions, one decision |
-| `mcp-server/src/main/kotlin/.../mcp/errors/McpToolError.kt` | Sealed Validation/NotFound/Conflict/Unauthorized/Internal |
-| `mcp-server/src/main/kotlin/.../mcp/errors/ErrorMapper.kt` | McpToolError → CallToolResult or throw |
-| `mcp-server/src/main/kotlin/.../mcp/ToolAnnotations.kt` | readOnly/destructive/idempotent/openWorld hints |
-| `mcp-server/src/main/kotlin/.../mcp/pagination/CursorCodec.kt` | base64(opaque cursor) encode/decode |
+| `mcp-server/src/main/kotlin/.../mcp/Main.kt` | The launcher — `main(args) = runToolServer(args)` |
+| `shared/src/jvmMain/kotlin/.../mcp/ToolServerMain.kt` | The server: Koin bootstrap, configuration read, server start, shutdown hook |
+| `shared/src/jvmMain/kotlin/.../mcp/ProfileArguments.kt` | The `--profile-id` / `--profile` contract, and the serialised JSON-RPC error |
+| `shared/src/jvmMain/kotlin/.../mcp/ToolRegistrar.kt` | Koog→MCP adapter, the kill switch, the dispatch measurement |
+| `shared/src/jvmMain/kotlin/.../mcp/ToolsetSnapshot.kt` | The one snapshot: registered, disabled, identity, configuration status |
+| `shared/src/jvmMain/kotlin/.../mcp/ToolboxTool.kt` | `describe_toolbox` — what is exposed, and why |
+| `shared/src/jvmMain/kotlin/.../mcp/ToolboxResources.kt` | the read-only resources: toolbox, decisions, one decision |
+| `shared/src/jvmMain/kotlin/.../mcp/errors/McpToolError.kt` | Sealed Validation/NotFound/Conflict/Unauthorized/Internal |
+| `shared/src/jvmMain/kotlin/.../mcp/errors/ErrorMapper.kt` | McpToolError → CallToolResult or throw |
+| `shared/src/jvmMain/kotlin/.../mcp/ToolAnnotations.kt` | readOnly/destructive/idempotent/openWorld hints |
 | `shared/src/commonMain/kotlin/.../feature/ai/McpToolCatalog.kt` | the declared surface: name, class, domain, annotations |
 | `shared/src/commonMain/kotlin/.../core/observability/ToolCallLog.kt` | the tool-call event, its port and the recorder |
 | `shared/src/commonMain/kotlin/.../core/ai/RecordingTool.kt` | the in-app decorator that records a call |
+| `shared/src/jvmMain/kotlin/.../core/mcp/McpServerCommandProvider.kt` | The command that starts the server for an external agent |
 | `adr-core/src/commonMain/kotlin/.../tools/AdrSearch.kt` | the search engine, the scopes and the envelope |
 | `adr-core/src/commonMain/kotlin/.../tools/DocumentCorpus.kt` | the document corpora policy, read by the search |
 | `config/docs/document-corpus.json` | the roots of every document scope, the depth bound, what a document is |
@@ -590,6 +837,8 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | `scripts/changed-modules.py` | which checks a change makes worth running |
 | `docs/testing/gate-costs.md` | what the verification loop costs, measured and published |
 | `mcp-server/src/test/kotlin/.../mcp/McpServerEndToEndTest.kt` | End-to-end protocol test via the stdio transport |
+| `mcp-server/src/test/kotlin/.../mcp/ProfileArgumentTest.kt` | the argument contract, including the ambiguity case |
+| `mcp-server/src/test/kotlin/.../mcp/JsonRpcErrorTest.kt` | the serialised error response |
 | `mcp-server/src/test/kotlin/.../mcp/ToolRegistrarTest.kt` | the kill switch, at the place it is applied |
 | `mcp-server/src/test/kotlin/.../mcp/ToolboxRuntimeContractTest.kt` | the runtime's writes, read by the production report |
 
@@ -598,10 +847,19 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 - `singularity-todo-cli-tool-surface` — write-tool contract: idempotency, authorization, dry-run.
 - `singularity-todo-room-multi-instance` — concurrent write safety, `enableMultiInstanceInvalidation`, busy_timeout.
 - `singularity-todo-ai-tool` — the underlying `SimpleTool<T>` pattern (every MCP tool wraps one).
-- `singularity-todo-multi-profile` — `--profile` argument parsing, profile-aware Koin modules.
+- `singularity-todo-multi-profile` — the profile argument and profile-aware Koin modules.
 - `singularity-todo-llm-usage-tracking` — `UsageRecorder` port injected into tools.
 - `singularity-todo-koin-dsl` — `domainModule()` is what the MCP server starts.
 - ADR `2026-09-07-dogfooding-mcp-server` — rationale and trade-offs.
+
+## Related Documents
+
+- `docs/architecture/acp-client.md` — the application as an ACP client: it hosts a
+  third-party agent and hands it this server as its tool access.
+- `specs/014-acp-client-agent-activity/contracts/tool-server-cli.md` — the argument
+  contract, as specified.
+- ADR `2026-10-23-acp-client-and-agent-activity.md` — why one server, and why the
+  packaged application delivers it through its own launcher.
 
 <!-- BEGIN GENERATED: adr-tools -->
 

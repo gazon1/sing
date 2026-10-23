@@ -18,10 +18,22 @@ interface TextGenPort {
     suspend fun generate(prompt: String, systemPrompt: String? = null, model: String? = null): Result<String>
 
     /**
-     * Streams a chat response token-by-token.
-     * Returns a [Flow] of string chunks. Default impl delegates to [generate].
+     * Streams a chat response as it happens.
+     *
+     * Returns a [Flow] of [AgentEvent]s — the text as it arrives, the tool calls and their
+     * outcomes, the plan, and the end of the turn. One turn is one flow.
+     *
+     * ## Who decides how the turn ended
+     *
+     * The flow, not the caller. A flow that ends **without** [AgentEvent.TurnCompleted]
+     * means the turn did not finish successfully: the provider died, the transport broke,
+     * or the flow was cancelled. A caller that treats the end of the flow as success will
+     * tell the user the agent answered when it did not.
+     *
+     * [AgentEvent.TurnCompleted] marks a successful end. Everything else — failure,
+     * cancellation — is a terminal outcome on the turn's state, not an event in the flow.
      */
-    fun streamChat(message: String): Flow<String>
+    fun streamChat(message: String): Flow<AgentEvent>
 
     /**
      * Fetches available models from the configured API endpoint.

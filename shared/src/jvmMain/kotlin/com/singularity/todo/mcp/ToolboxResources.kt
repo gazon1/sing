@@ -3,7 +3,6 @@ package com.singularity.todo.mcp
 import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.ai.tools.AdrStorage
 import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceRequest
 import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextResourceContents
 import kotlinx.serialization.json.Json
@@ -34,10 +33,7 @@ import kotlinx.serialization.json.put
  * arbitrary slug must not be able to read a file outside the corpus, and an archived or
  * ignored file must not be reachable by guessing its name.
  */
-class ToolboxResources(
-    private val snapshot: ToolsetSnapshot,
-    private val storage: AdrStorage?,
-) {
+class ToolboxResources(private val snapshot: ToolsetSnapshot, private val storage: AdrStorage?) {
 
     private val json = Json { prettyPrint = false }
 
@@ -165,7 +161,9 @@ class ToolboxResources(
         val storage = this.storage
         return when {
             storage == null -> "No corpus is available to this server."
+
             !storage.isValidSlug(slug) -> "Not a decision slug: $slug"
+
             else -> storage.readAdr(slug)?.let { adr ->
                 "# ${adr.title}\n\ndate: ${adr.date}\nstatus: ${adr.status}\n" +
                     "tags: ${adr.tags}\n\n${adr.body}"

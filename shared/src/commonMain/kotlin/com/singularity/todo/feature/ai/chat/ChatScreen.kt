@@ -27,6 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.llm.AgentPlanStep
+import com.singularity.todo.core.llm.AgentToolCall
+import com.singularity.todo.core.llm.AgentTurnOutcome
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.ChatInputBar
@@ -36,6 +39,8 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.genui.render.ComponentRegistry
+import com.singularity.todo.feature.ai.ui.AgentPlanCard
+import com.singularity.todo.feature.ai.ui.AgentToolCallCard
 import kotlinx.serialization.json.JsonElement
 import com.singularity.todo.feature.genui.render.GenuiSurface
 import com.singularity.todo.feature.genui.render.rememberDataContext
@@ -94,6 +99,11 @@ fun ChatScreenContent(
                     vm.onIntent(ChatViewModel.Intent.SurfaceAction(name, context))
                 },
                 modifier = Modifier.weight(1f),
+            )
+            AgentActivitySection(
+                plan = state.activity.plan,
+                calls = state.activity.calls,
+                outcome = state.turnOutcome,
             )
             HorizontalDivider()
             ChatInputBar(
@@ -173,6 +183,57 @@ private fun ChatMessagesList(
             msg.surfaceId?.let { surfaceId: SurfaceId -> GenuiMessageSurface(surfaceId, onSurfaceAction) }
         }
         if (isLoading) item { ThinkingIndicator() }
+    }
+}
+
+/**
+ * What the agent is doing, and how the turn ended.
+ *
+ * Sits between the conversation and the input bar: it is about *now*, and the reader is
+ * looking at the bottom of the screen while the agent works.
+ *
+ * The cards are the shared ones — the same cards the external-agent screen draws — so that
+ * a reader who has learned to read one screen can read the other.
+ */
+@Composable
+private fun AgentActivitySection(
+    plan: List<AgentPlanStep>,
+    calls: List<AgentToolCall>,
+    outcome: AgentTurnOutcome?,
+) {
+    if (plan.isEmpty() && calls.isEmpty() && outcome == null) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (plan.isNotEmpty()) {
+            AgentPlanCard(steps = plan)
+        }
+        calls.forEach { call ->
+            AgentToolCallCard(
+                name = call.name,
+                status = call.status,
+                summary = call.summary,
+            )
+        }
+        when (outcome) {
+            is AgentTurnOutcome.Failed -> Text(
+                text = outcome.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+            is AgentTurnOutcome.Cancelled -> Text(
+                text = "Cancelled",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            else -> Unit
+        }
     }
 }
 

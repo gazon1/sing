@@ -4,6 +4,7 @@ package com.singularity.todo.feature.ai.chat
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.test.fakes.FakeTextGen
 import com.singularity.todo.feature.ai.TextGenPort
@@ -36,7 +37,14 @@ class ChatViewModelTest {
 
     private val testLog = Logger.withTag("ChatViewModelTest")
 
-    private fun newVm(scope: CoroutineScope, flow: Flow<String> = flowOf("Hi ", "there!")) = ChatViewModel(
+    private fun newVm(
+        scope: CoroutineScope,
+        flow: Flow<AgentEvent> = flowOf(
+            AgentEvent.TextDelta("Hi "),
+            AgentEvent.TextDelta("there!"),
+            AgentEvent.TurnCompleted,
+        ),
+    ) = ChatViewModel(
         testLog,
         ScriptedTextGen(flow),
         SequenceIdGenerator(),
@@ -52,7 +60,7 @@ class ChatViewModelTest {
         val parser = A2uiParser()
         val vm = ChatViewModel(
             testLog,
-            ScriptedTextGen(flowOf("unused")),
+            ScriptedTextGen(flowOf(AgentEvent.TurnCompleted)),
             SequenceIdGenerator(),
             genui = GenuiSession(
                 transport,
@@ -164,7 +172,15 @@ class ChatViewModelTest {
 
     @Test
     fun sendStreamsChunksIntoAssistantMessage() = runTest {
-        val vm = newVm(this, flowOf("alpha", " beta", " gamma"))
+        val vm = newVm(
+            this,
+            flowOf(
+                AgentEvent.TextDelta("alpha"),
+                AgentEvent.TextDelta(" beta"),
+                AgentEvent.TextDelta(" gamma"),
+                AgentEvent.TurnCompleted,
+            ),
+        )
         vm.onIntent(ChatViewModel.Intent.InputChanged("x"))
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
@@ -186,9 +202,10 @@ class ChatViewModelTest {
 
     @Test
     fun fakeTextGenReturnsSinglePlaceholderChunk() = runTest {
-        val chunks = FakeTextGen().streamChat("hi").take(10).toList()
-        assertEquals(1, chunks.size)
-        assertTrue(chunks.first().startsWith("("))
+        val events = FakeTextGen().streamChat("hi").take(10).toList()
+        assertEquals(2, events.size, "The answer and the end of the turn")
+        val text = events.filterIsInstance<AgentEvent.TextDelta>().single().text
+        assertTrue(text.startsWith("("))
     }
 }
 
@@ -208,11 +225,11 @@ private class ScriptedGenuiTransport(private val answers: List<String>) : GenuiT
 }
 
 /** Test double for [TextGenPort] that emits a scripted [Flow]. */
-private class ScriptedTextGen(private val scripted: Flow<String>) : TextGenPort {
+private class ScriptedTextGen(private val scripted: Flow<AgentEvent>) : TextGenPort {
     override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
         Result.success("unused")
 
-    override fun streamChat(message: String): Flow<String> = scripted
+    override fun streamChat(message: String): Flow<AgentEvent> = scripted
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }

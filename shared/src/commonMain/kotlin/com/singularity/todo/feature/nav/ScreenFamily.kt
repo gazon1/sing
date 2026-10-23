@@ -102,6 +102,9 @@ private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) 
     // assistant's family: opening it from the chat is a push within one feature.
     AppDestination.AiChat,
     AppDestination.Proposals,
+    // The external agent is an assistant too: it hosts a conversation and shows what
+    // the agent did, so opening it from the chat is a push within one family.
+    AppDestination.ExternalAgent,
     -> ScreenFamily.AiChat
 
     AppDestination.Search -> ScreenFamily.Search

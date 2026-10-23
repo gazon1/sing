@@ -7,6 +7,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.entryProvider
 import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.agenda.presentation.nav.desktopAgendaContextMenuHost
+import com.singularity.todo.feature.ai.external.AcpExternalAgentScreen
 import com.singularity.todo.feature.nav.entries.agendaEntries
 import com.singularity.todo.feature.nav.entries.appEntries
 import com.singularity.todo.feature.nav.entries.calendarEntries
@@ -101,6 +102,13 @@ fun createJvmEntryProvider(
         // prefill the route carried were dropped on the way, because the editor read the
         // placeholder rather than the route. NavDisplay renders `stack.top`, so the seed
         // *is* the screen.
+        // The external-agent screen is registered here and nowhere else: the agent is
+        // a process, and processes are a desktop thing. A destination registered on
+        // Android would put a route on the mobile back stack that nothing renders.
+        entry<AppDestination.ExternalAgent>(clazzContentKey = { it.stableContentKey() }) {
+            AcpExternalAgentScreen(onBack = nav.goBack)
+        }
+
         entry<AppDestination.TasksGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
             val startRoute = route.start.toTasksRoute(route.initialDueDate)
             val tasksStack: NavBackStack<TasksRoute> = rememberInMemoryNavBackStack(startRoute)

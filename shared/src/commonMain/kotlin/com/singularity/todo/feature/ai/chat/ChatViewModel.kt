@@ -4,6 +4,9 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.llm.AgentActivityState
+import com.singularity.todo.core.llm.AgentEvent
+import com.singularity.todo.core.llm.AgentTurnOutcome
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
@@ -17,6 +20,7 @@ import kotlinx.serialization.json.JsonElement
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -58,6 +62,22 @@ class ChatViewModel(
         val isLoading: Boolean = false,
         /** Set when a surface could not be produced, so the screen can say so next to the reply. */
         val surfaceError: String? = null,
+        /**
+         * What the agent has done in the current turn.
+         *
+         * Folded from the turn's events by one shared rule, so that this screen and the
+         * external-agent screen agree on what a tool call update *does* to what is on
+         * screen — a call that is running and the same call finished are one card, not two.
+         */
+        val activity: AgentActivityState = AgentActivityState(),
+        /**
+         * How the last turn ended, or null while one is running.
+         *
+         * The outcome is set exactly once per turn, and it is the answer to "is this thing
+         * still going?" — a turn that ended without an outcome would leave the reader
+         * watching a spinner that no longer has anything behind it.
+         */
+        val turnOutcome: AgentTurnOutcome? = null,
     ) {
         /**
          * The input as the field's source.
@@ -133,6 +153,8 @@ class ChatViewModel(
                 input = current.input.cleared(),
                 isLoading = true,
                 surfaceError = null,
+                activity = AgentActivityState(),
+                turnOutcome = null,
                 messages = current.messages +
                     (
                         if (showUserMessage) {
@@ -147,17 +169,22 @@ class ChatViewModel(
             )
         }
 
-        val session: GenuiSession? = genui
-        if (session == null) {
-            streamTextReply(assistantId, prompt)
+        try {
+            val session: GenuiSession? = genui
+            if (session == null) {
+                streamTextReply(assistantId, prompt)
+            } else {
+                // A fresh identifier per answer: a surface belongs to the answer that drew it. Two
+                // answers sharing one identifier would make an older message redraw whatever the
+                // newest answer produced, and an answer with no screen would empty the one an older
+                // message points at.
+                renderSurfaceReply(assistantId, prompt, session, SurfaceId(newId()))
+            }
+        } finally {
+            // The loading state is cleared on every path, including a cancellation: a turn
+            // that was cancelled while the spinner was up must not leave the spinner up.
             updateState { it.copy(isLoading = false) }
-            return@launch
         }
-        // A fresh identifier per answer: a surface belongs to the answer that drew it. Two answers
-        // sharing one identifier would make an older message redraw whatever the newest answer
-        // produced, and an answer with no screen would empty the one an older message points at.
-        renderSurfaceReply(assistantId, prompt, session, SurfaceId(newId()))
-        updateState { it.copy(isLoading = false) }
     }
 
     /**
@@ -206,19 +233,77 @@ class ChatViewModel(
                 it.copy(surfaceError = "The screen could not be completed: ${outcome.feedback()}")
             }
         }
+        // The surface path produces an answer rather than a stream, so there is no completion
+        // event to wait for. The turn ended, and it ended with an answer on screen.
+        setOutcome(AgentTurnOutcome.Completed())
     }
 
+    // The cancellation is re-thrown after the outcome is recorded: the reader has to see
+    // the turn as cancelled, and the cancellation still has to reach the caller.
+    @Suppress("NoSwallowedCancellation", "TooGenericExceptionCaught")
     private suspend fun streamTextReply(assistantId: String, prompt: String) {
         val collected = StringBuilder()
-        runCatchingCancellable {
-            agent.streamChat(prompt).collect { chunk ->
-                collected.append(chunk)
-                applyReply(assistantId, collected.toString(), null)
+        var completed = false
+        try {
+            agent.streamChat(prompt).collect { event ->
+                when (event) {
+                    is AgentEvent.TextDelta -> {
+                        collected.append(event.text)
+                        applyReply(assistantId, collected.toString(), null)
+                    }
+
+                    is AgentEvent.ToolCallUpdated -> applyToolCall(event)
+
+                    is AgentEvent.PlanUpdated -> updateState { state ->
+                        state.copy(activity = state.activity + event)
+                    }
+
+                    AgentEvent.TurnCompleted -> completed = true
+                }
             }
-        }.onFailure { error ->
+        } catch (cancellation: CancellationException) {
+            // A cancelled turn is cancelled, not failed. The partial answer stays on screen.
+            setOutcome(AgentTurnOutcome.Cancelled)
+            throw cancellation
+        } catch (error: Throwable) {
             log.e(error) { "AI stream failed" }
             crashReporter.report(error, CHAT_STREAM_FAILED)
             emit(ChatUiEvent.Error(error.message ?: "AI request failed"))
+            setOutcome(AgentTurnOutcome.Failed(error.message ?: "AI request failed"))
+            return
+        }
+        // The stream ended without the completion event: the agent did not finish. Reporting
+        // that as a completed turn would tell the reader the answer is complete when it is
+        // not — and the missing text would be the very thing they needed to know.
+        if (!completed) {
+            setOutcome(AgentTurnOutcome.Failed("The response ended before it was complete."))
+        } else {
+            setOutcome(AgentTurnOutcome.Completed())
+        }
+    }
+
+    /**
+     * Records a tool call, or updates the card of one that is already known.
+     *
+     * The same call arrives twice — once when it starts, once when it finishes — and the two
+     * are one card. The rule that says so lives in the activity's `plus`, because the
+     * external-agent screen will fold its events the same way.
+     */
+    private fun applyToolCall(event: AgentEvent.ToolCallUpdated) {
+        updateState { state ->
+            state.copy(activity = state.activity + event)
+        }
+    }
+
+    /**
+     * Sets the turn's outcome, once.
+     *
+     * The guard is the guarantee: a late event arriving after the turn ended cannot change
+     * how it ended, and a second failure cannot overwrite the first.
+     */
+    private fun setOutcome(outcome: AgentTurnOutcome) {
+        updateState { state ->
+            if (state.turnOutcome != null) state else state.copy(turnOutcome = outcome)
         }
     }
 

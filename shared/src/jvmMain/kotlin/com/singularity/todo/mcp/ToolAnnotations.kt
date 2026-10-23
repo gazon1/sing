@@ -7,12 +7,10 @@ import io.modelcontextprotocol.kotlin.sdk.types.ToolAnnotations as McpToolAnnota
  * Extension to convert a [ToolAnnotations][com.singularity.todo.mcp.ToolAnnotations]
  * to the MCP SDK [McpToolAnnotations] type.
  */
-fun ToolAnnotations.toMcpAnnotations(): McpToolAnnotations {
-    return McpToolAnnotations(
-        title = "",
-        readOnlyHint = readOnlyHint,
-        destructiveHint = destructiveHint,
-        idempotentHint = idempotentHint,
-        openWorldHint = openWorldHint,
-    )
-}
+fun ToolAnnotations.toMcpAnnotations(): McpToolAnnotations = McpToolAnnotations(
+    title = "",
+    readOnlyHint = readOnlyHint,
+    destructiveHint = destructiveHint,
+    idempotentHint = idempotentHint,
+    openWorldHint = openWorldHint,
+)

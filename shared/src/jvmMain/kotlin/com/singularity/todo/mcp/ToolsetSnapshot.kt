@@ -2,12 +2,11 @@ package com.singularity.todo.mcp
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.config.RemoteConfigSnapshot
+import com.singularity.todo.core.process.Subprocess
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.ai.McpToolCatalog
 import java.io.File
-import java.io.IOException
 import java.security.MessageDigest
-
 
 /**
  * How the tool configuration was obtained.
@@ -193,22 +192,21 @@ object ToolboxIdentityFactory {
      * Git may be absent (a packaged server runs outside a development machine), and a
      * failure here is not an error — it means the checkout is unknown, which the report
      * says as "unknown" rather than as a failure to start.
+     *
+     * The command goes through [Subprocess], because that is where every subprocess in
+     * this repository goes: the shared runner drains the child's output and waits for it
+     * in the order that cannot deadlock, and this file is inside `:shared` now — which
+     * is what the confinement rule checks.
      */
-    private fun runGit(root: File, vararg args: String): String? = try {
-        val process = ProcessBuilder(listOf("git", *args))
-            .directory(root)
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().readText().trim()
-        if (process.waitFor() == 0) output.ifEmpty { null } else null
-    } catch (e: IOException) {
-        // Git is not installed, or the process could not be started. The checkout is
-        // unknown; that is an answer, not a failure — but it is worth saying once.
-        log.d(e) { "Could not run git; the checkout will be reported as unknown" }
-        null
-    } catch (e: InterruptedException) {
-        Thread.currentThread().interrupt()
-        null
+    private fun runGit(root: File, vararg args: String): String? {
+        val output = Subprocess.runCapturing(listOf("git", *args), workingDirectory = root)
+        if (output == null) {
+            // Git is not installed, or the command failed. The checkout is unknown; that
+            // is an answer, not a failure — but it is worth saying once.
+            log.d { "Could not run git; the checkout will be reported as unknown" }
+            return null
+        }
+        return output.trim().ifEmpty { null }
     }
 
     private fun sha256(text: String): String {

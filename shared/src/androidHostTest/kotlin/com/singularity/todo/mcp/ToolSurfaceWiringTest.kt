@@ -7,6 +7,7 @@ import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.feature.ai.McpToolCatalog
+import com.singularity.todo.feature.ai.WriteBehavior
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.test.fakes.FakeSecureStorage
 import kotlin.test.assertEquals
@@ -97,6 +98,27 @@ class ToolSurfaceWiringTest {
                     tool.descriptor.description.isNotBlank(),
                     "${tool.descriptor.name} has no description; the agent would be told nothing",
                 )
+            }
+
+            // ─── How each tool writes ───────────────────────────────────────────
+            //
+            // The same checks the JVM copy makes. The two lists are separate files, and a
+            // rule that is checked on one platform only is a rule that is checked on one
+            // platform only.
+            for (entry in declared) {
+                when (entry.writeBehavior) {
+                    WriteBehavior.DIRECT_WRITE_EXCEPTION -> assertTrue(
+                        !entry.exceptionReason.isNullOrBlank(),
+                        "${entry.name} writes directly and says nothing about why it sits " +
+                            "outside the proposal pipeline",
+                    )
+
+                    else -> assertTrue(
+                        entry.exceptionReason == null,
+                        "${entry.name} is ${entry.writeBehavior} and still carries an " +
+                            "exception reason",
+                    )
+                }
             }
         } finally {
             app.close()

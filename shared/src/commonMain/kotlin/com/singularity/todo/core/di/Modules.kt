@@ -1,33 +1,20 @@
 package com.singularity.todo.core.di
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
-import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.coroutines.createBackgroundScope
-import com.singularity.todo.core.database.ProfileDao
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendar_sync.di.calendarSyncModule
 import com.singularity.todo.core.work.backgroundWorkModule
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.profile.ProfileRepositoryImpl
-import com.singularity.todo.core.sync.SyncScopeProvider
-import com.singularity.todo.feature.profile.domain.port.ProfileRepository
-import com.singularity.todo.feature.profile.presentation.AccountSettingsViewModel
-import com.singularity.todo.feature.profile.presentation.ChangePasswordViewModel
+import com.singularity.todo.feature.profile.ProfileId
+import com.singularity.todo.feature.profile.profileModule
 import com.singularity.todo.feature.proposals.proposalModule
 import com.singularity.todo.feature.genui.di.genuiModule
 import com.singularity.todo.feature.nav.deeplink.deepLinkModule
 import com.singularity.todo.feature.whatsnew.di.whatsNewModule
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
-import kotlin.time.Clock
 
 /**
  * Logging module — Koin + Kermit integration.
@@ -44,11 +31,13 @@ fun coreLoggingModule(): Module = module {
  * inside a `module {}` block creates child scopes whose bindings are NOT visible
  * to sibling modules at the parent level (Koin 4 scope isolation).
  *
- * Profile bindings (ProfileRepository, ProfileAwareCurrentUser) are inlined here
- * as direct `single {}` calls rather than via a separate `profileModule()` to
- * ensure they are registered at root scope.
+ * @param fixedProfileId the profile every process built from this list works as.
+ *   Null — the ordinary case — means the process uses the application's stored active
+ *   profile. A non-null value means the process was told which profile to serve, and it
+ *   must not open the store that holds the active one: the store takes a file lock, and
+ *   the application is holding it.
  */
-fun domainModule(): List<Module> = buildList {
+fun domainModule(fixedProfileId: ProfileId? = null): List<Module> = buildList {
     add(tasksModule())
     add(projectsModule())
     add(notesModule())
@@ -60,58 +49,11 @@ fun domainModule(): List<Module> = buildList {
     add(proposalModule())
     add(calendarSyncModule())
     add(backgroundWorkModule())
-    // Profile bindings — inlined here (NOT via profileModule()) so they land at root scope.
-    // profileModule() wrapped its bindings in module {} which created a child scope.
-    add(
-        module {
-            single<ProfileRepository> {
-                ProfileRepositoryImpl(
-                    get<ProfileDao>(),
-                    get<DataStore<Preferences>>(),
-                    get<Clock>(),
-                    createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>())),
-                )
-            }
-            single<ProfileAwareCurrentUser> {
-                ProfileAwareCurrentUser(
-                    get<CurrentUser>(),
-                    get<ProfileRepository>(),
-                    createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>())),
-                )
-            }
-            factory { com.singularity.todo.feature.profile.ProfileBootstrapper(get()) }
-            // Explicit lambda (not viewModelOf(::AccountSettingsViewModel)): Koin's reflective
-            // constructor resolution does NOT apply Kotlin default arguments. The constructor
-            // has defaults for crashReporter and scope, and viewModelOf fails to resolve them
-            // because reportingScope(get()) cannot be called reflectively. The explicit lambda
-            // applies Kotlin defaults at the call site. See #662.
-            //
-            // Only `crashReporter` is passed, and it is passed by name. `scope` is left to
-            // its own default, `reportingScope(crashReporter)` — passing a scope resolved
-            // independently is what `NoDivergentScopeAndReporter` is about, and the two
-            // custom rules together ask for exactly this shape: a named reporter, no
-            // separately-chosen scope.
-            viewModel {
-                AccountSettingsViewModel(
-                    profileRepository = get(),
-                    crashReporter = get(),
-                )
-            }
-            // Same issue as above: ChangePasswordViewModel has defaults for crashReporter and scope.
-            viewModel {
-                ChangePasswordViewModel(
-                    authRepository = get(),
-                    crashReporter = get(),
-                )
-            }
-
-            // The sync scope is the one place that needs both the session and the
-            // profile, which is why it is bound here and not in coreModule(): sync
-            // state is keyed by (owner, profile), and neither half identifies a scope
-            // on its own.
-            single<SyncScopeProvider> { AuthProfileSyncScopeProvider(get(), get()) }
-        },
-    )
+    // Profile bindings. Added to this list, NOT included: an included module creates a
+    // child scope whose bindings the sibling modules above cannot see. The first attempt
+    // at this arrangement included it, and the profile bindings vanished for every module
+    // that needed them.
+    add(profileModule(fixedProfileId))
     add(coreModule())
     add(syncModule())
     add(aiToolsModule())

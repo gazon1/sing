@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.Tool
 import ai.koog.serialization.JSONObject
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import com.singularity.todo.core.ai.filterTools
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.ToolCallContext
 import com.singularity.todo.core.observability.ToolCallError
 import com.singularity.todo.core.observability.ToolCallRecorder
@@ -20,12 +21,11 @@ import io.modelcontextprotocol.kotlin.sdk.types.TaskSupport
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolExecution
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-
 
 /**
  * Bridges Koog [SimpleTool] instances to the MCP [Server] tool registry.
@@ -202,7 +202,7 @@ class ToolRegistrar(
         else -> ToolCallError("internal", business = false)
     }
 
-    @Suppress("UNCHECKED_CAST")
+    @Suppress("UNCHECKED_CAST", "TooGenericExceptionCaught")
     private suspend fun dispatch(tool: Tool<*, *>, request: CallToolRequest): CallToolResult {
         val koogArgs: JSONObject = request.arguments?.let { args ->
             JSONObject(args.mapValues { (_, v) -> v.toKoog() })
@@ -214,7 +214,7 @@ class ToolRegistrar(
 
             val resultString: String = koogTool.execute(args)
 
-            val structuredContent = runCatching {
+            val structuredContent = runCatchingCancellable {
                 json.parseToJsonElement(resultString).jsonObject
             }.getOrNull()
 
@@ -223,6 +223,10 @@ class ToolRegistrar(
                 structuredContent = structuredContent,
                 isError = false,
             )
+        } catch (cancellation: CancellationException) {
+            // A cancelled call is not a failed call: the caller cancelled it, and the
+            // cancellation has to reach it.
+            throw cancellation
         } catch (e: McpToolError) {
             // Two-tier error model: business errors surface as isError=true text
             // (LLM can read & self-correct); Internal errors become JSON-RPC -32603

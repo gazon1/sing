@@ -272,6 +272,9 @@ object TagsMd {
 
         "genUi" -> DynamicMeta(fnName, "AI", "whatsnew", "GenUI surfaces")
 
+        "acpAgentChip" ->
+            DynamicMeta(fnName, "AI", "gemini-cli", "The chip that selects one agent of the registry")
+
         "tagRename" -> DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card")
 
         "tagOpen" -> DynamicMeta(fnName, "Tags", "inbox", "Tag chips that navigate to the tag view")
@@ -369,6 +372,14 @@ object TagsMd {
         "PROFILE_" to "Profile",
         "SETTINGS_" to "Settings",
         "GENUI_" to "AI",
+        // The activity cards an agent's turn draws — the tool calls it made, the plan it
+        // published. The same cards appear in the built-in chat and on the external
+        // agent's screen, so one tag names a thing both draw, and both file under AI.
+        "AGENT_" to "AI",
+        // The external-agent screen: the registry, the command it is about to run, the
+        // permission sheet. It hosts a third-party agent, so it belongs with the AI rows
+        // rather than under a heading of its own.
+        "ACP_" to "AI",
         "CALENDAR_" to "Calendar",
         "SEARCH_" to "Search",
         "PROJECT_" to "Projects",

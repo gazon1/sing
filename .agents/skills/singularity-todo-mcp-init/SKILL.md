@@ -34,6 +34,7 @@ class McpInitCommand(
     private val workspaceRoot: Path,
     private val tools: List<ToolInfo>,
     private val profileName: String,
+    private val profileId: String,
 ) {
     /**
      * Run `mcp-server --init` to:
@@ -58,6 +59,7 @@ class McpInitCommand(
             put("version", "1.0")
             put("name", "singularity-todo")
             put("profile", profileName)
+            put("profileId", profileId)
             putArray("tools") {
                 tools.forEach { tool ->
                     addJsonObject {
@@ -78,9 +80,9 @@ class McpInitCommand(
         val section = buildString {
             appendLine("## MCP Server — Singularity Todo")
             appendLine()
-            appendLine("**Profile:** `$profileName`")
+            appendLine("**Profile:** `$profileName` (`$profileId`)")
             appendLine()
-            appendLine("**MCP Server:** `./gradlew :mcp-server:run --quiet --args=--profile=$profileName`")
+            appendLine("**MCP Server:** `./gradlew :mcp-server:run --quiet --args=--profile-id=$profileId`")
             appendLine()
             appendLine("### Available Tools")
             appendLine()
@@ -97,7 +99,7 @@ class McpInitCommand(
             appendLine("```toml")
             appendLine("[[servers]]")
             appendLine("name = \"singularity-todo-$profileName\"")
-            appendLine("command = [\"./gradlew\", \":mcp-server:run\", \"--quiet\", \"--args=--profile=$profileName\"]")
+            appendLine("command = [\"./gradlew\", \":mcp-server:run\", \"--quiet\", \"--args=--profile-id=$profileId\"]")
             appendLine("```")
             appendLine()
         }
@@ -125,25 +127,32 @@ data class ToolInfo(
 )
 ```
 
-## `--init` vs `--profile`
+## `--init` vs `--profile-id`
 
 Both are `--args` flags passed to `main()`:
 
 | Flag | Purpose |
 |---|---|
 | `--init` | Write manifest + update AGENTS.md. Exit immediately after. |
-| `--profile=NAME` | Start MCP server with profile `NAME` active. |
-| `--profile=NAME --init` | Both: start with profile AND write manifest. |
+| `--profile-id=ID` | Start MCP server working as the profile `ID`. |
+| `--profile-id=ID --init` | Both: start with that profile AND write manifest. |
+
+**`--profile=NAME` is deprecated.** It keeps its legacy label meaning — the agent label
+activates that profile, and any other label is ignored — and it is still accepted so
+distributed manifests in the wild keep working. It is not the way to point a new
+manifest at a profile: a label nobody recognises does nothing at all, so a manifest
+carrying a typo serves the wrong profile silently. Write `--profile-id` with the
+profile's id.
 
 ```kotlin
 fun main(args: Array<String>): Unit = runBlocking {
-    val profileArg = args.argOrNull("--profile") ?: "default"
+    val profileArg = args.argOrNull("--profile-id") ?: "default"
     val shouldInit = args.has("--init")
     val profileId = resolveProfile(profileArg)
 
     if (shouldInit) {
         val tools = discoverTools()
-        val cmd = McpInitCommand(workspaceRoot, tools, profileArg)
+        val cmd = McpInitCommand(workspaceRoot, tools, profileArg, profileId)
         val result = cmd.run()
         System.err.println("""
             |✅ MCP manifest written to: ${result.manifestWritten}
@@ -152,7 +161,7 @@ fun main(args: Array<String>): Unit = runBlocking {
             |Next steps:
             |  1. Add to ~/.zcode/mcp/servers.toml (see AGENTS.md)
             |  2. Restart ZCode / Claude Code
-            |  3. Run: ./gradlew :mcp-server:run --quiet --args=--profile=$profileArg
+            |  3. Run: ./gradlew :mcp-server:run --quiet --args=--profile-id=$profileId
         """.trimMargin())
         return@runBlocking
     }
@@ -170,6 +179,7 @@ The `.mcp/mcp.json` file is recognized by some MCP clients (Claude Desktop, Curs
   "version": "1.0",
   "name": "singularity-todo",
   "profile": "ai-agent",
+  "profileId": "01J8Z4K2QF3W7YH9M5N6PQRSTV",
   "tools": [
     {
       "name": "tasks.create",
@@ -202,7 +212,7 @@ The `.mcp/mcp.json` file is recognized by some MCP clients (Claude Desktop, Curs
 | `bd init` | `mcp-server --init` |
 | `AGENTS.md` auto-update | `AGENTS.md` section appended |
 | `.beads/` dir | `.mcp/mcp.json` manifest |
-| `--server` / `--stealth` modes | `--profile=NAME` |
+| `--server` / `--stealth` modes | `--profile-id=ID` |
 | `bd setup claude` | ZCode config in `~/.zcode/mcp/servers.toml` |
 | ContextVar per workspace | `profileId` passed via `--args` |
 
@@ -213,17 +223,22 @@ When `--init` is called with a profile, the manifest and AGENTS.md section are p
 ```
 AGENTS.md
 ├── ## MCP Server — Singularity Todo
-│   └── **Profile:** `ai-agent`
+│   └── **Profile:** `ai-agent` (`01J8Z4K2QF3W7YH9M5N6PQRSTV`)
 │   └── Tool list (ai-agent specific)
-│   └── ZCode config pointing to --profile=ai-agent
+│   └── ZCode config pointing to --profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTV
 │
 └── ## MCP Server — Singularity Todo (personal)
-    └── **Profile:** `personal`
+    └── **Profile:** `personal` (`01J8Z4K2QF3W7YH9M5N6PQRSTW`)
     └── Tool list (personal specific)
-    └── ZCode config pointing to --profile=personal
+    └── ZCode config pointing to --profile-id=01J8Z4K2QF3W7YH9M5N6PQRSTW
 ```
 
 Users can have **two MCP servers** in ZCode simultaneously — one for `ai-agent` profile, one for `personal`. Tools from both are available.
+
+**The manifest points at the profile id, not the name.** A name is a label, and the
+server's legacy label mode only recognises a couple of them — anything else is ignored,
+so a manifest carrying a wrong name serves the wrong profile without a word about it.
+The id names a profile exactly.
 
 ## Common Mistakes
 

@@ -141,6 +141,15 @@ fun DesktopShellNav3Root(
                     }
                 },
             )
+            subMenu(
+                "agent",
+                "Agent",
+                children = buildMenuNodes {
+                    item("external_agent", "External Agent…") {
+                        navigator.open(AppDestination.ExternalAgent)
+                    }
+                },
+            )
             subMenu("view", "View", children = viewItems)
             subMenu(
                 "help",

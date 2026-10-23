@@ -103,6 +103,17 @@ play-app-update = "2.1.0"
 # AI Agent Framework (JetBrains Koog)
 koog = "1.1.1"
 
+# Agent Client Protocol — the client half of the ACP protocol.
+#
+# EXACT PIN on purpose: this is a 0.x SDK (ten releases in the version list when
+# 0.34.0 was adopted), so a range would let a minor bump change the wire format
+# under us. Bump it deliberately, one version at a time, and re-read the client
+# interfaces before the build — AcpClient.kt is the only file that imports it.
+#
+# Only the v1 packages are used (`com.agentclientprotocol.model`, not `model.v2`):
+# v2 is draft, and every v2 type this feature would want is @UnstableApi.
+acp = "0.34.0"
+
 # Coil
 coil = "3.6.1"
 
@@ -286,6 +297,11 @@ koog-prompt-executor-openai-client-jvm = { module = "ai.koog:prompt-executor-ope
 koog-prompt-llm = { module = "ai.koog:prompt-llm", version.ref = "koog" }
 koog-prompt-executor-model = { module = "ai.koog:prompt-executor-model", version.ref = "koog" }
 koog-http-client-okhttp = { module = "ai.koog:http-client-okhttp", version.ref = "koog" }
+
+# Agent Client Protocol — client half. JVM-only: the SDK needs JDK 21, and this
+# project keeps the Android target at JVM_11 bytecode.
+acp = { module = "com.agentclientprotocol:acp", version.ref = "acp" }
+acp-model = { module = "com.agentclientprotocol:acp-model", version.ref = "acp" }
 
 # MCP server
 kotlin-sdk = { module = "io.modelcontextprotocol:kotlin-sdk", version.ref = "kotlinSdk" }

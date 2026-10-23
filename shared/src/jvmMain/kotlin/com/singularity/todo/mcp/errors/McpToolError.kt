@@ -20,11 +20,7 @@ sealed class McpToolError : Throwable() {
      * [cause] carries the failure that produced it: the caller's answer says what was
      * wrong with the arguments, and the stack trace says which reader produced them.
      */
-    data class Validation(
-        val field: String,
-        val text: String,
-        override val cause: Throwable? = null,
-    ) : McpToolError()
+    data class Validation(val field: String, val text: String, override val cause: Throwable? = null) : McpToolError()
 
     /** Requested resource does not exist in the user's data. */
     data class NotFound(val resource: String, val id: String) : McpToolError()

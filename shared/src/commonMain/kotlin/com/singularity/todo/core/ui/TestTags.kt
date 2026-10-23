@@ -887,6 +887,47 @@ object TestTags {
     const val CHAT_NOTIFICATION_HOST = "chat_notification_host"
     const val ARCHIVE_NOTIFICATION_HOST = "archive_notification_host"
 
+    // ─── Agent activity ─────────────────────────────────────────────────────
+    //
+    // The cards that show what an agent did. Shared by the built-in chat and the
+    // external-agent screen, so a tag here names a thing both screens draw.
+
+    const val AGENT_TOOL_CALL_CARD = "agent_tool_call_card"
+    const val AGENT_TOOL_CALL_STATUS = "agent_tool_call_status"
+    const val AGENT_TOOL_CALL_SUMMARY = "agent_tool_call_summary"
+    const val AGENT_TOOL_CALL_SUMMARY_TOGGLE = "agent_tool_call_summary_toggle"
+    const val AGENT_PLAN_CARD = "agent_plan_card"
+
+    // ─── External agent ─────────────────────────────────────────────────────
+    //
+    // The screen that hosts a third-party agent. The command tag matters more
+    // than it looks: the command is what the application is about to run, and a
+    // test that asserts it is on screen is a test that the reader can see it too.
+
+    const val ACP_SCREEN = "acp_screen"
+    const val ACP_MESSAGES = "acp_messages"
+    const val ACP_AGENT_LIST = "acp_agent_list"
+    const val ACP_AGENT_COMMAND = "acp_agent_command"
+    const val ACP_BACK_BUTTON = "acp_back_button"
+    const val ACP_CONNECT_BUTTON = "acp_connect_button"
+    const val ACP_DISCONNECT_BUTTON = "acp_disconnect_button"
+    const val ACP_CONNECTING = "acp_connecting"
+    const val ACP_CONNECTION_STATUS = "acp_connection_status"
+    const val ACP_CONNECTION_ERROR = "acp_connection_error"
+    const val ACP_NO_TOOL_ACCESS_WARNING = "acp_no_tool_access_warning"
+    const val ACP_PERMISSION_SHEET = "acp_permission_sheet"
+    const val ACP_PERMISSION_ALLOW = "acp_permission_allow"
+    const val ACP_PERMISSION_DENY = "acp_permission_deny"
+    const val ACP_CANCEL_BUTTON = "acp_cancel_button"
+    const val ACP_TURN_FAILED = "acp_turn_failed"
+    const val ACP_TURN_CANCELLED = "acp_turn_cancelled"
+    const val ACP_NOTIFICATION_HOST = "acp_notification_host"
+
+    const val ACP_AGENT_CHIP_PREFIX = "acp_agent_chip_"
+
+    /** The chip that selects one agent of the registry. */
+    fun acpAgentChip(agentId: String) = "${ACP_AGENT_CHIP_PREFIX}${slug(agentId)}"
+
     // ─── Backup ─────────────────────────────────────────────────────────────
     const val BACKUP_TOP_BAR_BACK = "backup_top_bar_back"
     const val BACKUP_CREATE_BUTTON = "backup_create_button"
