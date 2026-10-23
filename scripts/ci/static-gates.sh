@@ -313,18 +313,18 @@ gate blocking "profile reset inventory is true" python3 scripts/ci/check-profile
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).
 gate advisory "git hooks path is per-worktree" sgate git_hooks_path_is_per_worktree
-# The pre-push hook judges three gates of forty-one and the detekt modules a
-# change reaches; the CI judges every module. Both numbers were lines in a
-# bash script, and nothing compared them with the other side — so "detekt" in
-# the hook read as "detekt" over the whole tree, and a violation in an
-# untouched module looked like it would be caught locally.
-#
-# The difference is written down — config/hooks/pre-push.json — and this gate
-# checks that the code still matches the record, in both directions: a gate the
-# record names and the hook does not run, a script the hook runs and the record
-# does not name, a module the CI judges and the record does not list. The
-# partiality is part of the record, because an unwritten partiality reads as a
-# full one.
+# # The pre-push hook judges three gates of forty-one and the detekt modules a
+# # change reaches; the CI judges every module. Both numbers were lines in a
+# # bash script, and nothing compared them with the other side — so "detekt" in
+# # the hook read as "detekt" over the whole tree, and a violation in an
+# # untouched module looked like it would be caught locally.
+# #
+# # The difference is written down — config/hooks/pre-push.json — and this gate
+# # checks that the code still matches the record, in both directions: a gate the
+# # record names and the hook does not run, a script the hook runs and the record
+# # does not name, a module the CI judges and the record does not list. The
+# # partiality is part of the record, because an unwritten partiality reads as a
+# # full one.
 gate blocking "hook gates are declared once" sgate hook_gates_are_declared_once
 gate blocking "unwired surfaces" sgate unwired_surfaces
 gate blocking "settings read by a feature" sgate settings_read_by_a_feature

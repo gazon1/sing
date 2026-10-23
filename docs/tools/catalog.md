@@ -24,6 +24,7 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/check-gate-tooling-origin.py` | check-gate-tooling-origin.py — the gate CLI must serve THIS checkout. |
 | `scripts/check-gate-wiring.py` | check-gate-wiring.py — prove the gates exist AND that they can fail. |
 | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is noise. |
+| `scripts/check-hook-gates.py` | check-hook-gates.py — the hook and CI must not drift apart silently. |
 | `scripts/check-hooks-path.py` | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#519). |
 | `scripts/check-instrumented-test-floor.py` | check-instrumented-test-floor.py — the instrumented suite's floor, and the ratchet on it. |
 | `scripts/check-issue-registry.py` | check-issue-registry.py — every OpenSpec change has an entry in the issue registry. |

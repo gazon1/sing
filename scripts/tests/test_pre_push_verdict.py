@@ -20,6 +20,7 @@ The properties:
 
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -55,6 +56,7 @@ esac
 class VerdictTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-verdict-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
@@ -151,6 +153,7 @@ class ModuleSelectionTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-modules-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
