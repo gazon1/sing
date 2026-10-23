@@ -60,10 +60,19 @@ allprojects {
 // Symptom of trying to use it: every reference inside the `kover { }` block
 // (`reports`, `total`, `xml`, `verify`, `rule`, `minBound`) is "Unresolved".
 //
-// The only way to configure kover verify rules on the root project is through
+// The only way to configure kover verify rules on the root project WAS through
 // `plugins.withId("org.jetbrains.kotlinx.kover") { configure<KoverProjectExtension> { ... } }`
-// — see below. That block is evaluated DEFERRED (when the plugin is attached), which
-// is why it works while the DSL block above does not.
+// — a deferred block, evaluated when the plugin is attached, which is why it
+// worked while the DSL block above did not. That block is GONE: it is where the
+// app's coverage floors used to live, and the floors it declared were never
+// evaluated by anything, so the rule was a number in a file that no task read.
+// The floors now live in `settings.gradle.kts`, in the aggregation plugin's own
+// settings-level block, which is where the plugin reads them. See
+// docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md.
+//
+// The root build script still owns the REPORT: `koverReport` is the task that
+// runs every JVM test task and merges their execution data, and `:koverVerify`
+// depends on it, so the verification reads the same report the run produced.
 //
 // `:koverXmlReport` alone is NOT enough, and this is not obvious. Kover's aggregation
 // plugin picks up whichever `Test` tasks happen to be in the task graph

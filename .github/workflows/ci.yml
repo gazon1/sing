@@ -272,9 +272,10 @@ jobs:
     # 75 minutes, and the number is measured: the instrumented coverage run —
     # the one the Kover agent multiplies — takes 37 min 25 s for the fast
     # population and 33 min 23 s for the full one on the 16-vCPU development
-    # host (config/docs/coverage-cost.properties, published in
-    # docs/testing/gate-costs.md). This runner has 4 vCPUs, so the same run is
-    # slower here, and the full population runs more tests than the fast one.
+    # host (the measurements are recorded in
+    # openspec/changes/ci-fast-only-pr-full-on-schedule/tasks.md, section 8).
+    # A timeout has to cover the runner as well as the run, and this job's
+    # runner is not the machine the number was measured on.
     #
     # The old 40 minutes was not enough for the full population, and a timeout
     # that fires on a healthy run reports a failure that says nothing about the

@@ -109,14 +109,21 @@ val measuredFullPopulation = testTags.split(",").any { it.trim() == "slow" }
 // same contract as DETEKT_RULE_BRANCH_FLOOR's in detekt-rules/build.gradle.kts: the build
 // file is the claim, and the claim is checked where it is made.
 //
-// FULL population — measured 2026-10-15 on the full run: 27.6 instruction / 20.7 branch
-// / 27.4 line.
+// FULL population — the floor this repository carried before the split, measured
+// 2026-10-15: 27.6 instruction / 20.7 branch / 27.4 line.
 //
-// The floor stays at those numbers, deliberately. A later full run (2026-10-22,
-// `-Ptest.tags=fast,slow`) measured 55.89 / 40.45 / 57.23 — roughly twice as much —
-// and the 2026-10-15 figures are almost exactly what the FAST population measures
-// today (27.73 / 23.23 / 31.26), which says the 2026-10-15 "full" measurement was
-// not a full-population measurement.
+// The floor stays at those numbers, deliberately, and the next paragraph says why
+// that is a weaker claim than the label above used to make: a later full run
+// (2026-10-22, `-Ptest.tags=fast,slow`) measured 55.89 / 40.45 / 57.23 — roughly
+// twice as much — and the 2026-10-15 figures are almost exactly what the FAST
+// population measures today (27.73 / 23.23 / 31.26), which says the 2026-10-15
+// "full" measurement was not a full-population measurement.
+//
+// So this floor is a floor the fast population's own measurement justifies,
+// applied to the full population as well: a number both populations meet, rather
+// than a number measured on this one. It is deliberately not the strictest
+// reading of the requirement — a floor rewritten only from a measurement of its
+// own population — and that gap is stated here rather than hidden in a label.
 //
 // Raising the floor to the newer numbers is a POLICY decision, not a measurement:
 // the floor is the minimum acceptable coverage, and the nightly would then fail on

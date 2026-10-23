@@ -88,7 +88,11 @@ fi
 #    No — three parents would each hold a slot and wait for their children to
 #    take one, and the pool would deadlock on itself.
 if [[ "${SINGULARITY_GRADLE_SLOT_HELD:-}" == "1" ]]; then
-    exec "$@"
+    # `9>&-` here too: the outer process still holds the lock descriptor, and a
+    # child that inherits it keeps the slot busy for as long as the child runs —
+    # the lock would be released when the grandchild exits, not when the slot's
+    # own build does.
+    exec "$@" 9>&-
 fi
 
 # 2. CI: one checkout per runner, but the jobs on it run in parallel — they
