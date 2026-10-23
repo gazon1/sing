@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda
 
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -18,7 +17,6 @@ import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,10 +91,10 @@ class SavedAgendaListViewModelTest {
     // after `factory`, which blocks trailing-lambda syntax for factory.
     private fun TestScope.testVm(deps: SavedAgendaListDeps) = testVm(
         stateAccessor = { vm: SavedAgendaListViewModel -> vm.stateFlow },
-        factory = { ts, _ ->
+        factory = { scope ->
             SavedAgendaListViewModel(
                 deps = deps,
-                scope = AutoCloseableCoroutineScope(ts.coroutineContext + Job()),
+                scope = scope,
             )
         },
     )
@@ -110,10 +108,10 @@ class SavedAgendaListViewModelTest {
         afterInit = { vm, bgScope ->
             bgScope.launch { vm.events.collect { events += it } }
         },
-        factory = { ts, _ ->
+        factory = { scope ->
             SavedAgendaListViewModel(
                 deps = deps,
-                scope = AutoCloseableCoroutineScope(ts.coroutineContext + Job()),
+                scope = scope,
             )
         },
     )

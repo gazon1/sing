@@ -2,23 +2,69 @@
 
 package com.singularity.todo.test.helpers
 
+import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.coroutines.testScope
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 
 /**
- * Creates a [TestVmContext] by instantiating [factory] with the test's [TestScope]
- * and [backgroundScope][TestScope.backgroundScope], then advancing the virtual clock
- * to the first idle point.
+ * Where the ViewModel under test runs.
+ *
+ * ## Why this is a name and not a scope
+ *
+ * The harness used to hand the test two scopes — the test's own and the background
+ * one — and let the test pick the one the ViewModel would live in. That is a
+ * choice the test cannot make correctly on its own: the right scope depends on
+ * what the ViewModel collects, and a test that picks the wrong one does not fail
+ * where the mistake is. It fails as a hang, or as a state that never changes, or
+ * — worse — as a test that passes because nothing ran.
+ *
+ * So the harness owns the vocabulary. The test says *what kind of ViewModel it is
+ * testing* — one whose work ends, or one whose collector never ends — and the
+ * harness builds the scope that kind needs.
+ */
+enum class VmScope {
+
+    /**
+     * The ViewModel's work is the test's work.
+     *
+     * For a ViewModel whose collectors end, or that are suspended on something
+     * that never arrives: [advanceUntilIdle] drives them, and the state the test
+     * asserts on is the state the ViewModel produced.
+     *
+     * The job hangs off the background scope's job, so the ViewModel's work stops
+     * when the test ends — the test does not have to remember to cancel it, and
+     * closing the ViewModel does not cancel the test.
+     */
+    Foreground,
+
+    /**
+     * The ViewModel's work does not hold the test open.
+     *
+     * For a ViewModel whose collector never ends *and* keeps producing work: the
+     * background scope's marker keeps that work out of [advanceUntilIdle]'s way,
+     * so the test is not held open by a collector that will never finish.
+     *
+     * The state a ViewModel in this scope produces is only as fresh as the test
+     * makes it — the test has to say what it waits for.
+     */
+    Background,
+}
+
+/**
+ * Creates a [TestVmContext] by instantiating [factory] with the scope the
+ * [vmScope] asks for, then advancing the virtual clock to the first idle point.
  *
  * Usage — simple VM test (no event-listening):
  * ```
  * val ctx = testVm(
  *     stateAccessor = { vm: SettingsViewModel -> vm.state },
- * ) { testScope, _ ->
- *     SettingsViewModel(deps = deps, scope = testScope)
+ * ) { scope ->
+ *     SettingsViewModel(deps = deps, scope = scope)
  * }
  * ctx.act { it.onIntent(SettingsIntent.DarkThemeToggled) }
  * ctx.assertIs<SettingsUiState.Content>()
@@ -32,28 +78,29 @@ import kotlinx.coroutines.test.runCurrent
  *     afterInit = { vm, bgScope ->
  *         bgScope.launch { vm.events.collect { events += it } }
  *     },
- * ) { testScope, _ ->
- *     SavedAgendaViewModel(deps = deps, scope = testScope)
+ * ) { scope ->
+ *     SavedAgendaViewModel(deps = deps, scope = scope)
  * }
  * ctx.act { it.onIntent(SavedAgendaIntent.Delete) }
  * assertTrue(events.any { it is SavedAgendaEvent.DeleteSuccess })
  * ```
  *
  * @param stateAccessor Lambda that extracts the [StateFlow] from the VM (e.g. `::{state}`).
+ * @param vmScope Where the ViewModel runs. The harness builds the scope; the test
+ *     says which kind of ViewModel it is testing.
  * @param afterInit Optional callback called after [advanceUntilIdle] — use to set up
  *     event listeners on `bgScope` before the first [act] call. Receives the
  *     already-created [VM] and `bgScope`.
- * @param factory Called with `testScope` ([this] — the [TestScope]) and `bgScope`
- *     ([TestScope.backgroundScope]) as arguments. Use `testScope` for the VM's `scope`
- *     parameter. Use `bgScope` for long-running collectors (e.g. `vm.events`).
- *     Positioned last so that the trailing-lambda call syntax works without named args.
+ * @param factory Called with the scope the [vmScope] asks for. The ViewModel's `scope`
+ *     parameter takes it; nothing else does.
  */
 fun <VM, S> TestScope.testVm(
     stateAccessor: (VM) -> StateFlow<S>,
+    vmScope: VmScope = VmScope.Foreground,
     afterInit: (VM, bgScope: CoroutineScope) -> Unit = { _, _ -> },
-    factory: (testScope: TestScope, bgScope: CoroutineScope) -> VM,
+    factory: (scope: AutoCloseableCoroutineScope) -> VM,
 ): TestVmContext<VM, S> {
-    val vm = factory(this, backgroundScope)
+    val vm = factory(scopeFor(vmScope))
     advanceUntilIdle()
     // advanceUntilIdle() stops as soon as there is no *foreground* work left, so a
     // collector that runs in the background scope — which is where a collector that
@@ -67,39 +114,20 @@ fun <VM, S> TestScope.testVm(
 }
 
 /**
- * Backward-compatible overload for tests that need the factory called BEFORE
- * [advanceUntilIdle]. This is required for VMs with never-ending collectors
- * (e.g. `repository.observe().collect {}` in `AttachmentAnnotationViewModel`):
- * calling [advanceUntilIdle] on a VM that is already running such a collector
- * waits for work that never arrives.
+ * The scope a ViewModel of this kind runs in.
  *
- * The VM is created first (inside [factory]), then [advanceUntilIdle] drives the
- * VM's init collectors as far as they go, and finally [afterInit] is called.
+ * [VmScope.Foreground] keeps the test's own dispatcher and the test's own
+ * background marker — so [advanceUntilIdle] drives the ViewModel's work — and
+ * hangs the job off the background scope's job, so the work stops when the test
+ * ends without the test having to cancel anything.
  *
- * Note what [advanceUntilIdle] does in kotlinx-coroutines-test 1.11: it stops as
- * soon as there is no *foreground* work left, so a collector that runs in the
- * background scope has not started yet. That is why [testVm] also calls
- * [runCurrent] — see the note there.
- *
- * Use this overload only when the VM's init collector never terminates.
- * For VMs with completing collectors, prefer the `(TestScope, CoroutineScope) -> VM`
- * overload above.
- *
- * @param stateAccessor Lambda that extracts the [StateFlow] from the VM (e.g. `::{state}`).
- * @param afterInit Optional callback called after [advanceUntilIdle] — use to set up
- *     event listeners on the [TestScope] before the first [act] call.
- * @param factory Called with [this] (the [TestScope]) to create the VM. Runs BEFORE
- *     [advanceUntilIdle] so that VMs with never-ending collectors can be created and
- *     their init collectors driven by [advanceUntilIdle] without hanging.
+ * [VmScope.Background] is the background scope itself: the marker keeps the
+ * ViewModel's work out of [advanceUntilIdle]'s way.
  */
-fun <VM, S> TestScope.testVm(
-    stateAccessor: (VM) -> StateFlow<S>,
-    afterInit: (VM) -> Unit = {},
-    factory: TestScope.() -> VM,
-): TestVmContext<VM, S> {
-    val vm = factory()
-    advanceUntilIdle()
-    runCurrent()
-    afterInit(vm)
-    return testVmContext(vm, stateAccessor, this, backgroundScope)
+private fun TestScope.scopeFor(kind: VmScope): AutoCloseableCoroutineScope = when (kind) {
+    VmScope.Foreground -> AutoCloseableCoroutineScope(
+        coroutineContext + Job(backgroundScope.coroutineContext[Job]),
+    )
+
+    VmScope.Background -> testScope(backgroundScope)
 }
