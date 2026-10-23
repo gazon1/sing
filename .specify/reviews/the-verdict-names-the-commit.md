@@ -3,7 +3,7 @@ change: the-verdict-names-the-commit
 verdict: fail
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/988
-reviewed: a7873430855069794f64ff7cf4c8d81d7b2d9c6a
+reviewed: be52998faaefc5589c344a556f532d85848cba2d
 documents: sha256:65b9c060b196d965225d468963d5fcbac7a23c09996a08c03118590bdb3a17fa
 ---
 
@@ -24,7 +24,9 @@ documents against the code rather than to run the build.
 
 `reviewed:` is the commit the review was made against — the head of the branch
 at that moment. It is a pointer, not a claim the gate can check: the commit is
-not an ancestor of `main`, because the pull request will land by squash.
+not an ancestor of `main`, because the pull request will land by squash. The
+branch was rebased onto `main` after the review, so the commit named here is
+the same change with a new name — the content is what the reviewers read.
 
 `documents:` is the digest of the contract as this verdict speaks for it — the
 change's proposal and its spec delta. It is **not** the digest of the contract
@@ -105,6 +107,25 @@ are gone. It found:
     1676 Kotlin files, and the tree is now 1915 (`git ls-files '*.kt' | wc -l`).
 17. **Note — REQ-1 stated the same requirement twice.** The duplicate
     paragraph is deleted.
+
+## The fourth review: a fix this branch does not carry
+
+The push of this branch found a defect on the machine, not in the change: git
+exports `GIT_DIR` to the processes it starts, so a test that creates a
+repository of its own was redirected into the repository the environment
+names — the suite failed 36 tests on a tree it never created, and the shared
+repository lost its config to a test. A fourth review looked at the fix for
+that defect: the verdict was **pass**, with two things worth closing — two
+lists of the same names, and a convention that every test module had to
+remember.
+
+The fix is not in this branch. `main` carries its own version of it, with its
+own review and its own decision record
+(`docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`),
+and two mechanisms for one defect would be worse than one. The two findings
+are worth reading against that version: the names git exports to the processes
+it starts belong in one list, and a rule that every module has to remember is
+a rule the next module forgets.
 
 ## What was done about it
 

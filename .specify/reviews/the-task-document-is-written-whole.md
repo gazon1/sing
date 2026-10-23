@@ -3,6 +3,8 @@ change: the-task-document-is-written-whole
 verdict: fail
 date: 2026-10-23
 pr: 997
+reviewed: 23a6b1070a60e834b10f4f9dd8c2c6a89bef4497
+documents: sha256:2e6c98c58d3e843f9032a4fbc40f61758a7b73c833385d8ed886132a38fed7f1
 ---
 
 ## What was reviewed
@@ -11,6 +13,14 @@ The whole change: `openspec/changes/the-task-document-is-written-whole/` — the
 proposal, the design, the tasks and the `tasks` spec — against the code it
 describes and against
 `docs/decisions/2026-10-23-a-task-document-is-written-whole.md`.
+
+The two fields above were added on 2026-10-23, when the rule "a verdict names
+what it reviewed" arrived. `reviewed:` is the head of the pull request as it
+landed — the commit the reviews were made against. It is a pointer for a reader
+who has the history: this pull request landed by merge, so the commit is in
+the history of `main`. `documents:` is the digest of the contract as the
+verdict speaks for it — the change's proposal and its spec delta. The contract
+has not moved since the reviews, so the digest is the one the gate recomputes.
 
 The reviewers were separate agents given the diff, the ADR, the OpenSpec change
 and the two new test files, and nothing else: no history of writing the code,
