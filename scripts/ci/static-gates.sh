@@ -339,7 +339,7 @@ gate blocking "a write tool proposes before it writes" python3 scripts/check-ai-
 # list, so its tests never run in the coverage job — and a module whose
 # classes ARE in the denominator is then scored as 0% covered, which reads
 # like a coverage problem and is a measurement one.
-
+#
 gate blocking "coverage task list" sgate coverage_task_list
 # The coverage floor is declared where Kover reads it.
 #
@@ -348,7 +348,7 @@ gate blocking "coverage task list" sgate coverage_task_list
 # no Kover extension to configure, so the floors were evaluated by no task.
 # The declaration now lives in settings.gradle.kts, and this gate is what
 # stops it from moving back.
-
+#
 gate blocking "coverage floor declaration" sgate coverage_floor_declaration
 # The prose a person cannot copy.
 #
