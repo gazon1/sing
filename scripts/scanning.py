@@ -47,9 +47,9 @@ RepoTest = test_classes.RepoTest
 TEST_ROOTS = test_classes.TEST_ROOTS
 has_runnable_test = test_classes.has_runnable_test
 scan_repository = test_classes.scan_repository
-read_tag = test_classes._read_tag  # noqa: SLF001 — one repo, one scanner
-read_tags = test_classes._read_tags  # noqa: SLF001 — one repo, one scanner
-test_classes_in = test_classes._test_classes_in  # noqa: SLF001 — one repo, one scanner
+read_tag = test_classes.read_tag
+read_tags = test_classes.read_tags
+test_classes_in = test_classes.test_classes_in
 
 __all__ = [
     "RepoTest",

@@ -73,6 +73,38 @@ deliberately deferred item).
 What could break, and how you would notice. "None — docs only" is a valid answer.
 ```
 
+### The review verdict
+
+After the reviewer agent has answered, its verdict is a file — not a memory of
+the session that asked for it. A change that is not in
+`config/docs/review-verdicts-baseline.txt` carries one at
+`.specify/reviews/<slug>.md` (the slug without the date prefix):
+
+```markdown
+---
+change: <the slug>
+verdict: pass | fail
+date: YYYY-MM-DD
+pr: <the pull request url>
+reviewed: <the commit the review was made against>
+documents: sha256:<the digest of the change's contract documents>
+---
+
+## What was reviewed
+...
+```
+
+The digest is over the change's proposal and its spec deltas — the contract,
+not the checklist. The gate computes it:
+
+```bash
+python3 scripts/check-review-verdicts.py --digest <slug>
+```
+
+Write the documents **before** the review: a contract edited afterwards leaves
+a verdict that says "pass" about a change that is not there any more, and the
+gate says so.
+
 ### Draft vs. ready
 
 Push as **draft** when any of these hold; they are the same list a reviewer will check:
