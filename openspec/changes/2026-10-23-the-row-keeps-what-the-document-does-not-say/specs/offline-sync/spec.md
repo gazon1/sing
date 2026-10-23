@@ -1,0 +1,54 @@
+# offline-sync — Observable Behavior
+
+**capability:** `offline-sync` | **status:** proposed
+
+---
+
+## ADDED Requirements
+
+### Requirement: REQ-OS-028 A field a document does not carry is not reset on the receiving device
+
+A task document that arrives from another device SHALL be applied against the
+row that is already on this device: the document SHALL win wherever it
+carries a value, and a field the document does not carry SHALL NOT be reset,
+cleared or defaulted by the arrival of that document.
+
+The absence of a key is not a claim that the field is empty. A device that
+predates a field sends no key for it, and the allow-list says what a device
+sends, and it grew over time. Reading the missing key as an emptiness turns
+an older device into a deletion: the task leaves its series, or loses its
+recurrence, or loses its estimate, and the pull reports success.
+
+A document that carries the key with a null value SHALL be taken as the claim
+it is — the task stands alone, or has no recurrence — and SHALL reset the
+field on the receiving device.
+
+The fields that live outside the row — the tags and the blocking edges — are
+not covered by this requirement: their claims are separate, and the merge of
+a document with a row SHALL NOT speak about the keys of those parts.
+
+#### Scenario: A document from a device that predates the series
+
+- **Given** a task that belongs to a series on this device
+- **When** a document arrives that carries no `seriesId` key
+- **Then** the task is still in its series
+- **And** the fields the document does carry are applied
+
+#### Scenario: A document that takes the task out of the series
+
+- **Given** a task that belongs to a series on this device
+- **When** a document arrives that carries `seriesId: null`
+- **Then** the task is no longer in its series on this device
+
+#### Scenario: A document that carries no estimate
+
+- **Given** a task with an estimate of 30 minutes on this device
+- **When** a document arrives that carries no `estimateMinutes` key
+- **Then** the task still has an estimate of 30 minutes
+
+#### Scenario: A document about a task this device has never seen
+
+- **Given** a device that holds no row for the task a document is about
+- **When** that document arrives
+- **Then** the task is written as the document says, and the fields the
+      document does not carry take their model's defaults

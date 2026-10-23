@@ -16,6 +16,23 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
 import kotlin.time.Instant
 
+/**
+ * The wire name of the tags of a task.
+ *
+ * The name lives next to the model that writes it, so that a rename of the
+ * wire field cannot leave a check behind that still looks for the old name.
+ */
+const val TAGS_WIRE_NAME = "tags"
+
+/**
+ * The wire name of the blocking edges of a task.
+ *
+ * The property is called `blockedBy` because that is what it holds, and the
+ * wire keeps calling it `dependsOn`: the field is already in the sync
+ * allow-list and in every backup ever written. See [Task.blockedBy].
+ */
+const val BLOCKED_BY_WIRE_NAME = "dependsOn"
+
 @Serializable
 @JvmInline
 value class TaskId(val value: String) {
@@ -105,29 +122,6 @@ sealed interface TaskFilter {
      */
     data class ByDateBucket(val bucket: RelativeBucket, val today: kotlinx.datetime.LocalDate) : TaskFilter
 }
-
-/**
- * The wire name of [Task.tags].
- *
- * The reader that checks whether a document carries the tags looks for this
- * name, and the annotation that writes it says the same name. One fact, one
- * place: a rename cannot leave the check behind.
- */
-const val TAGS_WIRE_NAME = "tags"
-
-/**
- * The wire name of [Task.blockedBy].
- *
- * The domain calls the field `blockedBy` — it holds the edges that block the
- * task — and the wire calls it `dependsOn`, because the field was already in
- * the sync allow-list and in every backup ever written under that name. The
- * two are one fact, so the name lives in one place: the annotation that writes
- * it and the reader that looks for it both say this constant.
- *
- * A rename of a wire field is a change of the protocol, and it is made here,
- * on purpose, rather than drifting apart between two files.
- */
-const val BLOCKED_BY_WIRE_NAME = "dependsOn"
 
 @Serializable
 data class Task(

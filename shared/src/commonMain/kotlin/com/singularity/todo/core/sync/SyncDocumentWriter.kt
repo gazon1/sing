@@ -23,6 +23,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.TimeEntry
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.serializer
 
 /**
@@ -107,7 +108,7 @@ internal class SyncDocumentWriter(
     }
 
     /**
-     * The document as a task document: the task, and the parts the sender spoke about.
+     * The document as a task document: the row, and the parts the sender spoke about.
      *
      * A document carries the fields the sending device knew about. A device that
      * predates the tags sends no `tags` key; a device that predates the
@@ -118,20 +119,46 @@ internal class SyncDocumentWriter(
      * The parts the document does not carry stay `null`, and the pull leaves them
      * alone. The key names come from the model itself, so a rename of the wire
      * field cannot leave this check behind.
+     *
+     * The row is read against the row that is already here: where the document
+     * speaks, it wins; where it says nothing, the local row keeps saying what it
+     * says. A device that predates the series sends no `seriesId` key, and
+     * writing that absence as "no series" would take the task out of its series
+     * on this device — an invisible deletion, because the row is written and the
+     * pull reports success. See `mergeWithLocalRow` and
+     * `docs/decisions/2026-10-23-the-row-keeps-what-the-document-does-not-say.md`.
      */
-    private fun taskDocument(document: JsonObject): TaskDocument {
+    private suspend fun taskDocument(document: JsonObject): TaskDocument {
         // The keys are read before the decode, because after it the two cases
         // are the same task: the fields the model cannot do without have
         // defaults, and the difference between "no tags" and "no claim about
         // the tags" is gone.
         val carriesTags = document.containsKey(TAGS_WIRE_NAME)
         val carriesDependencies = document.containsKey(BLOCKED_BY_WIRE_NAME)
-        val task = StableJson.decodeFromString(serializer<Task>(), document.toString())
+        // The claims about the parts are the document's own — the merged row
+        // says nothing about the parts it does not carry, and the parts are
+        // written only where the document spoke about them.
+        val documentTask = StableJson.decodeFromString(serializer<Task>(), document.toString())
+        val merged = mergeWithLocalRow(document, localTaskOf(document))
+        val task = StableJson.decodeFromString(serializer<Task>(), merged.toString())
         return TaskDocument(
             task = task,
-            tags = if (carriesTags) task.tags else null,
-            blockedBy = if (carriesDependencies) task.blockedBy else null,
+            tags = if (carriesTags) documentTask.tags else null,
+            blockedBy = if (carriesDependencies) documentTask.blockedBy else null,
         )
+    }
+
+    /**
+     * The row that is already on this device for the task the document is about,
+     * or `null` when there is none.
+     *
+     * The id is read from the document itself, because the document is what
+     * names the row — and the row of a task of another profile is not this
+     * device's row to read.
+     */
+    private suspend fun localTaskOf(document: JsonObject): Task? {
+        val id = (document["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
+        return taskRepo.get(TaskId.fromString(id))
     }
 
     /**
