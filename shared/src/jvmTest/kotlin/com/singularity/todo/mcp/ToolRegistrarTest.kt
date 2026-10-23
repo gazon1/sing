@@ -27,8 +27,7 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class ToolRegistrarTest {
 
-    private class EnabledTool :
-        SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAME, DESCRIPTION) {
+    private class EnabledTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAME, DESCRIPTION) {
         override suspend fun execute(args: Unit): String = "{}"
 
         companion object {
@@ -37,8 +36,7 @@ class ToolRegistrarTest {
         }
     }
 
-    private class DisabledTool :
-        SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAME, DESCRIPTION) {
+    private class DisabledTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAME, DESCRIPTION) {
         override suspend fun execute(args: Unit): String = "{}"
 
         companion object {

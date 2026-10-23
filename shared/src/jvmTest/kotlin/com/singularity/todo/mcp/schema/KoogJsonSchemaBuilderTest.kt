@@ -1,13 +1,10 @@
 package com.singularity.todo.mcp.schema
 
 import ai.koog.agents.core.tools.SimpleTool
-import com.singularity.todo.feature.ai.tools.CreateTaskInput
 import com.singularity.todo.feature.ai.tools.CreateTaskTool
 import com.singularity.todo.feature.ai.tools.GetTaskTool
 import com.singularity.todo.feature.ai.tools.ListLinkedTasksTool
 import com.singularity.todo.feature.ai.tools.ListTasksTool
-import com.singularity.todo.feature.ai.tools.RefineTaskInput
-import com.singularity.todo.feature.ai.tools.RefineTaskTool
 import com.singularity.todo.feature.ai.tools.SearchTasksTool
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver

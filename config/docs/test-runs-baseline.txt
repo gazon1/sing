@@ -111,9 +111,18 @@
 # by a routine regeneration. The markers exist because that happened, and the same
 # convention is already used by `Maestro/TAGS.md`.
 #
+#
+# **mcp-server:test is 0 because the module keeps one slow test.** The server's own
+# tests moved next to the code they test (shared/src/jvmTest/kotlin/.../mcp/) — a test
+# of a payload the code declares `internal` cannot live in another module. The module
+# keeps the end-to-end test, which spawns build/libs/mcp-server.jar; it is slow, so the
+# default run (the fast population) has nothing to run there, and the floor is 0. The
+# tests that used to be counted under this label are counted under shared:jvmTest now,
+# and they run in every population.
+#
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
 desktopApp:test 26 0
 shared:jvmTest 2785 0
-mcp-server:test 10 0
+mcp-server:test 0 0
 shared:testAndroidHostTest 1614 0
 # GENERATED:END

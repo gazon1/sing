@@ -80,8 +80,6 @@ dependencies {
     testImplementation(libs.jvm.test)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.junit.jupiter.params)
-    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(kotlin("reflect"))
     // The e2e test reads the database the spawned server wrote, to see what a tool
     // call actually stored. The app opens SQLite through androidx.sqlite; a plain JDBC

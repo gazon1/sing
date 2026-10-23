@@ -815,6 +815,14 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 
 ## Files Reference
 
+**Where the tests live.** The server's own tests live next to the code they test —
+`shared/src/jvmTest/kotlin/.../mcp/` — because a test of a tool's payload is a test of
+a contract that the code declares as `internal`, and a test in another module cannot
+reach it. The module keeps the one test that is about the *module*: the end-to-end
+protocol test, which spawns `build/libs/mcp-server.jar` and talks to it over a pipe.
+That test can only live where the jar is built, and it is slow, so it runs in the
+nightly population and not in a pull request's.
+
 | File | Purpose |
 |---|---|
 | `mcp-server/build.gradle.kts` | Gradle module, `application` plugin, `kotlin-sdk:0.15.0` dependency |
@@ -841,10 +849,10 @@ const val DESCRIPTION = "Create a new task with title, optional description, pri
 | `scripts/changed-modules.py` | which checks a change makes worth running |
 | `docs/testing/gate-costs.md` | what the verification loop costs, measured and published |
 | `mcp-server/src/test/kotlin/.../mcp/McpServerEndToEndTest.kt` | End-to-end protocol test via the stdio transport |
-| `mcp-server/src/test/kotlin/.../mcp/ProfileArgumentTest.kt` | the argument contract, including the ambiguity case |
-| `mcp-server/src/test/kotlin/.../mcp/JsonRpcErrorTest.kt` | the serialised error response |
-| `mcp-server/src/test/kotlin/.../mcp/ToolRegistrarTest.kt` | the kill switch, at the place it is applied |
-| `mcp-server/src/test/kotlin/.../mcp/ToolboxRuntimeContractTest.kt` | the runtime's writes, read by the production report |
+| `shared/src/jvmTest/kotlin/.../mcp/ProfileArgumentTest.kt` | the argument contract, including the ambiguity case |
+| `shared/src/jvmTest/kotlin/.../mcp/JsonRpcErrorTest.kt` | the serialised error response |
+| `shared/src/jvmTest/kotlin/.../mcp/ToolRegistrarTest.kt` | the kill switch, at the place it is applied |
+| `shared/src/jvmTest/kotlin/.../mcp/ToolboxRuntimeContractTest.kt` | the runtime's writes, read by the production report |
 
 ## Related Skills
 
