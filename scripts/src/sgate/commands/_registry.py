@@ -189,6 +189,18 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "no emulator."
         ),
     ),
+    ":shared:verifyToolSurface": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI reaches it through `ToolSurfaceExportTest` in `:shared:jvmTest`, "
+            "which compares the committed `config/docs/tool-surface.json` with the "
+            "surface the code declares. The Gradle task is the fast rehearsal of "
+            "that check for the local loop: it exports to a scratch file and "
+            "compares, without waiting for the twenty-minute suite. Naming it "
+            "in `ci.yml` as well would buy a second run of a check CI already "
+            "performs — and a second Gradle invocation on every PR."
+        ),
+    ),
     ":adr-cli:installDist": GradleTaskParity(
         scope="ci",
         why=(
