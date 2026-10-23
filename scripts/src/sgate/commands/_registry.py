@@ -189,6 +189,18 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "no emulator."
         ),
     ),
+    ":shared:verifyToolSurface": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI reaches it through `ToolSurfaceExportTest` in `:shared:jvmTest`, "
+            "which compares the committed `config/docs/tool-surface.json` with the "
+            "surface the code declares. The Gradle task is the fast rehearsal of "
+            "that check for the local loop: it exports to a scratch file and "
+            "compares, without waiting for the twenty-minute suite. Naming it "
+            "in `ci.yml` as well would buy a second run of a check CI already "
+            "performs — and a second Gradle invocation on every PR."
+        ),
+    ),
     ":adr-cli:installDist": GradleTaskParity(
         scope="ci",
         why=(
@@ -1073,6 +1085,18 @@ GATE_CONTROLS: dict[str, Control] = {
 # Each names what does the proving instead: "no control" is only acceptable when
 # something else is, and the reader has to be told what.
 GATE_EXEMPTIONS: dict[str, Control] = {
+    'scripts/check-gate-tooling-origin.py': Control(
+        kind='exempt',
+        proves='scripts/check-gate-tooling-origin.py',
+        tracked_by='scripts/tests/test_check_gate_tooling_origin.py',
+        reason=(
+            'its subject is the installation, not the tree: the answer is where the '
+            'importable `sgate` package lives, and no committed file decides that — so a '
+            'sabotage of the tree cannot make it fail. The control is the test that '
+            'synthesises the state the gate exists to report: a foreign package on the '
+            'path, which the gate must catch as FOREIGN.'
+        ),
+    ),
     'scripts/check-selectable-text-coverage.py': Control(
         kind='exempt',
         proves='scripts/check-selectable-text-coverage.py',
