@@ -111,8 +111,10 @@ def _generate_table(commands_dir: Path) -> str:
         if len(purpose_str) > 80:
             purpose_str = purpose_str[:77] + "..."
 
+        script_str = spec.script.as_posix() if spec.script else "—"
         lines.append(
-            f"| {spec.name} | {spec.mode.value} | {purpose_str} | {ec_str} | {adr_str} |"
+            f"| {spec.name} | {spec.mode.value} | `{script_str}` | {purpose_str} | "
+            f"{ec_str} | {adr_str} |"
         )
 
     return "\n".join(lines)
@@ -160,12 +162,20 @@ def render_registry(check: bool, json: bool) -> None:
 
 # Gate Registry
 
-Generated from `_registry.GATES` — the registry that says which gates exist and
-whether each one is blocking. Purpose, exit codes and ADR references come from
-the docstring of the script each gate runs.
+The one description of the gates: what each one is called, whether it stops
+the build, which script it runs, what it checks, and what its exit codes mean.
+The rows come from `_registry.GATES` — the registry that says which gates exist
+and whether each one is blocking. Purpose, exit codes and ADR references come
+from the docstring of the script each gate runs.
 
-| Gate | Mode | Purpose | Exit Codes | ADR |
-|------|------|---------|------------|-----|"""
+This document and `docs/tools/catalog.md` used to describe the same set twice:
+the catalogue had a row per script, this one a row per gate, and a reader who
+wanted to know what a gate checks had to find it in one table and what it is
+called in the other. The catalogue now describes the *suite* — its modules and
+its helper tools — and the gates are described here, once.
+
+| Gate | Mode | Script | Purpose | Exit Codes | ADR |
+|------|------|--------|---------|------------|-----|"""
 
     full_content = header + "\n" + table_content + "\n"
 

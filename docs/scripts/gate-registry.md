@@ -2,75 +2,83 @@
 
 # Gate Registry
 
-Generated from `_registry.GATES` — the registry that says which gates exist and
-whether each one is blocking. Purpose, exit codes and ADR references come from
-the docstring of the script each gate runs.
+The one description of the gates: what each one is called, whether it stops
+the build, which script it runs, what it checks, and what its exit codes mean.
+The rows come from `_registry.GATES` — the registry that says which gates exist
+and whether each one is blocking. Purpose, exit codes and ADR references come
+from the docstring of the script each gate runs.
 
-| Gate | Mode | Purpose | Exit Codes | ADR |
-|------|------|---------|------------|-----|
-| version catalog has no literals | blocking | Build version catalog gate. | — | — |
-| gate scripts' own unit tests | blocking | gate scripts' own unit tests | — | — |
-| build-output readers precede the invocations that rewrite them | blocking | check-build-output-readers.py — a step that reads build output must read it f... | — | — |
-| gradle invocations keep one test population | blocking | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
-| waiver references resolve | blocking | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
-| test-task external inputs declared | blocking | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
-| declared dependencies are used | blocking | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
-| room schema integrity | blocking | check-room-schema-integrity.py — prove the declared schema, the exported
+This document and `docs/tools/catalog.md` used to describe the same set twice:
+the catalogue had a row per script, this one a row per gate, and a reader who
+wanted to know what a gate checks had to find it in one table and what it is
+called in the other. The catalogue now describes the *suite* — its modules and
+its helper tools — and the gates are described here, once.
+
+| Gate | Mode | Script | Purpose | Exit Codes | ADR |
+|------|------|--------|---------|------------|-----|
+| version catalog has no literals | blocking | `scripts/build-version-catalog-gate.py` | Build version catalog gate. | — | — |
+| gate scripts' own unit tests | blocking | `scripts/tests` | gate scripts' own unit tests | — | — |
+| build-output readers precede the invocations that rewrite them | blocking | `scripts/check-build-output-readers.py` | check-build-output-readers.py — a step that reads build output must read it f... | — | — |
+| gradle invocations keep one test population | blocking | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
+| waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
+| test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
+| declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
+| room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported
 sche... | — | — |
-| gates are alive | blocking | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
-| the toolbox surface is declared once | blocking | check-skill-drift.py — the declared toolbox must be the implemented toolbox (... | — | — |
-| workflow env context resolves | blocking | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
-| maestro flow catalogue is current | blocking | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
-| ui wait budgets are consistent | blocking | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
-| git hooks path is per-worktree | advisory | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
-| unwired surfaces | blocking | Find surfaces that are fully implemented but wired to nothing. | — | — |
-| settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
-| a write tool proposes before it writes | blocking | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
-| selectable text coverage | blocking | Find text surfaces that are neither selectable nor classified. | — | — |
-| issue registry covers every change | blocking | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
-| AGENTS.md pointers resolve | blocking | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
-| review verdicts cover every change | blocking | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
-| the tag catalogue matches the tags | blocking | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |
-| detekt rules config is current | blocking | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
-| detekt rule inventory is current | blocking | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
-| detekt rule registry | blocking | detekt rule registry | — | — |
-| detekt baseline ratchet | blocking | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. | — | — |
-| lint rules are declared decisions | blocking | check-rule-intent.py — a rule that reports findings must be a rule you chose. | — | — |
-| file-level suppressions explain themselves | blocking | check-suppression-intent.py — a file-level suppression must say what it is hi... | — | — |
-| scenario specs valid | blocking | scenario specs valid | — | — |
-| coverage matrix current | blocking | coverage matrix current | — | — |
-| coverage holes did not grow | blocking | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |
-| supabase schema is self-consistent | blocking | check-supabase-schema-integrity.py — the versioned sync schema is self-consis... | — | — |
-| sync allowlist seed matches contract | blocking | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from... | — | — |
-| workflow steps keep their exit status | blocking | check-workflow-exit-status.py — a `run:` block must not swallow its exit status. | — | — |
-| releases describe themselves | blocking | check-release-tags.py — every release must be able to describe itself. | — | — |
-| maestro selectors valid | blocking | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
-| maestro keyboard commands have something to hide | blocking | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
-| maestro flows do not name a pixel | blocking | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
-| maestro results are within the floor | blocking | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
-| profile reset inventory is true | blocking | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
-| the text-field transformation table is true | blocking | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |
-| the platform reference ports are true | blocking | check-platform-reference-ports.py — the platform reference against the code. | — | — |
-| doc dead refs | blocking | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
-| doc links | blocking | doc links | — | — |
-| navigation doc matches the code | blocking | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
-| DI fixture matches the definitions | blocking | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |
-| GitHub workflows are valid | blocking | GitHub workflows are valid | — | — |
-| YAML is structurally valid | blocking | YAML is structurally valid | — | — |
-| gate registries agree | blocking | check_gate_registries.py — the two gate registries agree on what exists. | — | — |
-| gate registry is current | blocking | gate registry is current | — | — |
-| the shell registry is current | blocking | the shell registry is current | — | — |
-| the published gate costs are current | blocking | the published gate costs are current | — | — |
-| gates speak the JSON contract | blocking | check-gate-json-contract.py — every gate dispatched through `sgate` speaks on... | — | — |
-| ci workflow shape is declared | blocking | check_ci_workflow_shape.py — the shape of the CI workflow's Gradle block. | — | — |
-| detekt governance is consistent | blocking | check_detekt_governance.py — the governance around the detekt rules. | — | — |
-| pro licence boundary | blocking | check-pro-licence-boundary.py — prove the Apache-2.0 half contains no `pro` c... | — | — |
-| provenance | blocking | check-provenance.py — a derivation marker in production code must be registered. | — | — |
-| adr references are valid | blocking | check_adr_references.py — find references to ADRs that no longer exist. | — | — |
-| flaky tests are acknowledged | blocking | check-flaky-tests.py — classify a test run against the previous one. | — | — |
-| rebase compiles | blocking | Post-rebase compile gate for DI and import-sensitive modules. | — | — |
-| test runs | blocking | check-test-runs.py — fail when a test run executed fewer tests than the basel... | — | — |
-| instrumented test floor | blocking | check-instrumented-test-floor.py — the instrumented suite's floor, and the ra... | — | — |
-| script conventions | blocking | check-script-conventions.py — enforce naming, docstring, and import conventio... | — | — |
-| the link grammar has one home | blocking | check-link-grammar.py — the link grammar has one home. | 0=the: grammar has one home, 1=a: file outside the home names the scheme | — |
-| the tool catalogue is current | blocking | check-tools-catalog.py — the catalogue of the gate scripts. | 0=the: catalogue is current (or was written), 1=the: catalogue is not what the scripts say today, 2=the: catalogue could not be read or written | — |
+| gates are alive | blocking | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
+| the toolbox surface is declared once | blocking | `scripts/check-skill-drift.py` | check-skill-drift.py — the declared toolbox must be the implemented toolbox (... | — | — |
+| workflow env context resolves | blocking | `scripts/check-workflow-env-context.py` | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
+| maestro flow catalogue is current | blocking | `scripts/check-maestro-flow-catalogue.py` | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
+| ui wait budgets are consistent | blocking | `scripts/check-ui-wait-budgets.py` | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
+| git hooks path is per-worktree | advisory | `scripts/check-hooks-path.py` | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
+| unwired surfaces | blocking | `scripts/find-unwired-surfaces.py` | Find surfaces that are fully implemented but wired to nothing. | — | — |
+| settings read by a feature | blocking | `scripts/check-dead-settings.py` | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
+| a write tool proposes before it writes | blocking | `scripts/check-ai-write-tools.py` | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
+| selectable text coverage | blocking | `scripts/check-selectable-text-coverage.py` | Find text surfaces that are neither selectable nor classified. | — | — |
+| issue registry covers every change | blocking | `scripts/check-issue-registry.py` | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
+| AGENTS.md pointers resolve | blocking | `scripts/check-agents-pointers.py` | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |
+| review verdicts cover every change | blocking | `scripts/check-review-verdicts.py` | check-review-verdicts.py — every change carries the verdict of its review. | — | — |
+| the tag catalogue matches the tags | blocking | `scripts/check-test-tags-catalog.py` | Compare `TestTags.kt` with the generated section of `Maestro/TAGS.md`. | — | — |
+| detekt rules config is current | blocking | `scripts/gen-detekt-rules-config.py` | Regenerate config/detekt/detekt-rules-module.yml from config/detekt/detekt.yml. | — | — |
+| detekt rule inventory is current | blocking | `scripts/gen-detekt-rule-table.py` | Generate the rule inventory table in the detekt-rules-authoring skill from so... | — | — |
+| detekt rule registry | blocking | `scripts/check-detekt-registrations.sh` | detekt rule registry | — | — |
+| detekt baseline ratchet | blocking | `scripts/check-baseline-ratchet.py` | check-baseline-ratchet.py — a detekt baseline may shrink, never grow. | — | — |
+| lint rules are declared decisions | blocking | `scripts/check-rule-intent.py` | check-rule-intent.py — a rule that reports findings must be a rule you chose. | — | — |
+| file-level suppressions explain themselves | blocking | `scripts/check-suppression-intent.py` | check-suppression-intent.py — a file-level suppression must say what it is hi... | — | — |
+| scenario specs valid | blocking | `traceability` | scenario specs valid | — | — |
+| coverage matrix current | blocking | `traceability` | coverage matrix current | — | — |
+| coverage holes did not grow | blocking | `scripts/check-traceability-ratchet.py` | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |
+| supabase schema is self-consistent | blocking | `scripts/check-supabase-schema-integrity.py` | check-supabase-schema-integrity.py — the versioned sync schema is self-consis... | — | — |
+| sync allowlist seed matches contract | blocking | `scripts/check-sync-allowlist-regenerated.py` | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from... | — | — |
+| workflow steps keep their exit status | blocking | `scripts/check-workflow-exit-status.py` | check-workflow-exit-status.py — a `run:` block must not swallow its exit status. | — | — |
+| releases describe themselves | blocking | `scripts/check-release-tags.py` | check-release-tags.py — every release must be able to describe itself. | — | — |
+| maestro selectors valid | blocking | `scripts/ci/validate-maestro-selectors.py` | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |
+| maestro keyboard commands have something to hide | blocking | `scripts/check-maestro-keyboard-commands.py` | check-maestro-keyboard-commands.py — a `hideKeyboard` must have something to ... | — | — |
+| maestro flows do not name a pixel | blocking | `scripts/check-maestro-screen-geometry.py` | check-maestro-screen-geometry.py — a flow must not name a pixel. | — | — |
+| maestro results are within the floor | blocking | `scripts/ci/check-maestro-results.py` | check-maestro-results.py — measure a Maestro run against a committed floor. | — | — |
+| profile reset inventory is true | blocking | `scripts/ci/check-profile-reset-inventory.py` | check-profile-reset-inventory.py — keep the profile reset's table list true. | — | — |
+| the text-field transformation table is true | blocking | `scripts/check-text-field-transformations-table.py` | check-text-field-transformations-table.py — the skill's transformation table ... | — | — |
+| the platform reference ports are true | blocking | `scripts/check-platform-reference-ports.py` | check-platform-reference-ports.py — the platform reference against the code. | — | — |
+| doc dead refs | blocking | `scripts/check-doc-dead-refs.py` | check-doc-dead-refs.py — find references to files that no longer exist. | — | — |
+| doc links | blocking | `scripts/check-doc-links.sh` | doc links | — | — |
+| navigation doc matches the code | blocking | `scripts/check-navigation-doc-sync.py` | check-navigation-doc-sync.py — the navigation doc must say what the code does. | — | — |
+| DI fixture matches the definitions | blocking | `scripts/check-di-fixture-sync.py` | check-di-fixture-sync.py — the DI fixture table must match the Koin definitions. | — | — |
+| GitHub workflows are valid | blocking | `.` | GitHub workflows are valid | — | — |
+| YAML is structurally valid | blocking | `.` | YAML is structurally valid | — | — |
+| gate registries agree | blocking | `scripts/check-gate-registries.py` | check_gate_registries.py — the two gate registries agree on what exists. | — | — |
+| gate registry is current | blocking | `sgate` | gate registry is current | — | — |
+| the shell registry is current | blocking | `sgate` | the shell registry is current | — | — |
+| the published gate costs are current | blocking | `sgate` | the published gate costs are current | — | — |
+| gates speak the JSON contract | blocking | `scripts/check-gate-json-contract.py` | check-gate-json-contract.py — every gate dispatched through `sgate` speaks on... | — | — |
+| ci workflow shape is declared | blocking | `scripts/check-ci-workflow-shape.py` | check_ci_workflow_shape.py — the shape of the CI workflow's Gradle block. | — | — |
+| detekt governance is consistent | blocking | `scripts/check-detekt-governance.py` | check_detekt_governance.py — the governance around the detekt rules. | — | — |
+| pro licence boundary | blocking | `scripts/check-pro-licence-boundary.py` | check-pro-licence-boundary.py — prove the Apache-2.0 half contains no `pro` c... | — | — |
+| provenance | blocking | `scripts/check-provenance.py` | check-provenance.py — a derivation marker in production code must be registered. | — | — |
+| adr references are valid | blocking | `scripts/check-adr-references.py` | check_adr_references.py — find references to ADRs that no longer exist. | — | — |
+| flaky tests are acknowledged | blocking | `scripts/check-flaky-tests.py` | check-flaky-tests.py — classify a test run against the previous one. | — | — |
+| rebase compiles | blocking | `scripts/check-rebase-compiles.py` | Post-rebase compile gate for DI and import-sensitive modules. | — | — |
+| test runs | blocking | `scripts/check-test-runs.py` | check-test-runs.py — fail when a test run executed fewer tests than the basel... | — | — |
+| instrumented test floor | blocking | `scripts/check-instrumented-test-floor.py` | check-instrumented-test-floor.py — the instrumented suite's floor, and the ra... | — | — |
+| script conventions | blocking | `scripts/check-script-conventions.py` | check-script-conventions.py — enforce naming, docstring, and import conventio... | — | — |
+| the link grammar has one home | blocking | `scripts/check-link-grammar.py` | check-link-grammar.py — the link grammar has one home. | 0=the: grammar has one home, 1=a: file outside the home names the scheme | — |
+| the tool catalogue is current | blocking | `scripts/check-tools-catalog.py` | check-tools-catalog.py — the catalogue of the gate scripts. | 0=the: catalogue is current (or was written), 1=the: catalogue is not what the scripts say today, 2=the: catalogue could not be read or written | — |
