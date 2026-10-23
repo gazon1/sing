@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Path
+import java.sql.DriverManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -319,79 +320,87 @@ class McpServerEndToEndTest {
         .firstOrNull { it.resolve("scripts").resolve("mcp-toolbox-usage.py").toFile().isFile }
         ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 
+    /**
+     * The write path proposes: `create_task` stores a proposal, and the task comes into
+     * being when the user confirms it.
+     *
+     * The test used to assert the other shape — that the task the tool created could be
+     * read back with the same title. That contract ended when the write path was given
+     * one shape (`2026-10-22-the-write-path-asks-first`): the model proposes, the user
+     * decides. So the roundtrip this test proves is the one the system has:
+     *
+     * - the tool call reached the app and was stored — as a proposal, in the app's own
+     *   database, holding the id the task will have once it is confirmed;
+     * - the task itself does not exist yet, and the read surface says so.
+     *
+     * The proposal is read from the database the server wrote, because no tool reads
+     * proposals: they belong to the user's confirmation screen, not to the model.
+     */
     @Test
-    fun create_task_then_read_task_returns_same_title() {
+    fun create_task_proposes_the_task_and_the_task_waits_for_the_user() {
         assumeTrue(
             jar.exists(),
             "mcp-server.jar not built — run `./gradlew :mcp-server:jar` first",
         )
 
-        val process = spawnServer()
+        val (process, home) = spawnServerWithHome()
 
         try {
-            val transport = StdioClientTransport(
-                input = process.inputStream.asSource().buffered(),
-                output = process.outputStream.asSink().buffered(),
-            )
+            val client = connect(process)
 
-            val client = Client(
-                clientInfo = Implementation(name = "singularity-e2e-test", version = "0.0.1"),
+            // Step 1: the tool proposes.
+            val title = "E2E roundtrip task ${System.currentTimeMillis()}"
+            val createResult = callTool(
+                client,
+                "create_task",
+                mapOf("title" to title, "priority" to "High"),
             )
-
-            runBlocking {
-                withTimeout(timeMillis = 15_000) {
-                    client.connect(transport)
-                }
-            }
-
-            // Step 1: create a task
-            val createArgs = mapOf(
-                "title" to "E2E roundtrip task ${System.currentTimeMillis()}",
-                "priority" to "High",
-            )
-            val createResult: CallToolResult = runBlocking {
-                withTimeout(timeMillis = 5_000) {
-                    client.callTool("create_task", createArgs)
-                }
-            }
 
             assertTrue(
                 createResult.isError == false,
                 "create_task returned isError=true: ${createResult.content}",
             )
 
-            // Extract taskId from structured JSON: {"taskId":"...","title":"...","description":null}
-            val createJson = Json.parseToJsonElement(
-                (createResult.content.first() as io.modelcontextprotocol.kotlin.sdk.types.TextContent).text,
-            ).jsonObject
-            val taskId = createJson["taskId"]?.jsonPrimitive?.content
-                ?: fail("create_task response missing taskId: ${createResult.content}")
+            // The answer names a proposal and no task: nothing was created, and an id
+            // would name a task that does not exist.
+            val createJson = jsonOf(createResult)
+            assertEquals(
+                "true",
+                createJson["proposalCreated"]?.jsonPrimitive?.content,
+                "create_task did not report a proposal: ${createResult.content}",
+            )
+            val proposalId = createJson["proposalId"]?.jsonPrimitive?.content.orEmpty()
+            assertTrue(
+                proposalId.isNotBlank(),
+                "create_task returned no proposal id: ${createResult.content}",
+            )
+            assertEquals(
+                title,
+                createJson["title"]?.jsonPrimitive?.content,
+                "create_task lost the title it was given",
+            )
+            assertTrue(
+                createJson["taskId"] == null,
+                "create_task named a task id, and no task was created: ${createResult.content}",
+            )
 
-            // Step 2: read it back
-            val getResult: CallToolResult = runBlocking {
-                withTimeout(timeMillis = 5_000) {
-                    client.callTool("get_task", mapOf("taskId" to taskId))
-                }
-            }
+            // Step 2: the proposal is in the app's database, holding the id the task
+            // will have when the user says yes.
+            val reservedTaskId = reservedTaskId(home, proposalId)
+
+            // Step 3: the task is not there yet — nobody confirmed it.
+            val getResult = callTool(client, "get_task", mapOf("taskId" to reservedTaskId))
 
             assertTrue(
                 getResult.isError == false,
                 "get_task returned isError=true: ${getResult.content}",
             )
 
-            val getJson = Json.parseToJsonElement(
-                (getResult.content.first() as io.modelcontextprotocol.kotlin.sdk.types.TextContent).text,
-            ).jsonObject
-            // The read surface answers with what it found and, if it found something,
-            // the task in full: {"found": true, "task": { …, "title": … }}. The
-            // title lives in the task, not at the top of the answer.
-            val gotTitle = getJson["task"]?.jsonObject?.get("title")?.jsonPrimitive?.content
-                ?: fail("tasks.get response missing title: ${getResult.content}")
-
+            val getJson = jsonOf(getResult)
             assertEquals(
-                (createArgs["title"] as String),
-                gotTitle,
-                "get_task should return the same title that was created",
+                "false",
+                getJson["found"]?.jsonPrimitive?.content,
+                "the task exists before the user confirmed it: ${getResult.content}",
             )
 
             runBlocking { client.close() }
@@ -404,6 +413,38 @@ class McpServerEndToEndTest {
             fail("MCP e2e roundtrip failed: ${t.message}\n--- server stderr ---\n$stderr")
         } finally {
             if (process.isAlive) process.destroyForcibly()
+        }
+    }
+
+    /** Calls a tool and returns the answer it gave. */
+    private fun callTool(client: Client, name: String, arguments: Map<String, String>): CallToolResult =
+        runBlocking {
+            withTimeout(timeMillis = 5_000) {
+                client.callTool(name, arguments)
+            }
+        }
+
+    /** The JSON a tool answered with. */
+    private fun jsonOf(result: CallToolResult): JsonObject = Json.parseToJsonElement(
+        (result.content.first() as TextContent).text,
+    ).jsonObject
+
+    /**
+     * The id the proposal reserved for the task, read from the database the server
+     * wrote. The table and its columns are the ones `ProposalDao` declares.
+     */
+    private fun reservedTaskId(home: Path, proposalId: String): String {
+        val database = home.resolve(".singularity-todo").resolve("singularity-todo.db")
+        assertTrue(database.toFile().isFile, "the server did not create its database at $database")
+        DriverManager.getConnection("jdbc:sqlite:${database.toAbsolutePath()}").use { connection ->
+            connection.createStatement().use { it.execute("PRAGMA busy_timeout = 5000") }
+            connection.prepareStatement("SELECT target_id FROM ai_proposal WHERE id = ?").use { statement ->
+                statement.setString(1, proposalId)
+                statement.executeQuery().use { rows ->
+                    assertTrue(rows.next(), "no proposal row with id $proposalId in $database")
+                    return rows.getString(1)
+                }
+            }
         }
     }
 }
