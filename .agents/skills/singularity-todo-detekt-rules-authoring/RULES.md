@@ -18,6 +18,7 @@
 | `NoDroppedUiStateProperty` | `NoDroppedUiStatePropertyRule.kt` | `no-dropped-ui-state-property` | Bans a variant of a sealed `*UiState` that does not carry the properties of the | `NoDroppedUiStatePropertyRuleTest` | yes |
 | `NoEmptyOnClickLambda` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | Bans empty lambda placeholders passed as event handlers in composable calls, | `NoEmptyOnClickLambdaRuleTest` | yes |
 | `NoFactoryViewModel` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | Bans registering ViewModels in Koin via the per-injection `factory { }` / `factoryOf(::...)` | `NoFactoryViewModelRuleTest` | yes |
+| `NoMutableCollectionCast` | `NoMutableCollectionCastRule.kt` | `no-mutable-collection-cast` | Bans casting to a mutable collection type. | `NoMutableCollectionCastRuleTest` | yes |
 | `NoOpUpdateState` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | Bans `updateState { it }` — a reducer that returns its input unchanged. | `NoOpUpdateStateRuleTest` | yes |
 | `NoPopupWithoutResourceIdMapping` | `NoPopupWithoutResourceIdMapping.kt` | `popup-test-tag` | Bans the pattern where a `testTag()` call appears inside a Popup-owning container | `NoPopupWithoutResourceIdMappingTest` | yes |
 | `NoRealDelayInTest` | `NoRealDelayInTestRule.kt` | `no-real-delay-in-test` | Bans `kotlinx.coroutines.delay(N)` above 500 ms and `Thread.sleep(N)` in test sources. | `NoRealDelayInTestRuleTest` | yes |
@@ -28,6 +29,7 @@
 | `NoSwallowedCancellation` | `NoSwallowedCancellation.kt` | `no-swallowed-cancellation` | Bans `catch (e: Throwable)` / `catch (e: Exception)` inside `suspend` functions | `NoSwallowedCancellationTest` | yes |
 | `NoTextFieldStateInViewModel` | `NoTextFieldStateInViewModelRule.kt` | `no-text-field-state-in-viewmodel` | Bans a `TextFieldState` stored in a ViewModel or in a UI state class. | `NoTextFieldStateInViewModelRuleTest` | yes |
 | `NoUnreportedFailurePath` | `NoUnreportedFailurePathRule.kt` | `no-unreported-failure-path` | A ViewModel that can fail but never passes a `CrashReportingPort` sends its failures | `NoUnreportedFailurePathRuleTest` | yes |
+| `NoUnstableCollectionParam` | `NoUnstableCollectionParamRule.kt` | `no-unstable-collection-param` | A `@Composable` function must not take a raw collection as a parameter. | `NoUnstableCollectionParamRuleTest` | yes |
 | `NoUnwiredReporterInBinding` | `NoUnwiredReporterInBindingRule.kt` | `no-unreported-failure-path` | Flags a Koin `viewModel { … }` binding that constructs a ViewModel without passing it a | `NoUnwiredReporterInBindingRuleTest` | yes |
 | `NoValueBasedTextField` | `NoValueBasedTextFieldRule.kt` | `no-value-based-text-field` | Bans the value-based text field API — `value:` plus `onValueChange:` — on Compose text fields. | `NoValueBasedTextFieldRuleTest` | yes |
 | `NoViewModelScopeInProduction` | `NoViewModelScopeInProductionRule.kt` | `no-viewmodel-scope` | Bans direct usage of `viewModelScope.launch`, `viewModelScope.async`, | `NoViewModelScopeInProductionRuleTest` | yes |
@@ -40,6 +42,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**32 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**34 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->
