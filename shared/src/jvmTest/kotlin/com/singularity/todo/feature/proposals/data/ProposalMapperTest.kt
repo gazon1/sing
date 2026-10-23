@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * The vocabulary has to survive the trip through the database.
@@ -164,10 +165,54 @@ class ProposalMapperTest {
     fun `a blob that is not a blob keeps the change`() {
         val encoded = "not json at all"
 
-        assertEquals(
-            ProposalItemKind.Unknown(encoded),
-            decodeKind(encoded),
+        val decoded = assertNotNull(
+            decodeKind(encoded) as? ProposalItemKind.Unknown,
             "the change is kept — as the change this build cannot read",
+        )
+
+        assertEquals(encoded, decoded.raw, "the blob is kept exactly as it was found")
+        assertTrue(
+            decoded.reason.contains("not stored in a form"),
+            "the reason says the blob is not stored in a form this version can read: ${decoded.reason}",
+        )
+    }
+
+    @Test
+    fun `a change a newer build wrote with a field this one does not know is refused`() {
+        // A newer build added a field to a kind this build knows. Reading the blob
+        // without that field would fill in a default and show the user a change
+        // nobody proposed — so the reader refuses the blob, and the change stays on
+        // the card with the reason it cannot be read.
+        val encoded = """{"type":"SetTaskField","value":{"type":"Title","value":"Buy milk","marker":"x"}}"""
+
+        val decoded = decodeKind(encoded)
+
+        assertTrue(
+            decoded is ProposalItemKind.Unknown,
+            "a blob with a field this build does not know is not read as something else: $decoded",
+        )
+        assertNotNull(
+            decoded.readFailure,
+            "the reason the change cannot be read is with the change",
+        )
+    }
+
+    @Test
+    fun `a sealed blob is never read as a flat one`() {
+        // A kind a newer build knew, in the sealed shape. The flat reader would
+        // have read it as a change with an empty field — a change that says
+        // something entirely different from what it is.
+        val encoded = """{"type":"ArchiveEverything","value":{"type":"Everything","targetId":"t1"}}"""
+
+        val decoded = decodeKind(encoded)
+
+        assertTrue(
+            decoded is ProposalItemKind.Unknown,
+            "a sealed blob this build cannot read is not read as a flat one: $decoded",
+        )
+        assertNotNull(
+            decoded.readFailure,
+            "the reason the change cannot be read is with the change",
         )
     }
 

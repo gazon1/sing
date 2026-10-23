@@ -337,15 +337,31 @@ sealed interface ProposalItemKind {
      * @property raw The stored blob, exactly as it was found. It is kept so the
      *   change can be written back unchanged — a row this build cannot read must
      *   not become a row this build *rewrites* into something else.
+     * @property reason Why this change cannot be read, in the words the user reads.
+     *   The reader knows more than one reason exists — a blob that is not a blob at
+     *   all, a kind this build does not know, a field this build does not know — and
+     *   a change that carries the same sentence for three different facts carries
+     *   no fact at all.
      */
     @Serializable
     @SerialName("Unknown")
-    data class Unknown(val raw: String) : ProposalItemKind {
+    data class Unknown(val raw: String, val reason: String = UNREADABLE_REASON) : ProposalItemKind {
         override val humanSummary: String = "A change this version cannot read"
         override val fingerprintTarget: String = raw
-        override val readFailure: String? =
-            "This change was written by another version of the app, and this one cannot read it."
+        override val readFailure: String? = reason
         override fun editableProposal(): EditableProposal? = null
+    }
+
+    companion object {
+
+        /**
+         * The reason a change carries when nothing more specific is known.
+         *
+         * The reader names the reason it knows; this is the one it reaches for when
+         * the blob was written by a build that knew something this one does not.
+         */
+        const val UNREADABLE_REASON =
+            "This change was written by another version of the app, and this one cannot read it."
     }
 }
 
