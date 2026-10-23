@@ -181,6 +181,53 @@ grace period before anything is killed outright, and closing twice is safe. The 
 own "close the session" call is attempted, with a deadline of its own, and never relied
 upon: it is unstable and available only when the agent declares the capability.
 
+**The agent's process is owned from the moment it is launched.** The handshake can take a
+minute, and the process exists for all of it. So the session is held before the handshake
+rather than after it, and a connect that is cancelled — the reader navigated away — ends
+the agent rather than leaving a third-party process running with the user's credentials and
+the application's data directory open. The teardown of a connection that never completed is
+a kill, not a goodbye: there is no conversation to close politely.
+
+**The urgent teardown does not consume the graceful one's escalation.** Asking a process
+tree to leave and making sure it left are different acts. The screen's teardown and the
+session's teardown both reach the tree, in whatever order they arrive, so the two paths
+have separate flags: the urgent path asks, and the graceful path still escalates to a
+force-kill afterwards. One flag for both meant that a tree asked politely once could never
+be force-killed, and an agent that ignores the polite signal — one real bridge does —
+outlived the session that ended it.
+
+**A turn's outcome belongs to that turn.** A turn that was stopped keeps running for a
+moment — the agent is asked to stop, and the request is a request — and it can end after
+the next turn has begun. Its outcome is that turn's. So every outcome carries the turn it
+came from, and a turn that is no longer the current one cannot write to the state; and the
+next turn waits for the previous one to finish before it starts, because two prompts on one
+session are two conversations.
+
+**The probe's companions go only when the database has gone.** A write-ahead log holds the
+transactions that were committed but not yet checkpointed, so removing it while the database
+survives loses committed data. The delete can fail while the file remains — a file held
+open by a running application, a read-only file — so the rule is checked rather than
+assumed: the database is deleted first, and the companions follow only if it is gone.
+
+**The tool server fails in one place.** Every start-up step that can fail says so on the
+protocol channel and exits with a code — including the one that resolves the tool list. A
+dependency that cannot be built is a start-up failure, and a client waiting for an answer
+needs a reason rather than a closed connection.
+
+**The active profile has a file of its own.** The rule is that a process told which profile
+to serve never opens the application's stored active-profile state — and the key used to live
+in the settings file, next to the appearance and the notification settings, which is a file
+the tool server opens for the AI configuration. The server never *read* the key and never
+*wrote* it, but a rule about not opening a file is broken by opening the file, and a rule
+satisfied by an intention rather than by a fact is not a rule. So the key moved to
+`profile_state.preferences_pb`, which holds nothing else, and a process told which profile
+to serve never resolves that store at all.
+
+**A process told which profile to serve answers the one setting the tools need with its
+default.** The tools ask for their staleness threshold through the narrow port rather than
+through the whole settings repository, and a fixed-profile process answers it with the
+default rather than pulling the store in with it.
+
 **The trust contours stay separate.** The agent's permission requests govern the agent's
 own tools. The proposal pipeline governs the application's writes to the user's data. The
 direct-write exceptions are three named tools. None of the three gates the others, and the
@@ -212,6 +259,13 @@ checks only that the file is still there would pass against a probe that empties
 quietly writes. The failure mode of no default is a red build, and a red build is a
 conversation rather than an incident.
 
+**The profile state gets a file of its own.** The isolation was asserted, not established:
+the server did not read the key, and the server opened the file the key was in. A
+guarantee about a file is either true or it is not, and the only way to make it true was
+to put the key somewhere the server never opens. The alternative — leaving the key where
+it was and saying the server does not *use* it — trades a guarantee for an intention, and
+the intent is not checkable by a test.
+
 **Explicit "not supported" over silent capability.** The protocol library supplies default
 behaviours for the file-system and terminal operations that refuse when the corresponding
 capability was not advertised. The application advertises neither and writes neither, so
@@ -226,6 +280,20 @@ for flexibility nothing here uses.
 **Failure is not success.** A turn whose stream dies is failed. A turn that ends because the
 process crashed and a turn that ended because the agent finished are different facts, and
 the difference is exactly what the reader needs to know.
+
+**A process that exists is a process that has to end.** The handshake is a window in which
+the agent is running and the application has nothing to show for it. Ownership that begins
+when the connection succeeds is ownership that begins too late, and the reader who
+navigated away is the only one who could end it.
+
+**Two prompts on one session are two conversations.** The protocol does not say what a
+second prompt means while the first is running, and the reader cannot tell which turn an
+outcome belongs to. So the second turn waits for the first to end, and each outcome says
+which turn it came from.
+
+**Asking and making sure are different acts.** A teardown that has to happen now cannot
+wait, and a teardown that may wait should not be disabled by the first one. A process that
+ignores the polite signal is exactly the case where the difference shows.
 
 ## Consequences
 
@@ -272,6 +340,21 @@ few weeks. The exact pin and the single touch-point file are what make that affo
 **The external agent's cost is not surfaced.** The protocol carries usage and cost, so this
 is a scope decision rather than a protocol limitation — recorded here so it is not
 rediscovered as an accident later.
+
+**The staleness threshold in a fixed-profile server is the default.** Twenty-one days,
+whether or not the user chose something else. The alternative was to open the
+application's settings store from a process whose whole reason for existing is to stay
+away from the user's stored state. The tools' narrow port is what made the choice
+available at all: a tool that asked for the whole settings repository would have pulled
+the store in with it, and the isolation would have been a claim rather than a fact.
+
+**The active profile moved to its own file.** `profile_state.preferences_pb` holds the
+active profile id and nothing else. A user who ran the previous version has the key in
+the settings file, so the first read after the move looks in the new file, and if the key
+is not there it looks in the old one once, moves it, and takes it out of the old file. A
+user who never ran the previous version has nothing to move, and the old file is not read
+at all. The move is conditional: a profile the user switched to in the meantime wins, and
+the value being moved is only a fallback.
 
 ## Links
 

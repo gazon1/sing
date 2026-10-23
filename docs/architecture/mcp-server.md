@@ -199,12 +199,16 @@ The id is the new argument: it names a profile exactly, it never changes the sto
 active profile, and an id nobody knows is an error rather than a fallback.
 
 **Why the id mode never touches the stored state.** The active profile lives in a
-preferences store that takes a file lock, and the application is holding it. A second
-process opening the same store conflicts with the application. The mechanism is the
-module list, not a check the server performs later — `domainModule(fixedProfileId)` binds
-`ProfileRepositoryImpl` with `dataStore = null` in the fixed-profile branch
+preferences store of its own — `profile_state.preferences_pb` — that takes a file lock,
+and the application is holding it. A second process opening the same store conflicts with
+the application. The mechanism is the module list, not a check the server performs later —
+`domainModule(fixedProfileId)` binds `ProfileRepositoryImpl` with `profileStateStore = null`
+in the fixed-profile branch
 (`shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt`), so the store is
-never constructed and its lock is never taken.
+never constructed and its lock is never taken. The key used to live in the settings store,
+which this server opens for the AI configuration; it has its own file now, so "the server
+never opens the stored active-profile state" is a fact about a file rather than an
+intention about a key.
 
 **The legacy argument is preserved deliberately.** Distributed client manifests in the
 wild already pass `--profile=ai-agent`; changing its meaning silently would break every

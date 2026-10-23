@@ -35,10 +35,16 @@ fun coreLoggingModule(): Module = module {
  *   Null — the ordinary case — means the process uses the application's stored active
  *   profile. A non-null value means the process was told which profile to serve, and it
  *   must not open the store that holds the active one: the store takes a file lock, and
- *   the application is holding it.
+ *   the application is holding it. The active profile has a file of its own, and a
+ *   process told which profile to serve never resolves it at all.
  */
 fun domainModule(fixedProfileId: ProfileId? = null): List<Module> = buildList {
     add(tasksModule())
+    // The one setting the tools read. Bound separately from the tasks module because
+    // its answer depends on the mode: the application gets the user's setting, and a
+    // process told which profile to serve gets the default without opening the
+    // application's store.
+    add(tasksSettingsModule(fixedProfileId))
     add(projectsModule())
     add(notesModule())
     add(tagsModule())

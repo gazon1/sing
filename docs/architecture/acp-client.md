@@ -103,6 +103,20 @@ asks the deepest descendants to leave first, then the root, waits out a grace pe
 `destroyNow()` is the impatient version, used when there is no scope left to wait in.
 Closing twice is not an error.
 
+The two paths have **separate** flags. `destroyNow()` asks the tree to leave and does not
+wait; `close()` asks, waits, and escalates to a force-kill. One flag for both meant that
+the impatient path consumed the graceful one's chance to run — so a tree that had been
+asked politely once could never be force-killed, and an agent that ignores the polite
+signal outlived the session that ended it. The screen's teardown and the session's teardown
+both reach the tree, in whatever order they arrive, and neither may disable the other.
+
+**The process is owned from the moment it is launched.** The handshake can take a minute,
+and the agent is running for all of it. The ViewModel therefore holds the session
+*before* `connect()` rather than after it, so a connect that is cancelled — the reader
+navigated away — ends the agent instead of leaving a third-party process running with the
+user's credentials and the application's data directory open. A connection that never
+completed is killed rather than closed politely: there is no conversation to close.
+
 **The protocol.** `StdioTransport` over the process's own pipes, then
 `Protocol(scope, ioTransport)` and `ioProtocol.start()`. The client then calls
 `initialize(...)` with a `ClientInfo`, and opens a session.
@@ -131,6 +145,13 @@ protocol's stop reasons are mapped to outcomes by `AcpEventAdapter.outcomeFor`: 
 that hit a limit (`MAX_TOKENS`, `MAX_TURN_REQUESTS`) *succeeded* — the agent answered,
 and the answer was cut short, which is a caveat and not a failure. A `REFUSAL` is a
 failure.
+
+**A turn's outcome belongs to that turn.** A turn that was stopped keeps running for a
+moment — the agent is asked to stop, and the request is a request — and it can end after
+the next turn has begun. So every outcome carries the turn it came from, and a turn that
+is no longer the current one cannot write to the state; and the next turn waits for the
+previous one to finish before it starts, because two prompts on one session are two
+conversations and the protocol says nothing sensible about the second one.
 
 **The close.** The process tree belongs to whoever started the conversation, and that is
 the screen's ViewModel — `AcpExternalAgentViewModel` holds the `AcpAgentSession`, which
@@ -194,6 +215,19 @@ the application runs*: the implementation lives in the shared JVM runtime
 starts it in its own `--mcp-server` mode. Two servers would be two toolsets that drift,
 and every guarantee the application makes about the user's data — the kill switch, the
 call log, "a write asks first" — is a guarantee about one place.
+
+**A server told which profile to serve does not open the application's profile state.**
+The active profile id lives in a file of its own — `profile_state.preferences_pb`, which
+holds nothing else — and a server given a profile id therefore builds its profile
+repository without a store: it never reads or writes the active profile, and it never
+opens the file that says which profile the user is working in. The key used to live in the
+settings store, next to the appearance and the notification settings; that file is one
+the server opens for the AI configuration, and a guarantee about not opening a file is
+either true or it is not. The tools read their one setting (the staleness threshold)
+through the narrow `TasksSettingsRepository` port rather than through the whole settings
+repository, which keeps the settings store out of the graph as well. The price is that a
+fixed-profile server answers with the setting's default rather than the user's, and the
+price is stated rather than discovered.
 
 **The server's standard output is the protocol channel.** The server takes standard
 output for the protocol and moves everything else — its own logs, a third-party
