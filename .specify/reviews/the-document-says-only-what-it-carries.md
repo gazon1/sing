@@ -2,7 +2,7 @@
 change: the-document-says-only-what-it-carries
 verdict: fail
 date: 2026-10-23
-pr: 1027
+pr: 1029
 reviewed: 38917daa7ad5554cab447e07b364e097dc794b47
 documents: sha256:d56ea1259ebc37a52b13e2621c87099ed01a147162a287d28574507499c16e9e
 ---
