@@ -37,16 +37,40 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
 from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, sandbox_env, tree_env  # noqa: E402,F401
 
 
+class GitCommandFailed(subprocess.CalledProcessError):
+    """A git command that failed, with the reason git gave in the message.
+
+    `subprocess` captures git's stderr and drops it: the exception carries the
+    output, but `CalledProcessError.__str__` does not, and a reader of a red CI
+    run sees "returned non-zero exit status 128" and nothing else. The reason
+    is in the captured stderr, so it goes into the message — and the type
+    stays the one every caller already catches.
+    """
+
+    def __str__(self) -> str:
+        detail = (self.stderr or self.output or '').strip()
+        base = super().__str__()
+        return f"{base}: {detail}" if detail else f"{base} (git said nothing)"
+
+
 def git(*args: str, cwd: pathlib.Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     """A git command that must succeed."""
-    return subprocess.run(
-        ['git', *args],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        check=True,
-        env=env,
-    )
+    try:
+        return subprocess.run(
+            ['git', *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+        )
+    except subprocess.CalledProcessError as failure:
+        raise GitCommandFailed(
+            failure.returncode,
+            failure.cmd,
+            output=failure.output,
+            stderr=failure.stderr,
+        ) from None
 
 
 def git_output(*args: str, cwd: pathlib.Path, env: dict[str, str] | None = None) -> str:

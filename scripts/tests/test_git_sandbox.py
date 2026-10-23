@@ -119,6 +119,78 @@ class GitSandboxTest(unittest.TestCase):
         log = _git('log', '--format=%s', cwd=self.outer, env=sandbox_env(self.tmp)).stdout.splitlines()
         self.assertEqual(['the project'], log)
 
+    # ── the identity ───────────────────────────────────────────────────────
+
+    def test_the_sandbox_can_commit_where_there_is_no_git_identity(self):
+        """A commit needs an author, and a runner may have none to give.
+
+        Git refuses a commit it cannot attribute, and it looks for the
+        identity in the environment first and in the configuration files after.
+        A workstation has a global `~/.gitconfig`; a runner may have none — and
+        may have `user.useConfigOnly` set, which is exactly the setting that
+        forbids git's own guess at an identity. The fixture then committed on
+        the machine that wrote it and failed everywhere else, and the failure
+        said only "exit status 128": a reader of a red CI run saw a number and
+        no reason.
+
+        So the sandbox carries the identity, and this test removes every place
+        the identity could come from — the global configuration, the system
+        configuration, and the environment the developer has — and forbids the
+        guess the same way the runner does.
+        """
+        repo = self._fixture()
+        env = sandbox_env(self.tmp)
+        env['GIT_CONFIG_GLOBAL'] = str(self.tmp / 'no-global-config')
+        env['GIT_CONFIG_SYSTEM'] = str(self.tmp / 'no-system-config')
+        env['GIT_CONFIG_NOSYSTEM'] = '1'
+        # The setting a runner may carry: git must not guess an identity.
+        env['GIT_CONFIG_COUNT'] = '1'
+        env['GIT_CONFIG_KEY_0'] = 'user.useConfigOnly'
+        env['GIT_CONFIG_VALUE_0'] = 'true'
+
+        _git('init', '-q', '-b', 'main', cwd=repo, env=env)
+        (repo / 'a.txt').write_text('a\n', encoding='utf-8')
+        _git('add', '-A', cwd=repo, env=env)
+        _git('commit', '-q', '-m', 'a file', cwd=repo, env=env)
+
+        author = _git(
+            'log', '-1', '--format=%an <%ae>', cwd=repo, env=env,
+        ).stdout.strip()
+        self.assertEqual('Sandbox Fixture <sandbox@example.com>', author)
+
+    def test_the_sandbox_identity_does_not_come_from_the_developers_config(self):
+        """The commit belongs to the fixture, not to whoever ran the test."""
+        repo = self._fixture()
+        env = sandbox_env(self.tmp)
+
+        _git('init', '-q', '-b', 'main', cwd=repo, env=env)
+        (repo / 'a.txt').write_text('a\n', encoding='utf-8')
+        _git('add', '-A', cwd=repo, env=env)
+        _git('commit', '-q', '-m', 'a file', cwd=repo, env=env)
+
+        author = _git(
+            'log', '-1', '--format=%an <%ae>', cwd=repo, env=env,
+        ).stdout.strip()
+        self.assertEqual('Sandbox Fixture <sandbox@example.com>', author)
+
+    def test_a_failing_git_command_says_what_git_said(self):
+        """A red CI run must show the reason, not only the exit code.
+
+        `subprocess` captures git's stderr and drops it: the exception carries
+        the output, but its message does not. So the reason the reader needs
+        was in the machine and not in the report.
+        """
+        repo = self._fixture()
+        env = sandbox_env(self.tmp)
+        _git('init', '-q', '-b', 'main', cwd=repo, env=env)
+
+        with self.assertRaises(subprocess.CalledProcessError) as caught:
+            _git('rev-parse', '--verify', 'no-such-ref', cwd=repo, env=env)
+
+        message = str(caught.exception)
+        self.assertIn('no-such-ref', message, 'the message must name the command')
+        self.assertIn('fatal', message, "the message must carry git's own words")
+
 
 if __name__ == '__main__':
     unittest.main()
