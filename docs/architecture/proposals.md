@@ -59,55 +59,56 @@ the value cannot disagree, and there is **one** reader per entity
 (`TaskValue.read(field, text)`) — the tools read a value before they store the
 proposal, and the user reads a value again when they change it.
 
-## The place the compiler does not protect
+## The codec, and what it does with a blob it cannot read
 
-**The codec.** `kind_json` stores the kind as a flat JSON object, and
-`ProposalKindCodec.decodeKind` decodes it **by string** — the type name of the kind. So
-a kind the codec was not taught to read does not fail to compile and does not fail
-loudly: it decodes to nothing, the item is dropped, and the proposal silently loses a
-change. The exhaustive `when`s in the domain do not help — the codec is not a `when`
-over the type.
+`kind_json` stores the kind in the shape kotlinx serialization produces for the
+sealed hierarchy, and the model's own serializer writes it. So the codec is no
+longer a `when` over type names: a field that changed in the model is a field
+that changed in what is stored, because the serializer and the model are the
+same declaration.
 
-A **value** is the other half of the same story, and it is handled the other way
-round: a value the reader cannot read is not dropped — it becomes an `Unreadable`
-value that carries the reason, the change stays on the card, and the planner refuses
-it before the claim. A change the user cannot see is a change nobody decided about.
-A **kind** the codec does not know is still a dropped row: the codec has no way to
-name what it does not know.
+A blob the reader cannot read is **not a dropped row** — it is a change that
+carries the reason it cannot be applied:
 
-The protection is mechanical rather than structural:
+- a **value** the reader cannot read becomes an `Unreadable` value that carries
+  the reason, the change stays on the card, and the planner refuses it before
+  the claim;
+- a **kind** this build does not know becomes `ProposalItemKind.Unknown(raw)`,
+  the change stays on the card with the reason, and the user can still turn it
+  down. The raw blob is kept, so a row this build cannot read is written back
+  unchanged — the next build that *can* read it finds the same change.
+
+A change the user cannot see is a change nobody decided about.
+
+The protection is both mechanical and structural:
 `shared/src/jvmTest/.../feature/proposals/data/ProposalMapperTest.kt` round-trips
-every kind and every value, and — this is the part that matters — checks the samples
-against the **sealed serializer's** list of variants. A kind that arrives without a
-sample fails the coverage test instead of disappearing in the app.
+every kind and every value, checks the samples against the **sealed
+serializer's** list of variants, and reads the flat shape the builds before this
+one wrote.
 
-Adding a kind therefore means: the kind itself (one file), a sample in the test (one
-file), and the codec's `when` (one file). The first two are compiler- or test-caught;
-the third is what the round-trip test exists for.
+Adding a kind therefore means: the kind itself (one file) and a sample in the
+test (one file). Both are compiler- or test-caught, and there is no third file
+to forget.
 
-The codec is in its own file because it outgrew the row mappers — and because it is
-the one file in the feature that the compiler cannot help with.
+### The flat shape, and when it goes
 
-### The structural fix, and why it is not done yet
+The rows in the wild carry the flat shape, so the reader still reads it: the
+sealed format is tried first, the flat one second. A flat blob cannot be read
+as a sealed one by accident — every sealed variant carries a payload the flat
+format does not have, and a flat blob has a string where the sealed one has
+that structure.
 
-The fix is to stop decoding by string: store `kind_json` in the shape kotlinx
-serialization produces for the sealed hierarchy, and let the serializer do the
-dispatch. Then `decodeKind` is not a `when` over type names at all, and a kind that
-arrives without a codec branch cannot be dropped — there is no branch to forget.
+The flat reader goes when the oldest build in the user's hands is one that
+writes the sealed format — that is, after the release that ships this change
+has been out long enough for the previous release to fall out of support. The
+removal is a follow-up: delete `decodeFlat` and the packing helpers, and the
+flat-format test with them.
 
-It is not done, and the reason is the data: the rows in the wild carry the flat
-shape, and a new shape is a new shape. It needs
-
-1. the new shape written by the encoder,
-2. the old shape still readable — a fallback path in the decoder, which is the
-   flat `when` this change would eventually delete,
-3. a decision about when the fallback is dropped.
-
-Step 2 is why it is a separate piece of work and not a detail: until the fallback
-is gone, the codec still holds the `when` the change was meant to remove, so the
-work would not have made anything safer — it would have made it safer *and* left
-the old path in place. The mechanical protection (the round-trip test) is what
-holds the line in the meantime, and it holds it today.
+The price, stated plainly: a change written by this build and read by a build
+that only knows the flat format does not read there. The old build shows it as
+a change it cannot read, with the reason — it is not lost, it is not
+applicable, and a proposal is a *pending* change, so the user can turn it down
+or wait for an update. That is paid only between two releases.
 
 ## The lifecycle of an item
 
