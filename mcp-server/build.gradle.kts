@@ -118,10 +118,13 @@ tasks.withType<Test>().configureEach {
             else -> includeTags(*tags.toTypedArray())
         }
     }
-    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
-    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
-    // parallel test runs don't overwrite each other's dumps.
-    maxHeapSize = "3g"
+    // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
+    // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
+    // Kover agent attached), and 1536 MB carries the whole suite without one.
+    // Forked test JVMs do NOT inherit org.gradle.jvmargs (that's the daemon only).
+    // HeapDumpPath is module-local so parallel test runs don't overwrite each
+    // other's dumps. ADR 2026-10-22-gradle-memory-budget.
+    maxHeapSize = "1536m"
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",

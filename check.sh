@@ -293,8 +293,16 @@ echo -e "${GREEN}detekt-rule branch coverage floor met${NC}"
 echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (app + detekt-rules) ===${NC}"
 # :koverVerify enforces INSTRUCTION 27% / BRANCH 20% / LINE 27% from settings.gradle.kts.
 # :detekt-rules:koverVerify enforces BRANCH 60% from detekt-rules/build.gradle.kts.
+#
+# `:koverVerify` measures what is in the task graph, and the aggregation plugin never
+# depends on the test tasks itself — so the task carries `dependsOn("koverReport")`
+# (build.gradle.kts) and pulls in the tests it verifies. Before that, a standalone
+# `:koverVerify` measured 0.000000 and the floor could not be satisfied by anything.
+#
 # Skipped when no report exists (same reason as the --if-present it replaces: koverReport
 # instruments every test task and roughly triples the local loop; CI runs it on every push).
+# With the dependency above, a report that exists but is stale is re-measured rather
+# than trusted — the floor is then checked against the current code.
 if [ -f build/reports/kover/report.xml ]; then
     timed "koverVerify" ./gw :koverVerify || {
         echo -e "${RED}app coverage below the recorded floor${NC}"

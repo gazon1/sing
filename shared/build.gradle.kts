@@ -384,10 +384,13 @@ tasks.withType<Test>().configureEach {
             else -> includeTags(*tags.toTypedArray())
         }
     }
-    // Bumped from default ~512 MB to 3 GB. Forked test JVMs do NOT inherit
-    // org.gradle.jvmargs (that's the daemon only). HeapDumpPath is module-local so
-    // parallel test runs don't overwrite each other's dumps.
-    maxHeapSize = "3g"
+    // Was the default ~512 MB, then 3 GB. The heap is MEASURED, not chosen: the full
+    // population dies with `OutOfMemoryError: Java heap space` at 1024 MB (with the
+    // Kover agent attached), and 1536 MB carries the whole suite without one.
+    // Forked test JVMs do NOT inherit org.gradle.jvmargs (that's the daemon only).
+    // HeapDumpPath is module-local so parallel test runs don't overwrite each
+    // other's dumps. ADR 2026-10-22-gradle-memory-budget.
+    maxHeapSize = "1536m"
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
@@ -437,6 +440,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     //
     // A `-Ptest.tags` filter deliberately does *not* mark the run partial — tag selection is
     // what CI does on purpose, and the floors are recorded against it.
+    //
+    // `tags=` IS recorded, though: it is the population this run measured, and the gate
+    // needs it to answer "were the slow classes supposed to run here?". Without it, a
+    // nightly run that silently stopped selecting @Tag("slow") classes would look
+    // exactly like a PR run that never selected them.
+    val testTags = (project.findProperty("test.tags") as String?) ?: ""
     val manifestDir = layout.buildDirectory.dir("test-results/$name")
     doLast {
         val filters = filter.includePatterns
@@ -449,13 +458,15 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
             task=$name
             partial=$partial
             filters=${filters.joinToString(",")}
+            tags=$testTags
             executedClasses=$executed
             finishedAt=${System.currentTimeMillis()}
             """.trimIndent() + "\n",
         )
         logger.lifecycle(
             "jvmTest run manifest: ${if (partial) "PARTIAL" else "full"} " +
-                "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""})",
+                "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""}" +
+                "${if (testTags.isNotEmpty()) ", tags=$testTags" else ""})",
         )
     }
     // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
@@ -482,7 +493,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
-    maxHeapSize = "3g"
+    maxHeapSize = "1536m"
     // JFR profiling — enable with `-PJFR=true`. Records to build/reports/jfr/.
     // `jfc` settings file is in project root so it's not buried in build/.
     if (project.hasProperty("JFR")) {

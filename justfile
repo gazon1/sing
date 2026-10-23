@@ -14,6 +14,7 @@
 mod config   '.just/config'
 mod android  '.just/android'
 mod desktop  '.just/desktop'
+mod gradle   '.just/gradle'
 mod tests    '.just/tests'
 mod scripts  '.just/scripts'
 mod traceability '.just/traceability'

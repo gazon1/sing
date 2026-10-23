@@ -8,18 +8,19 @@
 #
 # Record the SMALLEST count any legitimate run produces. The default local
 # run (no -Ptest.tags) excludes @Tag("slow"), so it runs every @Tag("fast")
-# class PLUS any untagged one — which is why it, and not CI, is the run to
-# record. CI's `-Ptest.tags=fast,slow` selects tagged classes only, so it is not
-# a superset of the local run: it is a different selection, narrower whenever a
-# class is untagged. TestTagCoverageTest is what keeps that population at zero.
-# Recording the CI numbers here instead would make every plain local run
-# look like a regression.
+# class PLUS any untagged one — which is why it, and not the nightly, is the run
+# to record. CI has two selections: `-Ptest.tags=fast` on a pull request, which
+# selects tagged classes only, and `-Ptest.tags=fast,slow` on the nightly, which
+# selects the slow ones too. Neither is a superset of the local run: both are a
+# different selection, narrower whenever a class is untagged. TestTagCoverageTest
+# is what keeps that population at zero. Recording the nightly numbers here
+# instead would make every plain local run look like a regression.
 #
 # A DROP means a test class stopped being selected — an untagged class, a
 # JUnit 4 class on the Vintage engine, or a narrowed filter. Investigate; do
 # not regenerate. A RISE just means tests were added — but see the warning
-# --update-baseline prints on a rise, because a rise measured with
-# `-Ptest.tags=fast,slow` is not a floor at all.
+# --update-baseline prints on a rise, because a rise measured with a wider
+# selection (`-Ptest.tags=fast,slow`) is not a floor at all.
 #
 # max-skipped is a CEILING, not a floor, and it is 0. A skipped test is a
 # silent green: JUnit counts it in tests= exactly like a passing one, so a
@@ -83,8 +84,8 @@
 # they could not while the resolver read the system clock. 1880 is the 44 tests
 # the task theme refactor landed on `origin/main` while this work was in flight.
 # All measured on the default run (no `-Ptest.tags`), which is the run a floor is
-# supposed to describe — CI's `-Ptest.tags=fast,slow` is a different selection, not
-# a superset, so a number from it would not be a floor at all.
+# supposed to describe — CI's nightly `-Ptest.tags=fast,slow` is a different
+# selection, not a superset, so a number from it would not be a floor at all.
 #
 # **The class column is gone** (2026-10-05). It became redundant once the
 # by-results check existed: that check already fails when a declared class produced

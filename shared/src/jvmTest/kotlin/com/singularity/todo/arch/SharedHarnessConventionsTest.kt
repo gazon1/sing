@@ -463,7 +463,7 @@ class SharedHarnessConventionsTest {
     fun `every test class has a @Tag annotation`() {
         // A test without @Tag is invisible to the `fast` / `slow` filter that gates CI.
         // All test classes — including those in `commonTest` — must be tagged so that
-        // `-Ptest.tags=fast,slow` in CI can include or exclude them deterministically.
+        // the `-Ptest.tags` selection in CI can include or exclude them deterministically.
         val VIOLATION_PATTERN = Regex(
             """^class\s+(\w+)\s*:\s*\w+\s*\{""",
             RegexOption.MULTILINE,

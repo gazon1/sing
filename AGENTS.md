@@ -107,9 +107,10 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 `commonTest` (pure Kotlin) выполняется внутри `./gradlew :shared:jvmTest` — отдельного таска нет.
 `jvmTest` — Room + SQLite + Konsist arch tests. **Fake вместо моков** — все двойники в
 `test/fakes/FakeRepositories.kt`. Каждый тестовый класс обязан иметь `@Tag`, иначе
-`-Ptest.tags=fast,slow` в CI молча его исключит (`TestTagCoverageTest`). **`slow` = класс
-пересекает границу процесса** (Compose-харнесс, реальный файл/БД/часы, Konsist-скан, spawn),
-не «долгий». Никаких skipped: `@Disabled` или упавший assumption guard валят `check-test-runs.py`.
+`-Ptest.tags=fast` в CI (и `-Ptest.tags=fast,slow` в ночном прогоне) молча его исключит
+(`TestTagCoverageTest`). **`slow` = класс пересекает границу процесса** (Compose-харнесс,
+реальный файл/БД/часы, Konsist-скан, spawn), не «долгий». Никаких skipped: `@Disabled` или
+упавший assumption guard валят `check-test-runs.py`.
 
 **Под-тег `slow` — что именно медленно.** Медленный класс несёт второй тег из словаря:
 `slow:konsist`, `slow:migration`, `slow:compose`, `slow:data`, `slow:platform`. Основной тег
@@ -203,8 +204,8 @@ just gate         # ВСЕ гейты: check.sh → detekt → just cr → just 
 ./check.sh                    # реестр гейтов + тесты + Android + detekt
 bash scripts/ci/static-gates.sh   # ТОЛЬКО скриптовые гейты (≈1 мин, без JVM)
 just tests::impact    # тесты, которые эта правка может сломать (карта по дереву)
-./gw :shared:jvmTest     # быстрый цикл (без -Ptest.tags = только fast)
-./gw :shared:jvmTest -Ptest.tags=fast,slow   # полный набор, как в CI
+./gw :shared:jvmTest     # быстрый цикл (без популяции = только fast)
+./gw :shared:jvmTest -Ptest.population=full   # полный набор, как в CI
 ./gw :shared:jvmTest -Ptest.tags=slow:migration   # одна категория медленных
 ./gw :androidApp:assembleDebug   # Android
 ./gw :desktopApp:run      # Desktop (xvfb-run -a)

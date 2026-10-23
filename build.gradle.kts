@@ -60,10 +60,19 @@ allprojects {
 // Symptom of trying to use it: every reference inside the `kover { }` block
 // (`reports`, `total`, `xml`, `verify`, `rule`, `minBound`) is "Unresolved".
 //
-// The only way to configure kover verify rules on the root project is through
+// The only way to configure kover verify rules on the root project WAS through
 // `plugins.withId("org.jetbrains.kotlinx.kover") { configure<KoverProjectExtension> { ... } }`
-// — see below. That block is evaluated DEFERRED (when the plugin is attached), which
-// is why it works while the DSL block above does not.
+// — a deferred block, evaluated when the plugin is attached, which is why it
+// worked while the DSL block above did not. That block is GONE: it is where the
+// app's coverage floors used to live, and the floors it declared were never
+// evaluated by anything, so the rule was a number in a file that no task read.
+// The floors now live in `settings.gradle.kts`, in the aggregation plugin's own
+// settings-level block, which is where the plugin reads them. See
+// docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md.
+//
+// The root build script still owns the REPORT: `koverReport` is the task that
+// runs every JVM test task and merges their execution data, and `:koverVerify`
+// depends on it, so the verification reads the same report the run produced.
 //
 // `:koverXmlReport` alone is NOT enough, and this is not obvious. Kover's aggregation
 // plugin picks up whichever `Test` tasks happen to be in the task graph
@@ -96,6 +105,30 @@ tasks.register("koverReport") {
         ":detekt-rules:test",   // rule-coverage measurement: koverXmlReport needs test data
         ":koverXmlReport",
     )
+}
+
+// `:koverVerify` on its own measures NOTHING.
+//
+// The aggregation plugin merges the execution data of whichever `Test` tasks happen
+// to be in the task graph, and it never depends on them — so a standalone
+// `:koverVerify` verifies an empty report. Measured on 2026-10-22:
+//
+//   Rule 'app instruction coverage' violated: instructions covered percentage is
+//   0.000000, but expected minimum is 27
+//
+// That was invisible while the app floors did not exist: the rule set was empty, and
+// an empty rule set is satisfied by an empty measurement. With the floors declared in
+// settings.gradle.kts it is a permanent red, in CI and locally alike.
+//
+// One line makes the task correct by construction: it pulls in the same entry point
+// that runs the tests and writes the report. The test tasks are then up to date in
+// every caller that has already run them, so this costs nothing there.
+//
+// `matching { }.configureEach { }` rather than `named(...)`: the aggregation plugin
+// registers the task, and this configuration must not depend on whether that happened
+// before or after this script was evaluated.
+tasks.matching { it.name == "koverVerify" }.configureEach {
+    dependsOn("koverReport")
 }
 
 // Same reasoning applies to the HTML report, so it gets a wrapper rather than a
@@ -221,81 +254,24 @@ tasks.register<KoverMarkdownTableTask>("koverMarkdownTable") {
     dependsOn("koverReport")
 }
 
-// App coverage floors: INSTRUCTION 27% / BRANCH 20% / LINE 27%.
-// The settings-level kover plugin applies kover to the root project but only exposes
-// a partial DSL (no `reports { }`). `plugins.withId` reaches the already-applied
-// per-project plugin's full DSL to configure verify rules and log output.
+// App coverage floors: INSTRUCTION 27% / BRANCH 20% / LINE 27% for the full
+// population, and a second set for the fast population.
 //
-// Floors rounded down from 2026-10-15 measured values (27.6 / 20.7 / 27.4).
+// They live in settings.gradle.kts, and that is not a matter of taste. The
+// aggregation plugin registers `:koverXmlReport`, `:koverHtmlReport` and
+// `:koverVerify` on the root project and reads its rules from the
+// settings-level `kover { reports { verify { } } }` — the root project has no
+// Kover extension of its own to configure. The `plugins.withId("org.jetbrains.
+// kover") { configure { … } }` block that used to declare them HERE never ran
+// at all: probed on 2026-10-22 with a `println` inside it, and the line never
+// appeared. So the floors this file declared were never evaluated by anything,
+// and the CI step that reads them ("Coverage floors") was green no matter what
+// the coverage was.
 //
-// Named constants, not bare literals, because the minimum acceptable floor is policy and
-// the measured value is a fact — mixing them in one number means raising the floor looks
-// like a measurement and lowering it looks like a rounding. The `require` block is the
-// same contract as DETEKT_RULE_BRANCH_FLOOR's in detekt-rules/build.gradle.kts: the build
-// file is the claim, and the claim is checked where it is made.
-val APP_INSTRUCTION_COVERAGE_FLOOR = 27
-val APP_BRANCH_COVERAGE_FLOOR = 20
-val APP_LINE_COVERAGE_FLOOR = 27
-
-require(APP_INSTRUCTION_COVERAGE_FLOOR >= 27) {
-    "app instruction coverage floor must not drop below 27% — measured 27.6% on 2026-10-15"
-}
-require(APP_BRANCH_COVERAGE_FLOOR >= 20) {
-    "app branch coverage floor must not drop below 20% — measured 20.7% on 2026-10-15"
-}
-require(APP_LINE_COVERAGE_FLOOR >= 27) {
-    "app line coverage floor must not drop below 27% — measured 27.4% on 2026-10-15"
-}
-
-// kover 0.9.x: the project-level `kover { reports { total { xml { onCheck = true } } } }`
-// DSL at lines 58-69 is silently ignored because `kover.aggregation` (settings) applies
-// `org.jetbrains.kotlinx.kover` to the root via `beforeProject` AFTER the root build
-// script has already been evaluated. The only way to configure verify rules on the root
-// project is through `plugins.withId` (deferred) — which is this block.
+// The floors are also per population now — a fast run measures less coverage
+// than a full one — and the population is read from the same `-Ptest.tags`
+// property the tests use. See ADR 2026-10-22-ci-fast-only-pr-full-on-schedule.
 //
-// `minBound(45)` = verification fails if less than 45% of the aggregated counter value
-// is covered across ALL JVM test tasks and ALL modules. The 45% floor is deliberately
-// above the per-module floors (27/20/27) because the aggregated denominator includes
-// shared/utility classes that no single feature suite exercises completely.
-// Measured 57.5% on 2026-10-15; floor set well below that measured value.
-plugins.withId("org.jetbrains.kotlinx.kover") {
-    configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
-        reports {
-            total {
-                xml { onCheck = true }
-                verify {
-                    // Overall aggregated floor — must be declared BEFORE per-unit rules
-                    // so it is evaluated in the correct order (Kover evaluates top-to-bottom
-                    // and stops at the first failing rule in non-strict mode).
-                    rule("overall 45% total coverage") {
-                        bound {
-                            minValue = 45
-                        }
-                    }
-                    rule("instruction coverage") {
-                        bound {
-                            minValue = APP_INSTRUCTION_COVERAGE_FLOOR
-                            coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.INSTRUCTION
-                        }
-                    }
-                    rule("branch coverage") {
-                        bound {
-                            minValue = APP_BRANCH_COVERAGE_FLOOR
-                            coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH
-                        }
-                    }
-                    rule("line coverage") {
-                        bound {
-                            minValue = APP_LINE_COVERAGE_FLOOR
-                            coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
-                        }
-                    }
-                }
-                log {
-                    coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.INSTRUCTION
-                    format = "app instruction coverage: <value>%"
-                }
-            }
-        }
-    }
-}
+// What stays here is the report READING: the markdown table below renders
+// build/reports/kover/report.xml, which is the aggregate the floors above are
+// checked against.
