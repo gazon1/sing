@@ -162,6 +162,11 @@ class ModuleSelectionTest(unittest.TestCase):
         subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True)
         self.base = self._commit('base', {'README.md': 'base\n'})
 
+    def _give_the_repo_an_identity(self, repo: pathlib.Path) -> None:
+        """A runner has no git identity; a commit without one is refused."""
+        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=repo, check=True)
+        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=repo, check=True)
+
     def _commit(self, message: str, files: dict[str, str]) -> str:
         for name, content in files.items():
             path = self.repo / name
@@ -207,6 +212,7 @@ class ModuleSelectionTest(unittest.TestCase):
         tree.mkdir()
         (tree / 'A.kt').write_text('class A\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=tree, check=True)
+        self._give_the_repo_an_identity(tree)
         subprocess.run(['git', 'add', '-A'], cwd=tree, check=True)
         subprocess.run(['git', 'commit', '-q', '-m', 'a'], cwd=tree, check=True)
 
@@ -214,6 +220,7 @@ class ModuleSelectionTest(unittest.TestCase):
         other.mkdir()
         (other / 'B.kt').write_text('class B\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=other, check=True)
+        self._give_the_repo_an_identity(other)
         subprocess.run(['git', 'add', '-A'], cwd=other, check=True)
         subprocess.run(['git', 'commit', '-q', '-m', 'b'], cwd=other, check=True)
 
