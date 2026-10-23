@@ -38,7 +38,14 @@ was never checked against itself.
    `entities = [...]` list. This catches an entity added to the annotation
    without a rebuild, and a table left in the export after the entity was
    deleted — both of which Room reports as an identity-hash mismatch.
-4. **The chain has a round-trip test.** The generated
+4. **The head export's columns are the entities' columns.** The tables and the
+   columns the head `NN.json` declares are the ones the `@Entity` classes
+   declare. Room writes the export at build time, so an entity that grew a
+   column and was never re-exported is invisible until a build runs and Room's
+   own validation says the schema does not match — on the second minute of CI,
+   after the build, and only on the branch that changed it. This rule answers
+   the same question from the sources, in milliseconds, without a build.
+5. **The chain has a round-trip test.** The generated
    `MigrationRoundTripTest.kt` covers every step the chain promises to run.
    The file is generated from the exported schemas (`--write`), and this rule
    fails when the committed file is not what the generator produces — so a
@@ -57,10 +64,15 @@ would have turned a silent data-loss class into a red build. A schema-shape
 verifier that runs Room belongs in the migration tests, not here — but the test
 that does it is generated and kept current from here.
 
-It also does not read `createSql` to compare DDL, only table names. Comparing
-every column across 34 schema files would produce findings this project has
-already decided are noise; the column-level drift is caught by the identity-hash
-comparison that Room itself performs on open, and by the migration tests.
+It does not compare the columns *across* the 34 schema files. That is a
+different question, and this project has already decided those findings are
+noise: a migration is supposed to change columns, so a column that differs
+between version 37 and version 38 is the chain doing its job. What rule 4
+compares is the head export against the entity classes — one export and one
+source of truth — which is not a diff between two histories but a question with
+a right answer. (The `createSql` of an export is compared with that export's
+own column list, by a separate rule: an export that disagrees with itself is
+broken, whatever the entities say.)
 
 ## The positive control
 
@@ -117,6 +129,7 @@ if _SCRIPTS_SRC not in sys.path:
 
 from sgate.commands.base import run  # noqa: E402
 from sgate.gatekit.paths import generated_path  # noqa: E402
+from sgate.gatekit.room import entities as room_entities  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -451,6 +464,90 @@ def check_entities_agree(schema_dir: Path, declared_version: int | None, root: P
                 f"code describe different databases",
             )
         )
+    return out
+
+
+def check_columns_agree(schema_dir: Path, declared_version: int | None, root: Path) -> list[Violation]:
+    """Rule 4: the head export's columns are the columns the entities declare.
+
+    Room writes the export at build time: KSP reads the `@Entity` classes and
+    writes `NN.json`. So an entity that grew a column and was never
+    re-exported is invisible until a build runs and Room's own validation says
+    the schema does not match — on the second minute of CI, after the build,
+    and only on the branch that changed it.
+
+    This rule answers the same question from the sources. It compares the
+    table names and the column names, and nothing else: the column's type,
+    its affinity and its default are Room's business, and a rule that guessed
+    at them would report differences where there are none.
+
+    A table the code declares and the export does not have is reported too.
+    That is the other half of a stale export, and the existing rule only
+    catches the opposite direction.
+    """
+    out: list[Violation] = []
+    exports = exported_versions(schema_dir)
+    if not exports:
+        return [Violation("columns-agree", f"no exported schema files in {schema_dir}")]
+
+    head = max(exports)
+    exported_entities = read_schema_entities(exports[head])
+    if exported_entities is None:
+        return [Violation("columns-agree", f"{exports[head].name} is not readable Room schema JSON")]
+
+    declared = room_entities(root / "shared/src", "commonMain")
+    if not declared:
+        return [
+            Violation(
+                "columns-agree",
+                "no @Entity classes found in shared/src/commonMain — the comparison would "
+                "check nothing, which reads as a pass",
+            )
+        ]
+
+    exported_columns = {
+        entity["tableName"]: [
+            field["columnName"]
+            for field in entity.get("fields", [])
+            if isinstance(field, dict) and "columnName" in field
+        ]
+        for entity in exported_entities
+        if "tableName" in entity
+    }
+
+    for table in sorted(declared):
+        entity = declared[table]
+        if table not in exported_columns:
+            out.append(
+                Violation(
+                    "columns-agree",
+                    f"{head}.json has no table {table!r}, which {entity.path.name} declares. "
+                    f"The export is stale — re-export the schema ({table!r} and its columns "
+                    f"are missing from it)",
+                )
+            )
+            continue
+        only_declared = [c for c in entity.columns if c not in exported_columns[table]]
+        only_exported = [c for c in exported_columns[table] if c not in entity.columns]
+        if only_declared or only_exported:
+            out.append(
+                Violation(
+                    "columns-agree",
+                    f"table {table!r}: the entity declares {list(entity.columns)}, "
+                    f"{head}.json declares {exported_columns[table]}. "
+                    + (
+                        f"Missing from the export: {only_declared}. "
+                        if only_declared
+                        else ""
+                    )
+                    + (
+                        f"Not declared by the entity: {only_exported}. "
+                        if only_exported
+                        else ""
+                    )
+                    + "The export and the code describe different tables.",
+                )
+            )
     return out
 
 
@@ -813,6 +910,7 @@ def run_all(root: Path) -> list[Violation]:
     violations += check_chain_continuous(schema_dir, version, auto, manual, root)
     violations += check_floor_is_consistent(auto, version)
     violations += check_entities_agree(schema_dir, version, root)
+    violations += check_columns_agree(schema_dir, version, root)
     violations += check_manual_list_matches_factory(manual, root)
     violations += check_exports_are_internally_consistent(schema_dir, root)
     violations += check_roundtrip_test_current(root)
@@ -831,7 +929,9 @@ def _make_compliant(root: Path) -> None:
     ent_dir = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks"
     ent_dir.mkdir(parents=True)
 
-    (ent_dir / "TaskEntity.kt").write_text('@Entity(tableName = "tasks")\nclass TaskEntity\n')
+    (ent_dir / "TaskEntity.kt").write_text(
+        '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n'
+    )
 
     def export(n: int) -> None:
         # The export carries a DDL and a column list that agree, because the
@@ -1047,6 +1147,21 @@ def self_test() -> int:
         p = root / ROUND_TRIP_TEST_RELATIVE
         p.write_text(p.read_text() + "\n" + "// " + ("x" * MAX_LINE_LENGTH) + "\n", encoding="utf-8")
 
+    def _column_in_entity_not_in_export(root: Path) -> None:
+        """The entity grew a column and the schema was never re-exported.
+
+        The defect this rule exists for. Room would have said so — but only
+        after a build, on the second minute of CI, on the branch that made
+        the change. Before the rule, the export was compared with itself.
+        """
+        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/TaskEntity.kt"
+        p.write_text(p.read_text().replace("val id: String", "val id: String, val title: String"))
+
+    def _table_in_entity_not_in_export(root: Path) -> None:
+        """A new table was declared and the export was not re-exported."""
+        p = root / "shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/GhostEntity.kt"
+        p.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
+
     def _export_ddl_disagrees(root: Path) -> None:
         """The export's DDL declares a column its own column list does not.
 
@@ -1081,6 +1196,8 @@ def self_test() -> int:
     )
     expect_caught("missing round-trip test", _missing_roundtrip_test, "roundtrip-test-current")
     expect_caught("export DDL disagrees with its columns", _export_ddl_disagrees, "export-ddl-matches-fields")
+    expect_caught("a column the export does not have", _column_in_entity_not_in_export, "columns-agree")
+    expect_caught("a table the export does not have", _table_in_entity_not_in_export, "columns-agree")
 
     saved_floor = get_floor()
     try:
