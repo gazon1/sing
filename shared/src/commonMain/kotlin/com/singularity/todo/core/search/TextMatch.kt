@@ -45,7 +45,8 @@ data class TextMatchQuery(val terms: List<String> = emptyList(), val combinesWit
  *
  * ## The rule
  *
- * - A term is split into tokens — runs of letters and digits, case-folded.
+ * - A term is split into tokens — runs of letters and digits, case-folded and
+ *   stripped of their diacritics.
  * - The term matches a text when the text's token sequence contains the term's
  *   token sequence, where the **last** token of the term matches by prefix and
  *   the ones before it match exactly. A one-word term is therefore a word-prefix
@@ -61,19 +62,22 @@ data class TextMatchQuery(val terms: List<String> = emptyList(), val combinesWit
  * the **negated** ones, and the whole rule of a query the index could not
  * narrow at all. See `FreeTextRule`.
  *
- * ## The one difference, and what it means now
+ * ## The diacritics
  *
  * `unicode61` removes the diacritics of a word — "café" is indexed as "cafe" —
- * and this matcher does not. So the index finds "café" for the term "cafe" and
- * this matcher does not.
+ * and so does this matcher.
  *
- * That difference used to be invisible: the index offered the candidate and the
- * rule rejected it, so the search answered the same either way. It is not
- * invisible now — the index answers the positives, so a search for "cafe" finds
- * "Café au lait". The difference is in the direction that *finds more*, never in
- * the direction that loses a record: the rule accepts nothing the index does not
- * offer, and that is the invariant the corpus in `FtsMatcherAgreementTest` holds
- * closed.
+ * F7 — the diacritics are folded the way the index folds them.
+ *
+ * The two halves of one rule therefore answer the same question the same way:
+ * a search for "cafe" finds "Café au lait", and `NOT cafe` rules out exactly
+ * the records "cafe" finds.
+ *
+ * Before this, the matcher kept the accent while the index removed it, and the
+ * two halves of a rule contradicted each other: "cafe" found the record, and
+ * "NOT cafe" did not rule it out. The difference was in the direction that
+ * *finds more* — the index's — which is why no record was ever lost, and why
+ * the contradiction went unnoticed for as long as it did.
  */
 object TextMatch {
 
@@ -124,18 +128,33 @@ object TextMatch {
      * rows and filters them with this rule. The two rules are two questions,
      * and the mode says which one is being asked.
      *
-     * The comparison is case-insensitive, like the word-prefix rule.
+     * ## The comparison is the word rule's comparison
+     *
+     * The text and the term are folded and case-folded the way the word rule
+     * folds them, and then compared. So the two modes answer the same way
+     * about the same text: "cafe" finds "Café au lait" in the word mode and in
+     * the contains mode alike, and "istanbul" finds "İstanbul" in both.
      *
      * @param text the searchable text of a record; `null` matches nothing.
      * @param term the term to look for. An empty term matches nothing.
      */
     fun contains(text: String?, term: String): Boolean {
         if (text.isNullOrEmpty() || term.isEmpty()) return false
-        return text.contains(term, ignoreCase = true)
+        return fold(text).contains(fold(term))
     }
 
     /**
-     * The tokens of [text]: runs of letters and digits, case-folded.
+     * The text, folded and case-folded the way the tokenizer folds it.
+     *
+     * @param text the text to fold.
+     */
+    private fun fold(text: String): String =
+        buildString(text.length) {
+            text.forEach { character -> append(DiacriticFold.fold(character).lowercaseChar()) }
+        }
+
+    /**
+     * The tokens of [text]: runs of letters and digits, folded and case-folded.
      *
      * Empty runs are dropped, so a string of punctuation has no tokens and
      * matches no term.
@@ -152,10 +171,14 @@ object TextMatch {
      * `Char.lowercaseChar()` is the *simple* mapping — one character in, one
      * character out — and it is what `unicode61` does. The corpus in
      * `FtsMatcherAgreementTest` is what keeps the two tokenizers in step.
+     *
+     * The diacritics are folded the same way, and for the same reason: the
+     * index folds them, and a rule that did not would answer the negated terms
+     * of a query differently from its positive ones.
      */
     fun tokens(text: String): List<String> =
         buildString(text.length) {
-            text.forEach { character -> append(character.lowercaseChar()) }
+            text.forEach { character -> append(DiacriticFold.fold(character).lowercaseChar()) }
         }
             .split(SEPARATORS)
             .filter { it.isNotEmpty() }

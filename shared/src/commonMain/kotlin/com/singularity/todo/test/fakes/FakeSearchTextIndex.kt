@@ -25,25 +25,22 @@ import kotlinx.coroutines.flow.map
  *
  * ## The one thing the fake does not do
  *
- * The production index removes the diacritics of a word — it finds "Café au
- * lait" for "cafe" — and the in-memory rule does not. The fake answers with the
- * rule, so it is the stricter of the two.
- *
- * A test that asserts the behaviour of the diacritics belongs to the corpus
- * (`FtsMatcherAgreementTest`), which runs against a real SQLite. See
- * `docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
- *
- * ## The one thing the fake cannot answer
- *
- * The production index also says *where* it found the word — the position of
- * the match, read from the index itself. The fake has no index and no
- * tokenizer to read the position from, so it answers with no ranges at all.
+ * The production index says *where* it found the word — the position of the
+ * match, read from the index itself. The fake has no index and no tokenizer to
+ * read the position from, so it answers with no ranges at all.
  *
  * That is not a gap in the fake to be papered over with a second
  * implementation of "where the word is": the position is the index's answer,
  * and a rule in Kotlin that guessed it would be a second answer to a question
  * only the index can answer. The position is asserted where the index is —
  * against a real SQLite, in `FtsOffsetsTest`.
+ *
+ * The *matching* is the same as the production one, diacritics included: the
+ * fake answers with [com.singularity.todo.core.search.TextMatch], which folds
+ * the diacritics the way the index folds them. A test that asserts the
+ * behaviour of the diacritics belongs to the corpus (`FtsMatcherAgreementTest`),
+ * which runs against a real SQLite. See
+ * `docs/decisions/2026-10-23-the-rule-folds-the-diacritics-the-way-the-index-does.md`.
  *
  * The fake reads the repositories rather than a store of its own, so the
  * records it answers with are the records the repositories hold — a test that

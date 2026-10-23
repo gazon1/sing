@@ -44,10 +44,10 @@ import kotlin.time.Instant
  *
  * What is asserted here is what a user can see:
  *
- * 1. a search returns the record the index found, even where the in-memory rule
- *    would have rejected it — the index answers the positive terms, and the rule
- *    does not ask the question a second time;
- * 2. a negated term still rules a record out, in memory;
+ * 1. a search returns the record the index found — the index answers the
+ *    positive terms, and the rule does not ask the question a second time;
+ * 2. a negated term still rules a record out, in memory — and it rules out
+ *    exactly the records the positive term finds, accents included;
  * 3. a quoted phrase does not match the same words standing further apart.
  */
 @Tag("slow")
@@ -74,9 +74,9 @@ class SearchUseCaseFtsTest {
 
     @Test
     fun `the index answers the positive terms, and the search returns what it found`() = runTest {
-        // The in-memory rule keeps the accent, so it does not match "cafe"
-        // against "Café au lait". The index removes the diacritics, and the
-        // index answers the positive terms — so the record is in the answer.
+        // The index removes the diacritics, so it finds "Café au lait" for the
+        // term "cafe"; the rule folds them the same way, so the two halves of
+        // the rule answer the same question the same way.
         seed(task(id = "t1", title = "Café au lait"))
 
         val found = search("cafe")
@@ -98,6 +98,26 @@ class SearchUseCaseFtsTest {
             listOf("t1"),
             found.tasks.map { it.record.id.value },
             "the negated term is the rule's business, and the rule still holds it",
+        )
+    }
+
+    @Test
+    fun `a negated term rules out exactly the records the positive term finds`() = runTest {
+        seed(task(id = "t1", title = "Café au lait"), task(id = "t2", title = "Coffee break"))
+
+        val positive = search("cafe")
+        val negated = search("cafe NOT cafe")
+
+        assertEquals(
+            listOf("t1"),
+            positive.tasks.map { it.record.id.value },
+            "the index folds the diacritics, so \"cafe\" finds \"Café au lait\"",
+        )
+        assertEquals(
+            emptyList(),
+            negated.tasks.map { it.record.id.value },
+            "the rule folds the diacritics the way the index folds them, so \"NOT cafe\" " +
+                "rules out exactly the records \"cafe\" finds",
         )
     }
 
