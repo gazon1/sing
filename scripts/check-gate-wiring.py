@@ -1113,23 +1113,26 @@ def check_fixture_gates() -> list[str]:
 # or far below anything the suite can miss makes `koverVerify` incapable of
 # failing, and a task that cannot fail reports a verdict nobody derived. This
 # replaced the FIXTURE control for `scripts/check-detekt-rule-coverage.py`,
-# which was deleted when the floor moved into detekt-rules/build.gradle.kts —
-# that control proved a *Python parser* applied a floor; this proves the Gradle
-# declaration the gate actually reads is a floor at all.
+# which was deleted when the floor moved into the Gradle build — that control
+# proved a *Python parser* applied a floor; this proves the Gradle declaration
+# the gate actually reads is a floor at all.
 #
 # What a static read cannot prove is that a real run below the bound fails the
 # task — so that half lives in the SABOTAGE control
-# `detekt-rule-coverage-floor`, which raises the constant and re-runs
-# `:detekt-rules:koverVerify`. It is the only control in this file that runs
-# Gradle, and it is affordable for a reason worth stating: the module's tests
-# run before it in both surfaces that call this script (ci.yml's Gradle step,
-# and check.sh step 9, whose run the baseline merely moves earlier), so it buys
-# a configuration pass and a verify pass rather than a test suite.
+# `detekt-rule-coverage-floor`, which raises the constant in
+# settings.gradle.kts and re-runs `:detekt-rules:koverVerify`. It is the only
+# control in this file that runs Gradle, and it is affordable for a reason
+# worth stating: the module's tests run before it in both surfaces that call
+# this script (ci.yml's Gradle step, and check.sh step 9, whose run the baseline
+# merely moves earlier), so it buys a configuration pass and a verify pass
+# rather than a test suite.
 
 #: The lowest kover verify floor this repository accepts, in percent.
 #:
 #: detekt-rules measured 65.1% branch coverage on 2026-10-10 and the floor was
-#: set to 60 in the same sweep (detekt-rules/build.gradle.kts, DETEKT_RULE_BRANCH_FLOOR).
+#: set to 60 in the same sweep. The floor is DECLARED in settings.gradle.kts
+#: (DETEKT_RULE_BRANCH_FLOOR, since 2026-10-23) and BOUND by the module whose
+#: rule Kover reads, so the constant is not in the module's own file any more.
 #: The bound is only asked to be sane, not current: raising a floor needs no edit
 #: here, while zeroing one — or halving it — is the "a floor that cannot fail"
 #: defect and has to be a deliberate change to this constant too.
@@ -1163,6 +1166,27 @@ def _kover_blocks(text: str) -> list[str]:
     return blocks(text, "kover")
 
 
+def settings_constants(root: Path) -> dict[str, int]:
+    """The `val NAME = <number>` declarations of settings.gradle.kts.
+
+    The coverage floors of this repository are DECLARED in the settings
+    script — one place for the whole policy — and a module's verify rule
+    binds the constant declared there. So the constant a bound names is
+    usually NOT in the module's own file, and a resolver that looked only
+    there would report a floor that is declared and enforced as missing.
+    """
+    settings = root / "settings.gradle.kts"
+    if not settings.is_file():
+        return {}
+    text = settings.read_text(encoding="utf-8")
+    # Anchored at the start of a line, so a commented-out declaration in the
+    # prose is not read as one: a phantom constant is a floor this gate would
+    # vouch for without anything declaring it.
+    return dict(
+        re.findall(r"^val\s+(\w+)\s*(?::[^=]*)?=\s*(\d+)", text, re.MULTILINE)
+    )
+
+
 def kover_verify_rules_without_usable_floor() -> list[str]:
     """Modules whose `kover { … verify { … bound { minValue } } }` has no usable floor.
 
@@ -1173,15 +1197,18 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
     can fail is enough to make the task fail (Kover fails the task when any rule
     fails).
 
-    A bound may name a constant instead of a literal (`minValue = THE_FLOOR`,
-    with `val THE_FLOOR = 60` in the same file) — that is how the real floor is
-    written, so the constant is resolved, and declarations are read from the
-    whole file because they sit above the block. A bound whose value cannot be
-    resolved is reported like a missing one: a floor this gate cannot read is a
-    floor it cannot vouch for. The floor minimum is sourced from the registry
-    (_KOVER_MIN_FLOOR) by _populate_derived_tables().
+    A bound may name a constant instead of a literal (`minValue = THE_FLOOR`).
+    The constant is resolved in the module's own file first and in
+    settings.gradle.kts second: the floors are declared in the settings script,
+    so the constant a module's rule binds usually lives there, and the module
+    only reads it back (through `gradle.extra`) to bind it. Declarations in the
+    module's file are read whole, because they sit above the block. A bound
+    whose value cannot be resolved is reported like a missing one: a floor this
+    gate cannot read is a floor it cannot vouch for. The floor minimum is
+    sourced from the registry (_KOVER_MIN_FLOOR) by _populate_derived_tables().
     """
     out: list[str] = []
+    settings_floors = settings_constants(ROOT)
     for build in module_build_files(ROOT):
         module = build.parent.name
         text = build.read_text(encoding="utf-8")
@@ -1191,7 +1218,8 @@ def kover_verify_rules_without_usable_floor() -> list[str]:
         body = "\n".join(_kover_blocks(text))
         if not re.search(r"\bverify\s*\{", body):
             continue
-        constants = dict(re.findall(r"\bval\s+(\w+)\s*=\s*(\d+)", text))
+        own = dict(re.findall(r"\bval\s+(\w+)\s*=\s*(\d+)", text))
+        constants = {**settings_floors, **own}
         bounds: list[int] = []
         unresolvable = 0
         for raw in re.findall(r"minValue\s*=\s*([A-Za-z_]\w*|\d+)", body):
@@ -1247,7 +1275,7 @@ def check_gradle_can_fail() -> list[str]:
                 "  A floor that cannot fail is the same defect as no floor: the gate",
                 "  reports a verdict nobody derived. Declare `bound { minValue = ... }`",
                 f"  at {_KOVER_MIN_FLOOR} or above (the floor is set below the measured",
-                "  value — see DETEKT_RULE_BRANCH_FLOOR in the module's build file), and",
+                "  value — see DETEKT_RULE_BRANCH_FLOOR in settings.gradle.kts), and",
                 "  record why if it ever has to go down.",
             ]
         )

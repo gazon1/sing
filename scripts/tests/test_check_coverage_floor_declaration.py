@@ -27,6 +27,21 @@ So the cases that matter are the ones a clean tree never shows:
   - a module-level verify block with its own name IS allowed: the repository
     has one (`detekt-rules` measures its own rules), and a rule that forbids
     it would be wrong.
+
+Since 2026-10-23 the floors are declared in ONE place — settings.gradle.kts —
+so the cases that matter grew with the rule:
+
+  - a floor constant declared in a MODULE's build file is a finding: it is a
+    second home for one number, and the drift between the homes is what the
+    gate exists to catch;
+  - a module that BINDS the constant declared in the settings file — it reads
+    it from `gradle.extra` — is allowed: that is the arrangement the policy
+    asks for, not an exception to it;
+  - a module rule that binds a LITERAL is a finding, and so is a rule that
+    binds a name the settings file never declares: in both cases the floor
+    the task checks is not the floor this repository declares;
+  - a floor without a `require(...)` minimum is a finding: a floor that can be
+    lowered without a visible change is a floor that cannot fail.
 """
 
 import importlib.util
@@ -51,6 +66,15 @@ val FULL_LINE_COVERAGE_FLOOR = 27
 val FAST_INSTRUCTION_COVERAGE_FLOOR = 27
 val FAST_BRANCH_COVERAGE_FLOOR = 23
 val FAST_LINE_COVERAGE_FLOOR = 31
+val DETEKT_RULE_BRANCH_FLOOR = 60
+
+require(FULL_INSTRUCTION_COVERAGE_FLOOR >= 27) { }
+require(FULL_BRANCH_COVERAGE_FLOOR >= 20) { }
+require(FULL_LINE_COVERAGE_FLOOR >= 27) { }
+require(FAST_INSTRUCTION_COVERAGE_FLOOR >= 27) { }
+require(FAST_BRANCH_COVERAGE_FLOOR >= 23) { }
+require(FAST_LINE_COVERAGE_FLOOR >= 31) { }
+require(DETEKT_RULE_BRANCH_FLOOR >= 60) { }
 
 val appInstructionCoverageFloor =
     if (measuredFullPopulation) FULL_INSTRUCTION_COVERAGE_FLOOR else FAST_INSTRUCTION_COVERAGE_FLOOR
@@ -81,6 +105,50 @@ kover {
     }
 }
 """
+
+#: The module as it stands since 2026-10-23: the floor is DECLARED in the
+#: settings file, and the module only BINDS it.
+MODULE_BINDS_THE_SETTINGS_FLOOR = '''\
+val DETEKT_RULE_BRANCH_FLOOR: Int =
+    (gradle.extra["kover.detektRulesBranchCoverageFloor"] as? Int)
+        ?: error("settings.gradle.kts must declare the detekt-rules branch coverage floor")
+
+kover {
+    reports {
+        total {
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound {
+                        minValue = DETEKT_RULE_BRANCH_FLOOR
+                        coverageUnits = CoverageUnit.BRANCH
+                    }
+                }
+            }
+        }
+    }
+}
+'''
+
+#: The module as it stood before: the floor declared in the module itself —
+#: the second home for one number the policy ended.
+MODULE_DECLARES_THE_FLOOR = '''\
+val DETEKT_RULE_BRANCH_FLOOR = 60
+
+kover {
+    reports {
+        total {
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound {
+                        minValue = DETEKT_RULE_BRANCH_FLOOR
+                        coverageUnits = CoverageUnit.BRANCH
+                    }
+                }
+            }
+        }
+    }
+}
+'''
 
 
 class CoverageFloorDeclarationTest(unittest.TestCase):
@@ -132,11 +200,12 @@ class CoverageFloorDeclarationTest(unittest.TestCase):
         )
 
     def test_a_module_rule_with_its_own_name_is_allowed(self) -> None:
-        # The repository has one: detekt-rules measures its own rules.
+        # The repository has one: detekt-rules measures its own rules. The rule
+        # binds the constant the settings file declares — the floor is declared
+        # in one place and checked where Kover reads the rule.
         self.write(
             'detekt-rules/build.gradle.kts',
-            'kover {\n    reports {\n        verify {\n'
-            '            rule("detekt-rules branch coverage") { }\n        }\n    }\n}\n',
+            MODULE_BINDS_THE_SETTINGS_FLOOR,
         )
         self.assertEqual(self.findings(), [])
 
@@ -245,6 +314,77 @@ class CoverageFloorDeclarationTest(unittest.TestCase):
         self.assertTrue(
             any('FAST_INSTRUCTION_COVERAGE_FLOOR' in f for f in findings),
             f'expected the missing fast floor to be reported: {findings}',
+        )
+
+    # ── One home for every floor ──────────────────────────────────────────
+
+    def test_a_floor_declared_in_a_module_is_a_finding(self) -> None:
+        """The second home for one number — the defect the policy ended.
+
+        The module may check the floor; it may not declare it.
+        """
+        self.write('detekt-rules/build.gradle.kts', MODULE_DECLARES_THE_FLOOR)
+        findings = self.findings()
+        self.assertTrue(
+            any(
+                'detekt-rules/build.gradle.kts' in f and 'DETEKT_RULE_BRANCH_FLOOR' in f
+                for f in findings
+            ),
+            f'expected the module to be reported: {findings}',
+        )
+        self.assertTrue(
+            any('declares the coverage floor' in f for f in findings),
+            f'expected the finding to say what is wrong: {findings}',
+        )
+
+    def test_a_module_that_binds_the_settings_floor_is_allowed(self) -> None:
+        """The arrangement the policy asks for, not an exception to it.
+
+        The module reads the constant the settings file declares and binds it
+        in its own rule, because that is where Kover reads the rule.
+        """
+        self.write('detekt-rules/build.gradle.kts', MODULE_BINDS_THE_SETTINGS_FLOOR)
+        self.assertEqual(self.findings(), [])
+
+    def test_a_module_rule_that_binds_a_literal_is_a_finding(self) -> None:
+        """A literal is a floor of that literal, and not the declared one."""
+        self.write(
+            'detekt-rules/build.gradle.kts',
+            MODULE_BINDS_THE_SETTINGS_FLOOR.replace(
+                'minValue = DETEKT_RULE_BRANCH_FLOOR', 'minValue = 1'
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('binds the literal 1' in f for f in findings),
+            f'expected the literal binding to be reported: {findings}',
+        )
+
+    def test_a_module_rule_that_binds_a_constant_settings_does_not_declare_is_a_finding(self) -> None:
+        """The floor the task checks must be the floor this repository declares."""
+        self.write(
+            'detekt-rules/build.gradle.kts',
+            MODULE_BINDS_THE_SETTINGS_FLOOR.replace(
+                'minValue = DETEKT_RULE_BRANCH_FLOOR',
+                'minValue = SOME_FLOOR_NOBODY_DECLARED',
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('SOME_FLOOR_NOBODY_DECLARED' in f for f in findings),
+            f'expected the undeclared binding to be reported: {findings}',
+        )
+
+    def test_a_floor_without_a_require_minimum_is_a_finding(self) -> None:
+        """A floor that can be lowered silently is a floor that cannot fail."""
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace('require(DETEKT_RULE_BRANCH_FLOOR >= 60) { }\n', ''),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('require' in f and 'DETEKT_RULE_BRANCH_FLOOR' in f for f in findings),
+            f'expected the missing minimum to be reported: {findings}',
         )
 
 

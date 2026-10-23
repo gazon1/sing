@@ -635,8 +635,10 @@ gate blocking "detekt governance is consistent" python3 scripts/check-detekt-gov
 # This gate runs in ci.yml's `tests` job (where Gradle is available), not here:
 # it is the Gradle task `:detekt-rules:koverVerify`, named by ci.yml's
 # "Kover verify (detekt-rules)" step and by check.sh step 9b. The floor itself
-# lives in detekt-rules/build.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) as a Kover
-# verify rule; Part C of check-gate-wiring.py holds it to a usable value.
+# is declared in settings.gradle.kts (DETEKT_RULE_BRANCH_FLOOR), where every
+# coverage floor of this repository lives, and bound by the Kover verify rule of
+# detekt-rules/build.gradle.kts; Part C of check-gate-wiring.py holds it to a
+# usable value.
 #
 # Scenario traceability
 # traceability validate/coverage resolve the installed `traceability` package from

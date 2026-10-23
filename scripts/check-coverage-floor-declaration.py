@@ -32,14 +32,27 @@ proved it" — which was true only because of WHERE the declaration was.
 
 The rule
 --------
-The app coverage floors live in `settings.gradle.kts`, in the aggregation
-plugin's own `reports { verify { } }` block — and nowhere else.
+Every coverage floor of this repository is declared in `settings.gradle.kts`,
+and nowhere else.
 
-Four halves, and all are needed:
+The APP floors live in the aggregation plugin's own `reports { verify { } }`
+block, because that is where the plugin reads them — the root project has no
+Kover extension of its own to configure, so a verify block in the root build
+script is read by nothing at all.
 
-1. `settings.gradle.kts` declares the floors: the three verify rules and the
-   six floor constants (one set per population, one per counter). A floor
-   that is not declared is a floor that is not checked.
+The MODULE floors are declared in the same file, for a different reason: one
+place for the whole policy. `detekt-rules` measures its own rules, and its
+verify rule still lives in `detekt-rules/build.gradle.kts` — Kover reads it
+there — but the NUMBER is declared here and only bound there. A module that
+declares a floor of its own is a second home for one number, and the gate that
+checks the declaration cannot see the drift.
+
+Six halves, and all are needed:
+
+1. `settings.gradle.kts` declares the floors: the app verify rules with the
+   six floor constants (one set per population, one per counter), and the
+   `detekt-rules` branch-coverage constant. A floor that is not declared is a
+   floor that is not checked.
 2. The rule BINDS the declared constant. `minValue.set(appInstructionCoverageFloor)`
    is a claim about which number the rule checks; the value it names must
    read the floor constant of that counter, for BOTH populations. A rule that
@@ -58,13 +71,22 @@ Four halves, and all are needed:
    is take the name of the app floor, because a rule called "app
    instruction coverage" that measures one module is a claim the reader
    will believe and the build will not keep.
+5. No build file outside `settings.gradle.kts` DECLARES a floor. A module may
+   BIND the constant declared there — it reads it from `gradle.extra` — but a
+   `val …_FLOOR` of its own is a second home for one number. There is no
+   exception for `detekt-rules` and no exception for anybody else: the policy
+   is one policy.
+6. Every floor declared in the settings file carries its `require(…)`
+   minimum there. A floor that can be lowered without a visible change is a
+   floor that cannot fail, and the minimum is what makes the lowering
+   visible.
 
 What this does not do
 ---------------------
 It does not run Gradle, and it does not measure a single instruction. What it
-proves is the cheap half: that the floors are declared where the Kover
-aggregation plugin reads them, AND that the rules there bind the declared
-constants — the declaration and its binding, not the coverage itself.
+proves is the cheap half: that the floors are declared in one place, that the
+rules bind the constants declared there, AND that the declaration and its
+binding are not the coverage itself.
 
 The enforcement is `:koverVerify`'s job, and CI runs it on every push. The
 control that would raise a floor to 99 and require the task to fail is NOT
@@ -100,7 +122,8 @@ VALIDATION_FAILURE = 1
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-#: The one file the aggregation plugin reads its rules from.
+#: The one file the aggregation plugin reads its rules from — and the one
+#: file every coverage floor of this repository is declared in.
 DECLARATION_FILE = "settings.gradle.kts"
 
 #: The verify rules the app coverage floor consists of, and the floor
@@ -128,6 +151,9 @@ REQUIRED_CONSTANTS = tuple(
 #: A build script that may hold a Kover block.
 _BUILD_SCRIPTS = ("build.gradle.kts", "settings.gradle.kts")
 
+#: Directories that hold no module of their own.
+_SKIP_DIRS = frozenset({"build", "build-logic", "gradle", "node_modules", ".git"})
+
 _KOVER_BLOCK = re.compile(r"\bkover\s*\{")
 _VERIFY = re.compile(r"\bverify\s*\{")
 
@@ -153,6 +179,15 @@ _MIN_VALUE_LITERAL = re.compile(
 
 #: `val NAME = …` at the top level of a Kotlin script.
 _VAL_DECLARATION = re.compile(r"^val\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^=]*)?=\s*(.*)$")
+
+#: The name of a floor constant: the upper snake case the floors use —
+#: `FULL_BRANCH_COVERAGE_FLOOR`, `DETEKT_RULE_BRANCH_FLOOR`.
+_FLOOR_NAME = re.compile(r"^[A-Z][A-Z0-9_]*_FLOOR$")
+
+#: A read of the extra properties of the Gradle object — the channel a
+#: settings script and a module's build script share. A module that binds the
+#: floor declared in the settings file reads it here.
+_GRADLE_EXTRA = re.compile(r"gradle\s*\.\s*extra\s*\[")
 
 #: A name in an expression.
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -297,15 +332,33 @@ def _referenced_names(name: str, declarations: dict[str, tuple[str, int]]) -> se
 
 
 def build_scripts() -> list[pathlib.Path]:
-    """Every Gradle build script in the repository that could hold a Kover block."""
+    """Every Gradle build script in the repository that could hold a Kover block.
+
+    Nested modules count: a module that lives two directories down declares
+    its floors in its own build file just as a top-level one does, and a scan
+    that stopped at the first level would not see it.
+    """
     found: list[pathlib.Path] = []
+    for path in sorted(ROOT.glob("**/build.gradle.kts")):
+        parts = path.relative_to(ROOT).parts[:-1]
+        if any(part in _SKIP_DIRS for part in parts):
+            continue
+        if path not in found:
+            found.append(path)
     for name in _BUILD_SCRIPTS:
         path = ROOT / name
-        if path.is_file():
+        if path.is_file() and path not in found:
             found.append(path)
-    for path in sorted(ROOT.glob("*/build.gradle.kts")):
-        found.append(path)
     return found
+
+
+def floor_declarations(text: str) -> dict[str, tuple[str, int]]:
+    """The `val …_FLOOR = …` declarations: the name → (initializer, line)."""
+    return {
+        name: entry
+        for name, entry in _val_declarations(text).items()
+        if _FLOOR_NAME.match(name)
+    }
 
 
 def declares_verify_rules(text: str) -> bool:
@@ -382,6 +435,111 @@ def binding_findings(text: str) -> list[str]:
     return findings
 
 
+def module_rule_findings(
+    relative: str,
+    text: str,
+    settings_declarations: dict[str, tuple[str, int]],
+) -> list[str]:
+    """The findings about the verify rules of a MODULE's build file.
+
+    A module rule binds a constant, and that constant is declared in
+    `settings.gradle.kts` — every coverage floor of this repository lives
+    there. A rule that binds a literal enforces that literal, and a rule
+    that binds a name the settings file never declares enforces whatever
+    that name happens to hold: in both cases the floor this repository
+    declares is not the floor the task checks.
+    """
+    findings: list[str] = []
+    for rule, (body, rule_line) in _rule_bodies(text).items():
+        if rule in REQUIRED_BINDINGS:
+            continue  # the app rules have their own, stricter check
+        binding = _MIN_VALUE.search(body)
+        if binding is None:
+            literal = _MIN_VALUE_LITERAL.search(body)
+            if literal is not None:
+                value = literal.group(1) or literal.group(2)
+                literal_line = rule_line + body[: literal.start()].count("\n")
+                findings.append(
+                    f"{relative}:{literal_line}: the verify rule {rule!r} binds the "
+                    f"literal {value} — the floor it enforces is {value} percent, and not "
+                    f"the number this repository declares. A rule that binds a literal "
+                    f"satisfies every other check of this gate while the floor it "
+                    f"enforces is nothing."
+                )
+                continue
+            findings.append(
+                f"{relative}:{rule_line}: the verify rule {rule!r} binds no floor "
+                f"constant — there is no `minValue.set(...)` in the rule, so the floor "
+                f"it checks is whatever the plugin defaults to, and not the number this "
+                f"repository declares."
+            )
+            continue
+        line = rule_line + body[: binding.start()].count("\n")
+        bound = binding.group(1) or binding.group(2)
+        if bound not in settings_declarations:
+            findings.append(
+                f"{relative}:{line}: the verify rule {rule!r} binds {bound!r}, and "
+                f"{DECLARATION_FILE} declares no constant of that name. Every coverage "
+                f"floor is declared in {DECLARATION_FILE} and bound by the module that "
+                f"checks it — a floor bound to a name nobody declares is a floor nobody "
+                f"enforces."
+            )
+    return findings
+
+
+def outside_settings_findings(
+    relative: str,
+    text: str,
+    settings_floors: set[str],
+) -> list[str]:
+    """The findings about a build file that is not the settings file.
+
+    A coverage floor is declared in ONE place — `settings.gradle.kts`. A
+    module may BIND the constant declared there (it reads it from
+    `gradle.extra`), but a module that declares a floor of its own is a
+    second home for one number, and the drift between the two homes is
+    exactly what this gate exists to catch. There is no exception for
+    `detekt-rules` and no exception for anybody else.
+    """
+    findings: list[str] = []
+    for name, (initializer, line) in floor_declarations(text).items():
+        if _GRADLE_EXTRA.search(initializer):
+            if name not in settings_floors:
+                findings.append(
+                    f"{relative}:{line}: binds the floor {name!r}, and {DECLARATION_FILE} "
+                    f"declares no constant of that name — the floor this module checks is "
+                    f"not the floor this repository declares."
+                )
+            continue
+        findings.append(
+            f"{relative}:{line}: declares the coverage floor {name!r}. Every coverage "
+            f"floor of this repository is declared in {DECLARATION_FILE} — a module may "
+            f"only bind the constant declared there (it reads it from `gradle.extra`), "
+            f"never declare a floor of its own. A second home for one number is how a "
+            f"floor drifts."
+        )
+    return findings
+
+
+def require_minimum_findings(text: str) -> list[str]:
+    """The findings about the `require(…)` minimum of each declared floor.
+
+    The minimum is what makes lowering a floor visible: it fails the
+    configuration instead of quietly passing. A floor without one can be
+    lowered to zero without anybody noticing, which is the "a floor that
+    cannot fail" defect.
+    """
+    findings: list[str] = []
+    for name, (_, line) in floor_declarations(text).items():
+        if re.search(rf"require\s*\(\s*{re.escape(name)}\s*>=\s*\d+", text) is None:
+            findings.append(
+                f"{DECLARATION_FILE}:{line}: the floor {name} has no `require(...)` "
+                f"minimum beside its declaration — a floor that can be lowered without a "
+                f"visible change is a floor that cannot fail."
+            )
+    return findings
+
+
 def check() -> list[str]:
     """The findings; empty when the tree is correct."""
     errors: list[str] = []
@@ -407,12 +565,21 @@ def check() -> list[str]:
             )
 
     errors.extend(binding_findings(text))
+    errors.extend(require_minimum_findings(text))
+
+    settings_declarations = _val_declarations(text)
+    settings_floors = set(floor_declarations(text))
 
     for script in build_scripts():
         relative = script.relative_to(ROOT).as_posix()
+        body = _strip_comments(script.read_text(encoding="utf-8"))
+
+        errors.extend(module_rule_findings(relative, body, settings_declarations))
+
         if relative == DECLARATION_FILE:
             continue
-        body = _strip_comments(script.read_text(encoding="utf-8"))
+
+        errors.extend(outside_settings_findings(relative, body, settings_floors))
 
         if relative == "build.gradle.kts" and declares_verify_rules(body):
             errors.append(
@@ -447,16 +614,16 @@ def cli(ctx: click.Context, quiet: bool) -> None:
     if errors:
         click.echo("")
         click.echo(
-            f"check-coverage-floor-declaration: the coverage floor must be declared in "
-            f"{DECLARATION_FILE}, where the Kover aggregation plugin reads it, and bound "
-            f"to the constants declared there."
+            f"check-coverage-floor-declaration: every coverage floor must be declared in "
+            f"{DECLARATION_FILE} — one place for the whole policy — and bound by the "
+            f"module that checks it."
         )
         raise ctx.exit(VALIDATION_FAILURE)
     if not quiet:
         click.echo(
-            f"check-coverage-floor-declaration: OK — the app coverage floor is declared "
-            f"in {DECLARATION_FILE}, bound to the declared constants, and no other build "
-            f"script declares a verify block."
+            f"check-coverage-floor-declaration: OK — every coverage floor is declared in "
+            f"{DECLARATION_FILE}, the rules bind the constants declared there, and no "
+            f"other build script declares a floor of its own."
         )
     raise ctx.exit(CLEAN)
 
