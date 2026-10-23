@@ -23,15 +23,14 @@ reports a planted violation the way detekt reports one:
 The last two are the ones that matter: together they say the verdict is about
 the tree that is being pushed, in both directions.
 
-The last case is the one that was broken for months. Git exports GIT_DIR (and
-GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR) to a hook, and they point at
-the worktree the push was made from — in a linked worktree, GIT_DIR is that
-worktree's own git dir. The hook runs the gate suite inside a throwaway
-worktree, and without dropping that environment git read the ORIGINAL
-worktree's index there: a test that shells out to git failed with "git add:
-exit status 128", and the suite reported a failure that had nothing to do with
-the code. Nothing noticed, because the only thing that tested the hook was
-the hook.
+The last case is the one that was broken for months. Git hands a hook the
+environment it runs in, and GIT_DIR in it points at the worktree the push was
+made from — in a linked worktree, GIT_DIR is that worktree's own git dir.
+The hook runs the gate suite inside a throwaway worktree, and without
+dropping that environment git read the ORIGINAL worktree's index there: a
+test that shells out to git failed with "git add: exit status 128", and the
+suite reported a failure that had nothing to do with the code. Nothing
+noticed, because the only thing that tested the hook was the hook.
 
 Nothing here touches the developer's repository: the repository, the remote
 and the hook copy are all temporary, and the Gradle wrapper is a stand-in, so
@@ -166,11 +165,11 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
 def _clean_git_env() -> dict[str, str]:
     """The environment for a git command that runs in the fixture repository.
 
-    Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR)
-    to a hook, and they point at the worktree the push was made from. A test
-    that runs git in a temporary repository and inherits that environment does
-    not run in the temporary repository at all: it runs in the developer's
-    checkout, and its commits land there.
+    Git hands a hook GIT_DIR, and it points at the worktree the push was made
+    from; GIT_WORK_TREE, GIT_INDEX_FILE and GIT_COMMON_DIR can come from the
+    developer's shell as well. A test that runs git in a temporary repository
+    and inherits that environment does not run in the temporary repository at
+    all: it runs in the developer's checkout, and its commits land there.
 
     That is not a theory. A test file that did this wrote twenty commits into
     the branch it was run from, and moved the local `origin/main` ref with
