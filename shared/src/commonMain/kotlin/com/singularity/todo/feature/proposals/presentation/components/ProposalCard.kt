@@ -28,7 +28,6 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.text.LinkifiedText
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 
 /**
  * The changes waiting for a decision, as a stack of cards.
@@ -283,12 +282,7 @@ private fun DecidedProposalItemRow(item: ProposalItem) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val reason = item.rejectionReason?.takeIf { it.isNotBlank() }
-        val outcome = when (item.status) {
-            ProposalItemStatus.Confirmed -> "Applied"
-            ProposalItemStatus.Rejected -> "Turned down"
-            ProposalItemStatus.Retracted -> "Withdrawn"
-            ProposalItemStatus.Pending -> "Waiting"
-        }
+        val outcome = item.outcomeLabel
         LinkifiedText(
             text = if (reason == null) outcome else "$outcome — $reason",
             style = MaterialTheme.typography.bodySmall,

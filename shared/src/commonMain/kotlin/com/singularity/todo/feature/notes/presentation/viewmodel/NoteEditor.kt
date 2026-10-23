@@ -38,7 +38,6 @@ import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -393,15 +392,13 @@ internal class NoteEditor(
             else -> return@launch
         }
 
-        val item = ProposalItem(
+        val item = ProposalItem.pending(
             id = com.singularity.todo.core.ids.ProposalItemId.generate(),
             proposalId = com.singularity.todo.core.ids.ProposalId.generate(),
             kind = kind,
             targetId = noteId,
             humanSummary = summary,
-            status = ProposalItemStatus.Pending,
             fingerprint = ProposalFingerprint.of(kind, noteId),
-            sortOrder = 0,
         )
         val proposal = AiProposal(
             id = item.proposalId,
