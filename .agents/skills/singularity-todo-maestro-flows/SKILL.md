@@ -501,12 +501,14 @@ split for flows — the split is `smoke` vs domain.
    it consumes `seed-task.yaml`'s fixed title.
 7. Tag it with `smoke` only if it must always pass; otherwise use a domain tag.
 8. `just tm flow=Maestro/flows/<sub>/<file>.yaml`.
-9. **State whether the flow ran on a device**, in the PR description:
+9. **State whether the flow ran on a device**, in the header of the flow and
+   in the PR description:
    `прогнан на устройстве: да (YYYY-MM-DD)` or `нет (why — emulator busy)`.
    A flow that was only validated syntactically has not met a screen; the
    selector validator proves the ids exist, not that the screen is where the
-   flow thinks it is. "нет" is an honest and useful answer — "да" without a
-   date is not. A flow tagged `smoke` has to have run on a device.
+   flow thinks it is. The header is where the answer belongs: the file
+   outlives the pull request. "нет" is an honest and useful answer — "да"
+   without a date is not. A flow tagged `smoke` has to have run on a device.
 10. On failure, open `diagnosing-failures.md`.
 
 Fuller guidance, including the tag table: `Maestro/README.md`.

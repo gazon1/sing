@@ -202,14 +202,16 @@ on the item's outer node.
 6. **Say whether it ran on a device.** A flow that has only been checked
    syntactically is not a flow that has been checked: the selector validator
    proves the ids exist, not that the screen is where the flow thinks it is.
-   Write the line in the PR description, in this form:
+   Write the line in the **header of the flow** — the file that outlives the
+   pull request — and repeat it in the PR description:
 
    ```
-   прогнан на устройстве: да (2026-10-23)   |   нет (эмулятор был занят)
+   # прогнан на устройстве: да (2026-10-23)   |   нет (эмулятор был занят)
    ```
 
    "нет" is an honest answer and a useful one — it tells the next reader that
-   the flow has not met a screen yet. "да" without a date is not an answer.
+   the flow has not met a screen yet, and the header is where they look. "да"
+   without a date is not an answer.
    A flow added to `smoke` has to have run on a device: a smoke flow that was
    never run is a smoke flow that fails in CI on the first evening it is
    allowed to fail.
