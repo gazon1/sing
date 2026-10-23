@@ -1,7 +1,11 @@
-# The commit compiles what the change touches
+---
+title: The commit compiles what the change touches — the set is computed, not written down
+date: 2026-10-23
+status: accepted
+tags: [hooks, worktrees, build, tooling]
+---
 
-Date: 2026-10-23
-Status: accepted
+# The commit compiles what the change touches
 
 ## Context
 
