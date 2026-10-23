@@ -288,6 +288,18 @@ The declaration now lives in settings.gradle.kts, and this gate is what
 stops it from moving back.
 """,
     ),
+    "coverage timeout": Placement(
+        kind=PlacementKind.STATIC,
+        command='sgate coverage_timeout',
+        note="""The timeout covers the run it was set for.
+
+The instrumented coverage run takes 37 minutes on the development host and
+longer on a CI runner, and the job's timeout was a literal that nobody
+compared with that number. This gate reads the measured cost and the
+timeout and says so when the timeout cannot cover the measurement — before
+the job is killed at the moment it was about to report.
+""",
+    ),
     "selectable text coverage": Placement(
         kind=PlacementKind.STATIC,
         command='sgate selectable_text_coverage',

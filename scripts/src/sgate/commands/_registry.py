@@ -452,6 +452,13 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="coverage timeout",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-coverage-timeout.py"),
+        script_args=("--quiet",),
+    ),
+    GateSpec(
         name="selectable text coverage",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1163,6 +1170,19 @@ GATE_CONTROLS: dict[str, Control] = {
     # The probe puts the declaration back where it was: a Kover verify block
     # with an app rule in the root build script. The gate must say so.
     'coverage-floor-declaration': Control(kind='sabotage', proves='scripts/check-coverage-floor-declaration.py', argv=('{python}', 'scripts/check-coverage-floor-declaration.py', '--quiet'), path='build.gradle.kts', edit=Edit(kind='append', new='\nkover {\n    reports {\n        verify {\n            rule("app instruction coverage") {\n                bound { minValue = 99 }\n            }\n        }\n    }\n}\n'), why='the app coverage floor is the aggregate one, and only the settings-level block can measure it: a verify block in the root build script is read by no task at all, and one in a module measures that module under a name the reader will take for the aggregate. That is how a declared floor went unenforced for months while the step that reads it stayed green'),
+    # The CI timeout covers the instrumented run, and the instrumented run is
+    # measured.
+    #
+    # The coverage job's timeout was a literal — 75 minutes — and the cost of
+    # the instrumented run was priced nowhere, so the number nobody could check
+    # was the number that decided whether a healthy run was killed. The gate
+    # reads the measured cost and the timeout and says so when the timeout
+    # cannot cover the measurement.
+    #
+    # The probe shrinks the timeout to 30 minutes: the measured fast run takes
+    # 37 min 25 s, and the runner is slower than the measurement host. The gate
+    # must fail and name both numbers.
+    'coverage-timeout': Control(kind='sabotage', proves='scripts/check-coverage-timeout.py', argv=('{python}', 'scripts/check-coverage-timeout.py', '--quiet'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    timeout-minutes: 75', new='    timeout-minutes: 30', count=1), why='a timeout that fires on a healthy instrumented run reports a failure that says nothing about the code: the coverage job is killed at the moment it was about to report, and the report is the thing the job exists for'),
     # The coverage report measures every module that is in it.
     #
     # The list of test tasks that feed the aggregated report is written by

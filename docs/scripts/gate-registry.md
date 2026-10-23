@@ -36,6 +36,7 @@ sche... | — | — |
 | a write tool proposes before it writes | blocking | `scripts/check-ai-write-tools.py` | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |
 | coverage task list | blocking | `scripts/check-coverage-task-list.py` | check-coverage-task-list.py — the coverage report measures every module that ... | — | — |
 | coverage floor declaration | blocking | `scripts/check-coverage-floor-declaration.py` | check-coverage-floor-declaration.py — the coverage floor is declared where Ko... | — | — |
+| coverage timeout | blocking | `scripts/check-coverage-timeout.py` | check-coverage-timeout.py — the coverage job's timeout covers the measured cost. | — | — |
 | selectable text coverage | blocking | `scripts/check-selectable-text-coverage.py` | Find text surfaces that are neither selectable nor classified. | — | — |
 | issue registry covers every change | blocking | `scripts/check-issue-registry.py` | check-issue-registry.py — every OpenSpec change has an entry in the issue reg... | — | — |
 | AGENTS.md pointers resolve | blocking | `scripts/check-agents-pointers.py` | check-agents-pointers.py — every file path `AGENTS.md` names exists. | — | — |

@@ -350,6 +350,15 @@ gate blocking "coverage task list" sgate coverage_task_list
 # stops it from moving back.
 #
 gate blocking "coverage floor declaration" sgate coverage_floor_declaration
+# The timeout covers the run it was set for.
+#
+# The instrumented coverage run takes 37 minutes on the development host and
+# longer on a CI runner, and the job's timeout was a literal that nobody
+# compared with that number. This gate reads the measured cost and the
+# timeout and says so when the timeout cannot cover the measurement — before
+# the job is killed at the moment it was about to report.
+#
+gate blocking "coverage timeout" sgate coverage_timeout
 # The prose a person cannot copy.
 #
 # The inventory table in the selectable-text skill says which surfaces render

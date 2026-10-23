@@ -84,19 +84,38 @@ other build script declares a verify block under the name of the app floor. A mo
 own verify block is legitimate (`detekt-rules` measures its own rules); a rule named
 `app …` outside the settings is a claim the build will not keep.
 
-**D5. The instrumented run is priced, and the price is printed before the run.**
-`config/docs/coverage-cost.properties` holds the measured cost per population;
-`docs/testing/gate-costs.md` publishes it; and `:koverVerify` prints the estimate
-before it starts, so that nobody sets a 15-minute timeout on a 37-minute task.
-`sgate gate-costs --record --coverage` re-measures it (once per population, about an
-hour).
+**D5. The instrumented run is priced, the price is printed before the run, and the CI
+timeout is checked against it.** `config/docs/coverage-cost.properties` holds the measured
+cost per population; `docs/testing/gate-costs.md` publishes it; and `:koverVerify` prints
+the estimate before it starts, so that nobody sets a 15-minute timeout on a 37-minute
+task. `sgate gate-costs --record --coverage` re-measures it (once per population, about an
+hour), and the writer of that file writes its prose as well as its numbers — a
+re-measurement replaces the numbers and keeps the reasoning.
+
+The timeout was the part that had no control behind it: the coverage job's
+`timeout-minutes` was a literal, and the file that carries the measurement said in its
+own header that the timeout is "set from the upper end and not from this number". The
+new gate `coverage timeout` (`scripts/check-coverage-timeout.py`) reads the measured
+cost and the workflow and fails when the timeout cannot cover the measurement — so the
+claim is a control, and not a comment. The margin is 2×, which is what the timeout
+already embodied (75 minutes against a measured 37 min 25 s) and what the runner's
+4 vCPU against the host's 16 asks for; the gate's own docstring says so, and says that
+the factor is a chosen margin rather than a measurement.
 
 **D6. The Kover reader prints the number that says WHICH report this is.** The class
 count. The percentages alone cannot tell a full report from a partial one: the fast
-and the full population reported the same instruction totals, while their class counts
-differed (4634 against 4642), because the fast run does not load the classes only the
-slow population reaches. Both readers now print it — `scripts/kover-markdown-table.py`
-as `--summary`, and the Gradle task `:koverMarkdownTable` as a CLASS column.
+population's report of 2026-10-23 holds 4735 classes over 579,002 instructions, and the
+full population's report of 2026-10-22 holds 4642 classes over 565,144 — the fast report
+is not the smaller of the two universes, it is the same universe on a tree that grew.
+Both readers now print it — `scripts/kover-markdown-table.py` as `--summary`, and the
+Gradle task `:koverMarkdownTable` as a CLASS column.
+
+The reader also prints the ROOT counters, and that is the number the floor is measured
+against: the denominator published before this change ("2.82M instructions") was the sum
+of every `INSTRUCTION` counter in the XML — the method, class, source-file, package and
+root levels together — so it read five times the report's own denominator. The
+percentages were unaffected, because a ratio is the same at every level, and that is how
+a wrong denominator survived a real measurement.
 
 **D7. One waiter per task.** The rule in `AGENTS.md` says "one background task, not a
 polling loop", and it did not say what to do afterwards: "check when necessary" is an
@@ -143,9 +162,10 @@ before it starts.
 - The recorded fast coverage (27.73 % instruction) can only rise from here: `:adr-core`'s
   classes were already in the denominator, and their own tests now run. The floors
   (27/23/31) stay satisfied, with more margin.
-- Two gates were added, each with a positive control: the floor's declaration site
-  (sabotaged by putting a verify block back into the root build script) and the
-  measurement list (sabotaged by removing `:adr-core:jvmTest` from it).
+- Three gates were added, each with a positive control: the floor's declaration site
+  (sabotaged by putting a verify block back into the root build script), the
+  measurement list (sabotaged by removing `:adr-core:jvmTest` from it), and the CI
+  timeout (sabotaged by shrinking it below the measured instrumented cost).
 - **Not done: a Gradle control that raises the app floor to 99 and requires
   `:koverVerify` to fail.** The mechanical lint (D4) proves the rules are declared
   where the plugin reads them, and the CI job runs `:koverVerify` on every push — but
@@ -154,9 +174,11 @@ before it starts.
   600-second Gradle deadline, and a control that cannot finish proves nothing. The
   enforcement is therefore proven by the CI job and the declaration by the gate; the
   gap is recorded here rather than papered over.
-- The `slow:*` sub-tags still select nothing — they are a description of what is slow,
-  not a population. Whether they join the full population is an open question for the
-  owner, and it would move the measured floors.
+- The `slow:*` sub-tags are not populations, and they do select: the named
+  populations select on the primary tag (`fast` / `slow`), which every slow class
+  carries, while `-Ptest.tags=slow:migration` runs one part of the slow half on
+  its own. Whether a population should select by sub-tag is an open question for
+  the owner, and it would move the measured floors.
 - The full floor (27/20/27) is still half of its measurement (55.88/40.44/57.23). It
   was left conservative on purpose, and the gap is recorded rather than closed.
 

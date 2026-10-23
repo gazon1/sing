@@ -265,6 +265,25 @@ SCRIPT_GATES = [
             "enforces, and the step that reports it stays green"
         ),
     ),
+    # The CI timeout covers the instrumented run.
+    #
+    # The cost of the instrumented run is measured, and the timeout that has to
+    # cover it was a literal. The two are compared here, so that a timeout too
+    # small for the measurement is a finding rather than a killed job.
+    #
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="coverage-timeout",
+        cmd=[sys.executable, "scripts/check-coverage-timeout.py", "--quiet"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a timeout that fires on a healthy instrumented run reports a failure "
+            "that says nothing about the code"
+        ),
+    ),
     ScriptGate(
         name="issue-registry",
         cmd=[sys.executable, "scripts/check-issue-registry.py", "--quiet"],
