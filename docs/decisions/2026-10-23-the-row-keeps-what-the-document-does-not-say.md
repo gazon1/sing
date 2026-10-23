@@ -57,10 +57,17 @@ says.
 
 4. **The parts that live outside the row are not the row's to claim.** The
    tags and the blocking edges are not columns of the row, and their claims
-   are their own business. The merge leaves those keys to the document alone,
-   so a document that carries no `tags` key is still a document that carries
-   no `tags` key afterwards — and the rule for those parts can hold beside
-   this one.
+   are their own business. The merge adds no local values for them: a
+   document that carries no `tags` key is still a document that carries no
+   `tags` key afterwards, and the rule for those parts can hold beside this
+   one.
+
+   What happens to those parts is **unchanged by this decision** — the row is
+   written whole there as well, and a document that carries no `tags` key
+   still decodes into a task with no tags. That is the other change's subject
+   (`the-document-says-only-what-it-carries`), and this one only makes sure it
+   is not made worse by the merge: the local row's reading of the tags — a
+   task read through `get()` holds none at all — is not written as a claim.
 
 5. **The series of the row is the series the row already had, and the rule
    of the series does not change.** The repair of the series writes the shared
@@ -128,6 +135,11 @@ all, and that emptiness is a reading artefact, not a claim.
   before the device knew a field no longer restores that field, and the local
   edit that lost the race stays locally instead of being dropped: the same
   rule, one level down.
+- The merge reads the local row before the repository's write transaction
+  opens, so a local edit that lands between the read and the write is
+  overwritten for the fields the document does not carry. The exposure is the
+  same class as before — the document won the whole row anyway — and the
+  window is the price of knowing what the device already said.
 - The row of a task of another profile is written as the document says. This
   device does not own that row, so it does not read it and does not speak
   about the fields the document is silent about.
