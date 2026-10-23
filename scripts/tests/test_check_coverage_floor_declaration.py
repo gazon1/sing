@@ -16,6 +16,10 @@ So the cases that matter are the ones a clean tree never shows:
   - a floor constant that is not declared is a finding: a floor nobody
     declares is a floor nobody enforces;
   - a verify rule that is not declared is a finding, for the same reason;
+  - a rule that BINDS something other than the declared constant is a
+    finding: `minValue.set(1)` enforces a floor of one percent, and a gate
+    that only looked for the constant's NAME would call that tree correct —
+    the floor would be neutered with every gate green;
   - a COMMENT that talks about `kover {` is not a block. Prose about the
     forbidden place is exactly what the declaration site carries, and a gate
     that cannot tell prose from code would fail on the documentation of its
@@ -48,12 +52,31 @@ val FAST_INSTRUCTION_COVERAGE_FLOOR = 27
 val FAST_BRANCH_COVERAGE_FLOOR = 23
 val FAST_LINE_COVERAGE_FLOOR = 31
 
+val appInstructionCoverageFloor =
+    if (measuredFullPopulation) FULL_INSTRUCTION_COVERAGE_FLOOR else FAST_INSTRUCTION_COVERAGE_FLOOR
+val appBranchCoverageFloor =
+    if (measuredFullPopulation) FULL_BRANCH_COVERAGE_FLOOR else FAST_BRANCH_COVERAGE_FLOOR
+val appLineCoverageFloor =
+    if (measuredFullPopulation) FULL_LINE_COVERAGE_FLOOR else FAST_LINE_COVERAGE_FLOOR
+
 kover {
     reports {
         verify {
-            rule("app instruction coverage") { }
-            rule("app branch coverage") { }
-            rule("app line coverage") { }
+            rule("app instruction coverage") {
+                bound {
+                    minValue.set(appInstructionCoverageFloor)
+                }
+            }
+            rule("app branch coverage") {
+                bound {
+                    minValue.set(appBranchCoverageFloor)
+                }
+            }
+            rule("app line coverage") {
+                bound {
+                    minValue.set(appLineCoverageFloor)
+                }
+            }
         }
     }
 }
@@ -139,12 +162,89 @@ class CoverageFloorDeclarationTest(unittest.TestCase):
     def test_a_missing_verify_rule_is_a_finding(self) -> None:
         self.write(
             'settings.gradle.kts',
-            SETTINGS.replace('rule("app branch coverage") { }', ''),
+            SETTINGS.replace(
+                'rule("app branch coverage") {\n'
+                '                bound {\n'
+                '                    minValue.set(appBranchCoverageFloor)\n'
+                '                }\n'
+                '            }\n',
+                '',
+            ),
         )
         findings = self.findings()
         self.assertTrue(
             any('app branch coverage' in f for f in findings),
             f'expected the missing rule to be reported: {findings}',
+        )
+
+    # ── The binding: the rule must check the DECLARED floor ───────────────
+
+    def test_a_rule_that_binds_a_literal_is_a_finding(self) -> None:
+        # The floor would be 1 % — and every other rule of this gate is green.
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace(
+                'minValue.set(appInstructionCoverageFloor)',
+                'minValue.set(1)',
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('app instruction coverage' in f for f in findings),
+            f'expected the literal binding to be reported: {findings}',
+        )
+        self.assertTrue(
+            any('binds the literal 1' in f for f in findings),
+            f'expected the finding to name the literal it found: {findings}',
+        )
+
+    def test_a_rule_that_binds_an_undeclared_name_is_a_finding(self) -> None:
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace(
+                'minValue.set(appInstructionCoverageFloor)',
+                'minValue.set(someFloorNobodyDeclared)',
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('someFloorNobodyDeclared' in f for f in findings),
+            f'expected the undeclared binding to be reported: {findings}',
+        )
+
+    def test_a_bound_value_that_is_not_the_floor_constant_is_a_finding(self) -> None:
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace(
+                'if (measuredFullPopulation) FULL_INSTRUCTION_COVERAGE_FLOOR '
+                'else FAST_INSTRUCTION_COVERAGE_FLOOR',
+                '27',
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any(
+                'FULL_INSTRUCTION_COVERAGE_FLOOR' in f and 'FAST_INSTRUCTION_COVERAGE_FLOOR' in f
+                for f in findings
+            ),
+            f'expected the unbound floor to be reported: {findings}',
+        )
+
+    def test_a_bound_value_that_reads_only_one_population_is_a_finding(self) -> None:
+        # The fast population's floor is a floor of its own: a rule that reads
+        # only the full one enforces the wrong number on a fast run.
+        self.write(
+            'settings.gradle.kts',
+            SETTINGS.replace(
+                'if (measuredFullPopulation) FULL_INSTRUCTION_COVERAGE_FLOOR '
+                'else FAST_INSTRUCTION_COVERAGE_FLOOR',
+                'FULL_INSTRUCTION_COVERAGE_FLOOR',
+            ),
+        )
+        findings = self.findings()
+        self.assertTrue(
+            any('FAST_INSTRUCTION_COVERAGE_FLOOR' in f for f in findings),
+            f'expected the missing fast floor to be reported: {findings}',
         )
 
 
