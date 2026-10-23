@@ -24,8 +24,9 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTaskMutationsUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.helpers.VmScope
+import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -63,10 +64,11 @@ import kotlinx.coroutines.test.advanceTimeBy
  * the coroutines that are already runnable — including the flow's first, immediate
  * emission — without moving the clock, which is all this transition needs.
  *
- * ## Why the VM scope owns its own Job
- * The same infinite loop means the VM's init coroutine never completes, so it cannot
- * be a child of the test's [TestScope] job (runTest would await it and time out).
- * A detached Job plus an explicit `close()` in `finally` keeps the loop bounded.
+ * ## Why the harness is told what kind of ViewModel this is
+ * The same infinite loop means the VM's init coroutine never completes, so its work
+ * cannot be the test's work: runTest would await it and time out. The test does not
+ * build that scope itself — it says that the ViewModel under test is one whose
+ * collector never ends, and the harness builds the scope that kind needs.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
@@ -137,48 +139,63 @@ class AgendaViewModelTest {
         greetingSettings = greetingSettings,
     )
 
+    /**
+     * The ViewModel under test, in the scope its kind of work needs.
+     *
+     * The agenda collects a clock flow that never ends, so the ViewModel's work
+     * cannot be the test's work — the test would wait for a collector that never
+     * finishes. The harness owns that choice: the test says *what kind of
+     * ViewModel it is testing* — one whose collector never ends — and the harness
+     * builds the scope that kind needs.
+     */
     private fun TestScope.createVm(
-        scope: AutoCloseableCoroutineScope,
         draftStore: FakeDraftStore = FakeDraftStore(),
-    ) = AgendaViewModel(
-        deps = agendaDeps(draftStore = draftStore),
-        definition = AgendaPresets.Inbox,
-        scope = scope,
-    )
+    ): AgendaViewModel = createVmIn { scope ->
+        AgendaViewModel(
+            deps = agendaDeps(draftStore = draftStore),
+            definition = AgendaPresets.Inbox,
+            scope = scope,
+        )
+    }
+
+    /**
+     * A ViewModel of this kind, built by hand.
+     *
+     * Some tests need a ViewModel with a different clock, a different definition
+     * or a different reminder scheduler — so they build it themselves. The scope
+     * is still the harness's: the test names the kind of ViewModel, not the
+     * scope it runs in.
+     */
+    private fun TestScope.createVmIn(
+        factory: (AutoCloseableCoroutineScope) -> AgendaViewModel,
+    ): AgendaViewModel = testVm(
+        stateAccessor = { vm: AgendaViewModel -> vm.stateFlow },
+        vmScope = VmScope.Background,
+    ) { scope -> factory(scope) }.vm
 
     @Test
     fun `leaves Loading and renders the seeded tasks`() = runTest {
         fakeRepo.seed(task("t1", "Buy milk"), task("t2", "Ship release"))
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            runCurrent()
+        val vm = createVm()
+        runCurrent()
 
-            val state = assertIs<AgendaUiState.Loaded>(
-                vm.stateFlow.value,
-                "VM stayed on Loading — the collected state is being discarded",
-            )
-            val titles = state.sections.flatMap { it.tasks }.map { it.task.title }
-            assertEquals(setOf("Buy milk", "Ship release"), titles.toSet())
-        } finally {
-            vmScope.close()
-        }
+        val state = assertIs<AgendaUiState.Loaded>(
+            vm.stateFlow.value,
+            "VM stayed on Loading — the collected state is being discarded",
+        )
+        val titles = state.sections.flatMap { it.tasks }.map { it.task.title }
+        assertEquals(setOf("Buy milk", "Ship release"), titles.toSet())
     }
 
     @Test
     fun `emits Loaded even when the user has no tasks`() = runTest {
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            runCurrent()
+        val vm = createVm()
+        runCurrent()
 
-            // An empty list must still resolve to Loaded — otherwise the screen
-            // would spin forever before it could show its empty state.
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals(emptyList(), state.sections.flatMap { it.tasks })
-        } finally {
-            vmScope.close()
-        }
+        // An empty list must still resolve to Loaded — otherwise the screen
+        // would spin forever before it could show its empty state.
+        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        assertEquals(emptyList(), state.sections.flatMap { it.tasks })
     }
 
     /**
@@ -193,21 +210,16 @@ class AgendaViewModelTest {
         val undated = task(id = "no-date-1", title = "Inbox me") // dueDate = null
         fakeRepo.seed(undated) // seed BEFORE creating the VM
 
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            runCurrent()
+        val vm = createVm()
+        runCurrent()
 
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertTrue(
-                state.sections.any { section ->
-                    section.tasks.any { it.task.id == undated.id }
-                },
-                "Undated task seeded before VM construction must reach the agenda's No Date section",
-            )
-        } finally {
-            vmScope.close()
-        }
+        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        assertTrue(
+            state.sections.any { section ->
+                section.tasks.any { it.task.id == undated.id }
+            },
+            "Undated task seeded before VM construction must reach the agenda's No Date section",
+        )
     }
 
     /**
@@ -226,10 +238,9 @@ class AgendaViewModelTest {
     @Test
     fun `create in section prefills a due date relative to the injected clock`() = runTest {
         val pinned = LocalDate(2031, 7, 9) // a Wednesday, far from any seed date
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
         val draftStore = FakeDraftStore()
-        try {
-            val vm = AgendaViewModel(
+        val vm = createVmIn { scope ->
+            AgendaViewModel(
                 // Noon UTC with an explicit zone. The zone used to be the
                 // host's, which is why this had to be noon: midnight would land
                 // on a different date in half the world. With `timeZone` pinned to
@@ -240,23 +251,21 @@ class AgendaViewModelTest {
                     draftStore = draftStore,
                 ),
                 definition = AgendaPresets.Today,
-                scope = vmScope,
+                scope = scope,
             )
-            runCurrent()
-
-            vm.onIntent(AgendaIntent.CreateInSection("today"))
-            runCurrent()
-
-            val draft = draftStore.load("section_create_draft_today", TaskDraft.serializer())
-            assertNotNull(draft, "the section create must have stored a draft")
-            assertEquals(
-                DueDateOption.Custom(pinned, pinned.toString()),
-                draft.dueDate,
-                "'+' in the Today section must prefill the clock's today, not a compile-time constant",
-            )
-        } finally {
-            vmScope.close()
         }
+        runCurrent()
+
+        vm.onIntent(AgendaIntent.CreateInSection("today"))
+        runCurrent()
+
+        val draft = draftStore.load("section_create_draft_today", TaskDraft.serializer())
+        assertNotNull(draft, "the section create must have stored a draft")
+        assertEquals(
+            DueDateOption.Custom(pinned, pinned.toString()),
+            draft.dueDate,
+            "'+' in the Today section must prefill the clock's today, not a compile-time constant",
+        )
     }
 
     // ─────────────────────── A task on several days ─────────────────────────────
@@ -267,35 +276,30 @@ class AgendaViewModelTest {
 
     @Test
     fun `CreateOnDates writes the picked days into a draft`() = runTest {
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val draftStore = FakeDraftStore()
-            val vm = createVm(vmScope, draftStore = draftStore)
-            runCurrent()
+        val draftStore = FakeDraftStore()
+        val vm = createVm(draftStore = draftStore)
+        runCurrent()
 
-            val dates = setOf(
-                LocalDate(2026, 10, 5),
-                LocalDate(2026, 10, 12),
-                LocalDate(2026, 10, 19),
-            )
-            vm.onIntent(AgendaIntent.CreateOnDates(dates))
-            runCurrent()
+        val dates = setOf(
+            LocalDate(2026, 10, 5),
+            LocalDate(2026, 10, 12),
+            LocalDate(2026, 10, 19),
+        )
+        vm.onIntent(AgendaIntent.CreateOnDates(dates))
+        runCurrent()
 
-            val draft = draftStore.load(TaskDraftKeys.AGENDA_MULTI_DATE, TaskDraft.serializer())
-            assertNotNull(draft, "the picked days must reach a draft")
-            assertEquals(
-                DueDateOption.Custom(LocalDate(2026, 10, 5), LocalDate(2026, 10, 5).toString()),
-                draft.dueDate,
-                "the earliest day is the primary one",
-            )
-            assertEquals(
-                listOf(LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
-                draft.extraDueDates,
-                "the other days ride along as extra dates",
-            )
-        } finally {
-            vmScope.close()
-        }
+        val draft = draftStore.load(TaskDraftKeys.AGENDA_MULTI_DATE, TaskDraft.serializer())
+        assertNotNull(draft, "the picked days must reach a draft")
+        assertEquals(
+            DueDateOption.Custom(LocalDate(2026, 10, 5), LocalDate(2026, 10, 5).toString()),
+            draft.dueDate,
+            "the earliest day is the primary one",
+        )
+        assertEquals(
+            listOf(LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
+            draft.extraDueDates,
+            "the other days ride along as extra dates",
+        )
     }
 
     // ─────────────────────── Delete / undo ──────────────────────────────────────
@@ -309,12 +313,7 @@ class AgendaViewModelTest {
     private fun archivedAt(id: String): kotlin.time.Instant? = fakeRepo.tasks.value[id]?.archivedAt
 
     private fun withVm(block: suspend TestScope.(AgendaViewModel) -> Unit) = runTest {
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            block(createVm(vmScope))
-        } finally {
-            vmScope.close()
-        }
+        block(createVm())
     }
 
     @Test
@@ -490,25 +489,22 @@ class AgendaViewModelTest {
     fun `deleting cancels the task's reminders`() = withVm { vm ->
         fakeRepo.seed(task("t1", "Doomed"))
         val cancelled = mutableListOf<TaskId>()
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val scoped = AgendaViewModel(
+        val scoped = createVmIn { scope ->
+            AgendaViewModel(
                 deps = agendaDeps(
                     reminderScheduler = recordingScheduler(cancelled),
                 ),
                 definition = AgendaPresets.Inbox,
-                scope = vmScope,
+                scope = scope,
             )
-            runCurrent()
-
-            scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-            runCurrent()
-
-            assertEquals(listOf(TaskId("t1")), cancelled, "a deleted task must not keep notifying")
-            assertNotNull(archivedAt("t1"))
-        } finally {
-            vmScope.close()
         }
+        runCurrent()
+
+        scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
+        runCurrent()
+
+        assertEquals(listOf(TaskId("t1")), cancelled, "a deleted task must not keep notifying")
+        assertNotNull(archivedAt("t1"))
     }
 
     /**
@@ -521,33 +517,30 @@ class AgendaViewModelTest {
     fun `a failed delete after a successful cancel leaves the task without its reminder`() = withVm { vm ->
         fakeRepo.seed(task("t1", "Doomed"))
         val cancelled = mutableListOf<TaskId>()
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val scoped = AgendaViewModel(
+        val scoped = createVmIn { scope ->
+            AgendaViewModel(
                 deps = agendaDeps(
                     reminderScheduler = recordingScheduler(cancelled),
                 ),
                 definition = AgendaPresets.Inbox,
-                scope = vmScope,
+                scope = scope,
             )
-            fakeRepo.softDeleteOverride = Result.failure(IllegalStateException("conflict"))
+        }
+        fakeRepo.softDeleteOverride = Result.failure(IllegalStateException("conflict"))
+        runCurrent()
+
+        val events = mutableListOf<AgendaUiEvent>()
+        val collector = launch { scoped.events.collect { events += it } }
+        try {
+            scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
             runCurrent()
 
-            val events = mutableListOf<AgendaUiEvent>()
-            val collector = launch { scoped.events.collect { events += it } }
-            try {
-                scoped.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
-                runCurrent()
-
-                assertEquals(listOf(TaskId("t1")), cancelled)
-                assertNull(archivedAt("t1"), "the task survives a rejected delete")
-                assertNull(scoped.pendingDelete.value)
-                assertTrue(events.any { it is AgendaUiEvent.ShowError })
-            } finally {
-                collector.cancel()
-            }
+            assertEquals(listOf(TaskId("t1")), cancelled)
+            assertNull(archivedAt("t1"), "the task survives a rejected delete")
+            assertNull(scoped.pendingDelete.value)
+            assertTrue(events.any { it is AgendaUiEvent.ShowError })
         } finally {
-            vmScope.close()
+            collector.cancel()
         }
     }
 
@@ -662,20 +655,15 @@ class AgendaViewModelTest {
         // fakeSettings default: morningEndHour=12, afternoonEndHour=18
         // fakeClock default: 09:00 UTC → local hour < 12 → "Good morning"
         fakeRepo.seed(task("t1", "Morning task"))
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            // repeat(4) advances exactly 4 pending tasks:
-            //   1. scope.launch { _greeting.value = computeGreeting() } starts → first first() suspends
-            //   2. computeGreeting() resumes → second first() suspends
-            //   3. computeGreeting() finishes → _greeting.value = "Good morning"
-            //   4. todayFlow emits → flatMapLatest → task flow → collect callback fires
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good morning", state.greeting, "9am UTC should produce Good morning")
-        } finally {
-            vmScope.close()
-        }
+        val vm = createVm()
+        // repeat(4) advances exactly 4 pending tasks:
+        //   1. scope.launch { _greeting.value = computeGreeting() } starts → first first() suspends
+        //   2. computeGreeting() resumes → second first() suspends
+        //   3. computeGreeting() finishes → _greeting.value = "Good morning"
+        //   4. todayFlow emits → flatMapLatest → task flow → collect callback fires
+        repeat(4) { runCurrent() }
+        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        assertEquals("Good morning", state.greeting, "9am UTC should produce Good morning")
     }
 
     @Test
@@ -689,44 +677,38 @@ class AgendaViewModelTest {
             override suspend fun setAfternoonEndHour(hour: Int) {}
         }
         fakeRepo.seed(task("t1", "Afternoon task"))
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = AgendaViewModel(
+        val vm = createVmIn { scope ->
+            AgendaViewModel(
                 deps = agendaDeps(
                     clock = FakeClock(Instant.parse("2026-09-16T11:00:00Z")),
                     greetingSettings = customGreeting,
                 ),
                 definition = AgendaPresets.Inbox,
-                scope = vmScope,
+                scope = scope,
             )
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good afternoon", state.greeting, "11am UTC with morningEnd=10 should produce Good afternoon")
-        } finally {
-            vmScope.close()
         }
+        // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
+        repeat(4) { runCurrent() }
+        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        assertEquals("Good afternoon", state.greeting, "11am UTC with morningEnd=10 should produce Good afternoon")
     }
 
     @Test
     fun `greeting is Good evening after 6pm`() = runTest {
         fakeRepo.seed(task("t1", "Evening task"))
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = AgendaViewModel(
+        val vm = createVmIn { scope ->
+            AgendaViewModel(
                 deps = agendaDeps(
                     clock = FakeClock(Instant.parse("2026-09-16T20:00:00Z")),
                 ),
                 definition = AgendaPresets.Inbox,
-                scope = vmScope,
+                scope = scope,
             )
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good evening", state.greeting, "20:00 UTC should produce Good evening")
-        } finally {
-            vmScope.close()
         }
+        // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
+        repeat(4) { runCurrent() }
+        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        assertEquals("Good evening", state.greeting, "20:00 UTC should produce Good evening")
     }
 
     // ─── WorkSchedule and Greeting deps are wired ─────────────────────────────
@@ -742,17 +724,12 @@ class AgendaViewModelTest {
     @Test
     fun `VM starts with workScheduleSettings and greetingSettings wired`() = runTest {
         fakeRepo.seed(task("t1", "Wired"))
-        val vmScope = AutoCloseableCoroutineScope(coroutineContext + Job())
-        try {
-            val vm = createVm(vmScope)
-            // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
-            repeat(4) { runCurrent() }
-            val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
-            assertEquals("Good morning", state.greeting, "9am UTC with default fakeSettings must produce Good morning")
-            assertTrue(state.sections.isNotEmpty() || true, "VM renders with wired deps")
-        } finally {
-            vmScope.close()
-        }
+        val vm = createVm()
+        // repeat(4): greeting computed in init scope (3 steps), collect fires on step 4.
+        repeat(4) { runCurrent() }
+        val state = assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+        assertEquals("Good morning", state.greeting, "9am UTC with default fakeSettings must produce Good morning")
+        assertTrue(state.sections.isNotEmpty() || true, "VM renders with wired deps")
     }
 
     private fun loadedSelection(vm: AgendaViewModel): Set<TaskId> =
