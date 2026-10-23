@@ -121,7 +121,7 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
     switch has no `core.bare = false` there, so it is taken for a bare
     repository and every command that needs a work tree dies with "fatal: this
     operation must be run in a work tree". Measured on 2026-10-23: one run of
-    the setup script in one worktree made all 39 worktrees of this repository
+    the setup script in one worktree made every worktree of this repository
     unusable, and the shared `core.bare` was corrupted on the way.
 
     Four properties are held here, each on a throwaway repository — the real
@@ -131,6 +131,9 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
       - the OTHER worktrees of the same repository keep working;
       - the shared config keeps its own `core.bare`, and gains no hooks path;
       - a second run changes nothing.
+
+    The bare repository's own main entry is a separate fixture below: it is the
+    repository, not a worktree of it, and it must stay bare.
     """
 
     def setUp(self) -> None:
@@ -138,16 +141,20 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
         self.bare = self.tmp / 'bare.git'
         subprocess.run(
             ['git', 'init', '-q', '--bare', str(self.bare)],
-            check=True, capture_output=True, text=True,
+            check=True, capture_output=True, text=True, env=self._env(),
         )
         self.wt1 = self.tmp / 'wt1'
         self.wt2 = self.tmp / 'wt2'
         for name, path in (('b1', self.wt1), ('b2', self.wt2)):
             subprocess.run(
                 ['git', '-C', str(self.bare), 'worktree', 'add', str(path), '-b', name],
-                check=True, capture_output=True, text=True,
+                check=True, capture_output=True, text=True, env=self._env(),
             )
         self.script = self._install(self.wt1)
+
+    def _env(self) -> dict[str, str]:
+        """The fixture's own environment: git cannot reach past its own tree."""
+        return sandbox_env(self.tmp)
 
     def _install(self, worktree: pathlib.Path) -> pathlib.Path:
         """Copy the script and a Gradle-home stub into the worktree."""
@@ -167,16 +174,19 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
             cwd=worktree,
             capture_output=True,
             text=True,
+            env=self._env(),
         )
 
     def _status(self, worktree: pathlib.Path) -> subprocess.CompletedProcess:
         return subprocess.run(
             ['git', 'status'], cwd=worktree, capture_output=True, text=True,
+            env=self._env(),
         )
 
     def _config_get(self, config_file: pathlib.Path, key: str) -> str:
         result = subprocess.run(
             ['git', 'config', '--file', str(config_file), '--get', key],
+            env=self._env(),
             capture_output=True, text=True,
         )
         return result.stdout.strip()
@@ -191,6 +201,7 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
         """The defect itself: the extension is on, the worktree predates it."""
         subprocess.run(
             ['git', '-C', str(self.bare), 'config', 'extensions.worktreeConfig', 'true'],
+            env=self._env(),
             check=True,
         )
 
@@ -235,9 +246,24 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
         self.assertFalse((self.bare / 'config.worktree').exists())
         is_bare = subprocess.run(
             ['git', '-C', str(self.bare), 'rev-parse', '--is-bare-repository'],
+            env=self._env(),
             capture_output=True, text=True,
         )
         self.assertEqual('true', is_bare.stdout.strip())
+
+    def test_an_unreadable_git_file_is_reported_by_the_script(self):
+        """The script says which file is wrong; it does not pass sed's complaint on."""
+        if os.geteuid() == 0:
+            self.skipTest('root reads every file — the permission is not in the way')
+        git_file = self.wt1 / '.git'
+        git_file.chmod(0o000)
+        try:
+            result = self._run(self.wt1)
+        finally:
+            git_file.chmod(0o644)
+
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        self.assertIn('is not readable', result.stderr)
 
     def test_running_the_script_twice_changes_nothing(self):
         """Idempotent: the second run leaves both configs byte for byte as they were."""
@@ -252,6 +278,104 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
         self.assertEqual(worktree_config, self._worktree_config('wt1').read_text(encoding='utf-8'))
         self.assertEqual(shared_config, self._shared_config().read_text(encoding='utf-8'))
         self.assertEqual(0, self._status(self.wt1).returncode)
+
+
+class SetupWorktreeBareMainEntryTest(unittest.TestCase):
+    """The bare repository's own main entry: the repository, not a worktree of it.
+
+    On this machine the canonical checkout IS that main entry: its `.git` is a
+    DIRECTORY that is the bare repository itself (`core.bare = true`), and
+    every other checkout is a linked worktree of it. The two look alike from
+    the outside — in both, `.git` is a directory and the git dir is the common
+    dir — and they differ in the shared config.
+
+    Run in the main entry, the script must not write `core.bare = false` into
+    that entry's own `config.worktree`. The value would make git answer
+    `false` to `--is-bare-repository` there: the bare repository would claim a
+    working tree, and the repository's own files would become one. The damage
+    is silent — the script succeeds.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='setup-worktree-main-entry-'))
+        self.main = self.tmp / 'main'
+        self.main.mkdir()
+        # The bare repository IS the `.git` directory of the main entry.
+        self.bare = self.main / '.git'
+        subprocess.run(
+            ['git', 'init', '-q', '--bare', str(self.bare)],
+            check=True, capture_output=True, text=True, env=self._env(),
+        )
+        self.wt1 = self.tmp / 'wt1'
+        subprocess.run(
+            ['git', '-C', str(self.bare), 'worktree', 'add', str(self.wt1), '-b', 'b1'],
+            check=True, capture_output=True, text=True, env=self._env(),
+        )
+        self._install(self.main)
+
+    def _env(self) -> dict[str, str]:
+        """The fixture's own environment: git cannot reach past its own tree."""
+        return sandbox_env(self.tmp)
+
+    def _install(self, root: pathlib.Path) -> None:
+        """Copy the script and a Gradle-home stub into the main entry."""
+        scripts = root / 'scripts'
+        scripts.mkdir(exist_ok=True)
+        stub = scripts / 'setup-gradle-home.sh'
+        stub.write_text(STUB_GRADLE_HOME, encoding='utf-8')
+        stub.chmod(0o755)
+        target = scripts / 'setup-worktree.sh'
+        target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
+        target.chmod(0o755)
+
+    def _run(self) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ['bash', str(self.main / 'scripts' / 'setup-worktree.sh')],
+            cwd=self.main,
+            capture_output=True,
+            text=True,
+            env=self._env(),
+        )
+
+    def _is_bare(self) -> str:
+        """What git says about the main entry: `true` or `false`."""
+        result = subprocess.run(
+            ['git', '-C', str(self.main), 'rev-parse', '--is-bare-repository'],
+            env=self._env(),
+            capture_output=True, text=True,
+        )
+        return result.stdout.strip()
+
+    def _config_get(self, config_file: pathlib.Path, key: str) -> str:
+        result = subprocess.run(
+            ['git', 'config', '--file', str(config_file), '--get', key],
+            env=self._env(),
+            capture_output=True, text=True,
+        )
+        return result.stdout.strip()
+
+    def test_the_bare_repository_itself_is_not_un_bared(self):
+        """The main entry keeps its bare flag, and no `core.bare = false` is written."""
+        result = self._run()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+        self.assertEqual('true', self._is_bare())
+        self.assertNotEqual('false', self._config_get(self.bare / 'config.worktree', 'core.bare'))
+        self.assertEqual('true', self._config_get(self.bare / 'config', 'core.bare'))
+
+    def test_the_linked_worktree_is_repaired_all_the_same(self):
+        """The main entry is not repaired, but the worktrees of it still are."""
+        result = self._run()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+        status = subprocess.run(
+            ['git', 'status'], cwd=self.wt1, capture_output=True, text=True, env=self._env(),
+        )
+        self.assertEqual(0, status.returncode, status.stdout + status.stderr)
+        self.assertEqual(
+            'false',
+            self._config_get(self.bare / 'worktrees' / 'wt1' / 'config.worktree', 'core.bare'),
+        )
 
 
 if __name__ == '__main__':
