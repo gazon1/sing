@@ -15,9 +15,11 @@
 # WHAT IS CHECKED: the tree that is being pushed, not the checked-out worktree.
 #
 # WHAT IS NOT: the modules the change does not reach. The local verdict is
-# partial — CI judges every module. The difference is written down in
-# config/hooks/pre-push.json, and scripts/check-hook-gates.py keeps that record
-# and this hook in step.
+# partial — CI judges the modules its own list names, and that list is
+# hand-written, not read from the build: a module the graph knows and CI's
+# list does not name is judged here and by nobody else. The difference is
+# written down in config/hooks/pre-push.json, and scripts/check-hook-gates.py
+# keeps that record and this hook in step.
 #
 # `git push` hands the hook the refs it is about to write:
 #     <local ref> <local sha> <remote ref> <remote sha>
@@ -596,11 +598,66 @@ DETEKT_FAILED=0
 # How many trees were actually judged: a verdict that was not taken is not a
 # clean verdict, and the summary must not claim otherwise.
 DETEKT_JUDGED=0
-# How many trees had nothing to judge — the change moved neither Kotlin nor
-# rules. Nothing was checked there, so nothing was found: that is "not taken",
-# not "clean".
+# How many trees had nothing to judge. Nothing was checked there, so nothing
+# was found: that is "not taken", not "clean".
+#
+# There are TWO reasons for that, and they are different claims: a change that
+# moves neither Kotlin nor rules, and a change that moves Kotlin into a module
+# whose verdict is its test suite. The verdict script knows which one it was
+# and says so in its own words; the reasons are collected here and repeated
+# below, because a hook that substitutes its own reason tells the reader that
+# a change which moves Kotlin moves no Kotlin.
 DETEKT_NOTHING=0
+# The verdict's own reasons, in its own words, separated by "; ".
+NOTHING_REASONS=""
+# The modules the verdict judged, in the module graph's names.
+JUDGED_MODULES=""
 judged_shas=" "
+
+# The modules the verdict judged, in the module graph's names.
+#
+# The verdict prints the Gradle tasks it ran; the module of a task is the task
+# without its leading colon and without its detekt suffix. This list is only
+# used to compare with CI's list — the hook never decides what to judge, the
+# verdict script does, from the module graph.
+collect_judged_modules() {
+    local out="$1" tasks task module
+    tasks="$(printf '%s\n' "$out" | sed -n 's/^ *modules judged: //p' | head -1)"
+    for task in ${tasks//,/ }; do
+        module="${task#:}"
+        module="${module%:detekt}"
+        [ -n "$module" ] || continue
+        case " $JUDGED_MODULES " in
+            *" $module "*) continue ;;
+        esac
+        JUDGED_MODULES="${JUDGED_MODULES:+$JUDGED_MODULES }$module"
+    done
+}
+
+# The asymmetry between this hook and CI, made visible.
+#
+# CI judges a HAND-WRITTEN list of modules — the detekt tasks named in the CI
+# workflow — and this hook judges the modules the change reaches, computed
+# from the module graph. A module the graph knows and CI's list does not name
+# is judged here and by nobody else, so it is named out loud instead of being
+# left silent.
+report_coverage_gap() {
+    local ci_file="$REPO_ROOT/.github/workflows/ci.yml"
+    local ci_modules module gap=""
+    [ -r "$ci_file" ] || return 0
+    ci_modules="$(grep -oE ':[[:alnum:]_-]+:detekt' "$ci_file" \
+        | sed 's/:detekt$//' | sed 's/^://' | sort -u || true)"
+    [ -n "$ci_modules" ] || return 0
+    for module in $JUDGED_MODULES; do
+        if ! printf '%s\n' "$ci_modules" | grep -qxF "$module"; then
+            gap="${gap:+$gap, }$module"
+        fi
+    done
+    if [ -n "$gap" ]; then
+        echo "detekt coverage: judged here but not named by CI: $gap"
+        echo "               CI's detekt list is hand-written — a module the graph knows can be missing from it"
+    fi
+}
 
 for i in "${!PUSH_REFS[@]}"; do
     local_ref="${PUSH_REFS[$i]}"
@@ -675,9 +732,29 @@ for i in "${!PUSH_REFS[@]}"; do
     # A verdict that found nothing to judge is not a verdict: nothing was
     # checked, so nothing was found. The summary says "not taken" rather than
     # "clean", because a clean tree is a claim and this is not one.
+    #
+    # The reason is the verdict's own: it prints it, and the hook repeats it
+    # instead of inventing one. The two reasons are different claims — a change
+    # that moves no Kotlin at all, and a change that moves Kotlin into a module
+    # that has no detekt task of its own — and the hook must not tell the
+    # reader that the second is the first.
     case "$verdict_out" in
-        *"nothing to judge"*) DETEKT_NOTHING=$((DETEKT_NOTHING + 1)) ;;
-        *) DETEKT_JUDGED=$((DETEKT_JUDGED + 1)) ;;
+        *"nothing to judge"*)
+            DETEKT_NOTHING=$((DETEKT_NOTHING + 1))
+            verdict_line="$(printf '%s\n' "$verdict_out" | grep -m1 'nothing to judge' || true)"
+            verdict_reason="${verdict_line#*nothing to judge}"
+            # The reason follows the verdict script's own separator; strip
+            # whatever leads it (spaces, a dash) without naming the dash, so a
+            # different dash does not cost the reason.
+            verdict_reason="$(printf '%s' "$verdict_reason" | sed 's/^[^[:alnum:]]*//')"
+            if [ -n "$verdict_reason" ]; then
+                NOTHING_REASONS="${NOTHING_REASONS:+$NOTHING_REASONS; }$verdict_reason"
+            fi
+            ;;
+        *)
+            DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
+            collect_judged_modules "$verdict_out"
+            ;;
     esac
 
     if [ "$verdict_rc" = "0" ]; then
@@ -708,10 +785,14 @@ echo ""
 if [ "$DETEKT_JUDGED" = "0" ] && [ "$DETEKT_NOTHING" = "0" ]; then
     echo "detekt verdict: not taken — nothing was pushed to judge"
 elif [ "$DETEKT_JUDGED" = "0" ]; then
-    echo "detekt verdict: not taken — this change moves no Kotlin and no rules"
+    # The verdict's own reason, in the verdict script's own words: a change
+    # that moves no Kotlin and a change that moves Kotlin into a module with no
+    # detekt task are different claims, and the hook does not get to pick one.
+    echo "detekt verdict: not taken — ${NOTHING_REASONS:-the verdict script did not say why it took none}"
 else
     echo "detekt verdict: the pushed tree is clean for the modules the change can affect"
-    echo "detekt coverage: CI judges every module; the hook judges the ones this change reaches"
+    echo "detekt coverage: CI judges the modules its own list names (that list is hand-written); the hook judges the ones this change reaches"
+    report_coverage_gap
 fi
 echo ""
 

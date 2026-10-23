@@ -92,6 +92,31 @@ Gradle invocations, not the concurrency.
   invocation for all the judged modules, no `--auto-correct` in it, and a
   run that fails without naming a task is red.
 
+## The measurement has to measure the verdict
+
+The review found that the tool publishing the verdict's price measured
+something else:
+
+- the `auto-correct` phase ran a correcting detekt **in the tree it was
+  measuring** — the developer's own checkout, shared with ten sessions. The
+  instrument of "the verdict does not correct" corrected the tree;
+- the `together` phase passed `--parallel`, which the verdict never passes;
+- the `digest` phase measured `git ls-files` alone, while the verdict's digest
+  also hashes every Kotlin file with `git hash-object`.
+
+So the published number was for a command the verdict never makes, and the
+record could not tell that. The tool now measures the verdict's own
+invocation, runs the correction in a throwaway copy it creates and removes,
+and refuses to correct the tree you are working in. The record carries the
+commands it was measured with, and the tool compares them with the commands
+it measures now: a record that describes a different measurement is published
+as **stale**, with the reason, instead of as a current price.
+
+The published record was NOT re-measured — the host's Gradle slots are busy,
+and a number written by hand would be exactly the kind of number this page
+exists to replace. It therefore says what it is: a history of the old
+commands, with the command to re-measure in it.
+
 ## Links
 
 - `scripts/pre-push-verdict.py` — the verdict

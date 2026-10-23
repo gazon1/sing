@@ -253,20 +253,46 @@ fi
 # The copy is not tracked (`.env` is in .gitignore) and it is not overwritten:
 # a file that already exists here was put there by hand, and replacing it with
 # the canonical one would swap one set of secrets for another.
-# The common dir is the shared .git; its parent is the canonical checkout.
-# It is the one this script already resolved above — without Git, because a
-# worktree Git considers bare answers no questions.
-main_root="$(cd "$(dirname "$common_dir")" && pwd)"
-if [[ -f "$main_root/.env" ]]; then
-    if [[ -f "$root/.env" ]]; then
-        echo ".env        -> already here (kept as it is)"
-    else
-        cp "$main_root/.env" "$root/.env"
-        chmod 600 "$root/.env"
-        echo ".env        -> copied from $main_root"
+#
+# The source is the CANONICAL checkout — the one place the repository's .env
+# lives — and never this worktree's own file.
+#
+# The canonical root is not always the parent of the common dir: the common
+# dir is the shared .git, and it sits INSIDE the canonical checkout
+# (…/checkout/.git), BESIDE it (…/checkout.git — a separate git dir), or, for
+# the bare repository's own main entry, in it. Every layout is tried, in that
+# order, and the first one that holds a .env is the source. The list is
+# resolved without Git, for the reason the rest of this script is: a worktree
+# Git considers bare answers no questions.
+canonical_roots=()
+common_base="$(basename "$common_dir")"
+common_parent="$(cd "$(dirname "$common_dir")" && pwd)"
+canonical_roots+=("$common_parent")
+if [[ "$common_base" == *.git && "$common_base" != ".git" ]]; then
+    canonical_roots+=("${common_parent}/${common_base%.git}")
+fi
+if [[ "$git_dir" == "$common_dir" ]]; then
+    # This is the repository's own main entry, so this worktree IS the
+    # canonical checkout.
+    canonical_roots+=("$root")
+fi
+
+env_source=""
+for candidate in "${canonical_roots[@]}"; do
+    if [[ -f "$candidate/.env" ]]; then
+        env_source="$candidate"
+        break
     fi
+done
+
+if [[ -z "$env_source" ]]; then
+    echo ".env        -> not found in ${canonical_roots[0]} (nothing to copy)"
+elif [[ -f "$root/.env" ]]; then
+    echo ".env        -> already here (kept as it is)"
 else
-    echo ".env        -> not found in $main_root (nothing to copy)"
+    cp "$env_source/.env" "$root/.env"
+    chmod 600 "$root/.env"
+    echo ".env        -> copied from $env_source"
 fi
 
 # ── The local Python environment ─────────────────────────────────────────────
@@ -284,7 +310,16 @@ fi
 # The install needs the network (uv resolves the packages; actionlint is a
 # release download). A failure here is reported and the worktree stays usable:
 # the gates that need the venv will say which tool is missing.
-venv="$HOME/.venvs/singularity-todo-$(basename "$root")"
+#
+# Where the venv goes is the caller's decision: SINGULARITY_TOOLS_VENV names
+# it, and without that variable the venv is named after the worktree. The
+# variable used to be forwarded to the installer and ignored here — so the
+# documented knob had no effect on the one thing it was documented to choose.
+if [[ -n "${SINGULARITY_TOOLS_VENV:-}" ]]; then
+    venv="$SINGULARITY_TOOLS_VENV"
+else
+    venv="$HOME/.venvs/singularity-todo-$(basename "$root")"
+fi
 if [[ -x "$venv/bin/python" ]]; then
     echo "Python venv  -> $venv (already there)"
 else

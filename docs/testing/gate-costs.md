@@ -152,19 +152,26 @@ This record expires on 2026-11-22 — after that it is a history.
 
 Measured while the host was at load 34.0 on 16 CPUs — the cost of the verdict is a property of the verdict and the host together, and this is the host.
 
+**This record is stale** — the tool now measures `digest` with a different command (git ls-files -- *.kt *.kts && git ls-files --others --exclude-standard -- *.kt *.kts && git hash-object --stdin-paths); the record was measured with git ls-files -- *.kt *.kts; the tool now measures `together` with a different command (./gw :shared:detekt :desktopApp:detekt --rerun --continue --no-daemon --console=plain); the record was measured with ./gw :shared:detekt :desktopApp:detekt --parallel --rerun --continue --no-daemon --console=plain. The numbers below describe the tree that was measured, not the tree in front of you; read them as a history, not as a price.
+
 | Phase | Cost | What ran |
 |---|---|---|
 | detekt | 5 min 07 s | the analysis the verdict waits for — `:shared:detekt`, read-only |
 | auto-correct | 7 min 03 s | the same run with `--auto-correct` — what the verdict deliberately does not do, because it reads the tree it judges |
-| digest | 1.0 s | the content digest the verdict computes before and after the analysis (`git ls-files` plus `git hash-object` over every Kotlin file) |
-| together | 11 min 43 s | `:shared:detekt` and `:desktopApp:detekt` judged in ONE Gradle invocation — whether judging several modules costs less than judging them one after the other |
+| digest | 1.0 s | the content digest the verdict computes before and after the analysis — measured here with `git ls-files` only, which is HALF of the verdict's digest (`git ls-files` plus `git hash-object` over every Kotlin file) |
+| together | 11 min 43 s | `:shared:detekt` and `:desktopApp:detekt` judged in ONE Gradle invocation — measured with `--parallel`, which the verdict never passes; the tool now measures the invocation the verdict makes |
 
 Correcting the tree costs 1 min 56 s on top of the read-only run — 38 % more than the analysis, and 27 % of the correcting run. The verdict reads the tree it judges and never corrects it, so the push waits for the analysis and not for the correction.
 
 Notes from the record:
 
-- `together`: the global `./gw` slots were already taken, so the two modules were serialised — parallelism was not available on this host
+- `auto-correct`: measured by running a correcting detekt in the shared development checkout; the tool now corrects a throwaway copy and refuses to correct the tree you are working in
+- `digest`: measured with `git ls-files` only; the verdict's digest also runs `git hash-object` over every Kotlin file, and the tool now measures the whole digest
+- `together`: the global `./gw` slots were already taken, so the two modules were serialised — parallelism was not available on this host; the command also carries `--parallel`, which the verdict does not pass, and the tool now measures the verdict's own invocation
 - The measurement was taken in the development checkout, which is shared with ten agent sessions: the load average was 34–50, so the absolute numbers are an upper bound and the ratios between the phases are the fact.
+- These numbers were measured with the commands the tool ran BEFORE it was corrected, and the tool now measures different ones — so this record is a history, not a current price: the `together` phase was measured with `--parallel`, which the verdict never passes, and the `digest` phase measured `git ls-files` only, while the verdict hashes every Kotlin file with `git hash-object` as well.
+- The `auto-correct` number was obtained by running a CORRECTING detekt in the shared development checkout. The tool now runs that correction in a throwaway copy of the tree and refuses to correct the tree you are working in, so this number will not be reproduced the same way.
+- Re-measure with `python3 scripts/measure-verdict-cost.py` to publish a price of the commands the tool measures now.
 
 The command each phase ran is in the record:
 

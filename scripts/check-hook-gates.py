@@ -195,6 +195,26 @@ def collect_errors(
                 f'the record lists :{module}:detekt, and the module graph has no such module — '
                 f'the record names a module that does not exist',
             )
+        # The other direction. The record ⊆ the graph was checked above; this
+        # is the graph ⊆ CI's list. A module the graph knows, that CI's
+        # hand-written list does not name, is judged by the hook and by nobody
+        # else — a module the local verdict certifies and CI never sees. That
+        # asymmetry was silent: nothing went red when a module was added to
+        # settings.gradle.kts and forgotten in the CI workflow.
+        #
+        # A module with no detekt task of its own is not in this set: its
+        # verdict is its test suite, and the record's `test_verdicts` section
+        # says so.
+        for module in sorted(set(graph_modules) - recorded_modules - outside_modules):
+            if module in ci_modules:
+                # CI names it, but the record does not list it — reported above.
+                continue
+            errors.append(
+                f'the module graph knows :{module}, and neither CI nor the record names it — '
+                f'a module the hook judges and nobody else certifies is a module nobody '
+                f'certifies at all; add it to CI and to the record, or say in the record '
+                f'why it is not judged there',
+            )
 
     if HOOK_DETEKT_RE.search(hook_text):
         errors.append(

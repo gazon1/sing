@@ -1,11 +1,16 @@
 """Tests for `measure-verdict-cost.py` and for the page it feeds.
 
 The price of the pre-push verdict used to be prose: a table in a generated page
-whose numbers were typed into the generator's template. These tests check the two
+whose numbers were typed into the generator's template. These tests check the
 properties that make the number worth reading again:
 
 * the measurer writes a record, and the record carries what was measured, where
   it was measured, and how long ago;
+* the measurer measures the commands the verdict itself makes — and says which
+  commands it measured with, so that a record describing a different
+  measurement is stale rather than current;
+* the correction the verdict deliberately does NOT do is measured in a
+  throwaway copy: the tree the developer is using is never corrected;
 * the published page is rendered from that record — a page with no record says
   so instead of showing nothing, and a page with a stale record says *stale*
   instead of showing an old number as a fresh one.
@@ -48,12 +53,19 @@ class _FakeGradle:
 
     The measurer must be testable without a build: a stub that exits zero stands
     in for `./gw`, and the price of the stub is a few milliseconds.
+
+    The stub also says WHERE it ran: a measurement that corrects the tree the
+    developer is using must be caught by the test, not by a diff nobody reads.
     """
 
     def __init__(self, directory: pathlib.Path) -> None:
         self.path = directory / "fake-gradle.py"
+        self.log = directory / "fake-gradle.log"
         self.path.write_text(
+            "import os\n"
             "import sys\n"
+            f"with open({str(self.log)!r}, 'a', encoding='utf-8') as out:\n"
+            "    out.write(os.getcwd() + '\\t' + ' '.join(sys.argv[1:]) + '\\n')\n"
             "sys.exit(0)\n",
             encoding="utf-8",
         )
@@ -61,6 +73,18 @@ class _FakeGradle:
     @property
     def command(self) -> str:
         return f"{sys.executable} {self.path}"
+
+    def runs(self) -> list[tuple[str, str]]:
+        """Every run of the stub: the directory it ran in, and its arguments."""
+        if not self.log.is_file():
+            return []
+        entries = []
+        for line in self.log.read_text(encoding="utf-8").splitlines():
+            if not line:
+                continue
+            where, _, arguments = line.partition("\t")
+            entries.append((where, arguments))
+        return entries
 
 
 class _FakeVerdict:
@@ -112,7 +136,7 @@ class MeasureVerdictCostTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         record = self._record()
-        self.assertEqual(record["schemaVersion"], 1)
+        self.assertEqual(record["schemaVersion"], 2)
         self.assertEqual(
             [phase["name"] for phase in record["phases"]],
             ["detekt", "auto-correct", "together"],
@@ -122,6 +146,63 @@ class MeasureVerdictCostTest(unittest.TestCase):
             self.assertGreaterEqual(phase["durationMs"], 0)
             self.assertEqual(phase["exitCode"], 0)
             self.assertIn(":shared:detekt", phase["command"])
+
+    def test_the_record_says_which_commands_it_measured(self):
+        """A price nobody can match to a command is a price nobody can check."""
+        result = run_measurer(
+            "--repo", str(self.tmp),
+            "--out", str(self.out),
+            "--gradle-cmd", self.fake_gradle.command,
+            "--phases", "detekt,together,digest",
+            "--sha", "deadbeef",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = self._record()
+        measured = record["measuredCommands"]
+        self.assertEqual(
+            sorted(measured),
+            ["detekt", "digest", "together"],
+        )
+        self.assertIn(":shared:detekt", measured["detekt"])
+        self.assertIn("hash-object", measured["digest"])
+
+    def test_the_together_phase_measures_the_verdicts_own_invocation(self):
+        """The verdict does not pass `--parallel`, so the measurement must not."""
+        result = run_measurer(
+            "--repo", str(self.tmp),
+            "--out", str(self.out),
+            "--gradle-cmd", self.fake_gradle.command,
+            "--phases", "together",
+            "--sha", "deadbeef",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        command = self._record()["phases"][0]["command"]
+        self.assertNotIn("--parallel", command)
+        self.assertIn(":shared:detekt :desktopApp:detekt", command)
+        self.assertIn("--rerun --continue --no-daemon --console=plain", command)
+
+    def test_the_digest_phase_measures_the_whole_digest(self):
+        """The verdict hashes every Kotlin file; half of it is not the digest."""
+        if subprocess.run(["git", "--version"], capture_output=True).returncode != 0:
+            self.skipTest("git is not available")
+        repo = self.tmp / "tree"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        (repo / "A.kt").write_text("fun a() = 1\n", encoding="utf-8")
+
+        result = run_measurer(
+            "--repo", str(repo),
+            "--out", str(self.out),
+            "--phases", "digest",
+            "--sha", "deadbeef",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        command = self._record()["phases"][0]["command"]
+        self.assertIn("git ls-files", command)
+        self.assertIn("git hash-object", command)
 
     def test_the_record_says_where_and_when_it_was_measured(self):
         """A duration without its machine and its moment is not a fact."""
@@ -191,6 +272,53 @@ class MeasureVerdictCostTest(unittest.TestCase):
         self.assertGreaterEqual(record["phases"][0]["durationMs"], 0)
         self.assertTrue(record["treeDigest"])
 
+    def test_the_auto_correct_phase_does_not_correct_the_tree_you_are_using(self):
+        """The correction belongs in a copy: the tree you work in is not a scratchpad."""
+        if subprocess.run(["git", "--version"], capture_output=True).returncode != 0:
+            self.skipTest("git is not available")
+        repo = self.tmp / "tree"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        source = repo / "A.kt"
+        source.write_text("fun a() = 1\n", encoding="utf-8")
+
+        result = run_measurer(
+            "--repo", str(repo),
+            "--out", str(self.out),
+            "--gradle-cmd", self.fake_gradle.command,
+            "--phases", "auto-correct",
+            "--sha", "deadbeef",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        runs = self.fake_gradle.runs()
+        self.assertEqual(len(runs), 1, runs)
+        where, arguments = runs[0]
+        self.assertNotEqual(pathlib.Path(where).resolve(), repo.resolve())
+        self.assertNotIn(str(repo.resolve()), where)
+        self.assertIn("--auto-correct", arguments)
+
+        # the tree the developer is using is untouched
+        self.assertEqual(source.read_text(encoding="utf-8"), "fun a() = 1\n")
+        self.assertEqual(sorted(p.name for p in repo.iterdir()), [".git", "A.kt"])
+
+        # and the copy the correction ran in is gone
+        self.assertFalse(pathlib.Path(where).exists())
+
+    def test_the_auto_correct_phase_fails_loudly_when_there_is_no_copy(self):
+        """No copy, no measurement: the real tree is never the scratchpad."""
+        result = run_measurer(
+            "--repo", str(self.tmp / "nowhere"),
+            "--out", str(self.out),
+            "--gradle-cmd", self.fake_gradle.command,
+            "--phases", "auto-correct",
+            "--sha", "deadbeef",
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("refuses to correct", result.stderr)
+        self.assertEqual(self.fake_gradle.runs(), [])
+
     def test_a_record_that_is_too_old_is_stale(self):
         """A price measured weeks ago describes a tree that has moved on."""
         self.out.write_text(
@@ -251,6 +379,70 @@ class MeasureVerdictCostTest(unittest.TestCase):
         record = self._record()
         self.assertEqual(record["status"], "stale")
         self.assertIn("the tree changed", record["staleReason"])
+
+    def test_a_record_measured_with_other_commands_is_stale(self):
+        """Numbers measured with other commands describe another measurement."""
+        self.out.write_text(
+            json.dumps({
+                "schemaVersion": 2,
+                "measuredAt": "2999-01-01",
+                "status": "fresh",
+                "staleReason": "",
+                "expiresDays": 30,
+                "sha": "deadbeef",
+                "treeDigest": "",
+                "environment": {},
+                "host": {},
+                "verdict": {},
+                "phases": [],
+                "measuredCommands": {
+                    "detekt": (
+                        "./gw :shared:detekt --rerun --continue --no-daemon --console=plain"
+                    ),
+                    "together": (
+                        "./gw :shared:detekt :desktopApp:detekt --parallel --rerun "
+                        "--continue --no-daemon --console=plain"
+                    ),
+                },
+                "notes": [],
+            }),
+            encoding="utf-8",
+        )
+
+        result = run_measurer("--out", str(self.out), "--refresh", "--repo", str(self.tmp))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = self._record()
+        self.assertEqual(record["status"], "stale")
+        self.assertIn("different command", record["staleReason"])
+        self.assertIn("together", record["staleReason"])
+
+    def test_a_record_that_does_not_say_which_commands_it_measured_is_stale(self):
+        """A price nobody can match to a command is not a current price."""
+        self.out.write_text(
+            json.dumps({
+                "schemaVersion": 1,
+                "measuredAt": "2999-01-01",
+                "status": "fresh",
+                "staleReason": "",
+                "expiresDays": 30,
+                "sha": "deadbeef",
+                "treeDigest": "",
+                "environment": {},
+                "host": {},
+                "verdict": {},
+                "phases": [],
+                "notes": [],
+            }),
+            encoding="utf-8",
+        )
+
+        result = run_measurer("--out", str(self.out), "--refresh", "--repo", str(self.tmp))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        record = self._record()
+        self.assertEqual(record["status"], "stale")
+        self.assertIn("does not say which commands", record["staleReason"])
 
 
 class ThePublishedVerdictSectionTest(unittest.TestCase):
@@ -345,13 +537,21 @@ class ThePublishedVerdictSectionTest(unittest.TestCase):
         self.assertTrue(RECORD.is_file(), f"{RECORD} is missing")
         record = json.loads(RECORD.read_text(encoding="utf-8"))
 
-        self.assertEqual(record["schemaVersion"], 1)
+        self.assertEqual(record["schemaVersion"], 2)
         for key in ("measuredAt", "status", "sha", "environment", "host", "phases"):
             self.assertIn(key, record)
         self.assertTrue(record["phases"], "the committed record carries no phase")
         for phase in record["phases"]:
             for key in ("name", "what", "command", "durationMs", "exitCode"):
                 self.assertIn(key, phase)
+
+    def test_the_committed_record_says_which_commands_it_measured(self):
+        """The committed record names the commands its numbers came from."""
+        record = json.loads(RECORD.read_text(encoding="utf-8"))
+
+        self.assertIn("measuredCommands", record)
+        for phase in record["phases"]:
+            self.assertIn(phase["name"], record["measuredCommands"])
 
     def test_the_committed_record_renders_a_page_with_numbers(self):
         """The committed record and the committed page agree."""

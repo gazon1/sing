@@ -18,12 +18,19 @@ Four phases, each of them something the hook actually does (or could do):
   * ``auto-correct`` — the same run with ``--auto-correct``: what the verdict
     deliberately does NOT do (ADR
     ``2026-10-23-the-verdict-reads-the-tree-it-does-not-correct-it.md``), measured
-    so that the price of correcting is a number and not an opinion.
+    so that the price of correcting is a number and not an opinion. It runs in a
+    THROWAWAY COPY of the tree, never in the tree the developer is using: the
+    tool that publishes the price of not correcting must not correct the tree.
   * ``digest`` — the content digest the verdict computes before and after the
     analysis (``git ls-files`` plus ``git hash-object`` over every Kotlin file).
   * ``together`` — several modules judged in ONE Gradle invocation: the question
     "does judging two modules cost less than judging them one after the other?"
     answered by a measurement instead of an assumption.
+
+Every phase measures the command the verdict itself makes — the same flags, in
+the same shape. A measurement of a different invocation is a measurement of
+something else, and a published number nobody can match to the hook is a
+number nobody can check.
 
 and, on request, the whole thing end to end:
 
@@ -44,6 +51,12 @@ publishes the numbers AND says that they describe another tree. Silently
 dropping them would leave a reader with no number and no warning, which is the
 worse of the two failures.
 
+The record also says WHAT was measured: ``measuredCommands`` maps every phase
+to the command it was measured with. The tool compares that map with the
+commands it would measure now, and a record that describes a different
+measurement is stale — a number measured with different commands is not a
+price of this tool, whatever the dates say.
+
 Usage:
     python3 scripts/measure-verdict-cost.py
     python3 scripts/measure-verdict-cost.py --phases detekt,digest
@@ -59,12 +72,16 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -78,7 +95,11 @@ DEFAULT_VERDICT_SCRIPT = ROOT / "scripts" / "pre-push-verdict.py"
 
 #: The version of the record format. A reader that does not know this version
 #: must not guess what the fields mean.
-SCHEMA_VERSION = 1
+#:
+#: Version 2 added ``measuredCommands`` — the map from a phase to the command
+#: it was measured with — and with it the tool's ability to say that a record
+#: describes a different measurement than the one it would make now.
+SCHEMA_VERSION = 2
 
 #: The Gradle command the hook uses: ``./gw``, not ``./gradlew`` — a
 #: worktree-private GRADLE_USER_HOME, so a measurement in one worktree cannot
@@ -108,6 +129,28 @@ DEFAULT_PHASES = ("detekt", "auto-correct", "digest", "together")
 #: performs — a measurement of a different invocation is a measurement of
 #: something else.
 GRADLE_FLAGS = ("--rerun", "--continue", "--no-daemon", "--console=plain")
+
+#: The digest the verdict computes, as a command. The verdict's ``kotlin_digest``
+#: runs ``git ls-files`` over the tracked Kotlin files, ``git ls-files
+#: --others`` over the untracked ones and ``git hash-object`` over the result:
+#: the measurement runs the same three commands, because the digest is a
+#: property of the tree, not of half of it.
+DIGEST_COMMAND = (
+    "git ls-files -- *.kt *.kts"
+    " && git ls-files --others --exclude-standard -- *.kt *.kts"
+    " && git hash-object --stdin-paths"
+)
+
+#: The phases whose command the tool can compare with the record's. The
+#: ``verdict`` phase is not among them: its command names a commit and a path,
+#: so it differs from run to run by construction and says nothing about the
+#: measurement being the same one.
+COMPARABLE_PHASES = ("detekt", "auto-correct", "digest", "together")
+
+#: What is NOT copied into a throwaway tree: the git directory (the copy must
+#: not be able to reach the real repository) and the worktree-private Gradle
+#: home (it is created on demand, and its daemon registry belongs to no copy).
+COPY_IGNORED = (".git", ".gradle-user-home")
 
 
 class MeasurementError(Exception):
@@ -170,19 +213,39 @@ def gradle_command(gradle_cmd: str, tasks: tuple[str, ...], extra: tuple[str, ..
     return [*gradle_cmd.split(), *tasks, *extra, *GRADLE_FLAGS]
 
 
+def expected_commands(
+    gradle_cmd: str,
+    tasks: tuple[str, ...],
+    together: tuple[str, ...],
+) -> dict[str, str]:
+    """The commands the tool measures with, as the record names them.
+
+    The record carries the same map, and the tool compares the two: a record
+    that was measured with different commands describes a different
+    measurement, whatever the dates in it say.
+    """
+    return {
+        "detekt": " ".join(gradle_command(gradle_cmd, tasks)),
+        "auto-correct": " ".join(gradle_command(gradle_cmd, tasks, extra=("--auto-correct",))),
+        "digest": DIGEST_COMMAND,
+        "together": " ".join(gradle_command(gradle_cmd, together)),
+    }
+
+
 def phase_entry(
     name: str,
     what: str,
-    command: list[str],
+    command: list[str] | str,
     exit_code: int,
     duration_ms: int,
     note: str = "",
 ) -> dict[str, object]:
     """One measured phase: what it was, what it cost, and what it found."""
+    text = command if isinstance(command, str) else " ".join(command)
     return {
         "name": name,
         "what": what,
-        "command": " ".join(command),
+        "command": text,
         "durationMs": duration_ms,
         "exitCode": exit_code,
         "note": note,
@@ -203,15 +266,91 @@ def measure_detekt(gradle_cmd: str, tasks: tuple[str, ...], repo: Path) -> dict[
     )
 
 
+@contextlib.contextmanager
+def throwaway_copy(repo: Path) -> Iterator[Path]:
+    """A copy of the tree in which a CORRECTING build may run.
+
+    The correction is what the verdict deliberately does not do, so the
+    measurer has to do it somewhere — and "somewhere" must not be the tree the
+    developer is using. On a shared checkout a correcting detekt rewrites
+    files that ten agent sessions are reading, and the tool that publishes the
+    price of not correcting must not correct anything itself.
+
+    The copy is made, used and removed here; it never outlives the phase. If
+    it cannot be made, the phase fails loudly: measuring the price of
+    correcting in the real tree is worse than not measuring it at all.
+    """
+    destination = Path(tempfile.mkdtemp(prefix="verdict-cost-copy-"))
+    try:
+        try:
+            shutil.copytree(
+                repo,
+                destination,
+                symlinks=True,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(*COPY_IGNORED),
+            )
+        except OSError as exc:
+            raise MeasurementError(
+                f"could not copy {repo} into a throwaway tree: {exc} — the "
+                "auto-correct phase refuses to correct the tree you are using"
+            ) from exc
+        yield destination
+    finally:
+        shutil.rmtree(destination, ignore_errors=True)
+
+
+def relocate_command(command: list[str], tree: Path) -> list[str]:
+    """The same command, pointed at another tree.
+
+    A relative wrapper (``./gw``) is the wrapper OF THAT TREE: running the
+    developer's wrapper inside the copy would take the copy's Gradle home, the
+    copy's wrapper, everything but the copy's files.
+    """
+    relocated = list(command)
+    if relocated and relocated[0].startswith("./"):
+        relocated[0] = str((tree / relocated[0][2:]).resolve())
+    return relocated
+
+
+def tree_fingerprint(repo: Path) -> str:
+    """A cheap fingerprint of the tree, used to prove it was not touched."""
+    try:
+        digest, _ = kotlin_digest(repo)
+    except MeasurementError:
+        return ""
+    return digest
+
+
 def measure_auto_correct(gradle_cmd: str, tasks: tuple[str, ...], repo: Path) -> dict[str, object]:
     """The same run with ``--auto-correct``: what the verdict deliberately does not do.
 
     Measured rather than assumed, because "correcting is cheap" is exactly the
     kind of sentence that goes stale: the price of the correction is a share of
     the price of the analysis, and the share moves with the size of the tree.
+
+    In a THROWAWAY COPY of the tree, always. The copy is created, used and
+    removed by this function, and the tree the developer is using is checked
+    before and after: if a single byte of it moved, the phase fails instead of
+    publishing a number obtained by correcting somebody's checkout.
     """
     command = gradle_command(gradle_cmd, tasks, extra=("--auto-correct",))
-    exit_code, duration = run_timed(command, repo)
+    before = tree_fingerprint(repo)
+    with throwaway_copy(repo) as copy:
+        if copy.resolve() == repo.resolve():
+            raise MeasurementError(
+                f"refusing to correct {repo}: the correction must run in a copy, "
+                "not in the tree you are working in"
+            )
+        exit_code, duration = run_timed(relocate_command(command, copy), copy)
+    after = tree_fingerprint(repo)
+    if before != after:
+        raise MeasurementError(
+            f"{repo} changed while the auto-correct phase ran — either something "
+            "corrected it, or somebody else was editing the tree. The correction "
+            "must not touch the tree you are working in, so the measurement is "
+            "refused rather than published."
+        )
     return phase_entry(
         "auto-correct",
         "the same run with `--auto-correct` — what the verdict deliberately does "
@@ -219,6 +358,7 @@ def measure_auto_correct(gradle_cmd: str, tasks: tuple[str, ...], repo: Path) ->
         command,
         exit_code,
         duration,
+        note="run in a throwaway copy of the tree, which was removed afterwards",
     )
 
 
@@ -256,7 +396,10 @@ def kotlin_digest(repo: Path) -> tuple[str, int]:
         )
         paths = [p for p in (listing.stdout + untracked.stdout).splitlines() if p]
         if not paths:
-            return "", int((time.monotonic() - started) * 1000)
+            # The verdict says "empty" for a tree with no Kotlin files; the
+            # measurement says the same, so that the two digests of the same
+            # tree are the same string.
+            return "empty", int((time.monotonic() - started) * 1000)
         hashed = subprocess.run(
             ["git", "hash-object", "--stdin-paths"],
             cwd=repo, input="\n".join(paths), capture_output=True, text=True, check=False,
@@ -279,7 +422,7 @@ def measure_digest(repo: Path) -> tuple[dict[str, object], str]:
     numbers were measured on is still the tree in front of you.
     """
     digest, duration = kotlin_digest(repo)
-    command = ["git", "ls-files", "--", "*.kt", "*.kts"]
+    command = DIGEST_COMMAND
     return (
         phase_entry(
             "digest",
@@ -300,8 +443,14 @@ def measure_together(gradle_cmd: str, tasks: tuple[str, ...], repo: Path) -> dic
     judging them one after the other. The answer is a number, and the number is
     often "no" — the Gradle slots are global, and a machine that is already busy
     serialises the work whatever the build file says.
+
+    The invocation is the verdict's own: one Gradle call, the verdict's flags,
+    and NO ``--parallel``. The verdict does not pass it (it makes one
+    invocation for the tasks it judges, and the Gradle slots decide what runs
+    in parallel), so a measurement that adds the flag prices a command the
+    hook never makes.
     """
-    command = gradle_command(gradle_cmd, tasks, extra=("--parallel",))
+    command = gradle_command(gradle_cmd, tasks)
     exit_code, duration = run_timed(command, repo)
     return phase_entry(
         "together",
@@ -392,16 +541,18 @@ def freshness(
     record: dict[str, object],
     tree_digest: str | None = None,
     now: datetime | None = None,
+    commands: dict[str, str] | None = None,
 ) -> tuple[str, str]:
     """Whether the record still describes the tree in front of you, and why not.
 
-    Two things make a record stale: time (the price of a tree that has grown is
-    not the price of the tree that is here) and the tree itself (the numbers
-    were measured on a different one). Both are decided here and stored in the
-    record, so that the published page says the same thing every time it is
-    rendered — a page that decided for itself would print a different sentence
-    on Tuesday than on Monday, and the gate that compares the two would fail for
-    the wrong reason.
+    Three things make a record stale: time (the price of a tree that has grown is
+    not the price of the tree that is here), the tree itself (the numbers were
+    measured on a different one) and the COMMANDS (the numbers were measured
+    with an invocation the tool no longer makes — a different measurement, not
+    an older one). All three are decided here and stored in the record, so that
+    the published page says the same thing every time it is rendered — a page
+    that decided for itself would print a different sentence on Tuesday than on
+    Monday, and the gate that compares the two would fail for the wrong reason.
     """
     status = "fresh"
     reasons: list[str] = []
@@ -430,9 +581,41 @@ def freshness(
         if recorded_digest != tree_digest:
             reasons.append("the tree changed since the measurement")
 
+    if commands:
+        reasons.extend(command_drift(record, commands))
+
     if reasons:
         status = "stale"
     return status, "; ".join(reasons)
+
+
+def command_drift(
+    record: dict[str, object],
+    commands: dict[str, str],
+) -> list[str]:
+    """How the record's commands differ from the ones the tool would use now.
+
+    A record that does not say which commands it was measured with cannot be
+    checked against anything, so it is stale by itself: an uncheckable price is
+    not a current price.
+    """
+    recorded = record.get("measuredCommands")
+    if not isinstance(recorded, dict):
+        return ["the record does not say which commands it was measured with"]
+    reasons: list[str] = []
+    for phase in COMPARABLE_PHASES:
+        if phase not in recorded:
+            continue
+        expected = commands.get(phase)
+        if expected is None:
+            continue
+        was = str(recorded[phase])
+        if was != expected:
+            reasons.append(
+                f"the tool now measures `{phase}` with a different command "
+                f"({expected}); the record was measured with {was}"
+            )
+    return reasons
 
 
 def build_record(
@@ -449,7 +632,17 @@ def build_record(
     ``verdict`` is the report the verdict itself produced, when the verdict was
     one of the measured phases. It says which modules were judged, and the price
     of a verdict is a price per judged module.
+
+    ``measuredCommands`` is the map from a phase to the command it was measured
+    with. It is what makes the record checkable: the tool compares it with the
+    commands it would measure now, and a record that describes a different
+    measurement is stale.
     """
+    measured_commands = {
+        str(phase.get("name")): str(phase.get("command", ""))
+        for phase in phases
+        if isinstance(phase, dict) and phase.get("name")
+    }
     return {
         "schemaVersion": SCHEMA_VERSION,
         "measuredAt": measured_at(),
@@ -462,6 +655,7 @@ def build_record(
         "host": host_load(),
         "verdict": verdict or {},
         "phases": phases,
+        "measuredCommands": measured_commands,
         "notes": notes or [],
     }
 
@@ -490,11 +684,18 @@ def read_record(path: Path) -> dict[str, object]:
     return document
 
 
-def refresh(path: Path, repo: Path) -> dict[str, object]:
+def refresh(
+    path: Path,
+    repo: Path,
+    commands: dict[str, str] | None = None,
+) -> dict[str, object]:
     """Re-decide the freshness of a record without measuring anything.
 
     Cheap on purpose: the tree digest is a second, and the question it answers
-    — "does this record still describe this tree?" — is worth a second.
+    — "does this record still describe this tree?" — is worth a second. The
+    commands are compared for free: a record measured with different commands
+    describes a different measurement, and the tool says so instead of
+    publishing it as current.
     """
     record = read_record(path)
     digest = ""
@@ -502,7 +703,7 @@ def refresh(path: Path, repo: Path) -> dict[str, object]:
         digest, _ = kotlin_digest(repo)
     except MeasurementError:
         digest = ""
-    status, reason = freshness(record, digest or None)
+    status, reason = freshness(record, digest or None, commands=commands)
     record["status"] = status
     record["staleReason"] = reason
     record["checkedAt"] = measured_at()
@@ -516,7 +717,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--repo", default=str(ROOT), help="the repository the verdict is measured in"
     )
     parser.add_argument(
-        "--out", default=str(DEFAULT_RECORD), help="where the record is written"
+        "--out",
+        "--record",
+        dest="out",
+        default=str(DEFAULT_RECORD),
+        help="where the record is written",
     )
     parser.add_argument(
         "--sha", default=None, help="the commit to judge (default: HEAD)"
@@ -569,9 +774,13 @@ def main(argv: list[str] | None = None) -> int:
     repo = Path(args.repo).resolve()
     path = Path(args.out)
 
+    tasks = tuple(t for t in args.tasks.split() if t)
+    together = tuple(t for t in args.together_tasks.split() if t)
+    commands = expected_commands(args.gradle_cmd, tasks, together)
+
     try:
         if args.refresh:
-            record = refresh(path, repo)
+            record = refresh(path, repo, commands)
             print(
                 f"the record at {path} is {record['status']}"
                 + (f" — {record['staleReason']}" if record.get("staleReason") else "")
@@ -587,8 +796,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-        tasks = tuple(t for t in args.tasks.split() if t)
-        together = tuple(t for t in args.together_tasks.split() if t)
         sha = args.sha or current_sha(repo)
 
         measured: list[dict[str, object]] = []
@@ -629,8 +836,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     for entry in measured:
-        print(f"  {entry['name']:<14}{entry['durationMs'] / 1000:>8.1f} s  {entry['command']}")
-    print(f"the record was written to {path}")
+        line = f"  {entry['name']:<14}{entry['durationMs'] / 1000:>8.1f} s  {entry['command']}"
+        if entry.get("note"):
+            line += f"  ({entry['note']})"
+        print(line)
+    print(f"the record was written to {path} — it is fresh: it says which commands it measured")
     return 0
 
 

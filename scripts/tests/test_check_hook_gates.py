@@ -61,7 +61,7 @@ class HookGatesTest(unittest.TestCase):
                 'verdict_delegate': 'scripts/pre-push-verdict.py',
             },
             'detekt': {
-                'judged_by_ci': [':shared:detekt', ':desktopApp:detekt'],
+                'judged_by_ci': [f':{module}:detekt' for module in sorted(GRAPH_MODULES)],
                 'judged_by_ci_outside_the_module_graph': {},
                 'partiality': 'The hook judges what the change reaches; CI judges everything.',
             },
@@ -79,7 +79,8 @@ class HookGatesTest(unittest.TestCase):
 
     @staticmethod
     def _ci() -> str:
-        return 'run: ./gradlew :shared:detekt :desktopApp:detekt\n'
+        tasks = ' '.join(f':{module}:detekt' for module in sorted(GRAPH_MODULES))
+        return f'run: ./gradlew {tasks}\n'
 
     def _errors(self) -> list[str]:
         errors, _ = mod.collect_errors(
@@ -96,16 +97,17 @@ class HookGatesTest(unittest.TestCase):
         self.assertEqual([], self._errors())
 
     def test_a_module_the_ci_judges_and_the_record_does_not_mention_is_an_error(self):
-        self.ci_path.write_text(
-            'run: ./gradlew :shared:detekt :desktopApp:detekt :mcp-server:detekt\n', encoding='utf-8',
-        )
+        registry = self._registry()
+        registry['detekt']['judged_by_ci'].remove(':mcp-server:detekt')
+        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
         errors = self._errors()
         self.assertTrue(any('mcp-server' in err for err in errors), errors)
 
     def test_a_module_the_record_claims_the_ci_judges_but_it_does_not_is_an_error(self):
-        registry = self._registry()
-        registry['detekt']['judged_by_ci'].append(':androidApp:detekt')
-        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
+        tasks = ' '.join(
+            f':{module}:detekt' for module in sorted(GRAPH_MODULES - {'androidApp'})
+        )
+        self.ci_path.write_text(f'run: ./gradlew {tasks}\n', encoding='utf-8')
         errors = self._errors()
         self.assertTrue(any('androidApp' in err for err in errors), errors)
 
@@ -157,10 +159,45 @@ class HookGatesTest(unittest.TestCase):
         registry = self._registry()
         registry['detekt']['judged_by_ci_outside_the_module_graph'] = {':pro:detekt': 'the pro build'}
         self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
-        self.ci_path.write_text(
-            'run: ./gradlew :shared:detekt :desktopApp:detekt :pro:detekt\n', encoding='utf-8',
-        )
+        tasks = ' '.join(f':{module}:detekt' for module in sorted(GRAPH_MODULES))
+        self.ci_path.write_text(f'run: ./gradlew {tasks} :pro:detekt\n', encoding='utf-8')
         self.assertEqual([], self._errors())
+
+    def test_a_module_the_graph_knows_and_neither_ci_nor_the_record_names_is_an_error(self):
+        """A module judged by the hook and certified by nobody.
+
+        The record ⊆ the graph was checked before; this is the other
+        direction. A module added to `settings.gradle.kts` and forgotten in
+        CI's hand-written detekt list is judged by the local verdict and by
+        nobody else — and nothing went red when that happened.
+        """
+        errors, _ = mod.collect_errors(
+            self.registry_path,
+            self.hook_path,
+            self.ci_path,
+            GRAPH_MODULES | {'aNewModule'},
+            DECLARED,
+            TREE_RULES,
+        )
+        self.assertTrue(
+            any('aNewModule' in err for err in errors),
+            errors,
+        )
+
+    def test_a_module_the_graph_knows_and_ci_names_is_not_that_error(self):
+        """CI names it, so only the missing record entry is an error."""
+        errors, _ = mod.collect_errors(
+            self.registry_path,
+            self.hook_path,
+            self.ci_path,
+            GRAPH_MODULES | {'mcp-server'},
+            DECLARED,
+            TREE_RULES,
+        )
+        self.assertFalse(
+            [err for err in errors if 'mcp-server' in err and 'nobody else certifies' in err],
+            errors,
+        )
 
 
 if __name__ == '__main__':

@@ -94,6 +94,35 @@ probe for `git-environment` therefore lands in `scripts/changed-modules.py`,
 which reads a tree it was pointed at and does not claim to control the
 environment.
 
+## The doctor must not write what it repairs
+
+The first version of the doctor repaired a broken checkout with a plain
+`git config` — which lands in the SHARED config, and therefore in every
+worktree of the clone. It was the very damage the doctor exists to diagnose,
+written by the doctor itself: an absolute `core.hooksPath` in the shared
+config made every worktree run one checkout's hooks, and the repository's own
+blocking gate went red because the shared value no longer matched the
+declaration. The review found it; a test now holds it.
+
+The repair therefore goes where the damage was: into THIS worktree's own
+`config.worktree`, with `git config --file`, and never into the shared
+config. The value it writes is the declared relative one (`.githooks`), so
+that the doctor and the gate read one promise and cannot disagree — the
+declaration is a file precisely so that two readers have one policy.
+
+Two more things followed from the same review, and both are the same rule
+("the tool touches only its own tree"):
+
+- The doctor resolves every path against the repository root, not against the
+  current directory. Run from a subdirectory it used to report a healthy
+  checkout as broken, and `--fix` used to write a broken relative path.
+- The tool that measures the price of the verdict (`scripts/measure-verdict-cost.py`)
+  measured the `auto-correct` phase **in the tree it was measuring** — a
+  correcting detekt in the developer's checkout, shared with ten sessions. The
+  instrument of "the verdict does not correct" corrected the tree. The
+  correction now runs in a throwaway copy the tool creates and removes, and
+  the tool refuses to correct the tree you are working in.
+
 ## Links
 
 - `scripts/doctor.sh` — one call that says whether the checkout is sound
