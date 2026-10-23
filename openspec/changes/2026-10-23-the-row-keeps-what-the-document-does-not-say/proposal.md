@@ -60,8 +60,10 @@ the boundary is stated where the rule lives rather than left unsaid.
   null value, so a device that takes a task out of its series still says so
   with a key the receiver can read.
 - It does not touch the parts that live outside the row. Their claims are
-  their own change (`the-document-says-only-what-it-carries`), and the merge
-  leaves their keys alone so that both readings can hold.
+  their own change (`the-document-says-only-what-it-carries`, which is now in
+  the tree), and the merge leaves their keys alone so that both readings can
+  hold: a part the document does not carry is not written, and a field of the
+  row the document does not carry is not reset.
 - It does not change the rule of the series: a document that changes a task of
   a series still brings the series to one thing about the work, as it always
   did.

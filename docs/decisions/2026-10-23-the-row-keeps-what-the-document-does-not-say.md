@@ -62,12 +62,11 @@ says.
    `tags` key afterwards, and the rule for those parts can hold beside this
    one.
 
-   What happens to those parts is **unchanged by this decision** — the row is
-   written whole there as well, and a document that carries no `tags` key
-   still decodes into a task with no tags. That is the other change's subject
-   (`the-document-says-only-what-it-carries`), and this one only makes sure it
-   is not made worse by the merge: the local row's reading of the tags — a
-   task read through `get()` holds none at all — is not written as a claim.
+   What happens to those parts is the sibling change's subject
+   (`the-document-says-only-what-it-carries`): a part the document does not
+   carry is not written at all. The merge only makes sure it is not made
+   worse — the local row's reading of the tags, a task read through `get()`
+   holds none at all, is not written as a claim.
 
 5. **The series of the row is the series the row already had, and the rule
    of the series does not change.** The repair of the series writes the shared
@@ -84,9 +83,9 @@ says.
 
 7. **The merge is on the path, not in the row writer.** The path that applies
    a document is where the document and the row meet: the pull handler and the
-   revert of a lost race both go through it. The row writer keeps writing
-   whole rows, because a row that is written whole is a row that says what
-   the document said.
+   revert of a lost race both go through it. The repository writes the row it
+   is given, whole, because a row that is written whole is a row that says
+   what the document said.
 
 ## Rationale
 
@@ -143,9 +142,13 @@ all, and that emptiness is a reading artefact, not a claim.
 - The row of a task of another profile is written as the document says. This
   device does not own that row, so it does not read it and does not speak
   about the fields the document is silent about.
-- The repository keeps its shape: `upsert` takes a task, and the merge
-  happens where the document and the row meet — in the sync layer, before the
-  task reaches the repository.
+- The repository keeps its shape: `upsert` takes the document — the row and the
+  claims about the parts — and the merge happens where the document and the
+  row meet: in the sync layer, before the document reaches the repository.
+- The rule covers every key of the row, the bookkeeping included. A document
+  that carries no `hlc` and no `serverVersion` leaves the row's own, which is
+  the same rule as for the work: the document says nothing about them, so
+  nothing is reset. A document that arrives from the server carries both.
 - The repair of the series works on the series the row kept. A document that
   came from a device that predates the series still brings the series to one
   thing about the work.
@@ -167,7 +170,7 @@ all, and that emptiness is a reading artefact, not a claim.
   pull carries
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/TaskDocumentMerge.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDocumentWriter.kt`
-  — `taskDocumentOf`, where the document meets the row
+  — `taskDocument`, where the document meets the row
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TaskDocumentMergeTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TaskDocumentApplyTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskSeriesWritePathTest.kt`

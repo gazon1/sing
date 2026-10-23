@@ -73,7 +73,7 @@ class TaskDocumentApplyTest {
     @Test
     fun `a document that carries no series id does not take the task out of its series`() = runTest {
         val repo = FakeTaskRepository()
-        repo.upsert(local)
+        repo.add(local)
 
         writer(repo).upsert(
             DocType.Task,
@@ -88,7 +88,7 @@ class TaskDocumentApplyTest {
     @Test
     fun `a document that says the task stands alone takes it out of the series`() = runTest {
         val repo = FakeTaskRepository()
-        repo.upsert(local)
+        repo.add(local)
 
         writer(repo).upsert(
             DocType.Task,
@@ -102,7 +102,7 @@ class TaskDocumentApplyTest {
     @Test
     fun `a document that carries no estimate does not take the estimate off the task`() = runTest {
         val repo = FakeTaskRepository()
-        repo.upsert(local)
+        repo.add(local)
 
         writer(repo).upsert(
             DocType.Task,
@@ -128,7 +128,7 @@ class TaskDocumentApplyTest {
     @Test
     fun `a document of another profile does not read this profile's row`() = runTest {
         val repo = FakeTaskRepository()
-        repo.upsert(local)
+        repo.add(local)
         val foreign = local.copy(
             id = TaskId.fromString("t9"),
             userId = UserId("bob"),
@@ -156,8 +156,8 @@ class TaskDocumentApplyTest {
         // The row the merge reads is the row of the task the document is about,
         // not the row of some other task on this device.
         val repo = FakeTaskRepository()
-        repo.upsert(local.copy(id = TaskId.fromString("t2"), seriesId = null))
-        repo.upsert(local)
+        repo.add(local.copy(id = TaskId.fromString("t2"), seriesId = null))
+        repo.add(local)
 
         writer(repo).upsert(
             DocType.Task,

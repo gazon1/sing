@@ -33,8 +33,8 @@ about the fields the document is silent about.
 
 The fields that live outside the row — the tags and the blocking edges — are
 not covered by this requirement: their claims are separate, and the merge of
-a document with a row SHALL NOT add the local row's values for them. What
-happens to those parts is unchanged by this requirement.
+a document with a row SHALL NOT add the local row's values for them. A part
+the document does not carry is left alone, as the rule of the parts says.
 
 #### Scenario: A document from a device that predates the series
 
@@ -42,6 +42,8 @@ happens to those parts is unchanged by this requirement.
 - **When** a document arrives that carries no `seriesId` key
 - **Then** the task is still in its series
 - **And** the fields the document does carry are applied
+- **And** the series still says one thing about the work, because the rule of
+      the series does not depend on whether the sending device knew about it
 
 #### Scenario: A document that takes the task out of the series
 
@@ -54,14 +56,6 @@ happens to those parts is unchanged by this requirement.
 - **Given** a task with an estimate of 30 minutes on this device
 - **When** a document arrives that carries no `estimateMinutes` key
 - **Then** the task still has an estimate of 30 minutes
-
-#### Scenario: A document that says nothing about the series
-
-- **Given** a task that belongs to a series on this device
-- **When** a document arrives that carries no `seriesId` key
-- **Then** the task is still in its series
-- **And** the series still says one thing about the work, because the rule of
-      the series does not depend on whether the sending device knew about it
 
 #### Scenario: A document of another profile
 
