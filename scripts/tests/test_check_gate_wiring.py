@@ -61,18 +61,18 @@ detekt {
 
     def test_a_soft_block_is_recognised(self):
         self.assertTrue(
-            gw._DETEKT_BLOCK.search(self.DETEKT_SOFT),
-            'the block regex must find the detekt block at all',
+            gw.blocks(self.DETEKT_SOFT, "detekt"),
+            'the block reader must find the detekt block at all',
         )
-        blocks = gw._DETEKT_BLOCK.findall(self.DETEKT_SOFT)
+        bodies = gw.blocks(self.DETEKT_SOFT, "detekt")
         self.assertTrue(
-            any('ignoreFailures = true' in b for b in blocks),
+            any('ignoreFailures = true' in b for b in bodies),
         )
 
     def test_an_enforcing_block_is_not_matched(self):
-        blocks = gw._DETEKT_BLOCK.findall(self.DETEKT_ENFORCING)
-        self.assertTrue(blocks, 'fixture must contain a detekt block')
-        self.assertFalse(any('ignoreFailures = true' in b for b in blocks))
+        bodies = gw.blocks(self.DETEKT_ENFORCING, "detekt")
+        self.assertTrue(bodies, 'fixture must contain a detekt block')
+        self.assertFalse(any('ignoreFailures = true' in b for b in bodies))
 
     def test_ignore_failures_in_another_block_does_not_leak(self):
         """`ignoreFailures` outside the detekt block is somebody else's flag."""
@@ -81,8 +81,22 @@ tasks.withType<Test>().configureEach {
     ignoreFailures = true
 }
 '''
-        blocks = gw._DETEKT_BLOCK.findall(src)
-        self.assertFalse(any('ignoreFailures = true' in b for b in blocks))
+        bodies = gw.blocks(src, "detekt")
+        self.assertFalse(any('ignoreFailures = true' in b for b in bodies))
+
+    def test_a_nested_block_does_not_end_the_body_early(self):
+        """The regex this replaced stopped at the first line that starts with `}`."""
+        src = '''
+detekt {
+    config {
+        validation = true
+    }
+    ignoreFailures = true
+}
+'''
+        bodies = gw.blocks(src, "detekt")
+        self.assertEqual(len(bodies), 1)
+        self.assertIn("ignoreFailures = true", bodies[0])
 
     def test_the_repository_is_clean(self):
         """No module in the tree may opt out of enforcement right now."""

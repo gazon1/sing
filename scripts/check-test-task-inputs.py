@@ -62,8 +62,21 @@ import pathlib
 import re
 import sys
 
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
 import click
 from sgate.commands.base import run
+from sgate.gatekit.gradle import module_build_files
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -100,18 +113,9 @@ PATH_ARG_RE = re.compile(
 
 # Only top-level module build files. build-logic holds convention plugins, which
 # configure other projects' tasks and cannot be resolved to one module.
-SKIP_DIRS = {'build-logic', 'node_modules', '.git', 'build', 'gradle'}
-
-
-def module_build_files(root: pathlib.Path) -> list[pathlib.Path]:
-    files = []
-    for child in sorted(root.iterdir()):
-        if not child.is_dir() or child.name in SKIP_DIRS or child.name.startswith('.'):
-            continue
-        candidate = child / 'build.gradle.kts'
-        if candidate.is_file():
-            files.append(candidate)
-    return files
+# The walk itself is `sgate.gatekit.gradle.module_build_files`: the same tree
+# was walked by `check-gate-wiring.py` three times over, with its own copy of
+# this list of directories to skip.
 
 
 def escapes_module(module_dir: pathlib.Path, path: pathlib.Path) -> bool:
