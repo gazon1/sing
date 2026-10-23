@@ -28,10 +28,12 @@ the tools to the proposal path — without updating the catalogue. So `create_ta
 declared a direct writer while the tool had been proposing for a while. The declaration
 was the stale half, and nothing noticed.
 
-The behavioural side had the same shape: two of the twelve proposal-gated tools were
+The behavioural side had the same shape: two of the thirteen tools that proposed were
 driven through the whole round trip — propose, the data unchanged, confirm writes, decline
-changes nothing. The other ten had no such test. A tool that proposes and then writes
-anyway passes every test that only looks at the confirmation path.
+changes nothing. The catalogue called twelve of them proposal-gated; the thirteenth was
+`create_tag`, whose declaration had not caught up with the tool. The other eleven had no
+such test. A tool that proposes and then writes anyway passes every test that only looks
+at the confirmation path.
 
 **The client's lifecycle was unsynchronised.** `AcpClient` holds four mutable fields — the
 transport, the protocol, the client and the session. `connect()` sets them, `close()`
@@ -76,8 +78,12 @@ rather than in a test, because the catalogue is what everything else reads.
 The comparison with the tools' behaviour is two-sided, and it names what it cannot see. A
 tool the scan sees writing, that the catalogue does not call an exception, is a finding. A
 tool the catalogue calls an exception, that the scan does not see writing, is *named* among
-the exceptions the scan could not verify — not failed, because a source scan cannot see
-every port, and a check that fails on what it cannot see teaches its readers to ignore it.
+the exceptions the scan could not verify — and the naming is what keeps the check honest:
+a check that fails on what it cannot see teaches its readers to ignore it, so the named
+ones are exempt from the write check rather than failed by it. The name is a claim that
+somebody has to argue for, not a way to silence a finding: an exception that the scan
+cannot see and that nobody has named is a finding, because then the check is failing on
+what it cannot see for no reason.
 An unchecked write has to be a visible one.
 
 The round trip — propose, unchanged, confirm writes, decline changes nothing — is now

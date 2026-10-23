@@ -192,9 +192,11 @@ class WriteToolsOnlyProposeTest {
             val writes = scan[className]
             if (writes == null) {
                 findings += "${entry.name} is declared a direct-write exception, and its class is not among the tools"
-            } else if (writes.all.isEmpty()) {
-                findings += "${entry.name} is declared a direct-write exception and no longer writes. " +
-                    "A stale exception is a promise nobody keeps."
+            } else if (writes.all.isEmpty() && entry.name !in UNVERIFIABLE_EXCEPTIONS) {
+                findings += "${entry.name} is declared a direct-write exception and this scan sees no write in it. " +
+                    "Either it no longer writes — a stale exception is a promise nobody keeps — or it writes " +
+                    "through a port this scan cannot see, and then it belongs in the named set of exceptions " +
+                    "the scan cannot verify."
             }
         }
 

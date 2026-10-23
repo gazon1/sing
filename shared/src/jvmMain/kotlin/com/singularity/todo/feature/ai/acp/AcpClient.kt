@@ -222,21 +222,6 @@ class AcpClient(
         )
         transport = ioTransport
 
-        // The close may have arrived while this connect was waiting for the lock, and
-        // then the transport it closed was not this one. The request itself is what
-        // the connect has to notice, and it notices it here — after the transport is
-        // built, so that the teardown below has something to close.
-        if (ending) {
-            throw AgentUnavailable("The conversation ended before the agent answered.")
-        }
-
-        val ioProtocol = Protocol(scope, ioTransport)
-        protocol = ioProtocol
-        ioProtocol.start()
-
-        val ioClient = Client(ioProtocol)
-        client = ioClient
-
         // A connection that did not happen leaves nothing behind: the transport and
         // the protocol this client has just built are closed, and the fields go back
         // to null. Otherwise the client would be left holding half a connection — a
@@ -244,8 +229,29 @@ class AcpClient(
         // it. The flag is what says whether the connection happened, because the
         // failure can be a cancellation, and a cancellation is not something to
         // catch here.
+        //
+        // The block starts as soon as the transport exists, because the transport is
+        // the first thing that has to be given back. A close that arrived while this
+        // connect was waiting for the lock is noticed here — after the transport is
+        // built, so that the teardown has something to close — and a connect that
+        // throws for that reason must not leave the transport behind either.
         var connected = false
         try {
+            // The close may have arrived while this connect was waiting for the lock, and
+            // then the transport it closed was not this one. The request itself is what
+            // the connect has to notice, and it notices it here — after the transport is
+            // built, so that the teardown below has something to close.
+            if (ending) {
+                throw AgentUnavailable("The conversation ended before the agent answered.")
+            }
+
+            val ioProtocol = Protocol(scope, ioTransport)
+            protocol = ioProtocol
+            ioProtocol.start()
+
+            val ioClient = Client(ioProtocol)
+            client = ioClient
+
             val handshake = handshakeWith(ioClient)
             session = handshake.second
             connected = true

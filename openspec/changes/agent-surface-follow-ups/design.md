@@ -53,11 +53,11 @@ was the stale half.
 
 The two representatives — a creation and a deletion — are driven through the whole round
 trip: the call proposes, the user's data is unchanged, the confirmation writes, and the
-refusal changes nothing. The other ten proposal-gated tools had no such test.
+refusal changes nothing. The other eleven proposal-gated tools had no such test.
 
 The round trip is the half that matters. A tool that proposes and then writes anyway, or
 that deletes the row it proposed to delete, passes every test that only looks at the
-confirmation path. So each of the twelve gets the round trip, not a presence check.
+confirmation path. So each of the thirteen gets the round trip, not a presence check.
 
 `decompose_and_create` needs an LLM to produce a plan, so the test needs a fake one. The
 fake lives in the test source set: a `PromptExecutor` that answers with a fixed plan, and
