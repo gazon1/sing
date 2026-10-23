@@ -90,7 +90,7 @@ easy explanation ("GitHub closes idle connections after N minutes"): on this
 remote, it does not.
 
 The 141 that was measured had a different context, and it is now explained
-by [2026-10-23-the-shared-config-is-one-file-and-every-worktree-writes-to-it.md](2026-10-23-the-shared-config-is-one-file-and-every-worktree-writes-to-it.md):
+by [2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md](2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md):
 the `core.sshCommand` in the config at that moment was not the keepalive at
 all — it was `ssh -p 2222 -i /home/me/key`, a **test fixture** that a test
 had written into the shared config, pointing at a port and a key that do not

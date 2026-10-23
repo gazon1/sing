@@ -1,0 +1,81 @@
+# The semantics of the v31 → v32 upgrade, as data.
+#
+# The step drops `ai_proposal.task_id` and backfills `target_id` from it. The
+# backfill has to happen *before* the drop: room3's `AutoMigrationSpec` has no
+# `onPreMigrate` hook, so 31 → 32 is a manual migration that backfills first.
+# When it did not, the statement failed with `no such column: task_id` and
+# rolled back, and every pre-v32 database was stuck forever.
+#
+# The rows below are the three shapes that matter: backfillable, already
+# migrated, and targetless.
+from: 31
+to: 32
+scenarios:
+  - name: task_id is backfilled into target_id
+    seed:
+      - table: ai_proposal
+        row:
+          id: p1
+          user_id: u1
+          source: A
+          status: PENDING
+          target_kind: TASK
+          created_at: 1
+          updated_at: 1
+          server_version: 1
+          sync_status: PENDING
+      - sql: "UPDATE ai_proposal SET task_id = 't-1' WHERE id = 'p1'"
+    expect:
+      - sql: "SELECT target_id FROM ai_proposal WHERE id = 'p1'"
+        equals: t-1
+
+  - name: a proposal that already has a target keeps it
+    seed:
+      - table: ai_proposal
+        row:
+          id: p2
+          user_id: u1
+          source: A
+          status: PENDING
+          target_kind: TASK
+          target_id: y-1
+          created_at: 1
+          updated_at: 1
+          server_version: 1
+          sync_status: PENDING
+    expect:
+      - sql: "SELECT target_id FROM ai_proposal WHERE id = 'p2'"
+        equals: y-1
+
+  - name: a proposal with neither target is deleted
+    seed:
+      - table: ai_proposal
+        row:
+          id: p3
+          user_id: u1
+          source: A
+          status: PENDING
+          target_kind: TASK
+          created_at: 1
+          updated_at: 1
+          server_version: 1
+          sync_status: PENDING
+    expect:
+      - sql: "SELECT COUNT(*) FROM ai_proposal WHERE id = 'p3'"
+        equals: 0
+
+  - name: the notes survive the rebuild
+    seed:
+      - table: notes
+        row:
+          id: n1
+          user_id: u1
+          title: hello
+          is_folder: 0
+          created_at: 1
+          updated_at: 1
+          server_version: 1
+          sync_status: PENDING
+    expect:
+      - sql: "SELECT title FROM notes WHERE id = 'n1'"
+        equals: hello

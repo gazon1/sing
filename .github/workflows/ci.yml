@@ -431,9 +431,23 @@ jobs:
       # -Dsingularity.test.steps=true fills the opt-in failure bundle.
       # -Dsingularity.test.a11y=fail makes accessibility findings fatal.
       # --continue: one red task must not hide the rest of the verdicts.
-      # --no-build-cache: ensures test tasks always execute and never serve FROM-CACHED,
-      # so the test-counts gate always measures a real run. The cache is still warm
-      # for configuration and compilation tasks that are not test tasks.
+      # The build cache is ON here, and it was not before. The step used to pass
+      # --no-build-cache, which excluded every task in the invocation -- the
+      # compilation included -- while the comment next to it claimed the cache
+      # stayed "warm for configuration and compilation tasks". The flag contradicted
+      # the comment, and the comment was what the job was supposed to be doing.
+      #
+      # The exclusion that matters is in the build, not in the step: the root
+      # build.gradle.kts marks every Test task `outputs.cacheIf { false }`, so a
+      # test task is never served FROM-CACHED and the test-counts gate always
+      # measures a real run. Everything else -- the Kotlin compilation of shared,
+      # desktopApp and androidApp, the jar, the analysis -- is cacheable and is
+      # reused between runs of the same commit. That is where the job's half hour
+      # went.
+      #
+      # A property of the task rather than of the invocation, so it holds in the
+      # pre-push hook and in a local run too, and it cannot be forgotten by the
+      # next step that adds a Gradle call.
       # --no-parallel: org.gradle.parallel=true in gradle.properties lets two test
       # tasks fork JVMs concurrently, which is the collision behind #471's
       # EOFException in the jvmTest executor. The CLI flag overrides the property;
@@ -495,7 +509,6 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew --continue \
-            --no-build-cache \
             --no-parallel \
             :mcp-server:jar \
             :shared:verifyToolSurface \
@@ -542,8 +555,9 @@ jobs:
       # merging these would leave GATE_ARG_PARITY declaring comparisons it no longer
       # performs — a declaration that reads as enforced and is not.
       # --gradle-log build.log: exempts any source set whose test task went UP-TO-DATE
-      # or FROM-CACHED from the freshness check. With --no-build-cache above, tasks
-      # should never be cached in CI, but the flag is also a backstop for local runs.
+      # or FROM-CACHED from the freshness check. A test task is never FROM-CACHED
+      # (the root build file says so), but it can be UP-TO-DATE in a local run, and
+      # the exemption is what keeps that from being reported as staleness.
       # Every invocation's exit code is kept and every target is measured,
       # because the two verdicts are different investigations (check-test-runs.py
       # documents them): exit 3 = "no report at all", so no floor was compared and
@@ -693,6 +707,10 @@ jobs:
       # same reason: that would put a re-run risk between the readers and the
       # numbers they took.
       #
+      # The build cache is on here too, for the same reason as in the main
+      # invocation: the test tasks are excluded from it by the build, not by the
+      # step.
+      #
       # It cannot reach the shared or desktop test tasks either: `:adr-cli`
       # depends on `:adr-core` and `:core-base`, never on `:shared` — the
       # dependency edge is the point of that build file. So the reports this
@@ -701,7 +719,7 @@ jobs:
       - name: ADR module tests
         run: |
           set -o pipefail
-          ./gradlew --no-build-cache --no-parallel \
+          ./gradlew --no-parallel \
             :adr-cli:test :adr-core:jvmTest \
             -Ptest.population="$TEST_POPULATION" \
             2>&1 | tee adr-tests.log

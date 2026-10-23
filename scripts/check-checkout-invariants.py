@@ -17,7 +17,7 @@ Each time the cause had to be found from scratch, because the symptom names
 the failure, never the cause. The cause was found on 2026-10-23: the test
 suite, run with the `GIT_DIR` a hook exports, wrote those values into the
 shared config (ADR
-`2026-10-23-the-shared-config-is-one-file-and-every-worktree-writes-to-it.md`).
+`2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`).
 
 The rule
 --------
@@ -49,6 +49,8 @@ import subprocess
 import sys
 
 import click
+
+from sgate.commands.base import run
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -175,4 +177,4 @@ def cli(ctx: click.Context, quiet: bool) -> None:
 
 
 if __name__ == '__main__':
-    cli()
+    raise SystemExit(run(cli))

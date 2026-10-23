@@ -339,6 +339,7 @@ def kotlin_digest(tree: pathlib.Path) -> str:
         capture_output=True,
         text=True,
         check=False,
+        env=tree_env(),
     )
     if hashed.returncode != 0:
         raise VerdictUnavailable(f"could not hash the Kotlin files in {tree}: {hashed.stderr.strip()}")
@@ -538,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
             capture_output=True,
             text=True,
             check=False,
+            env=tree_env(),
         )
         print(diff.stdout)
     if report["clean"]:

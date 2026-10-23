@@ -40,6 +40,8 @@ change: {change}
 verdict: {verdict}
 date: {date}
 pr: {pr}
+reviewed: {reviewed}
+documents: {documents}
 ---
 
 ## What was reviewed
@@ -50,6 +52,9 @@ The diff of the pull request, with no session history.
 
 - one thing, and what was done about it
 """
+
+#: A commit sha — the field names the commit a review was made against.
+COMMIT = '1cb18e3935622927120e8ac9b6f8ae9a50107a74'
 
 
 class ReviewVerdictsTest(unittest.TestCase):
@@ -66,8 +71,10 @@ class ReviewVerdictsTest(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def _change(self, name: str) -> None:
-        (self.changes / name).mkdir()
+    def _change(self, name: str) -> pathlib.Path:
+        directory = self.changes / name
+        directory.mkdir()
+        return directory
 
     def _verdict(self, slug: str, **overrides: str) -> None:
         fields = {
@@ -75,6 +82,10 @@ class ReviewVerdictsTest(unittest.TestCase):
             'verdict': 'pass',
             'date': '2026-10-22',
             'pr': 'https://github.com/gazon1/sing/pull/970',
+            'reviewed': COMMIT,
+            # The digest of the change as it is now — a verdict that says it
+            # reviewed these documents, and the gate recomputes it.
+            'documents': mod.documents_digest(self.changes / slug),
         }
         fields.update(overrides)
         (self.reviews / f'{slug}.md').write_text(VERDICT.format(**fields), encoding='utf-8')
@@ -167,9 +178,11 @@ class ReviewVerdictsTest(unittest.TestCase):
 
     def test_a_verdict_that_says_nothing_but_headings_is_a_finding(self) -> None:
         self._change('the-backup-keeps-the-verb')
+        digest = mod.documents_digest(self.changes / 'the-backup-keeps-the-verb')
         (self.reviews / 'the-backup-keeps-the-verb.md').write_text(
             '---\nchange: the-backup-keeps-the-verb\nverdict: pass\n'
-            'date: 2026-10-22\npr: 970\n---\n\n## What was reviewed\n\n## Findings\n',
+            f'date: 2026-10-22\npr: 970\nreviewed: {COMMIT}\ndocuments: {digest}\n---\n\n'
+            '## What was reviewed\n\n## Findings\n',
             encoding='utf-8',
         )
 
@@ -285,6 +298,89 @@ class ReviewVerdictsTest(unittest.TestCase):
 
         self.assertEqual(1, len(problems), 'once it is written up, it needs a review')
         self.assertEqual([], scaffolds)
+
+    # ── what the verdict is about ──────────────────────────────────────────────
+
+    def test_a_verdict_without_the_reviewed_commit_is_a_finding(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        self._verdict('the-backup-keeps-the-verb', reviewed='')
+
+        problems, _, _, _ = mod.find_problems(self.changes, self.reviews, set())
+
+        self.assertEqual(1, len(problems))
+        self.assertIn('reviewed', problems[0])
+
+    def test_a_verdict_with_a_reviewed_commit_that_is_not_a_sha_is_a_finding(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        self._verdict('the-backup-keeps-the-verb', reviewed='the commit I looked at')
+
+        problems, _, _, _ = mod.find_problems(self.changes, self.reviews, set())
+
+        self.assertEqual(1, len(problems))
+        self.assertIn('reviewed', problems[0])
+
+    def test_a_verdict_without_the_documents_digest_is_a_finding(self) -> None:
+        self._change('the-backup-keeps-the-verb')
+        self._verdict('the-backup-keeps-the-verb', documents='')
+
+        problems, _, _, _ = mod.find_problems(self.changes, self.reviews, set())
+
+        self.assertEqual(1, len(problems))
+        self.assertIn('documents', problems[0])
+
+    def test_a_verdict_about_documents_that_changed_after_the_review_is_a_finding(self) -> None:
+        change = self._change('the-backup-keeps-the-verb')
+        (change / 'proposal.md').write_text('# The proposal\n', encoding='utf-8')
+        self._verdict('the-backup-keeps-the-verb')
+        # The contract changed after the review: the verdict is now about a
+        # change that is not there any more.
+        (change / 'proposal.md').write_text('# The proposal, rewritten\n', encoding='utf-8')
+
+        problems, _, _, _ = mod.find_problems(self.changes, self.reviews, set())
+
+        self.assertEqual(1, len(problems))
+        self.assertIn('moved after the verdict was written', problems[0])
+        self.assertIn('re-issue the verdict', problems[0])
+
+    def test_ticking_a_task_does_not_stale_the_verdict(self) -> None:
+        change = self._change('the-backup-keeps-the-verb')
+        (change / 'proposal.md').write_text('# The proposal\n', encoding='utf-8')
+        (change / 'tasks.md').write_text('- [ ] 1.1 the first step\n', encoding='utf-8')
+        self._verdict('the-backup-keeps-the-verb')
+        # The checklist moves while the work is done; the contract does not.
+        (change / 'tasks.md').write_text('- [x] 1.1 the first step\n', encoding='utf-8')
+
+        problems, _, _, _ = mod.find_problems(self.changes, self.reviews, set())
+
+        self.assertEqual([], problems, 'the checklist is not the contract')
+
+    def test_the_digest_covers_the_proposal_and_the_spec_deltas(self) -> None:
+        change = self._change('the-backup-keeps-the-verb')
+        (change / 'proposal.md').write_text('# The proposal\n', encoding='utf-8')
+        specs = change / 'specs' / 'change-review-integrity'
+        specs.mkdir(parents=True)
+        (specs / 'spec.md').write_text('## MODIFIED Requirements\n', encoding='utf-8')
+
+        documents = mod.contract_documents(change)
+
+        self.assertEqual(
+            [change / 'proposal.md', specs / 'spec.md'],
+            documents,
+            'the contract is the proposal and the spec deltas',
+        )
+
+    def test_a_spec_delta_that_moved_changes_the_digest(self) -> None:
+        change = self._change('the-backup-keeps-the-verb')
+        first = change / 'specs' / 'one' / 'spec.md'
+        first.mkdir(parents=True)
+        (first / 'spec.md').write_text('## ADDED Requirements\n', encoding='utf-8')
+        before = mod.documents_digest(change)
+        (first / 'spec.md').unlink()
+        second = change / 'specs' / 'two' / 'spec.md'
+        second.mkdir(parents=True)
+        (second / 'spec.md').write_text('## ADDED Requirements\n', encoding='utf-8')
+
+        self.assertNotEqual(before, mod.documents_digest(change), 'the path is part of the digest')
 
 
 if __name__ == '__main__':

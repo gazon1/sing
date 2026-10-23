@@ -15,7 +15,8 @@ These tests hold the gate to its own claims:
 
   - a script that reads another tree and does not neutralise the variables
     is a violation;
-  - a script that neutralises them is not;
+  - a script that neutralises them is not — and so is a script that calls the
+    shared helper, which is where the answer now lives;
   - a script that reads its OWN checkout's root is not a violation — the
     variables name that tree too;
   - a rule that finds nothing proves nothing, so the gate fails when it does;
@@ -47,16 +48,9 @@ def digest(repo):
 
 COMPLIANT = """\
 #!/usr/bin/env python3
-import os
 import subprocess
 
-GIT_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
-
-def tree_env():
-    env = dict(os.environ)
-    for name in GIT_VARS:
-        env.pop(name, None)
-    return env
+from sgate.gatekit.gitenv import tree_env
 
 def digest(repo):
     return subprocess.run(
@@ -107,6 +101,12 @@ class GitEnvironmentRuleTest(unittest.TestCase):
         violations, sensitive = mod.scan(self.tmp)
         self.assertEqual([], violations)
         self.assertTrue(sensitive, 'the site is still a site — it just controls its environment')
+
+    def test_a_script_that_calls_the_shared_helper_is_not_a_violation(self):
+        """The helper is the one place the answer is written down."""
+        self._write('reads.py', COMPLIANT)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual([], violations)
 
     def test_a_script_that_reads_its_own_checkout_is_not_a_violation(self):
         self._write('own.py', OWN_TREE)

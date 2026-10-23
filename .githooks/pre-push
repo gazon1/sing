@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-push hook: fast gates + detekt auto-correct.
+# Pre-push hook: fast gates + the detekt verdict (read-only).
 #
 # The full Gradle test suite runs in CI, not here. Pre-push must be fast enough
 # to run on every push without making people reach for --no-verify.
@@ -38,6 +38,30 @@
 # at the pushed sha: a violation that is only in the worktree is then not
 # reported as a violation of the tree being pushed, and a violation that IS in
 # the pushed tree is not missed because the worktree happens to be clean.
+#
+# THE GIT ENVIRONMENT INSIDE THE TREE BEING PUSHED
+#
+# Git hands a hook the environment it runs in, and the one that matters is
+# GIT_DIR: it points at the worktree the push was made from. In a linked
+# worktree that is literal — GIT_DIR is that worktree's own git dir — and
+# GIT_WORK_TREE and GIT_INDEX_FILE can come from the developer's shell as
+# well.
+#
+# So every command that runs INSIDE the tree being pushed has to drop that
+# environment before it runs. Without the drop, git reads the original
+# worktree's index there and reports about a tree nobody pushed: a test that
+# shells out to git fails with "git add: exit status 128", the gate suite
+# fails for a reason that has nothing to do with the code, and the diff that
+# shows what detekt corrected is taken against the wrong base. The tree being
+# pushed has its own `.git` file, and git finds it when the environment does
+# not say otherwise.
+#
+# Every step of this hook that runs in the tree being pushed therefore starts
+# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE`, and the script it
+# calls — `scripts/pre-push-verdict.py` — runs its own git commands through
+# `tree_env()`. A command added inside that tree has to do the same: the
+# contract is not enforced, it is written down, and the next command that
+# forgets it breaks silently, on a tree that was fine.
 #
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
@@ -360,9 +384,23 @@ for i in "${!PUSH_REFS[@]}"; do
     #
     # They run against the tree being pushed, like every other gate here: the
     # CI job that runs them runs the pushed tree's copies.
+    #
+    # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE, GIT_COMMON_DIR)
+    # for the hook it runs. A test that creates a repository of its own
+    # inherits those, and `git init` then reinitialises THIS repository
+    # instead of the test's: `git add -A` stages the test's directory against
+    # this repository's index — every tracked file looks deleted — and
+    # `git commit` writes the test's tree onto the branch being pushed. That
+    # happened on 2026-10-23: a fixture committed a 12124-file deletion into
+    # the working repository, and the same tree reached the remote main.
+    #
+    # So the suite runs without those names. The fixtures also scrub them
+    # themselves (scripts/tests/git_sandbox.py), because the suite is run
+    # outside a hook too, and this line is the belt to their braces.
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        PYTHONPATH="$tree/scripts/src" \
         python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
         echo "   gate suite tests: OK"
     else

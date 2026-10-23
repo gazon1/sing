@@ -5,6 +5,17 @@ description: Launch and recover the Android emulator on this dev host. Covers th
 
 # Emulator Launch and Recovery (this host)
 
+## The agent-facing tools
+
+The emulator is reachable from an agent through a small set of MCP tools:
+`mcp__android_emulator__android_preflight`, `android_build_and_run`,
+`android_ui_status`, `android_screenshot`, `android_ui_describe`,
+`android_ui_resolve`, `android_ui_tap`, `android_ui_type_text`, `android_logs`.
+
+Take a screenshot before and after an action, and read `android_logs` when
+the app crashes. The CLI alternative is the `android` command — see the
+skill `singularity-todo-android-cli`.
+
 ## Use the script, not this file, for anything scripted
 
 `ensure-emulator` prints a ready serial on stdout, or starts the AVD

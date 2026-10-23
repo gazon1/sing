@@ -16,6 +16,11 @@ import tempfile
 import unittest
 
 SCRIPT = pathlib.Path(__file__).resolve().parent.parent / 'check-test-task-inputs.py'
+#: The gate imports `sgate`; the suite runs it against *this* checkout, so the
+#: fixture does too. Without this the fixture would import whichever `sgate`
+#: happens to be installed on the machine — a different tree under the same
+#: package name, and one that can be missing a module this gate needs.
+PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent.parent / 'src'
 
 GOOD = '''
 // no external roots: the module only points at its own source
@@ -98,7 +103,8 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
             path.write_text(content)
         proc = subprocess.run(
             [sys.executable, str(script_dest)],
-            capture_output=True, text=True, cwd=root, env={'PATH': '/usr/bin:/bin'},
+            capture_output=True, text=True, cwd=root,
+            env={'PATH': '/usr/bin:/bin', 'PYTHONPATH': str(PACKAGE_ROOT)},
         )
         return proc.returncode, proc.stdout + proc.stderr
 

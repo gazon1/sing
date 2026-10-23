@@ -28,7 +28,10 @@ import tempfile
 import unittest
 
 import importlib.util
-from scripts.tests._git_env import GitEnvTestCase
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
+
+from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'pre-push-verdict.py'
 spec = importlib.util.spec_from_file_location('pre_push_verdict', MODULE_PATH)
@@ -67,22 +70,23 @@ esac
 """
 
 
-class VerdictTest(GitEnvTestCase):
+class VerdictTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-verdict-'))
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True, env=_clean_git_env())
         source = self.repo / 'shared/src/main/kotlin/Example.kt'
         source.parent.mkdir(parents=True)
         source.write_text(SOURCE, encoding='utf-8')
-        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'a file'], cwd=self.repo, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', 'a file'], cwd=self.repo, check=True, env=_clean_git_env())
         self.sha = subprocess.run(
             ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
         ).stdout.strip()
 
     def _gradle(self, mode: str) -> str:
@@ -186,7 +190,7 @@ class VerdictTest(GitEnvTestCase):
         self.assertNotEqual(before, after)
 
 
-class ModuleSelectionTest(GitEnvTestCase):
+class ModuleSelectionTest(unittest.TestCase):
     """Which modules the verdict judges — computed from the module graph.
 
     The properties:
@@ -205,25 +209,31 @@ class ModuleSelectionTest(GitEnvTestCase):
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=self.repo, check=True, env=_clean_git_env())
         self.base = self._commit('base', {'README.md': 'base\n'})
 
     def _give_the_repo_an_identity(self, repo: pathlib.Path) -> None:
         """A runner has no git identity; a commit without one is refused."""
-        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=repo, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=repo, check=True)
+        subprocess.run(
+            ['git', 'config', 'user.email', 'verdict@example.com'], cwd=repo, check=True,
+            env=_clean_git_env(),
+        )
+        subprocess.run(
+            ['git', 'config', 'user.name', 'Verdict'], cwd=repo, check=True, env=_clean_git_env(),
+        )
 
     def _commit(self, message: str, files: dict[str, str]) -> str:
         for name, content in files.items():
             path = self.repo / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding='utf-8')
-        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', message], cwd=self.repo, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=self.repo, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', message], cwd=self.repo, check=True, env=_clean_git_env())
         return subprocess.run(
             ['git', 'rev-parse', 'HEAD'], cwd=self.repo, capture_output=True, text=True, check=True,
+            env=_clean_git_env(),
         ).stdout.strip()
 
     def _tasks(self, files: dict[str, str]) -> tuple[list[str], str]:
@@ -259,18 +269,18 @@ class ModuleSelectionTest(GitEnvTestCase):
         tree = self.tmp / 'tree'
         tree.mkdir()
         (tree / 'A.kt').write_text('class A\n', encoding='utf-8')
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=tree, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=tree, check=True, env=_clean_git_env())
         self._give_the_repo_an_identity(tree)
-        subprocess.run(['git', 'add', '-A'], cwd=tree, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'a'], cwd=tree, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=tree, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', 'a'], cwd=tree, check=True, env=_clean_git_env())
 
         other = self.tmp / 'other'
         other.mkdir()
         (other / 'B.kt').write_text('class B\n', encoding='utf-8')
-        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=other, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=other, check=True, env=_clean_git_env())
         self._give_the_repo_an_identity(other)
-        subprocess.run(['git', 'add', '-A'], cwd=other, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'b'], cwd=other, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=other, check=True, env=_clean_git_env())
+        subprocess.run(['git', 'commit', '-q', '-m', 'b'], cwd=other, check=True, env=_clean_git_env())
 
         saved = dict(os.environ)
         os.environ['GIT_DIR'] = str(other / '.git')
@@ -295,6 +305,7 @@ class ModuleSelectionTest(GitEnvTestCase):
     def test_the_default_base_is_the_trunk(self):
         subprocess.run(
             ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+            env=_clean_git_env(),
         )
         self.assertEqual('origin/main', mod.default_base(self.repo))
 
@@ -332,6 +343,7 @@ class ModuleSelectionTest(GitEnvTestCase):
         """A branch that does not exist on the remote yet is a change against the trunk."""
         subprocess.run(
             ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+            env=_clean_git_env(),
         )
         sha = self._commit('change', {'desktopApp/src/main/kotlin/Main.kt': 'class Main\n'})
         tasks, _ = mod.detekt_tasks_for_change(self.repo, mod.default_base(self.repo), sha)
@@ -341,6 +353,7 @@ class ModuleSelectionTest(GitEnvTestCase):
         """The whole path, through the command the hook calls."""
         subprocess.run(
             ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+            env=_clean_git_env(),
         )
         sha = self._commit('change', {'docs/note.md': 'a note\n'})
         result = subprocess.run(

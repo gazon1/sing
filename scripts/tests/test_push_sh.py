@@ -28,15 +28,19 @@ The log file the script leaves in /tmp is cleaned up by the test that made it.
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
-from scripts.tests._git_env import GitEnvTestCase
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'push.sh'
+sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
+
+from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
 
 
-class PushShTest(GitEnvTestCase):
+class PushShTest(unittest.TestCase):
+
     """The wrapper must not lie about the push."""
 
     def setUp(self) -> None:
@@ -48,6 +52,7 @@ class PushShTest(GitEnvTestCase):
         subprocess.run(
             ['git', 'init', '-q', '--bare', '-b', 'main', str(self.remote)],
             check=True,
+            env=_clean_git_env(),
         )
 
         self.clone = self.tmp / 'clone'
@@ -55,6 +60,7 @@ class PushShTest(GitEnvTestCase):
         subprocess.run(
             ['git', 'init', '-q', '-b', 'main', str(self.clone)],
             check=True,
+            env=_clean_git_env(),
         )
         # Local config only — the developer's global git config is not read
         # for identity here, and nothing global is written.
@@ -67,18 +73,23 @@ class PushShTest(GitEnvTestCase):
                 ['git', 'config', '--local', key, value],
                 cwd=self.clone,
                 check=True,
+                env=_clean_git_env(),
             )
         subprocess.run(
             ['git', 'remote', 'add', 'origin', str(self.remote)],
             cwd=self.clone,
             check=True,
+            env=_clean_git_env(),
         )
         (self.clone / 'file.txt').write_text('hello\n', encoding='utf-8')
-        subprocess.run(['git', 'add', 'file.txt'], cwd=self.clone, check=True)
+        subprocess.run(
+            ['git', 'add', 'file.txt'], cwd=self.clone, check=True, env=_clean_git_env(),
+        )
         subprocess.run(
             ['git', 'commit', '-q', '-m', 'initial'],
             cwd=self.clone,
             check=True,
+            env=_clean_git_env(),
         )
 
     def _run(self, *args: str) -> subprocess.CompletedProcess:

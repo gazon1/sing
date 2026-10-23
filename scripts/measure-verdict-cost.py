@@ -224,8 +224,8 @@ def measure_auto_correct(gradle_cmd: str, tasks: tuple[str, ...], repo: Path) ->
 
 #: The variables git exports to a hook. A git command that reads a tree must
 #: not inherit them: they name the tree the hook runs in, not the tree the
-#: command was pointed at (ADR 2026-10-23-the-shared-config-is-one-file-and-
-#: every-worktree-writes-to-it.md, and scripts/check-git-environment.py).
+#: command was pointed at (ADR 2026-10-23-a-test-fixture-must-not-reach-the-
+#: developers-repository.md, and scripts/check-git-environment.py).
 GIT_ENVIRONMENT = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
 
 

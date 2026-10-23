@@ -53,6 +53,11 @@ package com.singularity.todo.core.search
  * rule would be filtering twice, and a caller that filtered them by the positives
  * would throw away the records the index could not have found.
  *
+ * The owners of the free text — every place that asks the index — are listed
+ * in §9 of the grammar, `docs/specs/search-query-grammar.md`. That map is the
+ * place to look before adding a caller, and the place to add one: a rule that
+ * lives in one place but is asked in three has three owners.
+ *
  * @param terms The free-text terms, in the order the query states them (F1: one term
  *   is one `HasText` condition, and a quoted string is one term however many words it
  *   holds).

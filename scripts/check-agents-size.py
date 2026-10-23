@@ -34,6 +34,8 @@ import pathlib
 
 import click
 
+from sgate.commands.base import run
+
 CLEAN = 0
 VALIDATION_FAILURE = 1
 
@@ -88,4 +90,4 @@ def cli(ctx: click.Context, quiet: bool, target: str | None) -> None:
 
 
 if __name__ == '__main__':
-    cli()
+    raise SystemExit(run(cli))

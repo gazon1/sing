@@ -72,6 +72,33 @@ class TextMatchTest {
     }
 
     @Test
+    fun `the diacritics are folded the way the index folds them`() {
+        // The index folds "café" to "cafe", so the rule has to fold it too: the
+        // two halves of one rule have to answer the same question the same way.
+        assertTrue(TextMatch.matches("Café au lait", "cafe"))
+        assertTrue(TextMatch.matches("café au lait", "café"))
+        assertTrue(TextMatch.matches("Café au lait", "CAFÉ"))
+    }
+
+    @Test
+    fun `a letter without a single base letter is not folded`() {
+        // The index folds a character to one letter or not at all: "ß" is not
+        // "ss" and "æ" is not "ae". A rule that folded them would answer a
+        // question the index answers differently.
+        assertFalse(TextMatch.matches("straße", "strasse"))
+        assertTrue(TextMatch.matches("straße", "straße"))
+    }
+
+    @Test
+    fun `the contains rule folds the diacritics too`() {
+        // The two modes are two questions about the same text, and they have to
+        // find the same text: a mode that found less would be a trapdoor.
+        assertTrue(TextMatch.contains("Café au lait", "cafe"))
+        assertTrue(TextMatch.contains("Café au lait", "Lait"))
+        assertFalse(TextMatch.contains("Café au lait", "milk"))
+    }
+
+    @Test
     fun `matchesAny answers for a choice of surfaces`() {
         assertTrue(TextMatch.matchesAny(listOf("Title", "Description"), "desc"))
         assertFalse(TextMatch.matchesAny(listOf("Title", "Description"), "missing"))

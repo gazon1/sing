@@ -409,13 +409,22 @@ def _shell_sites(path: pathlib.Path, source: str) -> list[Site]:
     return sites
 
 
+#: The shared helpers that do the scrubbing. A script that calls one of them
+#: controls its environment — the whole point of the helper is that the
+#: answer is written down once (``sgate.gatekit.gitenv``).
+SANCTIONED_HELPERS = ('tree_env', 'sandbox_env', 'git_sandbox')
+
+
 def _python_neutralizes(source: str) -> bool:
     """Whether a Python script removes the git variables from the environment.
 
-    Two shapes count: removing the name itself (``env.pop('GIT_DIR', None)``),
-    and removing the names of a collection that holds them — the shape the
-    reference implementation uses.
+    Three shapes count: removing the name itself (``env.pop('GIT_DIR', None)``),
+    removing the names of a collection that holds them — the shape the
+    reference implementation uses — and calling the shared helper, which is
+    where the answer lives now.
     """
+    if any(helper in source for helper in SANCTIONED_HELPERS):
+        return True
     try:
         tree = ast.parse(source)
     except SyntaxError:

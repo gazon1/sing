@@ -3,9 +3,35 @@ change: ci-fast-only-pr-full-on-schedule
 verdict: pass
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/978
+reviewed: 1cb18e3935622927120e8ac9b6f8ae9a50107a74
+documents: sha256:93c85260e0cfc428f6176da71f78eaa887f33052ed6f686e3c982a1c1fcb860a
 ---
 
 ## What was reviewed
+
+The two fields above were added on 2026-10-23, when the rule "a verdict names
+what it reviewed" arrived, and the first version of them was wrong. Read the
+rest of this paragraph before trusting either of them.
+
+`reviewed:` is the head of `gazon1/dulse` at the time of the review — the
+commit the diff below was taken against. It is a pointer, not a claim the gate
+can check: the commit is not an ancestor of `main`, because the pull request
+landed by squash.
+
+`documents:` is the digest of the contract as it stands today — the change's
+proposal and its spec delta. It is **not** the digest of the contract the
+review saw. The contract moved afterwards: PR #986 (`745b3afa`) added REQ-25
+to `specs/test-execution-integrity/spec.md` and rewrote the task list, so
+`git diff 1cb18e39 origin/main --
+openspec/changes/ci-fast-only-pr-full-on-schedule/` is not empty — it is 115
+insertions. The review below is of PR #978's diff, and it does not judge
+REQ-25; that addition was written and verified in #986, which is where this
+verdict file came from.
+
+The rule the gate enforces is that a verdict speaks for the contract it
+carries, and a contract that moves leaves a verdict that speaks for a change
+that is not there any more. Re-issuing a verdict after the contract moved is
+a claim in a diff, and a reviewer sees it.
 
 The diff of `gazon1/dulse` against `origin/main` for the change
 `ci-fast-only-pr-full-on-schedule`, and the four documents that state what the

@@ -22,6 +22,7 @@ A gate script that no registry entry names is not a gate — it is run by a surf
 | `scripts/ci/preflight-gate-tools.sh` | Says which tool is missing and how to get it, before a gate cannot run. |
 | `scripts/ci/new-gate.py` | Registers a gate in every place it has to be, in one command. |
 | `scripts/detekt-summary.py` | Prints the detekt findings by rule and by place, instead of XML per finding. |
+| `scripts/ci-verdict.py` | Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion. |
 
 ## The modules of the gate suite
 
@@ -63,10 +64,14 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gatekit` | sgate.gates — the pieces every gate is built from. |
 | `sgate.gatekit.cli` | sgate.gates.cli — the shape every gate command has. |
 | `sgate.gatekit.findings` | sgate.gates.findings — what a gate found, and how sure it is. |
+| `sgate.gatekit.gitenv` | The environment a git command runs in when its caller is a hook. |
+| `sgate.gatekit.gradle` | what the Gradle build declares. |
 | `sgate.gatekit.kotlin` | sgate.gates.kotlin — what the Kotlin sources declare and mention. |
 | `sgate.gatekit.markdown` | sgate.gates.markdown — reading the tables a document claims things in. |
 | `sgate.gatekit.paths` | where a gate is allowed to write. |
+| `sgate.gatekit.room` | the tables the Kotlin entities declare. |
 | `sgate.gatekit.rules` | sgate.gates.rules — a document-against-the-code rule that is data. |
+| `sgate.gatekit.scenarios` | the semantics of a migration, as data. |
 | `sgate.gatekit.tables` | a document table checked against the code. |
 | `sgate.gates` | gate registry loader. |
 | `sgate.log` | loguru logger configured for sgate. |

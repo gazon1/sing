@@ -21,6 +21,7 @@ parser that breaks on the next edit.
 """
 
 import importlib.util
+import json
 import pathlib
 import sys
 import tempfile
@@ -215,6 +216,139 @@ class FloorConsistencyTest(unittest.TestCase):
         # two findings for one defect.
         mod.set_floor(5)
         self.assertEqual(mod.check_floor_is_consistent(set(), 7), [])
+
+
+class ColumnsAgreeTest(unittest.TestCase):
+    """The export and the entities must describe the same tables.
+
+    Room writes the export at build time, so an entity that grew a column and
+    was never re-exported is invisible until a build runs and Room's own
+    validation says the schema does not match — on the second minute of CI, on
+    the branch that made the change. This rule answers the same question from
+    the sources.
+    """
+
+    def _tree(self, entity_source: str, fields: list[dict]) -> pathlib.Path:
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        schema_dir = root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase'
+        schema_dir.mkdir(parents=True)
+        (schema_dir / '6.json').write_text(json.dumps({
+            'database': {'version': 6, 'entities': [{'tableName': 'tasks', 'fields': fields}]}
+        }))
+        source_dir = root / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database'
+        source_dir.mkdir(parents=True)
+        (source_dir / 'TaskEntity.kt').write_text(entity_source)
+        return root
+
+    def test_a_matching_export_is_clean(self):
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([str(v) for v in found], [])
+
+    def test_a_column_the_export_does_not_have_is_found(self):
+        """The defect: the entity grew a column and nobody re-exported."""
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String, val title: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+        self.assertIn('title', str(found[0]))
+
+    def test_a_table_the_export_does_not_have_is_found(self):
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        other = root / 'shared/src/commonMain/kotlin/com/singularity/todo/core/database/Ghost.kt'
+        other.write_text('@Entity(tableName = "ghosts")\nclass GhostEntity(val id: String)\n')
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+        self.assertIn('ghosts', str(found[0]))
+
+    def test_a_column_the_entity_does_not_declare_is_found(self):
+        root = self._tree(
+            '@Entity(tableName = "tasks")\nclass TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}, {'columnName': 'ghost', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+        self.assertIn('ghost', str(found[0]))
+
+    def test_no_entities_at_all_is_a_finding_not_a_pass(self):
+        """A rule that compares nothing must say so."""
+        root = self._tree(
+            'class TaskEntity(val id: String)\n',
+            [{'columnName': 'id', 'affinity': 'TEXT'}],
+        )
+        found = mod.check_columns_agree(
+            root / 'shared/schemas/com.singularity.todo.core.database.AppDatabase', 6, root
+        )
+        self.assertEqual([v.rule for v in found], ['columns-agree'])
+
+
+class ScenarioTestCurrentTest(unittest.TestCase):
+    """The generated scenario test is what the scenario files say.
+
+    The scenarios are data and the test is generated from them, so the two can
+    disagree — and a test file that disagrees with the data is a test of
+    something else.
+    """
+
+    SCENARIO_YAML = (
+        "from: 31\n"
+        "to: 32\n"
+        "scenarios:\n"
+        "  - name: a claim\n"
+        "    seed: []\n"
+        "    expect:\n"
+        "      - sql: \"SELECT 1\"\n"
+        "        equals: 1\n"
+    )
+
+    def _tree(self, with_test: bool = True, generated: str = "") -> pathlib.Path:
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        scenario_dir = root / mod.SCENARIO_DIR_RELATIVE
+        scenario_dir.mkdir(parents=True)
+        (scenario_dir / '31-to-32.yaml').write_text(self.SCENARIO_YAML, encoding='utf-8')
+        if with_test:
+            path = root / mod.SCENARIO_TEST_RELATIVE
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(generated or mod.render_scenario_test(mod.load_scenarios(scenario_dir)),
+                            encoding='utf-8')
+        return root
+
+    def test_a_current_file_is_clean(self):
+        root = self._tree()
+        self.assertEqual(mod.check_scenarios_current(root), [])
+
+    def test_a_stale_file_is_found(self):
+        root = self._tree(generated='// stale\n')
+        found = mod.check_scenarios_current(root)
+        self.assertEqual([v.rule for v in found], ['migration-scenarios-current'])
+        self.assertIn('regenerate', str(found[0]))
+
+    def test_a_missing_file_is_found(self):
+        root = self._tree(with_test=False)
+        found = mod.check_scenarios_current(root)
+        self.assertEqual([v.rule for v in found], ['migration-scenarios-current'])
+        self.assertIn('missing', str(found[0]))
+
+    def test_a_tree_without_scenarios_is_not_a_finding(self):
+        """No scenario directory means no claim to check, not a broken claim."""
+        root = pathlib.Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.assertEqual(mod.check_scenarios_current(root), [])
 
 
 class RegistrySanityTest(unittest.TestCase):

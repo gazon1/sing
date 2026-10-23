@@ -1,8 +1,12 @@
 # The instrumented suite's floor: what an emulator run must deliver.
 #
-# Recorded from the instrumented suite as of 2026-10-20: seven test classes,
-# twenty-four tests, none skipped. `scripts/check-instrumented-test-floor.py`
-# holds every run to it.
+# Recorded from the instrumented suite; how many classes and tests it held is
+# in the generated block at the end of this file, and that block is the only
+# place the numbers live. A hand-written copy of them here was a second
+# source of truth that lagged behind the first: the floor was rewritten to
+# eight classes and twenty-six tests, and the sentence above still said
+# seven and twenty-four.
+# `scripts/check-instrumented-test-floor.py` holds every run to it.
 #
 # classes, tests — floors. A run with fewer of either means coverage was lost,
 # and the run stays green because the report lists the tests that are left: a
@@ -38,7 +42,7 @@
 # leaves everything above the markers untouched.
 #
 # GENERATED:BEGIN — rewritten by --update-floor; do not hand-edit
-classes 7
-tests 24
+classes 8
+tests 26
 skipped 0
 # GENERATED:END
