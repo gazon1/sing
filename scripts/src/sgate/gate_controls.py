@@ -296,7 +296,7 @@ SCRIPT_GATES = [
         sabotage_path="shared/build.gradle.kts",
         sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
         why=(
-            "a heap that nobody checks is a claim made four times over: the "
+            "a heap that nobody checks is a claim made six times over: the "
             "measurement behind 1536 MB lived in an ADR that no build read"
         ),
     ),
