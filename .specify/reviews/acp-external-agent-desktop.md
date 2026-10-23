@@ -2,7 +2,7 @@
 change: acp-external-agent-desktop
 verdict: pass
 date: 2026-10-23
-pr: https://github.com/gazon1/sing/tree/feature/the-external-agent-is-hosted
+pr: https://github.com/gazon1/sing/pull/1028
 reviewed: 277e4d17b899cdf7c76c7e92e7f18738135f8a1d
 documents: sha256:9590dcd5898ee5f3f8e702ef4b13d5c7b8459eacf8001396077cf0e6dd37ac1f
 ---
