@@ -243,6 +243,9 @@ class ModuleSelectionTest(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual([], report['tasks'], report)
         self.assertIn('no detekt run', report['coverage_reason'])
+        self.assertFalse(report['corrected'], 'nothing ran, so nothing was corrected')
+        self.assertTrue(report['clean'], 'a change that needs no detekt run is not a violation')
+        self.assertEqual(0, result.returncode)
 
 
 if __name__ == '__main__':

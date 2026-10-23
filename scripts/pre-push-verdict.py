@@ -323,8 +323,8 @@ def judge(
         if rc != 0:
             failed.append(task)
 
-    after = kotlin_digest(tree)
-    corrected = before != after
+    after = kotlin_digest(tree) if tasks else ""
+    corrected = bool(tasks) and before != after
 
     return {
         "sha": sha,
