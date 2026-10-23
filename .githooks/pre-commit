@@ -12,9 +12,19 @@
 #      the file that was just written, because a mechanical finding — a
 #      too-complex method, a long method, a missing blank line — is a finding
 #      about that file and nothing else.
-#   2. the compile of the modules that are about to be committed.
+#   2. `compile-changed` — the compile of the modules the change reaches. The
+#      set is computed from the module graph (`scripts/changed-modules.py`),
+#      the same graph the local verification plan and the pre-push detekt
+#      verdict read: a change in a module compiles that module and the modules
+#      that compile against it, a change to the build compiles everything, and
+#      a change that touches no module compiles nothing.
 #
-# Use `git commit --no-verify` to skip when needed.
+# What is checked: the tree that is about to be committed.
+# What is not: the modules the change does not reach. CI compiles every
+# module; this compiles the ones the change can break.
+#
+# Use `git commit --no-verify` to skip when needed — and know that you are
+# then the check that did not run.
 
 set -e
 
@@ -24,8 +34,8 @@ cd "$ROOT"
 # The hook compiles here, in a worktree, exactly as it does in the main
 # checkout.
 #
-# It used to skip: a linked worktree exited 0 without compiling anything, and a
-# linked worktree is this repository's MAIN working mode. The cost of the
+# It used to skip: a linked worktree exited 0 without compiling anything, and
+# a linked worktree is this repository's MAIN working mode. The cost of the
 # compile is the reason that skip was there — a full compile is minutes — but
 # the compile is incremental, and a worktree's own Gradle home keeps the
 # configuration cache warm: once the worktree is warm, a commit that changes no
@@ -42,6 +52,13 @@ cd "$ROOT"
 #
 # The price of the check is the commit's wait. It is written down here so it
 # reads as a decision: the wait is the price of knowing the commit compiles.
+#
+# The wait is also now scoped. The hook used to compile `:shared` and
+# `:desktopApp` for every commit, whatever the change was: a change to a gate
+# script or a document paid for a Kotlin compile that could not say anything
+# about it, and a change that did not touch those modules was blocked by
+# somebody else's breakage in them. The compile follows the change now — see
+# ADR 2026-10-23-the-commit-compiles-what-the-change-reaches.md.
 
 echo "=== Pre-commit: linting the changed files ==="
 python3 scripts/lint-changed.py || {
@@ -49,24 +66,12 @@ python3 scripts/lint-changed.py || {
     exit 1
 }
 
-echo "=== Pre-commit: compiling shared (main + test) ==="
-# Through ./gw, so the build uses this worktree's private GRADLE_USER_HOME
-# instead of the shared ~/.gradle — a bare ./gradlew raises a daemon in the
-# shared home, where any worktree's `--gradlew --stop` can kill it.
-#
-# The slot pool is switched OFF here (SINGULARITY_GRADLE_SLOTS_DIR=0): a commit
-# must not sit in a queue for up to 30 minutes behind somebody else's build.
-# That is a deliberate trade — a commit waits for a CPU slot but never for the
-# pool — and it is stated here so it reads as a decision rather than an
-# oversight. See docs/decisions/2026-10-22-gradle-memory-budget.md.
-SINGULARITY_GRADLE_SLOTS_DIR=0 "$ROOT/gw" :shared:compileKotlinJvm :shared:compileTestKotlinJvm --no-daemon --quiet || {
-    echo "shared:compileKotlinJvm or :shared:compileTestKotlinJvm FAILED"
-    exit 1
-}
-
-echo "=== Pre-commit: compiling desktop ==="
-SINGULARITY_GRADLE_SLOTS_DIR=0 "$ROOT/gw" :desktopApp:compileKotlin --no-daemon --quiet || {
-    echo ":desktopApp:compileKotlin FAILED"
+echo "=== Pre-commit: compiling the modules the change reaches ==="
+# The plan and the compile live in scripts/compile-changed.py: the module set
+# is computed from the module graph, and the script says what it compiled and
+# what it did not.
+python3 scripts/compile-changed.py || {
+    echo "compile-changed: FAILED"
     exit 1
 }
 

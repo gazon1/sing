@@ -99,6 +99,21 @@ class PlanTest(unittest.TestCase):
         self.assertIn(':adr-core:jvmTest', tasks)
         self.assertIn('scripts/ci/static-gates.sh', tasks)
 
+    def test_a_change_to_the_convention_plugins_runs_everything(self):
+        """`build-logic/` holds the convention plugins every module uses.
+
+        A change to one of them changes how every module is built, so the plan
+        has to be the whole tree. The area was missing, and the plan for such a
+        change was "nothing runs" — while the pre-push verdict, which knows
+        the same fact, judged every module.
+        """
+        tasks, _reasons = changed.plan(['build-logic/src/main/kotlin/Convention.kt'])
+
+        self.assertIn(':shared:jvmTest', tasks)
+        self.assertIn(':desktopApp:test', tasks)
+        self.assertIn(':detekt-rules:test', tasks)
+        self.assertIn('scripts/ci/static-gates.sh', tasks)
+
     def test_a_path_no_module_owns_runs_nothing(self):
         tasks, reasons = changed.plan(['README.md'])
 

@@ -433,12 +433,36 @@ CONDITIONAL_POLICY = 'exclude'
 #: Paths that change the build itself. Everything downstream of them is affected.
 BUILD_AREAS = (
     'gradle/',
+    'build-logic/',
     'gradlew',
     'gradlew.bat',
     'gradle.properties',
     'build.gradle.kts',
     'settings.gradle.kts',
 )
+
+#: What has to COMPILE for a module that changed.
+#:
+#: The tasks above answer "what has to run to know the change is good" — the
+#: tests and the detekt run. These answer a different question: "what has to
+#: compile for the commit to be a commit that compiles". A commit gate wants
+#: the second, and it wants it for the same modules the first list names: the
+#: module that changed and the modules that compile against it.
+#:
+#: Only the JVM targets are here. The Android target of `:shared` is compiled
+#: by `:androidApp`, and `:androidApp` itself needs the Android SDK — the
+#: Android toolchain is CI's, and the local loop says so rather than
+#: pretending it checked. `scripts/compile-changed.py` holds that policy.
+COMPILE_TASKS: dict[str, list[str]] = {
+    'shared': [':shared:compileKotlinJvm', ':shared:compileTestKotlinJvm'],
+    'core-base': [':core-base:compileKotlinJvm'],
+    'adr-core': [':adr-core:compileKotlinJvm'],
+    'adr-cli': [':adr-cli:compileKotlin'],
+    'detekt-rules': [':detekt-rules:compileKotlin'],
+    'desktopApp': [':desktopApp:compileKotlin'],
+    'mcp-server': [':mcp-server:compileKotlin'],
+    'androidApp': [':androidApp:compileDebugKotlin'],
+}
 
 #: The areas where a change is a change to the *gates* rather than to the app.
 GATE_AREAS = (
