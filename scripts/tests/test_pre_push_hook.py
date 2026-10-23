@@ -63,6 +63,20 @@ CHANGED_MODULES = REPO_ROOT / 'scripts' / 'changed-modules.py'
 # the file the hook runs proves nothing about the hook.
 GATE_TEST_RUNNER = REPO_ROOT / 'scripts' / 'run-gate-tests.py'
 
+#: The tool that prints the CI verdict. The hook calls it before the push
+#: goes out, so the verdict is a line in the output of the push and not a
+#: thing a reader has to remember to ask for.
+CI_VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'ci-verdict.py'
+
+#: A stand-in for the GitHub CLI: it reports one run of the CI workflow, the
+#: way `gh run list` reports it. The hook asks about the commit it pushes, and
+#: the answer has to name the workflow, the run and the conclusion.
+FAKE_GH = """#!/usr/bin/env bash
+cat <<'JSON'
+[{"databaseId": 39888579980, "conclusion": "success", "status": "completed", "url": "https://github.com/gazon1/sing/actions/runs/39888579980", "workflowName": "CI"}]
+JSON
+"""
+
 # The marker detekt would report on. The stand-in Gradle wrapper looks for it
 # in the Kotlin files of the tree it is run in.
 VIOLATION = 'PLANTED_VIOLATION'
@@ -325,6 +339,41 @@ class PrePushHookTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, output)
         self.assertIn('gate suite tests: OK', output)
         self.assertIn('the tree has no runner', output)
+
+    def test_the_push_prints_the_ci_verdict_of_the_commit_it_pushes(self):
+        """The CI verdict is a line of the push, not a thing to remember to ask for.
+
+        The tool that prints it is `scripts/ci-verdict.py`, and the hook calls
+        it about the commit that is going out. The answer names the workflow,
+        the run and the conclusion — a run id on its own is not a verdict, and
+        a repository has several workflows.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ci-verdict.py', CI_VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        # A stand-in for the GitHub CLI, so the answer does not depend on a
+        # network and on what the real CI happens to have concluded.
+        bin_dir = self.tmp / 'bin'
+        bin_dir.mkdir()
+        gh = bin_dir / 'gh'
+        gh.write_text(FAKE_GH, encoding='utf-8')
+        gh.chmod(0o755)
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        env = _clean_git_env()
+        env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+
+        result = subprocess.run(
+            ['git', 'push', 'origin', 'main'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        output = result.stdout + result.stderr
+        self.assertIn('ci.yml  run 39888579980  success', output)
+        self.assertEqual(0, result.returncode, output)
 
     def test_a_violation_in_the_pushed_tree_fails_the_push(self):
         self._install_hook()

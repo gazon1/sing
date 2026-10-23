@@ -812,6 +812,43 @@ fi
 echo ""
 
 
+# ── The CI verdict of what is being pushed ───────────────────────────────
+#
+# One line: the workflow, the run, the conclusion. The tool that prints it is
+# `scripts/ci-verdict.py`, and this is where it is called from — a verdict
+# that nobody reads is not a verdict, and the run id on its own is not one
+# either (a repository has several workflows, and the one that says "success"
+# may be the cache cleanup).
+#
+# It never fails the push, for two reasons that are both true most of the
+# time: CI has not seen this commit yet — that is the usual answer for a first
+# push — and a push may not depend on the network. The line is information;
+# the verdict that blocks a push is the one above.
+echo ""
+echo "=== CI verdict (about the pushed commits) ==="
+if ! command -v gh >/dev/null 2>&1; then
+    echo "   ci verdict: SKIPPED (gh is not installed)"
+elif ! python3 -c "import click" >/dev/null 2>&1; then
+    echo "   ci verdict: SKIPPED (click is not installed)"
+else
+    # The repository of the remote, when it is on GitHub: the tool's own
+    # default names the upstream, which is the wrong repository in a fork.
+    ci_verdict_args=()
+    origin_url="$(git remote get-url origin 2>/dev/null || true)"
+    case "$origin_url" in
+        *github.com[:/]*/*)
+            origin_repo="$(printf '%s' "$origin_url" | sed -E 's#.*github\.com[:/]+##; s#\.git$##')"
+            ci_verdict_args=(--repo "$origin_repo")
+            ;;
+    esac
+    for sha in "${PUSH_LOCAL_SHAS[@]}"; do
+        [ "$sha" != "$ZERO_SHA" ] || continue
+        ci_verdict_line="$(python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha" "${ci_verdict_args[@]}" 2>&1 || true)"
+        echo "   $ci_verdict_line"
+    done
+fi
+echo ""
+
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own
 # cheap pre-push already; the full Gradle suite belongs only in CI.
