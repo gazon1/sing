@@ -18,12 +18,19 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+
+#: The repository root, derived from this file's own location. This module
+#: imports nothing from the project on purpose — it is loaded by
+#: `check-gate-wiring.py`, which owns the path discipline that decides which
+#: checkout's registry is read — so the root has to come from here.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 #: A sabotage: a callable that changes the tree so a gate must fail.
 Control = Callable[[Path], None]
@@ -553,6 +560,17 @@ SCRIPT_GATES = [
         cmd=["./scripts/check-doc-links.sh"],
         why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
     ),
+    # ai-write-tools: the registry declared this control on 2026-10-22, and the
+    # twin that runs it was never written — so the gate was registered, the
+    # control was declared, and nothing ever broke the file the gate reads.
+    # The registry holds the edit (it removes the one entry from
+    # `config/docs/ai-direct-writes.txt`), so the twin is the name and the
+    # command, and the harness fills in the rest.
+    ScriptGate(
+        name="ai-write-tools",
+        cmd=[sys.executable, "scripts/check-ai-write-tools.py"],
+        why="a tool that writes a user's data without saying so is a change the user never saw",
+    ),
     # backlog-issue-refs: removed — the gate and its script are gone, and the
     # snapshot it policed (94 OPEN issues, none with a Backlog field) was the
     # failure state it detected, so no control could tell "clean run" from
@@ -615,6 +633,29 @@ def _setup_measure_flake_rate(root: Path) -> None:
         body = '<failure message="boom"/>' if state == "fail" else ""
         (d / "TEST-A.xml").write_text(suite.format(n="one", b=body))
     (root / "empty-baseline.txt").write_text("", encoding="utf-8")
+
+def _setup_gate_tooling_origin(root: Path) -> None:
+    """A foreign `sgate` package within the gate's reach.
+
+    The gate asks where the importable `sgate` comes from, and a script's own
+    directory is the first entry on `sys.path` — so the fixture is a copy of
+    the gate standing next to a package named `sgate`. The copy asks the
+    question with the foreign package in reach, and the answer has to be
+    FOREIGN: a gate run whose CLI serves another checkout measures that
+    other tree, and it reports about it as if it were this one.
+
+    The copy is what makes this a fixture rather than a sabotage: the input is
+    the interpreter's import path, not a committed file, so there is nothing in
+    the tree to mutate.
+    """
+    foreign = root / "foreign"
+    (foreign / "sgate").mkdir(parents=True)
+    (foreign / "sgate" / "__init__.py").write_text("", encoding="utf-8")
+    shutil.copy2(
+        _REPO_ROOT / "scripts" / "check-gate-tooling-origin.py",
+        foreign / "check-gate-tooling-origin.py",
+    )
+
 
 def _setup_maestro_results(root: Path) -> None:
     """A Maestro run that failed a flow, and a flow that never reported at all.
@@ -720,6 +761,22 @@ FIXTURE_GATES = [
             "a Maestro run that failed a flow the floor does not allow, and a flow "
             "the run produced no report for — the two ways a run can quietly stop "
             "being the run the repository promised"
+        ),
+        needs_clean_run=False,
+    ),
+    # The gate the origin check needs: it was added in 2026-10-23 (#981) with
+    # no positive control, and every checkout that inherited it inherited the
+    # failure too — a gate nobody has tried to break is a gate nobody knows can
+    # fail, and this one cannot fail on anything in the tree.
+    FixtureGate(
+        name="gate-tooling-origin",
+        cmd=[sys.executable, "{tmp}/foreign/check-gate-tooling-origin.py"],
+        setup=_setup_gate_tooling_origin,
+        why=(
+            "a gate run whose CLI serves another checkout measures that other tree — "
+            "it reads that checkout's registry and reports about code this one does "
+            "not contain, and the run looks green while saying nothing about the "
+            "tree in front of it"
         ),
         needs_clean_run=False,
     ),
