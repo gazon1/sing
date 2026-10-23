@@ -16,6 +16,7 @@ which owns the path discipline that decides which checkout's registry is read.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -752,6 +753,35 @@ class FixtureGate:
     # "already red would mask the sabotage" guard applies.
     needs_clean_run: bool = True
 
+def _setup_agent_review(root: Path) -> None:
+    """A pull request whose comments carry no review.
+
+    The input of this gate is a pull request, and a pull request does not
+    exist in a clean checkout — so the control synthesises it. The fixture
+    holds the two ways the check could be fooled: a comment that is not a
+    review at all, and a comment that quotes the review format (the format is
+    written down in the script, the pull request template and AGENTS.md, so a
+    comment that quotes it is the cheapest way to fake a review).
+
+    Both have to leave the check red. A check that a copy of the format can
+    satisfy is a check that reports success forever.
+    """
+    comments = [
+        {
+            "body": "Looks good to me.",
+            "html_url": "https://example.com/comment-1",
+        },
+        {
+            "body": (
+                "The review has to carry `<!-- agent-review -->` and a verdict.\n\n"
+                "**Verdict:** pass\n"
+            ),
+            "html_url": "https://example.com/comment-2",
+        },
+    ]
+    (root / "comments.json").write_text(json.dumps(comments), encoding="utf-8")
+
+
 def _setup_flaky_tests(root: Path) -> None:
     """One test failing now that passed in the previous run."""
     suite = ('<testsuite name="{n}" tests="1" failures="{f}">'
@@ -914,6 +944,22 @@ FIXTURE_GATES = [
     # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
     # control `detekt-rule-coverage-floor`, which raises the constant and
     # requires the Gradle task to fail — see the note at the top of Part C.
+    FixtureGate(
+        name="agent-review",
+        cmd=[
+            sys.executable,
+            "scripts/ci/check-agent-review.py",
+            "--comments-file",
+            "{tmp}/comments.json",
+        ],
+        setup=_setup_agent_review,
+        why=(
+            "a pull request that carries no review is a pull request nobody looked at, and "
+            "nothing in the tree, in the pull request or in the workflow could tell it from "
+            "one that was reviewed — the rule was a sentence, and a sentence cannot fail"
+        ),
+        needs_clean_run=False,
+    ),
     FixtureGate(
         name="slow-tests-ran",
         cmd=[sys.executable, "scripts/check-slow-tests-ran.py", "--root", "{tmp}"],

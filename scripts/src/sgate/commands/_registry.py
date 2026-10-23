@@ -617,6 +617,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-maestro-screen-geometry.py"),
     ),
     GateSpec(
+        name="a pull request carries the review of an agent",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/ci/check-agent-review.py"),
+        # It asks GitHub about a pull request, not the tree it sits in, so it
+        # runs in the `Agent review` job of ci.yml and nowhere else. The
+        # registry carries it so that `sgate` knows the gate exists, and the
+        # placement says where it runs.
+    ),
+    GateSpec(
         name="maestro results are within the floor",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1153,6 +1163,25 @@ GATE_CONTROLS: dict[str, Control] = {
     'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
+    'agent-review': Control(
+        kind='fixture',
+        proves='scripts/ci/check-agent-review.py',
+        argv=(
+            '{python}',
+            'scripts/ci/check-agent-review.py',
+            '--comments-file',
+            '{tmp}/comments.json',
+        ),
+        fixture='setup_agent_review',
+        why=(
+            "a pull request that carries no review is a pull request nobody looked at: the "
+            "rule that asks for one was a sentence, and a sentence cannot fail. The check "
+            "has to fail on a pull request whose comments carry no review — and on one "
+            "that carries a copy of the format, which is the cheapest way to fake a review"
+        ),
+        needs_clean_run=False,
+        tracked_by='.github/workflows/ci.yml#The review the agent left on the pull request',
+    ),
     'maestro-results': Control(kind='fixture', proves='scripts/ci/check-maestro-results.py', argv=('{python}', 'scripts/ci/check-maestro-results.py', '--scope', 'full', '--results-dir', '{tmp}/results', '--catalogue', '{tmp}/catalogue.txt', '--floor', '{tmp}/floor.txt', '--debt', '{tmp}/debt.yaml', '--environment', '{tmp}/results/environment.json'), fixture='setup_maestro_results', why="a Maestro run that failed a flow the floor does not allow, and a flow the run produced no report for — the two ways a run quietly stops being the run the repository promised. The input is a run on an emulator, so it cannot exist in a clean checkout: the control synthesises it", needs_clean_run=False),
     'gate-tooling-origin': Control(kind='fixture', proves='scripts/check-gate-tooling-origin.py', argv=('{python}', '{tmp}/foreign/check-gate-tooling-origin.py'), fixture='setup_gate_tooling_origin', why="the gate CLI is installed editable, so the venv on PATH decides which checkout's scripts/src/sgate the gate CLI is — and a foreign CLI reads a foreign registry and reports about a foreign tree. The run looks green and says nothing about the tree in front of it. The input is the interpreter's import path, not a committed file, so the control synthesises it: a copy of the gate standing next to a package named sgate, which the copy must answer FOREIGN about", needs_clean_run=False),
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost', needs_clean_run=False, until='2026-12-31', tracked_by='.github/workflows/ci.yml#Executed test counts'),

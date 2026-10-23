@@ -102,10 +102,12 @@ jobs:
     # Run when scripts/docs changed, or when anything changed on main (always), or on
     # workflow_dispatch (manual trigger).
     if: >
-      needs.changes.outputs.scripts == 'true'
-      || needs.changes.outputs.all == 'true'
-      || github.ref == 'refs/heads/main'
-      || github.event_name == 'workflow_dispatch'
+      (
+        needs.changes.outputs.scripts == 'true'
+        || needs.changes.outputs.all == 'true'
+        || github.ref == 'refs/heads/main'
+        || github.event_name == 'workflow_dispatch'
+      )
     steps:
       - uses: actions/checkout@v7
 
@@ -238,10 +240,12 @@ jobs:
     timeout-minutes: 15
     needs: [changes]
     if: >
-      needs.changes.outputs.scripts == 'true'
-      || needs.changes.outputs.all == 'true'
-      || github.ref == 'refs/heads/main'
-      || github.event_name == 'workflow_dispatch'
+      (
+        needs.changes.outputs.scripts == 'true'
+        || needs.changes.outputs.all == 'true'
+        || github.ref == 'refs/heads/main'
+        || github.event_name == 'workflow_dispatch'
+      )
     steps:
       - uses: actions/checkout@v7
 
@@ -286,12 +290,14 @@ jobs:
     # Run when any app code changed (android/shared/desktop), or always on main,
     # or on workflow_dispatch.
     if: >
-      needs.changes.outputs.android == 'true'
-      || needs.changes.outputs.shared == 'true'
-      || needs.changes.outputs.desktop == 'true'
-      || needs.changes.outputs.all == 'true'
-      || github.ref == 'refs/heads/main'
-      || github.event_name == 'workflow_dispatch'
+      (
+        needs.changes.outputs.android == 'true'
+        || needs.changes.outputs.shared == 'true'
+        || needs.changes.outputs.desktop == 'true'
+        || needs.changes.outputs.all == 'true'
+        || github.ref == 'refs/heads/main'
+        || github.event_name == 'workflow_dispatch'
+      )
     permissions:
       actions: read # flake analysis downloads the previous run's results
       # write for the detekt auto-correct branch — see the static job.
@@ -960,11 +966,13 @@ jobs:
     needs: [changes]
     # Run when android/shared code changed, or always on main, or on workflow_dispatch.
     if: >
-      needs.changes.outputs.android == 'true'
-      || needs.changes.outputs.shared == 'true'
-      || needs.changes.outputs.all == 'true'
-      || github.ref == 'refs/heads/main'
-      || github.event_name == 'workflow_dispatch'
+      (
+        needs.changes.outputs.android == 'true'
+        || needs.changes.outputs.shared == 'true'
+        || needs.changes.outputs.all == 'true'
+        || github.ref == 'refs/heads/main'
+        || github.event_name == 'workflow_dispatch'
+      )
     strategy:
       fail-fast: false
       matrix:
@@ -1036,19 +1044,64 @@ jobs:
       # free graph, with the placeholder Supabase credentials and the auth
       # bypass, on the runs where the E2E workflow runs.
 
+  # The rule "a change is reviewed by a separate agent before the pull request
+  # is opened" — AGENTS.md carries it in one line, and nothing could check it.
+  # The line was executed for a session and then not again, and no pull request
+  # carried a review that anybody could see.
+  #
+  # This job is the check: the pull request carries a comment that says the
+  # review happened and what its verdict was. A pull request without one fails
+  # here, and the CI gate waits for this job — so the rule is not a sentence
+  # in a document but a thing that can fail.
+  #
+  # It runs on pull requests only: a push to main has no review to carry.
+  agent-review:
+    name: Agent review
+    # The pull request only. A run triggered by a comment would not help: GitHub
+    # counts the checks of an `issue_comment` run on the default branch, so the
+    # green would land on main and not on the pull request that is waiting for
+    # the review. The review is re-counted by a pull-request-scoped trigger — a
+    # push, or the `agent-reviewed` label.
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      # The comments of the pull request are read through the issue API.
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # The same action as the other jobs: the script imports click, and the
+      # action installs it into the checkout's own venv.
+      - name: Set up gate tooling
+        uses: ./.github/actions/setup-python-tools
+
+      - name: The review the agent left on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/ci/check-agent-review.py --pr "$PR_NUMBER"
+
   # The only job branch protection should require. `if: always()` is load-bearing:
   # without it this job is skipped when a leaf fails, and a skipped job reads as
   # neutral. The assertion is load-bearing too: a failed leaf leaves its siblings
   # `skipped`, so checking only for "no failures" would pass on a skipped job.
   #
-  # Needs [static, tests, android, changes]. When a PR touches only scripts/:
+  # Needs [static, tests, android, changes, agent-review]. When a PR touches only scripts/:
   # - static runs (scripts changed), tests/android are skipped by their if: condition.
   # - ci-gate still runs (always()) and waits for static + changes to complete.
   # - The success check below allows skipped (tests/android) as valid outcomes.
+  #
+  # agent-review is in the list because the review is part of what a pull request
+  # has to carry, and a gate that does not wait for it would report green while
+  # the review is missing. It is skipped on a push to main, and a skipped job
+  # counts as a valid outcome below.
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [static, meta, tests, android, changes]
+    needs: [static, meta, tests, android, changes, agent-review]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
