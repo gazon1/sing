@@ -95,7 +95,7 @@ claiming a measurement that did not happen; and the nested path closes the
 descriptor.
 
 Finding 3 leaves a decision open on purpose: raising the full floor to the numbers
-the full population measures (55.89 / 40.45 / 57.23) is a policy choice about how
+the full population measures (55.88 / 40.44 / 57.23) is a policy choice about how
 much drift a nightly may have, not a measurement, and it is recorded as an open
 decision in the ADR of 2026-10-22. The label now says plainly that the floor is not
 the strictest reading of the requirement, so the next reader sees the gap instead of

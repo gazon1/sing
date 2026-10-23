@@ -20,6 +20,7 @@ its helper tools — and the gates are described here, once.
 | gate scripts' own unit tests | blocking | `scripts/tests` | gate scripts' own unit tests | — | — |
 | build-output readers precede the invocations that rewrite them | blocking | `scripts/check-build-output-readers.py` | check-build-output-readers.py — a step that reads build output must read it f... | — | — |
 | gradle invocations keep one test population | blocking | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
+| published measurements match the record | blocking | `scripts/check-published-measurements.py` | check-published-measurements.py — a published coverage number matches the mea... | — | — |
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |

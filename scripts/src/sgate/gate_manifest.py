@@ -160,6 +160,22 @@ false while the waiver keeps waiving. This checks the promise, not the pass.""",
         kind=PlacementKind.STATIC,
         command='sgate declared_dependencies_are_used',
     ),
+    "published measurements match the record": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-published-measurements.py',
+        note="""A published number is a claim about a measurement, and the claim outlives
+the measurement it was read from. "2.82M instructions" survived a real
+measurement of the very report it came from, because the percentages beside it
+are a ratio, and a ratio is the same at every level of the report — so the
+wrong denominator looked right.
+
+The record is a file: the class count, the instruction total, the percentages
+and the day each was measured. This compares every class count, instruction
+total, published percentage and published day the repository publishes with it,
+and names the document, the line and both numbers when they differ. It reads a
+fixed list of documents — a number published anywhere else is a claim this gate
+does not check, and that limit is written down in the gate's own docstring.""",
+    ),
     "room schema integrity": Placement(
         kind=PlacementKind.STATIC,
         command='sgate room_schema_integrity',

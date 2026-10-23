@@ -99,7 +99,12 @@ Every number below is a run on this branch on 2026-10-22, not an expectation.
   published at first — "2.82M instructions" for both runs — was the sum of every
   `INSTRUCTION` counter in the Kover XML, so it read five times the report's own
   denominator; the percentages were unaffected, because a ratio is the same at
-  every level. The figures above are the root counters of the two reports.
+  every level. The figures above are the root counters of the two reports, and
+  they are recorded in `config/docs/coverage-measurements.properties` — the file
+  the repository publishes its measurements from. Nothing compared a published
+  number with the artifact it was read from, and that is how the wrong
+  denominator lived through the whole change: `scripts/check-published-measurements.py`
+  compares them now.
 - **The count floors** (7.3): `check-test-runs.py --require shared:jvmTest,
   desktopApp:test,mcp-server:test,shared:testAndroidHostTest` → "Test run floors
   met" — shared:jvmTest 440 classes / 3689 tests, desktopApp:test 62 classes /
@@ -151,3 +156,14 @@ Every number below is a run on this branch on 2026-10-22, not an expectation.
       says WHICH report this is: the fast population's report of 2026-10-23
       holds 4735 classes over 579,002 instructions, and the full population's
       report of 2026-10-22 holds 4642 classes over 565,144.
+
+## 10. The published numbers are compared with the measurements
+
+- [x] 10.1 `config/docs/coverage-measurements.properties` — the record of the
+      measurements, per population: the class count, the instruction total, the
+      branch and line totals, the three measured percentages and the day each
+      was measured. Read out of the reports, not typed by hand.
+- [x] 10.2 `scripts/check-published-measurements.py` — every class count and
+      instruction total the repository publishes is compared with the record.
+      The probe changes one published number, and the gate names the file, the
+      line and both numbers.

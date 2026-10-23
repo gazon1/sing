@@ -117,6 +117,20 @@ root levels together — so it read five times the report's own denominator. The
 percentages were unaffected, because a ratio is the same at every level, and that is how
 a wrong denominator survived a real measurement.
 
+**D6a. The measurements are recorded, and the published numbers are compared with the
+record.** Both measurements — the class count, the instruction total, the branch and line
+totals, the three percentages and the day each was measured — live in
+`config/docs/coverage-measurements.properties`. The gate
+`scripts/check-published-measurements.py` reads that file and the documents that publish
+the numbers, and fails when a published class count, instruction total or measured
+percentage differs from the measurement it was read from, and when a number is published
+for a day the record does not hold for that population. The documents it reads are
+listed in the gate itself: this ADR, the ADR of 2026-10-22, the change's tasks file, the
+two Gradle scripts and the Kover reader's docstring. Before this, a published number and
+the artifact it came from were never compared: the wrong denominator of 2.82M
+instructions survived a real measurement because the percentages were unaffected, and a
+reviewer found it by hand.
+
 **D7. One waiter per task.** The rule in `AGENTS.md` says "one background task, not a
 polling loop", and it did not say what to do afterwards: "check when necessary" is an
 invitation to poll, and it has no completion criterion. The sharpened rule names the
@@ -181,6 +195,14 @@ before it starts.
   the owner, and it would move the measured floors.
 - The full floor (27/20/27) is still half of its measurement (55.88/40.44/57.23). It
   was left conservative on purpose, and the gap is recorded rather than closed.
+- **A published coverage number is checked against the measurement it was read from.**
+  `config/docs/coverage-measurements.properties` holds the measurements per population,
+  and `scripts/check-published-measurements.py` compares the class count, the instruction
+  total and the three measured percentages the repository publishes with it — with the
+  file and the line the number stands on. A number nobody measured, or one measured
+  differently, is a finding instead of a sentence nobody checks. A number the gate
+  cannot attribute to a population is a warning: it says which one, so that the gap is
+  visible instead of silent.
 
 # Links
 
