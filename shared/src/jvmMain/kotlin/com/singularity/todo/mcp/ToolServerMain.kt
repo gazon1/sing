@@ -88,6 +88,7 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
             writeJsonRpcError(protocolOut, startup.code, startup.message)
             exitProcess(startup.exitCode)
         }
+
         is ToolServerStartup.Ready -> serve(startup.server, startup.sessionContext, protocolOut)
     }
 }
