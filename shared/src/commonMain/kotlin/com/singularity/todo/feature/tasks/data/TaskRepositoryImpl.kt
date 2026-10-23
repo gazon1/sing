@@ -193,6 +193,17 @@ class TaskRepositoryImpl(
             val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
             taskDao.upsert(toUpdate.toEntity())
             saveOutgoingLinks(toUpdate.id, toUpdate.description)
+            // The tags are NOT written here, and that is a rule rather than an
+            // omission. The tags live in the cross-ref table, and the task this
+            // path is given was read through `get()` — which does not load them,
+            // because the caller that reads a task to edit it is not the caller
+            // that sets its tags. Writing them here would take the emptiness of
+            // the read for the truth about the work and strip the tags off the
+            // task.
+            //
+            // The tags are changed by `setTags`, which is the one path that knows
+            // what they should be. If `get()` ever starts loading them, this
+            // comment is the thing that has to be read again.
             realignSeries(toUpdate)
             syncRepository.enqueue(toUpdate)
             toUpdate
@@ -326,7 +337,11 @@ class TaskRepositoryImpl(
                 // the push cannot carry a stale one and lose that edit.
                 val repairedAt = maxOf(member.updatedAt, clock.now())
                 val stamped = member.copy(updatedAt = repairedAt)
-                taskDao.upsert(stamped.toEntity())
+                // The member's row carries the *source's* links: the repair makes the
+                // members of a series say the same thing about the work, and the
+                // source is what they say it now. The mapper derives the links from
+                // the task's own description, which is not what this row carries.
+                taskDao.upsert(stamped.toEntity(outgoingLinks = linksJsonOf(source.description)))
                 saveOutgoingLinks(member.id, source.description, repairedAt.toEpochMilliseconds())
                 val memberTags = tagRefs[memberId].orEmpty()
                 if (memberTags != sourceTags) {
@@ -371,10 +386,9 @@ class TaskRepositoryImpl(
         description: String?,
         updatedAt: Long = clock.now().toEpochMilliseconds(),
     ) {
-        val links = description?.let { extractOutgoingLinks(it) }.orEmpty()
         val rows = taskDao.setOutgoingLinksForUser(
             id = id.value,
-            linksJson = links.toLinksJson(),
+            linksJson = linksJsonOf(description),
             updatedAt = updatedAt,
             userId = currentUser.scopedUserId.value.value,
         )
@@ -460,33 +474,98 @@ class TaskRepositoryImpl(
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
     override suspend fun upsert(task: Task): Task {
-        // One unit of work: the row that arrives, the tags it carries and the
-        // repair of the local series either all land or none of them do. A pull
-        // that wrote the row and then lost the tags would leave the series saying
-        // two things about the work — the very divergence this path exists to
-        // repair.
+        // One unit of work: the document that arrives either lands whole or does
+        // not land at all. A pull that wrote the row and then lost the tags
+        // would leave the series saying two things about the work — the very
+        // divergence this path exists to repair.
         unitOfWork.write {
-            taskDao.upsert(task.toEntity())
-            // A row that arrives from another device is the newest word about the work:
-            // the device that wrote it had already made the whole series say the same
-            // thing. So the local series follows it, and the rows that changed are pushed
-            // back — otherwise the two devices keep saying different things about one
-            // piece of work, and the series is a name for nothing.
-            //
-            // Only the current profile's series follows. A row that arrived for another
-            // account — the lost-race path writes the row's own shadow — is that
-            // account's business: this device stores it and does not rewrite rows it
-            // does not own.
             if (task.userId == currentUser.scopedUserId.value) {
-                // The tags live in the cross-ref table, not in the row. The row that
-                // arrives carries the tags of the work, and the local row has to carry
-                // them too — otherwise the series would disagree about the work right
-                // after the pull, and the repair would spread the disagreement.
-                writeTags(task, currentUser.scopedUserId.value.value)
+                // The row that arrived.
+                taskDao.upsert(task.toEntity())
+                // The parts of the document that are not the row.
+                writeTaskParts(task)
+                // A row that arrives from another device is the newest word about the work:
+                // the device that wrote it had already made the whole series say the same
+                // thing. So the local series follows it, and the rows that changed are pushed
+                // back — otherwise the two devices keep saying different things about one
+                // piece of work, and the series is a name for nothing.
                 realignSeries(task)
+            } else {
+                // A row of another account — the lost-race path writes the row's own
+                // shadow — is that account's business: this device stores it and does
+                // not rewrite rows it does not own. The links it already carried are
+                // kept, because this device cannot write them for a row of another
+                // profile and an `@Upsert` would reset them to nothing. A row that
+                // is new here has no links to keep: this device does not derive them
+                // either, because deriving them would be a write to another
+                // account's row.
+                val previous = taskDao.getByIdForUser(task.id.value, task.userId.value)
+                taskDao.upsert(task.toEntity(outgoingLinks = previous?.outgoingLinks ?: EMPTY_LINKS))
             }
         }
         return task
+    }
+
+    /**
+     * The parts of a task document that are not the row: the tags, the links
+     * the description implies, and the blocking dependencies.
+     *
+     * A task is not one row. It is a row plus a set of cross-references — the
+     * tags in `task_tags`, the outgoing links in the row's own column, the
+     * blocking edges in `task_dependencies` — and a document that carries only
+     * the row is a document that says one thing about the work while the
+     * database says another. `@Upsert` replaces the whole row, so a writer that
+     * forgets one part of the document does not leave that part alone: it
+     * resets it.
+     *
+     * The path that applies a document applies all of it: the row, and these
+     * parts, in one unit of work. The paths that apply *part* of a document —
+     * an edit that changes the title — are a different thing, and they say so.
+     */
+    private suspend fun writeTaskParts(task: Task) {
+        val uid = currentUser.scopedUserId.value.value
+        writeTags(task, uid)
+        // The links are derived from the description: a document that carries a
+        // description carries the links that description implies.
+        //
+        // The stamp is the document's own, not the local clock. The row was
+        // written with the time the remote device had, and a write that stamps
+        // it with the local clock would say "this work was changed now" for a
+        // document that says otherwise — and the next push would carry that
+        // time to the other devices.
+        saveOutgoingLinks(task.id, task.description, task.updatedAt.toEpochMillis())
+        writeBlockingDependencies(task, uid)
+    }
+
+    /**
+     * Replaces the blocking edges of [task] with the ones the document carries.
+     *
+     * Only the `BLOCKS` edges are touched: they are the ones the wire carries
+     * (`dependsOn`), and the other verbs — a task that follows up another, one
+     * that duplicates another — are not in the document at all. Replacing them
+     * with the document's edges would delete what the document never spoke
+     * about.
+     *
+     * An edge that would close a cycle is refused on its own, and the rest of
+     * the document still applies. The local graph stays acyclic — the code that
+     * walks it assumes that — while a remote document that says something the
+     * local graph cannot hold does not stop the row from landing.
+     */
+    private suspend fun writeBlockingDependencies(task: Task, uid: String) {
+        val desired = task.blockedBy.map { it.value }.toSet()
+        val existing = taskDao.getBlockingEdgeIdsForUser(task.id.value, uid, DependencyVerb.BLOCKS.name)
+            .first()
+            .toSet()
+        (existing - desired).forEach { depId ->
+            taskDao.removeDependencyForVerb(task.id.value, depId, DependencyVerb.BLOCKS.name, uid)
+        }
+        (desired - existing).forEach { depId ->
+            val closesCycle = dependencyValidator
+                .assertNoCycles(task.id, setOf(TaskId.fromString(depId)))
+                .isFailure
+            if (closesCycle) return@forEach
+            taskDao.upsertDependencyForUser(task.id.value, depId, DependencyVerb.BLOCKS.name, uid)
+        }
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatchingCancellable {
@@ -727,7 +806,21 @@ class TaskRepositoryImpl(
     }
 }
 
-private fun Task.toEntity(): TaskEntity = TaskEntity(
+/**
+ * The row of a task.
+ *
+ * [outgoingLinks] is passed in rather than taken from the domain: the links
+ * live in the row, and the domain task has no field for them — they are
+ * *derived* from the description by whoever writes the row. The default derives
+ * them from this task's own description, which is right for every write that
+ * writes the row of the task it is given. A writer that writes the row of
+ * *another* task — the repair of a series, the row of a profile this device is
+ * not on — passes the links that belong to that row instead.
+ *
+ * A mapper that left the column out would let `@Upsert` reset it to "[]", and
+ * the links of a task would vanish with every write that did not mention them.
+ */
+private fun Task.toEntity(outgoingLinks: String = linksJsonOf(description)): TaskEntity = TaskEntity(
     id = id.value,
     title = title,
     description = description,
@@ -757,5 +850,24 @@ private fun Task.toEntity(): TaskEntity = TaskEntity(
     createdAt = createdAt.toEpochMillis(),
     updatedAt = updatedAt.toEpochMillis(),
     userId = userId.value,
+    outgoingLinks = outgoingLinks,
     sync = SyncColumns(serverVersion = serverVersion, hlc = hlc?.encoded),
 )
+
+/**
+ * The value the links column carries when nothing wrote them.
+ *
+ * A row that has never had a link carries this; a row that had one carries the
+ * links, and the writer that owns them decides.
+ */
+private const val EMPTY_LINKS = "[]"
+
+/**
+ * The links a description implies, as the column carries them.
+ *
+ * One derivation, two callers: the mapper that writes the row and the write
+ * that rewrites the links of a row that is already there. Two derivations would
+ * be two truths about the same description.
+ */
+private fun linksJsonOf(description: String?): String =
+    description?.let { extractOutgoingLinks(it) }.orEmpty().toLinksJson()

@@ -29,25 +29,12 @@ from __future__ import annotations
 import os
 import pathlib
 import subprocess
+import sys
 import unittest
 
-#: The variables git exports for a hook. A command that means "this
-#: repository" must not inherit them.
-INHERITED_FROM_HOOK = ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR')
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
 
-
-def sandbox_env(root: pathlib.Path) -> dict[str, str]:
-    """An environment in which git can only mean the fixture's own repository.
-
-    `root` is the fixture's temporary directory: git stops the upward walk
-    there, so a command that does not find the fixture's repository fails
-    instead of finding somebody else's.
-    """
-    env = dict(os.environ)
-    for name in INHERITED_FROM_HOOK:
-        env.pop(name, None)
-    env['GIT_CEILING_DIRECTORIES'] = str(root)
-    return env
+from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, sandbox_env, tree_env  # noqa: E402,F401
 
 
 def git(*args: str, cwd: pathlib.Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:

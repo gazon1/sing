@@ -16,10 +16,21 @@ reports a planted violation the way detekt reports one:
   - a violation that is only in the worktree does NOT fail the push (it is not
     in the tree being pushed);
   - a violation in the pushed tree fails the push even when the worktree
-    already holds the fix (the pushed tree still carries it).
+    already holds the fix (the pushed tree still carries it);
+  - the gate suite's own tests pass inside the pushed tree even when the hook
+    runs with the git environment git hands it.
 
 The last two are the ones that matter: together they say the verdict is about
 the tree that is being pushed, in both directions.
+
+The last case is the one that was broken for months. Git hands a hook the
+environment it runs in, and GIT_DIR in it points at the worktree the push was
+made from — in a linked worktree, GIT_DIR is that worktree's own git dir.
+The hook runs the gate suite inside a throwaway worktree, and without
+dropping that environment git read the ORIGINAL worktree's index there: a
+test that shells out to git failed with "git add: exit status 128", and the
+suite reported a failure that had nothing to do with the code. Nothing
+noticed, because the only thing that tested the hook was the hook.
 
 Nothing here touches the developer's repository: the repository, the remote
 and the hook copy are all temporary, and the Gradle wrapper is a stand-in, so
@@ -36,10 +47,9 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
+from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
@@ -75,16 +85,83 @@ sys.exit(0)
 SOURCE = 'package com.example\n\nclass Example\n' + VIOLATION + '\n'
 CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
 
+# The environment variable the probe writes what it saw to. The hook inherits
+# the environment of the push, so the probe inside the pushed tree can tell
+# the test outside what the git environment looked like from in there.
+MARKER_ENV = 'PRE_PUSH_GIT_ENV_MARKER'
 
-def _git(*args: str, cwd: pathlib.Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+# A gate suite test that shells out to git — the shape the real suite has.
+#
+# It is committed into the pushed tree, so the hook's gate-suite step runs it
+# inside that tree. It asserts the one thing that broke: git, run inside the
+# tree under test, must talk about THAT tree. Under a foreign GIT_DIR it talks
+# about the worktree the push was made from, and the assertion fails.
+#
+# The marker is written BEFORE the assertion, so a failing probe still says
+# what it saw: that is what tells the test outside whether the tree under test
+# was the tree git talked about.
+GIT_ENV_PROBE = '''"""A gate suite test that shells out to git — the shape the suite has.
+
+The tree this test runs in is the tree being pushed. Git, run inside it, must
+talk about THIS tree and not about the worktree the push was made from.
+"""
+
+import os
+import pathlib
+import subprocess
+import unittest
+
+MARKER_ENV = '{marker_env}'
+
+
+class GitEnvironmentTest(unittest.TestCase):
+    """git inside the tree under test must talk about that tree."""
+
+    def _git_dir_of_this_tree(self) -> str:
+        root = pathlib.Path(__file__).resolve().parents[2]
+        dot_git = root / '.git'
+        if dot_git.is_dir():
+            return str(dot_git.resolve())
+        # A linked worktree: a `.git` FILE that says where the git dir is.
+        pointer = dot_git.read_text(encoding='utf-8').strip()
+        _, _, path = pointer.partition('gitdir:')
+        return str((root / path.strip()).resolve())
+
+    def test_git_inside_this_tree_sees_this_tree(self):
+        root = pathlib.Path(__file__).resolve().parents[2]
+        observed = subprocess.run(
+            ['git', 'rev-parse', '--absolute-git-dir'],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        marker = os.environ.get(MARKER_ENV)
+        if marker:
+            pathlib.Path(marker).write_text(
+                'observed=' + observed.stdout.strip() + '\\n'
+                'GIT_DIR=' + os.environ.get('GIT_DIR', '') + '\\n',
+                encoding='utf-8',
+            )
+        self.assertEqual(0, observed.returncode, observed.stderr)
+        self.assertEqual(
+            self._git_dir_of_this_tree(),
+            str(pathlib.Path(observed.stdout.strip()).resolve()),
+            'git inside the tree under test talks about a DIFFERENT tree — the '
+            'git environment of the hook leaked into the tree being pushed',
+        )
+'''.format(marker_env=MARKER_ENV)
+
+
+def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ['git', *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         check=True,
-        env=env,
+        env=_clean_git_env(),
     )
+
 
 
 class PrePushHookTest(unittest.TestCase):
@@ -96,31 +173,12 @@ class PrePushHookTest(unittest.TestCase):
         self.repo = self.tmp / 'repo'
         self.remote = self.tmp / 'remote.git'
         self.repo.mkdir()
-        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
-        _git('config', 'user.email', 'hook@example.com', cwd=self.repo, env=self._env())
-        _git('config', 'user.name', 'Hook Test', cwd=self.repo, env=self._env())
-        _git('config', 'commit.gpgsign', 'false', cwd=self.repo, env=self._env())
+        _git('init', '-q', '-b', 'main', cwd=self.repo)
+        _git('config', 'user.email', 'hook@example.com', cwd=self.repo)
+        _git('config', 'user.name', 'Hook Test', cwd=self.repo)
+        _git('config', 'commit.gpgsign', 'false', cwd=self.repo)
         # The hook under test travels with the repository.
-        _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp, env=self._env())
-        assert_own_repository(self, self.repo, self._env())
-
-    def _env(self) -> dict[str, str]:
-        """An environment in which git cannot reach past the fixture's own tree.
-
-        The fixture creates a repository in a temporary directory and runs git
-        commands in it. Git exports `GIT_DIR` for the hooks it runs, and a
-        fixture that runs inside a hook inherits it: `git init` then
-        reinitialises the repository the hook is about, `git add -A` stages
-        the fixture's directory against that repository's index — every
-        tracked file looks deleted — and `git commit` writes the fixture's
-        tree onto the developer's branch.
-
-        On 2026-10-23 these fixtures committed a 12124-file deletion into the
-        working repository, and the same tree went to the remote main. The
-        scrubbing and the ceiling make the command fail instead, and the
-        failure is in the test output rather than in the developer's history.
-        """
-        return sandbox_env(self.tmp)
+        _git('init', '-q', '--bare', str(self.remote), cwd=self.tmp)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative
@@ -132,7 +190,7 @@ class PrePushHookTest(unittest.TestCase):
 
     def _install_hook(self) -> None:
         self._write('.githooks/pre-push', HOOK.read_text(encoding='utf-8'), executable=True)
-        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo, env=self._env())
+        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo)
 
     def _install_stubs(self) -> None:
         """The scripts the hook calls, and a Gradle wrapper that reports findings.
@@ -158,17 +216,69 @@ class PrePushHookTest(unittest.TestCase):
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
-        _git('add', '-A', cwd=self.repo, env=self._env())
-        _git('commit', '-q', '-m', message, cwd=self.repo, env=self._env())
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', message, cwd=self.repo)
 
     def _push(self) -> subprocess.CompletedProcess:
-        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo, env=self._env())
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
         return subprocess.run(
             ['git', 'push', 'origin', 'main'],
             cwd=self.repo,
             capture_output=True,
             text=True,
-            env=self._env(),
+            env=_clean_git_env(),
+        )
+
+    def _linked_worktree(self) -> pathlib.Path:
+        """A linked worktree of the fixture repository — where the defect lived."""
+        worktree = self.tmp / 'worktree'
+        _git('worktree', 'add', '--detach', str(worktree), 'HEAD', cwd=self.repo)
+        return worktree
+
+    def _the_environment_git_hands_a_hook(self, worktree: pathlib.Path) -> str:
+        """What git exports to a hook in a linked worktree.
+
+        The premise of the case below: in a linked worktree, git exports
+        GIT_DIR to the hook, and it points at that worktree's own git dir — a
+        tree that is NOT the tree the hook checks out. A probe hook writes it
+        down; it runs with a hooks path of its own, so the hook under test is
+        the only hook that ever gates a push in this fixture.
+        """
+        hooks = worktree / '.probehooks'
+        hooks.mkdir()
+        hook = hooks / 'pre-push'
+        hook.write_text(
+            '#!/usr/bin/env bash\nprintf "%s" "${GIT_DIR:-}" > "$PROBE_MARKER"\n',
+            encoding='utf-8',
+        )
+        hook.chmod(0o755)
+        marker = self.tmp / 'probe-marker.txt'
+        env = _clean_git_env()
+        env['PROBE_MARKER'] = str(marker)
+        subprocess.run(
+            ['git', '-c', 'core.hooksPath=.probehooks', 'push', 'origin', 'HEAD:refs/heads/probe'],
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        return marker.read_text(encoding='utf-8').strip()
+
+    def _push_from_worktree(self, worktree: pathlib.Path, marker: pathlib.Path) -> subprocess.CompletedProcess:
+        """Push from a linked worktree, with the marker in the environment.
+
+        The hook inherits the environment of the push, so the probe inside the
+        pushed tree sees the environment the hook ran with.
+        """
+        env = _clean_git_env()
+        env[MARKER_ENV] = str(marker)
+        return subprocess.run(
+            ['git', 'push', 'origin', 'HEAD:refs/heads/main'],
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            env=env,
         )
 
     # ── the cases ────────────────────────────────────────────────────────
@@ -267,6 +377,77 @@ class PrePushHookTest(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertEqual(0, result.returncode, output)
         self.assertIn('temporary worktree', output, 'the verdict was taken about the pushed tree')
+
+    def test_the_gate_suite_step_passes_with_the_git_environment_git_hands_a_hook(self):
+        """The suite runs inside the pushed tree, under the hook's environment.
+
+        Git exports GIT_DIR to a hook in a linked worktree, and it points at
+        that worktree — the one the push was made from. The hook runs the gate
+        suite in a throwaway worktree, so the environment has to be dropped
+        there: otherwise git reads the original worktree's index and the suite
+        fails for a reason that has nothing to do with the code.
+
+        The assertion is about the hook's own behaviour — the gate suite step
+        passes — and the premise (a foreign GIT_DIR) is checked too, so the
+        case cannot pass by having no environment to drop.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_git_environment.py', GIT_ENV_PROBE)
+        # The probe travels with the tree being pushed: the commit that carries
+        # the source carries the gate suite test as well.
+        self._commit_source(CLEAN_SOURCE, 'a clean file and a gate suite test')
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        worktree = self._linked_worktree()
+
+        # The premise: git really does hand a hook in a linked worktree a
+        # GIT_DIR, and it points at that worktree — the one the push is made
+        # from, and not the tree the hook checks out.
+        foreign = self._the_environment_git_hands_a_hook(worktree)
+        self.assertTrue(
+            foreign,
+            'git handed the hook no GIT_DIR at all — the case would prove nothing',
+        )
+        self.assertEqual(
+            foreign,
+            subprocess.run(
+                ['git', 'rev-parse', '--absolute-git-dir'],
+                cwd=worktree,
+                capture_output=True,
+                text=True,
+                env=_clean_git_env(),
+            ).stdout.strip(),
+            'the GIT_DIR of the hook is not the git dir of the worktree the push '
+            'was made from',
+        )
+
+        marker = self.tmp / 'git-env-marker.txt'
+        result = self._push_from_worktree(worktree, marker)
+        output = result.stdout + result.stderr
+
+        # The probe inside the pushed tree ran — so the gate suite step was
+        # exercised, and it saw a tree of its own.
+        self.assertTrue(
+            marker.exists(),
+            'the probe inside the pushed tree did not run — the gate suite step '
+            'was not exercised:\n' + output,
+        )
+        seen = marker.read_text(encoding='utf-8')
+        self.assertNotIn(
+            'observed=' + foreign,
+            seen,
+            'git inside the pushed tree talked about the worktree the push was '
+            'made from:\n' + seen,
+        )
+
+        # The behaviour: the suite passed inside the pushed tree anyway.
+        self.assertIn(
+            'gate suite tests: OK',
+            output,
+            'the gate suite failed inside the pushed tree under the git '
+            'environment of the hook:\n' + output,
+        )
+        self.assertEqual(0, result.returncode, output)
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@
 <!--
   A fixture report for the instrumented test floor's positive control.
 
-  It has the shape of the real run — seven classes, twenty-four tests, none
+  It has the shape of the real run — eight classes, twenty-six tests, none
   skipped — so the control can run the gate against a report that MEETS the
   floor and fail it by moving the floor, rather than by having no report at all.
 
@@ -14,9 +14,12 @@
   that is off by one class in either direction proves nothing and breaks the
   control that reads it.
 
+  The classes and their sizes are the ones the instrumented suite actually
+  has, so the fixture stays a picture of the suite and not of a guess about it.
+
   When the floor moves, this fixture has to move with it.
 -->
-<testsuite name="Fixture" tests="24" failures="0" errors="0" skipped="0">
+<testsuite name="Fixture" tests="26" failures="0" errors="0" skipped="0">
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.core.security.AndroidSecureStorageRecoveryTest" name="fixture_case_3"/>
@@ -27,18 +30,20 @@
   <testcase classname="com.singularity.todo.observability.AppTracerInstrumentedTest" name="fixture_case_4"/>
   <testcase classname="com.singularity.todo.observability.AppTracerInstrumentedTest" name="fixture_case_5"/>
   <testcase classname="com.singularity.todo.observability.AppTracerInstrumentedTest" name="fixture_case_6"/>
+  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_1"/>
+  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_2"/>
+  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_3"/>
   <testcase classname="com.singularity.todo.ui.AppStartupTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.AppStartupTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.AppStartupTest" name="fixture_case_3"/>
   <testcase classname="com.singularity.todo.ui.CreateTaskFlowTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.CreateTaskFlowTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.CreateTaskFlowTest" name="fixture_case_3"/>
+  <testcase classname="com.singularity.todo.ui.EditorBackGuardTest" name="fixture_case_1"/>
+  <testcase classname="com.singularity.todo.ui.EditorBackGuardTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.FailureBundleDeliveryTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.FailureBundleDeliveryTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_1"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_2"/>
   <testcase classname="com.singularity.todo.ui.NavigationSmokeTest" name="fixture_case_3"/>
-  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_1"/>
-  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_2"/>
-  <testcase classname="com.singularity.todo.ui.ActionRecordingTest" name="fixture_case_3"/>
 </testsuite>

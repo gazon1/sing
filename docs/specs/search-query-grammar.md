@@ -227,12 +227,15 @@ tokenizer; a term under `NOT` is answered by the in-memory rule, because FTS
 has no `NOT` operator. The rule does not ask the index's question a second
 time.
 
-One consequence is visible to the user. The index removes the diacritics of a
-word — "Café au lait" is indexed as "cafe au lait" — so a search for "cafe"
-finds "Café au lait". The negated terms are answered by the in-memory rule,
-which does not remove them, so `NOT cafe` keeps a record that `cafe` finds.
-This asymmetry is deliberate and is written down in
-`docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`.
+Both halves fold the diacritics the same way (F7), so they answer the same
+question the same way: a search for "cafe" finds "Café au lait", and `NOT cafe`
+rules out exactly the records "cafe" finds.
+
+The asymmetry that used to be here — the index removing the diacritics and the
+rule keeping them — is closed. It was written down as deliberate in
+`docs/decisions/2026-10-22-the-index-answers-the-positive-terms.md`; what
+closed it is
+`docs/decisions/2026-10-23-the-rule-folds-the-diacritics-the-way-the-index-does.md`.
 
 **F3 — the searchable text of a record is the kind's own.**
 
@@ -279,6 +282,17 @@ title and its description, a note by its title, a project and a tag by their
 name (F3) — in both modes, so that a search cannot answer differently
 depending on the kind of thing it is looking for. The mode is written down in
 `docs/decisions/2026-10-22-the-substring-search-is-a-mode-the-surface-states.md`.
+
+**F7 — the diacritics are folded the way the index folds them.** A character
+with a diacritic is folded to its base letter before anything is compared, and
+the fold is the one the full-text index does: "café" is folded to "cafe", so
+the term "cafe" matches "Café au lait". The fold does not change the length of
+the text, so a position in the folded text is the same position in the
+original.
+
+The rule holds for both modes (F6): the word mode and the contains mode answer
+the same way about the same text, and a negated term rules out exactly the
+records the positive term finds.
 
 ### 6.1 Why a conjunction, and not the alternatives
 

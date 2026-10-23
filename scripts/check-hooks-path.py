@@ -39,8 +39,21 @@ import pathlib
 import subprocess
 import sys
 
+# `scripts/src` on sys.path, and it has to be there *before* the first import
+# that uses it: this gate must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name, and an
+# import that happens first is already bound to it. When this file is loaded by
+# a test harness via importlib, sys.path[0] is `scripts/tests` and the package
+# is invisible; this file's own location is authoritative.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / "src")
+_added = _scripts_src not in sys.path
+if _added:
+    sys.path.insert(0, _scripts_src)
+
 import click
 from sgate.commands.base import run
+from sgate.gatekit.gitenv import tree_env
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -52,6 +65,7 @@ EXPECTED = '.githooks'
 def config(key: str) -> str | None:
     proc = subprocess.run(
         ['git', 'config', '--get', key], cwd=ROOT, capture_output=True, text=True,
+        env=tree_env(),
     )
     value = proc.stdout.strip()
     return value or None
@@ -97,6 +111,7 @@ def cli(ctx: click.Context, quiet: bool) -> None:
         tracked = subprocess.run(
             ['git', 'ls-files', str(hooks_dir.relative_to(ROOT) / '')],
             cwd=ROOT, capture_output=True, text=True,
+            env=tree_env(),
         ).stdout.split()
         if not tracked:
             errors.append(

@@ -69,6 +69,25 @@ them.
 The hook scrubs the names too, for the suite it runs: that is the belt to the
 fixtures' braces, and it protects a fixture nobody has looked at yet.
 
+The answer has one owner for everything that can reach the package:
+`sgate.gatekit.gitenv` holds `tree_env()` and `sandbox_env()`, and the gates
+and the fixtures both take it from there. The gate `check-hooks-path.py` is
+one of the consumers — it reads the configuration of the repository it is
+placed in, and under a hook the inherited `GIT_DIR` would have it answer about
+another repository entirely.
+
+One script keeps its own copy, and the reason is worth writing down:
+`scripts/pre-push-verdict.py` travels into the tree that is being pushed,
+alone, and that tree need not carry the package. A script that cannot import
+the answer has to carry it.
+
+The same rule landed on `main` in parallel, in PR #992: the hook drops the
+environment for every step it runs in the pushed tree, and two of the fixtures
+were fixed there. This change adds what that one did not have — the fixture
+that writes `core.sshCommand` (`test_setup_worktree.py`), the gate that reads
+the repository it is placed in, the owner the four copies of the rule now
+share, and the incident written down as a test.
+
 ## Consequences
 
 - The three fixtures that create a repository (`test_pre_push_hook.py`,

@@ -55,12 +55,10 @@ import kotlin.test.assertTrue
  * lost, silently. The matcher folds per character now, which is what
  * `unicode61` does, and the corpus is what keeps it that way.
  *
- * The other difference the corpus records is the diacritics: the index removes
- * them and the matcher does not, so "cafe" finds "café latte" in the index and
- * not in the matcher. That difference is now *visible* — the index answers the
- * positive terms, so the search finds the record — and it is asserted on its
- * own below. The direction that loses records is the one the corpus holds
- * closed.
+ * The other difference the corpus found was the diacritics: the index removed
+ * them and the matcher did not, so "cafe" found "café latte" in the index and
+ * not in the matcher. The matcher folds them now, the way the index does, and
+ * the difference is asserted on its own below.
  */
 @Tag("slow")
 @Tag("slow:data")
@@ -132,12 +130,12 @@ class FtsMatcherAgreementTest {
         "istanbul",
         "stanbul",
         "café",
+        "cafe",
         "straße",
         "strasse",
-        // "cafe" is deliberately not here: the index removes the diacritics and
-        // finds "café latte" for it, and the matcher does not. That difference
-        // is asserted on its own below — it is the one case where the index
-        // finds more than the rule, and it is now visible in the answer.
+        // "cafe" is here because the index and the matcher fold the diacritics
+        // the same way: both find "café latte" for it. The fold is asserted on
+        // its own below.
         // A word the query language would read as an operator. The index is
         // asked for it through a phrase, so it is a word and not an operator.
         "not",
@@ -225,13 +223,13 @@ class FtsMatcherAgreementTest {
     }
 
     @Test
-    fun `the index removes the diacritics and the rule does not, and the index decides`() = runTest {
+    fun `the index and the rule fold the diacritics the same way`() = runTest {
         seed()
 
         // The index folds "café" to "cafe" and finds the record for the term
-        // "cafe". The rule keeps the accent and does not. The index answers the
-        // positive terms, so the record is in the answer — and the answer is
-        // wider than it was when the rule had the last word.
+        // "cafe". The rule folds it the same way, so the two halves of one rule
+        // answer the same question the same way: "cafe" finds the record, and
+        // "NOT cafe" rules out exactly the records "cafe" finds.
         val byIndex = indexIds("cafe")
 
         assertTrue(
@@ -240,10 +238,14 @@ class FtsMatcherAgreementTest {
                 "\"cafe\". The index says: $byIndex",
         )
         assertTrue(
-            !TextMatch.matches("café latte", "cafe"),
-            "the rule keeps the accent, so it does not match the term \"cafe\" against " +
-                "\"café\". If this ever becomes true, the two agree about this case " +
-                "too, and it can move into the group that has to answer identically.",
+            TextMatch.matches("café latte", "cafe"),
+            "the rule folds the diacritics the way the index folds them, so the term " +
+                "\"cafe\" matches \"café latte\". If this ever becomes false, the two " +
+                "halves of a rule answer the same question two ways.",
+        )
+        assertTrue(
+            TextMatch.matches("Café au lait", "cafe"),
+            "the fold does not depend on the case of the text either.",
         )
     }
 

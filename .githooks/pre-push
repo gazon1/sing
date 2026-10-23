@@ -39,6 +39,30 @@
 # reported as a violation of the tree being pushed, and a violation that IS in
 # the pushed tree is not missed because the worktree happens to be clean.
 #
+# THE GIT ENVIRONMENT INSIDE THE TREE BEING PUSHED
+#
+# Git hands a hook the environment it runs in, and the one that matters is
+# GIT_DIR: it points at the worktree the push was made from. In a linked
+# worktree that is literal — GIT_DIR is that worktree's own git dir — and
+# GIT_WORK_TREE and GIT_INDEX_FILE can come from the developer's shell as
+# well.
+#
+# So every command that runs INSIDE the tree being pushed has to drop that
+# environment before it runs. Without the drop, git reads the original
+# worktree's index there and reports about a tree nobody pushed: a test that
+# shells out to git fails with "git add: exit status 128", the gate suite
+# fails for a reason that has nothing to do with the code, and the diff that
+# shows what detekt corrected is taken against the wrong base. The tree being
+# pushed has its own `.git` file, and git finds it when the environment does
+# not say otherwise.
+#
+# Every step of this hook that runs in the tree being pushed therefore starts
+# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE`, and the script it
+# calls — `scripts/pre-push-verdict.py` — runs its own git commands through
+# `tree_env()`. A command added inside that tree has to do the same: the
+# contract is not enforced, it is written down, and the next command that
+# forgets it breaks silently, on a tree that was fine.
+#
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
 # To disable entirely: git config --unset core.hooksPath
@@ -241,7 +265,7 @@ for i in "${!PUSH_REFS[@]}"; do
         tree="$REPO_ROOT"
     fi
 
-    if (cd "$tree" && python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .); then
+    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .); then
         echo "   version-catalog gate: OK"
     else
         echo "   version-catalog gate: FAILED"
@@ -253,7 +277,7 @@ for i in "${!PUSH_REFS[@]}"; do
 
     if [ ! -d "$tree/Maestro/flows" ]; then
         echo "   maestro selector gate: SKIPPED (this tree has no Maestro/flows)"
-    elif (cd "$tree" && python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows); then
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows); then
         echo "   maestro selector gate: OK"
     else
         echo "   maestro selector gate: FAILED"
@@ -273,7 +297,7 @@ for i in "${!PUSH_REFS[@]}"; do
     # CI runs it either way.
     if ! python3 -c "import click" >/dev/null 2>&1; then
         echo "   ui wait budgets gate: SKIPPED (click is not installed)"
-    elif (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$REPO_ROOT/scripts/src" \
         python3 "$REPO_ROOT/scripts/check-ui-wait-budgets.py" --root "$tree"); then
         echo "   ui wait budgets gate: OK"
     else
@@ -324,7 +348,7 @@ for i in "${!PUSH_REFS[@]}"; do
                 echo "   $rule gate: SKIPPED (the pushed tree does not have this rule)"
                 continue
             fi
-            if (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
+            if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$REPO_ROOT/scripts/src" \
                 python3 "$tree/scripts/$rule.py" --quiet); then
                 echo "   $rule gate: OK"
             else
@@ -362,8 +386,8 @@ for i in "${!PUSH_REFS[@]}"; do
     # outside a hook too, and this line is the belt to their braces.
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
-    elif (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
-        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        PYTHONPATH="$tree/scripts/src" \
         python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
         echo "   gate suite tests: OK"
     else
@@ -424,7 +448,7 @@ for i in "${!PUSH_REFS[@]}"; do
     PROMISE_OUT="$(mktemp "${TMPDIR:-/tmp}/pre-push-promise-XXXXXX")"
 
     if promise_touched "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt$"; then
-        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
             python3 "$tree/scripts/check-test-tags-catalog.py" --check --quiet) \
             >"$PROMISE_OUT" 2>&1; then
             echo "   tag catalogue gate: OK"
@@ -439,7 +463,7 @@ for i in "${!PUSH_REFS[@]}"; do
     fi
 
     if promise_touched "Maestro/flows/" || promise_touched "config/docs/maestro-flows.txt$"; then
-        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
             python3 "$tree/scripts/check-maestro-flow-catalogue.py") \
             >"$PROMISE_OUT" 2>&1; then
             echo "   maestro flow catalogue gate: OK"
@@ -454,7 +478,7 @@ for i in "${!PUSH_REFS[@]}"; do
     fi
 
     if promise_touched "openspec/changes/"; then
-        if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
             python3 "$tree/scripts/check-issue-registry.py" --quiet) \
             >"$PROMISE_OUT" 2>&1; then
             echo "   issue registry gate: OK"
@@ -479,7 +503,7 @@ for i in "${!PUSH_REFS[@]}"; do
     #
     # They are text gates, so they cost seconds. The check is against the tree
     # being pushed, like every other gate here.
-    if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
         python3 "$tree/scripts/check-di-fixture-sync.py" --root "$tree" --check); then
         echo "   DI fixture gate: OK"
     else
@@ -490,7 +514,7 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "Run python3 scripts/check-di-fixture-sync.py to see where, or push with --no-verify."
     fi
 
-    if (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
         python3 "$tree/scripts/check-navigation-doc-sync.py" --root "$tree" --check); then
         echo "   navigation doc gate: OK"
     else
