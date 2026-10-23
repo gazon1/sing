@@ -2,7 +2,7 @@
 change: a-push-carries-what-the-database-holds
 verdict: pass
 date: 2026-10-23
-pr: 0
+pr: 1043
 reviewed: f6b0f3162e8ff4e9b09bf5c0813d7d2a498215e0
 documents: sha256:f80d8037d4e29ad3a242658e5979da49a4d8c4c1b138d8d36c39a0e2332ff400
 ---
