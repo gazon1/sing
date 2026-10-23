@@ -16,6 +16,8 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import com.singularity.todo.core.error.runCatchingCancellable
@@ -76,7 +78,25 @@ class ApplyProposalItemUseCase(
                 // here before the claim, so bad proposals fail fast.
                 val plan = buildPlan(stored, userId)
 
-                val claimedItem = proposals.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, userId)
+                // The claim is a transaction, and what it decided is known inside
+                // it. The flag is set where the transaction is, so a cancellation
+                // that arrives between the commit and the return cannot leave the
+                // claim behind: the flag says the claim is standing, and a standing
+                // claim is given back.
+                // A scope that is already gone does not claim: the claim is the
+                // decision, and there is nobody left to make it.
+                currentCoroutineContext().ensureActive()
+                val claimedItem = withContext(NonCancellable) {
+                    val item = proposals.claim(
+                        itemId,
+                        ProposalItemStatus.Confirmed,
+                        DecidedActor.User,
+                        null,
+                        userId,
+                    )
+                    if (item != null) claimed = true
+                    item
+                }
                     // Lost the race — the other tap decided it. Re-read, so the caller is
                     // told what the item actually is now, instead of a stale pending copy.
                     ?: return@runCatchingCancellable proposals.getItem(itemId) ?: stored

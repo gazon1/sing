@@ -35,8 +35,12 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -423,6 +427,101 @@ class ApplyProposalItemUseCaseTest {
             emptyList(),
             checklist.watchByTask(taskId.value).first().map { it.title },
             "no row is left behind — the row that stayed is taken back when the take-back is tried again",
+        )
+    }
+
+    @Test
+    fun `a row that was written and then lost is still taken back`() = runTest {
+        tasks.seed(task())
+        // The write committed and the screen went away before the write came back:
+        // the row is there, and the id that would address it never arrived. That is
+        // the moment the id has to be known already — before the write, not after
+        // it. The change waits again, so a row that stayed would be there twice.
+        checklist.afterWrite = { throw CancellationException("the screen went away") }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first")))
+
+        assertFailsWith<CancellationException> { useCase.confirm(id, user) }
+
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "the row that was written is taken back — the id was known before the write",
+        )
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits — it was never decided",
+        )
+    }
+
+    @Test
+    fun `a cancellation while the claim is in flight gives the claim back`() = runTest {
+        tasks.seed(task())
+        // The claim is a transaction, and what it decided is known inside it. A
+        // cancellation that arrives while the claim is in flight must not leave the
+        // claim standing over nothing: the claim's own call is not cancellable, so
+        // the fact that it stands is known — and the work that follows it is
+        // cancelled at its first suspension point, which is where the claim is
+        // given back.
+        proposals.afterClaim = { delay(50) }
+        tasks.afterCreate = { delay(50) }
+        val id = seedProposal(ProposalItemKind.AddSubtasks(listOf("Pick up milk")))
+
+        val confirm = launch { useCase.confirm(id, user) }
+        runCurrent()
+        confirm.cancel()
+        advanceUntilIdle()
+
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits — the claim was given back, because nothing was written",
+        )
+        assertTrue(
+            tasks.observeAll().first().none { it.title == "Pick up milk" && it.archivedAt == null },
+            "the subtask that was written is not there",
+        )
+    }
+
+    @Test
+    fun `a subtask that was written and then lost is archived, not left alive`() = runTest {
+        tasks.seed(task())
+        // The subtask was written and the write was lost. The take-back is a delete,
+        // and a delete travels to the server as an archive: the other device does
+        // not bring the row back as a live task. So the take-back goes through the
+        // archive, not through a removal that only this device knows about.
+        tasks.afterCreate = { throw CancellationException("the screen went away") }
+        val id = seedProposal(ProposalItemKind.AddSubtasks(listOf("Pick up milk")))
+
+        assertFailsWith<CancellationException> { useCase.confirm(id, user) }
+
+        val written = tasks.observeAll().first().filter { it.title == "Pick up milk" }
+        assertEquals(1, written.size, "the row that was written is still there")
+        assertNotNull(
+            written.single().archivedAt,
+            "it is archived rather than deleted — the archive is what the sync carries",
+        )
+    }
+
+    @Test
+    fun `a change this build cannot read is refused with its reason`() = runTest {
+        tasks.seed(task())
+        // A row written by a build that knew a kind this one does not. The change
+        // stays on the card with the reason, and applying it says why instead of
+        // doing nothing.
+        val id = seedProposal(ProposalItemKind.Unknown("""{"type":"ArchiveEverything"}"""))
+
+        val result = useCase.confirm(id, user)
+
+        assertTrue(result.isFailure, "a change that does not read cannot be applied")
+        assertTrue(
+            result.exceptionOrNull()?.message?.contains("cannot read") == true,
+            "the reason is the answer: ${result.exceptionOrNull()?.message}",
+        )
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change waits — it was never decided",
         )
     }
 

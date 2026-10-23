@@ -5,6 +5,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.TagValue
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
@@ -48,7 +49,7 @@ class ProposalPlanner(private val clock: Clock) {
             // the one the user has to hear — not that the note is missing.
             kind.value.readFailure?.let { reason -> error(reason) }
             val n = note ?: error("Note ${item.targetId} not found")
-            ProposalPlan.WriteNote(n, kind.value)
+            ProposalPlan.WriteNote(withNoteValue(n, kind.value))
         }
 
         is ProposalItemKind.DeleteNote -> {
@@ -244,6 +245,26 @@ class ProposalPlanner(private val clock: Clock) {
         // the plan is built before the claim, so the change is neither decided
         // nor lost.
         is TaskValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
+    }
+
+    /**
+     * Returns [note] with [value] applied, or throws if the value is not something
+     * the note can hold.
+     *
+     * The note to write is built here, where the field is known: the dispatcher
+     * writes a note, it does not decide which field of it to write.
+     */
+    fun withNoteValue(note: Note, value: NoteValue): Note = when (value) {
+        is NoteValue.Title -> note.copy(title = value.value.trim())
+
+        is NoteValue.Body -> note.copy(bodyHtml = value.value)
+
+        is NoteValue.Summary -> note.copy(bodyHtml = value.value)
+
+        // A value this build cannot read. The change stays on the card with the
+        // reason it cannot be applied, and the user can type a value that does
+        // read.
+        is NoteValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     /**

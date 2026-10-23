@@ -64,6 +64,7 @@ interface TimeTrackingRepository {
         kind: TimeEntryKind,
         note: String?,
         source: TimeEntrySource = TimeEntrySource.Manual,
+        id: TimeEntryId = TimeEntryId.generate(),
     ): Result<TimeEntryId>
 
     /**

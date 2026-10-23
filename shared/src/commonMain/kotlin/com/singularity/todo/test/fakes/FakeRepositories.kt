@@ -765,9 +765,19 @@ open class FakeTaskRepository(
         createCallOverride?.invoke(item.title)?.let { return it }
         return runCatchingCancellable {
             store.upsert(item)
+            afterCreate?.invoke(item)
             item
         }
     }
+
+    /**
+     * Runs after the task was created and before the call returns.
+     *
+     * The hook is where a test stands for the screen that went away in the middle
+     * of a write: the row is there, and the write never came back. Null by
+     * default, so an existing test changes nothing.
+     */
+    var afterCreate: (suspend (Task) -> Unit)? = null
 
     override suspend fun update(item: Task): Result<Task> {
         updateOverride?.let { return it }
@@ -1096,6 +1106,17 @@ class FakeChecklistRepository : ChecklistRepository {
     var addItemOverride: ((String) -> Result<ChecklistItemId>?)? = null
 
     /**
+     * Runs after the row was written and before the write returns.
+     *
+     * The hook is where a test stands for the write that committed and then lost
+     * its result: the row is there, and the id the caller would have got never
+     * arrived. That is the moment a write is cut short *after* the database has
+     * committed — the moment the id has to be known already. Null by default, so
+     * an existing test changes nothing.
+     */
+    var afterWrite: (suspend (ChecklistItemId) -> Unit)? = null
+
+    /**
      * The ids [delete] was called for, in order — the calls that were cut short included.
      *
      * A take-back that runs twice shows here, and a row that is taken back twice is a
@@ -1133,17 +1154,22 @@ class FakeChecklistRepository : ChecklistRepository {
             .sortedBy { it.sortOrder }
     }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> {
+    override suspend fun addItem(
+        taskId: String,
+        title: String,
+        id: ChecklistItemId,
+    ): Result<ChecklistItemId> {
         addItemOverride?.invoke(title)?.let { return it }
         return runCatchingCancellable {
             val item = ChecklistItem(
-                id = ChecklistItemId.generate(),
+                id = id,
                 taskId = taskId,
                 title = title,
                 isCompleted = false,
                 sortOrder = 0,
             )
             items.value += (item.id.value to item)
+            afterWrite?.invoke(item.id)
             item.id
         }
     }

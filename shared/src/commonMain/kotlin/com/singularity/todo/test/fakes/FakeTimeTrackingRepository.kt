@@ -70,8 +70,8 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
         kind: TimeEntryKind,
         note: String?,
         source: TimeEntrySource,
+        id: TimeEntryId,
     ): Result<TimeEntryId> {
-        val id = TimeEntryId.generate()
         val now = clock.now()
         val entry = TimeEntry(
             id = id,
