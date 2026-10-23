@@ -71,19 +71,44 @@ plugins {
 // block only takes filters and verification rules — there is no `total { }` there, and
 // asking for one fails script compilation with "Unresolved reference".
 //
-// `enableCoverage()` is mandatory and is NOT implied by the block below.
-// `KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)`, and nothing in
-// the settings DSL flips it: `KoverSettingsGradlePlugin` reads it in `beforeProject` and
-// returns early when false, so the root tasks are simply never registered. Symptom of
-// forgetting it: the build succeeds, every test task runs with the Kover agent attached,
-// per-project `bin-reports/*.ic` appear, and `:koverXmlReport` does not exist — the
-// subproject plugins were doing all the instrumenting. Confirmed against the 0.9.9
-// sources, not inferred.
+// `enableCoverage()` is what attaches the Kover agent to every `Test` task, and
+// it is a property of the CONFIGURATION, not of the task graph. Measured
+// 2026-10-23: an invocation that names no coverage task at all
+// (`./gw :shared:jvmTest --tests '…CapabilityFlagTest' --info`) still runs the
+// test JVM with `-javaagent:…/build/kover/kover-jvm-agent-0.9.9.jar` on its
+// command line, and `--dry-run` lists `:koverAgentSearch`. So a job that drops
+// `koverReport` from its invocation moves the REPORT and leaves the COST.
+//
+// The switch is therefore a Gradle property, so that one job can opt out of
+// the instrumentation while another job opts in:
+//
+//   -Pcoverage.enabled=false   the agent is not attached, and the root coverage
+//                              tasks are not registered — so a path that does
+//                              not measure coverage cannot name a coverage task
+//   -Pcoverage.enabled=true    today's behaviour, and the default
+//
+// The default is ON, because the local rehearsal is the one that measures the
+// floors: a local run that silently stopped instrumenting would report a
+// coverage number against nothing.
+//
+// `KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)`, and
+// nothing in the settings DSL flips it: `KoverSettingsGradlePlugin` reads it
+// in `beforeProject` and returns early when false, so the root tasks are
+// simply never registered. Confirmed against the 0.9.9 sources, not inferred.
 //
 // The `includedClasses` filter is the same one the per-project blocks used, and for the
 // same reason (ADR 2026-09-25-test-jvm-heap-default): the IntelliJ coverage runtime
 // keeps one ClassData entry per loaded class, and the Koog classpath alone contributes
 // 3000+ of them.
+//
+// ── The switch itself ─────────────────────────────────────────────────────────
+val coverageProperty = providers.gradleProperty("coverage.enabled").getOrElse("true").trim().lowercase()
+require(coverageProperty == "true" || coverageProperty == "false") {
+    "the property 'coverage.enabled' is '$coverageProperty', and it is a boolean — pass " +
+        "'-Pcoverage.enabled=true' or '-Pcoverage.enabled=false'. A value nobody reads " +
+        "is a value nobody checks."
+}
+val coverageEnabled = coverageProperty == "true"
 // ── The population the run measures ─────────────────────────────────────────
 //
 // A coverage floor describes a MEASUREMENT, and the measurement depends on the
@@ -266,7 +291,14 @@ val appLineCoverageFloor =
     if (measuredFullPopulation) FULL_LINE_COVERAGE_FLOOR else FAST_LINE_COVERAGE_FLOOR
 
 kover {
-    enableCoverage()
+    // The switch, not a constant: the pull-request path runs the suite
+    // without the agent, and the coverage job runs it with one. With the agent
+    // off, the root `koverReport` / `koverHtmlReport` / `koverVerify` tasks are
+    // not registered — which is the point: a path that does not measure
+    // coverage cannot name a coverage task.
+    if (coverageEnabled) {
+        enableCoverage()
+    }
     // Build tooling, not application code. `detekt-rules` is the custom-rule
     // module; its rules are exercised by 56 tests, but no CI job and no check.sh
     // step runs them, and 4 of those tests fail on this branch for reasons that
