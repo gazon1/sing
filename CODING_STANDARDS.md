@@ -134,7 +134,53 @@ A reviewing agent watches for the version that is not a gate:
 
 ---
 
-## The conventions that a change must not break
+## A path that applies a document writes all of it
+
+A document is more than the row it arrives in. A task is the row, the tag
+cross-refs, the blocking edges, and the links its description implies; a note
+is the row, its folder, its attachments, its outgoing links.
+
+A path that applies a document writes every part of it. A path that applies
+*part* of a document says which part, and leaves the rest alone.
+
+A reviewing agent watches for the path that writes the row and stops:
+
+- A write that upserts a row but not the cross-refs the row implies. The
+  `@Upsert` replaces the whole row, so the parts that were not written are not
+  left alone — they are reset.
+- A write that takes a field it was given and writes it, when the field was
+  empty because the reader does not load it. An empty tag list on a task read
+  through `get()` is the absence of a claim, not a claim that there are no
+  tags.
+- A writer that drops a column of the row, because the domain model has no
+  field for it. The column is still reset on every write.
+
+The mechanical part is a gate: `TaskRowWriterTest` checks that every column of
+the task row has a writer in the mapper the repository uses, and that a column
+without one is declared out loud; the behaviour is `TaskDocumentWriteTest`.
+The judgement the gate cannot make — is this path applying a document or a
+part of one — is what the reviewer reads for.
+
+---
+
+## The spec and the code say the same thing
+
+A spec that describes a behaviour the code does not have is worse than no
+spec: it is a promise the code breaks on purpose, and the next reader believes
+the promise.
+
+A reviewing agent watches for a change that leaves the two apart:
+
+- A scenario whose wording the implementation contradicts. Read the scenario
+  against the code, not against the intent.
+- A requirement that says "scoped by X" while the code scopes by Y. One of them
+  is wrong, and the difference is a behaviour, not a wording.
+
+The fix is in the same commit as the code: the spec is corrected to say what
+the code does, or the code is changed to do what the spec says. "Later" is how
+the two drift apart in the first place.
+
+---
 
 These are checked; a reviewer verifies the check was run rather than
 re-deriving them.
