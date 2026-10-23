@@ -91,15 +91,37 @@ plugins {
 // measures less coverage. Two populations therefore need two sets of floors —
 // one set that describes a fast run and one that describes a full run.
 //
-// The population is read from the SAME property the tests use (`-Ptest.tags`),
-// so there is exactly one source of truth. A separate `-Pcoverage.profile`
-// could disagree with `-Ptest.tags`, and then the floor would be checked
-// against a run that never happened.
+// The population is read from the SAME property the tests use
+// (`-Ptest.population`), so there is exactly one source of truth. A separate
+// `-Pcoverage.profile` could disagree with the population the tests ran, and
+// then the floor would be checked against a run that never happened.
 //
-// `slow` in the list means the full population. An absent list means the default
-// run, which excludes `slow` and therefore measures the fast population.
+// The name is turned into the tag list by `config/test-populations.properties`
+// — the same file the root build script reads to hand the modules their tag
+// list. The floor therefore cannot disagree with the selection: both read one
+// definition.
+//
+// A population that selects `slow` is the full one. An absent population means
+// the default run, which excludes `slow` and therefore measures the fast
+// population.
+val testPopulations = java.util.Properties().apply {
+    rootDir.resolve("config/test-populations.properties").inputStream().use { load(it) }
+}
+val testPopulation = providers.gradleProperty("test.population").getOrElse("")
 val testTags = providers.gradleProperty("test.tags").getOrElse("")
-val measuredFullPopulation = testTags.split(",").any { it.trim() == "slow" }
+val selectedTags = when {
+    testPopulation.isNotEmpty() -> {
+        val declared = testPopulations.getProperty(testPopulation)
+        require(declared != null) {
+            "unknown test population '$testPopulation' — the known ones are: " +
+                testPopulations.stringPropertyNames().sorted().joinToString(", ") +
+                " (config/test-populations.properties)"
+        }
+        declared
+    }
+    else -> testTags
+}.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+val measuredFullPopulation = selectedTags.any { it == "slow" }
 
 // Floors rounded down from measured values, one set per population.
 //

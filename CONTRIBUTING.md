@@ -30,15 +30,15 @@ short on purpose. The parts that trip up newcomers:
   asserting outgoing calls and nothing else.
 - **Every test class carries a `@Tag`.** `fast` unless the test crosses a process
   boundary — a real database, a real file, a Compose harness, a spawn. `slow` does
-  not mean "takes a while". CI runs `-Ptest.tags=fast` on a pull request and
-  `-Ptest.tags=fast,slow` on the nightly, and an untagged class is silently
+  not mean "takes a while". CI runs `-Ptest.population=fast` on a pull request and
+  `-Ptest.population=full` on the nightly, and an untagged class is silently
   excluded by both.
 - **No `delay()` in tests.** Use `awaitState` / `advanceUntilIdle` and virtual
   time.
 - **A full `:shared:jvmTest` batch that dies with `EOFException` in a "Gradle
   Test Executor" is the runner, not your test.** Individual classes pass; the
   batch crashes when several test tasks share one checkout under parallel
-  execution. Narrow the run (`-Ptest.tags=fast`, or one class via `--tests`)
+  execution. Narrow the run (`-Ptest.population=fast`, or one class via `--tests`)
   — the pre-push hook runs the same suite with `--no-parallel` for exactly
   this reason (#471).
 - **Android + JVM only.** There is no iOS target, and adding one is a decision,

@@ -47,6 +47,110 @@ allprojects {
 }
 
 // ---------------------------------------------------------------------------
+// The test population, and the manifest of every run
+// ---------------------------------------------------------------------------
+//
+// A POPULATION is a name: `-Ptest.population=fast` or `-Ptest.population=full`.
+// The tags each name selects live in `config/test-populations.properties` —
+// one file, read here, in settings.gradle.kts (which picks the coverage floors
+// by population) and by the Python gates (which compare what a job's
+// invocations asked for). Before this file existed the selection was the
+// literal string "fast,slow", written in the workflow, in settings.gradle.kts
+// and in a gate, and nothing said which of them was the definition.
+//
+// The name is turned into the tag list ONCE, here, and handed to every module
+// as the `test.tags` property the modules already read. A module's build script
+// does not know about populations: it reads a tag list, and this block is what
+// puts the list there.
+//
+// `-Ptest.tags` still works and still wins: it is the raw knob, for a local
+// run that wants a selection no population names. What does NOT work is
+// passing both — two spellings of one selection is how they drift apart.
+subprojects {
+    val populations = java.util.Properties().apply {
+        rootProject.file("config/test-populations.properties").inputStream().use { load(it) }
+    }
+    val population = providers.gradleProperty("test.population").orNull
+    val explicitTags = providers.gradleProperty("test.tags").orNull
+
+    if (population != null && explicitTags != null) {
+        throw GradleException(
+            "-Ptest.population=$population and -Ptest.tags=$explicitTags were both given. " +
+                "One selection, one spelling: name a population, or spell the tags."
+        )
+    }
+    if (population != null) {
+        val tags = populations.getProperty(population)
+        if (tags == null) {
+            throw GradleException(
+                "unknown test population '$population' — the known ones are: " +
+                    populations.stringPropertyNames().sorted().joinToString(", ") +
+                    " (config/test-populations.properties)"
+            )
+        }
+        // The modules read `project.findProperty("test.tags")`. Handing them the
+        // resolved list here is what lets six build scripts stay free of the
+        // population vocabulary.
+        extra["test.tags"] = tags
+    }
+    extra["test.population"] = population ?: ""
+
+    // ── The run manifest ────────────────────────────────────────────────────
+    //
+    // Gradle leaves no record of whether a run was filtered, so a run that
+    // selected one class rewrites the XML directory with that class's results,
+    // and every gate that reads it — `check-test-runs.py`,
+    // `check-flaky-tests.py` — reports a verdict it cannot source. The gates
+    // were right and useless: they said "a suite stopped running" about a tree
+    // where nothing had.
+    //
+    // The manifest is written here, for EVERY module, because a convention that
+    // lives in one module is a convention the other modules do not have. It used
+    // to be written by `shared/build.gradle.kts` alone, and the gate that asks
+    // "were the slow classes supposed to run here?" could only answer for
+    // `shared` — for `desktopApp` (where 49 of 62 classes are slow) the answer
+    // was a fallback that cannot tell "selected no slow class" from
+    // "deliberately fast-only". That distinction is the whole question.
+    //
+    // One property decides "partial", and it is the one Gradle already tracks:
+    // a `--tests` filter populates `filter.includePatterns`, and nothing else
+    // does. A `-Ptest.population` filter deliberately does NOT mark the run
+    // partial — population selection is what CI does on purpose, and the floors
+    // are recorded against it. The population IS recorded, though: it is what
+    // this run measured, and the gate needs it to answer the slow-class
+    // question.
+    tasks.withType<Test>().configureEach {
+        val runDir = layout.buildDirectory.dir("test-results/$name")
+        val selectedPopulation = (project.findProperty("test.population") as String?) ?: ""
+        val selectedTags = (project.findProperty("test.tags") as String?) ?: ""
+        doLast {
+            val filters = filter.includePatterns
+            val partial = filters.isNotEmpty()
+            val executed = runDir.get().asFile.listFiles()
+                ?.count { it.name.startsWith("TEST-") && it.name.endsWith(".xml") } ?: 0
+            runDir.get().asFile.resolve("run-manifest.properties").writeText(
+                """
+                # Written by the root build script. Read by scripts/check-test-runs.py.
+                task=$name
+                partial=$partial
+                filters=${filters.joinToString(",")}
+                population=$selectedPopulation
+                tags=$selectedTags
+                executedClasses=$executed
+                finishedAt=${System.currentTimeMillis()}
+                """.trimIndent() + "\n",
+            )
+            logger.lifecycle(
+                "$name run manifest: ${if (partial) "PARTIAL" else "full"} " +
+                    "($executed classes${if (partial) ", filters=${filters.joinToString(",")}" else ""}" +
+                    "${if (selectedPopulation.isNotEmpty()) ", population=$selectedPopulation" else ""}" +
+                    "${if (selectedTags.isNotEmpty()) ", tags=$selectedTags" else ""})",
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Aggregated code coverage
 // ---------------------------------------------------------------------------
 // koverVerify is registered by the settings-level `kover.aggregation` plugin on every
@@ -129,6 +233,7 @@ tasks.register("koverReport") {
 // before or after this script was evaluated.
 tasks.matching { it.name == "koverVerify" }.configureEach {
     dependsOn("koverReport")
+
 }
 
 // Same reasoning applies to the HTML report, so it gets a wrapper rather than a

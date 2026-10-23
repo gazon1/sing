@@ -54,10 +54,10 @@ trace-results maestro="":
     #!/bin/bash
     set -euo pipefail
     # --partial because the documented local cycle runs @Tag("fast") only
-    # (./gradlew :desktopApp:test with no -Ptest.tags excludes "slow"), and
+    # (./gradlew :desktopApp:test with no population excludes "slow"), and
     # every scenario carrier is slow. Without the flag the per-scenario rule
     # reads the absent slow tests as a defect on every local run. CI does not
-    # pass it on the nightly: that run measures -Ptest.tags=fast,slow, and there
+    # pass it on the nightly: that run measures -Ptest.population=full, and there
     # the rule is the point. CI's pull-request run measures the fast population
     # only, so it passes --partial for the same reason this recipe does.
     if [ -n "{{maestro}}" ]; then
