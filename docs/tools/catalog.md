@@ -20,6 +20,7 @@ Every gate script in the repository, what it checks, and where it runs. Generate
 | `scripts/check-gate-json-contract.py` | check-gate-json-contract.py — every gate dispatched through `sgate` speaks one contract. |
 | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? |
 | `scripts/check-gate-registries.py` | check_gate_registries.py — the two gate registries agree on what exists. |
+| `scripts/check-gate-tooling-origin.py` | check-gate-tooling-origin.py — the gate CLI must serve THIS checkout. |
 | `scripts/check-gate-wiring.py` | check-gate-wiring.py — prove the gates exist AND that they can fail. |
 | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is noise. |
 | `scripts/check-hooks-path.py` | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#519). |
