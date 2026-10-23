@@ -1,5 +1,5 @@
 {
-    "version": 1,
+    "version": 2,
     "surfaceContractVersion": 3,
     "tools": [
         {
@@ -9,7 +9,9 @@
             "description": "Group note titles into thematic clusters.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "cluster_tasks",
@@ -18,7 +20,9 @@
             "description": "Group task titles into thematic clusters.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "create_note",
@@ -27,7 +31,9 @@
             "description": "Proposes a new note or folder. The note is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. The body is markdown.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "create_project",
@@ -36,7 +42,9 @@
             "description": "Proposes a new project. The project is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. colorHex is #RRGGBB or #AARRGGBB.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "create_tag",
@@ -45,7 +53,9 @@
             "description": "Proposes a new tag. The tag is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. colorHex is #RRGGBB or #AARRGGBB.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true
+            "idempotent": true,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "create_task",
@@ -54,7 +64,9 @@
             "description": "Proposes a new task. The task is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. All fields optional except title. Priority is none, low, medium, high or urgent. dueDate is YYYY-MM-DD, dueTime is HH:mm.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "decompose_and_create",
@@ -63,7 +75,9 @@
             "description": "Asks the LLM to break a task into sub-tasks, then proposes each sub-task in one call. The sub-tasks are proposed, not created — the user sees them and decides. planSource='llm' or 'empty' (LLM unavailable).",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "decompose_task",
@@ -72,7 +86,9 @@
             "description": "Break a task into smaller, actionable sub-tasks.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "delete_note",
@@ -81,7 +97,9 @@
             "description": "Creates a proposal to soft-delete a note by its ID. The deletion requires user confirmation before taking effect.",
             "readOnly": false,
             "destructive": true,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "delete_project",
@@ -90,7 +108,9 @@
             "description": "Creates a proposal to archive a project by its ID. The deletion requires user confirmation before taking effect.",
             "readOnly": false,
             "destructive": true,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "delete_tag",
@@ -99,7 +119,9 @@
             "description": "Creates a proposal to soft-delete a tag by its ID. The deletion requires user confirmation before taking effect.",
             "readOnly": false,
             "destructive": true,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "delete_task",
@@ -108,7 +130,9 @@
             "description": "Creates a proposal to soft-delete (archive) a task by its ID. The deletion requires user confirmation before taking effect.",
             "readOnly": false,
             "destructive": true,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "extract_actions",
@@ -117,7 +141,9 @@
             "description": "Extract actionable tasks from a note.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "first_step",
@@ -126,7 +152,9 @@
             "description": "Names the first physical action of a task, with the checkable outcome that ends it. Use when a task is too vague to start — when the first move would itself need a decision. Returns one action, not a plan.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "generate_checklist",
@@ -135,7 +163,9 @@
             "description": "Generate a checklist of steps to complete a task.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "generate_description",
@@ -144,7 +174,9 @@
             "description": "Generate a brief description for a task title.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "get_note",
@@ -153,7 +185,9 @@
             "description": "Fetch a single note by its ID.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "get_project",
@@ -162,7 +196,9 @@
             "description": "Fetch a single project by its ID.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "get_task",
@@ -171,7 +207,9 @@
             "description": "Read one task in full, by its id. Returns the task's description, due date and time, priority, tags, whether it is pinned, how many subtasks it has, how far its checklist has got, and the tasks it is waiting on. Also says whether the task is overdue, blocked or stagnant. Use list_tasks to find the id first, and this to read the task the reader means.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "improve_note",
@@ -180,7 +218,9 @@
             "description": "Improve note clarity, conciseness, and readability.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "list_adrs",
@@ -189,7 +229,9 @@
             "description": "List all Architecture Decision Records sorted by date (newest first).",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "list_linked_tasks",
@@ -198,7 +240,9 @@
             "description": "List all tasks linked to a specific project.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "list_open_deferred",
@@ -207,7 +251,9 @@
             "description": "List all deferred backlog entries with OPEN or PARTIAL status.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "list_projects",
@@ -216,7 +262,9 @@
             "description": "List all projects for the current user, with task counts.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "list_tasks",
@@ -225,7 +273,9 @@
             "description": "List the user's tasks. The selection is one of: inbox, today, upcoming, overdue, blocked, stagnant, pinned, someday, active, completed, all. Inbox means open and not deferred; today means due today; upcoming means due later; overdue means past its due date and still open; blocked means waiting on something unfinished; stagnant means open, undated and untouched for a long time; pinned means the user pinned it; someday means deferred; active means open; completed means finished; all means everything that is not in the trash. Narrowing is an intersection: projectId, tagIds and priorities each remove tasks, so a request for two tags returns only the tasks carrying both. Priorities are none, low, medium, high, urgent. The result carries the number of tasks in the selection, how they are doing (overdue, blocked, stagnant), and a cursor for the next page. Pass the cursor back to continue; do not use a cursor from a different selection.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "pick_time",
@@ -234,7 +284,9 @@
             "description": "Suggest the best time slot for today or tomorrow for a task.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "project_review",
@@ -243,7 +295,9 @@
             "description": "Review a project, identify risks, and suggest the next action.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "read_adr",
@@ -252,7 +306,9 @@
             "description": "Read a specific ADR by its slug (e.g. 2026-09-05-koin-suspend-bridge).",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "refine_task",
@@ -261,7 +317,9 @@
             "description": "Rewrite the task title to be clearer and more actionable.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "rewrite_note",
@@ -270,7 +328,9 @@
             "description": "Rewrite a note in a different style (OneLiner, TLDR, or Structured).",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "search_decisions",
@@ -279,7 +339,9 @@
             "description": "Search the decision records by title, tags or body text, newest first. Returns each match with its status, tags, date and a snippet, so an open or superseded decision is visible without reading the file. Use read_adr for the full text of a hit. An empty result means nothing matched; check the 'available' field — false means there was no corpus to search, not that nothing matched.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "search_docs",
@@ -288,7 +350,9 @@
             "description": "Search the project's written knowledge — the architecture documents, the skills, the capability specifications and the decision records — and return matching files with a path and a snippet. Narrow the search with the scope argument: decisions, architecture, skills, specs or all. An empty result means nothing matched; check the 'available' field — false means the corpus was not searched at all.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "search_tasks",
@@ -297,7 +361,9 @@
             "description": "Search tasks with the same query language the search screen uses. Free text matches titles, descriptions and tag names. Structured terms narrow the result: tag:NAME, tags:NAME1,NAME2, project:NAME, priority:NAME, due:WHEN, scheduled:WHEN, has:description, pinned, archived. due: and scheduled: take today, tomorrow, overdue, soon, or a date. A leading minus negates a term. sort:due, sort:priority, sort:title, sort:created and sort:updated order the result. Use this tool instead of guessing which task the user means.",
             "readOnly": true,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "smart_rewrite",
@@ -306,7 +372,9 @@
             "description": "Craft a concise, actionable task title from a raw idea.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "suggest_tags",
@@ -315,7 +383,9 @@
             "description": "Suggest tags for a note.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "summarize_note",
@@ -324,7 +394,9 @@
             "description": "Summarize a note in one sentence.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "update_adr",
@@ -333,7 +405,9 @@
             "description": "Change an existing ADR's status frontmatter; the body is never modified. status must be one of: accepted, deferred, superseded, open. status=superseded additionally requires supersededBy, naming an existing slug (a markdown link is accepted). Use this to close a decision once it is settled, and to mark one as replaced after writing its successor — the replacement is a separate write_adr call, not a new '-v2' slug of this one.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "DIRECT_WRITE_EXCEPTION",
+            "exceptionReason": "Writes a decision file under the project's decisions directory, not user data."
         },
         {
             "name": "update_note",
@@ -342,7 +416,9 @@
             "description": "Proposes a change to a note's title and/or body. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. Pass only what to change; a field left out is not touched. The body is markdown unless bodyHtml is given.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "update_project",
@@ -351,7 +427,9 @@
             "description": "Proposes a change to a project. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. Pass only the fields to change; a field left out is not touched.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "update_task",
@@ -360,7 +438,9 @@
             "description": "Proposes a change to a task. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. Pass only the fields to change; a field left out is not touched. Priority is none, low, medium, high or urgent. dueDate is YYYY-MM-DD, an empty string clears it. dueTime is HH:mm, an empty string clears it. tagIds replaces the whole set of tags.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         },
         {
             "name": "weekly_plan",
@@ -369,7 +449,9 @@
             "description": "Suggest 3-5 tasks to focus on this week.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
         },
         {
             "name": "write_adr",
@@ -378,7 +460,9 @@
             "description": "Create a NEW Architecture Decision Record (ADR) as a Markdown file. Fails if the slug already exists — a decision is never overwritten. To close or revise an existing decision use update_adr, which changes its status and records the supersedes/superseded-by link. To say something new that replaces an old decision, write a new ADR naming the old one in its `supersedes:` frontmatter field, then call update_adr on the old one with status=superseded — do NOT invent a '-v2' slug, it leaves the predecessor unlinked.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "DIRECT_WRITE_EXCEPTION",
+            "exceptionReason": "Writes a decision file under the project's decisions directory, not user data."
         },
         {
             "name": "write_task_proposal",
@@ -387,7 +471,9 @@
             "description": "Propose a change to a task. The change is not applied yet — the user sees it and decides. Say that it has been proposed, not that it has been done. The operation is one of: set_title, set_description, set_priority, set_due_date, set_estimate, set_status, set_kind, set_due_time, set_project, set_someday, add_tags, remove_tags, set_tags, add_checklist, add_subtasks. set_* takes the new value in \"value\"; add_*, remove_* and set_tags take one entry per item in \"items\"; set_due_date takes a date as YYYY-MM-DD; set_due_time takes a time as HH:mm; set_estimate takes minutes; set_status takes \"active\" or \"completed\"; set_someday takes \"true\" or \"false\"; set_project takes a project id. The reason is shown to the user with the change, so say why the change is being proposed.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": false
+            "idempotent": false,
+            "writeBehavior": "PROPOSAL_WRITE",
+            "exceptionReason": null
         }
     ],
     "flagKeys": [

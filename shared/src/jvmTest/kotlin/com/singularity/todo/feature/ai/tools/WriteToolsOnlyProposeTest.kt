@@ -2,6 +2,8 @@ package com.singularity.todo.feature.ai.tools
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.ai.McpToolCatalog
+import com.singularity.todo.feature.ai.WriteBehavior
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -165,6 +167,143 @@ class WriteToolsOnlyProposeTest {
         )
     }
 
+    // ─── The declaration against the behaviour ───────────────────────────────────
+
+    @Test
+    fun `every tool that writes is declared, and every declared exception writes`() {
+        val declared = McpToolCatalog.catalog.associateBy { it.toolClass.simpleName }
+        val findings = mutableListOf<String>()
+
+        for ((className, writes) in scan) {
+            val entry = declared[className]
+            if (entry == null) {
+                findings += "$className writes (${writes.all.joinToString()}) and the catalogue does not declare it"
+                continue
+            }
+            if (entry.writeBehavior != WriteBehavior.DIRECT_WRITE_EXCEPTION && writes.all.isNotEmpty()) {
+                findings += "${entry.name} writes (${writes.all.joinToString()}) and is declared " +
+                    "${entry.writeBehavior}. A write that is not declared is a change the user never saw."
+            }
+        }
+
+        for (entry in McpToolCatalog.catalog) {
+            val className = entry.toolClass.simpleName
+            if (entry.writeBehavior != WriteBehavior.DIRECT_WRITE_EXCEPTION || className == null) continue
+            val writes = scan[className]
+            if (writes == null) {
+                findings += "${entry.name} is declared a direct-write exception, and its class is not among the tools"
+            } else if (writes.all.isEmpty()) {
+                findings += "${entry.name} is declared a direct-write exception and no longer writes. " +
+                    "A stale exception is a promise nobody keeps."
+            }
+        }
+
+        assertTrue(
+            findings.isEmpty(),
+            "the catalogue's declaration and the tools' behaviour disagree: ${findings.joinToString("; ")}",
+        )
+    }
+
+    @Test
+    fun `the exceptions the scan cannot see are named`() {
+        val unreachable = McpToolCatalog.catalog
+            .filter { it.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION }
+            .filter { entry ->
+                val className = entry.toolClass.simpleName ?: return@filter false
+                scan[className]?.userData.isNullOrEmpty()
+            }
+            .map { it.name }
+            .toSet()
+
+        assertEquals(
+            UNVERIFIABLE_EXCEPTIONS,
+            unreachable,
+            "the exceptions the scan cannot verify changed. The scan recognises a write on a " +
+                "repository of the user's own data; anything else is invisible to it, and an " +
+                "invisible write has to be a named one. Update the list only after reading why " +
+                "the tool writes the way it does.",
+        )
+    }
+
+    @Test
+    fun `the catalogue's classification is well formed`() {
+        for (entry in McpToolCatalog.catalog) {
+            if (entry.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION) {
+                assertTrue(
+                    !entry.exceptionReason.isNullOrBlank(),
+                    "${entry.name} writes directly and says nothing about why it sits outside the " +
+                        "proposal pipeline. An exception without a reason is not an exception, it is a hole.",
+                )
+            } else {
+                assertTrue(
+                    entry.exceptionReason.isNullOrBlank(),
+                    "${entry.name} is ${entry.writeBehavior} and still carries an exception reason. " +
+                        "A reason that does not apply is a reason nobody will read.",
+                )
+            }
+        }
+    }
+
+    // ─── The scan ───────────────────────────────────────────────────────────────
+
+    /**
+     * The write calls each tool class makes, by the class they sit in.
+     *
+     * The owner of a call is the class declared above it. One file holds several
+     * tools — `AdrTools.kt` holds the readers and the writers side by side — so
+     * blaming the whole file for one writer would blame the readers too.
+     *
+     * Two nets are cast. The first recognises a write on a repository of the
+     * user's own data — the write the promise is about. The second recognises a
+     * write through any port at all, and exists so that a write the first net
+     * cannot see is still *seen*: an undeclared write is a finding whichever port
+     * it goes through.
+     */
+    private val scan: Map<String, Writes> by lazy { scanSources() }
+
+    private fun scanSources(): Map<String, Writes> {
+        val found = mutableMapOf<String, Writes>()
+        for (path in toolFiles()) {
+            var current: String? = null
+            for (line in Files.readAllLines(path)) {
+                val declaration = classDeclaration.find(line)
+                val owner = current
+                if (declaration != null) {
+                    current = declaration.groupValues[1]
+                } else if (owner != null) {
+                    val userData = repositoryWrite.findAll(line)
+                        .filter { it.groupValues[1].lowercase() !in PROPOSAL_RECEIVERS }
+                        .map { it.groupValues[1] + "." + it.groupValues[2] }
+                        .toList()
+                    val other = anyWrite.findAll(line)
+                        .filter { it.groupValues[1].lowercase() !in PROPOSAL_RECEIVERS }
+                        .map { it.groupValues[1] + "." + it.groupValues[2] }
+                        .filterNot { it in userData }
+                        .toList()
+                    if (userData.isNotEmpty() || other.isNotEmpty()) {
+                        val existing = found[owner] ?: Writes()
+                        found[owner] = Writes(
+                            userData = (existing.userData + userData).distinct().sorted(),
+                            other = (existing.other + other).distinct().sorted(),
+                        )
+                    }
+                }
+            }
+        }
+        return found
+    }
+
+    /** The write calls one tool class makes. */
+    private data class Writes(
+        /** Calls on a repository of the user's own data. */
+        val userData: List<String> = emptyList(),
+        /** Calls that look like a write through any port. */
+        val other: List<String> = emptyList(),
+    ) {
+        /** Every call, without repeats. */
+        val all: List<String> get() = (userData + other).distinct().sorted()
+    }
+
     // ─── Fixtures ──────────────────────────────────────────────────────────────
 
     private suspend fun pendingProposals(): List<AiProposal> =
@@ -198,12 +337,48 @@ class WriteToolsOnlyProposeTest {
         userId = userId,
     )
 
+    /**
+     * Every file that holds a tool class.
+     */
+    private fun toolFiles(): List<Path> =
+        Files.list(toolsDir).use { stream ->
+            stream.filter { it.fileName.toString().endsWith(".kt") }.sorted().toList()
+        }
+
     private companion object {
+        /**
+         * A class declaration. The scan attributes each call to the class it sits
+         * in, because one file holds several tools.
+         */
+        val classDeclaration = Regex("""\bclass\s+(\w*Tool)\b""")
+
         /**
          * A call on a repository. The receiver is captured so the proposal
          * repository can be told apart from the user's own data.
          */
         val repositoryWrite = Regex("""\b(\w*[Rr]epository)\.(create|update|delete|upsert|save)\(""")
+
+        /**
+         * A call that looks like a write, on any receiver.
+         *
+         * The net is wider than [repositoryWrite] on purpose: a write the user's
+         * data lives behind is still a write, and an undeclared one has to be a
+         * finding whichever port it goes through.
+         */
+        val anyWrite = Regex(
+            """\b(\w+)\.(create|update|delete|upsert|save|write|writeAdr|updateAdr|insert|put)\(""",
+        )
+
+        /**
+         * The exceptions the scan cannot verify.
+         *
+         * The scan recognises a write on a repository of the user's own data. The
+         * ADR tools write a decision file through a storage port, and that write is
+         * not the user's data — it is a decision the user asked for by name. The
+         * scan cannot see it, so the exception is named here rather than verified:
+         * a write nobody checked has to be a write everybody can see.
+         */
+        val UNVERIFIABLE_EXCEPTIONS = setOf("write_adr", "update_adr")
 
         /** The proposal repository, by the names it is given in the tools. */
         val PROPOSAL_RECEIVERS = setOf("proposals", "proposalrepository")

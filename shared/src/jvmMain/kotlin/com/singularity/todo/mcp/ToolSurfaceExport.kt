@@ -2,6 +2,7 @@ package com.singularity.todo.mcp
 import com.singularity.todo.feature.ai.McpToolCatalog
 import java.io.File
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -30,7 +31,7 @@ import kotlinx.serialization.json.put
  *
  * ```json
  * {
- *   "version": 1,
+ *   "version": 2,
  *   "tools": [
  *     {
  *       "name": "list_tasks",
@@ -39,7 +40,9 @@ import kotlinx.serialization.json.put
  *       "description": "…",
  *       "readOnly": false,
  *       "destructive": false,
- *       "idempotent": true
+ *       "idempotent": true,
+ *       "writeBehavior": "PROPOSAL_WRITE",
+ *       "exceptionReason": null
  *     }
  *   ]
  * }
@@ -47,11 +50,20 @@ import kotlinx.serialization.json.put
  *
  * The description is read from the tool class, because that is where it lives: the
  * catalogue no longer carries a copy of it.
+ *
+ * The write behaviour is read from the catalogue, because that is where it lives: it is
+ * the one declaration of how each tool writes, and publishing it here means a reader
+ * outside the compiler — a document, an agent, a check — can see it without reading the
+ * catalogue's source.
  */
 object ToolSurfaceExport {
 
-    /** The version of the format. Bumped when the shape changes. */
-    const val VERSION = 1
+    /**
+     * The version of the format. Bumped when the shape changes.
+     *
+     * Version 2 adds the write behaviour and the exception reason to every tool.
+     */
+    const val VERSION = 2
 
     private val json = Json { prettyPrint = true }
 
@@ -110,6 +122,12 @@ object ToolSurfaceExport {
             put("readOnly", annotations.readOnlyHint)
             put("destructive", annotations.destructiveHint)
             put("idempotent", annotations.idempotentHint)
+            // How the tool writes, published so that it can be read without the
+            // catalogue's source. The reason is null for every tool that is not a
+            // declared exception — a reason that does not apply is a reason nobody
+            // will read, and the catalogue refuses to carry one.
+            put("writeBehavior", entry.writeBehavior.name)
+            put("exceptionReason", entry.exceptionReason?.let { JsonPrimitive(it) } ?: JsonNull)
         }
     }
 

@@ -661,6 +661,25 @@ surface, the export is that surface written down, the gate's parser is that surf
 back out of the sources. A parser that misreads a class breaks the last link, and the
 gate says so.
 
+### The export carries how each tool writes
+
+The export also carries each tool's **write behaviour** — `READ_ONLY`,
+`PROPOSAL_WRITE`, or `DIRECT_WRITE_EXCEPTION` — and, for a direct writer, the reason it
+sits outside the proposal pipeline.
+
+That makes the classification readable from outside the compiler: a document, an agent,
+or a check can open one file and see how every tool writes, without reading the
+catalogue's source. The catalogue is where the declaration is *made*; the export is
+where it is *published*.
+
+The export's own version is bumped when the shape changes. The surface *contract*
+version is not: the contract is what an agent reads over the wire, and a new field in
+the export is not a change to it.
+
+The catalogue refuses to load when the declaration is malformed — a direct writer
+without a reason, or a reason on a tool that is not a direct writer. The check is in the
+catalogue rather than in a test, because the catalogue is what everything else reads.
+
 ## Pagination
 
 All `list` tools use opaque cursor pagination. Page size: 50.

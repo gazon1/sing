@@ -4,12 +4,12 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 1. The write classification (1.1)
 
-- [ ] shared/ Publish the write behaviour and the exception reason in the exported tool surface, and bump the export's own version. `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolSurfaceExport.kt`
-- [ ] shared/ Regenerate the exported surface. `config/docs/tool-surface.json`
-- [ ] shared/ Enforce the classification in the catalogue: a direct-write exception carries a non-blank reason, and nothing else carries one. `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`
-- [ ] shared/ Reclassify `create_tag`: the tool proposes, so the declaration must say so. `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`
-- [ ] shared/ Check the declaration against the tools' behaviour in both directions, and name the exceptions the scan cannot reach. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/tools/WriteToolsOnlyProposeTest.kt`
-- [ ] shared/ Drive every proposal-gated tool through the round trip: the call proposes, the user's data is unchanged, the confirmation writes, the refusal changes nothing. `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/`
+- [x] shared/ Publish the write behaviour and the exception reason in the exported tool surface, and bump the export's own version. `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolSurfaceExport.kt`
+- [x] shared/ Regenerate the exported surface. `config/docs/tool-surface.json`
+- [x] shared/ Enforce the classification in the catalogue: a direct-write exception carries a non-blank reason, and nothing else carries one. `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`
+- [x] shared/ Reclassify `create_tag`: the tool proposes, so the declaration must say so. `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`
+- [x] shared/ Check the declaration against the tools' behaviour in both directions, and name the exceptions the scan cannot reach. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/tools/WriteToolsOnlyProposeTest.kt`
+- [x] shared/ Drive every proposal-gated tool through the round trip: the call proposes, the user's data is unchanged, the confirmation writes, the refusal changes nothing. `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/`
 
 ## 2. The client's lifecycle (1.3)
 
@@ -34,8 +34,8 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 6. The records
 
-- [ ] shared/ Record the decisions this change makes. `docs/decisions/`
-- [ ] shared/ Refresh the decisions digest. `./scripts/refresh-decisions-digest.sh`
+- [x] shared/ Record the decisions this change makes. `docs/decisions/`
+- [x] shared/ Refresh the decisions digest. `./scripts/refresh-decisions-digest.sh`
 - [ ] shared/ Write the verdict for this change's review. `.specify/reviews/agent-surface-follow-ups.md`
 
 ## 7. Verification

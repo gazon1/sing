@@ -197,6 +197,15 @@ pipeline — a write becomes a proposal, the user decides, and only then is it w
 Every tool declares how it writes (`WriteBehavior` in
 `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`), and
 the write behaviour has no default: a tool added without choosing one does not compile.
+The declaration is **published** in the exported tool surface
+(`config/docs/tool-surface.json`), so a reader outside the compiler can read it, and
+**enforced** by the catalogue itself: a tool that writes directly carries the reason it
+sits outside the proposal pipeline, and nothing else carries a reason.
+
+Every proposal-gated tool is driven through the whole round trip: the call proposes, the
+user's data is unchanged, the confirmation writes, and the refusal changes nothing. The
+refusal is the half that gets forgotten — a tool that proposes and then writes anyway
+passes every test that only looks at the confirmation path.
 
 **The application advertises neither the file system nor the terminal.**
 `AcpClient.connect()` sends `ClientCapabilities()` with no `fs` and no `terminal`. The
