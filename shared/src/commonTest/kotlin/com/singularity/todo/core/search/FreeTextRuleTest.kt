@@ -120,7 +120,7 @@ class FreeTextRuleTest {
         // it answered it better, because it knows the tokenizer. The rule is asked
         // only about the negated terms.
         val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha")))
-        val plan = rule.plan()
+        val plan = rule.plan(SearchMode.Word)
 
         assertTrue(
             rule.accepts(plan) { false },
@@ -136,7 +136,7 @@ class FreeTextRuleTest {
                 FreeTextRule.Term("beta", negated = true),
             ),
         )
-        val plan = rule.plan()
+        val plan = rule.plan(SearchMode.Word)
 
         assertFalse(rule.accepts(plan) { it == "beta" }, "the negated term is the rule's business")
         assertTrue(rule.accepts(plan) { it == "alpha" })
@@ -147,7 +147,7 @@ class FreeTextRuleTest {
         // The index could not answer this rule at all — it says only what a
         // record must *not* carry — so the rule answers it alone.
         val rule = FreeTextRule(terms = listOf(FreeTextRule.Term("alpha", negated = true)))
-        val plan = rule.plan()
+        val plan = rule.plan(SearchMode.Word)
 
         assertIs<TextMatchPlan.BroadScan>(plan)
         assertFalse(rule.accepts(plan) { it == "alpha" })
@@ -162,7 +162,7 @@ class FreeTextRuleTest {
 
         assertEquals(
             TextMatchQuery(terms = listOf("alpha", "beta")),
-            rule.indexQuery(),
+            rule.indexQuery(SearchMode.Word),
             "the index is asked about the terms it can answer",
         )
     }
@@ -176,7 +176,7 @@ class FreeTextRuleTest {
 
         assertEquals(
             TextMatchQuery(terms = listOf("alpha", "beta"), combinesWithOr = true),
-            rule.indexQuery(),
+            rule.indexQuery(SearchMode.Word),
             "terms that are alternatives are joined the other way",
         )
     }
@@ -189,7 +189,7 @@ class FreeTextRuleTest {
 
         assertEquals(
             TextMatchQuery(terms = listOf("alpha")),
-            rule.indexQuery(),
+            rule.indexQuery(SearchMode.Word),
             "FTS has no NOT operator, so a negated term is not a question the index can answer",
         )
     }
@@ -200,7 +200,7 @@ class FreeTextRuleTest {
 
         assertEquals(
             TextMatchQuery.EMPTY,
-            rule.indexQuery(),
+            rule.indexQuery(SearchMode.Word),
             "an empty question finds nothing — the caller reads the rows itself",
         )
     }
@@ -210,7 +210,7 @@ class FreeTextRuleTest {
         val rule = FreeTextRule.singleTerm("port")
 
         assertEquals(listOf(FreeTextRule.Term("port")), rule.terms)
-        assertEquals(TextMatchQuery(terms = listOf("port")), rule.indexQuery())
+        assertEquals(TextMatchQuery(terms = listOf("port")), rule.indexQuery(SearchMode.Word))
     }
 
     @Test

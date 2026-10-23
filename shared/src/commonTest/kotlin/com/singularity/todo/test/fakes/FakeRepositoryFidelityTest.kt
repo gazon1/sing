@@ -4,6 +4,7 @@ package com.singularity.todo.test.fakes
 
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteKind
@@ -295,7 +296,7 @@ class FakeRepositoryFidelityTest {
         repo.seed(note("n2", alice, title = "Unrelated", body = "buy milk and groceries"))
         advanceUntilIdle()
 
-        val hits = repo.search("groceries").first()
+        val hits = repo.search("groceries", SearchMode.Word).first()
         assertEquals(
             listOf("n1"),
             hits.map { it.id.value },

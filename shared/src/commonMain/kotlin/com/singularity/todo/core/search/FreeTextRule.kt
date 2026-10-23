@@ -166,7 +166,7 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
     }
 
     /**
-     * What the full-text index can do for this rule.
+     * What the full-text index can do for this rule, in [mode].
      *
      * ## Why the decision lives here
      *
@@ -176,8 +176,18 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      * remembering to copy the rule. The rule is what the index is asked about,
      * so the rule is where the answer belongs.
      *
-     * ## The three answers
+     * The mode is an argument of the question, not a decision made beside it:
+     * the contains mode is a question the index cannot answer, and the rule
+     * that decides what the index can answer has to know which question it is
+     * being asked. The decision used to be made twice — once here for the
+     * word mode, and once in `SearchMode.plan(rule)` for the contains mode —
+     * and two places that answer one question are two answers.
      *
+     * ## The answers
+     *
+     * - In the **contains mode** the index answers nothing: it stores words,
+     *   not character positions, so it cannot say whether a term occurs in the
+     *   middle of a word. The rows are read and matched in memory.
      * - A rule of positive terms is narrowed by them. The terms are looked up
      *   as they are.
      * - A rule that *requires* a negated term is still narrowed: the index
@@ -189,8 +199,11 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      *   term an alternative of a positive one. The records that match by *not*
      *   carrying the negated term are exactly the ones a positive lookup throws
      *   away, so there is nothing to look up.
+     *
+     * @param mode The mode the free text is matched in (F6).
      */
-    fun plan(): TextMatchPlan {
+    fun plan(mode: SearchMode): TextMatchPlan {
+        if (mode == SearchMode.Contains) return TextMatchPlan.BroadScan
         val positive = positives.map { it.text }
         if (positive.isEmpty()) return TextMatchPlan.BroadScan
         if (combinesWithOr && negations.isNotEmpty()) return TextMatchPlan.BroadScan
@@ -225,10 +238,11 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      *   read the rows reads them itself; it does not get every row from the
      *   index by accident.
      *
+     * @param mode The mode the free text is matched in (F6).
      * @return The question the index is asked — empty when the index cannot
      *   narrow the rule.
      */
-    fun indexQuery(): TextMatchQuery = when (val plan = plan()) {
+    fun indexQuery(mode: SearchMode): TextMatchQuery = when (val plan = plan(mode)) {
         is TextMatchPlan.Narrowed -> plan.query
         TextMatchPlan.BroadScan -> TextMatchQuery.EMPTY
     }

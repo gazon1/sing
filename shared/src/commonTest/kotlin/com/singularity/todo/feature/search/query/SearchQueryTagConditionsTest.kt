@@ -14,6 +14,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * The tag conditions of the query language — §4 of the grammar.

@@ -16,7 +16,7 @@ import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
-import com.singularity.todo.feature.search.query.SearchMode
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SingularityQueryParser
@@ -95,7 +95,7 @@ class SearchViewModelTest {
                     // The plan of an empty rule: the mode says what the index could
                     // do for it, and the stub answers the same way the real
                     // resolver does.
-                    textMatchPlan = mode.plan(FreeTextRule()),
+                    textMatchPlan = FreeTextRule().plan(mode),
                 )
         }
 

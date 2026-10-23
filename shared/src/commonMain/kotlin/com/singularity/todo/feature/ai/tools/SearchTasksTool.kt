@@ -11,6 +11,7 @@ import com.singularity.todo.feature.search.query.SingularityQueryParser
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import com.singularity.todo.core.search.SearchMode
 
 @Serializable
 data class SearchTasksInput(val query: String, val limit: Int = 20)
@@ -58,7 +59,13 @@ class SearchTasksTool(private val search: SearchUseCase, private val currentUser
             }
 
         val userId = currentUser.scopedUserId.value.value
-        val results = search(query.withLimit(effectiveLimit(query, args.limit)), userId).first()
+        // The AI tool searches by the beginning of a word, and it says so — a caller
+        // that does not name the mode does not get an answer from a rule it did not ask for.
+        val results = search(
+            query.withLimit(effectiveLimit(query, args.limit)),
+            userId,
+            SearchMode.Word,
+        ).first()
 
         val tasks = results.tasks.map { found ->
             val task = found.record

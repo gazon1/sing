@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * The share of the searches the index cannot narrow.

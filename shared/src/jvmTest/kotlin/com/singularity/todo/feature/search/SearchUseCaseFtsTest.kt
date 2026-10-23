@@ -33,6 +33,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
 import kotlin.time.Instant
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * The search, over a real database and the real index.
@@ -150,7 +151,7 @@ class SearchUseCaseFtsTest {
     // ── the machinery ────────────────────────────────────────────────────────
 
     private suspend fun search(query: String): SearchResults =
-        searchUseCase(SingularityQueryParser(query).parse(), user.value).first()
+        searchUseCase(SingularityQueryParser(query).parse(), user.value, SearchMode.Word).first()
 
     private val searchUseCase: SearchUseCase by lazy {
         SearchUseCase(

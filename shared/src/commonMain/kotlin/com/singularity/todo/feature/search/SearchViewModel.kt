@@ -15,7 +15,7 @@ import com.singularity.todo.feature.search.domain.SavedSearch
 import com.singularity.todo.feature.search.domain.SavedSearchId
 import com.singularity.todo.feature.search.domain.port.SavedSearchRepository
 import com.singularity.todo.feature.search.query.Query
-import com.singularity.todo.feature.search.query.SearchMode
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SimpleFilterMapper
 import com.singularity.todo.feature.search.query.UnsupportedSimpleFilterException

@@ -36,6 +36,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * Smoke tests for [NoteEditor].
@@ -61,8 +62,8 @@ class NoteEditorTest {
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(query: String): List<Note> = emptyList()
-        override suspend fun searchTasks(query: String): List<Task> = emptyList()
+        override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> = emptyList()
+        override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> = emptyList()
         override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
         override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
         override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()

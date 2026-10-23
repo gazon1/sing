@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes.domain.port
 
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
@@ -60,8 +61,14 @@ interface NotesRepository :
     /** Root notes (no parent) for the current user. */
     fun watchRootNotes(): Flow<List<Note>>
 
-    /** Search notes for the current user. */
-    fun search(query: String): Flow<List<Note>>
+    /**
+     * Search notes for the current user.
+     *
+     * @param query the text to look for.
+     * @param mode the mode the text is matched in (F6, F8) — the surface states
+     *   it, so that the answer never comes from a rule the caller did not name.
+     */
+    fun search(query: String, mode: SearchMode): Flow<List<Note>>
 
     /** Creates a note with content (autosave path). Returns the saved note. */
     suspend fun createWithContent(id: NoteId, title: String, bodyMarkdown: String, bodyHtml: String): Result<NoteId>
