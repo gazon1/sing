@@ -1,3 +1,4 @@
+import java.util.Properties
 import kotlinx.kover.gradle.plugin.dsl.CoverageUnit
 
 plugins {
@@ -38,11 +39,34 @@ dependencies {
     detektPlugins(libs.detekt.formatting)
 }
 
+// ── The memory budget ───────────────────────────────────────────────────────
+//
+// The heap of a test fork is a MEASUREMENT, and the measurements live in
+// `config/docs/gradle-memory-budget.properties` — the record, one file, read by
+// the build. The tables and the failed measurements behind it are in
+// `docs/decisions/2026-10-22-gradle-memory-budget.md`.
+//
+// This module reads its OWN line of the record. Its line is 3 GB, and that is
+// NOT a measurement of the 2026-10-22 measurement: it is the value this module
+// declared before the record existed, recorded there so that the gate has one
+// place to compare it with. `scripts/check-memory-budget.py` is what keeps the
+// two in step.
+val memoryBudget = Properties().apply {
+    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+}
+val testTaskHeap = memoryBudget.getProperty("test.heap.module.detekt-rules")
+    ?: throw GradleException(
+        "config/docs/gradle-memory-budget.properties declares no test.heap.module.detekt-rules — " +
+            "the heap of this module's test tasks has to be recorded somewhere."
+    )
+
 // JUnit Platform — same configuration as shared/desktopApp/mcp-server.
-// Bumped heap to 2 GB for consistency; detekt-test loads compiled rule classes.
+// The heap is the record's — 3 GB, the value this module declared before the
+// record existed. (The comment that used to sit here said "2 GB"; the value
+// was 3 GB, and the comment was the wrong one.)
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
-    maxHeapSize = "3g"
+    maxHeapSize = testTaskHeap
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",

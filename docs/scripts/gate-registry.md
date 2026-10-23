@@ -19,6 +19,7 @@ its helper tools — and the gates are described here, once.
 | version catalog has no literals | blocking | `scripts/build-version-catalog-gate.py` | Build version catalog gate. | — | — |
 | gate scripts' own unit tests | blocking | `scripts/tests` | gate scripts' own unit tests | — | — |
 | build-output readers precede the invocations that rewrite them | blocking | `scripts/check-build-output-readers.py` | check-build-output-readers.py — a step that reads build output must read it f... | — | — |
+| the memory budget is one record | blocking | `scripts/check-memory-budget.py` | check-memory-budget.py — every test task runs with the heap the record holds. | — | — |
 | gradle invocations keep one test population | blocking | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
 | published measurements match the record | blocking | `scripts/check-published-measurements.py` | check-published-measurements.py — a published coverage number matches the mea... | — | — |
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |

@@ -176,6 +176,18 @@ and names the document, the line and both numbers when they differ. It reads a
 fixed list of documents — a number published anywhere else is a claim this gate
 does not check, and that limit is written down in the gate's own docstring.""",
     ),
+    "the memory budget is one record": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-memory-budget.py',
+        note="""The heap of a test fork was a literal string in four build scripts, and the
+heap of the Gradle daemon was a literal string in `gradle.properties`. The
+measurement behind them lived in an ADR that no build read and no gate held.
+
+This is the shape the coverage floor had before its declaration was moved to
+the place Kover reads it: a number that nobody can check is a number nobody
+enforces. The record is a file, the build reads it, and this compares every
+test task in the tree with it.""",
+    ),
     "room schema integrity": Placement(
         kind=PlacementKind.STATIC,
         command='sgate room_schema_integrity',

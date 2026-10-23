@@ -265,6 +265,15 @@ gate blocking "declared dependencies are used" sgate declared_dependencies_are_u
 # fixed list of documents — a number published anywhere else is a claim this gate
 # does not check, and that limit is written down in the gate's own docstring.
 gate blocking "published measurements match the record" python3 scripts/check-published-measurements.py
+# The heap of a test fork was a literal string in four build scripts, and the
+# heap of the Gradle daemon was a literal string in `gradle.properties`. The
+# measurement behind them lived in an ADR that no build read and no gate held.
+#
+# This is the shape the coverage floor had before its declaration was moved to
+# the place Kover reads it: a number that nobody can check is a number nobody
+# enforces. The record is a file, the build reads it, and this compares every
+# test task in the tree with it.
+gate blocking "the memory budget is one record" python3 scripts/check-memory-budget.py
 gate blocking "room schema integrity" sgate room_schema_integrity
 # The skill that tells an agent which transformation to use for which text
 # field carries a table of the transformations and the rule each one applies.

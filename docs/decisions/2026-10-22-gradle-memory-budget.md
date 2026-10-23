@@ -97,6 +97,54 @@ old ceiling was 18 GB, the new one is 12 GB. This is also where the first
 measurement of the daemon's heap turned out to be wrong — CI was the surface
 that could show it, and it did, on the first run of the branch.
 
+**D7. The budget is a record, and a gate checks it.** The numbers this
+decision measured live in `config/docs/gradle-memory-budget.properties`, and
+the build reads that file. `scripts/check-memory-budget.py` checks the tree
+against it: every test task runs with the heap the record declares, and the
+daemon's heap in `gradle.properties` is the recorded one.
+
+Before this, the heap of a test fork was a literal string in four build
+scripts and the daemon's heap was a literal string in `gradle.properties`,
+while the measurement behind them lived in this ADR — which no build read and
+no gate checked. That is the shape the coverage floor had before its
+declaration was moved to the place Kover reads it: **a number that nobody can
+check is a number nobody enforces.** A module that raised its heap to 3 GB
+would have stayed green everywhere, and the measurement behind 1536 MB would
+have quietly stopped describing the build.
+
+The record is written in the house style of
+`config/docs/coverage-cost.properties`: a prose header that says what the file
+is and where the measurement comes from, and data lines below it. The build
+reads its own line of it — `test.heap.module.<project>` — so the number a
+module's test JVMs run with is the number the record holds for that module.
+
+`gradle.properties` is the one place the record cannot be read from: Gradle
+reads that file before it reads anything else, and there is no way to
+interpolate a value from another file into it. The heap is therefore written
+there as well, with a comment that names the record, and the gate is what
+keeps the two copies in step.
+
+**D8. A module's coverage floor stays in that module's own build script.**
+The `detekt-rules` floor is a **module** floor: it measures the branch
+coverage of that module's own rules, and Kover reads it from
+`detekt-rules/build.gradle.kts`, where the module declares the Kover plugin
+and configures its own extension. The app floor is the aggregate one, and it
+lives in `settings.gradle.kts`, because the aggregation plugin reads its rules
+from there — the root project has no Kover extension of its own to configure.
+
+The two are not interchangeable, and moving a module floor to the settings
+would make it unenforced for the same reason the app floor was: a floor
+declared in a place its Kover does not read is evaluated by no task. So the
+rule is made explicit and checkable instead: **the app floor is declared in
+`settings.gradle.kts`, a module floor in that module's own build script, and
+no floor is declared where its Kover does not read it.** The app half of that
+rule is `scripts/check-coverage-floor-declaration.py`'s job; the module half
+— the floor's constant declared in the same file as the rule that binds it,
+and no floor constant in the root build script — is `scripts/check-memory-budget.py`'s.
+The two halves live in different gates because they are checked by different
+readers: the app floor is read by the aggregation plugin, and a module floor
+is read by the module.
+
 ## The measured numbers
 
 Every value below was measured on this machine on 2026-10-22, with the
@@ -214,6 +262,35 @@ Android Studio sync, because the IDE reads the same `gradle.properties`. The
 trade is accepted: a cold daemon costs a JVM start and a configuration-cache
 load, and the saving is a gigabyte per idle worktree.
 
+## The record, and the gate that checks it
+
+`config/docs/gradle-memory-budget.properties` is the record of this decision:
+
+| key | value | where it came from |
+|---|---|---|
+| `test.heap.default` | `1536m` | the measurement below — the full `:shared:jvmTest` population at 1536 MB |
+| `test.heap.module.shared` | `1536m` | the same measurement |
+| `test.heap.module.desktopApp` | `1536m` | the same measurement |
+| `test.heap.module.mcp-server` | `1536m` | the same measurement |
+| `test.heap.module.adr-core` | `1536m` | the default — the module declares no heap of its own |
+| `test.heap.module.tools.unwritten-properties` | `1536m` | the default — the module declares no heap of its own |
+| `test.heap.module.detekt-rules` | `3g` | the value the module declared before the record existed — NOT measured here |
+| `test.heap.module.adr-cli` | `1g` | the value the module declared before the record existed — NOT measured here |
+| `gradle.daemon.heap` | `6144M` | the measurement below |
+
+The two module budgets that are not 1536 MB are the ones the 2026-10-22
+measurement did not cover: it measured `:shared:jvmTest`, and the two
+toolchain modules carry a different suite. They are recorded so that the gate
+has one place to compare them with — and they are recorded as what they are,
+the value the module ran with, rather than as a measurement they never had.
+
+The gate (`scripts/check-memory-budget.py`) is textual, like the sibling
+gates: the repository has no Kotlin-DSL parser. It finds the modules in
+`settings.gradle.kts`, reads each module's `maxHeapSize`, and compares it with
+the record. A module that reads the record is followed through the value it
+reads — the name the module binds the record's line to — so that "the module
+reads its own budget" is a checked statement and not a search for a string.
+
 ## The slot pool
 
 `scripts/gradle-slot.sh` takes one of three machine-wide slots, held on file
@@ -320,6 +397,17 @@ full run produced — unreachable by construction.
   "no longer in the report". The step is advisory and does not fail on it, and
   the alternative — weakening what "disappeared" means — would lose a real
   signal: a deleted test.
+- **The budget is checked now.** A module that runs its tests with a heap
+  other than the recorded one is a finding, and so is a module that runs tests
+  with no recorded heap at all. The cost of that is a record to keep true: a
+  re-measurement is a change in the record, and the build follows it.
+- **The two small toolchain modules now run their tests with the recorded
+  default** (1536 MB) instead of Gradle's own default (512 MB). They declare
+  no `maxHeapSize` of their own; the root build script applies the record's
+  default to every test task, and a module that names a budget of its own
+  overrides it. A ceiling is not a reservation — the forks take what they
+  need — but the number is now the same number everywhere, and it is the
+  number the record holds.
 
 # Alternatives considered
 
@@ -349,4 +437,6 @@ measures one population.
   decision does not reopen
 - `docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md` — the CI half
 - `scripts/gradle-slot.sh`, `scripts/gradle-stop-all.sh` — the instruments
+- `config/docs/gradle-memory-budget.properties` — the record, read by the build
+- `scripts/check-memory-budget.py` — the gate that checks the tree against it
 - `gradle.properties` — the budget itself
