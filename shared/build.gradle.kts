@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.PathSensitivity
@@ -315,6 +316,25 @@ kotlin {
     }
 }
 
+// ── The memory budget ───────────────────────────────────────────────────────
+//
+// The heap of a test fork is a MEASUREMENT, and the measurement lives in
+// `config/docs/gradle-memory-budget.properties` — the record, one file, read by
+// the build. The tables and the failed measurements behind it are in
+// `docs/decisions/2026-10-22-gradle-memory-budget.md`.
+//
+// This module reads its OWN line of the record, so the number its test JVMs
+// run with is the number the record holds for this module. `scripts/check-memory-budget.py`
+// is what keeps the two in step.
+val memoryBudget = Properties().apply {
+    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+}
+val testTaskHeap = memoryBudget.getProperty("test.heap.module.shared")
+    ?: throw GradleException(
+        "config/docs/gradle-memory-budget.properties declares no test.heap.module.shared — " +
+            "the heap of this module's test tasks has to be recorded somewhere."
+    )
+
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
     // JUnit matches tags per class, so an over-narrow -Ptest.tags selection can discover
@@ -390,7 +410,10 @@ tasks.withType<Test>().configureEach {
     // Forked test JVMs do NOT inherit org.gradle.jvmargs (that's the daemon only).
     // HeapDumpPath is module-local so parallel test runs don't overwrite each
     // other's dumps. ADR 2026-10-22-gradle-memory-budget.
-    maxHeapSize = "1536m"
+    //
+    // The number itself is READ, not written here: `config/docs/gradle-memory-budget.properties`
+    // holds it, and the gate checks that this module's heap is the recorded one.
+    maxHeapSize = testTaskHeap
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
@@ -457,7 +480,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
-    maxHeapSize = "1536m"
+    maxHeapSize = testTaskHeap
     // JFR profiling — enable with `-PJFR=true`. Records to build/reports/jfr/.
     // `jfc` settings file is in project root so it's not buried in build/.
     if (project.hasProperty("JFR")) {

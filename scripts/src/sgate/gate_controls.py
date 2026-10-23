@@ -275,12 +275,9 @@ SCRIPT_GATES = [
     # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
     # entry is its twin: the harness fills the edit from there, and Part J
     # fails when the two disagree about the file or the command.
+    #
     # A published coverage number is compared with the measurement it was
     # read from.
-    #
-    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
-    # entry is its twin: the harness fills the edit from there, and Part J
-    # fails when the two disagree about the file or the command.
     ScriptGate(
         name="published-measurements",
         cmd=[sys.executable, "scripts/check-published-measurements.py"],
@@ -291,6 +288,17 @@ SCRIPT_GATES = [
             "outlives the measurement it was read from: \"2.82M instructions\" "
             "survived a real measurement because the percentages are a ratio, and "
             "a ratio is the same at every level of the report"
+        ),
+    ),
+    # Every test task runs with the heap the record holds.
+    ScriptGate(
+        name="memory-budget",
+        cmd=[sys.executable, "scripts/check-memory-budget.py", "--quiet"],
+        sabotage_path="shared/build.gradle.kts",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a heap that nobody checks is a claim made six times over: the "
+            "measurement behind 1536 MB lived in an ADR that no build read"
         ),
     ),
     ScriptGate(

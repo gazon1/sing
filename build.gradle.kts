@@ -99,6 +99,38 @@ subprojects {
     }
     extra["test.population"] = population ?: ""
 
+    // ── The memory budget ───────────────────────────────────────────────────
+    //
+    // One record: `config/docs/gradle-memory-budget.properties`. The heap of a
+    // test fork and the heap of the Gradle daemon were literal strings in five
+    // build scripts and in gradle.properties, and the measurement that
+    // produced them lived in an ADR that no build read and no gate checked.
+    //
+    // The modules that name a budget of their own read their OWN key from the
+    // record (`test.heap.module.<project>`), so the number a module runs with is
+    // the number the record holds for that module. The default below is what a
+    // module that names no budget of its own gets — the two small toolchain
+    // modules, which declare no `maxHeapSize` at all.
+    //
+    // The measurement is in `docs/decisions/2026-10-22-gradle-memory-budget.md`;
+    // the gate is `scripts/check-memory-budget.py`, which checks that every
+    // module's heap is the recorded one and that gradle.properties carries the
+    // recorded daemon heap.
+    val memoryBudget = java.util.Properties().apply {
+        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+    }
+    val defaultTestHeap = memoryBudget.getProperty("test.heap.default")
+        ?: throw GradleException(
+            "config/docs/gradle-memory-budget.properties declares no test.heap.default — " +
+                "the heap of a test task has to be recorded somewhere."
+        )
+    // The default is applied to EVERY test task in the build. A module that
+    // names a budget of its own overrides it, because its own configuration
+    // runs after this one.
+    tasks.withType<Test>().configureEach {
+        maxHeapSize = defaultTestHeap
+    }
+
     // ── The run manifest ────────────────────────────────────────────────────
     //
     // Gradle leaves no record of whether a run was filtered, so a run that
