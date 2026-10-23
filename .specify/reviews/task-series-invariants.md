@@ -2,7 +2,9 @@
 change: task-series-invariants
 verdict: fail
 date: 2026-10-23
-pr: 976
+pr: https://github.com/gazon1/sing/pull/976
+reviewed: d7bdc84a79d36cb0a9d47161c3ab8379c2615c2b
+documents: sha256:222d3c66545d2b060f7b27166f855f37021a3a113fb4cf03ad629287e0873089
 ---
 
 ## What was reviewed
@@ -15,6 +17,17 @@ The reviewers were separate agents given the diff (`git diff origin/main...HEAD`
 the ADRs and the OpenSpec change, and nothing else: no history of writing the
 code, no pressure to find nothing wrong. They were asked to judge the branch
 against the contracts it states, not against taste.
+
+`reviewed:` is the head of the pull request as it landed — the state of the
+branch the reviews judged. The reviews ran in rounds over that branch, and the
+fixes they asked for are in the same branch, so the pointer names where the
+branch came to rest rather than any single round. This pull request landed by
+merge, so the commit is in the history of `main` and a reader with the history
+can look at it.
+
+`documents:` is the digest of the contract as the verdict speaks for it — the
+change's proposal and its spec delta. The contract has not moved since the
+review, so the digest is the one the gate recomputes.
 
 ## The first review: FAIL
 
