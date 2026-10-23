@@ -25,5 +25,13 @@
     "judged_by_ci_outside_the_module_graph": {
       ":pro:detekt": "the source-available pro catalogue — a separate build that only exists with -PwithPro, so the module graph does not know it and the hook does not judge it. CI runs it in the pro job."
     }
+  },
+
+  "test_verdicts": {
+    "judged_by_ci": [
+      ":tools:unwritten-properties:test"
+    ],
+    "not_judged_by_the_hook": "The local verdict is a detekt verdict, and this module has no detekt task: it applies the plain kotlin(\"jvm\") plugin. Its verdict is its test suite, CI runs it, and the local verdict says so instead of claiming a clean tree it never measured.",
+    "why": "Until 2026-10-23 this module was judged by nobody at all — not by CI, not by the hook, and not by the module graph, which carried a hand-written list of eight modules and did not read the build. The graph now reads settings.gradle.kts, so the module is known, and CI runs its tests."
   }
 }

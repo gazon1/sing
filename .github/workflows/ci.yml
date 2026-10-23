@@ -502,6 +502,7 @@ jobs:
             koverReport \
             koverHtml \
             :detekt-rules:test \
+            :tools:unwritten-properties:test \
             :shared:verifyToolSurface \
             :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
             -Ptest.population="$TEST_POPULATION" \
@@ -524,11 +525,17 @@ jobs:
       # mcp-server or shared reached the log as "AssertionFailedError at
       # SomeTest.kt:400" with no message — and reading the message meant
       # reproducing the failure locally and digging through the XML by hand.
+      #
+      # `**/build/...`, not `*/build/...`: a module nested one level deeper
+      # (`:tools:unwritten-properties` lives in tools/unwritten-properties) has
+      # TWO segments before `build`, and the single-segment glob skipped it —
+      # so a failure in a nested module reached the log with no annotation at
+      # all, which is the same silence the desktopApp-only path had.
       # continue-on-error: annotation failures are advisory and must not crash CI.
       - name: Per-test GitHub annotations (advisory)
         if: ${{ !cancelled() }}
         continue-on-error: true
-        run: python3 scripts/junit-annotations.py --glob "*/build/test-results/**/*.xml" .
+        run: python3 scripts/junit-annotations.py --glob "**/build/test-results/**/*.xml" .
 
       # Three separate invocations, not one comma-separated list. The parity table
       # in check-gate-wiring.py keys on the exact spelling of the argument, so
