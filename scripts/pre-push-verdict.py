@@ -63,13 +63,31 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import os
 import pathlib
 import re
 import subprocess
 import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
+
+# `scripts/src` on sys.path, and it has to be there *before* the import that
+# uses it: this script must resolve `sgate` against *this* checkout, not
+# against whatever `sgate` happens to be installed — an editable install of a
+# sibling worktree is a different tree under the same package name. When this
+# file is loaded by a test harness via importlib, sys.path[0] is `scripts/tests`
+# and the package is invisible; this file's own location is authoritative.
+_scripts_src = str(ROOT / "scripts" / "src")
+if _scripts_src not in sys.path:
+    sys.path.insert(0, _scripts_src)
+
+# The one answer to "which git variables must a command inside a tree not
+# inherit". It lives in `sgate.gatekit.gitenv` because the gates, the hook and
+# the tests all need it, and a second copy of the list in this file is a list
+# that goes stale: the hook drops three of the four names while this script
+# dropped four, and nobody noticed because both were right about the tree they
+# ran in. ADR
+# `docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`.
+from sgate.gatekit.gitenv import tree_env  # noqa: E402
 
 #: The paths that can change a detekt verdict:
 #:   - the Kotlin sources detekt analyses;
@@ -119,20 +137,6 @@ DEFAULT_BASE = "origin/main"
 #: another (ADR 2026-10-04-gradle-daemon-isolation.md).
 DEFAULT_GRADLE = "./gw"
 
-
-def tree_env() -> dict[str, str]:
-    """The environment for a git command that runs inside a tree.
-
-    Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE) for the hook, and
-    they point at THIS worktree: a `git ls-files` inside the pushed tree would
-    list the original worktree's files, and the digest would be of a tree
-    nobody pushed. The pushed tree has its own `.git` file, and git finds it
-    when the environment does not say otherwise.
-    """
-    env = dict(os.environ)
-    for name in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'):
-        env.pop(name, None)
-    return env
 
 class VerdictUnavailable(Exception):
     """The verdict could not be taken — there is no tree to judge."""

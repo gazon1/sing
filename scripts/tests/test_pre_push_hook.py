@@ -49,7 +49,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
-from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
+from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, tree_env as _clean_git_env  # noqa: E402
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
@@ -545,6 +545,31 @@ class PrePushHookTest(unittest.TestCase):
             'environment of the hook:\n' + output,
         )
         self.assertEqual(0, result.returncode, output)
+
+
+class HookGitEnvironmentTest(unittest.TestCase):
+    """The hook drops the git environment, and it drops all of it.
+
+    The hook runs its steps inside the tree being pushed, and git hands a hook
+    the environment of the worktree the push was made from. Every step that
+    runs there has to drop that environment — and the list of names it has to
+    drop lives in one place, `sgate.gatekit.gitenv`, because a step that drops
+    three of the four names breaks in a way nobody sees: the tree is read
+    through the wrong index, and the command reports about a tree nobody
+    pushed.
+    """
+
+    def test_every_step_drops_every_name_the_canonical_answer_names(self):
+        source = HOOK.read_text(encoding='utf-8')
+        steps = [line for line in source.splitlines() if 'env -u GIT_DIR' in line]
+        self.assertTrue(steps, 'the hook no longer drops the git environment at all')
+        for line in steps:
+            for name in INHERITED_FROM_HOOK:
+                self.assertIn(
+                    f'-u {name}',
+                    line,
+                    f'the hook drops the git environment incompletely: {line.strip()}',
+                )
 
 
 if __name__ == '__main__':

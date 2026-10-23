@@ -59,11 +59,14 @@
 # not say otherwise.
 #
 # Every step of this hook that runs in the tree being pushed therefore starts
-# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE`, and the script it
-# calls — `scripts/pre-push-verdict.py` — runs its own git commands through
-# `tree_env()`. A command added inside that tree has to do the same: the
-# contract is not enforced, it is written down, and the next command that
-# forgets it breaks silently, on a tree that was fine.
+# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR`,
+# and the script it calls — `scripts/pre-push-verdict.py` — runs its own git
+# commands through the same answer: `tree_env()` from
+# `scripts/src/sgate/gatekit/gitenv.py`, which is where the list of the names
+# lives, so the hook, the gates and the tests cannot disagree about it. A
+# command added inside that tree has to do the same: the contract is not
+# enforced, it is written down, and the next command that forgets it breaks
+# silently, on a tree that was fine.
 #
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
