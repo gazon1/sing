@@ -80,13 +80,15 @@ class VerdictFromRunsTest(unittest.TestCase):
         self.assertEqual(code, mod.NO_RUN)
         self.assertIn('no run', line)
 
-    def test_a_run_without_a_workflow_name_is_taken_as_the_one_asked_for(self) -> None:
-        # `gh run list --workflow ci.yml` filters on the server; a captured
-        # list may carry no name at all, and dropping it would invent a
-        # "no run" where there is one.
+    def test_a_run_without_a_workflow_name_is_not_the_one_asked_for(self) -> None:
+        # `gh run list --workflow ci.yml` filters on the server and always
+        # reports the name. A list captured without it cannot tell the build
+        # from the cache cleanup, and the cache cleanup succeeds often — so an
+        # unattributable run is not a run of the workflow, and not a pass.
         line, code = mod.verdict_from_runs([{'databaseId': 5, 'conclusion': 'success'}], 'ci.yml')
-        self.assertEqual(code, mod.CLEAN)
-        self.assertIn('5', line)
+        self.assertEqual(code, mod.NO_RUN)
+        self.assertIn('no run', line)
+        self.assertIn('none of the listed runs names it', line)
 
     def test_the_display_name_matches_the_file_name(self) -> None:
         self.assertTrue(mod._is_the_workflow({'workflowName': 'CI'}, 'ci.yml'))

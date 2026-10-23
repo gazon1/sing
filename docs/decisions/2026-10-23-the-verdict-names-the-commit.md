@@ -41,9 +41,12 @@ fields:
   so an existence check would be a check that fails for reasons that have
   nothing to do with the verdict.
 - `documents:` — the digest of the change's *contract* documents: its proposal
-  and its spec deltas, as the reviewer saw them. The gate recomputes the digest
-  and compares, so a change edited after the review leaves a verdict that the
-  gate reports, naming both digests.
+  and its spec deltas, as the verdict speaks for them now. The gate recomputes
+  the digest and compares, so a change edited after the review leaves a verdict
+  that the gate reports, naming both digests. A contract that moves is
+  re-issued, not re-read: the change that edits the contract re-issues the
+  verdict with the new digest, in the same diff, where a reviewer sees both
+  (see Consequences).
 
 **The digest is over the contract, not over the whole change directory.**
 The contract is the proposal and the spec deltas — what the change requires of

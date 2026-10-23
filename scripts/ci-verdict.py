@@ -26,6 +26,12 @@ The runs of the `CI` workflow for a commit, as `gh run list` reports them. The
 `--runs` option reads that list from a file instead, so the reading and the
 judging are separate: the unit test judges a list, and never asks GitHub.
 
+A captured list must carry `workflowName` on every run, the way `gh` reports
+it. A run that names no workflow is attributed to no workflow, and the tool
+says there is no run rather than picking one: the cache cleanup succeeds often
+and says nothing about the build, and a list captured without the name cannot
+tell the two apart.
+
 Usage:
     python3 scripts/ci-verdict.py                 # the commit in the worktree
     python3 scripts/ci-verdict.py HEAD            # a commit
@@ -82,12 +88,17 @@ def _is_the_workflow(run: dict, workflow: str) -> bool:
 
     `gh run list --workflow ci.yml` already filters on the server, and the
     name it reports is the workflow's *display* name — "CI" for `ci.yml`. So
-    the comparison is on the stem, case-folded, and a run that names no
-    workflow at all is taken as belonging to the one that was asked for.
+    the comparison is on the stem, case-folded.
+
+    A run that names no workflow belongs to no workflow. `gh` always reports
+    the name, so a run without one came from a list captured without it — and
+    the whole point of this tool is that the cache cleanup, which succeeds
+    often and says nothing about the build, must never be read as the build.
+    A run that cannot be attributed is not attributed.
     """
     name = (run.get('workflowName') or '').strip()
     if not name:
-        return True
+        return False
     stem = workflow.rsplit('.', 1)[0].strip().lower()
     folded = name.lower().replace(' ', '-')
     return name == workflow or folded == stem
@@ -103,6 +114,11 @@ def verdict_from_runs(runs: list[dict], workflow: str) -> tuple[str, int]:
     """
     mine = [run for run in runs if _is_the_workflow(run, workflow)]
     if not mine:
+        if runs:
+            return (
+                f'no run of the {workflow} workflow — none of the listed runs names it',
+                NO_RUN,
+            )
         return f'no run of the {workflow} workflow', NO_RUN
 
     # `gh run list` returns newest first, but a captured list may not be

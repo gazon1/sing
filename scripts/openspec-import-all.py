@@ -141,6 +141,20 @@ def is_stub(proposal_path: Path) -> bool:
            "this change migrates an existing ADR" in text.lower()
 
 
+def is_hand_written(issue_file: Path) -> bool:
+    """Return True if the record was written by hand, not by this importer.
+
+    The marker is `speckit_imported: false`: the importer writes `true` into
+    every record it owns, and a record that says `false` was written by a
+    person. The header comment says the same in words, and the marker is the
+    one a machine can read.
+    """
+    if not issue_file.is_file():
+        return False
+    text = issue_file.read_text(encoding="utf-8", errors="replace")
+    return bool(re.search(r"^speckit_imported:\s*false\s*$", text, re.MULTILINE))
+
+
 def create_issue_record(
     slug: str,
     change_dir: Path,
@@ -243,6 +257,16 @@ def import_change(change_dir: Path, dry_run: bool = False, replace: bool = False
         # "something went wrong" about a directory that was in the state the
         # script exists to produce.
         return True, f"SKIP (exists): {issue_file}"
+
+    if issue_file.exists() and is_hand_written(issue_file):
+        # A record the importer does not own. Some changes have no proposal
+        # and no adr.md for the importer to read, so their records are written
+        # by hand — with a title, a date, the ADRs and the tags that the
+        # importer cannot infer. `--replace` writes each file wholesale, so
+        # without this guard the hand-written record is silently replaced by a
+        # lossy one, and the registry gate does not notice: the file is still
+        # there, and it is still a record.
+        return True, f"SKIP (hand-written, left alone): {issue_file}"
 
     if dry_run:
         return True, f"DRY-RUN: would write {issue_file}\n  title={title}, status={status}, adr_refs={len(adr_refs)}"

@@ -11,9 +11,14 @@
       change whose contract moved under its verdict, naming both digests.
 - [x] 1.4 Add `--digest <slug>`, so the value the verdict records and the
       value the gate checks come from one implementation.
-- [x] 1.5 Give the one verdict that already existed on `main` the two fields,
-      after checking that its documents are byte-identical at the reviewed
-      commit and in the tree today.
+- [x] 1.5 Give the verdicts that already existed on `main` the two fields. For
+      `ci-fast-only-pr-full-on-schedule` the contract was checked against the
+      commit the review was made against and against the tree today, and the
+      two are **not** the same: PR #986 added REQ-25 to the spec delta. The
+      verdict carries the digest of the contract as it stands, and its prose
+      says what the review covered and what arrived later. The two verdicts of
+      the task-series changes carry the digest of a contract that has not
+      moved.
 - [x] 1.6 Say the fields and the order of writing in `AGENTS.md` and in the
       review skill, so the next session writes a verdict the gate accepts.
 
@@ -55,7 +60,9 @@
 - [x] 5.1 The change, its proposal and its spec delta.
 - [x] 5.2 The ADR.
 - [x] 5.3 The registry record, written by the importer.
-- [x] 5.4 The verdict of the review, naming the commit and the digest.
+- [ ] 5.4 The verdict of the review, naming the commit and the digest. It is
+      written when the review of the finished diff has a verdict to record —
+      a checklist item that names a file is ticked when the file is there.
 
 ## 6. What the review found, and what was done about it
 
@@ -78,8 +85,10 @@ blocking one was a claim of ours, and it was the rule catching us.
       verdict with the digest the change carries now.
 - [x] 6.3 The gate's note in the registry still described the old format, so
       a reader who took the registry for the spec wrote a verdict the gate
-      rejects. The note carries the two new fields, and the registry document
-      is regenerated.
+      rejects. The note carries the two new fields. The registry document
+      renders the purpose and the exit codes from the manifest, and it was
+      regenerated from it — it changed nothing, because the note lives in the
+      manifest and not in the rendered document.
 - [x] 6.4 The tool has a fourth exit code — the run list could not be read —
       that no document mentioned. It is in the spec delta, the proposal, the
       ADR and the review rule now.
@@ -94,3 +103,36 @@ blocking one was a claim of ours, and it was the rule catching us.
       verified reference: a squash-merge takes the reviewed commit out of the
       history, and a shallow clone does not have it either. The docstring and
       the ADR no longer call it a pointer the gate follows.
+
+## 7. What the second review found
+
+The review of the fixed diff found two blocking defects and three smaller ones.
+One of them was the rule catching us again, and one was damage this change
+carried into a file it did not mean to touch.
+
+- [x] 7.1 **Blocking — the branch was red on its own rule.** The gate this
+      change adds reads every open change, and the branch had three verdicts
+      without the two new fields and no verdict of its own. The two verdicts of
+      the task-series changes carry the fields now, and this change's own
+      verdict is written when the review of the finished diff has one to
+      record.
+- [x] 7.2 **Blocking — two claims in this list were false.** The first review
+      had already disproved the "byte-identical documents" premise, and task
+      1.5 still carried it; and task 5.4 was ticked while the file it names
+      did not exist. Task 1.5 now says what was checked, and 5.4 is unticked
+      until the file is there.
+- [x] 7.3 The ADR's Decision section and `AGENTS.md` still stated the old
+      rule — "the digest of the documents the review saw" — while the
+      Consequences, the spec delta and the gate docstring stated the new one.
+      Both now state the rule as it is: the digest is of the contract as the
+      verdict speaks for it now, and a contract that moves is re-issued in the
+      same diff.
+- [x] 7.4 The importer overwrote two hand-written registry records with its
+      own lossy output: the title became the slug, the date became `unknown`,
+      and the ADRs and the tags were dropped. The records are restored, and
+      the importer now leaves a record that says `speckit_imported: false`
+      alone — a record it does not own is not its to replace.
+- [x] 7.5 A run that named no workflow was taken as the one that was asked
+      for, so a captured list without the name could report the cache cleanup
+      as the build. An unattributable run is attributed to no workflow now:
+      the tool says there is no run, and the exit code is two.

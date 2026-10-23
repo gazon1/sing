@@ -92,6 +92,14 @@ workflow it was.
 - **Then** it reports that there is no run
 - **And** the exit code is two, not zero
 
+#### Scenario: A run names no workflow
+
+- **Given** a run list in which a run names no workflow
+- **When** the verdict is read
+- **Then** the run is attributed to no workflow
+- **And** the tool reports that there is no run of the workflow that decides
+- **And** the exit code is two, not zero
+
 #### Scenario: The run list could not be read
 
 - **Given** a run list that could not be read at all
