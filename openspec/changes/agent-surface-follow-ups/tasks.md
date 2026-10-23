@@ -13,8 +13,8 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 2. The client's lifecycle (1.3)
 
-- [ ] shared/ Guard the client's transitions with a lifecycle lock, and read the fields that are read outside it safely. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt`
-- [ ] shared/ Test the race: a turn in flight and a close during it. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`
+- [x] shared/ Guard the client's transitions with a lifecycle lock, and read the fields that are read outside it safely. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt`
+- [x] shared/ Test the race: a turn in flight and a close during it. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`
 
 ## 3. The protocol's standard output (1.4)
 

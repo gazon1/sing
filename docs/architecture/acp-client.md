@@ -218,6 +218,14 @@ quietly granted access would be a hole in a guarantee the application makes abou
 user's files. An agent with file and terminal access would have a second, quieter way
 to change the user's data, and it would not ask.
 
+**The client's transitions are mutually exclusive.** `connect()`, `close()` and
+`terminate()` take a lifecycle lock, so a `close()` cannot land between two assignments
+of the connection's fields and leave a session bound to a closed transport. The fields
+that are read outside the lock — `prompt()` is not a suspend function — are read safely
+rather than under it. The screen only closes a session it already holds, so the defect
+was latent rather than live; it is closed anyway, because a latent race is one code
+change away from a live one.
+
 **One server, one toolset.** The tool server the agent is handed is *the same server
 the application runs*: the implementation lives in the shared JVM runtime
 (`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/`), and the desktop application
