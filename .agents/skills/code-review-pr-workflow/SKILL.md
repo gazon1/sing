@@ -75,8 +75,15 @@ What could break, and how you would notice. "None — docs only" is a valid answ
 
 ### The review verdict
 
-After the reviewer agent has answered, its verdict is a file — not a memory of
-the session that asked for it. A change that is not in
+After the reviewer agent has answered, its verdict is written down twice, and
+the two are different things.
+
+The **review itself** is a comment on the pull request — see "The review is a
+comment on the pull request" below. The comment is what a person reads and
+what the `Agent review` job reads.
+
+The **verdict of a change** is a file — not a memory of the session that asked
+for it. A change that is not in
 `config/docs/review-verdicts-baseline.txt` carries one at
 `.specify/reviews/<slug>.md` (the slug without the date prefix):
 
@@ -108,6 +115,11 @@ reviewer sees the move and the re-issue together. The gate reports the drift —
 a verdict that carries the digest of a contract that is not there any more is
 a finding — and whether the re-issue was earned is the reviewer's question,
 because a re-issue is a claim in a diff like any other.
+
+The two verdicts are allowed to disagree, and neither one is checked against
+the other: the file's `fail` says the review found something, and the
+comment's `fail` keeps the pull request red until a later review says `pass`.
+One of them is a record, the other is a gate.
 
 ### Draft vs. ready
 

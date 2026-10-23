@@ -178,6 +178,64 @@ class ReviewTest(unittest.TestCase):
         verdict, _ = review_of(comments)
         self.assertEqual("pass", verdict)
 
+    def test_the_newest_review_decides_even_when_it_decides_nothing(self):
+        # A marked comment that states no verdict is a review that says
+        # nothing — and the pull request is judged by the newest review, not
+        # by the newest one that happens to be readable.
+        comments = [
+            comment(review("pass"), url="https://example.com/first"),
+            comment(f"{MARKER}\n## Agent review\n\nI looked at it.\n", url="https://example.com/second"),
+        ]
+        with self.assertRaises(ReviewWithoutVerdict):
+            review_of(comments)
+
+    def test_a_review_that_states_two_verdicts_decides_nothing(self):
+        body = f"{MARKER}\n## Agent review\n\n**Verdict:** pass\n\n**Verdict:** fail\n"
+        with self.assertRaises(ReviewWithoutVerdict):
+            review_of([comment(body)])
+
+    def test_a_review_that_states_two_verdicts_does_not_borrow_the_older_pass(self):
+        # The check must not fall back to the verdict before it: a green that
+        # nobody wrote is worse than a red.
+        comments = [
+            comment(review("pass"), url="https://example.com/first"),
+            comment(
+                f"{MARKER}\n## Agent review\n\n**Verdict:** pass\n\n**Verdict:** fail\n",
+                url="https://example.com/second",
+            ),
+        ]
+        with self.assertRaises(ReviewWithoutVerdict):
+            review_of(comments)
+
+
+class ExitCodeTest(unittest.TestCase):
+    """The exit code is the verdict the CI gate reads."""
+
+    def _run(self, comments: list[dict]) -> int:
+        import json
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "comments.json"
+            path.write_text(json.dumps(comments), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(GATE), "--comments-file", str(path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        return result.returncode
+
+    def test_a_passing_review_exits_zero(self):
+        self.assertEqual(0, self._run([comment(review("pass"))]))
+
+    def test_a_failing_review_exits_non_zero(self):
+        self.assertEqual(1, self._run([comment(review("fail"))]))
+
+    def test_a_pull_request_without_a_review_exits_non_zero(self):
+        self.assertEqual(1, self._run([]))
+
 
 if __name__ == "__main__":
     unittest.main()

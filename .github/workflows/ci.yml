@@ -1064,7 +1064,11 @@ jobs:
     # push, or the `agent-reviewed` label.
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    # The job does one thing, but it pays for the tooling setup first: the
+    # shared action installs the venv and the linters, and that alone takes
+    # about two minutes. A three-minute budget turned a slow runner into a
+    # `cancelled` job, and the CI gate reads a cancelled job as red.
+    timeout-minutes: 10
     permissions:
       contents: read
       # The comments of the pull request are read through the issue API.
@@ -1089,7 +1093,7 @@ jobs:
   # neutral. The assertion is load-bearing too: a failed leaf leaves its siblings
   # `skipped`, so checking only for "no failures" would pass on a skipped job.
   #
-  # Needs [static, tests, android, changes, agent-review]. When a PR touches only scripts/:
+  # Needs [static, meta, tests, android, changes, agent-review]. When a PR touches only scripts/:
   # - static runs (scripts changed), tests/android are skipped by their if: condition.
   # - ci-gate still runs (always()) and waits for static + changes to complete.
   # - The success check below allows skipped (tests/android) as valid outcomes.

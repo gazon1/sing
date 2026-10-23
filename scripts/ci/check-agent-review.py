@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# no-sgate: this check runs in the pull-request job, which does not install the
-# gate tooling — it asks GitHub about a pull request, not the tree it sits in.
+# no-sgate: this check does not go through `sgate.commands.base.run` — it asks
+# GitHub about a pull request, not the tree it sits in, so it has no gate to
+# declare.
 """check-agent-review.py — a pull request carries the review of a separate agent.
 
 What went wrong
@@ -147,7 +148,9 @@ def review_of(comments: list[dict]) -> tuple[str, str]:
     """The verdict of the pull request's agent review, and the comment's URL.
 
     The newest review wins: a review that found something and a later review
-    that did not is a story that ended well, and the pull request says so.
+    that did not is a story that ended well, and the pull request says so. A
+    newest review that decides nothing decides nothing — the verdict before it
+    is not the verdict of the pull request.
 
     @param comments the pull request's comments, as GitHub returns them —
         oldest first.
@@ -161,20 +164,23 @@ def review_of(comments: list[dict]) -> tuple[str, str]:
             "no comment opens with the agent-review marker "
             f"(`{MARKER}`) — the review has to be written down on the pull request"
         )
-    for comment in reversed(marked):
-        verdict = verdict_of(comment.get("body") or "")
-        if verdict is None:
-            continue
-        if verdict == "fail":
-            raise ReviewFailed(
-                "the agent review says `fail` — the findings have to be dealt with, and a "
-                "review that says `pass` has to say it again"
-            )
-        return verdict, comment.get("html_url") or ""
-    raise ReviewWithoutVerdict(
-        "the agent review carries no verdict — it has to say "
-        "`**Verdict:** pass` or `**Verdict:** fail`"
-    )
+    newest = marked[-1]
+    verdict = verdict_of(newest.get("body") or "")
+    if verdict is None:
+        # The newest review decides — and a review that decides nothing is not
+        # an older review's pass. A comment that says `pass` and `fail` in the
+        # same breath says nothing, and a check that falls back to the verdict
+        # before it would report a green that nobody wrote.
+        raise ReviewWithoutVerdict(
+            "the newest agent review carries no verdict — it has to say "
+            "`**Verdict:** pass` or `**Verdict:** fail`, and it has to say one of them"
+        )
+    if verdict == "fail":
+        raise ReviewFailed(
+            "the agent review says `fail` — the findings have to be dealt with, and a "
+            "review that says `pass` has to say it again"
+        )
+    return verdict, newest.get("html_url") or ""
 
 
 def comments_of(pull_request: int) -> list[dict]:
