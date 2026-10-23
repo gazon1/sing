@@ -63,12 +63,13 @@ the same reason applies: a tier whose steps each carry their own population can
 have a step that measures a different set of classes from the one the gate
 counted, and the gate then reports a verdict it cannot source.
 
-**D2. One variable, six invocations.** The test run and the five Kover
-invocations all pass the same selector. The population-parity gate compares the
-*selector strings*, so a variable satisfies it by construction — all six agree —
-while a literal selector added alongside them is still caught. Two jobs with two
-literal selectors would have needed about 150 lines of duplicated YAML and
-bought nothing over the requirement that one job measures one population.
+**D2. One variable, every test-capable invocation.** The test run, the Kover
+invocations and the ADR modules' own invocation all pass the same selector. The
+population-parity gate compares the *selector strings*, so a variable satisfies it by
+construction — all of them agree — while a literal selector added alongside them is
+still caught. Two jobs with two literal selectors would have needed about 150 lines
+of duplicated YAML and bought nothing over the requirement that one job measures one
+population.
 
 **D3. The label works without a new commit.** `pull_request` gains `labeled` in
 its `types`. Without it, a pull_request event fires only on
@@ -115,6 +116,31 @@ every fast class plus any untagged one, and there are no untagged classes in
 the three modules the JVM tier measures — so the default run and
 `-Ptest.tags=fast` select the same population, and a full run is above the
 floor by construction.
+
+**D8. One population per job, including the invocation that was added later.** The
+ADR modules' own Gradle invocation (`:adr-cli:test :adr-core:jvmTest`) used to
+hardcode `fast,slow` and run their slow classes on every pull request, and the
+"Slow tests ran" step checked their reports. Both were written when the job always
+measured the full population, so neither had a population to read — the literal was
+the whole mechanism.
+
+With the population decided once per job, a hardcoded selector is a second population
+inside one job, and the population-parity gate reads the invocations and refuses to
+let them disagree: an invocation that re-runs a test task against a different
+population measures something the earlier gates did not count, and the number those
+gates recorded is about a run that did not happen.
+
+So the ADR invocation takes the job's population, and the slow-report check belongs
+to the full population. A slow class owes the reader a report only when the run that
+selected the slow classes happened; in the fast population the slow classes did not
+run, there is no report, and "there is no report" is not a pass — it is the absence
+of the run the step checks. The step says so and stops, and the full population
+(nightly, or a pull request labelled `run-full-tests`) is where the slow classes are
+held to their reports.
+
+The cost is the one D1 already names: a pull request no longer runs the slow
+classes of the ADR modules either. It buys a job that measures one population, and a
+report that means what it says.
 
 # Rationale
 

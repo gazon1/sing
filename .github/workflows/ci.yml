@@ -651,6 +651,17 @@ jobs:
       # coverage aggregate and move the floor, and the point of running them is
       # that their slow classes execute at all.
       #
+      # The invocation selects the job's population — the same one every other
+      # test-capable invocation in this job selects. It used to hardcode
+      # `fast,slow` and run the slow classes on every pull request, but that is
+      # a second population inside one job: the population gate reads the
+      # invocations and refuses to let them disagree, because a later
+      # invocation that re-runs a test task against a different population
+      # measures something the earlier gates did not count. So the slow classes
+      # of the ADR modules run when this job runs the full population
+      # (nightly, or a pull request labelled `run-full-tests`), and the job's
+      # population is the only thing that decides it.
+      #
       # Placement is load-bearing, and it is the placement rule of
       # `check-build-output-readers.py`: a step that reads build output has to
       # read it before any Gradle invocation that can rewrite it. This is the
@@ -670,7 +681,7 @@ jobs:
           set -o pipefail
           ./gradlew --no-build-cache --no-parallel \
             :adr-cli:test :adr-core:jvmTest \
-            -Ptest.tags=fast,slow \
+            -Ptest.tags="$TEST_TAGS" \
             2>&1 | tee adr-tests.log
 
       # The `slow` classes the full run owes the reader.
@@ -704,8 +715,21 @@ jobs:
       # is maintained here, by hand, and this comment is what makes it
       # maintainable: a reader of this file can see why the step sits where it
       # sits and what would break if it moved.
+      #
+      # The check belongs to the FULL population. A slow class owes the reader
+      # a report only when the run that selected the slow classes happened; in
+      # the fast population the slow classes did not run, there is no report,
+      # and "there is no report" is not a pass — it is the absence of the run
+      # this step checks. So the step says so and stops, and the full
+      # population (nightly, or a pull request labelled `run-full-tests`) is
+      # where the slow classes are held to their reports.
       - name: Slow tests ran
-        run: python3 scripts/check-slow-tests-ran.py
+        run: |
+          if [ "$TEST_TAGS" != "fast,slow" ]; then
+            echo "the fast population does not owe the reader a slow class — nothing to check"
+            exit 0
+          fi
+          python3 scripts/check-slow-tests-ran.py
 
       # Detekt passed before this point — if DI/import files changed in a rebase,
       # this catches a compile break that `jvmTest` (already green) might miss.
