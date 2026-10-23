@@ -48,30 +48,38 @@ says.
    same task, because the difference between "no series" and "no claim about
    the series" is gone.
 
-2. **A claim is still a claim.** A document that carries `seriesId: null` says
+3. **A claim is still a claim.** A document that carries `seriesId: null` says
    the task stands alone, and it takes the task out of its series. Only the
    *absence* of the key is an absence of a claim. The server already applies
    `unset` as a null value rather than as a missing key, so a device that
    takes a task out of its series still says so in a way the receiver can
    read.
 
-3. **The parts that live outside the row are not the row's to claim.** The
+4. **The parts that live outside the row are not the row's to claim.** The
    tags and the blocking edges are not columns of the row, and their claims
    are their own business. The merge leaves those keys to the document alone,
    so a document that carries no `tags` key is still a document that carries
    no `tags` key afterwards — and the rule for those parts can hold beside
    this one.
 
-4. **The merge is on the path, not in the row writer.** The path that applies
+5. **The series of the row is the series the row already had, and the rule
+   of the series does not change.** The repair of the series writes the shared
+   fields of the work to the other members of the series, and it runs on the
+   series the row belongs to — the one the merge kept. A document that never
+   spoke about the series still changes a task of the series, and the series
+   still says one thing about the work: the rule does not depend on whether
+   the sending device knew about the series.
+
+6. **The wire names of the fields live with the model.** `TAGS_WIRE_NAME` and
+   `BLOCKED_BY_WIRE_NAME` are the names the `@SerialName` annotations write,
+   so a rename of a wire field cannot leave the merge behind, looking for the
+   old name.
+
+7. **The merge is on the path, not in the row writer.** The path that applies
    a document is where the document and the row meet: the pull handler and the
    revert of a lost race both go through it. The row writer keeps writing
    whole rows, because a row that is written whole is a row that says what
    the document said.
-
-5. **The wire names of the parts live with the model.** `TAGS_WIRE_NAME` and
-   `BLOCKED_BY_WIRE_NAME` sit next to the annotations that write them, so a
-   rename of a wire field cannot leave the merge behind, looking for the old
-   name.
 
 ## Rationale
 
@@ -84,6 +92,18 @@ by field would mean a statement of the document's shape in the write layer —
 which fields it spoke about — and that statement is exactly what the wire
 document already is.
 
+**Why the repair of the series is not conditional on what the document said
+about it.** The series is one piece of work and its members say one thing
+about it. A document that changes a task of the series changes the work, and
+the other members follow — whether or not the sending device knew that the
+task belonged to a series. Making the repair conditional on the document
+carrying a `seriesId` key would leave the series saying two things about the
+work whenever the change came from a device that predates the series: the
+changed task would carry the new title and its members the old one. The
+members of a series do not diverge by hand either — a local edit of one of
+them repairs the series too — so there is no state in which a member holds a
+newer title that the repair would destroy.
+
 **Why a claim of null still wins.** The absence of a key says the sender does
 not know about the field. A null says the sender knows the field and says it
 is empty. Reading both as "empty" would make it impossible to take a task
@@ -95,10 +115,6 @@ in cross-reference tables, and the row does not hold them. A merge that took
 the row's reading of them would speak about a part from a row that never
 carried it — the local row of a task read through `get()` holds no tags at
 all, and that emptiness is a reading artefact, not a claim.
-
-**Why the merge is in the sync layer.** The document and the row meet there,
-and nowhere else. The repository writes rows; it does not know what the wire
-carried.
 
 ## Consequences
 
@@ -115,9 +131,19 @@ carried.
 - The row of a task of another profile is written as the document says. This
   device does not own that row, so it does not read it and does not speak
   about the fields the document is silent about.
-- The rule for the parts that live outside the row and this one hold
-  together: the merge does not touch their keys, and their change does not
-  touch the row's fields.
+- The repository keeps its shape: `upsert` takes a task, and the merge
+  happens where the document and the row meet — in the sync layer, before the
+  task reaches the repository.
+- The repair of the series works on the series the row kept. A document that
+  came from a device that predates the series still brings the series to one
+  thing about the work.
+- The sibling change that owns the claims of the parts that live outside the
+  row (`the-document-says-only-what-it-carries`) reads the absence of a key
+  from the wire document before the decode — as this change does for the
+  fields of the row. The two changes touch the same place in the code and the
+  same question, and they can be read together: a part the document did not
+  carry is not written, and a field of the row the document did not carry is
+  not reset.
 
 ## Links
 
@@ -129,7 +155,8 @@ carried.
   pull carries
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/TaskDocumentMerge.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDocumentWriter.kt`
-  — `taskOf`, where the document meets the row
+  — `taskDocumentOf`, where the document meets the row
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TaskDocumentMergeTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TaskDocumentApplyTest.kt`
-- Issue [#1026](https://github.com/gazon1/sing/issues/1026)
+- `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskSeriesWritePathTest.kt`
+  — the repair of the series, and the document that does not trigger it

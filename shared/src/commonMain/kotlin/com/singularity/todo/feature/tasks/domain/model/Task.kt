@@ -10,17 +10,18 @@ import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
-import kotlin.time.Instant
 
 /**
  * The wire name of the tags of a task.
  *
- * The name lives next to the model that writes it, so that a rename of the
- * wire field cannot leave a check behind that still looks for the old name.
+ * The name lives next to the model that writes it, and the annotation below
+ * writes it, so that a rename of the wire field cannot leave a check behind
+ * that still looks for the old name.
  */
 const val TAGS_WIRE_NAME = "tags"
 

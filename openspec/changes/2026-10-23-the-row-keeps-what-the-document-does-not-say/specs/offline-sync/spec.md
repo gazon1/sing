@@ -9,9 +9,13 @@
 ### Requirement: REQ-OS-028 A field a document does not carry is not reset on the receiving device
 
 A task document that arrives from another device SHALL be applied against the
-row that is already on this device: the document SHALL win wherever it
-carries a value, and a field the document does not carry SHALL NOT be reset,
-cleared or defaulted by the arrival of that document.
+row that is already on this device: the document SHALL win wherever it carries
+a value, and a field the document does not carry SHALL NOT be reset, cleared or
+defaulted by the arrival of that document.
+
+The document SHALL state which fields it carried, and those claims SHALL say
+what the document speaks about: a document that carries no `seriesId` key
+makes no claim about the series, and the series of the row stays what it is.
 
 The absence of a key is not a claim that the field is empty. A device that
 predates a field sends no key for it, and the allow-list says what a device
@@ -22,6 +26,10 @@ recurrence, or loses its estimate, and the pull reports success.
 A document that carries the key with a null value SHALL be taken as the claim
 it is — the task stands alone, or has no recurrence — and SHALL reset the
 field on the receiving device.
+
+The row of a task of another profile SHALL be written as the document says:
+this device does not own that row, so it does not read it and does not speak
+about the fields the document is silent about.
 
 The fields that live outside the row — the tags and the blocking edges — are
 not covered by this requirement: their claims are separate, and the merge of
@@ -45,6 +53,21 @@ a document with a row SHALL NOT speak about the keys of those parts.
 - **Given** a task with an estimate of 30 minutes on this device
 - **When** a document arrives that carries no `estimateMinutes` key
 - **Then** the task still has an estimate of 30 minutes
+
+#### Scenario: A document that says nothing about the series
+
+- **Given** a task that belongs to a series on this device
+- **When** a document arrives that carries no `seriesId` key
+- **Then** the task is still in its series
+- **And** the series still says one thing about the work, because the rule of
+      the series does not depend on whether the sending device knew about it
+
+#### Scenario: A document of another profile
+
+- **Given** a task of another profile on this device
+- **When** a document about it arrives that carries no `seriesId` key
+- **Then** the row of that task is written as the document says, and the fields
+      the document is silent about take the model's defaults
 
 #### Scenario: A document about a task this device has never seen
 

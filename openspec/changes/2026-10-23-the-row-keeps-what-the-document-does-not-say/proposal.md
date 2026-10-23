@@ -44,6 +44,10 @@ the boundary is stated where the rule lives rather than left unsaid.
 - A claim is still a claim: a document that carries `seriesId: null` says the
   task stands alone, and it takes the task out of its series. Only the
   *absence* of the key is an absence of a claim.
+- The series of the row is the series the row already had. The rule of the
+  series — its members say one thing about the work — does not depend on
+  whether the sending device knew about the series, so a document that never
+  spoke about the series still leaves the series saying one thing.
 - The parts that live outside the row — the tags and the blocking edges — are
   not the row's to claim, so the merge leaves those keys to the document
   alone.
@@ -58,6 +62,9 @@ the boundary is stated where the rule lives rather than left unsaid.
 - It does not touch the parts that live outside the row. Their claims are
   their own change (`the-document-says-only-what-it-carries`), and the merge
   leaves their keys alone so that both readings can hold.
+- It does not change the rule of the series: a document that changes a task of
+  a series still brings the series to one thing about the work, as it always
+  did.
 
 ## Links
 
@@ -68,4 +75,6 @@ the boundary is stated where the rule lives rather than left unsaid.
   whole
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/TaskDocumentMerge.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDocumentWriter.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskDocument.kt`
+  — the task and the claims it makes about its own row
 - Issue [#1026](https://github.com/gazon1/sing/issues/1026)

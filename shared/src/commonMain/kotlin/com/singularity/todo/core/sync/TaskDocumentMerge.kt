@@ -9,8 +9,7 @@ import kotlinx.serialization.json.JsonObject
  * The keys of the parts of a task document that live outside the row.
  *
  * The tags and the blocking edges are not columns of the row — they live in
- * cross-reference tables, and their claims are their own business (see
- * `docs/decisions/2026-10-23-a-document-says-only-what-it-carries.md`). So the
+ * cross-reference tables, and their claims are their own business. So the
  * local row does not speak about them here: the merge leaves those keys to the
  * document alone, and a document that carries no `tags` key is still a
  * document that carries no `tags` key afterwards.

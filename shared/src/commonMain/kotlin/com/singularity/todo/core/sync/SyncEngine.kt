@@ -71,10 +71,11 @@ data class PushSummary(
  * that gone, nothing constructs it.
  *
  * The reason it could not be real is structural: applying a pull event is a wholesale
- * upsert of the remote document, with no field-level merge, so "a field lost to a newer
- * one" cannot occur on this path. The per-field HLC merge that could produce it lives on
- * the push side. A counter that cannot become non-zero is the same kind of lie the pull
- * summary used to tell.
+ * upsert of the remote document. The document wins wherever it speaks, and the row keeps
+ * what the document does not speak about — there is no comparison of versions between
+ * the two, so "a field lost to a newer one" cannot occur on this path. The per-field HLC
+ * merge that could produce it lives on the push side. A counter that cannot become
+ * non-zero is the same kind of lie the pull summary used to tell.
  */
 data class PullSummary(val received: Int, val applied: Int, val dropped: Int = 0)
 
@@ -165,10 +166,12 @@ sealed interface SyncEngineStatus {
  * whose row was never written (`ebb3c1dc`).
  *
  * It could not have been real even when it was: applying a pull event is a wholesale
- * upsert of the remote document with no field-level merge, so nothing can be lost to a
- * newer field on this path. The per-field HLC merge that makes that possible lives on
- * the push side. If a merge is ever added here, the arm comes back with it — and
- * `ApplyOutcomeArmsTest` fails until someone explains why.
+ * upsert of the remote document. The document wins wherever it speaks and the row keeps
+ * what the document does not speak about, but nothing is compared version by version,
+ * so nothing can be lost to a newer field on this path. The per-field HLC merge that
+ * makes that possible lives on the push side. If a version comparison is ever added
+ * here, the arm comes back with it — and `ApplyOutcomeArmsTest` fails until someone
+ * explains why.
  */
 sealed interface ApplyOutcome {
     data object Applied : ApplyOutcome
