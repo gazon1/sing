@@ -708,6 +708,47 @@ def require_minimum_findings(
     return findings
 
 
+def ordering_findings(text: str) -> list[str]:
+    """The two populations' floors, compared in the order the populations have.
+
+    The WIDER population's floor shall not be below the narrower one's. A
+    floor taken from a wider run is unreachable by a narrower one, and the two
+    floors are compared by whoever reads them: a reader who sees the full
+    population held to LESS than the fast one concludes that the full
+    population is held to a weaker standard, which is the opposite of what a
+    wider population means.
+
+    The comparison is per counter, because the three counters are measured
+    independently: an instruction floor that clears and a branch floor that
+    does not is not "the floor".
+    """
+    declarations = _val_declarations(text)
+    findings: list[str] = []
+
+    for counter in ("INSTRUCTION", "BRANCH", "LINE"):
+        wide = declarations.get(f"FULL_{counter}_COVERAGE_FLOOR")
+        narrow = declarations.get(f"FAST_{counter}_COVERAGE_FLOOR")
+        if wide is None or narrow is None:
+            # A missing constant is another gate's finding. This one stays
+            # quiet about it rather than reporting the same defect twice.
+            continue
+        wide_value = wide[0].strip()
+        narrow_value = narrow[0].strip()
+        if not (wide_value.isdigit() and narrow_value.isdigit()):
+            continue
+        if int(wide_value) < int(narrow_value):
+            findings.append(
+                f"{DECLARATION_FILE}:{wide[1]}: the full population's "
+                f"{counter.lower()} coverage floor is {wide_value}% and the fast "
+                f"population's is {narrow_value}%. The wider population's floor "
+                "shall not be below the narrower one's: a floor taken from a "
+                "wider run is unreachable by a narrower one, and the two are "
+                "compared by whoever reads them."
+            )
+
+    return findings
+
+
 def check() -> list[str]:
     """The findings; empty when the tree is correct."""
     errors: list[str] = []
@@ -736,6 +777,7 @@ def check() -> list[str]:
     settings_floors = set(floor_declarations(text))
 
     errors.extend(binding_findings(text))
+    errors.extend(ordering_findings(text))
 
     module_bound: set[str] = set()
     for script in build_scripts():

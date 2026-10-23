@@ -159,28 +159,31 @@ val measuredFullPopulation = selectedTags.any { it == "slow" }
 // FULL population — the floor this repository carried before the split, measured
 // 2026-10-15: 27.6 instruction / 20.7 branch / 27.4 line.
 //
-// The floor stays at those numbers, deliberately, and the next paragraph says why
-// that is a weaker claim than the label above used to make: a later full run
-// (2026-10-22, `-Ptest.tags=fast,slow`) measured 55.88 / 40.44 / 57.23 — roughly
-// twice as much — and the 2026-10-15 figures are almost exactly what the FAST
-// population measured on 2026-10-22 (27.73 / 23.23 / 31.26), which says the
-// 2026-10-15 "full" measurement was not a full-population measurement.
+// That measurement was not a full-population measurement, and the file says so
+// rather than leaving the number to be read as one: the 2026-10-15 figures are
+// almost exactly what the FAST population measured on 2026-10-22
+// (27.73 / 23.23 / 31.26), while a real full run (2026-10-22,
+// `-Ptest.tags=fast,slow`) measured 55.88 / 40.44 / 57.23 — roughly twice as
+// much.
 //
-// So this floor is a floor the fast population's own measurement justifies,
-// applied to the full population as well: a number both populations meet, rather
-// than a number measured on this one. It is deliberately not the strictest
-// reading of the requirement — a floor rewritten only from a measurement of its
-// own population — and that gap is stated here rather than hidden in a label.
+// So the full population's floor is the FAST population's, and the ordering is
+// deliberate: the WIDER population's floor shall not be below the narrower
+// one's. A floor taken from a wider run is unreachable by a narrower one, and
+// the two floors are compared by whoever reads them — a reader who sees the
+// full population held to LESS than the fast one concludes that the full
+// population is held to a weaker standard, which is the opposite of what a
+// wider population means.
 //
-// Raising the floor to the newer numbers is a POLICY decision, not a measurement:
-// the floor is the minimum acceptable coverage, and the nightly would then fail on
-// a fraction of a percentage point of drift. This change makes the floor real —
-// before it, the rule was never evaluated at all (see the ADR of 2026-10-22) — and
-// a conservative floor that is enforced beats a strict one that is a promise. The
-// question of tightening it is recorded in that ADR as an open decision.
+// Raising the floor to the FULL measurement (55.88 / 40.44 / 57.23) is a
+// POLICY decision, not a measurement: the floor is the minimum acceptable
+// coverage, and the nightly would then fail on a fraction of a percentage
+// point of drift. This change makes the floor real — before it, the rule was
+// never evaluated at all (see the ADR of 2026-10-22) — and a conservative
+// floor that is enforced beats a strict one that is a promise. The question
+// of tightening it is recorded in that ADR as an open decision.
 val FULL_INSTRUCTION_COVERAGE_FLOOR = 27
-val FULL_BRANCH_COVERAGE_FLOOR = 20
-val FULL_LINE_COVERAGE_FLOOR = 27
+val FULL_BRANCH_COVERAGE_FLOOR = 23
+val FULL_LINE_COVERAGE_FLOOR = 31
 
 // FAST population — the floors were recorded from the 2026-10-22 measurement
 // (27.73 instruction / 23.23 branch / 31.26 line) and re-measured on 2026-10-23
@@ -208,11 +211,11 @@ val FAST_LINE_COVERAGE_FLOOR = 31
 require(FULL_INSTRUCTION_COVERAGE_FLOOR >= 27) {
     "app instruction coverage floor must not drop below 27% — measured 27.6% on 2026-10-15"
 }
-require(FULL_BRANCH_COVERAGE_FLOOR >= 20) {
-    "app branch coverage floor must not drop below 20% — measured 20.7% on 2026-10-15"
+require(FULL_BRANCH_COVERAGE_FLOOR >= 23) {
+    "app branch coverage floor must not drop below 23% — measured 23.23% on 2026-10-22"
 }
-require(FULL_LINE_COVERAGE_FLOOR >= 27) {
-    "app line coverage floor must not drop below 27% — measured 27.4% on 2026-10-15"
+require(FULL_LINE_COVERAGE_FLOOR >= 31) {
+    "app line coverage floor must not drop below 31% — measured 31.26% on 2026-10-22"
 }
 require(FAST_INSTRUCTION_COVERAGE_FLOOR >= 27) {
     "app fast-population instruction coverage floor must not drop below 27% — " +
