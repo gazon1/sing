@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-07-a-pull-outcome-is-not-always-success/proposal.md
-  design: openspec/changes/archive/2026-10-07-a-pull-outcome-is-not-always-success/design.md
-  adr: openspec/changes/archive/2026-10-07-a-pull-outcome-is-not-always-success/adr.md
   tasks: openspec/changes/archive/2026-10-07-a-pull-outcome-is-not-always-success/tasks.md
 specs_dir: openspec/changes/archive/2026-10-07-a-pull-outcome-is-not-always-success/specs
 is_stub: false

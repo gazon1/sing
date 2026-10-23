@@ -15,8 +15,6 @@ tags:
 - deep-link
 documents:
   proposal: openspec/changes/archive/2026-10-22-a-reminder-that-points-at-no-view/proposal.md
-  design: openspec/changes/archive/2026-10-22-a-reminder-that-points-at-no-view/design.md
-  adr: openspec/changes/archive/2026-10-22-a-reminder-that-points-at-no-view/adr.md
   tasks: openspec/changes/archive/2026-10-22-a-reminder-that-points-at-no-view/tasks.md
 specs_dir: openspec/changes/archive/2026-10-22-a-reminder-that-points-at-no-view/specs
 is_stub: false

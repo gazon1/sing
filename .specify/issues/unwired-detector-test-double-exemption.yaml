@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/unwired-detector-test-double-exemption/proposal.md
-  design: openspec/changes/unwired-detector-test-double-exemption/design.md
-  adr: openspec/changes/unwired-detector-test-double-exemption/adr.md
   tasks: openspec/changes/unwired-detector-test-double-exemption/tasks.md
 specs_dir: openspec/changes/unwired-detector-test-double-exemption/specs
 is_stub: false

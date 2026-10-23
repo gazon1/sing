@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/tasks-tokens-follow-the-theme/proposal.md
-  design: openspec/changes/tasks-tokens-follow-the-theme/design.md
-  adr: openspec/changes/tasks-tokens-follow-the-theme/adr.md
   tasks: openspec/changes/tasks-tokens-follow-the-theme/tasks.md
 specs_dir: openspec/changes/tasks-tokens-follow-the-theme/specs
 is_stub: false

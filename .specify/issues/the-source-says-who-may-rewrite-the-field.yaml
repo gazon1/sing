@@ -18,8 +18,6 @@ tags:
 - types
 documents:
   proposal: openspec/changes/the-source-says-who-may-rewrite-the-field/proposal.md
-  design: openspec/changes/the-source-says-who-may-rewrite-the-field/design.md
-  adr: openspec/changes/the-source-says-who-may-rewrite-the-field/adr.md
   tasks: openspec/changes/the-source-says-who-may-rewrite-the-field/tasks.md
 specs_dir: openspec/changes/the-source-says-who-may-rewrite-the-field/specs
 is_stub: false

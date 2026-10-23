@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-20-android-test-hardening/proposal.md
-  design: openspec/changes/archive/2026-10-20-android-test-hardening/design.md
-  adr: openspec/changes/archive/2026-10-20-android-test-hardening/adr.md
   tasks: openspec/changes/archive/2026-10-20-android-test-hardening/tasks.md
 specs_dir: openspec/changes/archive/2026-10-20-android-test-hardening/specs
 is_stub: false

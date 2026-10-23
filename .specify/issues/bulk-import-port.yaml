@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/bulk-import-port/proposal.md
   design: openspec/changes/bulk-import-port/design.md
-  adr: openspec/changes/bulk-import-port/adr.md
   tasks: openspec/changes/bulk-import-port/tasks.md
 specs_dir: openspec/changes/bulk-import-port/specs
 is_stub: false

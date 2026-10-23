@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/ci-gate-coverage/proposal.md
-  design: openspec/changes/ci-gate-coverage/design.md
-  adr: openspec/changes/ci-gate-coverage/adr.md
   tasks: openspec/changes/ci-gate-coverage/tasks.md
 specs_dir: openspec/changes/ci-gate-coverage/specs
 is_stub: false

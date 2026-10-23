@@ -276,6 +276,53 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "Run python3 scripts/check-ui-wait-budgets.py to see where, or push with --no-verify."
     fi
 
+    # The three rules that are cheap, that CI enforces, and that a contributor
+    # would otherwise only meet as a red CI run: the pointers AGENTS.md names,
+    # the registry entry of every change, and the review verdict of every
+    # change.
+    #
+    # They run against the pushed tree, not the worktree, for the same reason
+    # the gates above do: a rule that reads a different tree than the one
+    # being pushed checks the wrong thing.
+    #
+    # The rule that runs is the one **in the pushed tree** — the same copy CI
+    # would run, because CI runs the tree's own registry. Running today's
+    # script against an older tree applies rules that did not exist when that
+    # tree was written: a branch cut before this change would be blocked for
+    # violations CI would never report on it. A tree that does not have the
+    # rule does not have the rule, so the check is skipped and says so.
+    #
+    # Each rule costs well under a second — measured: the pointers gate 0.1 s,
+    # the registry gate 1.1 s, the verdict gate 0.2 s — so the local loop
+    # carries the same rules CI does, at a price nobody notices. The suite as a
+    # whole is not in this hook on purpose: it is a minute and a half, and it
+    # is where the incremental temptation lives. What is here is the part that
+    # is cheap and that a broken tree would otherwise carry to CI.
+    #
+    # Skipped rather than failed when click is not installed, like the wait
+    # budgets above: a gate that cannot run must not become a reason a push
+    # cannot happen, and CI runs it either way.
+    if ! python3 -c "import click" >/dev/null 2>&1; then
+        echo "   tree rules gate: SKIPPED (click is not installed)"
+    else
+        for rule in check-agents-pointers check-issue-registry check-review-verdicts; do
+            if [ ! -f "$tree/scripts/$rule.py" ]; then
+                echo "   $rule gate: SKIPPED (the pushed tree does not have this rule)"
+                continue
+            fi
+            if (cd "$tree" && PYTHONPATH="$REPO_ROOT/scripts/src" \
+                python3 "$tree/scripts/$rule.py" --quiet); then
+                echo "   $rule gate: OK"
+            else
+                echo "   $rule gate: FAILED"
+                GATES_FAILED=1
+                echo ""
+                echo "pre-push FAILED — $rule found something in the tree of $local_ref."
+                echo "Run python3 scripts/$rule.py to see where, or push with --no-verify."
+            fi
+        done
+    fi
+
     # ── The promise files ─────────────────────────────────────────────────
     #
     # Some files in this repository promise something about the code next to
@@ -380,7 +427,8 @@ if [ "$GATES_FAILED" = "1" ]; then
 fi
 
 echo ""
-echo "=== Structural gates OK ==="
+echo "=== Structural gates OK (against the pushed tree; a rule the pushed tree"
+echo "    does not have is skipped, not checked) ==="
 echo ""
 
 # ── detekt verdict (about the tree that is being pushed) ────────────────

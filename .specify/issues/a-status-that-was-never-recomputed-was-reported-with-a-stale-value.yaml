@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/a-status-that-was-never-recomputed-was-reported-with-a-stale-value/proposal.md
-  design: openspec/changes/a-status-that-was-never-recomputed-was-reported-with-a-stale-value/design.md
-  adr: openspec/changes/a-status-that-was-never-recomputed-was-reported-with-a-stale-value/adr.md
   tasks: openspec/changes/a-status-that-was-never-recomputed-was-reported-with-a-stale-value/tasks.md
 specs_dir: openspec/changes/a-status-that-was-never-recomputed-was-reported-with-a-stale-value/specs
 is_stub: false

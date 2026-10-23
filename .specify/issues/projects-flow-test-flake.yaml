@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/projects-flow-test-flake/proposal.md
-  design: openspec/changes/projects-flow-test-flake/design.md
-  adr: openspec/changes/projects-flow-test-flake/adr.md
   tasks: openspec/changes/projects-flow-test-flake/tasks.md
 specs_dir: openspec/changes/projects-flow-test-flake/specs
 is_stub: false

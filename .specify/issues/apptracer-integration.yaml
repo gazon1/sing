@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/apptracer-integration/proposal.md
-  design: openspec/changes/apptracer-integration/design.md
-  adr: openspec/changes/apptracer-integration/adr.md
   tasks: openspec/changes/apptracer-integration/tasks.md
 specs_dir: openspec/changes/apptracer-integration/specs
 is_stub: false

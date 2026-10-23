@@ -365,6 +365,33 @@ gate blocking "selectable text coverage" sgate selectable_text_coverage
 # record, a record that names a different change, and two changes claiming one
 # slug.
 gate blocking "issue registry covers every change" python3 scripts/check-issue-registry.py --quiet
+# A pointer that does not resolve is a stop that costs exactly what the note
+# it came from was written to remove.
+#
+# The note that introduced this gate pointed `EXEMPT_VM_TEST` at the harness file;
+# it lives in the conventions test that reads it. Nobody noticed for a session,
+# because a wrong pointer does not fail — it costs one `ls` and then costs the
+# reader the question the note was supposed to answer.
+#
+# The rule covers the pointers that are unambiguous: a backticked path inside the
+# repository, with `{a,b}` and `...` resolved. A path that is relative to prose
+# around it is not checked, because where it is relative to is not written down
+# and the gate would be guessing.
+gate blocking "AGENTS.md pointers resolve" python3 scripts/check-agents-pointers.py --quiet
+# The review of a change has to be somewhere the next session can read.
+#
+# `AGENTS.md` says a change gets a review by a separate agent before the PR is
+# opened, and it says it in one line. The review that came with the issue-registry
+# gate found four real defects in a diff that had been written, reviewed and
+# pushed — and nothing in the tree said so. The finding existed in the reviewer's
+# answer, in a session that was about to end.
+#
+# Every open change carries its verdict in `.specify/reviews/<slug>.md`: the
+# change, the verdict, the date, the pull request, and what the review said. The
+# changes that predate the rule are in `config/docs/review-verdicts-baseline.txt`,
+# and that list only shrinks — accepting a new exception is an edit a reviewer
+# can see, not a side effect of a maintenance command.
+gate blocking "review verdicts cover every change" python3 scripts/check-review-verdicts.py --quiet
 # The catalogue of the ids a Maestro flow may address.
 #
 # `Maestro/TAGS.md` is a golden file, and its reader is a JVM test — so a tag

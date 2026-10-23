@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/enqueue-failure-is-reported-at-the-seam/proposal.md
-  design: openspec/changes/enqueue-failure-is-reported-at-the-seam/design.md
-  adr: openspec/changes/enqueue-failure-is-reported-at-the-seam/adr.md
   tasks: openspec/changes/enqueue-failure-is-reported-at-the-seam/tasks.md
 specs_dir: openspec/changes/enqueue-failure-is-reported-at-the-seam/specs
 is_stub: false

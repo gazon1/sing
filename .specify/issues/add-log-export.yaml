@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/add-log-export/proposal.md
   design: openspec/changes/add-log-export/design.md
-  adr: openspec/changes/add-log-export/adr.md
   tasks: openspec/changes/add-log-export/tasks.md
 specs_dir: openspec/changes/add-log-export/specs
 is_stub: false

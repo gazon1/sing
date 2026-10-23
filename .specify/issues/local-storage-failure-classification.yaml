@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/local-storage-failure-classification/proposal.md
-  design: openspec/changes/local-storage-failure-classification/design.md
-  adr: openspec/changes/local-storage-failure-classification/adr.md
   tasks: openspec/changes/local-storage-failure-classification/tasks.md
 specs_dir: openspec/changes/local-storage-failure-classification/specs
 is_stub: false

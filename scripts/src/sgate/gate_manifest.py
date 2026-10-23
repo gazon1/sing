@@ -301,6 +301,37 @@ PLACEMENTS: dict[str, Placement] = {
 # direction that can still go wrong for work happening now: a change with no
 # record, a record that names a different change, and two changes claiming one
 # slug."""),
+    "AGENTS.md pointers resolve": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-agents-pointers.py --quiet',
+        note="""# A pointer that does not resolve is a stop that costs exactly what the note
+# it came from was written to remove.
+#
+# The note that introduced this gate pointed `EXEMPT_VM_TEST` at the harness file;
+# it lives in the conventions test that reads it. Nobody noticed for a session,
+# because a wrong pointer does not fail — it costs one `ls` and then costs the
+# reader the question the note was supposed to answer.
+#
+# The rule covers the pointers that are unambiguous: a backticked path inside the
+# repository, with `{a,b}` and `...` resolved. A path that is relative to prose
+# around it is not checked, because where it is relative to is not written down
+# and the gate would be guessing."""),
+    "review verdicts cover every change": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-review-verdicts.py --quiet',
+        note="""# The review of a change has to be somewhere the next session can read.
+#
+# `AGENTS.md` says a change gets a review by a separate agent before the PR is
+# opened, and it says it in one line. The review that came with the issue-registry
+# gate found four real defects in a diff that had been written, reviewed and
+# pushed — and nothing in the tree said so. The finding existed in the reviewer's
+# answer, in a session that was about to end.
+#
+# Every open change carries its verdict in `.specify/reviews/<slug>.md`: the
+# change, the verdict, the date, the pull request, and what the review said. The
+# changes that predate the rule are in `config/docs/review-verdicts-baseline.txt`,
+# and that list only shrinks — accepting a new exception is an edit a reviewer
+# can see, not a side effect of a maintenance command."""),
     "the tag catalogue matches the tags": Placement(
         kind=PlacementKind.STATIC,
         command='sgate the_tag_catalogue_matches_the_tags',

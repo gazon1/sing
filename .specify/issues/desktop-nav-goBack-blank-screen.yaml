@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/desktop-nav-goBack-blank-screen/proposal.md
-  design: openspec/changes/desktop-nav-goBack-blank-screen/design.md
-  adr: openspec/changes/desktop-nav-goBack-blank-screen/adr.md
   tasks: openspec/changes/desktop-nav-goBack-blank-screen/tasks.md
 specs_dir: openspec/changes/desktop-nav-goBack-blank-screen/specs
 is_stub: false

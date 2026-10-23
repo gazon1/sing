@@ -14,7 +14,6 @@ tags: []
 documents:
   proposal: openspec/changes/agenda-tags-entry-point/proposal.md
   design: openspec/changes/agenda-tags-entry-point/design.md
-  adr: openspec/changes/agenda-tags-entry-point/adr.md
   tasks: openspec/changes/agenda-tags-entry-point/tasks.md
 specs_dir: openspec/changes/agenda-tags-entry-point/specs
 is_stub: false

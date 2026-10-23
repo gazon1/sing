@@ -126,6 +126,13 @@ awaitState { vm.state.value is UiState.Content }   // виртуальное в�
 типичная повестка: поток часов не кончается → виртуальное время не доводится до idle, scope
 не может быть тестовым).
 
+**`@Tag("slow")` — тест, который локальный цикл не гоняет.** Дефолтный прогон
+исключает `slow`, поэтому поломка в таком тесте видна только в CI: `McpServerEndToEndTest`
+лежал сломанным в `main` несколько мержей. Полный прогон (`-Ptest.tags=fast,slow`) обязан
+выполнить каждый `slow`-класс — это проверяет `scripts/check-slow-tests-ran.py` (шаг CI сразу
+после прогона: следующие Gradle-шаги могут перезаписать отчёт). Модули `adr-cli` и
+`adr-core` тоже гоняются в CI — иначе их `slow`-классы не выполнялись бы нигде.
+
 ### BAN list
 
 | Запрещено | Почему | Альтернатива |
@@ -213,6 +220,12 @@ just detekt-fix  # auto-fix detekt + ktlint in-place
 **пушимое дерево**: структурные гейты + `detekt --auto-correct` (сам чинит большую часть
 находок). Пропуск хука отправляет ту же находку в CI — минуты вместо получаса. `--no-verify` —
 только для WIP-коммитов.
+
+**Pre-push несёт и правила дерева** (на пушимое дерево, не на рабочее): указатели `AGENTS.md`
+(`scripts/check-agents-pointers.py`), запись реестра ченджа (`scripts/check-issue-registry.py`),
+вердикт ревью ченджа (`scripts/check-review-verdicts.py`). Всё вместе — меньше двух секунд;
+полный сьют гейтов в хук не входит намеренно (1 м 17 с, и две трети его — гейты, которые
+обязаны прогонять всё).
 
 **Находки detekt — одним файлом:** `shared/build/reports/detekt/detekt.xml` (путь, строка, правило);
 консоль Gradle даёт только счётчик. **Правило и его подоплёка — в комментариях
@@ -311,6 +324,15 @@ gh pr checks <pr> --watch --interval 60   # ждёт до конца, печат
 и у него нет давления контекста реализации — поэтому он ловит то, чего не ловит гейт (контракт
 состояния, алиас, запись в реестр issues). Гейт ловит механику; ревью ловит смысл.
 
+**Вердикт ревью — файл, а не воспоминание.** У каждого ченджа, который не в базлайне, есть
+`.specify/reviews/<slug>.md`: чендж, вердикт (`pass`/`fail`), дата, PR и что нашёл ревью.
+Имя файла — **slug без date-префикса**: у каталога `2026-10-22-the-read-surface` вердикт
+лежит в файле с именем `the-read-surface`.
+Гейт `review verdicts cover every change` требует его; ченджи, появившиеся до правила, — в
+`config/docs/review-verdicts-baseline.txt` (список только сокращается: `--update-baseline`
+подчищает, но не добавляет; добавить запись — ручная правка, видимая в диффе). Каркас,
+который только что создал spec-kit, от правила свободен, пока его не написали.
+
 ## 🤖 Dogfooding: MCP Server
 
 Агенты подключаются к `:mcp-server` через stdio и правят задачи/проекты/заметки/теги/ADR.
@@ -328,7 +350,7 @@ spec-kit — **primary** workflow engine (hooks, gates, fan-out): `uv tool insta
 
 - **Behavior change** → workflow `openspec-change`; **ADR-only** (нет spec-level изменения) → `adr-create`; **не нужен:** bug fix, test-only, dep update, doc-only, rename без контрактного изменения
 - Hooks: после implement — `singularity-adr validate` (`.specify/extensions.yml`); после правок ADR — `./scripts/refresh-decisions-digest.sh`
-- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта).
+- **Issue registry:** `.specify/issues/<slug>.yaml` — record на change (source of truth); импорт легаси `python3 scripts/openspec-import-all.py [--dry-run] [--replace]`. Запись создаётся **сразу** после создания ченджа — гейт `issue registry covers every change` падает на незарегистрированном чендже (четыре таких прошли в `main` мимо гейта). Запись называет **только те документы, которые у ченджа есть**: гейт падает и на записи, у которой в `documents` лежит несуществующий файл. Архивирование ченджа переписывать запись не требует: гейт ищет документы по slug, как и сам чендж.
 - Constitution: `.specify/constitutions/singularity-todo.md`
 
 ## 🔧 Run-loop (UI-верификация)

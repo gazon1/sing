@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-21-the-search-asks-the-index/proposal.md
-  design: openspec/changes/archive/2026-10-21-the-search-asks-the-index/design.md
-  adr: openspec/changes/archive/2026-10-21-the-search-asks-the-index/adr.md
   tasks: openspec/changes/archive/2026-10-21-the-search-asks-the-index/tasks.md
 specs_dir: openspec/changes/archive/2026-10-21-the-search-asks-the-index/specs
 is_stub: false

@@ -21,8 +21,6 @@ tags:
 - source
 documents:
   proposal: openspec/changes/the-note-body-has-the-same-contract-as-the-title/proposal.md
-  design: openspec/changes/the-note-body-has-the-same-contract-as-the-title/design.md
-  adr: openspec/changes/the-note-body-has-the-same-contract-as-the-title/adr.md
   tasks: openspec/changes/the-note-body-has-the-same-contract-as-the-title/tasks.md
 specs_dir: openspec/changes/the-note-body-has-the-same-contract-as-the-title/specs
 is_stub: false

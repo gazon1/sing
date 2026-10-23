@@ -18,7 +18,6 @@ tags:
 documents:
   proposal: openspec/changes/text-selection-and-links/proposal.md
   design: openspec/changes/text-selection-and-links/design.md
-  adr: openspec/changes/text-selection-and-links/adr.md
   tasks: openspec/changes/text-selection-and-links/tasks.md
 specs_dir: openspec/changes/text-selection-and-links/specs
 is_stub: false

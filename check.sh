@@ -167,6 +167,19 @@ timed "desktopApp:test" ./gw :desktopApp:test --quiet || {
 }
 echo -e "${GREEN}desktopApp:test passed${NC}"
 
+# The two ADR modules. Each holds a `@Tag("slow")` class, and neither test task
+# ran anywhere — in CI or here — which is the shape the slow-tests rule exists
+# to refuse: a test the local loop never runs, and CI never runs either, is a
+# test whose breakage nobody ever sees. They are named on both surfaces, and
+# the parity gate insists on that: a task CI runs and this script does not is
+# how a local loop stays green on a module CI would fail.
+echo -e "${YELLOW}=== [4b/$TOTAL] adr-cli:test + adr-core:jvmTest ===${NC}"
+timed "adr-cli:test" ./gw :adr-cli:test :adr-core:jvmTest --quiet || {
+    echo -e "${RED}adr-cli:test / adr-core:jvmTest FAILED${NC}"
+    exit 1
+}
+echo -e "${GREEN}adr-cli:test + adr-core:jvmTest passed${NC}"
+
 echo -e "${YELLOW}=== [5/$TOTAL] androidApp:assembleDebug ===${NC}"
 timed "androidApp:assembleDebug" ./gw :androidApp:assembleDebug --quiet || {
     echo -e "${RED}assembleDebug FAILED${NC}"

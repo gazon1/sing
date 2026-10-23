@@ -13,8 +13,6 @@ adr_refs: []
 tags: []
 documents:
   proposal: openspec/changes/archive/2026-10-05-background-handler-injection/proposal.md
-  design: openspec/changes/archive/2026-10-05-background-handler-injection/design.md
-  adr: openspec/changes/archive/2026-10-05-background-handler-injection/adr.md
   tasks: openspec/changes/archive/2026-10-05-background-handler-injection/tasks.md
 specs_dir: openspec/changes/archive/2026-10-05-background-handler-injection/specs
 is_stub: false
