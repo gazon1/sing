@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#
+# ./sg — the gate suite of THIS checkout.
+#
+#   ./sg whereami
+#   ./sg run-all --summary
+#   ./sg gate <name>          # a single gate of this checkout
+#
+# WHY
+#
+# `sgate` on PATH is an editable install, and the install belongs to whichever
+# checkout ran `setup-local-tools.sh` last. On this machine it pointed at
+# another clone for a whole afternoon: the gates ran against *that* tree, every
+# finding they produced was about a repository nobody was working on, and the
+# only symptom was that the findings made no sense.
+#
+# PYTHONPATH alone does not fix it. A modern editable install registers a
+# *meta-path finder*, and a meta-path finder is consulted before sys.path — so
+# the checkout that was installed last wins whatever the path says. This
+# wrapper takes the finder out and puts this checkout's `scripts/src` first,
+# which is the same move `./gw` makes with this worktree's Gradle home.
+#
+# WHAT IT PROVES
+#
+#   ./sg whereami        # the checkout this sgate belongs to
+#
+# If that prints a path outside this repository, the wrapper is broken and the
+# gates are measuring somebody else's tree.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SGATE_CHECKOUT="$root"
+
+exec "${SGATE_PYTHON:-python3}" - "$@" <<'PYTHON'
+import os
+import sys
+
+root = os.environ["SGATE_CHECKOUT"]
+source = os.path.join(root, "scripts", "src")
+
+
+def is_editable_finder(finder: object) -> bool:
+    """Whether a meta-path finder came from an editable install."""
+    name = getattr(finder, "__module__", "") or ""
+    if "editable" in name.lower():
+        return True
+    return "editable" in type(finder).__module__.lower()
+
+
+sys.meta_path = [finder for finder in sys.meta_path if not is_editable_finder(finder)]
+sys.path.insert(0, source)
+sys.argv[0] = "sgate"
+
+from sgate.cli import main
+
+main()
+PYTHON

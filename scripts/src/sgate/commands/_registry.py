@@ -90,6 +90,7 @@ COMMAND_MODULES: dict[str, str] = {
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
     "gate_costs": "gate",
+    "host_load": "utility",
     "info": "utility",
     "render_registry": "utility",
     "render_static_gates": "utility",
