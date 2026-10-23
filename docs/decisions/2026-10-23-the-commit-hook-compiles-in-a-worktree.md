@@ -84,6 +84,17 @@ runs at the moment the change is made, while the author is still looking at it.
 - A commit that does not compile does not happen — in a worktree as in the main
   checkout. The regression test drives the real hook through a real `git commit` in a
   temporary linked worktree and says so in both directions.
+- **The compile is of whole modules, not of the diff.** `:shared` and `:desktopApp` are
+  compiled whatever the change touches — the lint step above it is the one that looks at
+  the changed files. So a breakage that is NOT yours blocks your commits in that
+  worktree, and the only way past it is `--no-verify`. That is the price, stated
+  plainly: the hook judges the module, not the line.
+- **Parallel commits do not queue.** The hook switches the slot pool OFF
+  (`SINGULARITY_GRADLE_SLOTS_DIR=0`), so a commit waits for a CPU slot but never for the
+  pool (ADR `2026-10-22-gradle-memory-budget`). With the compile now running in every
+  worktree, N concurrent commits on one machine are N concurrent builds rather than a
+  queue of one. The trade is deliberate and it was made for the hook: a commit must not
+  sit behind somebody else's build for half an hour. The price is the host's.
 - The trade-off the 2026-09-25 ADR recorded ("compile-only in worktrees since full test
   runs belong in CI") is now what the hook does, rather than what it promised.
 - The full test suite still belongs to CI. This is the compile, not the suite.

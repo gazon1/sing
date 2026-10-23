@@ -34,7 +34,7 @@ import unittest
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 
-from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
+from sgate.gatekit.gitenv import sandbox_env  # noqa: E402
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-commit'
 
@@ -64,7 +64,7 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         check=True,
-        env=_clean_git_env(),
+        env=sandbox_env(cwd),
     )
 
 
@@ -100,18 +100,16 @@ class PreCommitHookTest(unittest.TestCase):
         """A linked worktree of the fixture repository — where the defect lived."""
         worktree = self.tmp / 'worktree'
         _git('worktree', 'add', '--detach', str(worktree), 'HEAD', cwd=self.repo)
-        # The worktree has its own checkout, so the hook and the stubs have to
-        # be there too — the hook resolves its root from Git, not from its own
-        # path.
-        shutil.copy2(self.repo / '.githooks' / 'pre-commit', worktree / '.githooks' / 'pre-commit')
-        (worktree / '.githooks' / 'pre-commit').chmod(0o755)
-        shutil.copy2(self.repo / 'gw', worktree / 'gw')
-        (worktree / 'gw').chmod(0o755)
-        (worktree / 'scripts').mkdir(exist_ok=True)
-        shutil.copy2(self.repo / 'scripts' / 'lint-changed.py', worktree / 'scripts' / 'lint-changed.py')
+        # The worktree is a checkout of the seed commit, so it already holds
+        # the hook, the wrapper and the lint step — the hook resolves its root
+        # from Git, so what runs in the worktree is the worktree's own copy.
         return worktree
 
     def _commit(self, where: pathlib.Path) -> subprocess.CompletedProcess:
+        # The seed commit ran the hook as well, so the marker of the commit
+        # under test starts empty — otherwise a test would read the seed's
+        # call and prove nothing about the commit it made.
+        (where / 'gw-calls.txt').unlink(missing_ok=True)
         (where / 'change.txt').write_text('change\n', encoding='utf-8')
         _git('add', '-A', cwd=where)
         return subprocess.run(
@@ -119,7 +117,7 @@ class PreCommitHookTest(unittest.TestCase):
             cwd=where,
             capture_output=True,
             text=True,
-            env=_clean_git_env(),
+            env=sandbox_env(where),
         )
 
     def _calls(self, where: pathlib.Path) -> str:
@@ -146,9 +144,14 @@ class PreCommitHookTest(unittest.TestCase):
 
         result = self._commit(worktree)
 
+        self.assertIn(
+            ':shared:compileKotlinJvm',
+            self._calls(worktree),
+            'the compile was never attempted, so the failure is not about it',
+        )
         self.assertNotEqual(0, result.returncode)
         self.assertFalse(
-            (worktree / '.git').exists() and _committed(worktree),
+            _committed(worktree),
             'the commit happened even though the compile failed',
         )
 
@@ -166,6 +169,6 @@ def _committed(worktree: pathlib.Path) -> bool:
         cwd=worktree,
         capture_output=True,
         text=True,
-        env=_clean_git_env(),
+        env=sandbox_env(worktree),
     )
     return 'change' in completed.stdout
