@@ -3,6 +3,8 @@ change: acp-client-data-safety
 verdict: fail
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/tree/feature/the-external-agent-is-hosted
+reviewed: 277e4d17b899cdf7c76c7e92e7f18738135f8a1d
+documents: sha256:f176542a71479d4a1cd88e8245ac27e8d35d19c516ec7258a5fecd41bbb1d94f
 ---
 
 ## What was reviewed

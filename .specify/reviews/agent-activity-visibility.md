@@ -3,6 +3,8 @@ change: agent-activity-visibility
 verdict: pass
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/tree/feature/the-external-agent-is-hosted
+reviewed: c220e32de4c3934205ab47d3e6852323555e423b
+documents: sha256:8c6fbcb894fd65791a38470f3925931ff152e06b57b315b8334cdf13d7b46333
 ---
 
 ## What was reviewed
