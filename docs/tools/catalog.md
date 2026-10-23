@@ -90,6 +90,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.commands.decisions_digest_within_budget` | custom gate: DIGEST.md within budget. |
 | `sgate.commands.gate_costs` | what the gates cost, and what that cost says. |
 | `sgate.commands.gradle_test_population` | native Click for: gradle invocations keep one test population. |
+| `sgate.commands.host_load` | is this host busy enough to matter? |
 | `sgate.commands.info` | sgate info: show detailed gate info. |
 | `sgate.commands.render_registry` | generate docs/scripts/gate-registry.md from Click command docstrings. |
 | `sgate.commands.render_static_gates` | render the gate lines of static-gates.sh. |

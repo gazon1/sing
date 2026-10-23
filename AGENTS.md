@@ -64,7 +64,7 @@ tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
-Экспорты схемы Room — `shared/schemas/com.singularity.todo.core.database.AppDatabase/NN.json`.
+Экспорты схемы Room — каталог `shared/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
 В `jvmTest` их читает **один** владелец: `MigrationRoundTripSupport.applyExportedSchema(N, connection)`
 (и `schemaFile(N)` — путь к экспорту). Тест миграции пишет «посади вот это — проверь вот это»,
 а не SQL; свой экземпляр фикстуры — это copy-paste, который ловит `MigrationFixtureHasOneOwnerTest`.

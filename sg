@@ -14,11 +14,14 @@
 # finding they produced was about a repository nobody was working on, and the
 # only symptom was that the findings made no sense.
 #
-# PYTHONPATH alone does not fix it. A modern editable install registers a
-# *meta-path finder*, and a meta-path finder is consulted before sys.path — so
-# the checkout that was installed last wins whatever the path says. This
-# wrapper takes the finder out and puts this checkout's `scripts/src` first,
-# which is the same move `./gw` makes with this worktree's Gradle home.
+# PYTHONPATH alone is not the whole answer. A modern editable install
+# registers a *meta-path finder* that maps `sgate` to the checkout that was
+# installed last. Setuptools appends it to `sys.meta_path`, so a `sys.path`
+# entry wins while it is there — but the plain `sgate` on PATH has no such
+# entry, and the import resolves to the foreign clone. This wrapper drops any
+# editable finder and puts this checkout's `scripts/src` first, so the answer
+# does not depend on the setuptools version that installed it. That is the same
+# move `./gw` makes with this worktree's Gradle home.
 #
 # WHAT IT PROVES
 #

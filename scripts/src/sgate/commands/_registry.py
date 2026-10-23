@@ -79,6 +79,33 @@ class CmdType(StrEnum):
 #: ``scripts/check-adr-module-boundary.py``, deleted on 2026-10-15 when the
 #: owner retired that gate. Both are gone — a command that cannot pass is not
 #: a gate, it is a way to run a stack trace.
+#: The tree rules the pre-push hook runs against the tree being pushed.
+#:
+#: The hook carried the list in its own loop, and the test that drives the hook
+#: carried a second list — the scripts it stubs. A gate added to the hook and
+#: not to the fixture was a failing test, and the failure was found by the full
+#: run rather than by the edit that caused it. One declaration now serves both
+#: sides: the hook reads the rules, the test reads the scripts.
+PRE_PUSH_TREE_RULES: tuple[str, ...] = (
+    "check-agents-pointers",
+    "check-issue-registry",
+    "check-review-verdicts",
+)
+
+#: Every script the pre-push hook runs.
+#:
+#: The hook skips a rule the pushed tree does not have, so the list is what the
+#: hook *may* run; the tree decides what it does. The test stubs all of them,
+#: because a hook that calls a script nobody stubbed fails for a reason that
+#: has nothing to do with what the test is about.
+PRE_PUSH_SCRIPTS: tuple[str, ...] = (
+    "scripts/build-version-catalog-gate.py",
+    "scripts/check-ui-wait-budgets.py",
+    "scripts/ci/validate-maestro-selectors.py",
+    "scripts/check-di-fixture-sync.py",
+    "scripts/check-navigation-doc-sync.py",
+) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
+
 COMMAND_MODULES: dict[str, str] = {
     "adr_references_are_valid": "gate",
     "adr_status_policy": "gate",
