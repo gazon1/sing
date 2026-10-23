@@ -149,6 +149,16 @@ workflow and by the gates — so "full" cannot mean one thing to the build and
 another to a gate. `-Ptest.tags=…` still works and still wins over a
 population: it is the raw knob, for a selection no population names.
 
+The same file also carries each population's PROPERTIES — the questions about
+it that are not "which tags does it select". Today there is one:
+`includes-slow`, written with the properties-file colon separator
+(`fast.includes-slow: false`, `full.includes-slow: true`), so the build, the
+Python gates and the shell all read it. The workflow asks the FILE whether the
+population it selected includes the slow half, instead of comparing the name
+against a literal — which is why a third population needs no line in the
+workflow. The answer has to agree with the tag list, and
+`scripts/check-gradle-test-population.py` is what holds them to that.
+
 The label is added to `pull_request`'s `types`, so adding it starts a run on its
 own — without a new commit — and keeps applying to the runs that follow.
 

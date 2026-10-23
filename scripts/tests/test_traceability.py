@@ -1135,10 +1135,14 @@ class PartialRunScope(unittest.TestCase):
         ci, _ = self._workflow_and_recipe()
         self.assertNotIn("results --partial", ci)
         self.assertIn("ARGS+=(--partial)", ci)
-        # The population is a NAME now, so the gate reads the name: "fast" is
-        # the population whose every scenario carrier is a slow class, and
-        # "full" is the one where the per-scenario rule is accurate.
-        self.assertIn('if [ "$TEST_POPULATION" != "full" ]; then', ci)
+        # The population is a NAME now, and the file that declares the
+        # populations also declares their properties: the workflow asks the
+        # file whether this population includes the slow half, instead of
+        # comparing the name against a literal. The rule is therefore
+        # population-gated without naming a population — a third one needs no
+        # line in the workflow.
+        self.assertIn('"${TEST_POPULATION}.includes-slow:"', ci)
+        self.assertIn('if [ "$INCLUDES_SLOW" != "true" ]; then', ci)
 
     def test_local_recipe_does_pass_partial(self):
         # The counterpart: a developer on the fast cycle must not be told their
