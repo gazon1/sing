@@ -79,6 +79,33 @@ class CmdType(StrEnum):
 #: ``scripts/check-adr-module-boundary.py``, deleted on 2026-10-15 when the
 #: owner retired that gate. Both are gone — a command that cannot pass is not
 #: a gate, it is a way to run a stack trace.
+#: The tree rules the pre-push hook runs against the tree being pushed.
+#:
+#: The hook carried the list in its own loop, and the test that drives the hook
+#: carried a second list — the scripts it stubs. A gate added to the hook and
+#: not to the fixture was a failing test, and the failure was found by the full
+#: run rather than by the edit that caused it. One declaration now serves both
+#: sides: the hook reads the rules, the test reads the scripts.
+PRE_PUSH_TREE_RULES: tuple[str, ...] = (
+    "check-agents-pointers",
+    "check-issue-registry",
+    "check-review-verdicts",
+)
+
+#: Every script the pre-push hook runs.
+#:
+#: The hook skips a rule the pushed tree does not have, so the list is what the
+#: hook *may* run; the tree decides what it does. The test stubs all of them,
+#: because a hook that calls a script nobody stubbed fails for a reason that
+#: has nothing to do with what the test is about.
+PRE_PUSH_SCRIPTS: tuple[str, ...] = (
+    "scripts/build-version-catalog-gate.py",
+    "scripts/check-ui-wait-budgets.py",
+    "scripts/ci/validate-maestro-selectors.py",
+    "scripts/check-di-fixture-sync.py",
+    "scripts/check-navigation-doc-sync.py",
+) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
+
 COMMAND_MODULES: dict[str, str] = {
     "adr_references_are_valid": "gate",
     "adr_status_policy": "gate",
@@ -90,6 +117,7 @@ COMMAND_MODULES: dict[str, str] = {
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
     "gate_costs": "gate",
+    "host_load": "utility",
     "info": "utility",
     "render_registry": "utility",
     "render_static_gates": "utility",
@@ -1212,11 +1240,15 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='sabotage',
             proves='scripts/check-tools-catalog.py',
             argv=('{python}', 'scripts/check-tools-catalog.py', '--check',),
-            path='scripts/check-dead-settings.py',
+            # The catalogue lists the scripts the registry does not name, so the
+            # sabotage changes one of those: a script that is a gate is
+            # described in the registry document, and changing its summary would
+            # not make the catalogue stale.
+            path='scripts/check-openspec-stale.py',
             edit=Edit(
                 kind='replace',
-                old='Find persisted settings that are collected, displayed, and read by no feature.',
-                new='Find persisted settings that no feature reads.',
+                old='Warn when an active OpenSpec change is older than 14 days.',
+                new='Warn when an active OpenSpec change is older than a fortnight.',
                 count=1,
             ),
             why=(

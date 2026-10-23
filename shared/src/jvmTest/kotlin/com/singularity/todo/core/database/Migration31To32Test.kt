@@ -4,10 +4,6 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.singularity.todo.core.database.contract.createSqlDriver
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import java.io.File
 import java.nio.file.Files
@@ -54,37 +50,6 @@ class Migration31To32Test {
         tempDir.deleteRecursively()
     }
 
-    /** Applies every entity DDL + `setupQueries` from the exported v31 schema. */
-    private fun applyV31Fixture(connection: SQLiteConnection) {
-        // commonMain.root = <shared>/src/commonMain/kotlin → schemas live at <shared>/schemas/…
-        val sharedDir = File(System.getProperty("commonMain.root")!!)
-            .parentFile.parentFile.parentFile
-        val schemaJson = File(
-            sharedDir,
-            "schemas/com.singularity.todo.core.database.AppDatabase/31.json",
-        )
-        assertTrue(schemaJson.exists(), "v31 schema not found at $schemaJson")
-
-        val database = Json.parseToJsonElement(schemaJson.readText()).jsonObject["database"]!!.jsonObject
-        for (entity in database["entities"]!!.jsonArray) {
-            val obj = entity.jsonObject
-            val tableName = obj["tableName"]!!.jsonPrimitive.content
-            connection.execSQL(
-                obj["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", tableName),
-            )
-            for (index in obj["indices"]?.jsonArray.orEmpty()) {
-                connection.execSQL(
-                    index.jsonObject["createSql"]!!.jsonPrimitive.content
-                        .replace("\${TABLE_NAME}", tableName),
-                )
-            }
-        }
-        for (query in database["setupQueries"]!!.jsonArray) {
-            connection.execSQL(query.jsonPrimitive.content)
-        }
-        connection.execSQL("PRAGMA user_version = 31")
-    }
-
     private fun seed(connection: SQLiteConnection) {
         // p1: target_id is NULL but task_id is set → must be backfilled.
         connection.execSQL(
@@ -128,7 +93,7 @@ class Migration31To32Test {
     fun `v31 database upgrades to v32 with task_id backfilled before the drop`() = runTest {
         val fixtureDriver = createSqlDriver()
         fixtureDriver.open(dbPath).use { connection ->
-            applyV31Fixture(connection)
+            applyExportedSchema(31, connection)
             seed(connection)
         }
 

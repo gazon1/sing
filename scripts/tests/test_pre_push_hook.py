@@ -29,10 +29,15 @@ the tests take well under a second and need no build.
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
+
+from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
+
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
 # The marker detekt would report on. The stand-in Gradle wrapper looks for it
@@ -101,13 +106,17 @@ class PrePushHookTest(unittest.TestCase):
         _git('config', 'core.hooksPath', '.githooks', cwd=self.repo)
 
     def _install_stubs(self) -> None:
-        """The scripts the hook calls, and a Gradle wrapper that reports findings."""
+        """The scripts the hook calls, and a Gradle wrapper that reports findings.
+
+        The list of scripts comes from the registry — the same declaration the
+        hook reads its rules from. It used to be written out here, and the two
+        lists drifted: the hook called five scripts and this fixture stubbed
+        three, so every script added to the hook was a failing test that only
+        the full run found.
+        """
         self._write('gradlew', FAKE_GRADLEW, executable=True)
-        self._write('scripts/build-version-catalog-gate.py', PASSING_PYTHON_GATE)
-        self._write('scripts/check-ui-wait-budgets.py', PASSING_PYTHON_GATE)
-        self._write('scripts/ci/validate-maestro-selectors.py', PASSING_PYTHON_GATE)
-        self._write('scripts/check-di-fixture-sync.py', PASSING_PYTHON_GATE)
-        self._write('scripts/check-navigation-doc-sync.py', PASSING_PYTHON_GATE)
+        for script in PRE_PUSH_SCRIPTS:
+            self._write(script, PASSING_PYTHON_GATE)
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)

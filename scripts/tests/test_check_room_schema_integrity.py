@@ -259,6 +259,34 @@ class RoundTripRenderingTest(unittest.TestCase):
         self.assertIn('            5,\n', source)
         self.assertIn('            44,\n', source)
 
+    def test_the_generated_code_follows_the_conventions_detekt_enforces(self):
+        """The generator's output is checked before it is written.
+
+        The generator wrote forty methods into one class, and detekt said
+        `TooManyFunctions`; then it wrote a `@ValueSource` on one line, and
+        ktlint said `MaximumLineLength`. Both were found by running Gradle
+        twice — eight minutes each, on a host busy with somebody else's build.
+        The rules are mechanical, so they are checked in milliseconds.
+        """
+        source = mod.render_roundtrip_test([(v, v + 1) for v in range(5, 45)])
+        self.assertEqual([], mod.kotlin_convention_findings(source))
+
+    def test_a_line_detekt_would_reject_is_found_without_gradle(self):
+        source = mod.render_roundtrip_test([(5, 6)]) + "// " + ("x" * mod.MAX_LINE_LENGTH) + "\n"
+        findings = mod.kotlin_convention_findings(source)
+        self.assertTrue(
+            any("characters long" in finding for finding in findings),
+            findings,
+        )
+
+    def test_too_many_functions_are_found_without_gradle(self):
+        source = "\n".join(f"    fun case{index}() {{}}" for index in range(mod.MAX_FUNCTIONS_PER_CLASS + 1))
+        findings = mod.kotlin_convention_findings(source)
+        self.assertTrue(
+            any("functions" in finding for finding in findings),
+            findings,
+        )
+
     def test_the_rendering_is_a_pure_function_of_the_steps(self):
         """The file the gate reads and the file it would write are one string.
 

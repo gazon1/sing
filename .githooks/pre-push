@@ -305,7 +305,13 @@ for i in "${!PUSH_REFS[@]}"; do
     if ! python3 -c "import click" >/dev/null 2>&1; then
         echo "   tree rules gate: SKIPPED (click is not installed)"
     else
-        for rule in check-agents-pointers check-issue-registry check-review-verdicts; do
+        # The rules come from the registry, so the hook and the test that
+        # drives it cannot drift: a rule added to one and not the other was a
+        # failing test, found by the full run rather than by the edit.
+        TREE_RULES="$(cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT/scripts/src" python3 -c \
+            "from sgate.commands._registry import PRE_PUSH_TREE_RULES; print(' '.join(PRE_PUSH_TREE_RULES))" \
+            2>/dev/null || echo '')"
+        for rule in $TREE_RULES; do
             if [ ! -f "$tree/scripts/$rule.py" ]; then
                 echo "   $rule gate: SKIPPED (the pushed tree does not have this rule)"
                 continue
@@ -321,6 +327,29 @@ for i in "${!PUSH_REFS[@]}"; do
                 echo "Run python3 scripts/$rule.py to see where, or push with --no-verify."
             fi
         done
+    fi
+
+    # ── The gate suite's own tests ───────────────────────────────────────
+    #
+    # The test that caught a wrong timeout in the CI workflow lived in CI and
+    # nowhere else: the local shield did not run it, so the mistake cost 33
+    # minutes of CI instead of two and a half of local work. These tests are
+    # what says the gates can fail — a gate suite nobody has run is a gate
+    # suite that is green by accident.
+    #
+    # They run against the tree being pushed, like every other gate here: the
+    # CI job that runs them runs the pushed tree's copies.
+    if [ ! -d "$tree/scripts/tests" ]; then
+        echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
+    elif (cd "$tree" && PYTHONPATH="$tree/scripts/src" \
+        python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
+        echo "   gate suite tests: OK"
+    else
+        echo "   gate suite tests: FAILED"
+        GATES_FAILED=1
+        echo ""
+        echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
+        echo "Run python3 -m unittest discover -s scripts/tests to see where, or push with --no-verify."
     fi
 
     # ── The promise files ─────────────────────────────────────────────────
