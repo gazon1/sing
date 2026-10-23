@@ -1,9 +1,6 @@
 package com.singularity.todo.feature.ai.external
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.mcp.ToolServerEnvironment
@@ -14,7 +11,9 @@ import com.singularity.todo.feature.ai.acp.AcpAgentProfile
 import com.singularity.todo.feature.ai.acp.AcpClientSessionOperations
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.SequenceIdGenerator
+import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagExists
+import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,7 +73,7 @@ class AcpExternalAgentScreenTest {
         vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
         waitUntil { vm.stateFlow.value.toolAccess is AcpToolAccess.Unavailable }
 
-        onNodeWithTag(TestTags.ACP_NO_TOOL_ACCESS_WARNING).assertIsDisplayed()
+        assertTagDisplayed(TestTags.ACP_NO_TOOL_ACCESS_WARNING)
     }
 
     @Test
@@ -86,7 +85,7 @@ class AcpExternalAgentScreenTest {
         vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
         waitUntil { vm.stateFlow.value.connection is AcpConnection.Failed }
 
-        onNodeWithTag(TestTags.ACP_CONNECTION_ERROR).assertIsDisplayed()
+        assertTagDisplayed(TestTags.ACP_CONNECTION_ERROR)
     }
 
     @Test
@@ -95,7 +94,7 @@ class AcpExternalAgentScreenTest {
 
         setContent { AcpExternalAgentScreenContent(vm = vm) }
 
-        onNodeWithTag(TestTags.acpAgentChip("codex")).performClick()
+        clickTag(TestTags.acpAgentChip("codex"))
         waitUntil { vm.stateFlow.value.selectedAgentId == "codex" }
 
         assertTagExists(TestTags.ACP_AGENT_COMMAND)
@@ -106,7 +105,7 @@ class AcpExternalAgentScreenTest {
         var left = false
         setContent { AcpExternalAgentScreenContent(vm = viewModel(), onBack = { left = true }) }
 
-        onNodeWithTag(TestTags.ACP_BACK_BUTTON).performClick()
+        clickTag(TestTags.ACP_BACK_BUTTON)
 
         assertTrue(left, "the back button hands the reader back to where they came from")
     }
