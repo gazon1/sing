@@ -126,6 +126,24 @@ class TaskDocumentApplyTest {
     }
 
     @Test
+    fun `a document that carries no user id is read against the row that is here`() = runTest {
+        // The model cannot do without a user id, and the document does not
+        // carry one: the field is read against the row that is already here,
+        // which is the merge doing what it is for. A document decoded on its
+        // own would fail here, and the pull would count it as skipped.
+        val repo = FakeTaskRepository()
+        repo.add(local)
+
+        writer(repo).upsert(
+            DocType.Task,
+            documentOf(local.copy(title = "Pay the rent in full"), without = setOf("userId")),
+        )
+
+        val stored = assertNotNull(repo.get(TaskId.fromString("t1")))
+        assertEquals("Pay the rent in full", stored.title, "the document still wins where it speaks")
+    }
+
+    @Test
     fun `a document of another profile does not read this profile's row`() = runTest {
         val repo = FakeTaskRepository()
         repo.add(local)

@@ -135,16 +135,17 @@ internal class SyncDocumentWriter(
         // the tags" is gone.
         val carriesTags = document.containsKey(TAGS_WIRE_NAME)
         val carriesDependencies = document.containsKey(BLOCKED_BY_WIRE_NAME)
-        // The claims about the parts are the document's own — the merged row
-        // says nothing about the parts it does not carry, and the parts are
-        // written only where the document spoke about them.
-        val documentTask = StableJson.decodeFromString(serializer<Task>(), document.toString())
+        // The document is decoded once, after the merge. The merge leaves the
+        // parts of the document alone, so the claims about the parts are the
+        // merged task's — and a document that omits a field the model cannot
+        // do without is decoded against the row that is already here, which
+        // is what the merge is for.
         val merged = mergeWithLocalRow(document, localTaskOf(document))
         val task = StableJson.decodeFromString(serializer<Task>(), merged.toString())
         return TaskDocument(
             task = task,
-            tags = if (carriesTags) documentTask.tags else null,
-            blockedBy = if (carriesDependencies) documentTask.blockedBy else null,
+            tags = if (carriesTags) task.tags else null,
+            blockedBy = if (carriesDependencies) task.blockedBy else null,
         )
     }
 

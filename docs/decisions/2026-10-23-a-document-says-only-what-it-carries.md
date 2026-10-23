@@ -92,12 +92,18 @@ nothing about them. This change is about the parts that live *outside* the
 row — the tags and the dependencies — because those are the parts a device can
 add to the model later without changing the row.
 
-The row's own absences are still absences: a document that carries no series id
-decodes into a task with no series, and the row is written with it. The row is
-written whole, and a field the model cannot do without has a default that
-reads as an emptiness. That is a known limitation, stated here so that nobody
-reads this decision as a promise about the row: the series id and the
-recurrence rule are in the same position as the tags were (#1026).
+The row's own absences were still absences when this decision was written: a
+document that carries no series id decoded into a task with no series, and the
+row was written with it. The row is written whole, and a field the model
+cannot do without has a default that reads as an emptiness. That was a known
+limitation, stated here so that nobody reads this decision as a promise about
+the row: the series id and the recurrence rule were in the same position as
+the tags were (#1026).
+
+It is covered now, by
+[2026-10-23-the-row-keeps-what-the-document-does-not-say](./2026-10-23-the-row-keeps-what-the-document-does-not-say.md):
+the row is still written whole, but the document is read against the row that
+is already here, and a field the document does not carry is not reset.
 
 **Why the refusal is logged.** The refusal is a disagreement between two
 devices about the shape of the work, and it repeats on every pull. A log
@@ -130,9 +136,11 @@ changes several of them at once; it is the same write.
   either. The series may keep a disagreement about the tags that it had
   before the document arrived — the document said nothing, and inventing a
   claim would be worse than the disagreement.
-- The row's own absences are not covered: a document that carries no series id
-  or no recurrence rule still writes the row without them (#1026). This
-  decision is about the parts that live outside the row.
+- The row's own absences were not covered by this decision: a document that
+  carries no series id or no recurrence rule wrote the row without them
+  (#1026). They are covered now, by
+  `2026-10-23-the-row-keeps-what-the-document-does-not-say`; this decision is
+  about the parts that live outside the row.
 - The revert of a lost race writes the shadow's confirmed document. If that
   shadow was recorded before the device knew a part, the revert no longer
   restores that part — so the local edit that lost the race stays locally

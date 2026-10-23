@@ -24,8 +24,9 @@ in the contract says a device sends the whole document; the allow-list says
 what a device sends, and it grew.
 
 The deletion is invisible. The row is written, the pull reports success, and
-the task is simply not in its series any more — on one device, until that
-device pushes the row back and the whole series loses it.
+the task is simply not in its series any more — on one device, until the next
+local edit of that task sends the row back without the series, and the series
+loses it.
 
 The rule for the parts that live *outside* the row — the tags and the blocking
 edges — was already stated and already implemented: a document says only what
@@ -48,14 +49,14 @@ says.
    same task, because the difference between "no series" and "no claim about
    the series" is gone.
 
-3. **A claim is still a claim.** A document that carries `seriesId: null` says
+2. **A claim is still a claim.** A document that carries `seriesId: null` says
    the task stands alone, and it takes the task out of its series. Only the
    *absence* of the key is an absence of a claim. The server already applies
    `unset` as a null value rather than as a missing key, so a device that
    takes a task out of its series still says so in a way the receiver can
    read.
 
-4. **The parts that live outside the row are not the row's to claim.** The
+3. **The parts that live outside the row are not the row's to claim.** The
    tags and the blocking edges are not columns of the row, and their claims
    are their own business. The merge adds no local values for them: a
    document that carries no `tags` key is still a document that carries no
@@ -68,7 +69,7 @@ says.
    worse — the local row's reading of the tags, a task read through `get()`
    holds none at all, is not written as a claim.
 
-5. **The series of the row is the series the row already had, and the rule
+4. **The series of the row is the series the row already had, and the rule
    of the series does not change.** The repair of the series writes the shared
    fields of the work to the other members of the series, and it runs on the
    series the row belongs to — the one the merge kept. A document that never
@@ -76,12 +77,12 @@ says.
    still says one thing about the work: the rule does not depend on whether
    the sending device knew about the series.
 
-6. **The wire names of the fields live with the model.** `TAGS_WIRE_NAME` and
+5. **The wire names of the fields live with the model.** `TAGS_WIRE_NAME` and
    `BLOCKED_BY_WIRE_NAME` are the names the `@SerialName` annotations write,
    so a rename of a wire field cannot leave the merge behind, looking for the
    old name.
 
-7. **The merge is on the path, not in the row writer.** The path that applies
+6. **The merge is on the path, not in the row writer.** The path that applies
    a document is where the document and the row meet: the pull handler and the
    revert of a lost race both go through it. The repository writes the row it
    is given, whole, because a row that is written whole is a row that says
@@ -130,10 +131,13 @@ all, and that emptiness is a reading artefact, not a claim.
 - Nothing changes for a device that sends the whole document: every key is
   there, and the merge returns the document. The behaviour changes only where
   the document is silent — which is where the deletion was.
-- The revert of a lost race goes through the same merge. A shadow recorded
-  before the device knew a field no longer restores that field, and the local
-  edit that lost the race stays locally instead of being dropped: the same
-  rule, one level down.
+- The revert of a lost race goes through the same merge. A shadow recorded by
+  a build that did not know the field carries no key for it, so it does not
+  restore that field, and the local edit that lost the race stays locally
+  instead of being dropped: the same rule, one level down. A shadow recorded
+  by the current build carries every key of the model — a field that has a
+  default is written out, null and all — so for that shadow the merge
+  returns the shadow unchanged.
 - The merge reads the local row before the repository's write transaction
   opens, so a local edit that lands between the read and the write is
   overwritten for the fields the document does not carry. The exposure is the
@@ -145,10 +149,11 @@ all, and that emptiness is a reading artefact, not a claim.
 - The repository keeps its shape: `upsert` takes the document — the row and the
   claims about the parts — and the merge happens where the document and the
   row meet: in the sync layer, before the document reaches the repository.
-- The rule covers every key of the row, the bookkeeping included. A document
-  that carries no `hlc` and no `serverVersion` leaves the row's own, which is
-  the same rule as for the work: the document says nothing about them, so
-  nothing is reset. A document that arrives from the server carries both.
+- The rule covers every key of the row, the bookkeeping included. `hlc` and
+  `serverVersion` are keys of the row like any other: a document that says
+  nothing about them leaves the row's own, and a document that says
+  something about them wins. What a given device sends is not the rule's
+  business — the rule is about the absence of a claim, not about the field.
 - The repair of the series works on the series the row kept. A document that
   came from a device that predates the series still brings the series to one
   thing about the work.
@@ -164,6 +169,8 @@ all, and that emptiness is a reading artefact, not a claim.
 
 - Issue [#1026](https://github.com/gazon1/sing/issues/1026) — the row's own
   absences, and the limitation this decision closes
+- ADR `2026-10-23-a-document-says-only-what-it-carries` — the parts that live
+  outside the row, and the limitation this decision closes for the row
 - ADR `2026-10-23-a-task-document-is-written-whole` — why the row is written
   whole
 - ADR `2026-10-04-sync-event-carries-post-merge-document.md` — the document a

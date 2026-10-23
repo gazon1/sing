@@ -6,7 +6,7 @@
 
 ## ADDED Requirements
 
-### Requirement: REQ-OS-028 A field a document does not carry is not reset on the receiving device
+### Requirement: REQ-OS-029 A field a document does not carry is not reset on the receiving device
 
 A task document that arrives from another device SHALL be applied against the
 row that is already on this device: the document SHALL win wherever it carries

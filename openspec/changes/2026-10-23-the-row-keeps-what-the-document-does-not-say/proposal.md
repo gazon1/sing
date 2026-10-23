@@ -65,8 +65,7 @@ the boundary is stated where the rule lives rather than left unsaid.
   hold: a part the document does not carry is not written, and a field of the
   row the document does not carry is not reset.
 - It does not change the rule of the series: a document that changes a task of
-  a series still brings the series to one thing about the work, as it always
-  did.
+  a series still brings the series to one thing about the work.
 
 ## Links
 

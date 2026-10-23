@@ -49,5 +49,5 @@
 ## 5. The decision is written down
 
 - [x] 5.1 ADR `2026-10-23-the-row-keeps-what-the-document-does-not-say`.
-- [x] 5.2 The spec delta in `specs/offline-sync/spec.md` (REQ-OS-028).
+- [x] 5.2 The spec delta in `specs/offline-sync/spec.md` (REQ-OS-029).
 - [x] 5.3 The change is registered in `.specify/issues/`.
