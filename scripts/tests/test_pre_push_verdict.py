@@ -29,6 +29,10 @@ import unittest
 
 import importlib.util
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
+
+from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
+
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'pre-push-verdict.py'
 spec = importlib.util.spec_from_file_location('pre_push_verdict', MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
@@ -53,25 +57,6 @@ case "{mode}" in
 esac
 """
 
-
-def _clean_git_env() -> dict[str, str]:
-    """The environment for a git command that runs in a fixture repository.
-
-    Git hands a hook GIT_DIR, and it points at the worktree the push was made
-    from. A fixture that runs git in a temporary repository and inherits that
-    environment does not run in the temporary repository: it initialises the
-    developer's checkout, writes the fixture's user name into its config, and
-    commits the fixture's files into it.
-
-    That is not a theory. This file did exactly that: it wrote "Verdict" into
-    the shared config of the repository it was run in, and it committed the
-    fixture's trees into the branch that was checked out — twenty commits, and
-    a moved `origin/main`, all of them with the fixture's file names.
-    """
-    env = dict(os.environ)
-    for name in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'):
-        env.pop(name, None)
-    return env
 
 class VerdictTest(unittest.TestCase):
     def setUp(self) -> None:
