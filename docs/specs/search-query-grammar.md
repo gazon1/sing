@@ -377,3 +377,42 @@ failure it exists to catch.
   the same query — a user who wants a phrase writes it as one quoted term.
 - **No user-defined functions or nesting beyond parentheses.** A grammar that grows
   nesting grows the space of queries the resolver cannot push down to SQL.
+
+## 9. The owners of the free text
+
+A rule that lives in one place but is *asked* in three is a rule with three
+owners. Designing the escape-hatch (2026-10-22) cost the reading of sixteen
+files in three layers, and the question that answered it was always the same:
+*who owns this half of the search?* So the answer is written down here, next to
+the grammar the owners implement.
+
+| What | Where | Who answers |
+|---|---|---|
+| The rule — terms, negation, conjunction | `core/search/FreeTextRule.kt` | `plan()` |
+| The question the index is asked | `core/search/FreeTextRule.kt` → `indexQuery()` | the rule — nobody else builds it |
+| The plan — can the index narrow it? | `core/search/TextMatchPlan.kt` | `Narrowed` / `BroadScan` |
+| The form of the question | `core/search/TextMatch.kt` → `TextMatchQuery` | terms and the connective |
+| The matcher — does this text match? | `core/search/TextMatch.kt` → `TextMatch` | word (F2a) / contains |
+| The mode — Word or Contains | `feature/search/query/SearchMode.kt` | the surface that runs the search |
+| The surface of a task | `feature/tasks/domain/TaskDomain.kt` → `searchableText` | the task's own title and description (F3) |
+| The callers of the index | `feature/notes/data/NotesRepositoryImpl.kt`, `feature/search/data/InternalLinkRepositoryImpl.kt`, `feature/tasks/data/TaskRepositoryImpl.kt` | they ask the rule for the question |
+
+Three consequences, each of them a rule rather than a habit:
+
+- **A caller of the index does not write the question.** It asks the rule:
+  `FreeTextRule.singleTerm(text).indexQuery()`. A hand-written question is a
+  decision about what the index can answer, taken away from the rule that knows
+  it — and a wrong one looks like an answer all the same. A Konsist rule
+  (`ArchitectureTest`) fails the build when a `TextMatchQuery` is built outside
+  `core/search`.
+- **An empty question means "the index does not narrow this".** It finds
+  nothing; it does not find everything. A caller that has to read the rows reads
+  them itself.
+- **The mode belongs to the surface, not to the query** (F6). The search screen
+  owns the switch and the sentence that says what it costs; the notes list, the
+  link autocompletion and the task list search by the word rule (F2a) and do not
+  carry a mode of their own.
+
+The rule moved to `core/search` for this reason: it sits next to the plan, the
+question and the matcher it produces, and next to the index port it is
+answered by. ADR: `docs/decisions/2026-10-23-the-rule-builds-the-question-for-the-index.md`.
